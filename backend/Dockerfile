@@ -3,7 +3,7 @@
 FROM ubuntu:20.04
 
 LABEL authors="nooraangelva"
-
+ARG TARGETARCH
 # Install necessary packages
 RUN apt-get update && \
     apt-get install -y wget bzip2 && \
