@@ -1,0 +1,50 @@
+image: docker:20.10
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
+  BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
+  NGINX_IMAGE: $CI_REGISTRY_IMAGE/nginx
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+build-frontend:
+  stage: build
+  script:
+    - docker build -t $FRONTEND_IMAGE:latest ./frontend
+    - docker push $FRONTEND_IMAGE:latest
+
+build-backend:
+  stage: build
+  script:
+    - docker build -t $BACKEND_IMAGE:latest ./backend
+    - docker push $BACKEND_IMAGE:latest
+
+build-nginx:
+  stage: build
+  script:
+    - docker build -t $NGINX_IMAGE:latest ./nginx
+    - docker push $NGINX_IMAGE:latest
+
+test-backend:
+  stage: test
+  script:
+    - docker run --rm $BACKEND_IMAGE pytest --cov=myapp
+
+deploy:
+  stage: deploy
+  script:
+    - docker-compose down
+    - docker-compose pull
+    - docker-compose up -d
+  only:
+    - main

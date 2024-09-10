@@ -1,0 +1,20 @@
+{
+  "name": "api-server-django",
+  "version": "1.0.1",
+  "description": "",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": {
+    "url": "https://github.com/app-generator/api-server-django/issues",
+    "email": "noora.angelva@unibe.ch"
+  },
+  "author": "Noora Angelva",
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

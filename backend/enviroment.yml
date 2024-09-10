@@ -1,0 +1,16 @@
+name: teleRehabApp
+channels:
+  - defaults
+dependencies:
+  - django
+  - djangorestframework
+  - pymongo
+  - channels
+  - channels-redis
+  - websocket-client
+  - pytest  # for testing
+  - pytest-django
+  - pytest-cov
+  - black
+  - flake8
+  - isort

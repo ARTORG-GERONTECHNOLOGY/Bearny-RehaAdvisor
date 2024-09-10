@@ -1,0 +1,16 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Docker
+*.log
+.env
+docker-compose.override.yml
