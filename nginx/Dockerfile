@@ -1,8 +1,7 @@
 
-LABEL authors="nooraangelva"
-
 # Nginx Dockerfile based on Ubuntu
 FROM ubuntu:20.04
+LABEL authors="nooraangelva"
 
 # Install Nginx
 RUN apt-get update && apt-get install -y nginx

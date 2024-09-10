@@ -1,8 +1,8 @@
 
-LABEL authors="nooraangelva"
+
 # Use Ubuntu as the base image
 FROM ubuntu:20.04
-
+LABEL authors="nooraangelva"
 # Install Node.js and npm
 RUN apt-get update && \
     apt-get install -y curl && \
