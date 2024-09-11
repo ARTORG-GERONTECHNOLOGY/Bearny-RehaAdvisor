@@ -29,7 +29,7 @@ COPY environment.yml /backend/
 RUN conda env create -f environment.yml
 
 # Activate the environment
-SHELL ["conda", "run", "-n", "webapp", "/bin/bash", "-c"]
+SHELL ["conda", "run", "-n", "teleRehabApp", "/bin/bash", "-c"]
 
 # Copy project files
 COPY . /backend/
