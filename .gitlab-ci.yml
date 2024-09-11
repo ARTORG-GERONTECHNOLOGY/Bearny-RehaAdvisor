@@ -6,7 +6,6 @@ services:
 stages:
   - build
   - test
-  - deploy
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -38,13 +37,7 @@ build-nginx:
 test-backend:
   stage: test
   script:
-    - docker run --rm $BACKEND_IMAGE pytest django/tests/
+    - docker run --rm $BACKEND_IMAGE pytest --cov=teleRehabApp django/tests/
 
-deploy:
-  stage: deploy
-  script:
-    - docker-compose down
-    - docker-compose pull
-    - docker-compose up -d
   only:
     - main
