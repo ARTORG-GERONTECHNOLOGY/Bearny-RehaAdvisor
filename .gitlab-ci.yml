@@ -38,7 +38,7 @@ build-nginx:
 test-backend:
   stage: test
   script:
-    - docker run --rm $BACKEND_IMAGE pip install pytest-cov
+    - docker run --rm $BACKEND_IMAGE pytest-cov --v
     - docker run --rm $BACKEND_IMAGE pytest --cov=teleRehabApp django/tests/
 
 deploy:
