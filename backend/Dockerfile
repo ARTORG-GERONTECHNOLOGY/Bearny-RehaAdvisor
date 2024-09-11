@@ -4,15 +4,16 @@ FROM ubuntu:20.04
 
 LABEL authors="nooraangelva"
 ARG TARGETARCH
+
 # Install necessary packages
 RUN apt-get update && \
-    apt-get install -y wget bzip2 && \
+    apt-get -y install wget libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6 && \
     apt-get clean
 
-# Install Anaconda
-RUN wget https://repo.anaconda.com/archive/Anaconda3-2021.11-Linux-x86_64.sh && \
-    bash Anaconda3-2021.11-Linux-x86_64.sh -b && \
-    rm Anaconda3-2021.11-Linux-x86_64.sh
+# Download and install Anaconda
+RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Linux-aarch64.sh -O /tmp/anaconda.sh && \
+    bash /tmp/anaconda.sh -b && \
+    rm /tmp/anaconda.sh
 
 # Set PATH to Anaconda
 ENV PATH /root/anaconda3/bin:$PATH

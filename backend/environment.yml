@@ -5,11 +5,9 @@ dependencies:
   - django
   - djangorestframework
   - pymongo
-  - channels
-  - channels-redis
   - websocket-client
   - pytest  # for testing
-  - pytest-django
-  - pytest-cov
+  - conda-forge::pytest-django
+  - conda-forge::pytest-cov
   - black
   - flake8
