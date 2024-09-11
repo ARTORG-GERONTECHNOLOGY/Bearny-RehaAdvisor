@@ -18,6 +18,8 @@ RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Linux-aar
 # Set PATH to Anaconda
 ENV PATH /root/anaconda3/bin:$PATH
 
+RUN source activate base
+
 # Install MongoDB dependencies
 RUN conda install pymongo
 
