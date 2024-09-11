@@ -38,6 +38,7 @@ build-nginx:
 test-backend:
   stage: test
   script:
+    - docker run --rm $BACKEND_IMAGE source root/.bashrc
     - docker run --rm $BACKEND_IMAGE conda init
     - docker run --rm $BACKEND_IMAGE conda activate teleRehabApp
     - docker run --rm $BACKEND_IMAGE pytest --cov=teleRehabApp django/tests/
