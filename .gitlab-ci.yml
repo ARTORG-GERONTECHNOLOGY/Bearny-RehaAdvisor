@@ -38,7 +38,7 @@ build-nginx:
 test-backend:
   stage: test
   script:
-    - docker run --rm $BACKEND_IMAGE pytest --cov=myapp
+    - docker run --rm $BACKEND_IMAGE pytest --cov=teleRehabApp tests/
 
 deploy:
   stage: deploy
