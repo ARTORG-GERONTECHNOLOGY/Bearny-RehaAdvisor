@@ -1,0 +1,31 @@
+{
+  "instructionText1" : "Frage 1: Wie fühlen Sie sich im Moment?",
+  "instructionText2" : "Bitte beschreiben Sie das Bild, das Sie gerade gesehen haben",
+  "instructionSmiley": "Bitte klicken Sie auf den Smiley, der so ausschaut wie Sie sich gerade fühlen",
+  "endRecording": "Ich bin fertig - Aufnahme Beenden",
+  "buttonSpeech": "Start der Aufnahme",
+  "buttonImage": "Bild beschreiben",
+  "buttonNFS": "NFS Fragebogen",
+  "nextBtn": "Nächste",
+  "prevBtn": "Vorherige",
+  "submitBtn": "Absenden",
+  "errorUrl": "Die URL ist falsch. Bitte nochmals prüfen",
+  "finished": "Fertig",
+  "finishedText": "Die Aufgabe ist beendet, drücken Sie 'Schliessen' um fortzufahren",
+  "stopRecording": "Aufnahme beenden",
+  "startRecording": "Aufnahme starten",
+  "recordingText": "Aufnahme läuft",
+  "seconds": "Sekunden",
+  "close": "Schliessen",
+  "hour": "Stunde",
+  "minute": "Minuten",
+  "medicationText": "Wann haben Sie zuletzt Medikamente eingenommen?",
+  "userTypes": {
+    "patient": "Patient",
+    "therapist": "Therapist",
+    "researcher": "Researcher",
+    "admin": "Administrator"
+  },
+  "Register": "Register",
+  "Login": "Anmelden"
+}

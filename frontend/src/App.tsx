@@ -1,26 +1,46 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./App.css";
+import Therapist from './pages/Therapist'
+import UnauthorizedAccess from './pages/UnauthorizedAccess'
+import ForgottenPassword from './pages/ForgottenPassword'
+import UserProfile from './pages/UserProfile'
+import PatientHome from './pages/PatientHome'
+import PatientView from './pages/patient'
+import AdminDashboard from './pages/AdminDashboard'
+import ResearcherView from './pages/ResearcherView'
+import AddRecomendations from './pages/AddRecomendations'
+import AddPatient from './pages/AddPatient'
+import RehabTable from './pages/RehabTable'
 
-function App() {
+// Lazy load pages for better performance
+const Home = lazy(() => import("./pages/Home"));
+const ErrorPage = lazy(() => import("./components/common/Error"));
+
+const App: React.FC = () => {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <React.StrictMode>
+      <BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/error" element={<ErrorPage />} />
+            <Route path ="/therapist" element={<Therapist />}/>
+            <Route path="/unauthorized" element={<UnauthorizedAccess />} />
+            <Route path="/forgottenpwd" element={<ForgottenPassword />} />/
+            <Route path="/userprofile" element={<UserProfile />} />
+            <Route path={"/patient_home"} element={<PatientHome />}/>
+            <Route path="/patient" element={<PatientView />}/>
+            <Route path={"/addashboard"} element={<AdminDashboard />}/>
+            <Route path="/researcher" element={<ResearcherView />}/>
+            <Route path="/addcontent" element={<AddRecomendations />}/>
+            <Route path="/addpatient" element={<AddPatient />}/>
+            <Route path="/rehabtable" element={<RehabTable />}/>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </React.StrictMode>
   );
-}
+};
 
 export default App;

@@ -1,4 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
 env
-.dockerignore
+
+# Django 
+db.sqlite3
+
+# Docker 
 Dockerfile
-venv

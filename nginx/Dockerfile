@@ -1,16 +1,7 @@
+FROM nginx:stable-alpine
 
-# Nginx Dockerfile based on Ubuntu
-FROM ubuntu:20.04
-LABEL authors="nooraangelva"
+RUN rm /etc/nginx/conf.d/default.conf
 
-# Install Nginx
-RUN apt-get update && apt-get install -y nginx
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose the port
-EXPOSE 80
-
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+COPY /include.websocket /etc/nginx/app/include.websocket
+COPY /include.forwarded /etc/nginx/app/include.forwarded
+COPY /nginx.conf /etc/nginx/conf.d

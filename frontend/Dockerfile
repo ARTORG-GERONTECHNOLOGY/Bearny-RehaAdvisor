@@ -1,30 +1,28 @@
-
-
 # Use Ubuntu as the base image
 FROM ubuntu:20.04
 LABEL authors="nooraangelva"
 # Install Node.js and npm
+# Set environment variables
+ENV NODE_VERSION=18.x
+# set work directory
+WORKDIR /srv/app/
+# Install Node.js, npm, and other necessary packages
 RUN apt-get update && \
     apt-get install -y curl && \
-    curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
+    apt-get install -y nodejs && \
+    apt-get install -y build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /app
 
-# Install dependencies
+# add to $PATH
+ENV PATH /srv/app/node_modules/.bin:$PATH
+
+# install app dependencies
 COPY package.json package-lock.json ./
 RUN npm install
 
-# Copy project files
-COPY . .
-
-# Build the React app
+# add app
+COPY . ./
 RUN npm run build
-
-# Expose the port
-EXPOSE 3000
-
-# Start the app
-CMD ["npm", "start"]
-

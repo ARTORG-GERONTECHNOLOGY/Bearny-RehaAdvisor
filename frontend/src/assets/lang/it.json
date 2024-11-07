@@ -1,0 +1,31 @@
+{
+  "instructionText1" : "Domanda 1: Come si sente in questo momento?",
+  "instructionText2" : "Per favore, descriva l'immagine che ha appena visto",
+  "instructionSmiley": "Per favore, clicca sul faccina che corrisponde a come ti senti in questo momento",
+  "endRecording": "Ho finito - Termina registrazione",
+  "buttonSpeech": "Inizia la registrazione",
+  "buttonImage": "Descriva l'immagine",
+  "buttonNFS": "NFS Questionario",
+  "nextBtn": "Avanti",
+  "prevBtn": "Precedente",
+  "submitBtn": "Invia",
+  "errorUrl": "L'URL è sbagliato, per favore controlla e riprova",
+  "finished": "Finito",
+  "finishedText": "Il compito è completato, premi 'chiudi' per continuare",
+  "stopRecording": "Arresta registrazione",
+  "startRecording": "Inizia registrazione",
+  "recordingText": "Registrazione in corso",
+  "seconds": "secondi",
+  "close": "Chiudi",
+  "hour": "l'ora",
+  "minute": "minuti",
+  "medicationText": "A che ora ha preso l'ultima dose di farmaco?",
+  "userTypes": {
+    "patient": "Patient",
+    "therapist": "Therapist",
+    "researcher": "Researcher",
+    "admin": "Administrator"
+  },
+  "Register": "Register",
+  "Login": "Login"
+}

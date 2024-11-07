@@ -1,36 +1,52 @@
 {
-  "name": "untitled",
+  "name": "frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.108",
-    "@types/react": "^18.3.5",
+    "@ashwamegh/react-link-preview": "^1.0.1",
+    "@fortawesome/free-solid-svg-icons": "^6.6.0",
+    "@fortawesome/react-fontawesome": "^0.2.2",
+    "@microlink/react": "^5.5.22",
+    "@svgr/webpack": "^8.1.0",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "react": "^18.3.1",
+    "axios": "^1.7.7",
+    "bootstrap": "^5.3.3",
+    "camel-case": "^4.1.2",
+    "chart.js": "^4.4.5",
+    "cypress": "^13.6.1",
+    "i18next": "^23.15.2",
+    "i18next-browser-languagedetector": "^8.0.0",
+    "mobx": "^6.13.3",
+    "mobx-react-lite": "^4.0.7",
+    "react": "^18.2.0",
+    "react-bootstrap": "^2.10.5",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.1",
-    "react-scripts": "^5.0.1",
+    "react-i18next": "^15.0.2",
+    "react-icons": "^5.3.0",
+    "react-icons-kit": "^2.0.0",
+    "react-router-dom": "^6.26.2",
+    "react-scripts": "5.0.1",
+    "react-select": "^5.8.1",
+    "react-svg": "^16.1.34",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "typescript-eslint": "^8.8.0",
+    "yarn": "^1.22.22"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
-    "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
-    "format": "prettier --write \\\"src/**/*.{js,jsx,ts,tsx,css,md}\\\" --config .prettierrc",
-    "prepare": "husky"
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "extends": "react-app"
   },
   "browserslist": {
     "production": [
@@ -45,19 +61,6 @@
     ]
   },
   "devDependencies": {
-    "@eslint/js": "^9.10.0",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.30.0",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-promise": "^6.6.0",
-    "eslint-plugin-react": "^7.35.2",
-    "eslint-plugin-react-hooks": "^4.6.2",
-    "globals": "^15.9.0",
-    "husky": "^9.1.5",
-    "prettier": "^3.3.3",
-    "typescript-eslint": "^8.5.0"
+    "html-webpack-plugin": "^5.6.0"
   }
 }

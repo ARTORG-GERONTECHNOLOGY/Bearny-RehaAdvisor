@@ -1,0 +1,42 @@
+{
+  "instructionText1" : "Question 1: How are you feeling at the moment?",
+  "instructionText2" : "Please describe the image you just saw",
+  "instructionSmiley": "Please click on the smiley that looks like how you are feeling right now",
+  "endRecording": "I am finished - End Recording",
+  "buttonSpeech": "Start Recording",
+  "buttonImage": "Describe Image",
+  "buttonNFS": "NFS Questionnaire",
+  "nextBtn": "Next",
+  "prevBtn": "Previous",
+  "submitBtn": "Submit",
+  "errorUrl": "The URL is wrong, please check and retry",
+  "finished": "Finished",
+  "finishedText": "The task is done, press on 'close' to continue",
+  "stopRecording": "stop recording",
+  "startRecording": "start recording",
+  "recordingText": "Recording in progress",
+  "seconds": "seconds",
+  "close": "close",
+  "hour": "hour",
+  "minute": "minutes",
+  "medicationText": "When did you take your last medication?",
+  "userTypes": {
+    "patient": "Patient",
+    "therapist": "Therapist",
+    "researcher": "Researcher",
+    "admin": "Administrator"
+  },
+  "RegisteringTypes": {
+    "therapist": "Therapist",
+    "researcher": "Researcher",
+    "admin": "Administrator"
+  },
+  "TherapistRegTypes": {
+    "patient": "Patient"
+  },
+  "Register": "Register",
+  "Login": "Login"
+
+
+
+}

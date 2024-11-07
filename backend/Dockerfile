@@ -1,38 +1,43 @@
+# Use a base Ubuntu image
+FROM ubuntu:latest
 
-# Backend Dockerfile with Ubuntu and Anaconda for Python Management
-FROM ubuntu:20.04
+# set work directory
+WORKDIR /srv/app
 
-LABEL authors="nooraangelva"
-ARG TARGETARCH
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+# Activate conda environment and install dependencies
 
-# Install necessary packages
+# Install necessary system packages
 RUN apt-get update && \
-    apt-get -y install wget libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6 && \
+    apt-get -y install wget curl bzip2 libpq-dev gcc && \
     apt-get clean
 
-# Download and install Anaconda
-RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Linux-aarch64.sh -O /tmp/anaconda.sh && \
-    bash /tmp/anaconda.sh -b && \
-    rm /tmp/anaconda.sh
+# Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
+RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -O /tmp/miniforge.sh && \
+    bash /tmp/miniforge.sh -b -p /opt/conda && \
+    rm /tmp/miniforge.sh
+# Set PATH to include Miniforge
+ENV PATH /opt/conda/bin:$PATH
 
-# Set PATH to Anaconda
-ENV PATH /root/anaconda3/bin:$PATH
-
-# Install MongoDB dependencies
-RUN conda install pymongo
-
-# Set working directory
-WORKDIR /backend
-
-# Copy environment.yml for conda
-COPY environment.yml /backend/
+COPY ./environment.yml .
 RUN conda env create -f environment.yml
+RUN echo "source activate teleRehabApp" > ~/.bashrc
 
-# Activate the environment
-SHELL ["conda", "run", "-n", "teleRehabApp", "/bin/bash", "-c"]
+ENV PATH /opt/conda/envs/teleRehabApp/bin:$PATH
+# install dependencies
+RUN pip install --upgrade pip
+COPY ./requirements.txt .
 
-# Copy project files
-COPY . /backend/
+# install temp dependencies for build of pyscopg2 etc
+RUN pip install -r requirements.txt
 
-# Expose the Django default port
-EXPOSE 800
+# copy entrypoint.sh
+#COPY ./entrypoint.sh .
+
+# copy project
+COPY . .
+
+# run entrypoint.sh
+#ENTRYPOINT ["/srv/app/entrypoint.sh"]

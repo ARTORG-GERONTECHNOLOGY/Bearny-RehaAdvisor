@@ -1,0 +1,172 @@
+import { action, makeAutoObservable } from 'mobx'
+import axios from 'axios'
+import apiClient from '../api/client'
+
+class AuthStore {
+  email: string = '';
+  password: string = '';
+  isAuthenticated: boolean = false;
+  loginError: string = '';
+  userType: string = ''; // Add userType to store
+  id: string = '';
+  sessionTimeout: number = 30 * 60 * 1000; // Set session timeout to 30 minutes
+  full_name: string = '';
+
+  constructor() {
+    makeAutoObservable(this, {
+      setEmail: action,
+      setPassword: action,
+      setAuthenticated: action,
+      setLoginError: action,
+      loginWithHttp: action,
+      reset: action,
+      logout: action,
+      deleteUser: action,
+      checkAuthentication: action,
+      setId: action,
+      setUserType: action,
+      setFullName: action
+    });
+
+    this.checkAuthentication(); // Check authentication on app load
+  }
+
+  setFullName(fullName: string): void {
+    this.full_name = fullName;
+  }
+
+  // Set the email in the store
+  setEmail(email: string) {
+    this.email = email;
+  }
+  setId(id: string) {
+    this.id = id;
+  }
+  setUserType(userType: string) {
+    this.userType = userType;
+  }
+
+  setPassword(password: string) {
+    this.password = password;
+  }
+
+  setAuthenticated(isAuthenticated: boolean) {
+    this.isAuthenticated = isAuthenticated;
+  }
+
+  setLoginError(loginError: string) {
+    this.loginError = loginError;
+  }
+
+  async loginWithHttp() {
+    try {
+      const response = await apiClient.post('login/', {
+        email: this.email,
+        password: this.password,
+      });
+
+      if (response.data && response.status === 200) {
+        this.setAuthenticated(true);
+        this.setLoginError('');
+        this.userType = response.data['user_type'];
+        this.id = response.data['id'];
+        this.setFullName(response.data['id'])
+
+        // Store data in localStorage instead of sessionStorage
+        localStorage.setItem('userType', response.data['user_type']);
+        localStorage.setItem('id', response.data['id']);
+        localStorage.setItem('fullName', response.data['full_name']);
+
+        // Store session start time
+        const currentTime = new Date().getTime();
+        localStorage.setItem('sessionStart', currentTime.toString());
+
+        // Start the inactivity timer
+        this.startInactivityTimer();
+      } else {
+        this.setLoginError('Invalid credentials, please try again.');
+      }
+    } catch (error) {
+      this.setLoginError('Login failed. Please check your credentials or try again later.');
+    }
+  }
+
+  reset() {
+    this.email = '';
+    this.password = '';
+    this.setLoginError('');
+    this.isAuthenticated = false;
+    this.userType = '';
+    this.id = '';
+    this.setFullName('');
+  }
+
+  logout() {
+    this.reset();
+    localStorage.removeItem('userType');
+    localStorage.removeItem('token');
+    localStorage.removeItem('sessionStart');
+    localStorage.removeItem('id');
+    localStorage.removeItem('fullName');
+    this.isAuthenticated = false;
+  }
+
+  deleteUser() {
+    console.log(`Deleting user: ${this.email}`);
+    this.email = '';
+    this.password = '';
+    this.setLoginError('');
+    this.isAuthenticated = false;
+    this.userType = '';
+    localStorage.removeItem('token');
+    this.setFullName('')
+    localStorage.removeItem('fullName');
+    console.log('User account deleted successfully.');
+  }
+
+  checkAuthentication() {
+    const storedUserType = localStorage.getItem('userType');
+    const sessionStart = localStorage.getItem('sessionStart');
+    const id = localStorage.getItem('id')
+
+    if (sessionStart) {
+      const currentTime = new Date().getTime();
+      const elapsedTime = currentTime - parseInt(sessionStart);
+      console.log(elapsedTime)
+      console.log(this.sessionTimeout)
+      if (elapsedTime < this.sessionTimeout) {
+        console.log(storedUserType)
+        this.setAuthenticated(true);
+        this.userType = storedUserType as string;
+        // @ts-ignore
+        this.id =  id as string;
+
+        // Reset the inactivity timer
+        this.startInactivityTimer();
+      } else {
+        this.logout(); // Expire session if time limit exceeded
+      }
+    }
+  }
+
+  startInactivityTimer() {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        this.logout(); // Log out after inactivity
+        alert('Session expired due to inactivity.');
+      }, this.sessionTimeout); // Inactivity period
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+
+    // Start the timer immediately
+    resetTimer();
+  }
+}
+
+const authStore = new AuthStore();
+export default authStore;
