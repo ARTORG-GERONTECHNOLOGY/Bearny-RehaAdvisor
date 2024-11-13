@@ -1,5 +1,5 @@
 # Use a base Ubuntu image
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # set work directory
 WORKDIR /srv/app
@@ -11,15 +11,17 @@ ENV PYTHONUNBUFFERED 1
 
 # Install necessary system packages
 RUN apt-get update && \
-    apt-get -y install wget curl bzip2 libpq-dev gcc && \
+    apt-get -y install build-essential wget curl bzip2 libpq-dev gcc && \
     apt-get clean
 
 # Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
-RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -O /tmp/miniforge.sh && \
-    bash /tmp/miniforge.sh -b -p /opt/conda && \
-    rm /tmp/miniforge.sh
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && bash /opt/miniconda-installer.sh -b -p /opt/conda
+#RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -O /tmp/miniforge.sh && \
+#    bash /tmp/miniforge.sh -b -p /opt/conda && \
+#    rm /tmp/miniforge.sh
 # Set PATH to include Miniforge
 ENV PATH /opt/conda/bin:$PATH
+
 
 COPY ./environment.yml .
 RUN conda env create -f environment.yml
