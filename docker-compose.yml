@@ -8,11 +8,12 @@ services:
     env_file: ./.env.dev
     volumes:
       - ./mongo_data:/data/db  # Correctly map this volume to persist data
+    network_mode: "host"
 
   django:
     build: ./backend
     container_name: dev-django
-    command: "python manage.py runserver 0.0.0.0:8000"
+    command: "python manage.py runserver localhost:8000"
     restart: always
     env_file:
       - ./.env.dev
@@ -25,6 +26,7 @@ services:
       - ./frontend/src/config/:/srv/app/config 
     depends_on:
       - db
+    network_mode: "host"
 
   react:
     build: ./frontend
@@ -41,6 +43,7 @@ services:
       - node_modules:/srv/app/node_modules
     depends_on:
       - django
+    network_mode: "host"
 
   nginx:
     build: ./nginx
@@ -55,9 +58,11 @@ services:
       - django
       - react
       - db
+    network_mode: "host"
 
 volumes:
   node_modules:
   mongo_data:  # Named volume for MongoDB data
   media:
   static:
+

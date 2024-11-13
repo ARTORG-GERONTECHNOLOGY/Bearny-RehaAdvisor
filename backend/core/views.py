@@ -15,6 +15,8 @@ from utils.utils import get_db_handle
 from .models import PatientType, Researcher, PatientInterventions, Feedback, \
     RecommendationAssignment  # Import your MongoEngine models
 
+from django.http import HttpResponse
+
 ver_code = '0000'
 # Get the database handle
 db_name, client = get_db_handle('admin', os.environ.get('DB_HOST', 'localhost'), os.environ.get('DB_PORT', 27017),
