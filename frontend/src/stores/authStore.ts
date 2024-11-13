@@ -1,6 +1,5 @@
-import { action, makeAutoObservable } from 'mobx'
-import axios from 'axios'
-import apiClient from '../api/client'
+import { action, makeAutoObservable } from 'mobx';
+import apiClient from '../api/client';
 
 class AuthStore {
   email: string = '';
@@ -11,6 +10,7 @@ class AuthStore {
   id: string = '';
   sessionTimeout: number = 30 * 60 * 1000; // Set session timeout to 30 minutes
   full_name: string = '';
+  specialisation: string = '';
 
   constructor() {
     makeAutoObservable(this, {
@@ -25,10 +25,15 @@ class AuthStore {
       checkAuthentication: action,
       setId: action,
       setUserType: action,
-      setFullName: action
+      setFullName: action,
+      setSpecialisation: action,
     });
 
     this.checkAuthentication(); // Check authentication on app load
+  }
+
+  setSpecialisation(specialisation: string): void {
+    this.specialisation = specialisation;
   }
 
   setFullName(fullName: string): void {
@@ -70,13 +75,14 @@ class AuthStore {
         this.setLoginError('');
         this.userType = response.data['user_type'];
         this.id = response.data['id'];
+        this.setSpecialisation(response.data['specialisation']);
         this.setFullName(response.data['id'])
 
         // Store data in localStorage instead of sessionStorage
         localStorage.setItem('userType', response.data['user_type']);
         localStorage.setItem('id', response.data['id']);
         localStorage.setItem('fullName', response.data['full_name']);
-
+        localStorage.setItem('specialisation', response.data['specialisation']);
         // Store session start time
         const currentTime = new Date().getTime();
         localStorage.setItem('sessionStart', currentTime.toString());
@@ -99,6 +105,7 @@ class AuthStore {
     this.userType = '';
     this.id = '';
     this.setFullName('');
+    this.specialisation = '';
   }
 
   logout() {
@@ -108,6 +115,7 @@ class AuthStore {
     localStorage.removeItem('sessionStart');
     localStorage.removeItem('id');
     localStorage.removeItem('fullName');
+    localStorage.removeItem('specialisation');
     this.isAuthenticated = false;
   }
 
@@ -121,6 +129,7 @@ class AuthStore {
     localStorage.removeItem('token');
     this.setFullName('')
     localStorage.removeItem('fullName');
+    localStorage.removeItem('specialisation');
     console.log('User account deleted successfully.');
   }
 
@@ -128,6 +137,7 @@ class AuthStore {
     const storedUserType = localStorage.getItem('userType');
     const sessionStart = localStorage.getItem('sessionStart');
     const id = localStorage.getItem('id')
+    this.setSpecialisation(localStorage.getItem('specialisation') as string);
 
     if (sessionStart) {
       const currentTime = new Date().getTime();

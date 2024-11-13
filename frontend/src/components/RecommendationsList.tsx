@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import RecommendationPopup from './RecommendationPopup';
-import { Card, Button, Badge, ListGroup } from 'react-bootstrap';
-import { FaInfoCircle, FaStar } from 'react-icons/fa';
+import React, { useEffect, useState } from 'react';
+import { Badge, Button, Card, ListGroup } from 'react-bootstrap';
+import { FaStar } from 'react-icons/fa';
 import '../assets/styles/RecommendationList.css';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
@@ -212,7 +211,6 @@ const RecommendationList: React.FC = () => {
                       {t('I did it!')}
                     </Button>
                   )}
-                  {/*
                   {markedAsUsed[index] && (
                     <div className="feedback-stars d-flex align-items-center">
                       <strong className="mr-2">Your Rating:</strong>
@@ -226,13 +224,7 @@ const RecommendationList: React.FC = () => {
                         />
                       ))}
                     </div>
-                  )}*/}
-                </div>
-
-                <div className="col-md-4 d-flex justify-content-end">
-                  <Button variant="link" onClick={() => handleShow(rec, index)}>
-                    <FaInfoCircle size={24} />
-                  </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -242,16 +234,6 @@ const RecommendationList: React.FC = () => {
         <div className="text-center mt-5">
           <p>No recommendations for today. Please check back tomorrow or contact your therapist.</p>
         </div>
-      )}
-
-      {selectedRecommendation && selectedRecommendationIndex !== null && (
-        <RecommendationPopup
-          recommendation={selectedRecommendation}
-          show={showPopup}
-          handleClose={handleClose}
-          isDone={markedAsUsed[selectedRecommendationIndex]}
-          hasFeedback={selectedRecommendation.feedback.length > 0}
-        />
       )}
     </div>
   );

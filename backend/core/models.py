@@ -1,13 +1,19 @@
-from mongoengine import Document, StringField, EmailField, IntField, ListField, DateTimeField, BooleanField, ReferenceField, CASCADE, EmbeddedDocument, EmbeddedDocumentField
-from django.utils import timezone
-import random
-from django.db.models.signals import pre_save
-from django.dispatch import receiver
-from utils.config import config
-from utils import utils
-from datetime import timedelta
 import os
+import random
+from datetime import timedelta
+
 from django.conf import settings
+from django.utils import timezone
+from mongoengine import Document, DictField, StringField, EmailField, IntField, ListField, DateTimeField, BooleanField, \
+    ReferenceField, EmbeddedDocument, EmbeddedDocumentField
+
+from utils.config import config
+
+
+class RecommendationAssignment(EmbeddedDocument):
+    recommendation = StringField(required=True)  # Reference to the Recommendation ID
+    diagnosis_assignments = DictField(BooleanField())  # e.g., {"all": True, "Heart Attack": True}
+
 
 class Therapist(Document):
     meta = {'collection': 'users'}  # MongoDB collection
@@ -23,12 +29,15 @@ class Therapist(Document):
     phone = StringField(max_length=20, unique=True)
     pwdhash = StringField()
     accepted = BooleanField(default=False)
+    default_recommendations = ListField(EmbeddedDocumentField(RecommendationAssignment))  # New field
 
     def __str__(self):
         return f'{self.username} (Therapist)'
 
 
 class Patient(Document):
+    all_diagnoses = [diagnosis for category in config["patientInfo"]["function"].values() for diagnosis in
+                     category["diagnosis"]]
     meta = {'collection': 'patients'}  # MongoDB collection
     username = StringField(max_length=150, required=True)
     name = StringField(max_length=20)
@@ -43,8 +52,8 @@ class Patient(Document):
 
     # Fields with choices
     sex = StringField(max_length=10, choices=config["patientInfo"]["sex"])
-    diagnosis = StringField(max_length=30)
-    function = ListField(StringField(max_length=200, choices=config["patientInfo"]["function"]))
+    diagnosis = ListField(StringField(max_length=30), choices=all_diagnoses)
+    function = ListField(StringField(max_length=200, choices=config["therapistInfo"]["specializations"]))
     level_of_education = StringField(max_length=30, choices=config["patientInfo"]["level_of_education"])
     professional_status = StringField(max_length=30, choices=config["patientInfo"]["professional_status"])
     marital_status = StringField(max_length=30, choices=config["patientInfo"]["marital_status"])
@@ -223,13 +232,13 @@ class PatientInterventions(Document):
             dates.append(start_date)
 
             # Update start_date based on frequency
-            if self.frequency == 'daily':
+            if self.frequency == 'Daily':
                 start_date += timedelta(days=1)
-            elif self.frequency == 'every-2nd-day':
+            elif self.frequency == 'Every-2nd-day':
                 start_date += timedelta(days=2)
-            elif self.frequency == 'weekly':
+            elif self.frequency == 'Weekly':
                 start_date += timedelta(weeks=1)
-            elif self.frequency == 'once':
+            elif self.frequency == 'Once':
                 break  # Only include the recommendation_date
 
         # Filter out only past dates that have not been completed, but include today

@@ -1,30 +1,19 @@
-from django.core.files.storage import default_storage
-from django.conf import settings
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+import datetime
 import json
 import os
-from .serializers import RecommendationSerializer
-from utils.utils import get_db_handle
-from multiselectfield import MultiSelectField
-import json
+
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.contrib.auth.models import User
-from .models import SMSVerification
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password
-import json
-import datetime
+from django.contrib.auth.models import User
+from django.core.files.storage import default_storage
 from django.utils import timezone
-from mongoengine.errors import NotUniqueError
-from .models import Patient, Therapist, PatientType, Researcher, Recommendation, PatientInterventions, Feedback  # Import your MongoEngine models
+from django.views.decorators.csrf import csrf_exempt
+
+from utils.config import config
+from utils.utils import get_db_handle
+from .models import PatientType, Researcher, PatientInterventions, Feedback, \
+    RecommendationAssignment  # Import your MongoEngine models
 
 ver_code = '0000'
 # Get the database handle
@@ -35,11 +24,7 @@ db_name, client = get_db_handle('admin', os.environ.get('DB_HOST', 'localhost'),
 # Define Collection
 collection = db_name['users']
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser
 from .models import Recommendation  # Your model
-from .serializers import RecommendationSerializer  # Your serializer
 
 
 @csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
@@ -61,7 +46,8 @@ def login(request):
                         return JsonResponse({
                             'full_name': f'{user.first_name} {user.name}',
                             'user_type': user['user_type'],
-                            'id': str(user['username'])  # Convert to string if using ObjectId or ensure compatibility
+                            'id': str(user['username']),  # Convert to string if using ObjectId or ensure compatibility
+                            'specialisation': user['specializations'],
                         }, status=200)
             else:
                 # If no user found by email, check by username
@@ -72,7 +58,8 @@ def login(request):
                         return JsonResponse({
                             'full_name': f'{user.first_name} {user.name}',
                             'user_type': user.user_type,
-                            'id': str(user.id)
+                            'id': str(user.id),
+                            'specialisation': user['function'],
                         }, status=200)
                 else:
                     return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
@@ -170,7 +157,7 @@ def get_recommendations(request):
             }
 
             # Handle fields based on content type
-            if rec.content_type == "blog":
+            if rec["link"]:
                 recommendation_data["link"] = rec.link
             else:
                 media_file_path = os.path.join(settings.MEDIA_URL, rec.media_file)
@@ -392,6 +379,15 @@ if verification.is_expired():
 verification.delete()  # Optionally, delete the verification code after successful login'''
 
 
+def assign_recommendations_for_new_patient(patient):
+    therapist = patient.therapist
+    for rec in therapist.default_recommendations:
+        for diagnosis, assign in rec.diagnosis_assignments.items():
+            if assign and (diagnosis == "all" or diagnosis in patient.diagnosis):
+                intervention = Recommendation.objects.get(pk=rec.recommendation)
+                PatientInterventions.get_or_create(patient, intervention)
+
+
 @csrf_exempt
 def register(request):
 
@@ -425,7 +421,7 @@ def register(request):
                         age=data.get('age', 0),  # Assuming age is provided
                         therapist=pat_therapist,  # Assuming therapist ID is provided
                         sex=get_labels(data, 'sex')[0],  # Assuming sex is provided
-                        diagnosis=data.get('diagnosis', ''),  # Assuming diagnosis is provided
+                        diagnosis=get_labels(data, 'diagnosis'),  # Assuming diagnosis is provided
                         function=get_labels(data, 'function'),  # Assuming function is provided
                         level_of_education=get_labels(data, 'levelOfEducation')[0],  # Assuming education level is provided
                         professional_status=get_labels(data, 'professionalStatus')[0],  # Assuming professional status is provided
@@ -439,6 +435,7 @@ def register(request):
                     )
 
                     patient.save()
+                    assign_recommendations_for_new_patient(patient)
                     print(patient)
 
                     return JsonResponse({
@@ -785,6 +782,138 @@ def get_recommendation_info(request, intervention):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def assignedDiagnoses(request, intervention, specialisation, therapist_id):
+    if request.method == 'GET':
+        try:
+            # Retrieve the therapist
+            therapist = Therapist.objects.get(username=therapist_id)
+
+            # Fetch all diagnoses for the given specialization
+            all_diagnoses = config["patientInfo"]["function"][specialisation]["diagnosis"]
+
+            # Initialize the response structure
+            diagnosis_status = {diagnosis: False for diagnosis in all_diagnoses}
+            all_flag = False
+
+            # Check if the therapist has default recommendations for the provided intervention
+            default_rec = next(
+                (rec for rec in therapist.default_recommendations if rec.recommendation == intervention),
+                None
+            )
+
+            if default_rec:
+                # Mark diagnoses as true if they're part of the default recommendation
+                for diagnosis, assigned in default_rec.diagnosis_assignments.items():
+                    if diagnosis == "all":
+                        all_flag = assigned
+                    elif diagnosis in diagnosis_status:
+                        diagnosis_status[diagnosis] = assigned
+
+            return JsonResponse({"diagnoses": diagnosis_status, "all": all_flag}, status=200)
+
+        except Therapist.DoesNotExist:
+            return JsonResponse({"error": "Therapist not found"}, status=404)
+        except Recommendation.DoesNotExist:
+            return JsonResponse({"error": "Recommendation not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request method"}, status=400)
+
+
+@csrf_exempt
+def assignInterventions_ptypes(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            diagnosis = data.get('diagnosis')
+            intervention_id = data.get('intervention_id')
+            therapist_id = data.get('therapist')
+
+            if not diagnosis or not intervention_id or not therapist_id:
+                return JsonResponse({'error': 'Missing diagnosis, intervention_id, or therapist'}, status=400)
+
+            intervention = Recommendation.objects.get(pk=intervention_id)
+            therapist = Therapist.objects.get(username=therapist_id)
+
+            if diagnosis == "all":
+                patients = Patient.objects.filter(therapist=therapist)
+            else:
+                patients = Patient.objects.filter(therapist=therapist, diagnosis__contains=diagnosis)
+
+            for patient in patients:
+                PatientInterventions.get_or_create(patient, intervention)
+
+            # Update therapist's default recommendations
+            for rec in therapist.default_recommendations:
+                if rec.recommendation == intervention_id:
+                    rec.diagnosis_assignments[diagnosis] = True
+                    break
+            else:
+                therapist.default_recommendations.append(RecommendationAssignment(
+                    recommendation=intervention_id,
+                    diagnosis_assignments={diagnosis: True}
+                ))
+            therapist.save()
+
+            return JsonResponse({'success': f'Intervention assigned to {patients.count()} patients'}, status=201)
+
+        except Recommendation.DoesNotExist:
+            return JsonResponse({'error': 'Intervention not found'}, status=404)
+        except Therapist.DoesNotExist:
+            return JsonResponse({'error': 'Therapist not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def get_rminterfor_ptypes(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            diagnosis = data.get('diagnosis')
+            intervention_id = data.get('intervention_id')
+            therapist_id = data.get('therapist')
+
+            if not diagnosis or not intervention_id or not therapist_id:
+                return JsonResponse({'error': 'Missing diagnosis, intervention_id, or therapist'}, status=400)
+
+            intervention = Recommendation.objects.get(pk=intervention_id)
+            therapist = Therapist.objects.get(username=therapist_id)
+
+            if diagnosis == "all":
+                patients = Patient.objects.filter(therapist=therapist)
+            else:
+                patients = Patient.objects.filter(therapist=therapist, diagnosis__contains=diagnosis)
+
+            for patient in patients:
+                PatientInterventions.un_recommend(patient, intervention)
+
+            # Update therapist's default recommendations
+            for rec in therapist.default_recommendations:
+                if rec.recommendation == intervention_id and diagnosis in rec.diagnosis_assignments:
+                    del rec.diagnosis_assignments[diagnosis]
+            therapist.save()
+
+            return JsonResponse({'success': f'Intervention removed from {patients.count()} patients'}, status=201)
+
+        except Recommendation.DoesNotExist:
+            return JsonResponse({'error': 'Intervention not found'}, status=404)
+        except Therapist.DoesNotExist:
+            return JsonResponse({'error': 'Therapist not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 # Create your views here.

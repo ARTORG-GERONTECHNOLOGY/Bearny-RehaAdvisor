@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import makeAnimated from 'react-select/animated';
 import Select from 'react-select';
-import {Icon} from 'react-icons-kit';
-import {eyeOff} from 'react-icons-kit/feather/eyeOff';
-import {eye} from 'react-icons-kit/feather/eye'
-import { validateCurrentStep} from '../../utils/validation';
+import { validateCurrentStep } from '../../utils/validation';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios'
-import { Link } from 'react-router-dom'
-import apiClient from '../../api/client'
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+import apiClient from '../../api/client';
 import config from '../../config/config.json';
 
 interface FormData {
@@ -29,10 +26,7 @@ interface RegisterFormProps {
 const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist }) => {
 
   const {t} = useTranslation();
-// Based on the pageType, fetch the relevant object from the translations
-  const userTypes = pageType === 'regular'
-    ? Object.keys(t('RegisteringTypes', { returnObjects: true }))
-    : Object.keys(t('TherapistRegTypes', { returnObjects: true }));
+
   // State for storing the form data
   const [formData, setFormData] = useState<FormData>({
     therapist: therapist,
@@ -45,32 +39,34 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
     phone: '',
   });
 
-  const [icon, setIcon] = useState(eyeOff);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [registered, setRegistered] = useState(false);
-  const [iconRepeat, setIconRepeat] = useState(eyeOff);
-  const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [patientId, setPatientId] = useState(null);
+  const [diagnoses, setDiagnoses] = useState([]);
 
-  const handleToggle = () => {
-    if (!showPassword){
-      setIcon(eye);
-      setShowPassword(true)
-    } else {
-      setIcon(eyeOff)
-      setShowPassword(false)
-    }
-  }
-  const handleToggleRepeat = () => {
-    if (!showPasswordRepeat){
-      setIconRepeat(eye);
-      setShowPasswordRepeat(true)
-    } else {
-      setIconRepeat(eyeOff)
-      setShowPasswordRepeat(false)
-    }
-  }
+  // Handle multiple function selections
+  const handleFunctionChange = (selectedOptions: any) => {
+    const selectedFunctions = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+    setFormData({ ...formData, function: selectedOptions as string[], diagnosis: [] });
+    // Gather all relevant diagnoses based on selected functions
+
+    const allDiagnoses = selectedFunctions.flatMap((func: string) =>
+      // @ts-ignore
+      config.patientInfo.function[func]?.diagnosis || [],
+    );
+    setDiagnoses(allDiagnoses);
+  };
+
+  // Handle multiple diagnosis selections
+  const handleDiagnosisChange = (selectedOptions: any) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      diagnosis: selectedOptions as string[],
+    }));
+  };
+
+
   const [errors, setErrors] = useState({
     firstName: '',
     lastName: '',
@@ -83,6 +79,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
   // State to manage if "Next" was clicked and render additional fields
   const [step, setStep] = useState(1);
   const [valid, setValid] = useState(false);
+
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
@@ -111,7 +108,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
       lastName: '',
       phone: '',
     });
-    setIcon(eyeOff);
+
     setShowPassword(false);
     setPasswordError('');
     setErrors({
@@ -181,8 +178,8 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
   }
 
 
+
   return (<div>
-    <h3>Add a New Patient</h3>
     <form onSubmit={handleSubmit}>
       {/* Step 1: Email, Password, Repeat Password */}
       {step === 1 && (
@@ -288,89 +285,82 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
       {/* Step 2: Additional Fields Based on User Type */}
       {step === 2 && (
         <>
-            <div className="mb-3">
-              <label htmlFor="age" className="form-label">Birth Date</label>
-              <input
-                type="date"
-                className="form-control"
-                id="age"
-                value={formData.age as string || ''}
-                onChange={handleChange}
-                required
-              />
-            </div>
+          <div className="mb-3">
+            <label htmlFor="age" className="form-label">Birth Date</label>
+            <input
+              type="date"
+              className="form-control"
+              id="age"
+              value={formData.age as string || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
 
+          <div className="mb-3">
+            <label htmlFor="sex" className="form-label">Sex</label>
+            <Select
+              closeMenuOnSelect={true}
+              components={animatedComponents}
+              // @ts-ignore
+              options={config.patientInfo.sex.map((spec) => ({
+                label: spec,
+                value: spec,
+              }))}
+              value={formData.sex}
+              id="sex"
+              onChange={(selectedOptions) => {
+                setFormData({
+                  ...formData,
+                  sex: selectedOptions as string,// This is where we set the selected options
+                });
+              }}
+              required={true}
+            />
+          </div>
 
-              <div className="mb-3">
-                <label htmlFor="sex" className="form-label">Sex</label>
-                <Select
-                  closeMenuOnSelect={true}
-                  components={animatedComponents}
-                  // @ts-ignore
-                  options={config.patientInfo.sex.map((spec) => ({
-                    label: spec,
-                    value: spec
-                  }))}
-                  value={formData.sex}
-                  id="sex"
-                  onChange={(selectedOptions) => {
-                    setFormData({
-                      ...formData,
-                      sex: selectedOptions as string,// This is where we set the selected options
-                    })
-                  }}
-                  required={true}
-                />
-              </div>
+          <div className="mb-3">
+            <label htmlFor="function" className="form-label">Speciality</label>
+            <Select
+              isMulti
+              closeMenuOnSelect={false}
+              components={animatedComponents}
+              // @ts-ignore
+              options={Object.keys(config.patientInfo.function).map((spec) => ({
+                label: spec,
+                value: spec,
+              }))}
+              // @ts-ignore
+              value={formData.function}
+              onChange={handleFunctionChange}
+            />
+          </div>
 
-
-
-            <div className="mb-3">
-              <label htmlFor="diagnosis" className="form-label">Diagnosis</label>
-              <input
-                type="text"
-                className="form-control"
-                id="diagnosis"
-                placeholder="Enter patient-specific information"
-                value={formData.diagnosis as string || ''}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="function" className="form-label">Function</label>
-              <Select
-                closeMenuOnSelect={true}
-                components={animatedComponents}
-                // @ts-ignore
-                options={config.patientInfo.function.map((spec) => ({
-                    label: spec,
-                    value: spec
-                  }))}
-                value={formData.function}
-                id="function"
-                onChange={(selectedOptions) => {
-                  setFormData({
-                    ...formData,
-                    function: selectedOptions as string, // This is where we set the selected options
-                  })
-                }}
-                required={true}
-              />
-            </div>
+          <div className="mb-3">
+            <label htmlFor="diagnosis" className="form-label">Diagnosis</label>
+            <Select
+              isMulti
+              closeMenuOnSelect={false}
+              components={animatedComponents}
+              // @ts-ignore
+              options={diagnoses.map((diag) => ({ label: diag, value: diag }))}
+              value={formData.diagnosis}
+              onChange={handleDiagnosisChange}
+            />
+          </div>
 
 
           {/* Next Button */}
-            <div className="d-grid">
-              <Button
-                type="button"
-                className="btn btn-primary"
-                onClick={checkPartialForm}
-              >
-                <img className="ms-2" src="Arrow right.svg" alt="Next" />
-              </Button>
-            </div>
+          <div className="d-grid">
+            <Button
+              type="button"
+              className="btn btn-primary"
+              onClick={checkPartialForm}
+            >
+              <img className="ms-2" src="Arrow right.svg" alt="Next" />
+            </Button>
+          </div>
 
           {/* Back Button */}
           <div className="d-grid">
@@ -387,15 +377,15 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
       )}
       {step === 3 && (
         <>
-            <div className="mb-3">
-              <label htmlFor="professionalStatus" className="form-label">Professional Status</label>
-              <Select
-                closeMenuOnSelect={true}
-                components={animatedComponents}
-                // @ts-ignore
-                options={config.patientInfo.professional_status.map((spec) => ({
-                    label: spec,
-                    value: spec
+          <div className="mb-3">
+            <label htmlFor="professionalStatus" className="form-label">Professional Status</label>
+            <Select
+              closeMenuOnSelect={true}
+              components={animatedComponents}
+              // @ts-ignore
+              options={config.patientInfo.professional_status.map((spec) => ({
+                label: spec,
+                value: spec,
                   }))}
                 value={formData.professionalStatus}
                 id="professionalStatus"

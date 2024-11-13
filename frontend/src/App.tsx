@@ -1,17 +1,18 @@
-import React, { Suspense, lazy } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import "./App.css";
-import Therapist from './pages/Therapist'
-import UnauthorizedAccess from './pages/UnauthorizedAccess'
-import ForgottenPassword from './pages/ForgottenPassword'
-import UserProfile from './pages/UserProfile'
-import PatientHome from './pages/PatientHome'
-import PatientView from './pages/patient'
-import AdminDashboard from './pages/AdminDashboard'
-import ResearcherView from './pages/ResearcherView'
-import AddRecomendations from './pages/AddRecomendations'
-import AddPatient from './pages/AddPatient'
-import RehabTable from './pages/RehabTable'
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import './App.css';
+import Therapist from './pages/Therapist';
+import UnauthorizedAccess from './pages/UnauthorizedAccess';
+import ForgottenPassword from './pages/ForgottenPassword';
+import UserProfile from './pages/UserProfile';
+import PatientHome from './pages/PatientHome';
+import PatientView from './pages/patient';
+import AdminDashboard from './pages/AdminDashboard';
+import ResearcherView from './pages/ResearcherView';
+import AddRecomendations from './pages/AddRecomendations';
+import AddPatient from './pages/AddPatient';
+import RehabTable from './pages/RehabTable';
+import TherapistRecomendations from './pages/TherapistRecomendations';
 
 // Lazy load pages for better performance
 const Home = lazy(() => import("./pages/Home"));
@@ -36,6 +37,7 @@ const App: React.FC = () => {
             <Route path="/addcontent" element={<AddRecomendations />}/>
             <Route path="/addpatient" element={<AddPatient />}/>
             <Route path="/rehabtable" element={<RehabTable />}/>
+            <Route path="/interventions" element={<TherapistRecomendations />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

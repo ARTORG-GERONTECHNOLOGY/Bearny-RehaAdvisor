@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Button, Alert, Row, Col, Container } from 'react-bootstrap';
+import { Alert, Button, Col, Container, Form, Row } from 'react-bootstrap';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,8 @@ import axios from 'axios';
 const AddRecommendationView: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-
+  // @ts-ignore
+  const diagnoses = config?.patientInfo?.function?.[authStore?.specialisation]?.diagnosis || [];
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -199,7 +200,7 @@ const AddRecommendationView: React.FC = observer(() => {
                       required
                     >
                       <option value="">{t("Select Type")}</option>
-                      {config.patientInfo.function.map((type: any) => (
+                      {diagnoses.map((type: any) => (
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </Form.Control>

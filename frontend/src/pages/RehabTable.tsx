@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Modal, Container, Row, Col, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { FaInfoCircle, FaStar, FaPlus } from 'react-icons/fa';
+import { Button, Col, Container, Modal, OverlayTrigger, Row, Table, Tooltip } from 'react-bootstrap';
+import { FaInfoCircle, FaPlus, FaStar } from 'react-icons/fa';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
@@ -290,16 +290,6 @@ const RehabTable: React.FC = () => {
               <p>{selectedExercise.description}</p>
               <p>
                 <FaStar size={24} color={'gold'} /> {selectedExercise.feedback[0].rating || '0'}  / 5
-              </p>
-              <p>
-                <strong>Feedback:</strong>{' '}
-                {selectedExercise.feedback.length > 0
-                  ? selectedExercise.feedback.map((fb: any, idx: number) => (
-                    <div key={idx}>
-                      {fb.comment}
-                    </div>
-                  ))
-                  : 'No feedback provided.'}
               </p>
             </>
           ) : (

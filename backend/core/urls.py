@@ -1,7 +1,9 @@
-from django.urls import path
 from django.conf import settings
-from . import views
 from django.conf.urls.static import static
+from django.urls import path
+
+from . import views
+
 urlpatterns = [path('', views.index, name='index'),
                path('api/login/', views.login, name='login'),
                path('api/forgot_password/', views.forgot_password, name='forgot_password'),
@@ -24,6 +26,12 @@ urlpatterns = [path('', views.index, name='index'),
                path('api/patient/<str:patient_id>/feedback/<str:intervention>', views.give_feedback, name='give_feedback'),
                path('api/recommendation/<str:intervention>', views.get_recommendation_info, name='get_recommendation_info'),
                path('api/markdone', views.mark_done, name='mark_done'),
+               path(
+                   'api/intervention/<str:intervention>/assignedDiagnoses/<str:specialisation>/bypatient/<str:therapist_id>',
+                   views.assignedDiagnoses, name='assignedDiagnoses'),
+               path('api/rminterforptypes', views.get_rminterfor_ptypes, name='get_rminterfor_ptypes'),
+               path('api/assignInterventionsptypes', views.assignInterventions_ptypes,
+                    name='assignInterventions_ptypes'),
                ]
 
 # Only add this if DEBUG=True, which is typical in development

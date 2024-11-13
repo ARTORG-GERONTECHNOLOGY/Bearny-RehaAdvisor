@@ -8,29 +8,48 @@
       "defaultLanguage": "en"
     },
     "patientInfo": {
-        "sex": ["male", "female", "non-binary", "prefer not to say"],
-        "diagnosis": [
-        "Hypertension",
-        "Diabetes",
-        "Asthma",
-        "Cough",
-        "Cardiovascular Disease",
-        "Arthritis",
-        "Depression",
-        "Chronic Pain",
-        "Back Pain",
-        "Cancer Recovery"
-        ],
-        "function": [
-        "Cardio",
-        "Strength Training",
-        "Mobility",
-        "Balance",
-        "Endurance",
-        "Rehabilitation",
-        "Yoga",
-        "Mindfulness"
-        ],
+      "sex": [
+        "Male",
+        "Female"
+      ],
+      "function": {
+        "Cardiology": {
+          "diagnosis": [
+            "Heart attack"
+          ]
+        },
+        "Neurology": {
+          "diagnosis": [
+            "Stroke",
+            "Parkinson"
+          ]
+        },
+        "Orthopedics": {
+          "diagnosis": [
+            "Back Pain"
+          ]
+        },
+        "Pediatrics": {
+          "diagnosis": [
+            "Asthma"
+          ]
+        },
+        "Sports Medicine": {
+          "diagnosis": [
+            "Twisted ankle"
+          ]
+        },
+        "Psychiatry": {
+          "diagnosis": [
+            "Depression"
+          ]
+        },
+        "Oncology": {
+          "diagnosis": [
+            "Bone Cancer"
+          ]
+        }
+      },
         "level_of_education": [
         "High School",
         "Associate Degree",
@@ -120,8 +139,18 @@
 
     },
     "RecomendationInfo":{
-        "frequency": ["daily", "every-2nd-day", "weekly", "once"],
-        "types": ["blog", "video", "app", "exercise"],
+      "frequency": [
+        "Daily",
+        "Every-2nd-day",
+        "Weekly",
+        "Once"
+      ],
+      "types": [
+        "Article",
+        "Video",
+        "App",
+        "Exercise"
+      ],
         "intensity": ["Core", "Supportive"]
 
     }

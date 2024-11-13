@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Button, Col, Container, Row } from "react-bootstrap";
-import Header from '../components/common/Header';  // import the Header
-import Footer from '../components/common/Footer';  // import the Footer
-import LoginForm from '../components/forms/LoginForm';  // Import the LoginForm component
+import { Button, Col, Container, Row } from 'react-bootstrap';
+import Header from '../components/common/Header'; // import the Header
+import Footer from '../components/common/Footer'; // import the Footer
+import LoginForm from '../components/forms/LoginForm'; // Import the LoginForm component
 import FormRegister from '../components/forms/RegisteringForm';
 import { useTranslation } from 'react-i18next';
 // @ts-ignore
 import flagEN from '../assets/flags/gb.png';
 // @ts-ignore
 import Artog from '../assets/images/artorg.jpg';
-import authStore from '../stores/authStore'
+import authStore from '../stores/authStore';
 
 
 const Home: React.FC = () => {
@@ -34,7 +34,12 @@ const Home: React.FC = () => {
 
         <Row className="flex-grow-1 d-flex justify-content-center align-items-center"> {/* Center content vertically and horizontally */}
           <Col xs="auto" className="text-center">
-            <img src='/home.jpg' alt="Post-telereha Advisor Logo" style={{ maxWidth: '30%', height: 'auto' }} />
+            {/* Web App Name */}
+            <h1 className="mb-4">Tele-rehabilitation</h1>
+            {/* Informational Text */}
+            <p className="lead">{t('Welcome to the Therapist Login Page')}</p>
+            <img src="/home.jpg" alt="Post-telereha Advisor Logo" style={{ maxWidth: '20%', height: 'auto' }} />
+
           </Col>
           <Row className="d-flex justify-content-center mb-5">
             <Col xs="auto" className="text-center">

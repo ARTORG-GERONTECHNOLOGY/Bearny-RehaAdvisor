@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { Modal, Button, ListGroup, Row, Col } from 'react-bootstrap';
+import { Button, Col, ListGroup, Modal, Row } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 interface PatientPopupProps {
-  patient: any;
+  patient: any | null;
   show: boolean;
   handleClose: () => void;
 }
@@ -92,9 +92,6 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient, show, handleClose 
         </Row>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>
-          {t('Close')}
-        </Button>
       </Modal.Footer>
     </Modal>
   );
