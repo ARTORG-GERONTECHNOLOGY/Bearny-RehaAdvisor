@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Form, Container, Row, Col, Alert } from 'react-bootstrap';
+import { Alert, Button, Col, Container, Form, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -17,7 +17,7 @@ const ForgotPassword: React.FC = () => {
 
     try {
       // Send password reset request to the backend
-      await apiClient.post('forgot_password/', { email });
+      await apiClient.post('auth/forgot-password/', { email });
       setSuccess(true); // Show success message
       setError(null); // Clear previous errors if any
     } catch (error) {

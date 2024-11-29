@@ -6,23 +6,24 @@ interface AddRecommendationModalProps {
   show: boolean;
   onHide: () => void;
   onAdd: (recommendationId: number) => void;
-  patientFunction: string;
+  patient: string;
   existingRecommendations: number[]; // IDs of recommendations that the patient already has
+  patientFunction: string;
 }
 
 const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
                                                                          show,
                                                                          onHide,
                                                                          onAdd,
-                                                                         patientFunction,
+                                                                         patient,
                                                                          existingRecommendations,
+                                                                         patientFunction,
                                                                        }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [filteredRecommendations, setFilteredRecommendations] = useState<any[]>([]);
   const [contentTypeFilter, setContentTypeFilter] = useState<string>('');
   const [recommendationTypeFilter, setRecommendationTypeFilter] = useState<string>('');
-  let patientTypeInfo = {};
 
   useEffect(() => {
     if (show) {
@@ -37,9 +38,9 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   const fetchRecommendations = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get(`recommendations?function=${patientFunction}`);
-      setRecommendations(response.data);
-      setFilteredRecommendations(response.data);
+      const response = await apiClient.get(`recommendations/suggestions/${patient}`);
+      setRecommendations(response.data.recommendations);
+      setFilteredRecommendations(response.data.recommendations);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
     }
@@ -58,7 +59,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     if (recommendationTypeFilter) {
       filtered = filtered.filter((rec) =>
         rec.patient_types.some(
-          (pt: any) => pt.type === patientFunction && pt.include_option === (recommendationTypeFilter === 'Core'),
+          (pt: any) => pt.include_option === (recommendationTypeFilter === 'Core'),
         ),
       );
     }
@@ -110,7 +111,6 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     }
     return 'None';
   };
-
 
   return (
     <Modal show={show} onHide={onHide} centered>

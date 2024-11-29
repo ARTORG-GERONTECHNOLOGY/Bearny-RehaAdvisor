@@ -1,5 +1,5 @@
 # Use a base Ubuntu image
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # set work directory
 WORKDIR /srv/app
@@ -38,6 +38,6 @@ RUN pip install -r requirements.txt
 
 # copy project
 COPY . .
-
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # run entrypoint.sh
 #ENTRYPOINT ["/srv/app/entrypoint.sh"]

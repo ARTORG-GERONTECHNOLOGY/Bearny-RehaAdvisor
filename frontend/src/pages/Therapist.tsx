@@ -30,7 +30,7 @@ const Therapist: React.FC = () => {
 
   const therapistId = authStore.id;
 
-  const durationOptions = ['< 30 days', '30-60 days', '60-90 days', '> 90 days'];
+  const durationOptions = config.RehaInfo;
 
   useEffect(() => {
     authStore.checkAuthentication();
@@ -201,7 +201,7 @@ const Therapist: React.FC = () => {
 
       {selectedItem && (
         <PatientPopup
-          patient={selectedItem} // This will be null when no patient is selected
+          patient_id={selectedItem} // This will be null when no patient is selected
           show={showPopup}
           handleClose={handleClosePopup}
         />)}

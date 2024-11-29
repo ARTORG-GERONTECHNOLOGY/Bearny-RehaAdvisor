@@ -1,6 +1,6 @@
 services:
   db:
-    image: mongo:latest
+    image: mongo:8.0.3
     container_name: dev-db
     restart: always
     ports:
@@ -12,7 +12,6 @@ services:
   django:
     build: ./backend
     container_name: dev-django
-    command: "python manage.py runserver 0.0.0.0:8000"
     restart: always
     env_file:
       - ./.env.dev
@@ -29,7 +28,6 @@ services:
   react:
     build: ./frontend
     container_name: dev-react
-    command: npm start
     restart: always
     ports:
       - 3001:3000

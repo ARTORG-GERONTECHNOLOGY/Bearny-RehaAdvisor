@@ -9,9 +9,9 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-from pathlib import Path
 import os
-
+from datetime import timedelta
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,7 +21,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", 'biglongsecretstuffhere')
 
 # .env.
 DEBUG = os.environ.get("DEBUG", default=True)
-
+HOST = os.environ.get("HOST", '0.0.0.0')
 # .env.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", 'localhost 127.0.0.1 [::1]').split(" ")
 
@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "core",
+    'rest_framework.authtoken'
 ]
 
 MIDDLEWARE = [
@@ -87,6 +88,20 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',  # Default for all views
+    ],
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -96,7 +111,7 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-
+MEDIA_HOST = os.environ.get("MEDIA_HOST")
 STATIC_URL = "/api_static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 MEDIA_URL = "/media/"

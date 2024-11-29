@@ -145,13 +145,27 @@
         "Weekly",
         "Once"
       ],
+      "frequencyDays": [
+        1,
+        2,
+        7,
+        0
+      ],
       "types": [
         "Article",
         "Video",
         "App",
         "Exercise"
       ],
-        "intensity": ["Core", "Supportive"]
-
-    }
+      "intensity": [
+        "Core",
+        "Supportive"
+      ]
+    },
+  "RehaInfo": [
+    "< 30 days",
+    "30-60 days",
+    "60-90 days",
+    "> 90 days"
+  ]
   }

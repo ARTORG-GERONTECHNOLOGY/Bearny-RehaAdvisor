@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Carousel, Form, ListGroup } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Button, Carousel, Form, ListGroup, Modal } from 'react-bootstrap';
 import { FaStar } from 'react-icons/fa';
 import apiClient from '../api/client';
 
@@ -19,7 +19,7 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
 
   const fetchRecommendationData = async () => {
     try {
-      const response = await apiClient.get(`recommendation/${recommendation.intervention_id}`);
+      const response = await apiClient.get(`recommendations/${recommendation.intervention_id}`);
       setRecommendationInfo(response.data.recommendation);
       setFeedbackList(response.data.feedback);
     } catch (error) {

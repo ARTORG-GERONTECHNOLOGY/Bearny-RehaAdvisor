@@ -46,7 +46,7 @@ const TherapistRecomendations: React.FC = () => {
     if (authStore.isAuthenticated && authStore.userType === 'Therapist') {
       const fetchData = async () => {
         try {
-          const recommendationResponse = await apiClient.get('recommendations');
+          const recommendationResponse = await apiClient.get('recommendations/all/');
           setRecommendations(recommendationResponse.data);
           setFilteredRecommendations(recommendationResponse.data);
         } catch (error) {
