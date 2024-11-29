@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: '/api', // Use the proxy path (through Nginx) to hit the backend API
+	baseURL: 'http://159.100.246.89:8000/api', // Use the proxy path (through Nginx) to hit the backend API
   headers: {
     'Content-Type': 'application/json',
   },

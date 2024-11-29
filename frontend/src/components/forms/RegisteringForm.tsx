@@ -138,7 +138,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       try {
         // Send form data to the server via POST request
         console.log(formData);
-        const response = await apiClient.post('/register/', formData);
+        const response = await apiClient.post('/auth/register/', formData);
 
         // Check the response for success
         if (response.data && response.status === 201) {
