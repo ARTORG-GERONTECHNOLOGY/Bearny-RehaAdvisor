@@ -38,6 +38,6 @@ RUN pip install -r requirements.txt
 
 # copy project
 COPY . .
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8001"]
 # run entrypoint.sh
 #ENTRYPOINT ["/srv/app/entrypoint.sh"]

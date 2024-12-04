@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create Axios instance
 const apiClient = axios.create({
-  baseURL: '/api', // Proxy API requests via Nginx
+  baseURL: 'http://159.100.246.89:8000/api', // Proxy API requests via Nginx
   headers: {
     'Content-Type': 'application/json',
   },
