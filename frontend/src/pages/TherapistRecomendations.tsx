@@ -69,8 +69,15 @@ const TherapistRecomendations: React.FC = () => {
 
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
+      // Helper function to check if a URL contains a domain
+      const isDomain = (url: string, domain: string) => url.includes(link);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'primary';
+      if (isDomain(link, 'vimeo.com')) return 'primary';
+
       if (link) return 'warning'; // Link
-      return 'No Media';
+        return 'No Media';
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'primary';
@@ -84,7 +91,14 @@ const TherapistRecomendations: React.FC = () => {
 
   const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      if (link) return 'Link';
+      // Helper function to check if a URL contains a domain
+      const isDomain = (url: string, domain: string) => url.includes(link);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'Video';
+      if (isDomain(link, 'vimeo.com')) return 'Video';
+
+      if (link) return 'Link'; // Link
       return 'No Media';
     }
 

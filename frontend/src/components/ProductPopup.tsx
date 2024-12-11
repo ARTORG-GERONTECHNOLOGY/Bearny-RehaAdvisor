@@ -97,9 +97,8 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
             <ListGroup variant="flush">
               {item.link && (
                 <ListGroup.Item>
-                  <a href={item.link} target="_blank" rel="noopener noreferrer">
-                    View Article
-                  </a>
+                  {/* <a href={item.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
+                  <iframe src={item.link} title='Link to a recomendation'></iframe>
                 </ListGroup.Item>
               )}
               {item.media_url && (

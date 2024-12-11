@@ -151,7 +151,8 @@ const RecommendationList: React.FC = () => {
                   <ListGroup variant="flush">
                     {rec.link && (
                       <ListGroup.Item>
-                        <a href={rec.link} target="_blank" rel="noopener noreferrer">View Article</a>
+                        {/* <a href={rec.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
+                        <iframe src={rec.link} title='Link to a recomendation'></iframe>
                       </ListGroup.Item>
                     )}
 

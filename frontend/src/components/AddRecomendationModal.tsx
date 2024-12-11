@@ -69,21 +69,36 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
 
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
+      // Helper function to check if a URL contains a domain
+      const isDomain = (url: string, domain: string) => url.includes(link);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'primary';
+      if (isDomain(link, 'vimeo.com')) return 'primary';
+
       if (link) return 'warning'; // Link
       return 'No Media';
     }
 
-    if (mediaUrl.endsWith('.mp4')) return 'primary'; // Video
-    if (mediaUrl.endsWith('.mp3')) return 'info'; // Audio
-    if (mediaUrl.endsWith('.pdf')) return 'danger'; // PDF
-    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return 'success'; // Image
+    if (mediaUrl.endsWith('.mp4')) return 'primary';
+    if (mediaUrl.endsWith('.mp3')) return 'info';
+    if (mediaUrl.endsWith('.pdf')) return 'danger';
+    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return 'success';
+
 
     return 'secondary'; // Default for unknown file types
   };
 
   const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      if (link) return 'Link';
+      // Helper function to check if a URL contains a domain
+      const isDomain = (url: string, domain: string) => url.includes(link);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'Video';
+      if (isDomain(link, 'vimeo.com')) return 'Video';
+
+      if (link) return 'Link'; // Link
       return 'No Media';
     }
 
