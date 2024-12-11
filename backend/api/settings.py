@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,8 +26,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", 'biglongsecretstuffhere')
 DEBUG = os.environ.get("DEBUG", default=True)
 HOST = os.environ.get("HOST", '0.0.0.0')
 # .env.
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", 'localhost 127.0.0.1 [::1]').split(" ")
-
+ALLOWED_HOSTS = ['159.100.246.89', '159.100.246.89:8000']#os.environ.get("DJANGO_ALLOWED_HOSTS", '159.100.246.89').split(" ")
+# If you want to allow all origins (not recommended for production):
+CORS_ALLOWED_ORIGINS = [
+    "http://159.100.246.89:3000",  # React frontend
+]
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -35,10 +41,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "core",
-    'rest_framework.authtoken'
+    'rest_framework.authtoken',
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -49,7 +57,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "api.urls"
-
+# Optional: Allow credentials if required
+CORS_ALLOW_CREDENTIALS = True
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -94,6 +103,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',

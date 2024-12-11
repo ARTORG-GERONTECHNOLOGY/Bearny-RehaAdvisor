@@ -2,8 +2,7 @@
 
 ## Project
 
-Template used: https://github.com/scottwoodall/django-react-template
-
+template: https://github.com/cglusky/docker-django-react/tree/master
 
 ## Basics
 

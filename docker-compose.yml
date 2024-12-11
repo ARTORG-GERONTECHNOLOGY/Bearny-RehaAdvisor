@@ -8,6 +8,8 @@ services:
     env_file: ./.env.dev
     volumes:
       - ./mongo_data:/data/db  # Correctly map this volume to persist data
+    networks:
+      - telereha
 
   django:
     build: ./backend
@@ -48,7 +50,7 @@ services:
 
   nginx:
     build: ./nginx
-    container_name: dev-nginx
+    container_name: nginx
     ports:
       - 3000:3000
       - 8000:8000

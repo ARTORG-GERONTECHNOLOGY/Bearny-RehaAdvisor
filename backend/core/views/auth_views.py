@@ -16,6 +16,8 @@ from utils.utils import (
 
 @csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
 def login(request):
+    host = request.META.get('HTTP_HOST')
+    print(f"HTTP_HOST: {host}")
     if request.method == 'POST':
         try:
             # Parse JSON data from the request body
