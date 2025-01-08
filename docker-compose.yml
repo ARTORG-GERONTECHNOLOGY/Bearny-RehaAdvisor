@@ -1,23 +1,24 @@
 services:
   db:
-    image: mongo:latest
-    container_name: dev-db
+    image: mongo:8.0.3
+    container_name: db
     restart: always
     ports:
       - 27017:27017
     env_file: ./.env.dev
     volumes:
       - ./mongo_data:/data/db  # Correctly map this volume to persist data
+    networks:
+      - telereha
 
   django:
     build: ./backend
-    container_name: dev-django
-    command: "python manage.py runserver 0.0.0.0:8000"
+    container_name: django
     restart: always
     env_file:
       - ./.env.dev
     ports:
-      - 8000:8000
+      - 8001:8000
     volumes:
       - ./backend/:/srv/app
       - static:/srv/app/static
@@ -25,11 +26,13 @@ services:
       - ./frontend/src/config/:/srv/app/config 
     depends_on:
       - db
+    networks:
+      - telereha
+
 
   react:
     build: ./frontend
-    container_name: dev-react
-    command: npm start
+    container_name: react
     restart: always
     ports:
       - 3001:3000
@@ -41,12 +44,16 @@ services:
       - node_modules:/srv/app/node_modules
     depends_on:
       - django
+    networks:
+      - telereha
+
 
   nginx:
     build: ./nginx
-    container_name: dev-nginx
+    container_name: nginx
     ports:
-      - 8080:80
+      - 3000:3000
+      - 8000:8000
     restart: always
     volumes:
       - static:/srv/app/static
@@ -55,9 +62,16 @@ services:
       - django
       - react
       - db
+    networks:
+      - telereha
+
 
 volumes:
   node_modules:
   mongo_data:  # Named volume for MongoDB data
   media:
   static:
+
+networks:
+  telereha:
+    name: "telereha"

@@ -15,7 +15,12 @@
       "function": {
         "Cardiology": {
           "diagnosis": [
-            "Heart attack"
+            "Heart attack",
+            "Coronary Artery Disease",
+            "High blood pressure",
+            "Stroke",
+            "Arrhytmia",
+            "Congestive heart failure"
           ]
         },
         "Neurology": {
@@ -129,6 +134,7 @@
         ]
 
     },
+    "Users":["Therapist"],
     "userInfo":{
         "userTypes":["Therapist", "Researcher", "Patient", "Admin"],
         "formLength": {
@@ -145,13 +151,27 @@
         "Weekly",
         "Once"
       ],
+      "frequencyDays": [
+        1,
+        2,
+        7,
+        0
+      ],
       "types": [
         "Article",
         "Video",
         "App",
         "Exercise"
       ],
-        "intensity": ["Core", "Supportive"]
-
-    }
+      "intensity": [
+        "Core",
+        "Supportive"
+      ]
+    },
+  "RehaInfo": [
+    "< 30 days",
+    "30-60 days",
+    "60-90 days",
+    "> 90 days"
+  ]
   }

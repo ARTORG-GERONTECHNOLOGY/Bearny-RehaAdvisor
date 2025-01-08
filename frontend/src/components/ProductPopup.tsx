@@ -27,7 +27,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   const fetchAssignedDiagnoses = async () => {
     try {
       const response = await apiClient.get(
-        `intervention/${item['_id']}/assignedDiagnoses/${authStore.specialisation}/bypatient/${authStore.id}`,
+        `recommendations/${item['_id']}/assigned-diagnoses/${authStore.specialisation}/therapist/${authStore.id}`,
       );
       const assignedDiagnoses = Object.entries(response.data.diagnoses)
         .filter(([_, isAssigned]) => isAssigned)
@@ -47,7 +47,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     );
 
     try {
-      const endpoint = isChecked ? 'rminterforptypes' : 'assignInterventionsptypes';
+      const endpoint = isChecked ? 'recommendations/remove-from-patient-types/' : 'recommendations/assign-to-patient-types/';
       await apiClient.post(endpoint, {
         diagnosis,
         intervention_id: item['_id'],
@@ -64,7 +64,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     setSelectedDiagnoses(newSelectedAll ? diagnoses : []);
 
     try {
-      await apiClient.post(newSelectedAll ? 'assignInterventionsptypes' : 'rminterforptypes', {
+      await apiClient.post(newSelectedAll ? 'recommendations/assign-to-patient-types/' : 'recommendations/remove-from-patient-types/', {
         diagnosis: 'all',
         intervention_id: item['_id'],
         therapist: authStore.id,
@@ -94,12 +94,12 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
           </Col>
           <Col md={6}>
             <h6>Source</h6>
+            
             <ListGroup variant="flush">
               {item.link && (
                 <ListGroup.Item>
-                  <a href={item.link} target="_blank" rel="noopener noreferrer">
-                    View Article
-                  </a>
+                  {/* <a href={item.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
+                  <iframe src={item.link} title='Link to a recomendation'></iframe>
                 </ListGroup.Item>
               )}
               {item.media_url && (
