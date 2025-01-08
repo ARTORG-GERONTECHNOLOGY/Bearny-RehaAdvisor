@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Carousel, Form, ListGroup } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Button, Carousel, Form, ListGroup, Modal } from 'react-bootstrap';
 import { FaStar } from 'react-icons/fa';
 import apiClient from '../api/client';
 
@@ -19,7 +19,7 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
 
   const fetchRecommendationData = async () => {
     try {
-      const response = await apiClient.get(`recommendation/${recommendation.intervention_id}`);
+      const response = await apiClient.get(`recommendations/${recommendation.intervention_id}`);
       setRecommendationInfo(response.data.recommendation);
       setFeedbackList(response.data.feedback);
     } catch (error) {
@@ -62,47 +62,53 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
       </Modal.Header>
       <Modal.Body>
         {/* Display Media or Link */}
-        <ListGroup variant="flush">
+        <ListGroup variant='flush'>
           {/* Link for article */}
           {recommendation.link && (
             <ListGroup.Item>
-              <a href={recommendation.link} target="_blank" rel="noopener noreferrer">View Article</a>
+              {/* <a href={recommendation.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
+              <iframe src={recommendation.link} title='Link to a recomendation'></iframe>
             </ListGroup.Item>
           )}
 
           {/* Video content */}
-          {recommendation.media_url && recommendation.media_url.endsWith(".mp4") && (
+          {recommendation.media_url && recommendation.media_url.endsWith('.mp4') && (
             <ListGroup.Item>
-              <video width="100%" controls>
-                <source src={recommendation.media_url} type="video/mp4" />
+              <video width='100%' controls>
+                <source src={recommendation.media_url} type='video/mp4' />
                 Your browser does not support the video tag.
               </video>
             </ListGroup.Item>
           )}
 
           {/* Audio content */}
-          {recommendation.media_url && recommendation.media_url.endsWith(".mp3") && (
+          {recommendation.media_url && recommendation.media_url.endsWith('.mp3') && (
             <ListGroup.Item>
               <audio controls>
-                <source src={recommendation.media_url} type="audio/mp3" />
+                <source src={recommendation.media_url} type='audio/mp3' />
                 Your browser does not support the audio element.
               </audio>
             </ListGroup.Item>
           )}
 
           {/* PDF content */}
-          {recommendation.media_url && recommendation.media_url.endsWith(".pdf") && (
+          {recommendation.media_url && recommendation.media_url.endsWith('.pdf') && (
             <ListGroup.Item>
-              <a href={recommendation.media_url} target="_blank" rel="noopener noreferrer">View PDF</a>
+              <a href={recommendation.media_url} target='_blank' rel='noopener noreferrer'>
+                View PDF
+              </a>
             </ListGroup.Item>
           )}
 
           {/* Image content */}
-          {recommendation.media_url && (recommendation.media_url.endsWith(".jpg") || recommendation.media_url.endsWith(".jpeg") || recommendation.media_url.endsWith(".png")) && (
-            <ListGroup.Item>
-              <img src={recommendation.media_url} alt="Image content" width="100%" />
-            </ListGroup.Item>
-          )}
+          {recommendation.media_url &&
+            (recommendation.media_url.endsWith('.jpg') ||
+              recommendation.media_url.endsWith('.jpeg') ||
+              recommendation.media_url.endsWith('.png')) && (
+              <ListGroup.Item>
+                <img src={recommendation.media_url} alt='Image content' width='100%' />
+              </ListGroup.Item>
+            )}
 
           {/* Message for unavailable media */}
           {!recommendation.link && !recommendation.media_url && <p>No links or media available</p>}
@@ -111,59 +117,81 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
         {/* Recommendation Info */}
         {recommendationInfo ? (
           <>
-            <p><strong>Description:</strong> {// @ts-ignore
-              recommendationInfo.description}</p>
-            <p><strong>Type:</strong> {// @ts-ignore
-              recommendationInfo.content_type}</p>
+            <p>
+              <strong>Description:</strong>{' '}
+              {
+                // @ts-ignore
+                recommendationInfo.description
+              }
+            </p>
+            <p>
+              <strong>Type:</strong>{' '}
+              {
+                // @ts-ignore
+                recommendationInfo.content_type
+              }
+            </p>
           </>
         ) : (
           <p>Loading recommendation details...</p>
         )}
 
         {/* Average Stars */}
-        <div className="mt-3">
-          <strong>Average Rating:</strong> {// @ts-ignore
-          recommendationInfo?.stars || 0} / 5
+        <div className='mt-3'>
+          <strong>Average Rating:</strong>{' '}
+          {
+            // @ts-ignore
+            recommendationInfo?.stars || 0
+          }{' '}
+          / 5
         </div>
 
         {/* Feedback Carousel */}
-        <h5 className="mt-4">Previous Feedback</h5>
+        <h5 className='mt-4'>Previous Feedback</h5>
         {feedbackList.length > 0 ? (
           <Carousel interval={5000}>
             {feedbackList.map((fb, index) => (
               <Carousel.Item key={index}>
                 <div style={{ padding: '10px', background: '#f8f9fa', color: 'black' }}>
-                  <p>{// @ts-ignore
-                    fb.comment}</p>
-                  <small>Rating: {// @ts-ignore
-                    fb.rating} / 5</small>
+                  <p>
+                    {
+                      // @ts-ignore
+                      fb.comment
+                    }
+                  </p>
+                  <small>
+                    Rating:{' '}
+                    {
+                      // @ts-ignore
+                      fb.rating
+                    }{' '}
+                    / 5
+                  </small>
                 </div>
               </Carousel.Item>
             ))}
           </Carousel>
         ) : (
-          <p className="text-muted">No feedback available yet.</p>
+          <p className='text-muted'>No feedback available yet.</p>
         )}
 
         {/* Feedback Form - only if marked as done and not yet submitted */}
         {isDone && !feedbackSubmitted && !hasFeedback && (
-          <div className="mt-4">
+          <div className='mt-4'>
             <h6>Give Your Feedback</h6>
 
             {/* Star Rating */}
-            <div className="d-flex align-items-center mb-3">
+            <div className='d-flex align-items-center mb-3'>
               <span>Rate:</span>
-              <div className="ml-2">
-                {renderStars()}
-              </div>
+              <div className='ml-2'>{renderStars()}</div>
             </div>
 
             {/* Feedback Text Input */}
             <Form.Group>
               <Form.Control
-                as="textarea"
+                as='textarea'
                 rows={3}
-                placeholder="Write your feedback here..."
+                placeholder='Write your feedback here...'
                 value={userFeedback}
                 onChange={(e) => setUserFeedback(e.target.value)}
               />
@@ -171,10 +199,10 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
 
             {/* Submit Feedback Button */}
             <Button
-              variant="primary"
+              variant='primary'
               onClick={handleFeedbackSubmit}
               disabled={userStars === 0}
-              className="mt-2"
+              className='mt-2'
             >
               Submit Feedback
             </Button>
@@ -182,7 +210,7 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
         )}
       </Modal.Body>
     </Modal>
-  );
+  )
 };
 
 export default RecommendationPopup;

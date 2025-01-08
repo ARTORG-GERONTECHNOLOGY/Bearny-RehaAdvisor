@@ -1,5 +1,5 @@
 # Use Ubuntu as the base image
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 LABEL authors="nooraangelva"
 # Install Node.js and npm
 # Set environment variables
@@ -25,4 +25,4 @@ RUN npm install
 
 # add app
 COPY . ./
-RUN npm run build
+CMD ["npm", "start"]

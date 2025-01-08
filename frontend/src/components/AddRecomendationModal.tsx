@@ -6,23 +6,24 @@ interface AddRecommendationModalProps {
   show: boolean;
   onHide: () => void;
   onAdd: (recommendationId: number) => void;
-  patientFunction: string;
+  patient: string;
   existingRecommendations: number[]; // IDs of recommendations that the patient already has
+  patientFunction: string;
 }
 
 const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
                                                                          show,
                                                                          onHide,
                                                                          onAdd,
-                                                                         patientFunction,
+                                                                         patient,
                                                                          existingRecommendations,
+                                                                         patientFunction,
                                                                        }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [filteredRecommendations, setFilteredRecommendations] = useState<any[]>([]);
   const [contentTypeFilter, setContentTypeFilter] = useState<string>('');
   const [recommendationTypeFilter, setRecommendationTypeFilter] = useState<string>('');
-  let patientTypeInfo = {};
 
   useEffect(() => {
     if (show) {
@@ -37,9 +38,9 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   const fetchRecommendations = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get(`recommendations?function=${patientFunction}`);
-      setRecommendations(response.data);
-      setFilteredRecommendations(response.data);
+      const response = await apiClient.get(`recommendations/suggestions/${patient}`);
+      setRecommendations(response.data.recommendations);
+      setFilteredRecommendations(response.data.recommendations);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
     }
@@ -58,7 +59,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     if (recommendationTypeFilter) {
       filtered = filtered.filter((rec) =>
         rec.patient_types.some(
-          (pt: any) => pt.type === patientFunction && pt.include_option === (recommendationTypeFilter === 'Core'),
+          (pt: any) => pt.include_option === (recommendationTypeFilter === 'Core'),
         ),
       );
     }
@@ -68,22 +69,33 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
 
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      if (link) return 'warning'; // Link
-      return 'No Media';
+      const isDomain = (url: string, domain: string) => url.includes(domain);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'primary';
+      if (isDomain(link, 'vimeo.com')) return 'primary';
+
+      return 'warning';
     }
 
-    if (mediaUrl.endsWith('.mp4')) return 'primary'; // Video
-    if (mediaUrl.endsWith('.mp3')) return 'info'; // Audio
-    if (mediaUrl.endsWith('.pdf')) return 'danger'; // PDF
-    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return 'success'; // Image
+    if (mediaUrl.endsWith('.mp4')) return 'primary';
+    if (mediaUrl.endsWith('.mp3')) return 'info';
+    if (mediaUrl.endsWith('.pdf')) return 'danger';
+    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return 'success';
+
 
     return 'secondary'; // Default for unknown file types
   };
 
   const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      if (link) return 'Link';
-      return 'No Media';
+      const isDomain = (url: string, domain: string) => url.includes(domain);
+
+      // Check for iframe-compatible links (e.g., YouTube, Vimeo)
+      if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'Video';
+      if (isDomain(link, 'vimeo.com')) return 'Video';
+
+      return 'Link';
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'Video';
@@ -110,7 +122,6 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     }
     return 'None';
   };
-
 
   return (
     <Modal show={show} onHide={onHide} centered>
