@@ -5,7 +5,6 @@ import { FaPlus } from 'react-icons/fa';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import axios from 'axios';
-import authStore from '../../stores/authStore';
 
 interface AddRecommendationPopupProps {
   show: boolean;
@@ -15,19 +14,42 @@ interface AddRecommendationPopupProps {
 
 const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, handleClose, onSuccess }) => {
   const { t } = useTranslation();
-  // @ts-ignore
-  const diagnoses = config?.patientInfo?.function?.[authStore?.specialisation]?.diagnosis || [];
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    contentType: 'blog',
+    contentType: 'Article',
     link: '',
     mediaFile: null,
-    patientTypes: [{ type: '', frequency: '', includeOption: null }],
+    patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
   });
-
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  
+
+  // Fetch diagnoses based on selected specialization
+  // @ts-ignore
+  const getDiagnosesForSpecialization = (specialization) => {
+    // @ts-ignore
+    return config?.patientInfo?.function?.[specialization]?.diagnosis || [];
+  };
+
+  // Handle changes in the patient type and update diagnosis options
+  // @ts-ignore
+  const handlePatientTypeChange = (index, field, value) => {
+    const updatedPatientTypes = [...formData.patientTypes];
+    // @ts-ignore
+    updatedPatientTypes[index][field] = value;
+
+    // Update diagnoses options when specialization changes
+    if (field === 'type') {
+      // @ts-ignore
+      updatedPatientTypes[index].diagnosesOptions = getDiagnosesForSpecialization(value);
+      updatedPatientTypes[index].diagnosis = ''; // Reset diagnosis selection
+    }
+
+    setFormData((prev) => ({ ...prev, patientTypes: updatedPatientTypes }));
+  };
 
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -42,18 +64,11 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
     setFormData((prev) => ({ ...prev, mediaFile: file }));
   };
 
-  // Handle patient type and frequency changes
-  const handlePatientTypeChange = (index: number, field: string, value: string | boolean) => {
-    const updatedPatientTypes = [...formData.patientTypes];
-    // @ts-ignore
-    updatedPatientTypes[index][field] = value;
-    setFormData((prev) => ({ ...prev, patientTypes: updatedPatientTypes }));
-  };
 
   const addPatientType = () => {
     setFormData((prev) => ({
       ...prev,
-      patientTypes: [...prev.patientTypes, { type: '', frequency: '', includeOption: null }],
+      patientTypes: [...prev.patientTypes, { type: '', frequency: '', includeOption: null, diagnosis: '' }],
     }));
   };
 
@@ -76,7 +91,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
 
       formPayload.append('patientTypes', JSON.stringify(formData.patientTypes));
 
-      const response = await apiClient.post('recommendations/add', formPayload, {
+      const response = await apiClient.post('recommendations/add/', formPayload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -88,9 +103,11 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           contentType: 'blog',
           link: '',
           mediaFile: null,
-          patientTypes: [{ type: '', frequency: '', includeOption: null }],
+          patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
         });
         onSuccess(); // Callback for parent component
+        setSuccess(false);
+        setError('')
       }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
@@ -118,8 +135,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               type="text"
               placeholder={t('Enter recommendation title')}
               value={formData.title}
-              // @ts-ignore
-              onChange={handleChange}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
             />
           </Form.Group>
@@ -131,8 +147,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               rows={3}
               placeholder={t('Enter description')}
               value={formData.description}
-              // @ts-ignore
-              onChange={handleChange}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
             />
           </Form.Group>
@@ -142,8 +157,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
             <Form.Control
               as="select"
               value={formData.contentType}
-              // @ts-ignore
-              onChange={handleChange}
+              onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
               required
             >
               <option value="">{t('Select Content Type')}</option>
@@ -175,10 +189,11 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
             />
           </Form.Group>
 
+
           <h5 className="mt-4">{t('Patient Type and Frequency')}</h5>
           {formData.patientTypes.map((patient, index) => (
             <Row key={index} className="align-items-center">
-              <Col xs={6}>
+              <Col xs={4}>
                 <Form.Group controlId={`patientType-${index}`}>
                   <Form.Label>{t('Patient Type')}</Form.Label>
                   <Form.Control
@@ -188,15 +203,37 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
                     required
                   >
                     <option value="">{t('Select Type')}</option>
-                    {diagnoses.map((type: string) => (
-                      <option key={type} value={type}>
-                        {type}
+                    {Object.keys(config.patientInfo.function).map((specialization) => (
+                      <option key={specialization} value={specialization}>
+                        {specialization}
                       </option>
                     ))}
                   </Form.Control>
                 </Form.Group>
               </Col>
-              <Col xs={6}>
+              <Col xs={4}>
+                <Form.Group controlId={`diagnoses-${index}`}>
+                  <Form.Label>{t('Diagnosis')}</Form.Label>
+                  <Form.Control
+                    as="select"
+                    value={patient.diagnosis}
+                    onChange={(e) => handlePatientTypeChange(index, 'diagnosis', e.target.value)}
+                    required
+                  >
+                    <option value="">{t('Select Diagnosis')}</option>
+                    {  // @ts-ignore
+                      (patient.diagnosesOptions || []).map((diag) => (
+                        <option key={diag} value={diag}>
+                          {diag}
+                        </option>
+                      ))}
+                    <option key="All" value="All">
+                      All
+                    </option>
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+              <Col xs={4}>
                 <Form.Group controlId={`frequency-${index}`}>
                   <Form.Label>{t('Frequency')}</Form.Label>
                   <Form.Control

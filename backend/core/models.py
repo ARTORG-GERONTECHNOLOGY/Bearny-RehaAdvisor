@@ -4,10 +4,13 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from mongoengine import Document, DictField, StringField, EmailField, IntField, ListField, DateTimeField, BooleanField, \
-    ReferenceField, EmbeddedDocument, EmbeddedDocumentField
+from mongoengine import (Document, DictField, StringField, EmailField, IntField, ListField, DateTimeField, BooleanField,
+                         ReferenceField, EmbeddedDocument, EmbeddedDocumentField)
 
 from utils.config import config
+
+all_diagnoses = [diagnosis for category in config["patientInfo"]["function"].values() for diagnosis in
+                 category["diagnosis"]]
 
 
 class RecommendationAssignment(EmbeddedDocument):
@@ -20,8 +23,7 @@ class Therapist(Document):
     username = StringField(max_length=150, required=True)
     name = StringField(max_length=20)
     first_name = StringField(max_length=20)
-    user_type = StringField(max_length=20, default='patient')  # No choices, but you can enforce them in the logic
-    custom_id = StringField(max_length=10, unique=True, null=True)
+    user_type = StringField(max_length=20, default='therapist')  # No choices, but you can enforce them in the logic
     created_at = DateTimeField(default=timezone.now)
     specializations = ListField(StringField(max_length=200), choices=config["therapistInfo"]["specializations"])
     clinics = ListField(StringField(max_length=200), choices=config["therapistInfo"]["clinics"])
@@ -41,7 +43,8 @@ class Patient(Document):
     meta = {'collection': 'patients'}  # MongoDB collection
     username = StringField(max_length=150, required=True)
     name = StringField(max_length=20)
-    password = StringField(max_length=100)
+    pwdhash = StringField()
+    access_word = StringField(max_length=100)
     first_name = StringField(max_length=20)
     user_type = StringField(max_length=20, default='patient')
     created_at = DateTimeField(default=timezone.now)
@@ -62,7 +65,6 @@ class Patient(Document):
 
     medication_intake = StringField(max_length=30)
     social_support = StringField(max_length=30)
-    access_word = StringField(max_length=10)
     duration = IntField()
 
     def __str__(self):
@@ -100,7 +102,9 @@ class Exercise(Document):
 
 
 class PatientType(EmbeddedDocument):
-    type = StringField(required=True, choices=config["patientInfo"]["function"])
+    patient_type_diag = all_diagnoses.append('All')
+    type = StringField(required=True, choices=config["therapistInfo"]["specializations"])
+    diagnosis = StringField(max_length=200, choices=patient_type_diag)
     frequency = StringField(required=True, choices=config["RecomendationInfo"]["frequency"])
     include_option = BooleanField(default=True)  # True means "Include", False means "Exclude"
     meta = {'allow_inheritance': True}
@@ -182,7 +186,7 @@ class PatientInterventions(Document):
 
             # Generate future dates specifically for this intervention
             future_dates = intervention.generate_schedule() if intervention.recomended_t else []
-
+            print('hello')
             # Check if today's date is a scheduled date and if it has not been completed
             if intervention.recomended_t:
                 if today in [date.date() for date in future_dates] and today not in [
@@ -192,7 +196,7 @@ class PatientInterventions(Document):
                     if today not in [date.date() for date in intervention.not_completed_dates]:
                         intervention.not_completed_dates.append(timezone.now())
                         intervention.save()  # Save the updated intervention
-
+            print('hei')
             result.append({
                 'intervention_id': str(intervention.intervention_id.pk),
                 'intervention_title': intervention.intervention_id.title,
@@ -226,20 +230,21 @@ class PatientInterventions(Document):
 
         # List to store the dates
         dates = []
-
+        print(end_date)
+        print(start_date)
+        print(self.frequency)
         # Generate the schedule based on frequency until end_date
         while start_date <= end_date:
             dates.append(start_date)
-
-            # Update start_date based on frequency
-            if self.frequency == 'Daily':
-                start_date += timedelta(days=1)
-            elif self.frequency == 'Every-2nd-day':
-                start_date += timedelta(days=2)
-            elif self.frequency == 'Weekly':
-                start_date += timedelta(weeks=1)
-            elif self.frequency == 'Once':
-                break  # Only include the recommendation_date
+            freq = self.frequency.lower()  # Normalize frequency to lowercase
+            if freq == config["RecomendationInfo"]["frequency"][0].lower():
+                start_date += timedelta(days=config["RecomendationInfo"]["frequencyDays"][0])
+            elif freq == config["RecomendationInfo"]["frequency"][1].lower():
+                start_date += timedelta(days=config["RecomendationInfo"]["frequencyDays"][1])
+            elif freq == config["RecomendationInfo"]["frequency"][2].lower():
+                start_date += timedelta(days=config["RecomendationInfo"]["frequencyDays"][2])
+            elif freq == config["RecomendationInfo"]["frequency"][3].lower():
+                break
 
         # Filter out only past dates that have not been completed, but include today
         now = timezone.now()
@@ -313,7 +318,7 @@ class PatientInterventions(Document):
 
         # Calculate the end date based on the patient's duration (in days or weeks)
         recommendation_date = timezone.now()
-        end_date = recommendation_date + timedelta(weeks=patient.duration)
+        end_date = recommendation_date + timedelta(days=patient.duration)
 
         # Check if the PatientIntervention exists
         patient_intervention = cls.objects(

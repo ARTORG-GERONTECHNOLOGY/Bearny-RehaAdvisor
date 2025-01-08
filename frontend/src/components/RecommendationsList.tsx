@@ -36,7 +36,7 @@ const RecommendationList: React.FC = () => {
 
   const fetchPatientData = async () => {
     try {
-      const response = await apiClient.get(`patient/${localStorage.getItem('id')}/today`);
+      const response = await apiClient.get(`patients/${localStorage.getItem('id')}/today`);
       const data = response.data || [];
 
       setRecommendationsData(data);
@@ -85,7 +85,7 @@ const RecommendationList: React.FC = () => {
 
   const handleMarkAsUsed = async (index: number) => {
     try {
-      await apiClient.post('markdone', {
+      await apiClient.post('recommendations/mark-done/', {
         patient_id: localStorage.getItem('id'),
         intervention_id: recommendationsData[index].intervention_id,
       });
@@ -108,7 +108,7 @@ const RecommendationList: React.FC = () => {
 
   const handleFeedbackSubmit = async (index: number, rating: number, comment: string) => {
     try {
-      await apiClient.post(`patient/${localStorage.getItem('id')}/feedback/${recommendationsData[index].intervention_id}`, {
+      await apiClient.post(`patients/${localStorage.getItem('id')}/feedback/${recommendationsData[index].intervention_id}/`, {
         comment: comment,
         rating: rating,
       });
@@ -151,7 +151,8 @@ const RecommendationList: React.FC = () => {
                   <ListGroup variant="flush">
                     {rec.link && (
                       <ListGroup.Item>
-                        <a href={rec.link} target="_blank" rel="noopener noreferrer">View Article</a>
+                        {/* <a href={rec.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
+                        <iframe src={rec.link} title='Link to a recomendation'></iframe>
                       </ListGroup.Item>
                     )}
 

@@ -16,10 +16,7 @@ RUN apt-get update && \
 
 # Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && bash /opt/miniconda-installer.sh -b -p /opt/conda
-#RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh -O /tmp/miniforge.sh && \
-#    bash /tmp/miniforge.sh -b -p /opt/conda && \
-#    rm /tmp/miniforge.sh
-# Set PATH to include Miniforge
+
 ENV PATH /opt/conda/bin:$PATH
 
 
@@ -43,3 +40,5 @@ COPY . .
 
 # run entrypoint.sh
 #ENTRYPOINT ["/srv/app/entrypoint.sh"]
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

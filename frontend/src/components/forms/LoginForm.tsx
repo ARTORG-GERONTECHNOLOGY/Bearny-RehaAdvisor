@@ -40,7 +40,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
           setIs2FARequired(true);
           setLoginSuccess(true);
           // Trigger the backend to send the verification code via SMS
-          await apiClient.post('/send-verification-code/', { userId: authStore.id });
+          await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
         } else {
           navigate(`/${authStore.userType.toLowerCase()}`); // Directly navigate for patient
         }
@@ -55,7 +55,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
     e.preventDefault();
     try {
       // Submit the 2FA code to verify
-      const response = await apiClient.post('/verify-code/', {
+      const response = await apiClient.post('/auth/verify-code/', {
         userId: authStore.id,
         verificationCode: verificationCode,
       });
