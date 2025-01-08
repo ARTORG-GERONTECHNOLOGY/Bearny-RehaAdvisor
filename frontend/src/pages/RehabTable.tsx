@@ -42,10 +42,10 @@ const RehabTable: React.FC = () => {
 
   const fetchPatientData = async () => {
     try {
-      const response = await apiClient.get(`rehab/${localStorage.getItem('selectedPatient') || patientUsername}`);
+      const response = await apiClient.get(`patients/${localStorage.getItem('selectedPatient') || patientUsername}/rehab`);
       //localStorage.removeItem('selectedPatient');
+      setPatientName(response.data.patient_name);
       setPatientData(response.data.reha_data);
-      setPatientName(response.data.patient_name || '');
       setPatientType(response.data.function || '');
     } catch (error) {
       console.error('Error fetching patient data', error);
@@ -54,16 +54,17 @@ const RehabTable: React.FC = () => {
 
   const fetchPatientDetails = async () => {
     try {
-      const response = await apiClient.get(`patient/${localStorage.getItem('selectedPatient')}`);
-      const patientData = JSON.parse(response.data);
+      const response = await apiClient.get(`patients/${localStorage.getItem('selectedPatient')}`);
+      const patientData = response.data;
       const created_at = patientData.created_at;
       const duration = patientData.duration;
+      setPatientName(`${patientData.first_name} ${patientData.name}` || '');
       // Handle the $date format and convert it to a JavaScript Date object
-      const startDate = created_at?.$date ? new Date(created_at.$date) : new Date();
+      // Parse the created_at string into a JavaScript Date object
 
+      const startDate = created_at ? new Date(created_at) : new Date();
       setPatientStartDate(startDate);
       setPatientDuration(duration);
-      console.log(patientData);
     } catch (error) {
       console.error('Error fetching patient details', error);
     }
@@ -98,7 +99,7 @@ const RehabTable: React.FC = () => {
 
   const handleAddRecommendation = async (recommendationId: number) => {
     try {
-      await apiClient.post('addinterforpatient', {
+      await apiClient.post('recommendations/add-to-patient/', {
         patient_id: patientUsername,
         intervention_id: recommendationId,
       });
@@ -140,7 +141,7 @@ const RehabTable: React.FC = () => {
 
       const { intervention_id } = selectedIntervention;
 
-      await apiClient.post('rminterforpatient', {
+      await apiClient.post('recommendations/remove-from-patient', {
         patient_id: patientUsername,
         intervention_id,
       });
@@ -274,8 +275,9 @@ const RehabTable: React.FC = () => {
         show={showAddModal}
         onHide={() => setShowAddModal(false)}
         onAdd={handleAddRecommendation}
-        patientFunction={patientType || 'general'}
+        patient={patientUsername}
         existingRecommendations={patientData.map((intervention) => intervention.intervention_id)}
+        patientFunction={patientType}
       />
 
       {/* Modal for viewing exercise details */}

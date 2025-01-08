@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 import makeAnimated from 'react-select/animated';
 import Select from 'react-select';
-import {Icon} from 'react-icons-kit';
-import {eyeOff} from 'react-icons-kit/feather/eyeOff';
-import {eye} from 'react-icons-kit/feather/eye'
-import { validateCurrentStep} from '../../utils/validation';
+import { Icon } from 'react-icons-kit';
+import { eyeOff } from 'react-icons-kit/feather/eyeOff';
+import { eye } from 'react-icons-kit/feather/eye';
+import { validateCurrentStep } from '../../utils/validation';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios'
-import apiClient from '../../api/client'
+import axios from 'axios';
+import apiClient from '../../api/client';
 import config from '../../config/config.json';
 
 
@@ -138,7 +138,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       try {
         // Send form data to the server via POST request
         console.log(formData);
-        const response = await apiClient.post('/register/', formData);
+        const response = await apiClient.post('/auth/register/', formData);
 
         // Check the response for success
         if (response.data && response.status === 201) {
@@ -224,6 +224,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                       <label htmlFor="email" className="form-label">Email</label>
                       <input
                         type="email"
+                        autoComplete="email"
                         className="form-control"
                         id="email"
                         placeholder="Enter your email"
@@ -256,6 +257,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
 
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
                         className="form-control"
                         id="password"
                         placeholder="Enter your password"
@@ -281,6 +283,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                       <label htmlFor="repeatPassword" className="form-label">Repeat Password</label>
                       <input
                         type={showPasswordRepeat ? 'text' : 'password'}
+                        autoComplete="new-password"
                         className="form-control"
                         id="repeatPassword"
                         placeholder="Repeat your password"
@@ -304,7 +307,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                         required
                       >
                         <option value="">Select User Type</option>
-                        {config.userInfo.userTypes.map((type) => (
+                        {config.Users.map((type) => (
                           <option key={type} value={type}>{type}</option>
                         ))}
                       </select>

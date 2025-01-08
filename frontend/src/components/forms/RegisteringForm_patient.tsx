@@ -131,7 +131,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
     if (validity) {
       try {
         // Send form data to the server via POST request
-        const response = await apiClient.post('/register/', formData);
+        const response = await apiClient.post('/auth/register/', formData);
 
         // Check the response for success
         if (response.data && response.status >= 200) {

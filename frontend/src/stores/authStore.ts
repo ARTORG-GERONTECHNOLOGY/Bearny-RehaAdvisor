@@ -65,12 +65,14 @@ class AuthStore {
 
   async loginWithHttp() {
     try {
-      const response = await apiClient.post('login/', {
+      const response = await apiClient.post('auth/login/', {
         email: this.email,
         password: this.password,
       });
 
       if (response.data && response.status === 200) {
+        localStorage.setItem('authToken', response.data.access_token);
+        localStorage.setItem('refreshToken', response.data.refresh_token);
         this.setAuthenticated(true);
         this.setLoginError('');
         this.userType = response.data['user_type'];
