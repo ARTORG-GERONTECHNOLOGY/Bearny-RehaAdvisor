@@ -44,18 +44,20 @@ const TherapistRecomendations: React.FC = () => {
 
   useEffect(() => {
     if (authStore.isAuthenticated && authStore.userType === 'Therapist') {
-      const fetchData = async () => {
-        try {
-          const recommendationResponse = await apiClient.get('recommendations/all/');
-          setRecommendations(recommendationResponse.data);
-          setFilteredRecommendations(recommendationResponse.data);
-        } catch (error) {
-          console.error('Error fetching data:', error);
-        }
-      };
+      
       fetchData();
     }
   }, [therapistId]);
+
+  const fetchData = async () => {
+    try {
+      const recommendationResponse = await apiClient.get('recommendations/all/');
+      setRecommendations(recommendationResponse.data);
+      setFilteredRecommendations(recommendationResponse.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
   const handleItemClick = (item: any) => {
     setSelectedItem(item);
@@ -70,14 +72,12 @@ const TherapistRecomendations: React.FC = () => {
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
       // Helper function to check if a URL contains a domain
-      const isDomain = (url: string, domain: string) => url.includes(link);
-
+      const isDomain = (url: string, domain: string) => url.includes(domain);
       // Check for iframe-compatible links (e.g., YouTube, Vimeo)
       if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'primary';
       if (isDomain(link, 'vimeo.com')) return 'primary';
 
-      if (link) return 'warning'; // Link
-        return 'No Media';
+      return 'warning'; // Link
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'primary';
@@ -92,14 +92,13 @@ const TherapistRecomendations: React.FC = () => {
   const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
       // Helper function to check if a URL contains a domain
-      const isDomain = (url: string, domain: string) => url.includes(link);
+      const isDomain = (url: string, domain: string) => url.includes(domain);
 
       // Check for iframe-compatible links (e.g., YouTube, Vimeo)
       if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'Video';
       if (isDomain(link, 'vimeo.com')) return 'Video';
 
-      if (link) return 'Link'; // Link
-      return 'No Media';
+      return 'Link';
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'Video';
@@ -116,8 +115,11 @@ const TherapistRecomendations: React.FC = () => {
 
     if (patientTypeFilter) {
       filtered = filtered.filter((rec) =>
-        // @ts-ignore
-        rec.patient_types.some((pt: any) => pt.type === patientTypeFilter),
+        // Check if `rec.patient_types` contains a matching patient type or diagnosis
+        rec.patient_types.some((pt) => {
+          const matchesType = patientTypeFilter ? pt.diagnosis === patientTypeFilter : true;
+          return matchesType;
+        })
       );
     }
 
@@ -286,7 +288,7 @@ const TherapistRecomendations: React.FC = () => {
           therapist={authStore.id}
         />
       )}
-      <AddRecommendationPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => alert('Success!')} />
+      <AddRecommendationPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()} />
       <Footer />
     </div>
   );

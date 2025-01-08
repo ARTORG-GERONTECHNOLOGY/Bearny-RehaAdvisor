@@ -307,7 +307,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                         required
                       >
                         <option value="">Select User Type</option>
-                        {config.userInfo.userTypes.map((type) => (
+                        {config.Users.map((type) => (
                           <option key={type} value={type}>{type}</option>
                         ))}
                       </select>

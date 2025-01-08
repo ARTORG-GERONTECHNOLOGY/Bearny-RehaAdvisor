@@ -99,7 +99,7 @@ const RehabTable: React.FC = () => {
 
   const handleAddRecommendation = async (recommendationId: number) => {
     try {
-      await apiClient.post('recommendations/add-to-patient', {
+      await apiClient.post('recommendations/add-to-patient/', {
         patient_id: patientUsername,
         intervention_id: recommendationId,
       });

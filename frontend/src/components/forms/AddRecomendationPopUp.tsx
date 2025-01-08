@@ -25,6 +25,8 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  
+
   // Fetch diagnoses based on selected specialization
   // @ts-ignore
   const getDiagnosesForSpecialization = (specialization) => {
@@ -104,6 +106,8 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
         });
         onSuccess(); // Callback for parent component
+        setSuccess(false);
+        setError('')
       }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {

@@ -44,19 +44,21 @@ const Therapist: React.FC = () => {
 
   useEffect(() => {
     if (authStore.isAuthenticated && authStore.userType === 'Therapist') {
-      const fetchData = async () => {
-        try {
-          const patientResponse = await apiClient.get(`therapists/${therapistId}/patients`);
-          const patientData = patientResponse.data;
-          setPatients(patientData);
-          setFilteredPatients(patientData);
-        } catch (error) {
-          console.error('Error fetching data:', error);
-        }
-      };
+      
       fetchData();
     }
   }, [therapistId]);
+
+  const fetchData = async () => {
+    try {
+      const patientResponse = await apiClient.get(`therapists/${therapistId}/patients`);
+      const patientData = patientResponse.data;
+      setPatients(patientData);
+      setFilteredPatients(patientData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
   const handleItemClick = (item: any) => {
     setSelectedItem(item);
@@ -205,7 +207,7 @@ const Therapist: React.FC = () => {
           show={showPopup}
           handleClose={handleClosePopup}
         />)}
-      <AddPatientPopup show={showPopupAdd} handleClose={handleClose} />
+      <AddPatientPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()}  />
 
 
       <Footer />

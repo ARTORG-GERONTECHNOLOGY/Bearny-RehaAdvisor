@@ -33,7 +33,7 @@ urlpatterns = [
     # Old: 'api/patient/<str:patient_id>/'
     path('api/patients/<str:patient_id>/rehab/', patient_views.get_rehab_data, name='get_rehab_data'),
     path('api/patients/<str:patient_id>/today/', patient_views.get_patient_reha_today, name='get_patient_reha_today'),
-    path('api/patients/<str:patient_id>/feedback/<str:intervention>/', patient_views.patient_post_feedback,
+    path('api/patients/<str:patient_id>/feedback/<str:intervention_id>/', patient_views.patient_post_feedback,
          name='patient_post_feedback'),
     path('api/patients/', recomendation_views.get_recommendations, name='get_recommendations'),
     path('api/patients/<str:patient_id>/todays/', patient_views.get_patient_recommendations,
@@ -60,6 +60,9 @@ urlpatterns = [
          name='get_recommended_diagnoses_for_intervention'),
     path('api/recommendations/<str:intervention_id>/', recomendation_views.get_recommendation_info,
          name='get_recommendation_info'),
+
+     path('api/recommendations/daily_recomendations/nooraemiliaangelva', recomendation_views.update_daily_recomendations,
+         name='update_daily_recomendations'),
 ]
 
 # Only add this if DEBUG=True, which is typical in development

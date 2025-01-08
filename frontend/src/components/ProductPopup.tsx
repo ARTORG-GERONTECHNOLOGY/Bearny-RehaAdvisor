@@ -94,6 +94,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
           </Col>
           <Col md={6}>
             <h6>Source</h6>
+            
             <ListGroup variant="flush">
               {item.link && (
                 <ListGroup.Item>

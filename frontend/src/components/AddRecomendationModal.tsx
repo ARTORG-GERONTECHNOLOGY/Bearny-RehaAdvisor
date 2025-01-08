@@ -69,15 +69,13 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
 
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      // Helper function to check if a URL contains a domain
-      const isDomain = (url: string, domain: string) => url.includes(link);
+      const isDomain = (url: string, domain: string) => url.includes(domain);
 
       // Check for iframe-compatible links (e.g., YouTube, Vimeo)
       if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'primary';
       if (isDomain(link, 'vimeo.com')) return 'primary';
 
-      if (link) return 'warning'; // Link
-      return 'No Media';
+      return 'warning';
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'primary';
@@ -91,15 +89,13 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
 
   const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     if (!mediaUrl) {
-      // Helper function to check if a URL contains a domain
-      const isDomain = (url: string, domain: string) => url.includes(link);
+      const isDomain = (url: string, domain: string) => url.includes(domain);
 
       // Check for iframe-compatible links (e.g., YouTube, Vimeo)
       if (isDomain(link, 'youtube.com') || isDomain(link, 'youtu.be')) return 'Video';
       if (isDomain(link, 'vimeo.com')) return 'Video';
 
-      if (link) return 'Link'; // Link
-      return 'No Media';
+      return 'Link';
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'Video';

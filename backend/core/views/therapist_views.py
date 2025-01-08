@@ -32,6 +32,7 @@ def get_patients_by_therapist(request, therapist_id):
                 "name": patient.name,
                 "diagnosis": patient.diagnosis,
                 "username": patient.username,
+                "duration": patient.duration
 
             } for patient in patients
         ]

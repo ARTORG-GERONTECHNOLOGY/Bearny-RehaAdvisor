@@ -19,60 +19,59 @@ def login(request):
     host = request.META.get('HTTP_HOST')
     print(f"HTTP_HOST: {host}")
     if request.method == 'POST':
-        try:
-            # Parse JSON data from the request body
-            data = json.loads(request.body)
-            email_or_username = data.get('email')
-            password = data.get('password')
+        # Parse JSON data from the request body
+        data = json.loads(request.body)
+        email_or_username = data.get('email')
+        password = data.get('password')
 
             # Try to find the user by email
+        try:
             user = Therapist.objects.get(email=email_or_username)
+        except Therapist.DoesNotExist:
+            user = None
 
-            if user is not None:
-                if user.accepted:
-                    # Check hashed password for email login
-                    if check_password(password, user['pwdhash']):
-                        # Generate or fetch the token
-                        # Generate JWT tokens
-                        refresh = RefreshToken.for_user(user)
-                        access_token = str(refresh.access_token)
-                        refresh_token = str(refresh)
-                        return JsonResponse({
-                            'full_name': f'{user.first_name} {user.name}',
-                            'user_type': user['user_type'],
-                            'id': str(user['username']),  # Convert to string if using ObjectId or ensure compatibility
-                            'specialisation': user['specializations'],
-                            'access_token': access_token,
-                            'refresh_token': refresh_token,
-                        }, status=200)
+        if user is not None:
+            if user.accepted:
+                # Check hashed password for email login
+                if check_password(password, user['pwdhash']):
+                    # Generate or fetch the token
+                    # Generate JWT tokens
+                    refresh = RefreshToken.for_user(user)
+                    access_token = str(refresh.access_token)
+                    refresh_token = str(refresh)
+                    return JsonResponse({
+                        'full_name': f'{user.first_name} {user.name}',
+                        'user_type': user['user_type'],
+                        'id': str(user['username']),  # Convert to string if using ObjectId or ensure compatibility
+                        'specialisation': user['specializations'],
+                        'access_token': access_token,
+                        'refresh_token': refresh_token,
+                    }, status=200)
+        else:
+            # If no user found by email, check by username
+            user = Patient.objects.filter(username=email_or_username).first()
+            if user:
+                # Check plain password for username login
+                if password == user.access_word:  # Assuming the password is stored as plain text
+                    # Generate or fetch the token
+                    refresh = RefreshToken.for_user(user)
+                    access_token = str(refresh.access_token)
+                    refresh_token = str(refresh)
+                    return JsonResponse({
+                        'full_name': f'{user.first_name} {user.name}',
+                        'user_type': user.user_type,
+                        'id': str(user.id),
+                        'specialisation': user['function'],
+                        'access_token': access_token,
+                        'refresh_token': refresh_token,
+                    }, status=200)
             else:
-                # If no user found by email, check by username
-                user = Patient.objects.filter(username=email_or_username).first()
-                if user:
-                    # Check plain password for username login
-                    if password == user.access_word:  # Assuming the password is stored as plain text
-                        # Generate or fetch the token
-                        refresh = RefreshToken.for_user(user)
-                        access_token = str(refresh.access_token)
-                        refresh_token = str(refresh)
-                        return JsonResponse({
-                            'full_name': f'{user.first_name} {user.name}',
-                            'user_type': user.user_type,
-                            'id': str(user.id),
-                            'specialisation': user['function'],
-                            'access_token': access_token,
-                            'refresh_token': refresh_token,
-                        }, status=200)
-                else:
-                    return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
+                return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
 
-            # If user is not found by either email or username
-            return JsonResponse({'error': 'User not found.'}, status=404)
-
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+        # If user is not found by either email or username
+        return JsonResponse({'error': 'User not found.'}, status=404)
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 
 @csrf_exempt
@@ -150,7 +149,7 @@ def register(request):
                     personal_goals=get_labels(data, 'lifeGoals'),  # Assuming personal goals are provided
                     medication_intake=data.get('medicationIntake', ''),  # Assuming medication intake is provided
                     social_support=data.get('socialSupport', ''),  # Assuming social support is provided
-                    access_word=password,  # Assuming access word is provided
+                    access_word=data.get('password'),  # Assuming access word is provided
                     duration=int(data.get('duration', 0)),
                 )
 
@@ -189,10 +188,10 @@ def register(request):
 @csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
 def sendVerificationCode(request):
     user_id = json.loads(request.body)['userId']
-    try:
-        user = Therapist.find_one({'username': user_id})  # Adjust based on your schema
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+
+    #user = Therapist.find_one({'username': user_id})  # Adjust based on your schema
+    #if user:
+    #    return JsonResponse({'error': 'User not found'}, status=404)
 
     # Generate and save verification code
     # verification = SMSVerification.objects.create(user=user)

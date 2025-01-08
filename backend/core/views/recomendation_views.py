@@ -38,10 +38,12 @@ def get_recommendations(request):
                         "type": pt.type,
                         "frequency": pt.frequency,
                         "include_option": pt.include_option,
+                        "diagnosis": pt.diagnosis
                     } for pt in rec.patient_types
                 ],
                 "link": rec.link or '',
-                "media_url": f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, rec.media_file)}" or ''
+                "media_url": f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, rec.media_file)}" if rec.media_file else ''
+
             }
             for rec in recommendations
         ]
@@ -71,7 +73,7 @@ def create_intervention(request):
 
         # Create PatientType embedded documents
         patient_types = [
-            PatientType(type=pt['type'], frequency=pt['frequency'], include_option=pt['includeOption'])
+            PatientType(type=pt['type'], frequency=pt['frequency'], include_option=pt['includeOption'], diagnosis=pt['diagnosis'])
             for pt in data.get('patientTypes', [])
         ]
 
@@ -274,3 +276,16 @@ def delete_intervention_from_patient_types(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+#TODO
+@csrf_exempt
+def update_daily_recomendations(request):
+    if request.method == "GET":
+        try:
+            patients = Patient.objects.get()
+            for patient in patients:
+                _ = PatientInterventions.get_patient_interventions_with_feedback_and_future_dates(patient)
+
+            return JsonResponse({'success': 'Done.'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': 'Failed.'}, status=400)

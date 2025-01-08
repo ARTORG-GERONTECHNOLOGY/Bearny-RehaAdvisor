@@ -85,7 +85,7 @@ const RecommendationList: React.FC = () => {
 
   const handleMarkAsUsed = async (index: number) => {
     try {
-      await apiClient.post('interventions/mark-done', {
+      await apiClient.post('recommendations/mark-done/', {
         patient_id: localStorage.getItem('id'),
         intervention_id: recommendationsData[index].intervention_id,
       });
@@ -108,7 +108,7 @@ const RecommendationList: React.FC = () => {
 
   const handleFeedbackSubmit = async (index: number, rating: number, comment: string) => {
     try {
-      await apiClient.post(`patients/${localStorage.getItem('id')}/feedback/${recommendationsData[index].intervention_id}`, {
+      await apiClient.post(`patients/${localStorage.getItem('id')}/feedback/${recommendationsData[index].intervention_id}/`, {
         comment: comment,
         rating: rating,
       });
