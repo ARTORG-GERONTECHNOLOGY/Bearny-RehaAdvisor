@@ -1,12 +1,3 @@
----
-name: Bug report
-about: Something isn't working as expected
-title: ''
-labels: bug
-assignees: ''
-
----
-
 
 ## Prerequisites
 Please make sure to check off these prerequisites before submitting a bug report.
@@ -42,3 +33,5 @@ If you already know where the issue stems from, or you have a hint please let us
 
 ### Additional context
 Add any other context about the problem here.
+
+/label ~bug ~reproduced ~needs-investigation
