@@ -2,8 +2,6 @@
 ## Prerequisites
 Please talk to us before creating a new feature request. So that you can check that the idea is not already in active development.
 
-You can present your idea over here at the GitHub discussions page for hls4ml: https://github.com/fastmachinelearning/hls4ml/discussions/categories/ideas
-
 Even if an idea is already being worked on you can still create a feature request,
 if you would like to open a discussion about the feature or want to contribute to it.
 
