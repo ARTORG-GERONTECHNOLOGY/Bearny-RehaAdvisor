@@ -9,12 +9,12 @@ if you would like to open a discussion about the feature or want to contribute t
 Please add to the following sections to describe the feature as accurately as possible.
 
 ### New behavior
-Please add a brief and concise description of what you would like to happen in hls4ml in the future.
+Please add a brief and concise description of what you would like to happen in the software in the future.
 
 ### Motivation
 Please tell us why this feature is important to the community.
 
-### Parts of hls4ml being affected
-Please describe which parts of hls4ml would be affected by this feature.
+### Parts of the Project Being Affected
+Please describe which parts of the project would be affected by this feature.
 
 /label ~enhancement
