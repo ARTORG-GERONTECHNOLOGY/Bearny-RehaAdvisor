@@ -22,7 +22,7 @@ Django
 
 ### Notes
 
-- One app created/installed called core
+- One backend app created/installed called core
 
 React
 
