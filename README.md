@@ -95,8 +95,6 @@ $> docker exec -it <container-name> sh
 
 Cross-Origin Resource Sharing(CORS) issues will make your browser sad when you serve your site from different ports as we do with this architecture. Using NGINX to proxy requests/responses to/from the correct container/service/ports helps make your browser happy. And it simulates real world infrastructure as a bonus. So...
 
-Please make all requests from your browser through <http://localhost:8080> and NGINX will happily redirect the request and proxy all your services so your browser thinks it's all one and the same protocol/domain/port == CORS bliss.
-
 ### Can this be used for production?
 
 Not yet. Later a new docker compose and docker files will be added to also support production.
