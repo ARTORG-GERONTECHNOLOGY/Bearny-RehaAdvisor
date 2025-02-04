@@ -1,49 +1,25 @@
-image: docker:20.10
-
-services:
-  - docker:dind
-
-stages:
-  - build
-  - test
-
-variables:
-  DOCKER_HOST: tcp://docker:2375/  # Connect to the Docker daemon
-  DOCKER_DRIVER: overlay2
-  FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
-  BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
-  NGINX_IMAGE: $CI_REGISTRY_IMAGE/nginx
-
-before_script:
-  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-
-build-frontend:
+docker-build:
+  # Use the official docker image.
+  image: docker:cli
   stage: build
+  services:
+    - docker:dind
+  variables:
+    DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  # All branches are tagged with $DOCKER_IMAGE_NAME (defaults to commit ref slug)
+  # Default branch is also tagged with `latest`
   script:
-    - echo "Building frontend image..."
-    - docker build -t $FRONTEND_IMAGE:latest ./frontend
-    - echo "Pushing frontend image..."
-    - docker push $FRONTEND_IMAGE:latest
-
-build-backend:
-  stage: build
-  script:
-    - echo "Building backend image..."
-    - docker build -t $BACKEND_IMAGE:latest ./backend
-    - echo "Pushing backend image..."
-    - docker push $BACKEND_IMAGE:latest
-
-build-nginx:
-  stage: build
-  script:
-    - echo "Building nginx image..."
-    - docker build -t $NGINX_IMAGE:latest ./nginx
-    - echo "Pushing nginx image..."
-    - docker push $NGINX_IMAGE:latest
-
-test-backend:
-  stage: test
-  script:
-    - echo "Running backend tests..."
-    - docker run --rm $BACKEND_IMAGE conda env list
-    - docker run --rm $BACKEND_IMAGE pytest --cov=teleRehabApp django/tests/
+    - docker build --pull -t "$DOCKER_IMAGE_NAME" .
+    - docker push "$DOCKER_IMAGE_NAME"
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        docker tag "$DOCKER_IMAGE_NAME" "$CI_REGISTRY_IMAGE:latest"
+        docker push "$CI_REGISTRY_IMAGE:latest"
+      fi
+  # Run this job in a branch where a Dockerfile exists
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      exists:
+        - Dockerfile
