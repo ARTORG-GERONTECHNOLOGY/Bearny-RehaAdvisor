@@ -1,47 +1,13 @@
-image: docker:20.10
-
-services:
-  - docker:24.0.5-dind
-  
 stages:
   - build
   - test
 
-variables:
-  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-  FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
-  BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
-  NGINX_IMAGE: $CI_REGISTRY_IMAGE/nginx
-
-before_script:
-  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-
-build-frontend:
+job_build:
   stage: build
   script:
-    - echo "Building frontend image..."
-    - docker build -t $FRONTEND_IMAGE:latest ./frontend
-    - echo "Pushing frontend image..."
-    - docker push $FRONTEND_IMAGE:latest
+    - echo "Building the project"
 
-build-backend:
-  stage: build
-  script:
-    - echo "Building backend image..."
-    - docker build -t $BACKEND_IMAGE:latest ./backend
-    - echo "Pushing backend image..."
-    - docker push $BACKEND_IMAGE:latest
-
-build-nginx:
-  stage: build
-  script:
-    - echo "Building nginx image..."
-    - docker build -t $NGINX_IMAGE:latest ./nginx
-    - echo "Pushing nginx image..."
-    - docker push $NGINX_IMAGE:latest
-
-test-backend:
+job_test:
   stage: test
   script:
-    - echo "Running backend tests..."
-    - docker run --rm $BACKEND_IMAGE conda env list
+    - echo "Running tests"
