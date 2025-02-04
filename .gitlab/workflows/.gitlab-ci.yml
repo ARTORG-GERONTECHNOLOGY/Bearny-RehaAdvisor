@@ -1,8 +1,8 @@
 image: docker:20.10
 
 services:
-  - docker:dind
-
+  - docker:24.0.5-dind
+  
 stages:
   - build
   - test
