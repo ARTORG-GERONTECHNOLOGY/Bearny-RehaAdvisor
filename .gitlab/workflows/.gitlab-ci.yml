@@ -2,12 +2,33 @@ stages:
   - build
   - test
 
-job_build:
+build-frontend:
   stage: build
   script:
-    - echo "Building the project"
+    - echo "Building frontend image..."
+    - docker build -t $FRONTEND_IMAGE:latest ./frontend
+    - echo "Pushing frontend image..."
+    - docker push $FRONTEND_IMAGE:latest
 
-job_test:
+build-backend:
+  stage: build
+  script:
+    - echo "Building backend image..."
+    - docker build -t $BACKEND_IMAGE:latest ./backend
+    - echo "Pushing backend image..."
+    - docker push $BACKEND_IMAGE:latest
+
+build-nginx:
+  stage: build
+  script:
+    - echo "Building nginx image..."
+    - docker build -t $NGINX_IMAGE:latest ./nginx
+    - echo "Pushing nginx image..."
+    - docker push $NGINX_IMAGE:latest
+
+test-backend:
   stage: test
   script:
-    - echo "Running tests"
+    - echo "Running backend tests..."
+    - docker run --rm $BACKEND_IMAGE conda env list
+
