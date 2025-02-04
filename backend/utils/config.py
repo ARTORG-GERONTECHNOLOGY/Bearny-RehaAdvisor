@@ -3,10 +3,10 @@ from pathlib import Path
 import json
 # Start from the current file's directory and go up three levels
 # Calculate the path to the 'config' directory
-config_dir = Path(__file__).parent.parent / 'config'
+config_dir = Path(__file__).parent.parent
 
 # Print the absolute path of the 'config' directory for debugging
-print(f"Looking for config directory at: {config_dir.resolve()}")
+print(f"Looking for config directory at: {config_dir}")
 
 # Check if the 'config' directory exists
 if not config_dir.is_dir():
