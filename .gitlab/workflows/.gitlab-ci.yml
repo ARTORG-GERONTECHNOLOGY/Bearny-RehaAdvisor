@@ -1,34 +1,49 @@
+image: ubuntu:22.04
+
+services:
+  - docker:dind
+
 stages:
   - build
   - test
 
-build-frontend:
-  stage: build
-  script:
-    - echo "Building frontend image..."
-    - docker build -t $FRONTEND_IMAGE:latest ./frontend
-    - echo "Pushing frontend image..."
-    - docker push $FRONTEND_IMAGE:latest
+variables:
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+  FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
+  BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
+  NGINX_IMAGE: $CI_REGISTRY_IMAGE/nginx
 
-build-backend:
-  stage: build
-  script:
-    - echo "Building backend image..."
-    - docker build -t $BACKEND_IMAGE:latest ./backend
-    - echo "Pushing backend image..."
-    - docker push $BACKEND_IMAGE:latest
+before_script:
+  # Update package list and install dependencies
+  - apt-get update
+  - apt-get install -y curl apt-transport-https ca-certificates gnupg lsb-release
 
-build-nginx:
+  # Add Docker’s official GPG key
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+  # Set up the Docker repository
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+  # Install Docker and Docker Compose
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+  # Start Docker service
+  - service docker start
+
+  # Log in to the GitLab Container Registry
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+
+build:
   stage: build
   script:
-    - echo "Building nginx image..."
-    - docker build -t $NGINX_IMAGE:latest ./nginx
-    - echo "Pushing nginx image..."
-    - docker push $NGINX_IMAGE:latest
+    - echo "Building and pushing images using docker-compose..."
+    - docker-compose build
+    - docker-compose push
 
 test-backend:
   stage: test
   script:
     - echo "Running backend tests..."
-    - docker run --rm $BACKEND_IMAGE conda env list
-
+    - docker-compose run --rm backend conda env list
