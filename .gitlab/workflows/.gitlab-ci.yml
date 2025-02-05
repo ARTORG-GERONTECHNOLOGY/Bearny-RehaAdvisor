@@ -16,6 +16,8 @@ variables:
   NGINX_IMAGE: $CI_REGISTRY_IMAGE/nginx
 
 before_script:
+  - docker system prune -af
+  - docker volume prune -f
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 build-frontend:
