@@ -12,7 +12,10 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Recommendation, PatientInterventions, PatientType, RecommendationAssignment
 from core.models import Therapist, Patient
 from utils.config import config
-
+from utils.utils import (
+    get_labels,
+    generate_custom_id
+)
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
     'mp3': 'audio',
@@ -62,6 +65,7 @@ def create_intervention(request):
         # Parse form data or JSON body
         data = request.POST.dict()
 
+
         # Parse patientTypes JSON field if present
         if 'patientTypes' in data:
             data['patientTypes'] = json.loads(data['patientTypes'])
@@ -90,6 +94,19 @@ def create_intervention(request):
             # Save the file to media directory
             media_file_path = default_storage.save(file_path, media_file)
 
+        img_file_path = ''
+        if 'img_file' in request.FILES:
+            img_file = request.FILES['img_file']
+            file_extension = img_file.name.split('.')[-1].lower()
+
+            # Choose the folder based on file extension
+            folder = FILE_TYPE_FOLDERS.get(file_extension, 'others')
+            file_path = os.path.join(folder, f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{img_file.name}")
+
+            # Save the file to media directory
+            
+            img_file_path = default_storage.save(file_path, img_file)
+
         # Create the new Recommendation document
         recommendation = Recommendation(
             title=data['title'],
@@ -97,7 +114,11 @@ def create_intervention(request):
             content_type=data['contentType'],
             link=data.get('link', ''),  # Use `link` instead of `blogLink`
             media_file=media_file_path,  # Path to uploaded media if any
-            patient_types=patient_types
+            preview_img=img_file_path,
+            patient_types=patient_types,
+            duration=data['duration'],
+            benefitFor=data['benefitFor'].split(' '),
+            tags=data['tagList'].split(' '),
         )
         recommendation.save()
 
@@ -206,7 +227,7 @@ def assign_intervention_to_patient_types(request):
                 patients = Patient.objects.filter(therapist=therapist, diagnosis__contains=diagnosis)
 
             for patient in patients:
-                PatientInterventions.get_or_create(patient, intervention)
+                PatientInterventions.get_ord_create(patient, intervention)
 
             # Update therapist's default recommendations
             for rec in therapist.default_recommendations:

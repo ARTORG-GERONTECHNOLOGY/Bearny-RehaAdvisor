@@ -5,6 +5,7 @@ import { FaPlus } from 'react-icons/fa';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import axios from 'axios';
+import Select from 'react-select';
 
 interface AddRecommendationPopupProps {
   show: boolean;
@@ -17,9 +18,13 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    duration: 0,
     contentType: 'Article',
     link: '',
+    benefitFor: [],
+    tagList: [],
     mediaFile: null,
+    previewImage: null,
     patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
   });
   const [error, setError] = useState('');
@@ -64,6 +69,20 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
     setFormData((prev) => ({ ...prev, mediaFile: file }));
   };
 
+    // Handle file upload
+    const handleImgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      // @ts-ignore
+      setFormData((prev) => ({ ...prev, previewImage: file }));
+    };
+
+  const handleMultiChange = (field, selectedOptions) => {
+    setFormData({
+      ...formData,
+      [field]: selectedOptions.map(option => option.value),
+    });
+  };
+
 
   const addPatientType = () => {
     setFormData((prev) => ({
@@ -82,6 +101,10 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
       formPayload.append('title', formData.title);
       formPayload.append('description', formData.description);
       formPayload.append('contentType', formData.contentType);
+      formPayload.append('img_file', formData.previewImage);
+      formPayload.append('duration', formData.duration);
+      formPayload.append('benefitFor', formData.benefitFor);
+      formPayload.append('tagList', formData.tagList);
 
       if (formData.link) {
         formPayload.append('link', formData.link);
@@ -100,9 +123,13 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
         setFormData({
           title: '',
           description: '',
+          duration: 0,
           contentType: 'blog',
+          benefitFor: [],
           link: '',
+          tagList: [],
           mediaFile: null,
+          previewImage: null,
           patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
         });
         onSuccess(); // Callback for parent component
@@ -120,7 +147,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
 
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{t('Add New Recommendation')}</Modal.Title>
       </Modal.Header>
@@ -149,6 +176,49 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
+            />
+          </Form.Group>
+
+          <Form.Group controlId="duration">
+            <Form.Label>{t('Recomendation Duration (min)')}</Form.Label>
+            <Form.Control
+              type="number"
+              placeholder={t('Enter recommendation duartion in minutes')}
+              value={formData.duration}
+              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+              required
+            />
+          </Form.Group>
+
+          <Form.Group controlId="tagList" className="mt-3">
+            <Form.Label>{t('Tag List')}</Form.Label>
+            <Select
+              isMulti
+              options={config.RecomendationInfo.tags.map(type => ({
+                value: type,
+                label: type.charAt(0).toUpperCase() + type.slice(1),
+              }))}
+              value={formData.tagList.map(value => ({
+                value,
+                label: value.charAt(0).toUpperCase() + value.slice(1),
+              }))}
+              onChange={(selectedOptions) => handleMultiChange('tagList', selectedOptions)}
+            />
+          </Form.Group>
+
+          <Form.Group controlId="benefitFor" className="mt-3">
+            <Form.Label>{t('Benefit For')}</Form.Label>
+            <Select
+              isMulti
+              options={config.RecomendationInfo.benefits.map(type => ({
+                value: type,
+                label: type.charAt(0).toUpperCase() + type.slice(1),
+              }))}
+              value={formData.benefitFor.map(value => ({
+                value,
+                label: value.charAt(0).toUpperCase() + value.slice(1),
+              }))}
+              onChange={(selectedOptions) => handleMultiChange('benefitFor', selectedOptions)}
             />
           </Form.Group>
 
@@ -186,6 +256,15 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               type="file"
               accept="image/*,video/*,audio/*,application/pdf"
               onChange={handleFileChange}
+            />
+          </Form.Group>
+
+          <Form.Group controlId="previewImage" className="mt-3">
+            <Form.Label>{t('Upload a Preview Image')}</Form.Label>
+            <Form.Control
+              type="file"
+              accept="image/*"
+              onChange={handleImgChange}
             />
           </Form.Group>
 
