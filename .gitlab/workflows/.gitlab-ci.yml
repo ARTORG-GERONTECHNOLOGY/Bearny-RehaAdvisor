@@ -40,4 +40,4 @@ test-backend:
   stage: test
   script:
     - docker run --rm $BACKEND_IMAGE conda env list
-    - docker run --rm $BACKEND_IMAGE pytest django/tests/
+    - docker run --rm $BACKEND_IMAGE pytest /srv/app/tests/
