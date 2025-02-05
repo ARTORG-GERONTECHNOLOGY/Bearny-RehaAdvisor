@@ -314,7 +314,7 @@ class PatientInterventions(Document):
 
         # Set a default frequency if not found
         if not frequency:
-            frequency = 'weekly'  # Default to 'weekly' if no match found
+            frequency = 'Weekly'  # Default to 'weekly' if no match found
 
         # Calculate the end date based on the patient's duration (in days or weeks)
         recommendation_date = timezone.now()
