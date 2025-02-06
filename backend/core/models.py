@@ -115,9 +115,13 @@ class Recommendation(Document):
     title = StringField(required=True, unique=True)
     description = StringField(required=True)
     content_type = StringField(required=True, choices=config["RecomendationInfo"]["types"])
+    benefitFor = ListField(StringField())
+    tags = ListField(StringField())
     link = StringField()  # Only for articles
     media_file = StringField()  # For video and app content types
+    preview_img = StringField()
     patient_types = ListField(EmbeddedDocumentField(PatientType))
+    duration = IntField()
 
     def __str__(self):
         return self.title
