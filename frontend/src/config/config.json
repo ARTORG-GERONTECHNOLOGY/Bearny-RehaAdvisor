@@ -163,6 +163,17 @@
         "App",
         "Exercise"
       ],
+      "tags":[
+        "Ernährung",
+        "Körperliche Aktivität"
+      ],
+      "benefits":[
+        "Schlaf",
+        "Psychische Gesundheit",
+        "Mobility",
+        "kardiorespiratorische Fitness",
+        "Muskelkraft"
+      ],
       "intensity": [
         "Core",
         "Supportive"
