@@ -23,21 +23,26 @@ build-frontend:
   script:
     - docker build -t $FRONTEND_IMAGE:latest ./frontend
     - docker push $FRONTEND_IMAGE:latest
+    - docker rmi -f $FRONTEND_IMAGE:latest  # Cleanup after push
 
 build-backend:
   stage: build
   script:
     - docker build -t $BACKEND_IMAGE:latest ./backend
     - docker push $BACKEND_IMAGE:latest
+    - docker rmi -f $BACKEND_IMAGE:latest  # Cleanup after push
 
 build-nginx:
   stage: build
   script:
     - docker build -t $NGINX_IMAGE:latest ./nginx
     - docker push $NGINX_IMAGE:latest
+    - docker rmi -f $NGINX_IMAGE:latest  # Cleanup after push
 
 test-backend:
   stage: test
   script:
+    - docker pull $BACKEND_IMAGE:latest  # Ensure the image is available
     - docker run --rm $BACKEND_IMAGE conda env list
     - docker run --rm $BACKEND_IMAGE pytest /srv/app/tests/
+    - docker rmi -f $BACKEND_IMAGE:latest  # Cleanup after testing
