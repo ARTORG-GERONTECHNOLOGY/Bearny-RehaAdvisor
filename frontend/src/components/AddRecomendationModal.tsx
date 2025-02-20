@@ -124,7 +124,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>Add Recommendation</Modal.Title>
       </Modal.Header>

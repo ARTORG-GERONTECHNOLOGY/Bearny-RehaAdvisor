@@ -6,7 +6,7 @@ const PatientPopup_re = ({ show, item, handleClose }) => {
   if (!item) return null;
 
   return (
-    <Modal show={show} onHide={handleClose} centered>
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>Patient Details: {item.name}</Modal.Title>
       </Modal.Header>

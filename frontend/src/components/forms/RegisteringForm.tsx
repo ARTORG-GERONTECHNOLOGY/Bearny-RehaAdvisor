@@ -184,7 +184,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
 
 
   return (
-          <Modal show={show} onHide={handleModalClose}>
+          <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
             <Modal.Header closeButton>
               <Modal.Title>Register</Modal.Title>
             </Modal.Header>
