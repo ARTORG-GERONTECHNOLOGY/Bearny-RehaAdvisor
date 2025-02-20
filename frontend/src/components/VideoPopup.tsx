@@ -15,7 +15,7 @@ const VideoPopup = () => {
       </Button>
 
       {/* Modal with video */}
-      <Modal show={show} onHide={handleClose} centered>
+      <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
         <Modal.Header closeButton>
           <Modal.Title>Watch Video</Modal.Title>
         </Modal.Header>
