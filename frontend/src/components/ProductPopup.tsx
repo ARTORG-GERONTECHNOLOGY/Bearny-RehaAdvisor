@@ -75,7 +75,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{item.title}</Modal.Title>
       </Modal.Header>

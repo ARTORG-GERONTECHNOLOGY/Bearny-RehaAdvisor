@@ -61,7 +61,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   }
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{ // @ts-ignore
           patient.name}</Modal.Title>

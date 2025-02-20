@@ -16,7 +16,7 @@ const ArticlePopup = ({ title, content, imageUrl }) => {
       </Button>
 
       {/* Modal with article information */}
-      <Modal show={show} onHide={handleClose} centered>
+      <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
         <Modal.Header closeButton>
           <Modal.Title>{title}</Modal.Title>
         </Modal.Header>

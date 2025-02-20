@@ -78,7 +78,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
   };
 
   return (
-    <Modal show={show} onHide={handleModalClose}>
+    <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{t('Login')}</Modal.Title>
       </Modal.Header>
