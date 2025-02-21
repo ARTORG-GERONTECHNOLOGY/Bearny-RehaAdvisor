@@ -8,7 +8,7 @@ class AuthStore {
   loginError: string = '';
   userType: string = ''; // Add userType to store
   id: string = '';
-  sessionTimeout: number = 30 * 60 * 1000; // Set session timeout to 30 minutes
+  sessionTimeout: number = 5 * 60 * 1000; // Set session timeout to 5 minutes
   full_name: string = '';
   specialisation: string = '';
 
@@ -168,7 +168,7 @@ class AuthStore {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         this.logout(); // Log out after inactivity
-        alert('Session expired due to inactivity.');
+        window.location.reload(); // Reload page to go back to login screen
       }, this.sessionTimeout); // Inactivity period
     };
 
