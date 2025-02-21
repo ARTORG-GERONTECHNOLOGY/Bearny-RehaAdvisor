@@ -283,7 +283,7 @@ const RehabTable: React.FC = () => {
       {/* Modal for viewing exercise details */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Exercise Details</Modal.Title>
+          <Modal.Title>Intervention Details</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedExercise ? (
@@ -291,11 +291,11 @@ const RehabTable: React.FC = () => {
               <h5>{selectedExercise.intervention_title}</h5>
               <p>{selectedExercise.description}</p>
               <p>
-                <FaStar size={24} color={'gold'} /> {selectedExercise.feedback[0].rating || '0'}  / 5
+                <FaStar size={24} color={'gold'} /> {selectedExercise.feedback?.[0]?.rating ?? '0'}  / 5
               </p>
             </>
           ) : (
-            <p>No exercise selected.</p>
+            <p>No Intervention selected.</p>
           )}
         </Modal.Body>
         <Modal.Footer>
