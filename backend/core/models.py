@@ -66,6 +66,7 @@ class Patient(Document):
     medication_intake = StringField(max_length=30)
     social_support = StringField(max_length=30)
     duration = IntField()
+    reha_end_date = DateTimeField()
 
     def __str__(self):
         return f'{self.username} (Patient)'
