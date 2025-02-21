@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Col, Container, Form, ListGroup, Row } from 'react-bootstrap';
+import { Badge, Button, Col, Container, Form, ListGroup, Row, Card } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import WelcomeArea from '../components/WelcomeArea';
 import Header from '../components/common/Header';
@@ -10,6 +10,9 @@ import apiClient from '../api/client';
 import ProductPopup from '../components/ProductPopup';
 import config from '../config/config.json';
 import AddRecommendationPopup from '../components/forms/AddRecomendationPopUp';
+import Select from 'react-select';
+
+
 
 const TherapistRecomendations: React.FC = () => {
   const [recommendations, setRecommendations] = useState([]);
@@ -21,7 +24,9 @@ const TherapistRecomendations: React.FC = () => {
   const [patientTypeFilter, setPatientTypeFilter] = useState('');
   const [coreSupportFilter, setCoreSupportFilter] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [frequencyFilter, setFrequencyFilter] = useState('');
+  const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [showPopupAdd, setShowPopupAdd] = useState(false);
@@ -109,6 +114,21 @@ const TherapistRecomendations: React.FC = () => {
     return 'Unknown';
   };
 
+  // Function to generate color spectrum based on available tags
+  const generateTagColors = (tags: string[]) => {
+    const tagColors: Record<string, string> = {};
+
+    tags.forEach((tag, index) => {
+      const hue = (index * 360) / tags.length; // Spread colors evenly in HSL spectrum
+      tagColors[tag] = `hsl(${hue}, 70%, 50%)`; // Generate HSL color
+    });
+
+    return tagColors;
+  };
+  // Generate colors dynamically
+  const tagColors = generateTagColors(config.RecomendationInfo.tags);
+
+
   // Filter recommendations based on selected filters and search term
   useEffect(() => {
     let filtered = recommendations;
@@ -138,6 +158,20 @@ const TherapistRecomendations: React.FC = () => {
       filtered = filtered.filter((rec) => rec.content_type === contentTypeFilter);
     }
 
+    if (tagFilter.length > 0) {
+      // @ts-ignore
+      filtered = filtered.filter((rec) =>
+        rec.tags.some((tag) => tagFilter.includes(tag))
+      );
+    }
+
+    if (benefitForFilter.length > 0) {
+      // @ts-ignore
+      filtered = filtered.filter((rec) =>
+        rec.benefitFor.some((benefit) => benefitForFilter.includes(benefit))
+      );
+    }
+
     if (frequencyFilter) {
       filtered = filtered.filter((rec) =>
         // @ts-ignore
@@ -159,6 +193,8 @@ const TherapistRecomendations: React.FC = () => {
     patientTypeFilter,
     coreSupportFilter,
     contentTypeFilter,
+    benefitForFilter,
+    tagFilter,
     frequencyFilter,
     recommendations,
   ]);
@@ -173,106 +209,170 @@ const TherapistRecomendations: React.FC = () => {
       <Header isLoggedIn />
 
       <Container className="main-content mt-4">
+        {/* Welcome Section */}
         <WelcomeArea user={'TherapistPatients'} />
-        <Button onClick={handleOpen}>Add Recommendation</Button>
-        {/* Search and Filter Options */}
-        <Row className="mb-3">
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="searchInput">
-              <Form.Control
-                type="text"
-                placeholder={t('Search Recommendations')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </Form.Group>
-          </Col>
+        
 
-          {/* Recommendation Filters */}
-          {/* Patient Type Filter */}
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="patientTypeFilter">
-              <Form.Select
-                value={patientTypeFilter}
-                onChange={(e) => setPatientTypeFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Patient Type')}</option>
-                {diagnoses.map((type: string) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </Col>
+        <Row className="justify-content-center mb-3">
+          <Col xs={12} md={9} className="mx-auto">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+              {/* Add Recommendation Button (Left-Aligned on Large Screens) */}
+              <Button onClick={handleOpen} className="btn-primary w-100 w-md-auto">
+                {t('Add Recommendation')}
+              </Button>
 
-          {/* Core/Supportive Filter */}
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="coreSupportFilter">
-              <Form.Select
-                value={coreSupportFilter}
-                onChange={(e) => setCoreSupportFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Core/Supportive')}</option>
-                {
-                  config.RecomendationInfo.intensity.map((option: any) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-              </Form.Select>
-            </Form.Group>
-          </Col>
-
-          {/* Content Type Filter */}
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="contentTypeFilter">
-              <Form.Select
-                value={contentTypeFilter}
-                onChange={(e) => setContentTypeFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Content Type')}</option>
-                {config.RecomendationInfo.types.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </Col>
-
-          {/* Frequency Filter */}
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="frequencyFilter">
-              <Form.Select
-                value={frequencyFilter}
-                onChange={(e) => setFrequencyFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Frequency')}</option>
-                {config.RecomendationInfo.frequency.map((frequency) => (
-                  <option key={frequency} value={frequency}>{frequency}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+              {/* Search Input (Right-Aligned on Large Screens) */}
+              <Form.Group controlId="searchInput" className="w-100 w-md-auto">
+                <Form.Control
+                  type="text"
+                  placeholder={t('Search Recommendations')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ minWidth: '250px' }} // Prevents shrinking too much
+                />
+              </Form.Group>
+            </div>
           </Col>
         </Row>
 
-        {/* Display Recommendations List */}
-        <Row>
-          <Col md={8}>
-            <ListGroup className="shadow-sm">
+        {/* Filters & Recommendations Section (Centered & Same Width) */}
+        <Row className="justify-content-center">
+          <Col md={9} className="mx-auto">
+            {/* Filters Card (Same Width as List) */}
+            <Card className="p-3 shadow-sm w-100">
+              <Row className="g-3">
+                {/* Patient Type Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="patientTypeFilter">
+                    <Form.Select
+                      value={patientTypeFilter}
+                      onChange={(e) => setPatientTypeFilter(e.target.value)}
+                    >
+                      <option value="">{t('Filter by Patient Type')}</option>
+                      {diagnoses.map((type: string) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                {/* Core/Supportive Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="coreSupportFilter">
+                    <Form.Select
+                      value={coreSupportFilter}
+                      onChange={(e) => setCoreSupportFilter(e.target.value)}
+                    >
+                      <option value="">{t('Filter by Core/Supportive')}</option>
+                      {config.RecomendationInfo.intensity.map((option: any) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                {/* Content Type Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="contentTypeFilter">
+                    <Form.Select
+                      value={contentTypeFilter}
+                      onChange={(e) => setContentTypeFilter(e.target.value)}
+                    >
+                      <option value="">{t('Filter by Content Type')}</option>
+                      {config.RecomendationInfo.types.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                {/* Tag Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="tagFilter">
+                    <Select
+                      isMulti
+                      options={config.RecomendationInfo.tags.map((tag) => ({
+                        value: tag,
+                        label: tag,
+                      }))}
+                      value={tagFilter.map(tag => ({ value: tag, label: tag }))}
+                      onChange={(selectedOptions) =>
+                        setTagFilter(selectedOptions.map(option => option.value))
+                      }
+                      placeholder={t('Filter by Tags')}
+                    />
+                  </Form.Group>
+                </Col>
+
+                {/* Benefit for Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="benefitFor">
+                    <Select
+                      isMulti
+                      options={config.RecomendationInfo.benefits.map((benefitFor) => ({
+                        value: benefitFor,
+                        label: benefitFor,
+                      }))}
+                      value={benefitForFilter.map(benefitFor => ({ value: benefitFor, label: benefitFor }))}
+                      onChange={(selectedOptions) =>
+                        setBenefitForFilter(selectedOptions.map(option => option.value))
+                      }
+                      placeholder={t('Filter by Benefit')}
+                    />
+                  </Form.Group>
+                </Col>
+
+                {/* Frequency Filter */}
+                <Col xs={12} sm={6} md={4} lg={3}>
+                  <Form.Group controlId="frequencyFilter">
+                    <Form.Select
+                      value={frequencyFilter}
+                      onChange={(e) => setFrequencyFilter(e.target.value)}
+                    >
+                      <option value="">{t('Filter by Frequency')}</option>
+                      {config.RecomendationInfo.frequency.map((frequency) => (
+                        <option key={frequency} value={frequency}>{frequency}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* Display Recommendations List (Same Width as Filters Card) */}
+            <ListGroup className="shadow-sm w-100 mt-4">
               {filteredRecommendations.map((recommendation) => (
                 <ListGroup.Item
                   key={recommendation['_id']}
                   action
                   onClick={() => handleItemClick(recommendation)}
-                  className="d-flex justify-content-between align-items-center"
+                  className="d-flex justify-content-between align-items-center flex-wrap"
                 >
-                  <div>
+                  {/* Left Section: Title, Content Type, and Tags */}
+                  <div className="d-flex flex-column">
                     <strong>{recommendation['title']}</strong>
                     <div className="text-muted">
-                      {  // @ts-ignore
-                        recommendation['content_type'].charAt(0).toUpperCase() + recommendation['content_type'].slice(1)}
+                      {recommendation['content_type'].charAt(0).toUpperCase() + recommendation['content_type'].slice(1)}
                     </div>
+
+                    {/* Display tags neatly if they exist */}
+                    {recommendation.tags?.length > 0 && (
+                      <div className="mt-2 d-flex flex-wrap gap-1">
+                        {recommendation.tags.map((tag) => (
+                          <Badge key={tag} bg='' style={{ backgroundColor: tagColors[tag] || 'grey', color: 'white' }} className="me-1">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  <Badge bg={getBadgeVariantFromUrl(recommendation['media_url'], recommendation['link'])}>
-                    {getMediaTypeLabelFromUrl(recommendation['media_url'], recommendation['link'])}
-                  </Badge>
+                  {/* Right Section: Media Type Badge */}
+                  <div>
+                    <Badge bg={getBadgeVariantFromUrl(recommendation['media_url'], recommendation['link'])}>
+                      {getMediaTypeLabelFromUrl(recommendation['media_url'], recommendation['link'])}
+                    </Badge>
+                  </div>
                 </ListGroup.Item>
               ))}
             </ListGroup>
@@ -280,12 +380,14 @@ const TherapistRecomendations: React.FC = () => {
         </Row>
       </Container>
 
+
       {selectedItem && (
         <ProductPopup
           item={selectedItem}
           show={showPopup}
           handleClose={handleClosePopup}
           therapist={authStore.id}
+          tagColors={tagColors}
         />
       )}
       <AddRecommendationPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()} />
