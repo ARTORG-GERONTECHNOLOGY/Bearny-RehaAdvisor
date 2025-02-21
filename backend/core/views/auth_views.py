@@ -173,7 +173,8 @@ def register(request):
                 first_name=data.get('firstName', ''),
                 phone=data.get('phone', ''),  # Assuming phone is provided in data
                 specializations=specialisation_label,  # Assuming specializations provided
-                clinics=clinic_labels  # Assuming clinics provided
+                clinics=clinic_labels,  # Assuming clinics provided
+                care_giver=ata.get('careGiver', '')
                 # Add other therapist-specific fields here
             )
             print('hi')

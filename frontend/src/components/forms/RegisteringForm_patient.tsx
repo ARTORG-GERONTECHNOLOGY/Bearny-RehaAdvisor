@@ -546,6 +546,18 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
               />
             </div>
 
+            <div className="mb-3">
+              <label htmlFor="careGiver" className="form-label">Care Giver/Emergency Contact</label>
+              <input
+                type="text"
+                className="form-control"
+                id="careGiver"
+                placeholder="Enter care giver information"
+                value={formData.careGiver as string || ''}
+                onChange={handleChange}
+              />
+            </div>
+
 
             <div className="mb-3">
               <label htmlFor="rehaEndDate" className="form-label">Rehabilitation End Date</label>
