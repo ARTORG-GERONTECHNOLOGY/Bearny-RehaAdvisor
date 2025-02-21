@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import datetime
 
 from core.models import Therapist, Patient
 from utils.utils import (
@@ -128,6 +129,8 @@ def register(request):
             # Creating a Patient with all required fields
             pat_therapist = Therapist.objects.get(username=data.get('therapist'))
             if pat_therapist:
+                reha_end_date=datetime.strptime(data.get('rehaEndDate'), "%Y-%m-%d")
+
                 patient = Patient(
                     username=generate_custom_id(user_type),
                     email=email,
@@ -149,8 +152,9 @@ def register(request):
                     personal_goals=get_labels(data, 'lifeGoals'),  # Assuming personal goals are provided
                     medication_intake=data.get('medicationIntake', ''),  # Assuming medication intake is provided
                     social_support=data.get('socialSupport', ''),  # Assuming social support is provided
-                    access_word=data.get('password'),  # Assuming access word is provided
-                    duration=int(data.get('duration', 0)),
+                    access_word=data.get('password'), 
+                    duration=int((reha_end_date.date() - datetime.today().date()).days),
+                    reha_end_date=reha_end_date
                 )
 
             patient.save()
