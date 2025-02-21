@@ -548,13 +548,13 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
 
 
             <div className="mb-3">
-              <label htmlFor="duration" className="form-label">Intervention Duration</label>
+              <label htmlFor="rehaEndDate" className="form-label">Rehabilitation End Date</label>
               <input
-                type="number"
+                type="date"
                 className="form-control"
-                id="duration"
-                placeholder="Enter Rehabilitation duration in days."
-                value={formData.duration as number || 0}
+                id="rehaEndDate"
+                placeholder="Enter Rehabilitation end date."
+                value={formData.rehaEndDate as string || ''}
                 onChange={handleChange}
                 required
               />
