@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from 'react-bootstrap';
-import makeAnimated from 'react-select/animated';
 import Select from 'react-select';
-import { validateCurrentStep } from '../../utils/validation';
-import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
+import Therapist from '../../pages/Therapist';
 
 interface FormData {
   email: string;
@@ -16,591 +13,184 @@ interface FormData {
   userType: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  [key: string]: string | number | string[] | boolean ; // For any additional dynamic fields
+  age: string;
+  sex: string;
+  function: string[];
+  diagnosis: string[];
+  lifestyle: string[];
+  [key: string]: string | number | string[] | boolean;
 }
 interface RegisterFormProps {
   pageType: 'regular' | 'patient';
   therapist: string;
 }
+
 const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist }) => {
 
-  const {t} = useTranslation();
-
-  // State for storing the form data
   const [formData, setFormData] = useState<FormData>({
-    therapist: therapist,
     email: '',
     password: '',
     repeatPassword: '',
     userType: 'Patient',
+    therapist: therapist,
     firstName: '',
     lastName: '',
+    age: '',
+    sex: '',
+    function: [],
+    diagnosis: [],
+    lifestyle: [],
+    lifeGoals: [],
     phone: '',
+    medicationIntake: '',
+    professionalStatus: '',
+    levelOfEducation: '',
+    civilStatus: '',
+    socialSupport: '',
+    rehaEndDate: '',
+    careGiver: ''
+
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
+  const [step, setStep] = useState<number>(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [registered, setRegistered] = useState(false);
-  const [patientId, setPatientId] = useState(null);
-  const [diagnoses, setDiagnoses] = useState([]);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null); //  Stores API Errors
 
-  // Handle multiple function selections
-  const handleFunctionChange = (selectedOptions: any) => {
-    const selectedFunctions = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
-    setFormData({ ...formData, function: selectedOptions as string[], diagnosis: [] });
-    // Gather all relevant diagnoses based on selected functions
+  // Extract Specialities & Diagnoses from JSON Config
+  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
-    const allDiagnoses = selectedFunctions.flatMap((func: string) =>
-      // @ts-ignore
-      config.patientInfo.function[func]?.diagnosis || [],
-    );
-    setDiagnoses(allDiagnoses);
-  };
+  // 🔹 Form Steps Configuration
+  const formSteps = config.PatientForm;
 
-  // Handle multiple diagnosis selections
-  const handleDiagnosisChange = (selectedOptions: any) => {
-    setFormData((prevData) => ({
-      ...prevData,
-      diagnosis: selectedOptions as string[],
-    }));
-  };
+  // ** Prevent Undefined `formSteps[step]`**
+  if (step >= formSteps.length) {
+    setStep(0); // Reset step to a valid index
+  }
 
-
-  const [errors, setErrors] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    repeatPassword: '',
-    phone: '',
-  });
-
-  // State to manage if "Next" was clicked and render additional fields
-  const [step, setStep] = useState(1);
-  const [valid, setValid] = useState(false);
-
-  // Handle form input changes
+  // 🔹 Handle Input Changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData({ ...formData, [id]: value });
-  };
-  const animatedComponents = makeAnimated();
-
-  // Handle the "Back" button click
-  const handleBack = () => {
-      setStep(step - 1); // Move to the next step when "Next" is clicked
+    setErrors({ ...errors, [id]: '' });
   };
 
-  const handleModalClose = () => {
-    if (pageType === 'regular'){
-      // @ts-ignore
-      handleRegShow();  // This will hide the modal (assuming it toggles the `show` state)
+  // 🔹 Handle Multi-Select Changes
+  const handleMultiSelectChange = (selectedOptions: any, fieldName: string) => {
+    const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+    setFormData({ ...formData, [fieldName]: selectedValues });
+    setErrors({ ...errors, [fieldName]: '' });
+
+    if (fieldName === "function") {
+      setFormData({ ...formData, function: selectedValues, diagnosis: [] });
     }
-    setStep(1);       // This will reset the step to 1
-    // Reset the form data
-    setFormData({
-      email: '',
-      password: '',
-      repeatPassword: '',
-      userType: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
+  };
+
+  // 🔹 Validate Current Step
+  const validateStep = () => {
+    let newErrors: Record<string, string> = {};
+    const currentStep = formSteps[step];
+
+    currentStep.fields.forEach((field) => {
+      if (field.required && (!formData[field.name] || formData[field.name]?.length === 0)) {
+        newErrors[field.name] = `${field.label} is required.`;
+      }
     });
 
-    setShowPassword(false);
-    setPasswordError('');
-    setErrors({
-      email: '',
-      password: '',
-      repeatPassword: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-    })
-    setRegistered(false)
+    // **Phone Number Validation** (Only if it's not empty)
+    if (formData.phone && formData.phone.trim() !== "") {
+      if (!/^\d{8,15}$/.test(formData.phone as string)) {
+        newErrors.phone = "Invalid phone number. Enter 8-15 digits only.";
+      }
+    }
+
+    if (formData.email && currentStep.fields.some(f => f.name === "email")) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email as string)) {
+        newErrors.email = "Invalid email format.";
+      }
+    }
+
+    if (currentStep.fields.some(f => f.name === "password") && formData.password !== formData.repeatPassword) {
+      newErrors.repeatPassword = "Passwords do not match.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
+  // 🔹 Proceed to Next Step (Prevents Out-of-Bounds)
+  const nextStep = () => {
+    if (validateStep() && step < formSteps.length - 1) {
+      setStep(step + 1);
+    }
+  };
+
+  // 🔹 Go Back to Previous Step (Prevents Negative Index)
+  const prevStep = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
+
+  // 🔹 Handle Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const {validity, newErrors} = validateCurrentStep(formData, step);
-    // @ts-ignore
-    setErrors(newErrors)
-    setValid(validity)
-    if (validity) {
+    setApiError(null); // 🔹 Clear previous API errors
+    if (validateStep()) {
       try {
-        // Send form data to the server via POST request
         const response = await apiClient.post('/auth/register/', formData);
-
-        // Check the response for success
-        if (response.data && response.status >= 200) {
-          console.log('Filtered Data for Submission:', formData);
-          // Set registered state to true
+        if (response.data && response.status == 200 || response.status == 201) {
           setRegistered(true);
-
-          // Handle redirection after successful registration (e.g., navigate to another page)
-          setPatientId(response.data['id'])
+          setPatientId(response.data.id);
         }
       } catch (error) {
-        // Handle error response
-        if (axios.isAxiosError(error) && error.response) {
-          console.error('Registration error: ', error.response.data);
+        console.error('Registration error: ', error);
+       // 🔹 Check if error has a response and extract the error message
+        if (error.response) {
+          setApiError(error.response.data?.error || "An error occurred. Please try again.");
         } else {
-          console.error('An unexpected error occurred: ', error);
+          setApiError("An unexpected error occurred. Please try again.");
         }
       }
     }
   };
 
-  const checkPartialForm = () => {
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <h3>{formSteps[step]?.title}</h3> {/* ✅ Fix: Ensure step exists */}
 
-    // @ts-ignore
-    if(Object.keys(formData).length >= config.userInfo.formLength[formData.userType][step - 1]){
-      const {validity, newErrors} = validateCurrentStep(formData, step);
-      // @ts-ignore
-      setErrors(newErrors)
-      setValid(validity)
-      if (validity) {
-          setStep(step + 1); // Move to the next step when "Next" is clicked
-          setPasswordError('');
-          setErrors({ email: '', lastName: '', password: '', repeatPassword: '', firstName: '' , phone: '' });
-          if (formData.repeatPassword !== formData.password) {
-            setPasswordError('\n Passwords do not match.');
-          }
-      }
-    }
-    else{
-      setErrors({ email: '', lastName: '', password: '', repeatPassword: '', firstName: 'Fill the empty inputs.', phone: '' });
-    }
+        {formSteps[step]?.fields.map((field) => (
+          <div key={field.name} className="mb-3">
+            <label htmlFor={field.name} className="form-label">{field.label}</label>
 
-
-  }
-
-
-
-  return (<div>
-    <form onSubmit={handleSubmit}>
-      {/* Step 1: Email, Password, Repeat Password */}
-      {step === 1 && (
-        <>
-          {/* first name Field */}
-          <div className="mb-3">
-            <label htmlFor="firstName" className="form-label">First Name</label>
-            <input
-              type="text"
-              className="form-control"
-              id="firstName"
-              placeholder="Enter your first name"
-              value={formData.firstName}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          {/* last name Field */}
-          <div className="mb-3">
-            <label htmlFor="lastName" className="form-label">Last Name</label>
-            <input
-              type="text"
-              className="form-control"
-              id="lastName"
-              placeholder="Enter your last name"
-              value={formData.lastName}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          {/*Phone Field */}
-          <div className="mb-3">
-            <label htmlFor="phone" className="form-label">Phone (Optional)</label>
-            <input
-              type="string"
-              className="form-control"
-              id="phone"
-              placeholder="Enter your phone number"
-              value={formData.phone}
-              onChange={handleChange}
-            />
-          </div>
-          {/* Email Field */}
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email (Optional)</label>
-            <input
-              type="email"
-              className="form-control"
-              id="email"
-              placeholder="Enter your email"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <div className="invalid-feedback">
-              Please provide a username.
-            </div>
-          </div>
-
-          {/* Password Field */}
-          <div className="mb-3">
-            <label htmlFor="password" className="form-label">Access Word</label>
-            <input
-              type='text'
-              className="form-control"
-              id="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Repeat Password Field */}
-          <div className="mb-3">
-            <label htmlFor="repeatPassword" className="form-label">Repeat Access Word</label>
-            <input
-              type='text'
-              className="form-control"
-              id="repeatPassword"
-              placeholder="Repeat your password"
-              value={formData.repeatPassword}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Next Button */}
-          {formData.userType !== '' && <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={checkPartialForm}
-            >
-              <img className="ms-2" src="Arrow right.svg" alt="Next" />
-            </Button>
-
-          </div>}
-
-        </>
-      )}
-
-
-      {/* Step 2: Additional Fields Based on User Type */}
-      {step === 2 && (
-        <>
-          <div className="mb-3">
-            <label htmlFor="age" className="form-label">Birth Date</label>
-            <input
-              type="date"
-              className="form-control"
-              id="age"
-              value={formData.age as string || ''}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-
-          <div className="mb-3">
-            <label htmlFor="sex" className="form-label">Sex</label>
-            <Select
-              closeMenuOnSelect={true}
-              components={animatedComponents}
-              // @ts-ignore
-              options={config.patientInfo.sex.map((spec) => ({
-                label: spec,
-                value: spec,
-              }))}
-              value={formData.sex}
-              id="sex"
-              onChange={(selectedOptions) => {
-                setFormData({
-                  ...formData,
-                  sex: selectedOptions as string,// This is where we set the selected options
-                });
-              }}
-              required={true}
-            />
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="function" className="form-label">Speciality</label>
-            <Select
-              isMulti
-              closeMenuOnSelect={false}
-              components={animatedComponents}
-              // @ts-ignore
-              options={Object.keys(config.patientInfo.function).map((spec) => ({
-                label: spec,
-                value: spec,
-              }))}
-              // @ts-ignore
-              value={formData.function}
-              onChange={handleFunctionChange}
-            />
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="diagnosis" className="form-label">Diagnosis</label>
-            <Select
-              isMulti
-              closeMenuOnSelect={false}
-              components={animatedComponents}
-              // @ts-ignore
-              options={diagnoses.map((diag) => ({ label: diag, value: diag }))}
-              value={formData.diagnosis}
-              onChange={handleDiagnosisChange}
-            />
-          </div>
-
-
-          {/* Next Button */}
-          <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={checkPartialForm}
-            >
-              <img className="ms-2" src="Arrow right.svg" alt="Next" />
-            </Button>
-          </div>
-
-          {/* Back Button */}
-          <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleBack}
-              hidden={registered}
-            >
-              <img className="ms-2" src="Arrow left.svg" alt="Back" />
-            </Button>
-          </div>
-        </>
-      )}
-      {step === 3 && (
-        <>
-          <div className="mb-3">
-            <label htmlFor="professionalStatus" className="form-label">Professional Status</label>
-            <Select
-              closeMenuOnSelect={true}
-              components={animatedComponents}
-              // @ts-ignore
-              options={config.patientInfo.professional_status.map((spec) => ({
-                label: spec,
-                value: spec,
-                  }))}
-                value={formData.professionalStatus}
-                id="professionalStatus"
-                onChange={(selectedOptions) => {
-                  setFormData({
-                    ...formData,
-                    professionalStatus: selectedOptions as string,// This is where we set the selected options
-                  })
-                }}
-                required={true}
-              />
-            </div>
-
-
-            <div className="mb-3">
-              <label htmlFor="levelOfEducation" className="form-label">Level of Education</label>
+            {field.type === "multi-select" ? (
               <Select
-                closeMenuOnSelect={true}
-                components={animatedComponents}
-                // @ts-ignore
-                options={config.patientInfo.level_of_education.map((spec) => ({
-                    label: spec,
-                    value: spec
-                  }))}
-                value={formData.levelOfEducation}
-                id="levelOfEducation"
-                onChange={(selectedOptions) => {
-                  setFormData({
-                    ...formData,
-                    levelOfEducation: selectedOptions as string, // This is where we set the selected options
-                  })
-                }}
-                required={true}
-              />
-            </div>
-
-
-            <div className="mb-3">
-              <label htmlFor="civilStatus" className="form-label">Civil Status</label>
-              <Select
-                closeMenuOnSelect={true}
-                components={animatedComponents}
-                // @ts-ignore
-                options={config.patientInfo.marital_status.map((spec) => ({
-                  label: spec,
-                  value: spec
-                }))}
-                value={formData.civilStatus}
-                id="civilStatus"
-                onChange={(selectedOptions) => {
-                  setFormData({
-                    ...formData,
-                    civilStatus: selectedOptions as string, // This is where we set the selected options
-                  })
-                }}
-                required={true}
-              />
-            </div>
-
-          {/* Next Button */}
-          <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={checkPartialForm}
-            >
-              <img className="ms-2" src="Arrow right.svg" alt="Next" />
-            </Button>
-          </div>
-          {/* Back Button */}
-          <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleBack}
-            >
-              <img className="ms-2" src="Arrow left.svg" alt="Back" />
-            </Button>
-          </div>
-        </>
-      )}
-      {step === 4 && (
-        <>
-
-            <div className="mb-3">
-              <label htmlFor="lifestyle" className="form-label">lifestyle</label>
-              <Select
-                closeMenuOnSelect={false}
-                components={animatedComponents}
+                id={field.name}
                 isMulti
-                // @ts-ignore
-                options={config.patientInfo.lifestyle.map((spec) => ({
-                  label: spec,
-                  value: spec
-                }))}
-                value={formData.lifestyle}
-                id="lifestyle"
-                onChange={(selectedOptions) => {
-                  setFormData({
-                    ...formData,
-                    lifestyle: selectedOptions as string[],// This is where we set the selected options
-                  })
-                }}
-                required={true}
+                options={field.name === "diagnosis" && formData.function.length > 0
+                  ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
+                  : field.options?.map(option => ({ value: option, label: option }))
+                }
+                value={(formData[field.name] as string[]).map(value => ({ value, label: value }))}
+                onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.name)}
               />
-            </div>
+            ) : field.type === "dropdown" ? (
+              <select id={field.name} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} value={formData[field.name] as string || ""} onChange={handleChange}>
+                <option value="">Select {field.label}</option>
+                {field.options?.map((option) => (<option key={option} value={option}>{option}</option>))}
+              </select>
+            ) : (
+              <input type={field.type} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} id={field.name} value={formData[field.name] as string || ""} onChange={handleChange} />
+            )}
 
-
-          <div className="mb-3">
-            <label htmlFor="lifeGoals" className="form-label">Life Goals</label>
-            <Select
-              closeMenuOnSelect={false}
-              components={animatedComponents}
-              isMulti
-              // @ts-ignore
-              options={config.patientInfo.personal_goals.map((spec) => ({
-                label: spec,
-                value: spec
-              }))}
-              value={formData.lifeGoals}
-              id="lifeGoals"
-              onChange={(selectedOptions) => {
-                setFormData({
-                  ...formData,
-                  lifeGoals: selectedOptions as string[],// This is where we set the selected options
-                })
-              }}
-              required={true}
-            />
+            {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
           </div>
-
-
-            <div className="mb-3">
-              <label htmlFor="medicationIntake" className="form-label">Medication intake</label>
-              <input
-                type="text"
-                className="form-control"
-                id="medicationIntake"
-                placeholder="Enter patient-specific information"
-                value={formData.medicationIntake as string || ''}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-
-
-            <div className="mb-3">
-              <label htmlFor="socialSupport" className="form-label">Social Support</label>
-              <input
-                type="text"
-                className="form-control"
-                id="socialSupport"
-                placeholder="Enter patient-specific information"
-                value={formData.socialSupport as string || ''}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="careGiver" className="form-label">Care Giver/Emergency Contact</label>
-              <input
-                type="text"
-                className="form-control"
-                id="careGiver"
-                placeholder="Enter care giver information"
-                value={formData.careGiver as string || ''}
-                onChange={handleChange}
-              />
-            </div>
-
-
-            <div className="mb-3">
-              <label htmlFor="rehaEndDate" className="form-label">Rehabilitation End Date</label>
-              <input
-                type="date"
-                className="form-control"
-                id="rehaEndDate"
-                placeholder="Enter Rehabilitation end date."
-                value={formData.rehaEndDate as string || ''}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-
-          <div className="d-grid">
-            <Button
-              hidden={registered}
-              type="submit"
-              className="btn btn-success"
-            >
-              Submit
-            </Button>
-          </div>
-          {/* Back Button */}
-          <div className="d-grid">
-            <Button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleBack}
-              hidden={registered}
-            >
-              <img className="ms-2" src="Arrow left.svg" alt="Back" />
-            </Button>
-          </div>
-        </>
-      )}
-      {Object.values(errors).some(value => value !== '') && <div className="alert alert-danger">
-        {Object.values(errors).map((error) => (
-          <div>{error}</div>
         ))}
-      </div>
-      }
+        {/* 🔹 Display API Error Alert */}
+      {apiError && <div className="alert alert-danger">{apiError}</div>}
       {registered && (
         <div className="alert alert-success">
           <div>The patient has been registered. Account information has been sent to the given email.</div>
@@ -611,10 +201,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
           </div>
         </div>
       )}
-    </form>
-    </div>
-)
 
+
+        <div className="d-flex justify-content-between mt-4">
+          {step > 0 && !registered && <Button variant="secondary" onClick={prevStep}>Back</Button>}
+          {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>Next</Button>}
+          {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">Submit</Button>}
+        </div>
+      </form>
+    </div>
+  );
 };
 
 export default FormRegisterPatient;

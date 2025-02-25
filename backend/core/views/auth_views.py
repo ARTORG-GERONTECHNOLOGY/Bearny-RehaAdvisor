@@ -136,34 +136,32 @@ def register(request):
                     email=email,
                     pwdhash=password,
                     user_type=user_type,
-                    name=data.get('lastName', ''),
-                    first_name=data.get('firstName', ''),
-                    phone=data.get('phone', ''),  # Assuming phone is provided
-                    age=data.get('age', 0),  # Assuming age is provided
+                    name=data.get('lastName'),
+                    first_name=data.get('firstName'),
+                    phone=data.get('phone', '-'),  # Assuming phone is provided
+                    age=data.get('age', ''),  # Assuming age is provided
                     therapist=pat_therapist,  # Assuming therapist ID is provided
-                    sex=get_labels(data, 'sex')[0],  # Assuming sex is provided
-                    diagnosis=get_labels(data, 'diagnosis'),  # Assuming diagnosis is provided
-                    function=get_labels(data, 'function'),  # Assuming function is provided
-                    level_of_education=get_labels(data, 'levelOfEducation')[0],  # Assuming education level is provided
-                    professional_status=get_labels(data, 'professionalStatus')[0],
+                    sex=data.get('sex'),  # Assuming sex is provided
+                    diagnosis=data.get('diagnosis'),  # Assuming diagnosis is provided
+                    function=data.get('function'),  # Assuming function is provided
+                    level_of_education=data.get('levelOfEducation'),  # Assuming education level is provided
+                    professional_status=data.get('professionalStatus'),
                     # Assuming professional status is provided
-                    marital_status=get_labels(data, 'civilStatus')[0],  # Assuming marital status is provided
-                    lifestyle=get_labels(data, 'lifestyle'),  # Assuming lifestyle is provided
-                    personal_goals=get_labels(data, 'lifeGoals'),  # Assuming personal goals are provided
-                    medication_intake=data.get('medicationIntake', ''),  # Assuming medication intake is provided
-                    social_support=data.get('socialSupport', ''),  # Assuming social support is provided
+                    marital_status=data.get('civilStatus'),  # Assuming marital status is provided
+                    lifestyle=data.get('lifestyle'),  # Assuming lifestyle is provided
+                    personal_goals=data.get('lifeGoals'),  # Assuming personal goals are provided
+                    medication_intake=data.get('medicationIntake', '-'),  # Assuming medication intake is provided
+                    social_support=data.get('socialSupport', '-'),  # Assuming social support is provided
                     access_word=data.get('password'), 
                     duration=int((reha_end_date.date() - datetime.today().date()).days),
-                    reha_end_date=reha_end_date
+                    reha_end_date=reha_end_date,
+                    care_giver=data.get('carreGiver', '')
                 )
 
             patient.save()
             return JsonResponse({'message': 'Patient registered successfully', 'id': patient.username}, status=201)
 
         elif user_type == 'Therapist':
-            # Extracting the labels
-            specialisation_label = get_labels(data, "specialisation")
-            clinic_labels = get_labels(data, "clinic")
             therapist = Therapist(
                 username=generate_custom_id(user_type),
                 email=email,
@@ -172,9 +170,8 @@ def register(request):
                 name=data.get('lastName', ''),
                 first_name=data.get('firstName', ''),
                 phone=data.get('phone', ''),  # Assuming phone is provided in data
-                specializations=specialisation_label,  # Assuming specializations provided
-                clinics=clinic_labels,  # Assuming clinics provided
-                care_giver=ata.get('careGiver', '')
+                specializations=data.get("specialisation"),  # Assuming specializations provided
+                clinics=data.get( "clinic"),  # Assuming clinics provided
                 # Add other therapist-specific fields here
             )
             print('hi')
