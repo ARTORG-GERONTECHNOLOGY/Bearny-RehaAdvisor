@@ -5,12 +5,10 @@ import Select from 'react-select';
 import { Icon } from 'react-icons-kit';
 import { eyeOff } from 'react-icons-kit/feather/eyeOff';
 import { eye } from 'react-icons-kit/feather/eye';
-import { validateCurrentStep } from '../../utils/validation';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
-
 
 interface FormData {
   email: string;
@@ -20,19 +18,22 @@ interface FormData {
   firstName: string;
   lastName: string;
   phone: string;
-  [key: string]: string | number | string[] | boolean ; // For any additional dynamic fields
+  specialisation?: string;
+  clinic?: string[];
+  researcherInfo?: string;
+  adminInfo?: string;
+  [key: string]: string | number | string[] | boolean;
 }
+
 interface RegisterFormProps {
   show: boolean;
   handleRegShow: () => void;
   pageType: 'regular' | 'patient';
 }
-const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageType }) => {
 
-  const {t} = useTranslation();
-// Based on the pageType, fetch the relevant object from the translations
-  const userTypes = Object.keys(t('RegisteringTypes', { returnObjects: true }))
-  // State for storing the form data
+const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageType }) => {
+  const { t } = useTranslation();
+
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -41,65 +42,25 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
     firstName: '',
     lastName: '',
     phone: '',
+    specialisation: [],
+    clinic: [],
+    researcherInfo: '',
+    adminInfo: '',
   });
 
+
+
+  const [step, setStep] = useState<number>(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [registered, setRegistered] = useState(false);
   const [icon, setIcon] = useState(eyeOff);
   const [showPassword, setShowPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [registered, setRegistered] = useState(false);
   const [iconRepeat, setIconRepeat] = useState(eyeOff);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null); //  Stores API Errors
 
-  const handleToggle = () => {
-    if (!showPassword){
-      setIcon(eye);
-      setShowPassword(true)
-    } else {
-      setIcon(eyeOff)
-      setShowPassword(false)
-    }
-  }
-  const handleToggleRepeat = () => {
-    if (!showPasswordRepeat){
-      setIconRepeat(eye);
-      setShowPasswordRepeat(true)
-    } else {
-      setIconRepeat(eyeOff)
-      setShowPasswordRepeat(false)
-    }
-  }
-  const [errors, setErrors] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    repeatPassword: '',
-    phone: '',
-  });
 
-  // State to manage if "Next" was clicked and render additional fields
-  const [step, setStep] = useState(1);
-  const [valid, setValid] = useState(false);
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { id, value } = e.target;
-    setFormData({ ...formData, [id]: value });
-  };
-  const animatedComponents = makeAnimated();
-
-  // Handle the "Back" button click
-  const handleBack = () => {
-      setStep(step - 1); // Move to the next step when "Next" is clicked
-  };
-
-  const handleModalClose = () => {
-    if (pageType === 'regular'){
-      // @ts-ignore
-      handleRegShow();  // This will hide the modal (assuming it toggles the `show` state)
-      setRegistered(false);
-    }
-    setStep(1);       // This will reset the step to 1
-    // Reset the form data
+  const handleCloseForm = () => {
     setFormData({
       email: '',
       password: '',
@@ -108,352 +69,205 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       firstName: '',
       lastName: '',
       phone: '',
+      specialisation: [],
+      clinic: [],
+      researcherInfo: '',
+      adminInfo: '',
     });
-    setIcon(eyeOff);
+  
+    setStep(0);
+    setErrors({});
+    setRegistered(false);
+    setApiError(null);
     setShowPassword(false);
-    setPasswordError('');
-    setErrors({
-      email: '',
-      password: '',
-      repeatPassword: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-    })
-    setRegistered(false)
+    setShowPasswordRepeat(false);
+  
+    handleRegShow(); // ✅ Toggles the modal visibility
+  };
+  
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+    setIcon(showPassword ? eyeOff : eye);
+  };
+  
+  const toggleRepeatPasswordVisibility = () => {
+    setShowPasswordRepeat(!showPasswordRepeat);
+    setIconRepeat(showPasswordRepeat ? eyeOff : eye);
   };
 
-  const handleCloseAlert = () => {
-    setRegistered(false); // Hide the alert
-    handleModalClose();  // Close the modal
+  const formSteps = config.TherapistForm;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+    setErrors((prev) => ({ ...prev, [id]: '' }));
+
+    // **Ensure form fields exist when switching userType**
+    if (id === "userType") {
+      const newFormData = { ...formData, userType: value };
+
+      if (value === "Therapist") {
+        newFormData.specialisation = newFormData.specialisation || "";
+        newFormData.clinic = newFormData.clinic || [];
+      } else if (value === "Researcher") {
+        newFormData.researcherInfo = newFormData.researcherInfo || "";
+      } else if (value === "admin") {
+        newFormData.adminInfo = newFormData.adminInfo || "";
+      }
+
+      setFormData(newFormData);
+    }
   };
 
+  const handleMultiSelectChange = (selectedOptions: any, fieldName: string) => {
+    const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+    setFormData({ ...formData, [fieldName]: selectedValues });
+    setErrors({ ...errors, [fieldName]: '' });
+  };
+
+  const validateStep = () => {
+    let newErrors: Record<string, string> = {};
+    const currentStep = formSteps[step];
+
+    currentStep.fields.forEach((field) => {
+      if (field.required && (!formData[field.name] || formData[field.name]?.length === 0)) {
+        newErrors[field.name] = `${field.label} is required.`;
+      }
+    });
+
+    // **Phone Number Validation** (Only Numbers, Minimum 8-15 Digits)
+    if (formData.phone && !/^\d{8,15}$/.test(formData.phone as string)) {
+      newErrors.phone = "Invalid phone number. Enter 8-15 digits only.";
+    }
+
+    if (formData.email && currentStep.fields.some(f => f.name === "email")) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email as string)) {
+        newErrors.email = "Invalid email format.";
+      }
+    }
+
+    // **Password Validation** (At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character)
+    if (formData.password) {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+      if (!passwordRegex.test(formData.password as string)) {
+        newErrors.password =
+          "Password must have at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special character.";
+      }
+    }
+
+    if (currentStep.fields.some(f => f.name === "password") && formData.password !== formData.repeatPassword) {
+      newErrors.repeatPassword = "Passwords do not match.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const nextStep = () => {
+    if (validateStep() && step < formSteps.length - 1) {
+      setStep(step + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { newErrors, validity } = validateCurrentStep(formData, step);
-    // @ts-ignore
-    setErrors(newErrors)
-    if (validity) {
+    setApiError(null); // 🔹 Clear previous API errors
+    if (validateStep()) {
       try {
-        // Send form data to the server via POST request
-        console.log(formData);
         const response = await apiClient.post('/auth/register/', formData);
-
-        // Check the response for success
-        if (response.data && response.status === 201) {
-          console.log('Filtered Data for Submission:', formData);
-          // Set registered state to true
-          setRegistered(true);
+        if (response.data && response.status == 200 || response.status == 201) {
+          setRegistered(true)
         }
       } catch (error) {
-        // Handle error response
-        if (axios.isAxiosError(error) && error.response) {
-          console.error('Registration error: ', error.response.data);
+        console.error('Registration error: ', error);
+       // 🔹 Check if error has a response and extract the error message
+        if (error.response) {
+          setApiError(error.response.data?.error || "An error occurred. Please try again.");
         } else {
-          console.error('An unexpected error occurred: ', error);
+          setApiError("An unexpected error occurred. Please try again.");
         }
       }
     }
   };
 
-  const checkPartialForm = () => {
-
-    // @ts-ignore
-    if(Object.keys(formData).length >= config.userInfo.formLength[formData.userType][step - 1]){
-      const { newErrors, validity} = validateCurrentStep(formData, step)
-      // @ts-ignore
-      setErrors(newErrors)
-      setValid(validity)
-      console.log(validity)
-      if (validity) {
-          setStep(step + 1); // Move to the next step when "Next" is clicked
-          setPasswordError('');
-          setErrors({ email: '', lastName: '', password: '', repeatPassword: '', firstName: '', phone: '' })
-          if (formData.repeatPassword !== formData.password) {
-            setPasswordError('\n Passwords do not match.');
-          }
-      }
-    }
-    else{
-      setErrors({ email: '', lastName: '', password: '', repeatPassword: '', firstName: 'Fill the empty inputs.', phone: ''})
-    }
-
-
-  }
-
-
   return (
-          <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
-            <Modal.Header closeButton>
-              <Modal.Title>Register</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              <form onSubmit={handleSubmit}>
-                {/* Step 1: Email, Password, Repeat Password */}
-                {step === 1 && (
-                  <>
-                    {/* first name Field */}
-                    <div className="mb-3">
-                      <label htmlFor="firstName" className="form-label">First Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="firstName"
-                        placeholder="Enter your first name"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    {/* last name Field */}
-                    <div className="mb-3">
-                      <label htmlFor="lastName" className="form-label">Last Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="lastName"
-                        placeholder="Enter your last name"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    {/* Email Field */}
-                    <div className="mb-3">
-                      <label htmlFor="email" className="form-label">Email</label>
-                      <input
-                        type="email"
-                        autoComplete="email"
-                        className="form-control"
-                        id="email"
-                        placeholder="Enter your email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                      />
-                      <div className="invalid-feedback">
-                        Please provide a username.
-                      </div>
-                    </div>
+    <Modal show={show} onHide={handleCloseForm} centered size="lg" backdrop="static" keyboard={false}>
+      <Modal.Header closeButton>
+        <Modal.Title>Register</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <form onSubmit={handleSubmit}>
+          <h3>{formSteps[step].title}</h3>
 
-                    {/*Phone Field */}
-                    <div className="mb-3">
-                      <label htmlFor="phone" className="form-label">Phone</label>
-                      <input
-                        type="string"
-                        className="form-control"
-                        id="phone"
-                        placeholder="Enter your phone number"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-
-                    {/* Password Field */}
-                    <div className="mb-3 position-relative">
-                      <label htmlFor="password" className="form-label">Password</label>
-
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="new-password"
-                        className="form-control"
-                        id="password"
-                        placeholder="Enter your password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                      />
-
-                      {/* Eye Icon */}
-                      <span
-                        className="position-absolute end-0 top-50 translate-middle-y me-3"
-                        style={{ cursor: 'pointer' }}
-                        onClick={handleToggle}
-                      >
-                          <Icon icon={icon} size={25} />
-                        </span>
-
-                      <small className="text-danger">{passwordError}</small>
-                    </div>
-
-                    {/* Repeat Password Field */}
-                    <div className="mb-3 position-relative">
-                      <label htmlFor="repeatPassword" className="form-label">Repeat Password</label>
-                      <input
-                        type={showPasswordRepeat ? 'text' : 'password'}
-                        autoComplete="new-password"
-                        className="form-control"
-                        id="repeatPassword"
-                        placeholder="Repeat your password"
-                        value={formData.repeatPassword}
-                        onChange={handleChange}
-                        required
-                      />
-                      <span className="position-absolute end-0 top-50 translate-middle-y me-3" onClick={handleToggleRepeat}>
-                  <Icon icon={iconRepeat} size={25} />
-              </span>
-                    </div>
-
-                    {/* Dynamically generate options from array */}
-                    <div className="mb-3">
-                      <label htmlFor="userType" className="form-label">User Type</label>
-                      <select
-                        className="form-select"
-                        id="userType"
-                        value={formData.userType}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="">Select User Type</option>
-                        {config.Users.map((type) => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Next Button */}
-                    {formData.userType !== '' && <div className="d-grid">
-                      <Button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={checkPartialForm}
-                      >
-                        <img className="ms-2" src={"src/assets/Icons/arrow-left.svg"} alt="Next" />
-                      </Button>
-
-                    </div>}
-
-                  </>
-                )}
-
-
-                {/* Step 2: Additional Fields Based on User Type */}
-                {step === 2 && (
-                  <>
-
-                    {formData.userType === 'Therapist' && (
-                      <div className="mb-3">
-                        <label htmlFor="specialisation" className="form-label">Specialisation</label>
+          {formSteps[step]?.fields.map((field) => (
+                    <div key={field.name} className="mb-3">
+                      <label htmlFor={field.name} className="form-label">{field.label}</label>
+          
+                      {field.type === "multi-select" ? (
                         <Select
-                          closeMenuOnSelect={true}
-                          components={animatedComponents}
-                          // @ts-ignore
-                          options={config.therapistInfo.specializations.map((spec) => ({
-                              label: spec,
-                              value: spec
-                            }))}
-                          value={formData.specialisation || ''}
-                          id="clinic"
-                          onChange={(selectedOptions) => {
-                            setFormData({
-                              ...formData,
-                              specialisation: selectedOptions as string // This is where we set the selected options
-                            });
-                          }}
-                          required={true}
-                        />
-                      </div>
-                    )}
-
-                    {(formData.userType === 'Therapist' || formData.userType === 'Researcher') && (
-                      <div className="mb-3">
-                        <label htmlFor="clinic" className="form-label">{t("clinic")}</label>
-                        <Select
-                          closeMenuOnSelect={false}
-                          components={animatedComponents}
+                          id={field.name}
                           isMulti
-                          // @ts-ignore
-                          options={config.therapistInfo.clinics.map((clinic) => ({
-                            label: clinic,
-                            value: clinic
-                          }))}
-                          value={formData.clinic || []}
-                          id="clinic"
-                          onChange={(selectedOptions) => {
-                            setFormData({
-                              ...formData,
-                              clinic: selectedOptions as string[]
-                            });
-                          }}
-                          required={true}
+                          options={field.name === "diagnosis" && formData.function.length > 0
+                            ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
+                            : field.options?.map(option => ({ value: option, label: option }))
+                          }
+                          value={(formData[field.name] as string[]).map(value => ({ value, label: value }))}
+                          onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.name)}
                         />
-                      </div>
-                    )}
-
-
-                    {formData.userType === 'Researcher' && (
-                      <div className="mb-3">
-                        <label htmlFor="researcherInfo" className="form-label">Researcher Info</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="researcherInfo"
-                          placeholder="Enter researcher-specific information"
-                          value={formData.researcherInfo as string || ''}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
-                    )}
-
-                    {formData.userType === 'admin' && (
-                      <div className="mb-3">
-                        <label htmlFor="adminInfo" className="form-label">Admin Info</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="adminInfo"
-                          placeholder="Enter admin-specific information"
-                          value={formData.adminInfo as string || ''}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
-                    )}
-
-                    {/* Submit Button */}
-                    {(formData.userType === 'Therapist' || formData.userType === 'Researcher') && (
-                      <div className="d-grid">
-                        <Button
-                          type="submit"
-                          className="btn btn-success"
-                          hidden={registered}
-                        >
-                          <img className="ms-2" src={"src/assets/Icons/arrow-left.svg"} alt="Submit" />
-                        </Button>
-                      </div>
-                    )}
-
-
-                    {/* Back Button */}
-                    <div className="d-grid">
-                      <Button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handleBack}
-                        hidden={registered}
-                      >
-                        <img className="ms-2" src="Arrow left.svg" alt="Back" />
-                      </Button>
+                      ) : field.type === "dropdown" ? (
+                        <select id={field.name} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} value={formData[field.name] as string || ""} onChange={handleChange}>
+                          <option value="">Select {field.label}</option>
+                          {field.options?.map((option) => (<option key={option} value={option}>{option}</option>))}
+                        </select>
+                      ) : field.type === "password" ? (
+                        <div className="position-relative">
+                          <input
+                            type={field.name === "password" ? (showPassword ? "text" : "password") : (showPasswordRepeat ? "text" : "password")}
+                            className={`form-control ${errors[field.name] ? "is-invalid" : ""}`}
+                            id={field.name}
+                            value={formData[field.name] as string || ""}
+                            onChange={handleChange}
+                          />
+                          <span
+                            className="position-absolute end-0 top-50 translate-middle-y me-3"
+                            style={{ cursor: "pointer" }}
+                            onClick={field.name === "password" ? togglePasswordVisibility : toggleRepeatPasswordVisibility}
+                          >
+                            <Icon icon={field.name === "password" ? icon : iconRepeat} size={25} />
+                          </span>
+                          {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
+                        </div>
+                      )  : (
+                        <input type={field.type} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} id={field.name} value={formData[field.name] as string || ""} onChange={handleChange} />
+                      )}
+          
+                      {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
                     </div>
-                  </>
-                )}
-                {Object.values(errors).some(value => value !== '') && <div className="alert alert-danger">
-                  {Object.values(errors).map((error) => (
-                    <div>{error}</div>
                   ))}
-                </div>
-                }
-                {registered && <div className="alert alert-success">
-                  <div>You have been Registered. Your account information has been sent to the given email.</div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={handleCloseAlert}></button>
+
+                   {/* 🔹 Display API Error Alert */}
+      {apiError && <div className="alert alert-danger">{apiError}</div>}
+      {registered && <div className="alert alert-success">
+                  <div>You have been Registered. Your account information will be sent to the given email, when your account has been approved.</div>
                 </div>}
 
-              </form>
-            </Modal.Body>
-          </Modal>
+
+          <div className="d-flex justify-content-between mt-4">
+            {step > 0 && !registered && <Button variant="secondary" onClick={prevStep}>Back</Button>}
+            {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>Next</Button>}
+            {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">Submit</Button>}
+          </div>
+        </form>
+      </Modal.Body>
+    </Modal>
   );
 };
 
