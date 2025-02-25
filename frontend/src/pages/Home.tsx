@@ -17,10 +17,12 @@ const Home: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false); // State to control the modal visibility
   const [showRegisterModal, setShowRegisterModal] = useState(false); // State to control the modal visibility
 
-  const handleShow = () => setShowLoginModal(true);
-  const handleClose = () => setShowLoginModal(false);
-  const handleRegShow = () => setShowRegisterModal(true);
-  const handleRegClose = () => setShowRegisterModal(false);
+  const handleShow = () => {
+    setShowLoginModal(!showLoginModal);
+  };
+  const handleRegShow = () => {
+    setShowRegisterModal(!showRegisterModal);
+  };
 
   const { t } = useTranslation();
 
@@ -62,8 +64,8 @@ const Home: React.FC = () => {
         </Row>
 
         {/* Login Form Modal */}
-        <LoginForm show={showLoginModal} handleClose={handleClose} pageType="regular" />
-        <FormRegister show={showRegisterModal} handleRegShow={handleRegClose} pageType="regular" />
+        <LoginForm show={showLoginModal} handleClose={handleShow} pageType="regular" />
+        <FormRegister show={showRegisterModal} handleRegShow={handleRegShow} pageType="regular" />
 
         {/* Footer Component */}
         <Footer />

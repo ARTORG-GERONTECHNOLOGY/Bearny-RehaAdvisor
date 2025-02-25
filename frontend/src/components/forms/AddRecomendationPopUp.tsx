@@ -240,7 +240,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="link" className="mt-3">
-            <Form.Label>{t('Link')}</Form.Label>
+            <Form.Label>{t('Link (Optional)')}</Form.Label>
             <Form.Control
               type="text"
               placeholder={t('Enter link')}
@@ -251,7 +251,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="mediaFile" className="mt-3">
-            <Form.Label>{t('Upload File')}</Form.Label>
+            <Form.Label>{t('Upload File (Optional)')}</Form.Label>
             <Form.Control
               type="file"
               accept="image/*,video/*,audio/*,application/pdf"
@@ -314,7 +314,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               </Col>
               <Col xs={4}>
                 <Form.Group controlId={`frequency-${index}`}>
-                  <Form.Label>{t('Frequency')}</Form.Label>
+                  <Form.Label>{t('Recomendation Frequency')}</Form.Label>
                   <Form.Control
                     as="select"
                     value={patient.frequency}
