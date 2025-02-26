@@ -6,6 +6,7 @@ import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import axios from 'axios';
 import Select from 'react-select';
+import InfoBubble from '../common/InfoBubble';
 
 interface AddRecommendationPopupProps {
   show: boolean;
@@ -181,6 +182,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
 
           <Form.Group controlId="duration">
             <Form.Label>{t('Recomendation Duration (min)')}</Form.Label>
+            <InfoBubble tooltip="Put the duration of the that the intervention should last here aproximately in minutes." />
             <Form.Control
               type="number"
               placeholder={t('Enter recommendation duartion in minutes')}
@@ -192,6 +194,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
 
           <Form.Group controlId="tagList" className="mt-3">
             <Form.Label>{t('Tag List')}</Form.Label>
+            <InfoBubble tooltip="Select multiple tags to categorize the recommendation." />
             <Select
               isMulti
               options={config.RecomendationInfo.tags.map(type => ({
