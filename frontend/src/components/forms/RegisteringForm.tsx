@@ -18,11 +18,11 @@ interface FormData {
   firstName: string;
   lastName: string;
   phone: string;
-  specialisation?: string;
+  specialisation?: string[];
   clinic?: string[];
   researcherInfo?: string;
   adminInfo?: string;
-  [key: string]: string | number | string[] | boolean;
+  [key: string]: string | string[];
 }
 
 interface RegisterFormProps {
@@ -58,6 +58,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
   const [iconRepeat, setIconRepeat] = useState(eyeOff);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null); //  Stores API Errors
+
+  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
 
   const handleCloseForm = () => {
@@ -108,7 +110,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       const newFormData = { ...formData, userType: value };
 
       if (value === "Therapist") {
-        newFormData.specialisation = newFormData.specialisation || "";
+        newFormData.specialisation = newFormData.specialisation || [""];
         newFormData.clinic = newFormData.clinic || [];
       } else if (value === "Researcher") {
         newFormData.researcherInfo = newFormData.researcherInfo || "";
@@ -216,6 +218,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                           id={field.name}
                           isMulti
                           options={field.name === "diagnosis" && formData.function.length > 0
+                            // @ts-ignore
                             ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
                             : field.options?.map(option => ({ value: option, label: option }))
                           }
