@@ -1,4 +1,4 @@
-import React, { createElement, lazy, Suspense } from 'react';
+import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 const Home = lazy(() => import('../pages/Home'));
@@ -16,27 +16,30 @@ const RehabTable = lazy(() => import('../pages/RehabTable'));
 const TherapistRecomendations = lazy(() => import('../pages/TherapistRecomendations'));
 const ErrorPage = lazy(() => import('../components/common/Error'));
 
+// Define a loading fallback function using createElement
 function LoadingFallback() {
-  return <div>Loading...</div>;
+  return createElement('div', null, 'Loading...');
 }
 
+// Define the router with createElement inside Suspense
 export const router = createBrowserRouter([
-  { path: '/', element: <Suspense fallback={<LoadingFallback />}><Home /></Suspense> },
-  { path: '/error', element: <Suspense fallback={<LoadingFallback />}><ErrorPage /></Suspense> },
-  { path: '/therapist', element: <Suspense fallback={<LoadingFallback />}><Therapist /></Suspense> },
-  { path: '/unauthorized', element: <Suspense fallback={<LoadingFallback />}><UnauthorizedAccess /></Suspense> },
-  { path: '/forgottenpwd', element: <Suspense fallback={<LoadingFallback />}><ForgottenPassword /></Suspense> },
-  { path: '/userprofile', element: <Suspense fallback={<LoadingFallback />}><UserProfile /></Suspense> },
-  { path: '/patient_home', element: <Suspense fallback={<LoadingFallback />}><PatientHome /></Suspense> },
-  { path: '/patient', element: <Suspense fallback={<LoadingFallback />}><PatientView /></Suspense> },
-  { path: '/admindashboard', element: <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense> },
-  { path: '/researcher', element: <Suspense fallback={<LoadingFallback />}><ResearcherView /></Suspense> },
-  { path: '/addcontent', element: <Suspense fallback={<LoadingFallback />}><AddRecomendations /></Suspense> },
-  { path: '/addpatient', element: <Suspense fallback={<LoadingFallback />}><AddPatient /></Suspense> },
-  { path: '/rehabtable', element: <Suspense fallback={<LoadingFallback />}><RehabTable /></Suspense> },
-  { path: '/interventions', element: <Suspense fallback={<LoadingFallback />}><TherapistRecomendations /></Suspense> },
+  { path: '/', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(Home)) },
+  { path: '/error', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(ErrorPage)) },
+  { path: '/therapist', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(Therapist)) },
+  { path: '/unauthorized', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(UnauthorizedAccess)) },
+  { path: '/forgottenpwd', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(ForgottenPassword)) },
+  { path: '/userprofile', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(UserProfile)) },
+  { path: '/patient_home', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(PatientHome)) },
+  { path: '/patient', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(PatientView)) },
+  { path: '/admindashboard', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(AdminDashboard)) },
+  { path: '/researcher', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(ResearcherView)) },
+  { path: '/addcontent', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(AddRecomendations)) },
+  { path: '/addpatient', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(AddPatient)) },
+  { path: '/rehabtable', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(RehabTable)) },
+  { path: '/interventions', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(TherapistRecomendations)) },
 ]);
 
-export function Router(): JSX.Element {
+// Replace JSX with createElement
+export function Router() {
   return createElement(RouterProvider, { router });
 }

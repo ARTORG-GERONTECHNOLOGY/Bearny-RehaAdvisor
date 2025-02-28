@@ -1,10 +1,10 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import en from './assets/lang/en.json';
-import de from './assets/lang/de.json';
-import fr from './assets/lang/fr.json';
-import it from './assets/lang/it.json';
+import en from './src/assets/lang/en.json';
+import de from './src/assets/lang/de.json';
+import fr from './src/assets/lang/fr.json';
+import it from './src/assets/lang/it.json';
 
 i18n.use(initReactI18next).use(LanguageDetector).init({
   detection: {
