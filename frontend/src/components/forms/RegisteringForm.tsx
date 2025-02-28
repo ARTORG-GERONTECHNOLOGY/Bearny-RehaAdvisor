@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 import { Button, Modal } from 'react-bootstrap';
-import makeAnimated from 'react-select/animated';
 import Select from 'react-select';
-import { Icon } from 'react-icons-kit';
-import { eyeOff } from 'react-icons-kit/feather/eyeOff';
-import { eye } from 'react-icons-kit/feather/eye';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
 
@@ -53,9 +49,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
   const [step, setStep] = useState<number>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [registered, setRegistered] = useState(false);
-  const [icon, setIcon] = useState(eyeOff);
   const [showPassword, setShowPassword] = useState(false);
-  const [iconRepeat, setIconRepeat] = useState(eyeOff);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null); //  Stores API Errors
 
@@ -90,12 +84,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
-    setIcon(showPassword ? eyeOff : eye);
   };
   
   const toggleRepeatPasswordVisibility = () => {
     setShowPasswordRepeat(!showPasswordRepeat);
-    setIconRepeat(showPasswordRepeat ? eyeOff : eye);
   };
 
   const formSteps = config.TherapistForm;
@@ -110,7 +102,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       const newFormData = { ...formData, userType: value };
 
       if (value === "Therapist") {
-        newFormData.specialisation = newFormData.specialisation || [""];
+        newFormData.specialisation = newFormData.specialisation || [];
         newFormData.clinic = newFormData.clinic || [];
       } else if (value === "Researcher") {
         newFormData.researcherInfo = newFormData.researcherInfo || "";
@@ -133,6 +125,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
     const currentStep = formSteps[step];
 
     currentStep.fields.forEach((field) => {
+        // @ts-ignore
       if (field.required && (!formData[field.name] || formData[field.name]?.length === 0)) {
         newErrors[field.name] = `${field.label} is required.`;
       }
@@ -217,8 +210,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                         <Select
                           id={field.name}
                           isMulti
-                          options={field.name === "diagnosis" && formData.function.length > 0
                             // @ts-ignore
+                          options={field.name === "diagnosis" && formData.function.length > 0
+                              // @ts-ignore
                             ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
                             : field.options?.map(option => ({ value: option, label: option }))
                           }
@@ -244,7 +238,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                             style={{ cursor: "pointer" }}
                             onClick={field.name === "password" ? togglePasswordVisibility : toggleRepeatPasswordVisibility}
                           >
-                            <Icon icon={field.name === "password" ? icon : iconRepeat} size={25} />
+                           {field.name === "password" ? (
+                                showPassword ? <FaEye size={25} onClick={togglePasswordVisibility} /> 
+                                            : <FaEyeSlash size={25} onClick={togglePasswordVisibility} />
+                              ) : (
+                                showPasswordRepeat ? <FaEye size={25} onClick={toggleRepeatPasswordVisibility} /> 
+                                                  : <FaEyeSlash size={25} onClick={toggleRepeatPasswordVisibility} />
+                              )}
+
                           </span>
                           {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
                         </div>
