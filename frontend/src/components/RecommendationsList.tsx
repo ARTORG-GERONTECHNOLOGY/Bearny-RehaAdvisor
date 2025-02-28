@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Badge, Button, Card, ListGroup } from 'react-bootstrap';
 import { FaStar } from 'react-icons/fa';
-import '../assets/styles/RecommendationList.css';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
-
-//import Microlink from '@microlink/react';
+import PatientInterventionPopUp from './PatientInterventionPopUp';
+import '../assets/styles/RecommendationList.css';
 
 interface Recommendation {
   intervention_id: string;
@@ -19,15 +18,14 @@ interface Recommendation {
   content_type: string;
   link?: string;
   media_url?: string;
+  preview_img?: string;
 }
 
 const RecommendationList: React.FC = () => {
-  const [recommendationsData, setRecommendationsData] = useState<Recommendation[]>([]);
-  const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null);
-  const [selectedRecommendationIndex, setSelectedRecommendationIndex] = useState<number | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [markedAsUsed, setMarkedAsUsed] = useState<{ [key: number]: boolean }>({});
-  const [userRating, setUserRating] = useState<{ [key: number]: number }>({});
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [markedAsUsed, setMarkedAsUsed] = useState<{ [key: string]: boolean }>({});
+  const [userRating, setUserRating] = useState<{ [key: string]: number }>({});
+  const [selectedItem, setSelectedItem] = useState<Recommendation | null>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -39,64 +37,36 @@ const RecommendationList: React.FC = () => {
       const response = await apiClient.get(`patients/${localStorage.getItem('id')}/today`);
       const data = response.data || [];
 
-      setRecommendationsData(data);
+      setRecommendations(data);
+      const initialMarkedAsUsed: { [key: string]: boolean } = {};
 
-      const initialMarkedAsUsed: { [key: number]: boolean } = {};
-      // @ts-ignore
-      data.forEach((rec, index) => {
-        initialMarkedAsUsed[index] = isTodayCompleted(rec.completion_dates);
+      data.forEach((rec) => {
+        initialMarkedAsUsed[rec.intervention_id] = isTodayCompleted(rec.completion_dates);
         if (rec.feedback.length > 0) {
-          const latestFeedback = rec.feedback[rec.feedback.length - 1];
-          setUserRating((prev) => ({ ...prev, [index]: parseInt(latestFeedback.rating, 10) }));
+          setUserRating((prev) => ({
+            ...prev,
+            [rec.intervention_id]: parseInt(rec.feedback[rec.feedback.length - 1].rating, 10),
+          }));
         }
       });
+
       setMarkedAsUsed(initialMarkedAsUsed);
     } catch (error) {
       console.error('Error fetching patient data', error);
     }
   };
 
-  const handleShow = (recommendation: Recommendation, index: number) => {
-    setSelectedRecommendation(recommendation);
-    setSelectedRecommendationIndex(index);
-    setShowPopup(true);
-  };
-
-  const getFileType = (url: string) => {
-    // @ts-ignore
-    const extension = url.split('.').pop().toLowerCase();
-    if (['mp4', 'mov', 'avi'].includes(extension)) {
-      return 'video';
-    } else if (['mp3', 'wav', 'aac'].includes(extension)) {
-      return 'audio';
-    } else if (['pdf'].includes(extension)) {
-      return 'pdf';
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) {
-      return 'image';
-    }
-    return 'unknown';
-  };
-
-  const handleClose = () => {
-    setShowPopup(false);
-    setSelectedRecommendation(null);
-    setSelectedRecommendationIndex(null);
-  };
-
-  const handleMarkAsUsed = async (index: number) => {
+  const handleMarkAsUsed = async (id: string) => {
     try {
       await apiClient.post('recommendations/mark-done/', {
         patient_id: localStorage.getItem('id'),
-        intervention_id: recommendationsData[index].intervention_id,
+        intervention_id: id,
       });
 
-      setMarkedAsUsed((prevState) => ({
-        ...prevState,
-        [index]: true,
-      }));
-      setRecommendationsData((prevData) =>
-        prevData.map((rec, i) =>
-          i === index
+      setMarkedAsUsed((prev) => ({ ...prev, [id]: true }));
+      setRecommendations((prevData) =>
+        prevData.map((rec) =>
+          rec.intervention_id === id
             ? { ...rec, completion_dates: [...rec.completion_dates, new Date().toISOString()] }
             : rec
         )
@@ -106,21 +76,15 @@ const RecommendationList: React.FC = () => {
     }
   };
 
-  const handleFeedbackSubmit = async (index: number, rating: number, comment: string) => {
+  const handleFeedbackSubmit = async (id: string, rating: number, comment: string) => {
     try {
-      await apiClient.post(`patients/${localStorage.getItem('id')}/feedback/${recommendationsData[index].intervention_id}/`, {
+      await apiClient.post(`patients/${localStorage.getItem('id')}/feedback/${id}/`, {
         comment: comment,
         rating: rating,
       });
-      setUserRating((prevRating) => ({
-        ...prevRating,
-        [index]: rating,
-      }));
-      setMarkedAsUsed((prevState) => ({
-        ...prevState,
-        [index]: true,
-      }));
 
+      setUserRating((prev) => ({ ...prev, [id]: rating }));
+      setMarkedAsUsed((prev) => ({ ...prev, [id]: true }));
     } catch (error) {
       console.error('Error submitting feedback:', error);
     }
@@ -128,17 +92,22 @@ const RecommendationList: React.FC = () => {
 
   const isTodayCompleted = (completionDates: string[]) => {
     const today = new Date().toISOString().split('T')[0];
-    return completionDates.some(date => date.startsWith(today));
+    return completionDates.some((date) => date.startsWith(today));
   };
 
   return (
     <div className="recommendation-list">
-      <h2 className="text-center mb-5">Recommendations for Today</h2>
+      <h2 className="text-center mb-5">{t('Recommendations for Today')}</h2>
 
-      {recommendationsData.length > 0 ? (
+      {recommendations.length > 0 ? (
         <div className="scrollable-container">
-          {recommendationsData.map((rec, index) => (
-            <Card key={index} className="mb-4 recommendation-card shadow-sm border-0">
+          {recommendations.map((rec) => (
+            <Card
+              key={rec.intervention_id}
+              className="mb-4 recommendation-card shadow-sm border-0"
+              onClick={() => setSelectedItem(rec)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="row no-gutters">
                 <div className="col-md-8">
                   <Card.Body className="text-left p-4">
@@ -149,79 +118,47 @@ const RecommendationList: React.FC = () => {
 
                 <div className="col-md-4 d-flex align-items-center justify-content-center p-3">
                   <ListGroup variant="flush">
-                    {rec.link && (
+                    {rec.preview_img && (
                       <ListGroup.Item>
-                        {/* <a href={rec.link} target="_blank" rel="noopener noreferrer">View Article</a>*/}
-                        <iframe src={rec.link} title='Link to a recomendation'></iframe>
+                        <img src={rec.preview_img} alt="Content Preview" style={{ width: '100%' }} />
                       </ListGroup.Item>
                     )}
-
-                    {rec.media_url && (() => {
-                      const fileType = getFileType(rec.media_url);
-                      switch (fileType) {
-                        case 'video':
-                          return (
-                            <ListGroup.Item>
-                              <video width="100%" controls>
-                                <source src={rec.media_url} type="video/mp4" />
-                                Your browser does not support the video tag.
-                              </video>
-                            </ListGroup.Item>
-                          );
-                        case 'audio':
-                          return (
-                            <ListGroup.Item>
-                              <audio controls>
-                                <source src={rec.media_url} type="audio/mpeg" />
-                                Your browser does not support the audio element.
-                              </audio>
-                            </ListGroup.Item>
-                          );
-                        case 'pdf':
-                          return (
-                            <ListGroup.Item>
-                              <a href={rec.media_url} target="_blank" rel="noopener noreferrer">View PDF</a>
-                            </ListGroup.Item>
-                          );
-                        case 'image':
-                          return (
-                            <ListGroup.Item>
-                              <img src={rec.media_url} alt="Content Image" style={{ width: '100%' }} />
-                            </ListGroup.Item>
-                          );
-                        default:
-                          return <p>No valid media available</p>;
-                      }
-                    })()}
                   </ListGroup>
                 </div>
               </div>
 
               <div className="row no-gutters align-items-center justify-content-between bg-light p-3">
                 <div className="col-md-8 d-flex align-items-center">
-                  {markedAsUsed[index] ? (
+                  {markedAsUsed[rec.intervention_id] ? (
                     <Badge pill bg="success" className="mark-as-used-badge">
-                      Done
+                      {t('Done')}
                     </Badge>
                   ) : (
                     <Button
                       variant="outline-primary"
-                      onClick={() => handleMarkAsUsed(index)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAsUsed(rec.intervention_id);
+                      }}
                       className="mark-as-used-button mr-3"
                     >
                       {t('I did it!')}
                     </Button>
                   )}
-                  {markedAsUsed[index] && (
+
+                  {markedAsUsed[rec.intervention_id] && (
                     <div className="feedback-stars d-flex align-items-center">
-                      <strong className="mr-2">Your Rating:</strong>
+                      <strong className="mr-2">{t('Your Rating:')}</strong>
                       {Array.from({ length: 5 }, (_, i) => (
                         <FaStar
                           key={i}
                           size={20}
-                          color={i < (userRating[index] || 0) ? 'gold' : 'gray'}
-                          style={{ marginRight: '5px', cursor: userRating[index] ? 'default' : 'pointer' }}
-                          onClick={() => !userRating[index] && handleFeedbackSubmit(index, i + 1, 'Your comment')}
+                          color={i < (userRating[rec.intervention_id] || 0) ? 'gold' : 'gray'}
+                          style={{ marginRight: '5px', cursor: userRating[rec.intervention_id] ? 'default' : 'pointer' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !userRating[rec.intervention_id] && handleFeedbackSubmit(rec.intervention_id, i + 1, 'Your comment');
+                          }}
                         />
                       ))}
                     </div>
@@ -233,8 +170,13 @@ const RecommendationList: React.FC = () => {
         </div>
       ) : (
         <div className="text-center mt-5">
-          <p>No recommendations for today. Please check back tomorrow or contact your therapist.</p>
+          <p>{t('No recommendations for today. Please check back tomorrow or contact your therapist.')}</p>
         </div>
+      )}
+
+      {/* Patient Intervention Popup */}
+      {selectedItem && (
+        <PatientInterventionPopUp show={true} item={selectedItem} handleClose={() => setSelectedItem(null)} />
       )}
     </div>
   );

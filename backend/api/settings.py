@@ -125,7 +125,7 @@ MEDIA_HOST = os.environ.get("MEDIA_HOST")
 STATIC_URL = "/api_static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_ROOT = os.path.join("/srv/app/media", "/srv/app/media")
 
 # Increase default upload size
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB

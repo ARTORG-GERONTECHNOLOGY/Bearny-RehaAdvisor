@@ -4,6 +4,11 @@ import { Col, ListGroup, Modal, Row, Badge } from 'react-bootstrap';
 import apiClient from '../api/client';
 import config from '../config/config.json';
 import authStore from '../stores/authStore';
+import { generateTagColors, getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
+import { Document, Page, pdfjs } from 'react-pdf';
+import Microlink from '@microlink/react';
+import ReactPlayer from "react-player";
+import ReactAudioPlayer from 'react-audio-player';
 
 interface ProductPopupProps {
   show: boolean;
@@ -24,6 +29,61 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
       fetchAssignedDiagnoses();
     }
   }, [show]);
+
+  const renderMediaContent = () => {
+      if (!item.media_file && !item.link) return <p className="text-muted">No media available</p>;
+  
+      const mediaType = getMediaTypeLabelFromUrl(item.media_file, item.link);
+  
+      switch (mediaType) {
+        case 'Video':
+          return (
+            <div className="rounded shadow-sm overflow-hidden">
+              <ReactPlayer
+                url={item.media_file || item.link}
+                width="100%"
+                height="400px"
+                controls
+              />
+            </div>
+          );
+        case 'Audio':
+          return (
+            <ReactAudioPlayer
+                              src={item.media_file || item.link}
+                              controls
+                            />
+          );
+        case 'PDF':
+          return (
+            <div className="pdf-preview">
+              <Document file={item.media_url} loading={<p>Loading PDF...</p>}>
+                <Page pageNumber={1} width={300} />
+              </Document>
+              <a href={item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-2">
+                Open PDF
+              </a>
+            </div>
+          );
+        case 'Image':
+          return <img src={item.media_file} alt="Recommendation" className="img-fluid rounded shadow" />;
+      case 'Link':
+          return (
+              <Microlink
+              url={item.link}
+              style={{ width: '100%', borderRadius: '10px', marginTop: '10px' }}
+              />
+          );
+  
+            
+        default:
+          return (
+            <a href={item.link || item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+              Open Resource
+            </a>
+          );
+      }
+    };
 
   const fetchAssignedDiagnoses = async () => {
     try {
@@ -130,51 +190,10 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
 
   {/* Content Type and Source Side-by-Side */}
   <Row className="pb-3 mb-3">
-    <Col md={6}>
+    <Col>
       <h5>Source</h5>
       <ListGroup variant="flush">
-        {/* Link Source */}
-        {item.link && (
-          <ListGroup.Item>
-            <iframe
-              src={item.link}
-              title="Link to a recommendation"
-              style={{ width: '100%', height: '250px', border: 'none', borderRadius: '5px' }}
-            ></iframe>
-          </ListGroup.Item>
-        )}
-
-        {/* Media Sources */}
-        {item.media_url && (
-          <>
-            {/* Video */}
-            {item.media_url.endsWith('.mp4') && (
-              <ListGroup.Item>
-                <video width="100%" controls className="rounded shadow-sm">
-                  <source src={item.media_url} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-              </ListGroup.Item>
-            )}
-            {/* Audio */}
-            {item.media_url.endsWith('.mp3') && (
-              <ListGroup.Item>
-                <audio controls className="w-100">
-                  <source src={item.media_url} type="audio/mpeg" />
-                  Your browser does not support the audio element.
-                </audio>
-              </ListGroup.Item>
-            )}
-            {/* PDF */}
-            {item.media_url.endsWith('.pdf') && (
-              <ListGroup.Item>
-                <a href={item.media_url} target="_blank" rel="noopener noreferrer">
-                  View PDF
-                </a>
-              </ListGroup.Item>
-            )}
-          </>
-        )}
+                      <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
       </ListGroup>
     </Col>
   </Row>
