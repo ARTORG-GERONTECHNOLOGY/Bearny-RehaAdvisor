@@ -45,7 +45,7 @@ def get_recommendations(request):
                     } for pt in rec.patient_types
                 ],
                 "link": rec.link or '',
-                "media_url": f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, rec.media_file)}" if rec.media_file else '',
+                "media_file": f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, rec.media_file)}" if rec.media_file else '',
                 "preview_img": f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, rec.preview_img)}" if rec.preview_img else '',
                 "duration": rec.duration,
                 "benefitFor": rec.benefitFor,
