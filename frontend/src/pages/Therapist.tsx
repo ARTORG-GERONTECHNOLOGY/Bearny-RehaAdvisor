@@ -10,6 +10,7 @@ import authStore from '../stores/authStore';
 import apiClient from '../api/client';
 import config from '../config/config.json';
 import AddPatientPopup from '../components/forms/AddPatientPopUp';
+import { useCallback } from 'react';
 
 const Therapist: React.FC = () => {
   const [patients, setPatients] = useState([]);
@@ -25,9 +26,7 @@ const Therapist: React.FC = () => {
   const [showPopupAdd, setShowPopupAdd] = useState(false);
 
   const handleOpen = () => setShowPopupAdd(true);
-  const handleClose = () => setShowPopupAdd(false);
-
-
+  
   const therapistId = authStore.id;
 
   const durationOptions = config.RehaInfo;
@@ -59,6 +58,12 @@ const Therapist: React.FC = () => {
       console.error('Error fetching data:', error);
     }
   };
+
+  const handleClose = useCallback(() => {
+    fetchData();
+    setShowPopupAdd(false);
+  }, [fetchData]);
+  
 
   const handleItemClick = (item: any) => {
     setSelectedItem(item);
@@ -207,7 +212,7 @@ const Therapist: React.FC = () => {
           show={showPopup}
           handleClose={handleClosePopup}
         />)}
-      <AddPatientPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()}  />
+      <AddPatientPopup show={showPopupAdd} handleClose={handleClose}  />
 
 
       <Footer />

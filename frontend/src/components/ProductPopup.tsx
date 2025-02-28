@@ -79,7 +79,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton className="d-flex justify-content-between align-items-center">
       <Modal.Title>
-      <h1>{item.title}</h1>
+      <h2>{item.title}</h2>
       <h3 className="text-muted">{item.content_type}</h3>
 
       {/* Beneft for Section - Directly Below Content Type */}

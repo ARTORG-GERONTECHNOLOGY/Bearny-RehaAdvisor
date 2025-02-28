@@ -4,7 +4,6 @@ import Select from 'react-select';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
-import Therapist from '../../pages/Therapist';
 
 interface FormData {
   email: string;
@@ -93,12 +92,14 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
     const currentStep = formSteps[step];
 
     currentStep.fields.forEach((field) => {
+        // @ts-ignore
       if (field.required && (!formData[field.name] || formData[field.name]?.length === 0)) {
         newErrors[field.name] = `${field.label} is required.`;
       }
     });
 
     // **Phone Number Validation** (Only if it's not empty)
+      // @ts-ignore
     if (formData.phone && formData.phone.trim() !== "") {
       if (!/^\d{8,15}$/.test(formData.phone as string)) {
         newErrors.phone = "Invalid phone number. Enter 8-15 digits only.";

@@ -103,8 +103,11 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
       formPayload.append('description', formData.description);
       formPayload.append('contentType', formData.contentType);
       formPayload.append('img_file', formData.previewImage);
+        // @ts-ignore
       formPayload.append('duration', formData.duration);
+        // @ts-ignore
       formPayload.append('benefitFor', formData.benefitFor);
+        // @ts-ignore
       formPayload.append('tagList', formData.tagList);
 
       if (formData.link) {
@@ -187,6 +190,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
               type="number"
               placeholder={t('Enter recommendation duartion in minutes')}
               value={formData.duration}
+                // @ts-ignore
               onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
               required
             />
