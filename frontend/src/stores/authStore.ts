@@ -162,7 +162,8 @@ class AuthStore {
   }
 
   startInactivityTimer() {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
