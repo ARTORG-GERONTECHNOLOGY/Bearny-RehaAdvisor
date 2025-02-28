@@ -4,24 +4,21 @@ import Header from '../components/common/Header'; // Header component
 import Footer from '../components/common/Footer'; // Footer component
 import LoginForm from '../components/forms/LoginForm'; // LoginForm modal component
 import { useTranslation } from 'react-i18next'; // Translation hook for multi-language support
+import authStore from '../stores/authStore';
 
 const PatientHome: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // State to simulate login status (can be replaced by real login logic)
   const [showLoginModal, setShowLoginModal] = useState(false); // State to control login modal visibility
   const { t } = useTranslation(); // Hook for translating text
 
   // Function to show the login modal
-  const handleShow = () => setShowLoginModal(true);
-
-  // Function to close the login modal
-  const handleClose = () => setShowLoginModal(false);
+  const handleShow = () => setShowLoginModal(!showLoginModal);
 
   return (
     <>
       {/* Main container that spans full viewport height (vh-100) */}
       <Container fluid className="d-flex flex-column vh-100">
         {/* Header Component */}
-        <Header isLoggedIn={isLoggedIn} /> {/* Header receives the login status as prop */}
+        <Header isLoggedIn={authStore.isAuthenticated} /> {/* Header receives the login status as prop */}
 
         {/* Main content section: vertically and horizontally centered */}
         <Row className="flex-grow-1 d-flex justify-content-center align-items-center text-center">
@@ -53,7 +50,7 @@ const PatientHome: React.FC = () => {
         </Row>
 
         {/* Login Form Modal */}
-        <LoginForm show={showLoginModal} handleClose={handleClose} pageType="patient" /> {/* Modal for patient login */}
+        <LoginForm show={showLoginModal} handleClose={handleShow} pageType="patient" /> {/* Modal for patient login */}
       </Container>
 
       {/* Footer Component */}
