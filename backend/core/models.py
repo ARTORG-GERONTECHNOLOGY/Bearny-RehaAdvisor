@@ -369,7 +369,9 @@ class PatientInterventions(Document):
         # Fetch all active interventions for the patient
         interventions = cls.objects(patient_id=patient, recomended_t=True)
 
+
         for intervention in interventions:
+
             # Check if the intervention's schedule includes today
             scheduled_dates = intervention.generate_schedule()
             if today in [date.date() for date in scheduled_dates]:
@@ -382,6 +384,10 @@ class PatientInterventions(Document):
                     'completion_dates': intervention.completion_dates,
                     'not_completed_dates': intervention.not_completed_dates,
                     'content_type': intervention.intervention_id.content_type,
+                    'benefitFor' : intervention.intervention_id.benefitFor,
+                    'tags' : intervention.intervention_id.tags,
+                    'preview_img' : (f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.intervention_id.preview_img)}" if intervention.intervention_id.preview_img else ''),
+                    'duration' : intervention.intervention_id.duration,
                     'feedback': [
                         {
                             'date': fb.date,
@@ -399,7 +405,7 @@ class PatientInterventions(Document):
                     media_file = intervention.intervention_id.media_file
                     if media_file:  # Only include media_url if file path is provided
                         media_file_path = os.path.join(settings.MEDIA_URL, media_file)
-                        rec_data["media_url"] = f'http://localhost:8000{media_file_path}'
+                        rec_data["media_file"] = f'{settings.MEDIA_HOST}{media_file_path}'
 
                 recommendations_today.append(rec_data)
 
