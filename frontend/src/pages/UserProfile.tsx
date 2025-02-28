@@ -7,7 +7,7 @@ import authStore from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap'
-import * as test from 'node:test'
+
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate(); // Used for navigation

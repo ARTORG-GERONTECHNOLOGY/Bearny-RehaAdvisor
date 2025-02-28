@@ -119,12 +119,12 @@ const ResearcherView: React.FC = () => {
         Export to CSV
       </Button>
 
-      {/* Pop-up to show details about patient/product */}
+      {/* Pop-up to show details about patient/product 
       {dataType === 'patients' ? (
         <PatientPopup_re show={showPopup} item={currentItem} handleClose={() => setShowPopup(false)} />
       ) : (
         <ProductPopup show={showPopup} item={currentItem} handleClose={() => setShowPopup(false)} therapist={'t1'} />
-      )}
+      )}*/}
     </div>
   );
 };

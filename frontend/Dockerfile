@@ -20,9 +20,10 @@ RUN apt-get update && \
 ENV PATH /srv/app/node_modules/.bin:$PATH
 
 # install app dependencies
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm install
 
 # add app
 COPY . ./
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev"]
+#CMD ["npm", "run", "build"]

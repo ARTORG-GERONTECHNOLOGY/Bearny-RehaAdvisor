@@ -24,7 +24,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
   const [is2FARequired, setIs2FARequired] = useState(false); // State for handling 2FA
   const [verificationCode, setVerificationCode] = useState(''); // State for the 2FA code
   const [loginSuccess, setLoginSuccess] = useState(false); // Track if username/password is correct
-  const text = pageType === 'patient' ? t("Need help recovering your account?") : t("Forgot your password?");
 
   const handleToggle = () => setShowPassword(!showPassword);
 
