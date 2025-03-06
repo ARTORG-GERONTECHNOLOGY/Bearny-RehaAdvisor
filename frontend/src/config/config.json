@@ -249,31 +249,32 @@
     {
       "title": "Personal Information",
       "fields": [
-        { "name": "firstName", "label": "First Name", "type": "text", "required": true },
-        { "name": "lastName", "label": "Last Name", "type": "text", "required": true },
-        { "name": "email", "label": "Email Address", "type": "email", "required": true },
-        { "name": "phone", "label": "Phone Number", "type": "text", "required": false },
-        { "name": "careGiver", "label": "Care Giver (Optional)", "type": "text", "required": false },
-        { "name": "password", "label": "Password", "type": "password", "required": true },
+        { "name": "firstName", "label": "First Name", "type": "text", "required": true, "be_name": "first_name" },
+        { "name": "lastName", "label": "Last Name", "type": "text", "required": true , "be_name": "name"},
+        { "name": "email", "label": "Email Address", "type": "email", "required": true, "be_name": "email"},
+        { "name": "phone", "label": "Phone Number", "type": "text", "required": false, "be_name": "phone" },
+        { "name": "careGiver", "label": "Care Giver (Optional)", "type": "text", "required": false, "be_name": "care_giver" },
+        { "name": "password", "label": "Password", "type": "password", "required": true, "be_name": "password" },
+        { "name": "accessWord", "label": "Password", "type": "text", "required": true, "be_name": "access_word" },
         { "name": "repeatPassword", "label": "Confirm Password", "type": "password", "required": true }
       ]
     },
     {
       "title": "Additional Details",
       "fields": [
-        { "name": "age", "label": "Birth Date", "type": "date", "required": true },
+        { "name": "age", "label": "Birth Date", "type": "date", "required": true, "be_name": "age" },
         { "name": "sex", "label": "Gender", "type": "dropdown", "required": true, "options": [ "Male",
-        "Female"] }
+        "Female"], "be_name" : "sex"}
       ]
     },
     {
       "title": "Medical Information",
       "fields": [
         { "name": "function", "label": "Speciality", "type": "multi-select", "required": true, "options": ["Cardiology", "Neurology", "Orthopedics", 
-        "Pediatrics", "Sports Medicine", "Psychiatry", "Oncology"] },
-        { "name": "diagnosis", "label": "Diagnosis", "type": "multi-select", "required": false },
-        { "name": "medicationIntake", "label": "Medication (Optional)", "type": "text", "required": false },
-        { "name": "rehaEndDate", "label": "Rehabilitation End Date", "type": "date", "required": true }
+        "Pediatrics", "Sports Medicine", "Psychiatry", "Oncology"], "be_name": "function" },
+        { "name": "diagnosis", "label": "Diagnosis", "type": "multi-select", "required": false, "be_name": "diagnosis" },
+        { "name": "medicationIntake", "label": "Medication (Optional)", "type": "text", "required": false, "be_name": "medication_intake"},
+        { "name": "rehaEndDate", "label": "Rehabilitation End Date", "type": "date", "required": true, "be_name": "reha_end_date" }
       ]
     },
     {
@@ -286,7 +287,7 @@
           "Unemployed",
           "Retired",
           "Student"
-          ]},
+          ], "be_name": "professional_status"},
         { "name": "levelOfEducation", "label": "Level of Education", "type": "dropdown", "required": false, "options":  [
           "High School",
           "Associate Degree",
@@ -294,7 +295,7 @@
           "Master's Degree",
           "Doctorate",
           "No Formal Education"
-          ] },
+          ], "be_name": "level_of_education"},
         { "name": "civilStatus", "label": "Civil Status", "type": "dropdown", "required": false, "options":  [
           "Single",
           "Married",
@@ -302,8 +303,8 @@
           "Widowed",
           "In a Relationship",
           "Separated"
-          ]},
-        { "name": "socialSupport", "label": "Social Support", "type": "text", "required": false},
+          ], "be_name": "marital_status"} ,
+        { "name": "socialSupport", "label": "Social Support", "type": "text", "required": false, "be_name": "social_support"},
         { "name": "lifestyle", "label": "Lifestyle", "type": "multi-select", "required": false, "options": [
           "Sedentary",
           "Moderate Exercise",
@@ -315,7 +316,7 @@
           "Low-Carb Diet",
           "High Protein Diet",
           "Alcohol Use"
-          ] },
+          ], "be_name": "lifestyle"},
         { "name": "lifeGoals", "label": "Life Goals", "type": "multi-select", "required": false, "options": [
           "Weight Loss",
           "Muscle Gain",
@@ -327,7 +328,7 @@
           "Overall Health Improvement",
           "Disease Management",
           "Enhanced Mental Health"
-          ]}
+          ], "be_name": "personal_goals"}
        
       ]
     }
@@ -337,19 +338,19 @@
     {
       "title": "Personal Information",
       "fields": [
-        { "name": "firstName", "label": "First Name", "type": "text", "required": true },
-        { "name": "lastName", "label": "Last Name", "type": "text", "required": true },
-        { "name": "email", "label": "Email", "type": "email", "required": true },
-        { "name": "phone", "label": "Phone", "type": "text", "required": true },
-        { "name": "password", "label": "Password", "type": "password", "required": true },
-        { "name": "repeatPassword", "label": "Repeat Password", "type": "password", "required": true },
-        { "name": "userType", "label": "User Type", "type": "dropdown", "required": true, "options": ["Therapist"] }
+        { "name": "firstName", "label": "First Name", "type": "text", "required": true, "be_name":"first_name"},
+        { "name": "lastName", "label": "Last Name", "type": "text", "required": true, "be_name":"name" },
+        { "name": "email", "label": "Email", "type": "email", "required": true, "be_name":"email" },
+        { "name": "phone", "label": "Phone", "type": "text", "required": true, "be_name":"phone" },
+        { "name": "password", "label": "Password", "type": "password", "required": true, "be_name": "password" },
+        { "name": "repeatPassword", "label": "Repeat Password", "type": "password", "required": true , "be_name":"repeatPassword"},
+        { "name": "userType", "label": "User Type", "type": "dropdown", "required": true, "options": ["Therapist"], "be_name":"userType" }
       ]
     },
     {
       "title": "Additional Information",
       "fields": [
-        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "options": [
+        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "be_name":"specializations", "options": [
           "Cardiology",
           "Neurology",
           "Orthopedics",
@@ -361,7 +362,7 @@
           "Endocrinology",
           "Physical Therapy"
       ] },
-        { "name": "clinic", "label": "Clinics", "type": "multi-select", "required": true, "options": ["Downtown Clinic",
+        { "name": "clinic", "label": "Clinics", "type": "multi-select", "required": true, "be_name":"clinics", "options": ["Downtown Clinic",
             "Health Plus Clinic",
             "Northside Medical Center",
             "Wellness and Care Center",
@@ -373,5 +374,15 @@
             "Neighborhood Wellness Clinic"] }
       ]
     }
-    ]
+    ],
+  "UserProfile":{
+    "Specialisation": "specializations",
+    "Clinics": "clinics",
+    "First Name": "first_name",
+    "Last Name": "name",
+    "Email": "email",
+    "Phone": "phone"
+
+
+  }
   }

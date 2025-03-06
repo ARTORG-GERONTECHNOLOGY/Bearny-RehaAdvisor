@@ -24,6 +24,7 @@ urlpatterns = [
 
     # User Profile
     path('api/users/<str:user_id>/profile/', user_views.user_profile, name='user_profile'),
+    path('api/users/<str:user_id>/profile/patient', user_views.user_profile_patient, name='user_profile'),
 
     # Therapist and Patient Management
     path('api/therapists/<str:therapist_id>/patients/', therapist_views.get_patients_by_therapist,
