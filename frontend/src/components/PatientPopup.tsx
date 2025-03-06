@@ -1,153 +1,197 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Col, ListGroup, Modal, Row } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import apiClient from '../api/client';
-import authStore from '../stores/authStore';
+import React, { useEffect, useState } from "react";
+import { Button, Col, Form, Modal, Row } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import Select from "react-select";
+import apiClient from "../api/client";
+import authStore from "../stores/authStore";
+import config from "../config/config.json";
 
-interface PatientPopupProps {
-  patient_id: {
-    created_at: any; // Or a more specific type based on the structure of your patient object
-    username: string;
-  } | null;
-  show: boolean;
-  handleClose: () => void;
-}
-
-const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClose }) => {
+const PatientPopup = ({ patient_id, show, handleClose }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [patient, setPatientData] = useState<any>(null); // Assuming patient is an object, not an array
-  const [loading, setLoading] = useState<boolean>(true); // Loading state
-
-  // Calculate elapsed days since creation, handling BSON date object
-  const daysElapsed = useMemo(() => {
-    if (!patient_id) return 0; // In case patient_id is null
-    const createdAt = new Date(patient_id.created_at?.$date || patient_id.created_at);
-    const today = new Date();
-    return Math.floor((today.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-  }, [patient_id]);
-
-  const handleGoToRehab = () => {
-    if (patient_id) {
-      localStorage.setItem('selectedPatient', patient_id.username);
-      navigate(`/rehabtable`);
-    }
-  };
+  const [patient, setPatientData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [error, setError] = useState("");
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+// Extract Specialities & Diagnoses from JSON Config
+const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
   useEffect(() => {
-    if (authStore.isAuthenticated && authStore.userType === 'Therapist' && patient_id) {
+    if (authStore.isAuthenticated && authStore.userType === "Therapist" && patient_id) {
       const fetchPatientData = async () => {
         try {
-          setLoading(true); // Start loading
+          setLoading(true);
           const response = await apiClient.get(`patients/${patient_id.username}`);
           setPatientData(response.data);
+          setFormData(response.data);
         } catch (error) {
-          console.error('Error fetching patient data', error);
+          console.error("Error fetching patient data", error);
         } finally {
-          setLoading(false); // Stop loading
+          setLoading(false);
         }
       };
       fetchPatientData();
     }
-  }, [authStore.isAuthenticated, authStore.userType, patient_id]);
+  }, [patient_id]);
+
+   // 🔹 Handle Input Changes
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { id, value } = e.target;
+      setFormData({ ...formData, [id]: value });
+    };
+  
+    // 🔹 Handle Multi-Select Changes
+    const handleMultiSelectChange = (selectedOptions: any, fieldName: string) => {
+      const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+      setFormData({ ...formData, [fieldName]: selectedValues });
+  
+      if (fieldName === "function") {
+        setFormData({ ...formData, function: selectedValues, diagnosis: [] });
+      }
+    };
+
+  const validateInputs = () => {
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError("Invalid email format.");
+      return false;
+    }
+    if (formData.phone && !/^\+?[0-9]{7,15}$/.test(formData.phone)) {
+      setError("Invalid phone number format.");
+      return false;
+    }
+    setError("");
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateInputs()) return;
+    try {
+      await apiClient.put(`users/${patient_id.username}/profile/patient`, formData);
+      setPatientData(formData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating patient data", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await apiClient.delete(`users/${patient_id.username}/profile/patient`);
+      handleClose();
+    } catch (error) {
+      console.error("Error deleting patient data", error);
+    }
+  };
 
   if (!patient_id || loading) {
-    return (
-      <div>
-        <p>{t('Loading...')}</p> {/* Or add a spinner/loading indicator */}
-      </div>
-    );
+    return <p>{t("Loading...")}</p>;
   }
 
   return (
+    <>
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>{ // @ts-ignore
-          patient.name}</Modal.Title>
+        <Modal.Title>{formData.name || "Patient"}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {/* Full-width Rehab Button */}
-        <Row className="mb-4">
-          <Col>
-            <Button variant="primary" onClick={handleGoToRehab} className="w-100">
-              {t('Go to Rehab Table')}
-            </Button>
-          </Col>
-        </Row>
-
-        <Row>
-          {/* Basic Information */}
-          <Col md={6}>
-            <h5 className="mb-3">{t('Basic Information')}</h5>
-            <ListGroup variant="flush">
-              <ListGroup.Item><strong>{t('Username')}:</strong> { // @ts-ignore
-                patient.username}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('First Name')}:</strong> { // @ts-ignore
-                patient.first_name}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Email')}:</strong> { // @ts-ignore
-                patient.email}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Phone')}:</strong> { // @ts-ignore
-                patient.phone}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Gender')}:</strong> { // @ts-ignore
-                patient.sex}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Therapist')}:</strong> { // @ts-ignore
-                patient.therapist}</ListGroup.Item>
-            </ListGroup>
-          </Col>
-
-          {/* Rehabilitation Details */}
-          <Col md={6}>
-            <h5 className="mb-3">{t('Rehabilitation Details')}</h5>
-            <ListGroup variant="flush">
-              <ListGroup.Item><strong>{t('Diagnosis')}:</strong> { // @ts-ignore
-                patient.diagnosis}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Rehabilitation Duration')}:</strong> { // @ts-ignore
-                patient.duration} {t('days')}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Days Passed')}:</strong> {daysElapsed} / { // @ts-ignore
-                patient.duration}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Function')}:</strong> { // @ts-ignore
-                Array.isArray(patient.function) ? patient.function.join(', ') : patient.function}</ListGroup.Item>
-            </ListGroup>
-          </Col>
-        </Row>
-
-        <hr />
-
-        <Row>
-          {/* Personal Background */}
-          <Col md={6}>
-            <h5 className="mb-3">{t('Personal Background')}</h5>
-            <ListGroup variant="flush">
-              <ListGroup.Item><strong>{t('Education Level')}:</strong> { // @ts-ignore
-                patient.level_of_education}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Professional Status')}:</strong> { // @ts-ignore
-                patient.professional_status}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Marital Status')}:</strong> { // @ts-ignore
-                patient.marital_status}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Lifestyle')}:</strong> { // @ts-ignore
-                Array.isArray(patient.lifestyle) ? patient.lifestyle.join(', ') : patient.lifestyle}</ListGroup.Item>
-            </ListGroup>
-          </Col>
-
-          {/* Goals & Support */}
-          <Col md={6}>
-            <h5 className="mb-3">{t('Goals & Support')}</h5>
-            <ListGroup variant="flush">
-              <ListGroup.Item><strong>{t('Personal Goals')}:</strong> { // @ts-ignore
-                Array.isArray(patient.personal_goals) ? patient.personal_goals.join(', ') : patient.personal_goals}
-              </ListGroup.Item>
-              <ListGroup.Item><strong>{t('Medication Intake')}:</strong> { // @ts-ignore
-                patient.medication_intake}</ListGroup.Item>
-              <ListGroup.Item><strong>{t('Social Support')}:</strong> { // @ts-ignore
-                patient.social_support}</ListGroup.Item>
-            </ListGroup>
-          </Col>
-        </Row>
+      {error && <p className="text-danger">{error}</p>}
+        {config.PatientForm.map((section, idx) => (
+          <div key={idx}>
+            <h5 className="mb-3">{t(section.title)}</h5>
+            <Row>
+              {section.fields.filter(field => field.type !== "password" && field.type !== "repeatPassword").map((field, fieldIdx) => (
+                <Col md={6} key={fieldIdx}>
+                  <Form.Group className="mb-2">
+                    <Form.Label>{t(field.label)}</Form.Label>
+                    {field.be_name === "reha_end_date" ? (
+                      <Form.Control
+                        type="date"
+                        name={field.be_name}
+                        value={formData[field.be_name] ? new Date(formData[field.be_name]).toISOString().split('T')[0] : ""}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        />
+                      ) :
+                        field.be_name === "access_word" ? (
+                      <Form.Control
+                        type="text"
+                        name={field.be_name}
+                        value={formData[field.be_name] || ""}
+                        disabled
+                        required={field.required}
+                      />
+                    ) : field.type === "multi-select" ? (
+                      <Select
+                        id={field.be_name}
+                        isMulti
+                        options={field.be_name === "diagnosis" && formData.function.length > 0
+                          ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
+                          : field.options?.map(option => ({ value: option, label: option }))
+                        }
+                        defaultValue={(formData[field.be_name] as string[]).map(value => ({ value, label: value }))}
+                        onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.be_name)}
+                      />
+                    ) : field.type === "dropdown" ? (
+                      <Form.Select
+                        name={field.be_name}
+                        defaultValue={formData[field.be_name] || ""}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        required={field.required}
+                      >
+                        <option value="">{t("Select an option")}</option>
+                        {field.options.map((option) => (
+                          <option key={option} value={option}>{t(option)}</option>
+                        ))}
+                      </Form.Select>
+                    ) : (
+                      <Form.Control
+                        type={field.type}
+                        name={field.be_name}
+                        defaultValue={formData[field.be_name] || ""}
+                        onChange={handleChange}
+                        required={field.required}
+                        disabled={!isEditing}
+                      />
+                    )}
+                  </Form.Group>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        ))}
       </Modal.Body>
       <Modal.Footer>
+        {isEditing ? (
+          <>
+           
+            <Button variant="secondary" onClick={() => setIsEditing(false)}>{t("Cancel")}</Button>
+            <Button variant="success" onClick={handleSave}>{t("Save Changes")}</Button>
+          </>
+        ) : (
+          <>
+          <Button variant="warning" onClick={() => setIsEditing(true)}>{t("Edit")}</Button>
+          <Button variant="danger" onClick={() => setShowConfirmDelete(true)}>{t("Delete Patient")}</Button>
+          </>
+        )}
       </Modal.Footer>
     </Modal>
+      <Modal show={showConfirmDelete} onHide={() => setShowConfirmDelete(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>{t("Confirm Deletion")}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p>{t("Are you sure you want to delete this patient? This action cannot be undone.")}</p>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={() => setShowConfirmDelete(false)}>{t("Cancel")}</Button>
+        <Button variant="danger" onClick={handleDelete}>{t("Delete")}</Button>
+      </Modal.Footer>
+    </Modal>
+  </>
   );
 };
 
