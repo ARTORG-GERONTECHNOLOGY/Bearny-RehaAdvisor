@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import EditUserInfo from '../components/forms/EditUserInfo';
+import EditUserInfo from '../components/forms/EditTherapistInfo';
 import DeleteConfirmation from '../components/DeleteConfirmation';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -13,22 +13,34 @@ const UserProfile: React.FC = () => {
   const navigate = useNavigate(); // Used for navigation
   const [isEditing, setIsEditing] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [userData, setUserData] = useState<any>(null); // Initialize with null to indicate loading state
+  const [userData, setUserData] = useState<any>(''); // Initialize with null to indicate loading state
   const [loading, setLoading] = useState(true); // To manage loading state
   const [error, setError] = useState(''); // To manage error state
 
-  // Fetch user data on mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      authStore.checkAuthentication();
-      if (authStore.isAuthenticated && authStore.userType !== 'Therapist') {
-        // Only therapists should have access to this page
-        navigate('/unauthorized');  // Redirect to unauthorized access page if not a therapist
-      }
+  const therapistId = authStore.id;
 
+  // Fetch user data on mount
+    useEffect(() => {
+      authStore.checkAuthentication();
+  
+      if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+        navigate('/');
+      } else {
+        setLoading(false);
+      }
+    }, [navigate]);
+
+    useEffect(() => {
+      if (authStore.isAuthenticated && authStore.userType === 'Therapist') {
+        
+        fetchData();
+      }
+    }, [therapistId]);
+  
+    const fetchData = async () => {
       try {
         const response = await apiClient.get(`users/${authStore.id}/profile`); // Fetch the user profile from the API
-        setUserData(JSON.parse(response.data)); // Update the user data state
+        setUserData(response.data);
       } catch (err) {
         console.error('Failed to fetch user profile:', err);
         setError('Failed to load user profile');
@@ -36,9 +48,6 @@ const UserProfile: React.FC = () => {
         setLoading(false);
       }
     };
-
-    fetchUserProfile();
-  }, [navigate]);
 
   // Toggle editing mode
   const handleEditClick = () => {
@@ -53,8 +62,8 @@ const UserProfile: React.FC = () => {
   // Save updated user info
   const handleSave = async (updatedUserData: any) => {
     try {
-      const response = await apiClient.put(`/users/${authStore.id}/profile/`, userData); // Update user info via API
-      setUserData(JSON.parse(response.data)); // Update the state with the new data
+      const response = await apiClient.put(`/users/${authStore.id}/profile/`, updatedUserData); // Update user info via API
+      setUserData(response.data); // Update the state with the new data
       setIsEditing(false);
     } catch (err) {
       console.error('Failed to update user profile:', err);
@@ -112,15 +121,15 @@ const UserProfile: React.FC = () => {
                     </p>
 
                     {/* Display user-specific fields based on userType */}
-                    {authStore.userType === 'therapist' && (
+                    {authStore.userType === 'Therapist' && (
                       <>
                         <p>
                           <strong>Specialization:</strong>{' '}
-                          {userData?.specializations.length ? userData.specializations.join(', ') : 'No specialization set'}
+                          {userData?.specializations ? userData.specializations.join(', ') : 'No specialization set'}
                         </p>
                         <p>
                           <strong>Clinics:</strong>{' '}
-                          {userData?.clinics.length ? userData.clinics.join(', ') : 'No clinics set'}
+                          {userData?.clinics ? userData.clinics.join(', ') : 'No clinics set'}
                         </p>
                       </>
                     )}
