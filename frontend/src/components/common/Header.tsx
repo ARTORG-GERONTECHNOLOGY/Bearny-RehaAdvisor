@@ -58,9 +58,9 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
 
               {/* Logout and Language Switcher */}
               <Nav className="ms-auto">
+                <Nav.Link as={Link} to="/userprofile">{t('Profile')}</Nav.Link>
                 <Nav.Link onClick={handleLogout}>{t('Logout')}</Nav.Link>
               </Nav>
-              {!isLoggedIn && (
                 <ButtonGroup className="ms-3">
                   {languages.map((lang) => (
                     <ToggleButton
@@ -73,7 +73,7 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
                       {lang.toUpperCase()}
                     </ToggleButton>
                   ))}
-                </ButtonGroup>)}
+                </ButtonGroup>
             </Navbar.Collapse>
           </>
         )}
