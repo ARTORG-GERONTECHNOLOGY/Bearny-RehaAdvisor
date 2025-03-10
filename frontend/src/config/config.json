@@ -384,5 +384,40 @@
     "Phone": "phone"
 
 
-  }
-  }
+  },
+  "FeedbackQuestions":[{
+    "title": "Intervention",
+      "fields": [
+        { "name": "wholeIntervention", "label": "Haben Sie die gesamte Intervention durchgeführt?", "type": "text", "be_name":"whole_intervention"},
+        { "name": "opinion", "label": "Wie hat es Ihnen gefallen?", "type": "dropdown", "required": false, "options":  [
+          "Negativ",
+          "Neutral",
+          "Positiv"
+          ], "be_name": "opinion"},
+          { "name": "opinionExp", "label": "Könnten Sie näher erläutern, warum Sie so über die Intervention denken?", "type": "text", "be_name":"opinion_exp" },
+        { "name": "keyWords", "label": "Wählen Sie die Worte, die Ihre Gedanken zu dem Einsatz am besten beschreiben.", "type": "multi-select", "required": true, "be_name":"key_words", "options": [
+          "Bewegend",
+          "Kräftigend",
+          "Energiegeladen",
+          "Anstrengend",
+          "Motivierend",
+          "Erfrischend",
+          "Bewusstseinserweiternd",
+          "Geistig aktivierend",
+          "Lehrreich",
+          "Achtsam"
+      ] }
+      
+      ]
+  },
+  {
+    "title": "ICF",
+      "fields": [
+        { "name": "Funktionsfähigkeit", "label": "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.", "type": "text", "be_name":"Functionality", "Topic": "Functionality"},
+        { "name": "Dependency", "label": "Wie groß war Ihr Bedarf an Hilfe bei Schlafproblemen?", "type": "text", "be_name":"dependency", "Topic": "Need or dependency" }
+
+        ]
+      }
+    ]
+  
+}

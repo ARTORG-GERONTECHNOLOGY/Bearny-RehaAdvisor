@@ -36,11 +36,14 @@ urlpatterns = [
     path('api/patients/<str:patient_id>/today/', patient_views.get_patient_reha_today, name='get_patient_reha_today'),
     path('api/patients/<str:patient_id>/feedback/<str:intervention_id>/', patient_views.patient_post_feedback,
          name='patient_post_feedback'),
+     path('api/patients/feedback/questionaire', patient_views.patient_post_questionnaire_feedback,
+         name='patient_post_feedback'),
     path('api/patients/', recomendation_views.get_recommendations, name='get_recommendations'),
     path('api/patients/<str:patient_id>/todays/', patient_views.get_patient_recommendations,
          name='get_patient_recommendations'),  # Old: 'api/recommendations/get/<str:patient_id>'
     path('api/recommendations/suggestions/<str:patient_id>/', patient_views.get_recommendation_options_for_patient,
          name='get_recommendation_options_for_patient'),  # Old: 'api/recommendations/suggestions/<str:patient_id>'
+     
 
     # Recommendations
     path('api/recommendations/all/', recomendation_views.get_recommendations, name='get_recommendations'),
