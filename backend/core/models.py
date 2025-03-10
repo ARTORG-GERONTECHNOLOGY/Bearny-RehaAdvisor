@@ -134,8 +134,15 @@ class Feedback(EmbeddedDocument):
     meta = {'collection': 'feedback'}
     intervention_id = ReferenceField(Recommendation, required=True)
     date = DateTimeField(default=timezone.now)
-    comment = StringField()
+    comment =StringField()
     rating = StringField()  # Consider using an IntegerField for rating
+
+# Feedback Embedded Document remains unchanged
+class GeneralFeedback(Document):
+    meta = {'collection': 'feedback'}
+    date = DateTimeField(default=timezone.now)
+    comment =ListField(DictField())
+    patient_id = ReferenceField(Patient, required=True)
 
 
 # PatientInterventions Model with tracking and scheduling
@@ -154,20 +161,18 @@ class PatientInterventions(Document):
     def __str__(self):
         return f"{self.patient_id} - {self.intervention_id}"
 
-    def mark_done(self, date=None, feedback=None):
+    def mark_done(self):
         """
         Marks the intervention as done on a specific date.
         Optionally includes feedback for that date.
         """
-        date = date or timezone.now()
+        date = timezone.now()
         if date not in self.completion_dates:
             self.completion_dates.append(date)
+            print("hola")
             self.save()
+            print("hola")
 
-        # Optionally add feedback for the specific completion date
-        if feedback:
-            self.feedback.append(Feedback(date=date, **feedback))
-            self.save()
 
     # Method to get all interventions with their feedback and future dates
     @classmethod

@@ -8,3 +8,4 @@ dnspython
 pymongo
 django-multiselectfield
 djangorestframework
+SpeechRecognition
