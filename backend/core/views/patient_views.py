@@ -1,14 +1,16 @@
 import json
-
+import tempfile
+import speech_recognition as sr
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
+from bson import ObjectId
 
 from core.models import Patient
-from core.models import Recommendation, PatientInterventions, Feedback
+from core.models import Recommendation, PatientInterventions, Feedback, GeneralFeedback
 from utils.utils import (
     convert_to_serializable,
     serialize_datetime
@@ -81,6 +83,49 @@ def patient_post_feedback(request, patient_id, intervention_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def patient_post_questionnaire_feedback(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        files = request.FILES
+        user_id = data.get("userId")
+        intervention_id = data.get("interventionId")
+
+        responses = data.get("responses")
+        processed_responses = []
+
+
+        # TODO audio processing
+
+        if not intervention_id =='':
+            patient_intervention = PatientInterventions.objects.get(patient_id=user_id, intervention_id=intervention_id)
+            recommendation = Recommendation.objects.get(id=intervention_id)
+ 
+            patient_intervention.feedback.append(
+                Feedback(intervention_id=recommendation, comment=str(responses)) # TODO
+            )
+            patient_intervention.save()
+        else:
+            print(responses)
+            patient = Patient.objects.get(pk=ObjectId(user_id))
+            general_feedback = GeneralFeedback.objects.create(
+                patient_id=patient, comment=responses
+            )
+            general_feedback.save()
+        
+        return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
+    except PatientInterventions.DoesNotExist:
+        return JsonResponse({'error': 'Intervention not found for the patient.'}, status=404)
+    except Recommendation.DoesNotExist:
+        return JsonResponse({'error': 'Recommendation not found.'}, status=404)
+    except Patient.DoesNotExist:
+        return JsonResponse({'error': 'Patient not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -122,12 +167,12 @@ def mark_intervention_done_by_patient(request):
         data = json.loads(request.body)
         patient_id = data.get('patient_id')
         intervention_id = data.get('intervention_id')
-        feedback = data.get('feedback', None)
 
         intervention = PatientInterventions.objects.get(patient_id=patient_id, intervention_id=intervention_id)
         date = timezone.now()
-
-        intervention.mark_done(date=date, feedback=feedback)
+        print("hii")
+        intervention.mark_done()
+        
         intervention.not_completed_dates = [d for d in intervention.not_completed_dates if d.date() != date.date()]
         intervention.save()
 
