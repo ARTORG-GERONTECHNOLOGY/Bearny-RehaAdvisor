@@ -7,6 +7,7 @@ import PatientInterventionPopUp from "./PatientInterventionPopUp";
 import FeedbackPopup from "../components/FeedbackPopup";
 import "../assets/styles/RecommendationList.css";
 import config from "../config/config.json";
+import { t } from 'i18next';
 
 const RecommendationList = () => {
   const { t } = useTranslation();
@@ -78,7 +79,7 @@ const RecommendationList = () => {
   return (
     <>
     <div className="recommendation-list">
-      <h2 className="text-center mb-5">{t("Recommendations for Today")}</h2>
+      <h2 className="text-center mb-5">{t("RecommendationsforToday")}</h2>
 
       {recommendations.length > 0 ? (
         <div className="scrollable-container">
@@ -110,7 +111,7 @@ const RecommendationList = () => {
                       }}
                       className="mark-as-used-button"
                     >
-                      {t("I did it!")}
+                      {t("Ididit")}
                     </Button>
                   )}
                 </div>
@@ -120,7 +121,7 @@ const RecommendationList = () => {
         </div>
       ) : (
         <div className="text-center mt-5">
-          <p>{t("No recommendations for today. Please check back tomorrow or contact your therapist.")}</p>
+          <p>{t("NoRecForToday")}</p>
         </div>
       )}
 

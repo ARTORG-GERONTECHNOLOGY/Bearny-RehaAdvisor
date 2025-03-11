@@ -57,11 +57,11 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
         case 'PDF':
           return (
             <div className="pdf-preview">
-              <Document file={item.media_url} loading={<p>Loading PDF...</p>}>
+              <Document file={item.media_url} loading={<p>{t("Loading PDF...")}</p>}>
                 <Page pageNumber={1} width={300} />
               </Document>
               <a href={item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-2">
-                Open PDF
+                {t("Open PDF")}
               </a>
             </div>
           );
@@ -79,7 +79,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
         default:
           return (
             <a href={item.link || item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-              Open Resource
+              {t("Open Resource")}
             </a>
           );
       }
@@ -140,7 +140,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
       <Modal.Header closeButton className="d-flex justify-content-between align-items-center">
       <Modal.Title>
       <h2>{item.title}</h2>
-      <h3 className="text-muted">{item.content_type}</h3>
+      <h3 className="text-muted">{t(item.content_type)}</h3>
 
       {/* Beneft for Section - Directly Below Content Type */}
       {item.benefitFor?.length > 0 && (<>
@@ -152,7 +152,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
                   style={{ color: 'white' }}
                   className="me-1"
                 >
-                  {benefit}
+                  {t("benefit")}
                 </Badge>
               ))}
             </div>
@@ -169,7 +169,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
               style={{ backgroundColor: tagColors[tag] || 'grey', color: 'white' }}
               className="me-1"
             >
-              {tag}
+              {t(tag)}
             </Badge>
           ))}
         </div>
@@ -183,7 +183,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   {/* Description Section with Spacing & Shadow Separator */}
   <Row className="pb-3 mb-3 border-bottom">
     <Col>
-      <h5>Description</h5>
+      <h5>{t("Description")}</h5>
       <p className="text-muted">{item.description}</p>
     </Col>
   </Row>
@@ -191,7 +191,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   {/* Content Type and Source Side-by-Side */}
   <Row className="pb-3 mb-3">
     <Col>
-      <h5>Source</h5>
+      <h5>{t("Source")}</h5>
       <ListGroup variant="flush">
                       <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
       </ListGroup>
@@ -199,7 +199,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   </Row>
 
         <hr />
-        <h5>{t('Assign to Patient Types')}</h5>
+        <h5>{t('AssigntoPatientTypes')}</h5>
         <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
           <ListGroup>
             <ListGroup.Item>
@@ -210,7 +210,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
                   onChange={handleAllCheckboxChange}
                   className="me-2"
                 />
-                All
+                {t("All")}
               </label>
             </ListGroup.Item>
             {!selectedAll &&
@@ -223,7 +223,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
                       onChange={() => handleCheckboxChange(diagnosis)}
                       className="me-2"
                     />
-                    {diagnosis}
+                    {t(diagnosis)}
                   </label>
                 </ListGroup.Item>
               ))}

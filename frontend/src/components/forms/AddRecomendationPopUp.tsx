@@ -7,6 +7,7 @@ import config from '../../config/config.json';
 import axios from 'axios';
 import Select from 'react-select';
 import InfoBubble from '../common/InfoBubble';
+import { t } from 'i18next';
 
 interface AddRecommendationPopupProps {
   show: boolean;
@@ -142,9 +143,9 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
       }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
-        setError(error.response.data.error || 'Error adding recommendation');
+        setError(error.response.data.error || t('Error adding recommendation'));
       } else {
-        setError('An unexpected error occurred');
+        setError(t('An unexpected error occurred'));
       }
     }
   };
@@ -157,14 +158,14 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
       </Modal.Header>
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{t('Recommendation successfully added')}</Alert>}
+        {success && <Alert variant="success">{t('Recommendationsuccessfullyadded')}</Alert>}
 
         <Form onSubmit={handleSubmit}>
           <Form.Group controlId="title">
-            <Form.Label>{t('Recommendation Title')}</Form.Label>
+            <Form.Label>{t('RecommendationTitle')}</Form.Label>
             <Form.Control
               type="text"
-              placeholder={t('Enter recommendation title')}
+              placeholder={t('Enterrecommendationtitle')}
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
@@ -176,7 +177,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
             <Form.Control
               as="textarea"
               rows={3}
-              placeholder={t('Enter description')}
+              placeholder={t('Enterdescription')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
@@ -184,11 +185,11 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="duration">
-            <Form.Label>{t('Recomendation Duration (min)')}</Form.Label>
-            <InfoBubble tooltip="Put the duration of the that the intervention should last here aproximately in minutes." />
+            <Form.Label>{t('RecomendationDuration(min)')}</Form.Label>
+            <InfoBubble tooltip={t("Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes")} />
             <Form.Control
               type="number"
-              placeholder={t('Enter recommendation duartion in minutes')}
+              placeholder={t('Enterrecommendationduartioninminutes')}
               value={formData.duration}
                 // @ts-ignore
               onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
@@ -197,13 +198,13 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="tagList" className="mt-3">
-            <Form.Label>{t('Tag List')}</Form.Label>
-            <InfoBubble tooltip="Select multiple tags to categorize the recommendation." />
+            <Form.Label>{t('TagList')}</Form.Label>
+            <InfoBubble tooltip={t("Selectmultipletagstocategorizetherecommendation")} />
             <Select
               isMulti
               options={config.RecomendationInfo.tags.map(type => ({
                 value: type,
-                label: type.charAt(0).toUpperCase() + type.slice(1),
+                label: t(type.charAt(0).toUpperCase() + type.slice(1)),
               }))}
               value={formData.tagList.map(value => ({
                 value,
@@ -214,12 +215,12 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="benefitFor" className="mt-3">
-            <Form.Label>{t('Benefit For')}</Form.Label>
+            <Form.Label>{t('BenefitFor')}</Form.Label>
             <Select
               isMulti
               options={config.RecomendationInfo.benefits.map(type => ({
                 value: type,
-                label: type.charAt(0).toUpperCase() + type.slice(1),
+                label: t(type.charAt(0).toUpperCase() + type.slice(1)),
               }))}
               value={formData.benefitFor.map(value => ({
                 value,
@@ -230,27 +231,27 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="contentType" className="mt-3">
-            <Form.Label>{t('Content Type')}</Form.Label>
+            <Form.Label>{t('ContentType')}</Form.Label>
             <Form.Control
               as="select"
               value={formData.contentType}
               onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
               required
             >
-              <option value="">{t('Select Content Type')}</option>
+              <option value="">{t('SelectContentType')}</option>
               {config.RecomendationInfo.types.map((type) => (
                 <option key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {t(type.charAt(0).toUpperCase() + type.slice(1))}
                 </option>
               ))}
             </Form.Control>
           </Form.Group>
 
           <Form.Group controlId="link" className="mt-3">
-            <Form.Label>{t('Link (Optional)')}</Form.Label>
+            <Form.Label>{t('Link(Optional)')}</Form.Label>
             <Form.Control
               type="text"
-              placeholder={t('Enter link')}
+              placeholder={t('Enterlink')}
               value={formData.link}
               // @ts-ignore
               onChange={handleChange}
@@ -258,7 +259,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="mediaFile" className="mt-3">
-            <Form.Label>{t('Upload File (Optional)')}</Form.Label>
+            <Form.Label>{t('UploadFile(Optional)')}</Form.Label>
             <Form.Control
               type="file"
               accept="image/*,video/*,audio/*,application/pdf"
@@ -267,7 +268,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
           <Form.Group controlId="previewImage" className="mt-3">
-            <Form.Label>{t('Upload a Preview Image')}</Form.Label>
+            <Form.Label>{t('UploadaPreviewImage')}</Form.Label>
             <Form.Control
               type="file"
               accept="image/*"
@@ -276,22 +277,22 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           </Form.Group>
 
 
-          <h5 className="mt-4">{t('Patient Type and Frequency')}</h5>
+          <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
           {formData.patientTypes.map((patient, index) => (
             <Row key={index} className="align-items-center">
               <Col xs={4}>
                 <Form.Group controlId={`patientType-${index}`}>
-                  <Form.Label>{t('Patient Type')}</Form.Label>
+                  <Form.Label>{t('PatientType')}</Form.Label>
                   <Form.Control
                     as="select"
                     value={patient.type}
                     onChange={(e) => handlePatientTypeChange(index, 'type', e.target.value)}
                     required
                   >
-                    <option value="">{t('Select Type')}</option>
+                    <option value="">{t('SelectType')}</option>
                     {Object.keys(config.patientInfo.function).map((specialization) => (
                       <option key={specialization} value={specialization}>
-                        {specialization}
+                        {t(specialization)}
                       </option>
                     ))}
                   </Form.Control>
@@ -306,32 +307,32 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
                     onChange={(e) => handlePatientTypeChange(index, 'diagnosis', e.target.value)}
                     required
                   >
-                    <option value="">{t('Select Diagnosis')}</option>
+                    <option value="">{t('SelectDiagnosis')}</option>
                     {  // @ts-ignore
                       (patient.diagnosesOptions || []).map((diag) => (
                         <option key={diag} value={diag}>
-                          {diag}
+                          {t(diag)}
                         </option>
                       ))}
                     <option key="All" value="All">
-                      All
+                      {t("All")}
                     </option>
                   </Form.Control>
                 </Form.Group>
               </Col>
               <Col xs={4}>
                 <Form.Group controlId={`frequency-${index}`}>
-                  <Form.Label>{t('Recomendation Frequency')}</Form.Label>
+                  <Form.Label>{t('RecomendationFrequency')}</Form.Label>
                   <Form.Control
                     as="select"
                     value={patient.frequency}
                     onChange={(e) => handlePatientTypeChange(index, 'frequency', e.target.value)}
                     required
                   >
-                    <option value="">{t('Select Frequency')}</option>
+                    <option value="">{t('SelectFrequency')}</option>
                     {config.RecomendationInfo.frequency.map((freq) => (
                       <option key={freq} value={freq}>
-                        {freq}
+                        {t(freq)}
                       </option>
                     ))}
                   </Form.Control>
@@ -341,7 +342,7 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
           ))}
 
           <Button variant="link" className="mt-3" onClick={addPatientType}>
-            <FaPlus /> {t('Add Another Patient Type')}
+            <FaPlus /> {t('AddAnotherPatientType')}
           </Button>
 
           {!success && (

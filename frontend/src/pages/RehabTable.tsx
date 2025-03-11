@@ -6,6 +6,7 @@ import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
 import apiClient from '../api/client';
+import { t } from 'i18next';
 import AddRecommendationModal from '../components/AddRecomendationModal';
 
 
@@ -186,13 +187,13 @@ const RehabTable: React.FC = () => {
               onClick={() => setShowAddModal(true)}
               className="mb-3"
             >
-              <FaPlus /> Add Recommendation
+              <FaPlus /> {t("Add Recommendation")}
             </Button>
             <div className="table-responsive shadow-sm p-3 mb-5 bg-white rounded" style={{ maxHeight: '400px' }}>
               <Table bordered hover className="table-striped">
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}>
                 <tr>
-                  <th>Day</th>
+                  <th>{t("Day")}</th>
                   {patientData.map((intervention, idx) => (
                     <th key={idx}>
                       {intervention.intervention_title}{' '}
@@ -200,7 +201,7 @@ const RehabTable: React.FC = () => {
                         placement="top"
                         overlay={
                           <Tooltip>
-                            Show description and average stats for {intervention.intervention_title}
+                            {t("Show description and average stats for")} {intervention.intervention_title}
                           </Tooltip>
                         }
                       >
@@ -224,7 +225,7 @@ const RehabTable: React.FC = () => {
                         fontWeight: date.toDateString() === today.toDateString() ? 'bold' : 'normal',
                       }}
                     >
-                      {`Day ${idx + 1}`} ({formatDate(date)})
+                      {`${t("Day")} ${idx + 1}`} ({formatDate(date)})
                     </td>
                     {patientData.map((intervention, intIdx) => {
                       const formattedDate = formatDate(date)
@@ -256,7 +257,7 @@ const RehabTable: React.FC = () => {
                             (isDone || isNotDone || isFuture) && handleExerciseClick(intervention)
                           }
                         >
-                          {isDone ? 'Done' : isNotDone ? 'Not Done' : isFuture ? 'Upcoming' : ''}
+                          {isDone ? t('Done') : isNotDone ? t('Not Done') : isFuture ? t('Upcoming') : ''}
                         </td>
                       )
                     })}
@@ -283,7 +284,7 @@ const RehabTable: React.FC = () => {
       {/* Modal for viewing exercise details */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Intervention Details</Modal.Title>
+          <Modal.Title>{t("Intervention Details")}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedExercise ? (
@@ -295,12 +296,12 @@ const RehabTable: React.FC = () => {
               </p>
             </>
           ) : (
-            <p>No Intervention selected.</p>
+            <p>{t("No Intervention selected.")}</p>
           )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowModal(false)}>
-            Close
+            {t("Close")}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -308,16 +309,16 @@ const RehabTable: React.FC = () => {
       {/* Info Modal for exercise stats */}
       <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>{exerciseStats?.name} Information</Modal.Title>
+          <Modal.Title>{exerciseStats?.name} {t("Information")}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {exerciseStats && (
             <>
               <p>
-                <strong>Completed:</strong> {exerciseStats.completedCount} / {exerciseStats.totalCount}
+                <strong>{t("Completed:")}</strong> {exerciseStats.completedCount} / {exerciseStats.totalCount}
               </p>
               <p>
-                <strong>Average Rating:</strong> {exerciseStats.averageRating}{' '}
+                <strong>{t("Average Rating:")}</strong> {exerciseStats.averageRating}{' '}
                 <FaStar size={24} color={'gold'} />
               </p>
             </>
@@ -325,10 +326,10 @@ const RehabTable: React.FC = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={() => handleDeleteExercise(exerciseStats?.name || '')}>
-            Delete Exercise
+            {t("Delete Exercise")}
           </Button>
           <Button variant="secondary" onClick={() => setShowInfoModal(false)}>
-            Close
+             {t("Close")}
           </Button>
         </Modal.Footer>
       </Modal>
