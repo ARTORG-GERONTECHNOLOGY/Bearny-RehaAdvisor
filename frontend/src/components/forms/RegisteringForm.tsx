@@ -133,13 +133,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
 
     // **Phone Number Validation** (Only Numbers, Minimum 8-15 Digits)
     if (formData.phone && !/^\d{8,15}$/.test(formData.phone as string)) {
-      newErrors.phone = "Invalid phone number. Enter 8-15 digits only.";
+      newErrors.phone = t("Invalid phone number. Enter 8-15 digits only.");
     }
 
     if (formData.email && currentStep.fields.some(f => f.name === "email")) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email as string)) {
-        newErrors.email = "Invalid email format.";
+        newErrors.email = t("Invalid email format.");
       }
     }
 
@@ -148,12 +148,12 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
       if (!passwordRegex.test(formData.password as string)) {
         newErrors.password =
-          "Password must have at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special character.";
+          t("Password must have at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special character.");
       }
     }
 
     if (currentStep.fields.some(f => f.name === "password") && formData.password !== formData.repeatPassword) {
-      newErrors.repeatPassword = "Passwords do not match.";
+      newErrors.repeatPassword = t("Passwords do not match.");
     }
 
     setErrors(newErrors);
@@ -185,9 +185,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
         console.error('Registration error: ', error);
        // 🔹 Check if error has a response and extract the error message
         if (error.response) {
-          setApiError(error.response.data?.error || "An error occurred. Please try again.");
+          setApiError(error.response.data?.error ||t("An error occurred. Please try again."));
         } else {
-          setApiError("An unexpected error occurred. Please try again.");
+          setApiError(t("An unexpected error occurred. Please try again."));
         }
       }
     }
@@ -204,7 +204,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
 
           {formSteps[step]?.fields.map((field) => (
                     <div key={field.name} className="mb-3">
-                      <label htmlFor={field.name} className="form-label">{field.label}</label>
+                      <label htmlFor={field.name} className="form-label">{t(field.label)}</label>
           
                       {field.type === "multi-select" ? (
                         <Select
@@ -214,15 +214,15 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                           options={field.name === "diagnosis" && formData.function.length > 0
                               // @ts-ignore
                             ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
-                            : field.options?.map(option => ({ value: option, label: option }))
+                            : field.options?.map(option => ({ value: option, label: t(option) }))
                           }
-                          value={(formData[field.name] as string[]).map(value => ({ value, label: value }))}
+                          value={(formData[field.name] as string[]).map(value => ({ value, label: t(value) }))}
                           onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.name)}
                         />
                       ) : field.type === "dropdown" ? (
                         <select id={field.name} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} value={formData[field.name] as string || ""} onChange={handleChange}>
                           <option value="">Select {field.label}</option>
-                          {field.options?.map((option) => (<option key={option} value={option}>{option}</option>))}
+                          {field.options?.map((option) => (<option key={option} value={option}>{t(option)}</option>))}
                         </select>
                       ) : field.type === "password" ? (
                         <div className="position-relative">
@@ -260,14 +260,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow, pageTy
                    {/* 🔹 Display API Error Alert */}
       {apiError && <div className="alert alert-danger">{apiError}</div>}
       {registered && <div className="alert alert-success">
-                  <div>You have been Registered. Your account information will be sent to the given email, when your account has been approved.</div>
+                  <div>{t("You have been Registered. Your account information will be sent to the given email, when your account has been approved.")}</div>
                 </div>}
 
 
           <div className="d-flex justify-content-between mt-4">
             {step > 0 && !registered && <Button variant="secondary" onClick={prevStep}>Back</Button>}
-            {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>Next</Button>}
-            {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">Submit</Button>}
+            {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>{t("Next")}</Button>}
+            {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">{t("Submit")}</Button>}
           </div>
         </form>
       </Modal.Body>

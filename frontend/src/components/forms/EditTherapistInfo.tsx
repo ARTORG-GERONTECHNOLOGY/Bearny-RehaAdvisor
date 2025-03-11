@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Form, Button, Modal } from "react-bootstrap";
 import Select from "react-select";
 import config from '../../config/config.json';
+import { t } from 'i18next';
 
 const EditUserInfo = ({ userData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -41,7 +42,7 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
     if (!validateInputs()) return;
     e.preventDefault();
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      alert("New passwords do not match!");
+      alert(t("New passwords do not match!"));
       return;
     }
     onSave(formData);
@@ -52,17 +53,17 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
         <Form onSubmit={handleSubmit}>
           {error && <p className="text-danger">{error}</p>}
           {config.TherapistForm.flatMap(section => section.fields)
-            .filter(field => !["password", "repeatPassword", "oldPassword", "newPassword", "confirmPassword", "userType"].includes(field.be_name))
+            .filter(field => !["password", "repeatPassword", "oldPassword", "newPassword", "confirmPassword", "userType", "User Type:"].includes(field.be_name))
             .map((field) => (
               <div key={config.UserProfile[field.label]} className="mb-3">
-                <Form.Label htmlFor={config.UserProfile[field.label]}>{field.label}</Form.Label>
+                <Form.Label htmlFor={config.UserProfile[field.label]}>{t(field.label)}</Form.Label>
                 {field.type === "multi-select" ? (
                   <Select
                     id={field.be_name}
                     isMulti
-                    options={field.options.map(option => ({ value: option, label: option }))}
+                    options={field.options.map(option => ({ value: option, label: t(option) }))}
                     onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.be_name)}
-                    defaultValue={formData[field.be_name]?.map(value => ({ value, label: value })) || []}
+                    defaultValue={formData[field.be_name]?.map(value => ({ value, label: t(value) })) || []}
                   />
                 ) : (
                   <Form.Control
@@ -76,25 +77,25 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
               </div>
             ))}
 
-          <h5>Change Password</h5>
+          <h5>{t("Change Password")}</h5>
           <Form.Group className="mb-3">
-            <Form.Label>Old Password</Form.Label>
+            <Form.Label>{t("Old Password")}</Form.Label>
             <Form.Control type="password" name="oldPassword" value={formData.oldPassword} onChange={handleChange} />
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label>New Password</Form.Label>
+            <Form.Label>{t("New Password")}</Form.Label>
             <Form.Control type="password" name="newPassword" value={formData.newPassword} onChange={handleChange} />
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label>Confirm New Password</Form.Label>
+            <Form.Label>{t("Confirm New Password")}</Form.Label>
             <Form.Control type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} />
           </Form.Group>
 
           <div className="d-flex justify-content-between">
-            <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-            <Button type="submit" variant="primary">Save Changes</Button>
+            <Button variant="secondary" onClick={onCancel}>{t("Cancel")}</Button>
+            <Button type="submit" variant="primary">{t("Save Changes")}</Button>
           </div>
         </Form>
         </>

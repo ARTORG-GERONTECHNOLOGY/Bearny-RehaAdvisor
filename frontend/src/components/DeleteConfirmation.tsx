@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
-
+import { t } from 'i18next';
 // @ts-ignore
 const DeleteConfirmation = ({ show, handleClose, handleConfirm }) => {
   return (
@@ -9,14 +9,14 @@ const DeleteConfirmation = ({ show, handleClose, handleConfirm }) => {
         <Modal.Title>Delete Account</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+        <p>{t("Are you sure you want to delete your account? This action cannot be undone.")}</p>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={handleClose}>
-          Cancel
+        {t("Cancel")}
         </Button>
         <Button variant="danger" onClick={handleConfirm}>
-          Delete Account
+          {t("Delete Account")}
         </Button>
       </Modal.Footer>
     </Modal>
