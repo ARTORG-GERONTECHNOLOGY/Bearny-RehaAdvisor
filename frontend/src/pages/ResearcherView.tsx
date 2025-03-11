@@ -56,7 +56,7 @@ const ResearcherView: React.FC = () => {
 
   // Show a loading message or spinner while authentication check is in progress
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Loading</div>;
   }
 
 

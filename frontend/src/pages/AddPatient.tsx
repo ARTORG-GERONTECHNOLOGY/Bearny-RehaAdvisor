@@ -30,7 +30,7 @@ const AddPatient: React.FC = () => {
           <Col md={6}>
             <Card>
               <Card.Body>
-                <h2 className="text-center mb-4">{t('Add a New Patient')}</h2>
+                <h2 className="text-center mb-4">{t('AddaNewPatient')}</h2>
 
                 {/* Registration Form */}
                 <FormRegisterPatient pageType="patient"  therapist={authStore.id} />

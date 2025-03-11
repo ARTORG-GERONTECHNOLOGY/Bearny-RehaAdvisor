@@ -4,6 +4,7 @@ import Select from 'react-select';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
+import { t } from 'i18next';
 
 interface FormData {
   email: string;
@@ -102,19 +103,19 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
       // @ts-ignore
     if (formData.phone && formData.phone.trim() !== "") {
       if (!/^\d{8,15}$/.test(formData.phone as string)) {
-        newErrors.phone = "Invalid phone number. Enter 8-15 digits only.";
+        newErrors.phone = t("Invalid phone number. Enter 8-15 digits only.");
       }
     }
 
     if (formData.email && currentStep.fields.some(f => f.name === "email")) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email as string)) {
-        newErrors.email = "Invalid email format.";
+        newErrors.email = t("Invalid email format.");
       }
     }
 
     if (currentStep.fields.some(f => f.name === "password") && formData.password !== formData.repeatPassword) {
-      newErrors.repeatPassword = "Passwords do not match.";
+      newErrors.repeatPassword = t("Passwords do not match.");
     }
 
     setErrors(newErrors);
@@ -150,9 +151,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
         console.error('Registration error: ', error);
        // 🔹 Check if error has a response and extract the error message
         if (error.response) {
-          setApiError(error.response.data?.error || "An error occurred. Please try again.");
+          setApiError(error.response.data?.error || t("An error occurred. Please try again."));
         } else {
-          setApiError("An unexpected error occurred. Please try again.");
+          setApiError(t("An unexpected error occurred. Please try again."));
         }
       }
     }
@@ -161,27 +162,27 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <h3>{formSteps[step]?.title}</h3> {/* ✅ Fix: Ensure step exists */}
+        <h3>{t(formSteps[step]?.title)}</h3> {/* ✅ Fix: Ensure step exists */}
 
         {formSteps[step]?.fields.map((field) => (
           <div key={field.name} className="mb-3">
-            <label htmlFor={field.name} className="form-label">{field.label}</label>
+            <label htmlFor={field.name} className="form-label">{t(field.label)}</label>
 
             {field.type === "multi-select" ? (
               <Select
                 id={field.name}
                 isMulti
                 options={field.name === "diagnosis" && formData.function.length > 0
-                  ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
-                  : field.options?.map(option => ({ value: option, label: option }))
+                  ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: t(diag) })) || [])
+                  : field.options?.map(option => ({ value: option, label: t(option) }))
                 }
                 value={(formData[field.name] as string[]).map(value => ({ value, label: value }))}
                 onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.name)}
               />
             ) : field.type === "dropdown" ? (
               <select id={field.name} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} value={formData[field.name] as string || ""} onChange={handleChange}>
-                <option value="">Select {field.label}</option>
-                {field.options?.map((option) => (<option key={option} value={option}>{option}</option>))}
+                <option value="">{t("Select")} {t(field.label)}</option>
+                {field.options?.map((option) => (<option key={option} value={option}>{t(option)}</option>))}
               </select>
             ) : (
               <input type={field.type} className={`form-control ${errors[field.name] ? "is-invalid" : ""}`} id={field.name} value={formData[field.name] as string || ""} onChange={handleChange} />
@@ -194,20 +195,20 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
       {apiError && <div className="alert alert-danger">{apiError}</div>}
       {registered && (
         <div className="alert alert-success">
-          <div>The patient has been registered. Account information has been sent to the given email.</div>
-          <div><strong>Patient ID:</strong> {patientId}</div>
-          <div><strong>Access Word:</strong> {formData.password}</div>
+          <div> {t("The patient has been registered. Account information has been sent to the given email.")}</div>
+          <div><strong>{t("Patient ID:")}</strong> {patientId}</div>
+          <div><strong>{t("Access Word:")}</strong> {formData.password}</div>
           <div>
-            <Link to="/patient_home">Click here to log in</Link>
+            <Link to="/patient_home">{t("Click here to log in")}</Link>
           </div>
         </div>
       )}
 
 
         <div className="d-flex justify-content-between mt-4">
-          {step > 0 && !registered && <Button variant="secondary" onClick={prevStep}>Back</Button>}
-          {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>Next</Button>}
-          {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">Submit</Button>}
+          {step > 0 && !registered && <Button variant="secondary" onClick={prevStep}>{t("Back")}</Button>}
+          {step < formSteps.length - 1 && !registered && <Button variant="primary" onClick={nextStep}>{t("Next")}</Button>}
+          {step === formSteps.length - 1 && !registered && <Button type="submit" variant="success">{t("Submit")}</Button>}
         </div>
       </form>
     </div>
