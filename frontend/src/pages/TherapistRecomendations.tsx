@@ -200,7 +200,7 @@ const TherapistRecomendations: React.FC = () => {
                     >
                       <option value="">{t('Filter by Patient Type')}</option>
                       {diagnoses.map((type: string) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>{t(type)}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -215,7 +215,7 @@ const TherapistRecomendations: React.FC = () => {
                     >
                       <option value="">{t('Filter by Core/Supportive')}</option>
                       {config.RecomendationInfo.intensity.map((option: any) => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>{t(option)}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -230,7 +230,7 @@ const TherapistRecomendations: React.FC = () => {
                     >
                       <option value="">{t('Filter by Content Type')}</option>
                       {config.RecomendationInfo.types.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>{t(type)}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -243,7 +243,7 @@ const TherapistRecomendations: React.FC = () => {
                       isMulti
                       options={config.RecomendationInfo.tags.map((tag) => ({
                         value: tag,
-                        label: tag,
+                        label: t(tag),
                       }))}
                       value={tagFilter.map(tag => ({ value: tag, label: tag }))}
                       onChange={(selectedOptions) =>
@@ -261,7 +261,7 @@ const TherapistRecomendations: React.FC = () => {
                       isMulti
                       options={config.RecomendationInfo.benefits.map((benefitFor) => ({
                         value: benefitFor,
-                        label: benefitFor,
+                        label: t(benefitFor),
                       }))}
                       value={benefitForFilter.map(benefitFor => ({ value: benefitFor, label: benefitFor }))}
                       onChange={(selectedOptions) =>
@@ -281,7 +281,7 @@ const TherapistRecomendations: React.FC = () => {
                     >
                       <option value="">{t('Filter by Frequency')}</option>
                       {config.RecomendationInfo.frequency.map((frequency) => (
-                        <option key={frequency} value={frequency}>{frequency}</option>
+                        <option key={frequency} value={frequency}>{t(frequency)}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -302,7 +302,7 @@ const TherapistRecomendations: React.FC = () => {
                   <div className="d-flex flex-column">
                     <strong>{recommendation['title']}</strong>
                     <div className="text-muted">
-                      {recommendation['content_type'].charAt(0).toUpperCase() + recommendation['content_type'].slice(1)}
+                      {t(recommendation['content_type'].charAt(0).toUpperCase() + recommendation['content_type'].slice(1))}
                     </div>
 
                     {/* Display tags neatly if they exist */}
@@ -310,7 +310,7 @@ const TherapistRecomendations: React.FC = () => {
                       <div className="mt-2 d-flex flex-wrap gap-1">
                         {recommendation.tags.map((tag) => (
                           <Badge key={tag} bg='' style={{ backgroundColor: tagColors[tag] || 'grey', color: 'white' }} className="me-1">
-                            {tag}
+                            {t(tag)}
                           </Badge>
                         ))}
                       </div>
@@ -320,7 +320,7 @@ const TherapistRecomendations: React.FC = () => {
                   {/* Right Section: Media Type Badge */}
                   <div>
                     <Badge bg={getBadgeVariantFromUrl(recommendation['media_url'], recommendation['link'])}>
-                      {getMediaTypeLabelFromUrl(recommendation['media_url'], recommendation['link'])}
+                      {t(getMediaTypeLabelFromUrl(recommendation['media_url'], recommendation['link']))}
                     </Badge>
                   </div>
                 </ListGroup.Item>

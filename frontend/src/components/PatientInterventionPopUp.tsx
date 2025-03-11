@@ -46,16 +46,16 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ sho
       case 'PDF':
         return (
           <div className="pdf-preview">
-            <Document file={item.media_url} loading={<p>Loading PDF...</p>}>
+            <Document file={item.media_url} loading={<p>L{t("Loading")}</p>}>
               <Page pageNumber={1} width={300} />
             </Document>
             <a href={item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-2">
-              Open PDF
+              {t("Open PDF")}
             </a>
           </div>
         );
       case 'Image':
-        return <img src={item.media_file} alt="Recommendation" className="img-fluid rounded shadow" />;
+        return <img src={item.media_file} alt={t("Recommendation")} className="img-fluid rounded shadow" />;
     case 'Link':
         return (
             <Microlink
@@ -68,7 +68,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ sho
       default:
         return (
           <a href={item.link || item.media_file} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-            Open Resource
+            {t("Open Resource")}
           </a>
         );
     }
@@ -103,13 +103,13 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ sho
       <Modal.Body>
         <Row className="pb-3 mb-3 border-bottom">
           <Col>
-            <h5>Description</h5>
+            <h5>{t("Description")}</h5>
             <p className="text-muted">{item.description || 'No description provided'}</p>
           </Col>
         </Row>
         <Row className="pb-3 mb-3">
           <Col md={12}>
-            <h5>Media</h5>
+            <h5>{t("Media")}</h5>
             <ListGroup variant="flush">
               <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
             </ListGroup>

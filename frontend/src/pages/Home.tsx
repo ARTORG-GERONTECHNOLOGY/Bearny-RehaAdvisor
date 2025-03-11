@@ -33,7 +33,7 @@ const Home: React.FC = () => {
             {/* Web App Name */}
             <h1 className="mb-4">Tele-rehabilitation</h1>
             {/* Informational Text */}
-            <p className="lead">{t('Welcome to the Therapist Login Page')}</p>
+            <p className="lead">{t('WelcometotheTherapistLoginPage')}</p>
             <img src="/home.jpg" alt="Post-telereha Advisor Logo" style={{ maxWidth: '20%', height: 'auto' }} />
 
           </Col>
