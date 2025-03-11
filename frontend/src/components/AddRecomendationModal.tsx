@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Badge, Button, Col, Form, ListGroup, Modal, Row, Spinner } from 'react-bootstrap';
 import apiClient from '../api/client';
-
+import { t } from 'i18next';
 interface AddRecommendationModalProps {
   show: boolean;
   onHide: () => void;
@@ -59,7 +59,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     if (recommendationTypeFilter) {
       filtered = filtered.filter((rec) =>
         rec.patient_types.some(
-          (pt: any) => pt.include_option === (recommendationTypeFilter === 'Core'),
+          (pt: any) => pt.include_option === (recommendationTypeFilter === t('Core')),
         ),
       );
     }
@@ -99,9 +99,9 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     }
 
     if (mediaUrl.endsWith('.mp4')) return 'Video';
-    if (mediaUrl.endsWith('.mp3')) return 'Audio';
+    if (mediaUrl.endsWith('.mp3')) return t('Audio');
     if (mediaUrl.endsWith('.pdf')) return 'PDF';
-    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return 'Image';
+    if (mediaUrl.endsWith('.jpg') || mediaUrl.endsWith('.jpeg') || mediaUrl.endsWith('.png')) return t('Image');
 
     return 'Unknown';
   };
@@ -126,7 +126,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   return (
     <Modal show={show} onHide={onHide} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>Add Recommendation</Modal.Title>
+        <Modal.Title>{t("Add Recommendation")}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {loading ? (
@@ -137,25 +137,25 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
             <Row className="mb-3">
               <Col>
                 <Form.Group controlId="contentTypeFilter">
-                  <Form.Label>Filter by Content Type</Form.Label>
+                  <Form.Label>{t("Filter by Content Type")}</Form.Label>
                   <Form.Select value={contentTypeFilter} onChange={(e) => setContentTypeFilter(e.target.value)}>
-                    <option value="">All</option>
-                    <option value="Video">Video</option>
-                    <option value="Audio">Audio</option>
-                    <option value="PDF">PDF</option>
-                    <option value="Image">Image</option>
-                    <option value="Link">Link</option>
+                    <option value="">{t("All")}</option>
+                    <option value="Video">{t("Video")}</option>
+                    <option value="Audio">{t("Audio")}</option>
+                    <option value="PDF">{t("PDF")}</option>
+                    <option value="Image">{t("Image")}</option>
+                    <option value="Link">{t("Link")}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
               <Col>
                 <Form.Group controlId="recommendationTypeFilter">
-                  <Form.Label>Filter by Core/Supportive</Form.Label>
+                  <Form.Label>{t("Filter by Core/Supportive")}</Form.Label>
                   <Form.Select value={recommendationTypeFilter}
                                onChange={(e) => setRecommendationTypeFilter(e.target.value)}>
-                    <option value="">All</option>
-                    <option value="Core">Core</option>
-                    <option value="Supportive">Supportive</option>
+                    <option value="">{t("All")}</option>
+                    <option value="Core">{t("Core")}</option>
+                    <option value="Supportive">{t("Supportive")}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -175,20 +175,20 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
                           {getMediaTypeLabelFromUrl(rec.media_url, rec.link)}
                         </Badge>
                       </h5>
-                      <p>{rec.description}</p>
+                      <p>{t(rec.description)}</p>
                       <p>
-                        <strong>Frequency:</strong> {getFreq(rec.patient_types) || 'N/A'}
+                        <strong>{t("Frequency:")}</strong> {getFreq(rec.patient_types) || 'N/A'}
                       </p>
                       <p>
-                        <strong>Type:</strong> {getType(rec.patient_types) ? 'Core' : 'Supportive'}
+                        <strong>{t("Type:")}</strong> {getType(rec.patient_types) ? 'Core' : 'Supportive'}
                       </p>
                     </div>
                     {!alreadyAdded && (
                       <Button variant="success" onClick={() => onAdd(rec._id)}>
-                        Add
+                        {t("Add")}
                       </Button>
                     )}
-                    {alreadyAdded && <span className="text-muted">Already Added</span>}
+                    {alreadyAdded && <span className="text-muted">{t("Already Added")}</span>}
                   </ListGroup.Item>
                 );
               })}

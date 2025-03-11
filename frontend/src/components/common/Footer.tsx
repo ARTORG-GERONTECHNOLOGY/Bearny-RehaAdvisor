@@ -5,7 +5,7 @@ const Footer: FunctionComponent = () => {
   const { t } = useTranslation();
 
   return (
-    <footer className="bg-body-tertiary py-4 mt-auto">
+    <footer className="bg-body-tertiary py-4 mt-auto w-100">
       <div className="container">
 
           {/* Navigation Links / Additional Information
@@ -13,7 +13,7 @@ const Footer: FunctionComponent = () => {
             <ul className="list-unstyled">
               <li>
                 <a href="/about" className="text-decoration-none">
-                  {t("About Us")}
+                  {t("AboutUs")}
                 </a>
               </li>
               <li>
@@ -23,7 +23,7 @@ const Footer: FunctionComponent = () => {
               </li>
               <li>
                 <a href="/privacy" className="text-decoration-none">
-                  {t("Privacy Policy")}
+                  {t("PrivacyPolicy")}
                 </a>
               </li>
             </ul>
@@ -32,7 +32,7 @@ const Footer: FunctionComponent = () => {
 
         <div className="row mt-4">
           <div className="col text-center">
-            <small>&copy; {new Date().getFullYear()} {t("Your Company Name")}. {t("All rights reserved.")}</small>
+            <small>&copy; {new Date().getFullYear()} {t("YourCompanyName")}. {t("Allrightsreserved.")}</small>
           </div>*/}
       </div>
 

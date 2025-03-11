@@ -4,6 +4,7 @@ import { Table, Button, Modal } from 'react-bootstrap';
 import adminStore from '../stores/adminStore';
 import authStore from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
+import { t } from 'i18next';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer'; // MobX store for admin actions
 
@@ -72,9 +73,9 @@ const AdminDashboard: React.FC = observer(() => {
             <td>{entry.email}</td>
             <td>{entry.type}</td>
             <td>
-              <Button variant="primary" onClick={() => handleEdit(entry)}>Edit</Button>{' '}
-              <Button variant="success" onClick={() => handleAccept(entry.id, entry.type)}>Accept</Button>{' '}
-              <Button variant="danger" onClick={() => handleDecline(entry.id, entry.type)}>Decline</Button>
+              <Button variant="primary" onClick={() => handleEdit(entry)}>{t("Edit")}</Button>{' '}
+              <Button variant="success" onClick={() => handleAccept(entry.id, entry.type)}>{t("Accept")}</Button>{' '}
+              <Button variant="danger" onClick={() => handleDecline(entry.id, entry.type)}>{t("Decline")}</Button>
             </td>
           </tr>
         ))}

@@ -25,7 +25,7 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = ({ show, handleClose }) 
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>{t('Add a New Patient')}</Modal.Title>
+        <Modal.Title>{t('AddaNewPatient')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Card>

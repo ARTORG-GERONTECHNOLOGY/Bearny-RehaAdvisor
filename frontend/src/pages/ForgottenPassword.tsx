@@ -34,12 +34,12 @@ const ForgotPassword: React.FC = () => {
       {/* Main Content */}
       <Row className="flex-grow-1 justify-content-center align-items-center w-100">
         <Col xs={12} md={6} lg={5} className="mx-auto">
-          <h2 className="text-center mb-4">{t('Forgotten Password')}</h2>
+          <h2 className="text-center mb-4">{t('ForgottenPassword')}</h2>
 
           {/* Success Alert */}
           {success && (
             <Alert variant="success" className="text-center">
-              {t('Password reset link sent. Please check your email.')}
+              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
             </Alert>
           )}
 
@@ -53,10 +53,10 @@ const ForgotPassword: React.FC = () => {
           {/* Forgot Password Form */}
           <Form onSubmit={handleForgotPassword}>
             <Form.Group controlId="formEmail" className="mb-3">
-              <Form.Label>{t('Email address')}</Form.Label>
+              <Form.Label>{t('Emailaddress')}</Form.Label>
               <Form.Control
                 type="email"
-                placeholder={t('Enter your email')}
+                placeholder={t('Enteryouremail')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

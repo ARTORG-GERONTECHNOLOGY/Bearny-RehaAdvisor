@@ -104,7 +104,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
               pagetype={pageType}
             />
 
-            <ForgotPasswordLink onClick={() => navigate('/forgottenpwd')} text="Need help recovering your account?" />
+            <ForgotPasswordLink onClick={() => navigate('/forgottenpwd')} text={t("Need help recovering your account?")} />
 
             {authStore.loginError && (
               <div className="alert alert-danger">{authStore.loginError}</div>
@@ -117,14 +117,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
         ) : (
           // 2FA Form (shown after successful username/password login for non-patients)
           <form onSubmit={handle2FASubmit}>
-            <h5>{t('Enter the verification code sent to your phone')}</h5>
+            <h5>{t('Entertheverificationcodesenttoyourphone')}</h5>
             <InputField
               id="verificationCode"
-              label={t('Verification Code')}
+              label={t('VerificationCode')}
               type="text"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder={t('Enter verification code')}
+              placeholder={t('Enterverificationcode')}
             />
 
             {authStore.loginError && (
@@ -132,7 +132,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
             )}
 
             <button type="submit" className="btn btn-primary">
-              {t('Submit Code')}
+              {t('SubmitCode')}
             </button>
           </form>
         )}
