@@ -6,6 +6,7 @@ import Select from "react-select";
 import apiClient from "../api/client";
 import authStore from "../stores/authStore";
 import config from "../config/config.json";
+import { t } from 'i18next';
 
 const PatientPopup = ({ patient_id, show, handleClose }) => {
   const { t } = useTranslation();
@@ -55,11 +56,11 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
 
   const validateInputs = () => {
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError("Invalid email format.");
+      setError(t("Invalid email format."));
       return false;
     }
     if (formData.phone && !/^\+?[0-9]{7,15}$/.test(formData.phone)) {
-      setError("Invalid phone number format.");
+      setError(t("Invalid phone number format."));
       return false;
     }
     setError("");
@@ -87,7 +88,7 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
   };
 
   if (!patient_id || loading) {
-    return <p>{t("Loading...")}</p>;
+    return <p>{t("Loading")}</p>;
   }
 
   return (
@@ -127,12 +128,26 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
                       <Select
                         id={field.be_name}
                         isMulti
-                        options={field.be_name === "diagnosis" && formData.function.length > 0
-                          ? formData.function.flatMap(speciality => specialityDiagnosisMap[speciality]?.map(diag => ({ value: diag, label: diag })) || [])
-                          : field.options?.map(option => ({ value: option, label: option }))
+                        options={
+                          field.be_name === "diagnosis" && formData.function.length > 0
+                            ? formData.function.flatMap(speciality =>
+                                specialityDiagnosisMap[speciality]?.map(diag => ({
+                                  value: diag, // Real value (e.g., code)
+                                  label: t(diag), // Display label (e.g., description)
+                                })) || []
+                              )
+                            : field.options?.map(option => ({
+                                value: option,
+                                label: t(option), // Use label mapping if available
+                              }))
                         }
-                        defaultValue={(formData[field.be_name] as string[]).map(value => ({ value, label: value }))}
-                        onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.be_name)}
+                        defaultValue={(formData[field.be_name] as string[]).map(value => ({
+                          value, // Real value stored
+                          label:  t(value), // Display the readable label
+                        }))}
+                        onChange={(selectedOptions) =>
+                          handleMultiSelectChange(selectedOptions, field.be_name)
+                        }
                       />
                     ) : field.type === "dropdown" ? (
                       <Form.Select
@@ -142,16 +157,16 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
                         disabled={!isEditing}
                         required={field.required}
                       >
-                        <option value="">{t("Select an option")}</option>
+                        <option value="">{t("Selectanoption")}</option>
                         {field.options.map((option) => (
-                          <option key={option} value={option}>{t(option)}</option>
+                          <option key={option} value={t(option)}>{t(option)}</option>
                         ))}
                       </Form.Select>
                     ) : (
                       <Form.Control
                         type={field.type}
                         name={field.be_name}
-                        defaultValue={formData[field.be_name] || ""}
+                        defaultValue={t(formData[field.be_name] )|| ""}
                         onChange={handleChange}
                         required={field.required}
                         disabled={!isEditing}
@@ -169,22 +184,22 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
           <>
            
             <Button variant="secondary" onClick={() => setIsEditing(false)}>{t("Cancel")}</Button>
-            <Button variant="success" onClick={handleSave}>{t("Save Changes")}</Button>
+            <Button variant="success" onClick={handleSave}>{t("SaveChanges")}</Button>
           </>
         ) : (
           <>
           <Button variant="warning" onClick={() => setIsEditing(true)}>{t("Edit")}</Button>
-          <Button variant="danger" onClick={() => setShowConfirmDelete(true)}>{t("Delete Patient")}</Button>
+          <Button variant="danger" onClick={() => setShowConfirmDelete(true)}>{t("DeletePatient")}</Button>
           </>
         )}
       </Modal.Footer>
     </Modal>
       <Modal show={showConfirmDelete} onHide={() => setShowConfirmDelete(false)} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{t("Confirm Deletion")}</Modal.Title>
+        <Modal.Title>{t("ConfirmDeletion")}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p>{t("Are you sure you want to delete this patient? This action cannot be undone.")}</p>
+        <p>{t("DeleteConfirPAt")}</p>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={() => setShowConfirmDelete(false)}>{t("Cancel")}</Button>

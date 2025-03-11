@@ -119,17 +119,17 @@ const AddRecommendationView: React.FC = observer(() => {
 
       <Container className="flex-grow-1 d-flex justify-content-center align-items-center">
         <div className="main-content p-5" style={{ maxWidth: '600px', width: '100%' }}>
-          <h2 className="mb-4 text-center">{t('Add New Recommendation')}</h2>
+          <h2 className="mb-4 text-center">{t('AddNewRecommendation')}</h2>
 
           {error && <Alert variant="danger">{error}</Alert>}
-          {success && <Alert variant="success">{t("Recommendation successfully added")}</Alert>}
+          {success && <Alert variant="success">{t("Recommendationsuccessfullyadded")}</Alert>}
 
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="title">
-              <Form.Label>{t("Recommendation Title")}</Form.Label>
+              <Form.Label>{t("RecommendationTitle")}</Form.Label>
               <Form.Control
                 type="text"
-                placeholder={t("Enter recommendation title")}
+                placeholder={t("Enterrecommendationtitle")}
                 value={formData.title}
                 // @ts-ignore
                 onChange={handleChange}
@@ -142,7 +142,7 @@ const AddRecommendationView: React.FC = observer(() => {
               <Form.Control
                 as="textarea"
                 rows={3}
-                placeholder={t("Enter description")}
+                placeholder={t("Enterdescription")}
                 value={formData.description}
                 // @ts-ignore
                 onChange={handleChange}
@@ -152,15 +152,15 @@ const AddRecommendationView: React.FC = observer(() => {
 
             {/* Content Type Selection */}
             <Form.Group controlId="contentType" className="mt-3">
-              <Form.Label>{t("Content Type")}</Form.Label>
+              <Form.Label>{t("ContentType")}</Form.Label>
 
               <Form.Control as="select" value={formData.contentType}
                 // @ts-ignore
                             onChange={handleChange} required>
-                <option value="">Select Content Type</option>
+                <option value="">{t("SelectContentType")}</option>
                 {config.RecomendationInfo.types.map((type: any) => (
                   <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {t(type.charAt(0).toUpperCase() + type.slice(1))}
                   </option>
                 ))}
               </Form.Control>
@@ -172,7 +172,7 @@ const AddRecommendationView: React.FC = observer(() => {
                 <Form.Label>{t("Link")}</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder={t("Enter blog link")}
+                  placeholder={t("Enterbloglink")}
                   value={formData.link}
                   // @ts-ignore
                   onChange={handleChange}
@@ -181,27 +181,27 @@ const AddRecommendationView: React.FC = observer(() => {
 
             {formData.contentType !== 'app' && (
               <Form.Group controlId="mediaFile" className="mt-3">
-                <Form.Label>{t("Upload File")}</Form.Label>
+                <Form.Label>{t("UploadFile")}</Form.Label>
                 <Form.Control type="file" accept="image/*,video/*,audio/*,application/pdf" onChange={handleFileChange} />
               </Form.Group>
             )}
 
             {/* Patient Type and Frequency */}
-            <h5 className="mt-4">{t("Patient Type and Frequency")}</h5>
+            <h5 className="mt-4">{t("PatientTypeandFrequency")}</h5>
             {formData.patientTypes.map((patient, index) => (
               <Row key={index} className="align-items-center">
                 <Col xs={6}>
                   <Form.Group controlId={`patientType-${index}`}>
-                    <Form.Label>{t("Patient Type")}</Form.Label>
+                    <Form.Label>{t("PatientType")}</Form.Label>
                     <Form.Control
                       as="select"
                       value={patient.type}
                       onChange={(e) => handlePatientTypeChange(index, 'type', e.target.value)}
                       required
                     >
-                      <option value="">{t("Select Type")}</option>
+                      <option value="">{t("SelectType")}</option>
                       {diagnoses.map((type: any) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>{t(type)}</option>
                       ))}
                     </Form.Control>
                   </Form.Group>
@@ -216,9 +216,9 @@ const AddRecommendationView: React.FC = observer(() => {
                       onChange={(e) => handlePatientTypeChange(index, 'frequency', e.target.value)}
                       required
                     >
-                      <option value="">{t("Select Frequency")}</option>
+                      <option value="">{t("SelectFrequency")}</option>
                       {config.RecomendationInfo.frequency.map((freq: any) => (
-                        <option key={freq} value={freq}>{freq}</option>
+                        <option key={freq} value={freq}>{t(freq)}</option>
                       ))}
                     </Form.Control>
                   </Form.Group>
@@ -226,7 +226,7 @@ const AddRecommendationView: React.FC = observer(() => {
                 <Col xs={12}>
                   <Form.Check
                     inline
-                    label={t("Core Exercise")}
+                    label={t("CoreExercise")}
                     type="radio"
                     id={`include-${index}`}
                     name={`includeOption-${index}`}
@@ -247,7 +247,7 @@ const AddRecommendationView: React.FC = observer(() => {
             ))}
 
             <Button variant="link" className="mt-3" onClick={addPatientType}>
-              <FaPlus /> {t("Add Another Patient Type")}
+              <FaPlus /> {t("AddAnotherPatientType")}
             </Button>
             {!success && (
             <Button variant="primary" type="submit" className="mt-4 w-100">
