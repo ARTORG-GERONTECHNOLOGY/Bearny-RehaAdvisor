@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Modal, Button, ProgressBar, Form, Row, Col, Alert } from "react-bootstrap";
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash } from "react-icons/fa";
 import apiClient from "../api/client";
+import { t } from 'i18next';
 
 const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -148,7 +149,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Feedback</Modal.Title>
+        <Modal.Title>{t("Feedback")}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <ProgressBar
@@ -158,7 +159,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
         />
         {micPermissionDenied && (
           <Alert variant="danger" className="text-center">
-            Microphone access is denied. Please enable it in your browser settings.
+            {t("Microphone access is denied. Please enable it in your browser settings.")}
           </Alert>
         )}
         <h5 className="text-center mb-4">{currentQuestion.label}</h5>
@@ -172,7 +173,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                     variant={answers[currentQuestion.be_name]?.includes(option) ? "primary" : "outline-primary"}
                     onClick={() => handleOptionSelect(option, currentQuestion.be_name, true)}
                   >
-                    {option}
+                    {t(option)}
                   </Button>
                 ))}
               </div>
@@ -185,7 +186,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                     variant={answers[currentQuestion.be_name]?.includes(option) ? "primary" : "outline-primary"}
                     onClick={() => handleOptionSelect(option, currentQuestion.be_name, false)}
                   >
-                    {option}
+                    {t(option)}
                   </Button>
                 ))}
               </div>
@@ -198,14 +199,14 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                     className="mx-2"
                     onClick={() => setInputMode("text")}
                   >
-                    <FaKeyboard /> Type
+                    <FaKeyboard /> {t("Type")}
                   </Button>
                   <Button
                     variant={inputMode === "audio" ? "primary" : "outline-primary"}
                     className="mx-2"
                     onClick={() => setInputMode("audio")}
                   >
-                    <FaMicrophone /> Record
+                    <FaMicrophone /> {t("Record")}
                   </Button>
                 </div>
                 {inputMode === "text" && (
@@ -213,7 +214,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                     as="textarea"
                     rows={4}
                     id={currentQuestion.be_name}
-                    placeholder="Type your response"
+                    placeholder={t("Type your response")}
                     className="mb-3"
                     value={answers[questions[currentQuestionIndex].be_name] || ""}
                     onChange={handleAnswerChange}
@@ -222,14 +223,14 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                 {inputMode === "audio" && (
                   <div className="d-flex flex-column align-items-center">
                     {recording ? (
-                      <Button variant="danger" onClick={stopRecording}><FaStop /> Stop ({recordingTime}s)</Button>
+                      <Button variant="danger" onClick={stopRecording}><FaStop /> {t("Stop")} ({recordingTime}s)</Button>
                     ) : (
-                      <Button variant="primary" onClick={startRecording}><FaMicrophone /> Start Recording</Button>
+                      <Button variant="primary" onClick={startRecording}><FaMicrophone /> {t("Start Recording")}</Button>
                     )}
                     {audioURL && (
                       <div className="mt-3">
                         <audio controls src={audioURL}></audio>
-                        <Button variant="warning" onClick={deleteRecording} className="ms-2"><FaTrash /> Delete</Button>
+                        <Button variant="warning" onClick={deleteRecording} className="ms-2"><FaTrash /> {t("Delete")}</Button>
                       </div>
                     )}
                   </div>
@@ -241,12 +242,12 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
       </Modal.Body>
       <Modal.Footer className="d-flex justify-content-between">
         {currentQuestionIndex > 0 && (
-          <Button variant="secondary" onClick={handleBack}>Back</Button>
+          <Button variant="secondary" onClick={handleBack}>{t("Back")}</Button>
         )}
         {currentQuestionIndex + 1 < questions.length ? (
-          <Button variant="primary" onClick={handleNext} className="ms-auto">Next</Button>
+          <Button variant="primary" onClick={handleNext} className="ms-auto">{t("Next")}</Button>
         ) : (
-          <Button variant="success" onClick={handleSubmit} className="ms-auto">Finish</Button>
+          <Button variant="success" onClick={handleSubmit} className="ms-auto">{t("Submit")}</Button>
         )}
       </Modal.Footer>
     </Modal>

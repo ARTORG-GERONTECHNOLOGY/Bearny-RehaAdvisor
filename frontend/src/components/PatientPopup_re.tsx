@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
-
+import { t } from 'i18next';
 // @ts-ignore
 const PatientPopup_re = ({ show, item, handleClose }) => {
   if (!item) return null;
@@ -11,13 +11,13 @@ const PatientPopup_re = ({ show, item, handleClose }) => {
         <Modal.Title>Patient Details: {item.name}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p><strong>Age:</strong> {item.age}</p>
-        <p><strong>Feedback:</strong> {item.feedback}</p>
-        <p><strong>Recommendations:</strong> {item.recommendations.join(', ')}</p>
+        <p><strong>{t("Age:")}</strong> {item.age}</p>
+        <p><strong>{t("Feedback:")}</strong> {item.feedback}</p>
+        <p><strong>{t("Recommendations:")}</strong> {item.recommendations.join(', ')}</p>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={handleClose}>
-          Close
+          {t("Close")}
         </Button>
       </Modal.Footer>
     </Modal>
