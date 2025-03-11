@@ -119,7 +119,7 @@ const Therapist: React.FC = () => {
 
       <Container className="main-content mt-4">
         <WelcomeArea user={'Therapist'} />
-        <Button onClick={handleOpen}>Add New Patient</Button>
+        <Button onClick={handleOpen}>{t("Add a New Patient")}</Button>
 
         {/* Search and Filter Options */}
         <Row className="mb-3">
@@ -142,7 +142,7 @@ const Therapist: React.FC = () => {
               >
                 <option value="">{t('Filter by Gender')}</option>
                 {config.patientInfo.sex.map((gender) => (
-                  <option key={gender} value={gender}>{gender}</option>
+                  <option key={gender} value={gender}>{t(gender)}</option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -156,7 +156,7 @@ const Therapist: React.FC = () => {
               >
                 <option value="">{t('Filter by Duration')}</option>
                 {durationOptions.map((duration) => (
-                  <option key={duration} value={duration}>{duration}</option>
+                  <option key={duration} value={duration}>{t(duration)}</option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -188,8 +188,8 @@ const Therapist: React.FC = () => {
                     {t('Info')}
                   </Button></td>
                 <td>{new Date(patient['age']).getFullYear()}</td>
-                <td>{patient['diagnosis']}</td>
-                <td>{patient['sex']}</td>
+                <td>{t(patient['diagnosis'])}</td>
+                <td>{t(patient['sex'])}</td>
                 <td>
                   <Button
                     variant="primary"

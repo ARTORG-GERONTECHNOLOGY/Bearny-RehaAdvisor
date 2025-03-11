@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from 'react-bootstrap';
-
+import { t } from 'i18next';
 // @ts-ignore
 const Filter = ({ dataType, setFilteredData }) => {
   const [age, setAge] = useState('');
@@ -24,27 +24,27 @@ const Filter = ({ dataType, setFilteredData }) => {
     <div className="filter-section">
       {dataType === 'patients' ? (
         <div>
-          <label>Filter by Age:</label>
+          <label>{t("Filter by Age:</label>
           <input
             type="number"
             value={age}
             onChange={(e) => setAge(e.target.value)}
-            placeholder="Enter age"
+            placeholder={t("Enter age")}
           />
         </div>
       ) : (
         <div>
-          <label>Filter by Price:</label>
+          <label>{t("Filter by Price:")}</label>
           <input
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            placeholder="Enter max price"
+            placeholder={t("Enter max price")}
           />
         </div>
       )}
       <Button variant="primary" onClick={handleFilter}>
-        Apply Filter
+        {t("Apply Filter")}
       </Button>
     </div>
   );
