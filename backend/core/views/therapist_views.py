@@ -3,8 +3,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-
-from core.models import Therapist, Patient
+from bson import ObjectId
+from core.models import Therapist, Patient, Therapist, Patient
 
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
@@ -15,11 +15,12 @@ FILE_TYPE_FOLDERS = {
 }
 
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_patients_by_therapist(request, therapist_id):
     try:
-        therapist = Therapist.objects.get(username=therapist_id)
+        therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         patients = Patient.objects.filter(therapist=therapist)
         patients_data = [
             {
