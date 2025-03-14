@@ -88,7 +88,8 @@ def user_profile_patient(request, user_id):
     if request.method == 'PUT':
         try:
             data = json.loads(request.body)
-            user = Patient.objects.get(username=user_id)
+            #user = Patient.objects.get(username=user_id) TODO
+            patient = Patient.objects.get(userId=ObjectId(user_id))
 
             # Handle date correctly
             if 'reha_end_date' in data and data['reha_end_date']:
