@@ -110,7 +110,7 @@ const Therapist: React.FC = () => {
   }, [genderFilter, durationFilter, searchTerm, patients]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>{t("Loading")}</div>;
   }
 
   return (

@@ -32,7 +32,8 @@ def get_patient(request, patient_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
-        patient = Patient.objects.get(username=patient_id)
+        #patient = Patient.objects.get(username=patient_id) TODO
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
         return JsonResponse(convert_to_serializable(patient.to_mongo()), safe=False)
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
@@ -110,8 +111,8 @@ def patient_post_questionnaire_feedback(request):
             )
             patient_intervention.save()
         else:
-            print(responses)
-            patient = Patient.objects.get(pk=ObjectId(user_id))
+            # patient = Patient.objects.get(pk=ObjectId(user_id)) TODO
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
             general_feedback = GeneralFeedback.objects.create(
                 patient_id=patient, comment=responses
             )
@@ -141,7 +142,8 @@ def add_intervention_to_patient(request):
         if not patient_id or not intervention_id:
             return JsonResponse({'error': 'Missing patient_id or intervention_id'}, status=400)
 
-        patient = Patient.objects.get(username=patient_id)
+        # patient = Patient.objects.get(username=patient_id) TODO
+        patient = Patient.objects.get(userId=ObjectId(patient_id)) 
         intervention = Recommendation.objects.get(pk=intervention_id)
 
         patient_intervention, created = PatientInterventions.get_or_create(patient, intervention)
@@ -190,7 +192,8 @@ def get_rehab_data(request, patient_id):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
     try:
-        patient = Patient.objects.get(username=patient_id)
+        # patient = Patient.objects.get(username=patient_id) TODO
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
         reha_data = PatientInterventions.get_patient_interventions_with_feedback_and_future_dates(patient)
         return JsonResponse({
             'reha_data': reha_data,
@@ -209,7 +212,8 @@ def get_recommendation_options_for_patient(request, patient_id):
     if request.method == 'GET':
         # Retrieve the patient using the provided patient_id
         try:
-            patient = Patient.objects.get(username=patient_id)
+            # patient = Patient.objects.get(username=patient_id) TODO
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
         except Patient.DoesNotExist:
             return JsonResponse({'error': 'Patient not found'}, status=404)
 
@@ -266,7 +270,8 @@ def get_patient_reha_today(request, patient_id):
     if request.method == 'GET':
         try:
             # Fetch user info using the User model
-            patient = Patient.objects.get(pk=patient_id)
+            # patient = Patient.objects.get(pk=patient_id) TODO
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
             today_rec = PatientInterventions.get_today_recommendations(patient)
             # Convert to a serializable dictionary
             return JsonResponse(today_rec, safe=False)
