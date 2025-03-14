@@ -35,7 +35,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
 
       if (authStore.isAuthenticated) {
         // If it's a non-patient user, trigger 2FA
-        if (pageType !== 'patient') {
+        if (pageType !== 'patient') { //if (pageType !== 'Patient') { 
           setIs2FARequired(true);
           setLoginSuccess(true);
           // Trigger the backend to send the verification code via SMS
@@ -92,6 +92,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
               value={authStore.email}
               onChange={(e) => authStore.setEmail(e.target.value)}
               placeholder={pageType === 'patient' ? t('Enter Patient Id') : t('Email')}
+              required
             />
 
             {/* Password Field */}
@@ -102,6 +103,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
               showPassword={showPassword}
               onToggle={handleToggle}
               pagetype={pageType}
+              required
             />
 
             <ForgotPasswordLink onClick={() => navigate('/forgottenpwd')} text={t("Need help recovering your account?")} />
