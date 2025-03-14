@@ -7,8 +7,8 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
-
-from core.models import Therapist, Patient
+from django.db.models import Q
+from core.models import Therapist, Patient, User, Therapist, Patient
 from utils.utils import (
     get_labels,
     generate_custom_id
@@ -17,60 +17,43 @@ from utils.utils import (
 
 @csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
 def login(request):
-    host = request.META.get('HTTP_HOST')
-    print(f"HTTP_HOST: {host}")
     if request.method == 'POST':
         # Parse JSON data from the request body
         data = json.loads(request.body)
-        email_or_username = data.get('email')
-        password = data.get('password')
-
-            # Try to find the user by email
+        # Try to find the user by email
         try:
-            user = Therapist.objects.get(email=email_or_username)
+            user = User.objects.filter(__raw__={"$or": [{"email": data.get('email')}, {"username": data.get('email')}]}).first()
+            if user.role == 'Therapist':
+                name = Therapist.objects.get(userId=user).first_name
+            else:
+                name = Patient.objects.get(userId=user).first_name
+
         except Therapist.DoesNotExist:
             user = None
 
         if user is not None:
-            if user.accepted:
+            if user.isActive:
                 # Check hashed password for email login
-                if check_password(password, user['pwdhash']):
+                if check_password(data.get('password'), user['pwdhash']):
                     # Generate or fetch the token
                     # Generate JWT tokens
                     refresh = RefreshToken.for_user(user)
                     access_token = str(refresh.access_token)
                     refresh_token = str(refresh)
                     return JsonResponse({
-                        'full_name': f'{user.first_name} {user.name}',
-                        'user_type': user['user_type'],
-                        'id': str(user['username']),  # Convert to string if using ObjectId or ensure compatibility
-                        'specialisation': user['specializations'],
+                        'user_type': user['role'],
+                        'id': str(user.id),  # Convert to string if using ObjectId or ensure compatibility
                         'access_token': access_token,
                         'refresh_token': refresh_token,
+                        'full_name': name
                     }, status=200)
-        else:
-            # If no user found by email, check by username
-            user = Patient.objects.filter(username=email_or_username).first()
-            if user:
-                # Check plain password for username login
-                if password == user.access_word:  # Assuming the password is stored as plain text
-                    # Generate or fetch the token
-                    refresh = RefreshToken.for_user(user)
-                    access_token = str(refresh.access_token)
-                    refresh_token = str(refresh)
-                    return JsonResponse({
-                        'full_name': f'{user.first_name} {user.name}',
-                        'user_type': user.user_type,
-                        'id': str(user.id),
-                        'specialisation': user['function'],
-                        'access_token': access_token,
-                        'refresh_token': refresh_token,
-                    }, status=200)
+                else:
+                    return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
             else:
-                return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
-
-        # If user is not found by either email or username
-        return JsonResponse({'error': 'User not found.'}, status=404)
+                    return JsonResponse({'error': 'User has not been yet accepted.'}, status=400)
+        else: 
+            # If user is not found by either email or username
+            return JsonResponse({'error': 'User not found.'}, status=404)
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -122,23 +105,32 @@ def register(request):
         email = data.get('email')
         password = make_password(data.get('password'))
 
-        if Therapist.objects.filter(email=email):
+        if User.objects.filter(email=email):
+            print(User.objects.filter(email=email))
             return JsonResponse({'error': 'Email already exists'}, status=400)
+        
+        user = User(
+            username = generate_custom_id(user_type),
+            role = data.get('userType'),
+            createdAt = datetime.today(),
+            email = data.get('email'),
+            phone = data.get('phone', ''),
+            pwdhash = password,
+            isActive = user_type == "Patient"
+        )
+        user.save()
 
         if user_type == 'Patient':
             # Creating a Patient with all required fields
-            pat_therapist = Therapist.objects.get(username=data.get('therapist'))
+            therapist_user = User.objects.get(pk=data.get('therapist'))
+            pat_therapist = Therapist.objects.get(user_id=therapist_user)
             if pat_therapist:
                 reha_end_date=datetime.strptime(data.get('rehaEndDate'), "%Y-%m-%d")
 
                 patient = Patient(
-                    username=generate_custom_id(user_type),
-                    email=email,
-                    pwdhash=password,
-                    user_type=user_type,
+                    userId = user,
                     name=data.get('lastName'),
                     first_name=data.get('firstName'),
-                    phone=data.get('phone', '-'),  # Assuming phone is provided
                     age=data.get('age', ''),  # Assuming age is provided
                     therapist=pat_therapist,  # Assuming therapist ID is provided
                     sex=data.get('sex'),  # Assuming sex is provided
@@ -159,24 +151,18 @@ def register(request):
                 )
 
             patient.save()
-            return JsonResponse({'message': 'Patient registered successfully', 'id': patient.username}, status=201)
+            return JsonResponse({'message': 'Patient registered successfully', 'id': user.username}, status=201)
 
         elif user_type == 'Therapist':
             therapist = Therapist(
-                username=generate_custom_id(user_type),
-                email=email,
-                pwdhash=password,
-                user_type=user_type,
+                userId = user,
                 name=data.get('lastName', ''),
                 first_name=data.get('firstName', ''),
-                phone=data.get('phone', ''),  # Assuming phone is provided in data
                 specializations=data.get("specialisation"),  # Assuming specializations provided
                 clinics=data.get( "clinic"),  # Assuming clinics provided
-                # Add other therapist-specific fields here
             )
-            print('hi')
             therapist.save()
-            return JsonResponse({'message': 'Therapist registered successfully', 'id': therapist.username}, status=201)
+            return JsonResponse({'message': 'Therapist registered successfully', 'id': user.username}, status=201)
 
         else:
             return JsonResponse({'error': 'Unsupported user type'}, status=400)
@@ -188,10 +174,10 @@ def register(request):
 
 
 @csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def sendVerificationCode(request):
+def sendVerificationCode(request): # TODO
     user_id = json.loads(request.body)['userId']
 
-    #user = Therapist.find_one({'username': user_id})  # Adjust based on your schema
+    #user = User.find_one({'username': user_id})  # Adjust based on your schema
     #if user:
     #    return JsonResponse({'error': 'User not found'}, status=404)
 
@@ -203,7 +189,7 @@ def sendVerificationCode(request):
 
 
 @csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def verify_code(request):
+def verify_code(request): # TODO
     code = json.loads(request.body)['verificationCode']
 
     if '0000' == code:
