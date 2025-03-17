@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
 import Header from '../components/common/Header'; // import the Header
 import Footer from '../components/common/Footer'; // import the Footer
@@ -6,12 +6,21 @@ import LoginForm from '../components/forms/LoginForm'; // Import the LoginForm c
 import FormRegister from '../components/forms/RegisteringForm';
 import { useTranslation } from 'react-i18next';
 import authStore from '../stores/authStore';
-
+import { useNavigate } from 'react-router-dom';
 
 const Home: React.FC = () => {
 
   const [showLoginModal, setShowLoginModal] = useState(false); // State to control the modal visibility
   const [showRegisterModal, setShowRegisterModal] = useState(false); // State to control the modal visibility
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    authStore.checkAuthentication();
+
+    if (authStore.isAuthenticated || authStore.userType == 'Therapist') {
+      navigate('/therapist');
+    }
+  }, [navigate]);
 
   const handleShow = () => {
     setShowLoginModal(!showLoginModal);

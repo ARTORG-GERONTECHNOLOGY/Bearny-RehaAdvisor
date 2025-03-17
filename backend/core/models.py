@@ -13,10 +13,12 @@ all_diagnoses = [diagnosis for category in config["patientInfo"]["function"].val
                  category["diagnosis"]]
 
 
+
+
 class User(Document):
     meta = {'collection': 'users'}  # MongoDB collection
     username = StringField(max_length=150, required=True)
-    role = StringField(max_length=20, choices=["Therapist", "Patient"], default="Therapist")
+    role = StringField(choices=["Therapist", "Patient"], default="Therapist")
     createdAt = DateTimeField(required=True)
     updatedAt = DateTimeField(default=timezone.now)
     email = EmailField(unique=True, required=True)
@@ -26,6 +28,17 @@ class User(Document):
 
     def __str__(self):
         return f'{self.username} (User)'
+
+class Logs(Document):
+    meta = {'collection': 'logs'}  # MongoDB collection
+    userId = ReferenceField(User, required=True)
+    action = StringField(choices=['LOGIN', 'LOGOUT', 'UPDATE_PROFILE', 'DELETE_ACCOUNT', 'OTHER'], default="Therapist", required=True)
+    timestamp = DateTimeField(default=timezone.now)
+    userAgent = StringField(max_length=20, required=True)
+    details = StringField(max_length=500)
+
+    def __str__(self):
+        return f'{self.userId} (Logs)'
 
 
 class RecommendationAssignment(EmbeddedDocument):
