@@ -142,6 +142,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
     setApiError(null); // 🔹 Clear previous API errors
     if (validateStep()) {
       try {
+        setFormData({ ...formData, ['userType']: 'Patient' });
         const response = await apiClient.post('/auth/register/', formData);
         if (response.data && response.status == 200 || response.status == 201) {
           setRegistered(true);
