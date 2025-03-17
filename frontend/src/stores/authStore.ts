@@ -110,7 +110,15 @@ class AuthStore {
     this.specialisation = '';
   }
 
-  logout() {
+  async logout() {
+    try {
+        await apiClient.post('auth/logout/', {
+        userId: this.id,
+      });
+    }
+    catch (error) {
+      this.setLoginError('Logout loging failed.');
+    }
     this.reset();
     localStorage.removeItem('userType');
     localStorage.removeItem('token');

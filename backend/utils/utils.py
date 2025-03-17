@@ -52,11 +52,11 @@ def generate_custom_id(user_type):
         'Researcher': 'r',
     }.get(user_type)
     if user_type_prefix == 'p':
-        count = Patient.objects.filter(user_type=user_type).count() + 1
+        count = Patient.objects.count() + 1
     elif user_type_prefix == 'r':
-        count = Researcher.objects.filter(user_type=user_type).count() + 1
+        count = Researcher.objects.count() + 1
     elif user_type_prefix == 't':
-        count = Therapist.objects.filter(user_type=user_type).count() + 1
+        count = Therapist.objects.count() + 1
     else:
         count = 0
 
