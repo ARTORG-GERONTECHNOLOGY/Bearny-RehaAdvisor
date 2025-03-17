@@ -8,7 +8,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
 from django.db.models import Q
-from core.models import Therapist, Patient, User, Therapist, Patient
+from bson import ObjectId
+
+from core.models import Therapist, Patient, User, Therapist, Logs
 from utils.utils import (
     get_labels,
     generate_custom_id
@@ -35,6 +37,12 @@ def login(request):
             if user.isActive:
                 # Check hashed password for email login
                 if check_password(data.get('password'), user['pwdhash']):
+                    log = Logs(
+                        userId = user,
+                        action = 'LOGIN',
+                        userAgent = user.role
+                    )
+                    log.save()
                     # Generate or fetch the token
                     # Generate JWT tokens
                     refresh = RefreshToken.for_user(user)
@@ -54,6 +62,26 @@ def login(request):
         else: 
             # If user is not found by either email or username
             return JsonResponse({'error': 'User not found.'}, status=404)
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@permission_classes([IsAuthenticated])
+@csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
+def logout(request):
+    if request.method == 'POST':
+        # Parse JSON data from the request body
+        data = json.loads(request.body)
+        user = User.objects.get(pk=ObjectId(data.get('userId')))
+        # Try to find the user by email
+        try:
+            Logs(
+                        userId = user,
+                        action = 'LOGOUT',
+                        userAgent = user.role
+            ).save()
+        except:
+            pass
+        return JsonResponse({'data': 'OK'}, status=200)
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -106,29 +134,28 @@ def register(request):
         password = make_password(data.get('password'))
 
         if User.objects.filter(email=email):
-            print(User.objects.filter(email=email))
             return JsonResponse({'error': 'Email already exists'}, status=400)
-        
+
         user = User(
-            username = generate_custom_id(user_type),
-            role = data.get('userType'),
+            username = generate_custom_id( data.get('userType')),
+            role =  data.get('userType'),
             createdAt = datetime.today(),
             email = data.get('email'),
             phone = data.get('phone', ''),
             pwdhash = password,
-            isActive = user_type == "Patient"
+            isActive = data.get('userType') == "Patient"
         )
         user.save()
 
         if user_type == 'Patient':
             # Creating a Patient with all required fields
             therapist_user = User.objects.get(pk=data.get('therapist'))
-            pat_therapist = Therapist.objects.get(user_id=therapist_user)
+            pat_therapist = Therapist.objects.get(userId=therapist_user)
             if pat_therapist:
                 reha_end_date=datetime.strptime(data.get('rehaEndDate'), "%Y-%m-%d")
 
                 patient = Patient(
-                    userId = user,
+                    userId=user,
                     name=data.get('lastName'),
                     first_name=data.get('firstName'),
                     age=data.get('age', ''),  # Assuming age is provided
