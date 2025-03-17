@@ -15,6 +15,7 @@ urlpatterns = [
 
     # Authentication
     path('api/auth/login/', auth_views.login, name='login'),
+    path('api/auth/logout/', auth_views.logout, name='logout'),
     path('api/auth/forgot-password/', auth_views.forgot_password, name='forgot_password'),
     path('api/auth/reset-password/', auth_views.reset_password, name='reset_password'),
     path('api/auth/register/', auth_views.register, name='register'),

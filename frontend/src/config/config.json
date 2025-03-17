@@ -254,9 +254,8 @@
         { "name": "email", "label": "Email Address", "type": "email", "required": true, "be_name": "email"},
         { "name": "phone", "label": "Phone Number", "type": "text", "required": false, "be_name": "phone" },
         { "name": "careGiver", "label": "Care Giver (Optional)", "type": "text", "required": false, "be_name": "care_giver" },
-        { "name": "password", "label": "Password", "type": "password", "required": true, "be_name": "password" },
-        { "name": "accessWord", "label": "Password", "type": "text", "required": true, "be_name": "access_word" },
-        { "name": "repeatPassword", "label": "Confirm Password", "type": "password", "required": true }
+        { "name": "password", "label": "Password", "type": "text", "required": true, "be_name": "password" },
+        { "name": "repeatPassword", "label": "Confirm Password", "type": "text", "required": true }
       ]
     },
     {

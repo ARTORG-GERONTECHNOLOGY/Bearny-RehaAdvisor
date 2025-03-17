@@ -9,8 +9,8 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
 
-from core.models import Patient
-from core.models import Recommendation, PatientInterventions, Feedback, GeneralFeedback
+
+from core.models import Recommendation, PatientInterventions, Feedback, GeneralFeedback, User, Patient
 from utils.utils import (
     convert_to_serializable,
     serialize_datetime
@@ -32,9 +32,15 @@ def get_patient(request, patient_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
-        #patient = Patient.objects.get(username=patient_id) TODO
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
-        return JsonResponse(convert_to_serializable(patient.to_mongo()), safe=False)
+        user = User.objects.get(username=patient_id)
+        patient = Patient.objects.get(userId=user)
+        # Combine all data from user and patient objects
+        # Dynamically get model fields
+        user_fields = [field.name for field in User._fields.values() if field.name not in ["id", "pwdhash", "createdAt", "updatedAt"]]
+        patient_fields = [field.name for field in Patient._fields.values() if field.name not in ["id", "pwdhash", "access_word", "therapist", 'userId']]
+        response_data = {field: getattr(user, field, None) if field in user_fields else getattr(patient, field, None) for field in (user_fields + patient_fields)}
+        return JsonResponse(response_data, status=200)
+
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:

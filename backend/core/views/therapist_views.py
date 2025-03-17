@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
-from core.models import Therapist, Patient, Therapist, Patient
+from core.models import Therapist, Patient, User
 
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
@@ -26,13 +26,13 @@ def get_patients_by_therapist(request, therapist_id):
             {
                 "_id": str(patient.pk),
                 "therapist": str(patient.therapist.name),
-                "created_at": patient.created_at.isoformat(),
+                "created_at": patient.userId.createdAt.isoformat(),  # Directly access the User object
+                "username": patient.userId.username,  # Directly access the User object
                 "age": patient.age,
                 "sex": patient.sex,
                 "first_name": patient.first_name,
                 "name": patient.name,
                 "diagnosis": patient.diagnosis,
-                "username": patient.username,
                 "duration": patient.duration
 
             } for patient in patients
