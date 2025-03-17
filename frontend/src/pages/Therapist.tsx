@@ -115,7 +115,7 @@ const Therapist: React.FC = () => {
 
   return (
     <div className="therapist-view-container">
-      <Header isLoggedIn />
+      <Header isLoggedIn={authStore.isAuthenticated} />
 
       <Container className="main-content mt-4">
         <WelcomeArea user={'Therapist'} />

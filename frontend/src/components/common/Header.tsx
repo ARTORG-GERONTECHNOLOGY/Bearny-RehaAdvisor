@@ -18,9 +18,8 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
   };
 
   // Handle user logout and redirect to home
-  const handleLogout = () => {
-    authStore.reset(); // Reset the auth store
-    authStore.logout();
+  const handleLogout = async (e: React.FormEvent) => {
+    await authStore.logout();
     window.location.href = '/'; // Redirect to home page after logout
   };
 
