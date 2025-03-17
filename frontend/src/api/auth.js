@@ -12,6 +12,6 @@ export const signup = (userData) => {
 };
 
 // Logout user
-export const logout = () => {
-  return apiClient.post('/auth/logout/');
+export const logout = (userData) => {
+  return apiClient.post('/auth/logout/', userData);
 };
