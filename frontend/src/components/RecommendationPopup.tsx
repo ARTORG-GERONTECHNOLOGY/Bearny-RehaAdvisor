@@ -5,23 +5,23 @@ import { t } from 'i18next';
 import apiClient from '../api/client';
 
 // @ts-ignore
-const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFeedback }) => {
+const InterventionPopup = ({ recommendation, show, handleClose, isDone, hasFeedback }) => {
   const { title } = recommendation;
 
-  const [recommendationInfo, setRecommendationInfo] = useState(null);
+  const [recommendationInfo, setInterventionInfo] = useState(null);
   const [feedbackList, setFeedbackList] = useState([]);
   const [userFeedback, setUserFeedback] = useState('');
   const [userStars, setUserStars] = useState(0);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
-    if (show) fetchRecommendationData();
+    if (show) fetchInterventionData();
   }, [show]);
 
-  const fetchRecommendationData = async () => {
+  const fetchInterventionData = async () => {
     try {
       const response = await apiClient.get(`recommendations/${recommendation.intervention_id}`);
-      setRecommendationInfo(response.data.recommendation);
+      setInterventionInfo(response.data.recommendation);
       setFeedbackList(response.data.feedback);
     } catch (error) {
       console.error('Error fetching recommendation data:', error);
@@ -115,7 +115,7 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
           {!recommendation.link && !recommendation.media_url && <p>{t("No links or media available")}</p>}
         </ListGroup>
 
-        {/* Recommendation Info */}
+        {/* Intervention Info */}
         {recommendationInfo ? (
           <>
             <p>
@@ -214,4 +214,4 @@ const RecommendationPopup = ({ recommendation, show, handleClose, isDone, hasFee
   )
 };
 
-export default RecommendationPopup;
+export default InterventionPopup;

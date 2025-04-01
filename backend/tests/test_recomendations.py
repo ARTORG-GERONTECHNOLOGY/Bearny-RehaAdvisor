@@ -1,6 +1,6 @@
 import json
 
-from app.models import Recommendation, PatientInterventions, PatientType
+from app.models import Intervention, PatientInterventions, PatientType
 from django.test import TestCase
 from django.urls import reverse
 from mongoengine import connect, disconnect
@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from core.models import Therapist, Patient
 
 
-class RecommendationViewsTestCase(TestCase):
+class InterventionViewsTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -46,7 +46,7 @@ class RecommendationViewsTestCase(TestCase):
             diagnosis=['diagnosis1']
         ).save()
 
-        self.recommendation = Recommendation(
+        self.recommendation = Intervention(
             title="Exercise 1",
             description="Test Exercise",
             content_type="video",
@@ -60,7 +60,7 @@ class RecommendationViewsTestCase(TestCase):
         """Clean up the test data."""
         Patient.objects.delete()
         Therapist.objects.delete()
-        Recommendation.objects.delete()
+        Intervention.objects.delete()
         PatientInterventions.objects.delete()
 
     def test_get_recommendations(self):
@@ -85,7 +85,7 @@ class RecommendationViewsTestCase(TestCase):
         }
         response = self.client.post(reverse('create_intervention'), data=data, content_type='application/json')
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()['success'], 'Recommendation added successfully!')
+        self.assertEqual(response.json()['success'], 'Intervention added successfully!')
 
     def test_create_intervention_duplicate_title(self):
         """Test creating an intervention with a duplicate title."""
@@ -109,7 +109,7 @@ class RecommendationViewsTestCase(TestCase):
         """Test fetching info for a non-existent recommendation."""
         response = self.client.get(reverse('get_recommendation_info', args=['nonexistent_id']))
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()['error'], 'Recommendation not found.')
+        self.assertEqual(response.json()['error'], 'Intervention not found.')
 
     def test_assign_intervention_to_patient_types(self):
         """Test assigning an intervention to patient types."""

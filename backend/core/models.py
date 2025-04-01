@@ -40,10 +40,51 @@ class Logs(Document):
     def __str__(self):
         return f'{self.userId} (Logs)'
 
+class PatientType(EmbeddedDocument):
+    patient_type_diag = all_diagnoses.append('All')
+    type = StringField(required=True, choices=config["therapistInfo"]["specializations"])
+    diagnosis = StringField(max_length=200, choices=patient_type_diag)
+    frequency = StringField(required=True, choices=config["RecomendationInfo"]["frequency"])
+    include_option = BooleanField(default=True)  # True means "Include", False means "Exclude"
+    meta = {'allow_inheritance': True}
 
-class RecommendationAssignment(EmbeddedDocument):
-    recommendation = StringField(required=True)  # Reference to the Recommendation ID
-    diagnosis_assignments = DictField(BooleanField())  # e.g., {"all": True, "Heart Attack": True}
+
+class Intervention(Document):
+    meta = {'collection': 'exercises'}
+    title = StringField(required=True, unique=True)
+    description = StringField(required=True)
+    content_type = StringField(required=True, choices=config["RecomendationInfo"]["types"])
+    benefitFor = ListField(StringField())
+    tags = ListField(StringField())
+    link = StringField()  # Only for articles
+    media_file = StringField()  # For video and app content types
+    preview_img = StringField()
+    patient_types = ListField(EmbeddedDocumentField(PatientType))
+    duration = IntField()
+
+    def __str__(self):
+        return self.title
+        
+class InterventionAssignment(EmbeddedDocument):
+    interventionId = ReferenceField(Intervention, required=True)  # References 'interventions' collection
+    frequency = StringField()  # Frequency details (e.g., "3 times per week")
+    dates = ListField(DateTimeField())  # List of scheduled dates/times for this intervention
+    notes = StringField()  # Additional notes on the intervention
+
+class DiagnosisAssignmentSettings(EmbeddedDocument):
+    active = BooleanField(default=False)
+    interval = IntField()
+    unit = StringField()
+    selected_days = ListField(StringField())
+    end_type = StringField()
+    count_limit = IntField()
+
+class DefaultInterventions(EmbeddedDocument):
+    recommendation = ReferenceField(Intervention, required=True)
+    # Example: {"Heart Attack": {...}, "Stroke": {...}, "all": {...}}
+    diagnosis_assignments = DictField(EmbeddedDocumentField(DiagnosisAssignmentSettings))
+
+
 
 class Therapist(Document):
     meta = {'collection': 'Therapist'}  # MongoDB collection
@@ -53,7 +94,7 @@ class Therapist(Document):
     created_at = DateTimeField(default=timezone.now)
     specializations = ListField(StringField(max_length=200), choices=config["therapistInfo"]["specializations"])
     clinics = ListField(StringField(max_length=200), choices=config["therapistInfo"]["clinics"])
-    default_recommendations = ListField(EmbeddedDocumentField(RecommendationAssignment))  # TODO needed?
+    default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions))  # TODO needed?
 
     def __str__(self):
         return f'{self.username} (Therapist)'
@@ -120,36 +161,77 @@ class Exercise(Document):
         return self.name
 
 
-class PatientType(EmbeddedDocument):
-    patient_type_diag = all_diagnoses.append('All')
-    type = StringField(required=True, choices=config["therapistInfo"]["specializations"])
-    diagnosis = StringField(max_length=200, choices=patient_type_diag)
-    frequency = StringField(required=True, choices=config["RecomendationInfo"]["frequency"])
-    include_option = BooleanField(default=True)  # True means "Include", False means "Exclude"
-    meta = {'allow_inheritance': True}
 
 
-class Recommendation(Document):
-    meta = {'collection': 'exercises'}
-    title = StringField(required=True, unique=True)
-    description = StringField(required=True)
-    content_type = StringField(required=True, choices=config["RecomendationInfo"]["types"])
-    benefitFor = ListField(StringField())
-    tags = ListField(StringField())
-    link = StringField()  # Only for articles
-    media_file = StringField()  # For video and app content types
-    preview_img = StringField()
-    patient_types = ListField(EmbeddedDocumentField(PatientType))
-    duration = IntField()
 
-    def __str__(self):
-        return self.title
 
+
+class RehabilitationPlan(Document):
+    meta = {'collection': 'RehabilitationPlans'}
+    
+    patientId = ReferenceField(Patient, required=True)  # References 'patients' collection
+    therapistId = ReferenceField(Therapist, required=True)  # References 'therapists' collection
+
+    startDate = DateTimeField(required=True)  # Start date of the plan
+    endDate = DateTimeField(required=True)  # End date of the plan
+    status = StringField(choices=["active", "completed", "on_hold"], required=True)  # Plan status
+    
+    interventions = ListField(EmbeddedDocumentField(InterventionAssignment))  # List of assigned interventions
+    
+    createdAt = DateTimeField(default=timezone.now)  # Timestamp for creation
+    updatedAt = DateTimeField(default=timezone.now)  # Timestamp for last update
+
+class Translation(EmbeddedDocument):
+    language = StringField(required=True)
+    text = StringField(required=True)
+
+
+class FeedbackQuestion(Document):
+    meta = {'collection': 'FeedbackQuestions'}
+    questionSubject = StringField(required=True, options=['Intervention', 'Healthstatus'])  # Unique identifier for the question
+    questionKey = StringField(required=True, unique=True)  # Unique identifier for the question
+    translations = ListField(EmbeddedDocumentField(Translation))  # Stores multiple translations
+    possibleAnswers = ListField(EmbeddedDocumentField(Translation))  # Stores multiple-choice options
+    icfCode = StringField(default='')
+    createdAt = DateTimeField(default=timezone.now)  # Timestamp for when the question was created
+
+
+
+class FeedbackEntry(EmbeddedDocument):
+    questionId = ReferenceField(FeedbackQuestion, required=True)
+    answer = StringField(required=True)  # Can store text or numerical values
+
+
+class PatientInterventionLogs(Document):
+    meta = {'collection': 'InterventionLogs'}
+    
+    userId = ReferenceField(Patient, required=True)  # References 'patients'
+    rehabilitationPlanId = ReferenceField(RehabilitationPlan, required=True)  # References 'rehabilitation_plans'
+    interventionId = ReferenceField(Intervention, required=True)  # References 'interventions'
+    
+    date = DateTimeField(required=True)  # Scheduled or actual day of exercise
+    status = ListField(StringField(choices=["completed", "skipped", "upcoming", "postponed"], required=True))
+    
+    feedback = ListField(EmbeddedDocumentField(FeedbackEntry))  # Stores feedback entries
+    
+    comments = StringField()  # Additional comments
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+
+class PatientICFRating(Document):
+    meta = {'collection': 'PatientICFRatings'}
+    
+    patientId = ReferenceField(Patient, required=True)  # References 'patients' collection
+    icfCode = StringField(required=True)  # Official ICF code (e.g., "b28013" for "Pain in back")
+    date = DateTimeField(default=timezone.now)  # Date of the rating record
+    rating = IntField(required=True)  # Score level (e.g., 0-4 or 0-10 scale)
+    notes = StringField()  # Additional notes or observations
 
 # Feedback Embedded Document remains unchanged
 class Feedback(EmbeddedDocument):
     meta = {'collection': 'feedback'}
-    intervention_id = ReferenceField(Recommendation, required=True)
+    intervention_id = ReferenceField(Intervention, required=True)
     date = DateTimeField(default=timezone.now)
     comment =StringField()
     rating = StringField()  # Consider using an IntegerField for rating
@@ -166,7 +248,7 @@ class GeneralFeedback(Document):
 class PatientInterventions(Document):
     meta = {'collection': 'patientinterventions'}
     patient_id = ReferenceField(Patient, required=True)
-    intervention_id = ReferenceField(Recommendation, required=True)
+    intervention_id = ReferenceField(Intervention, required=True)
     recommendation_date = DateTimeField(default=timezone.now)
     feedback = ListField(EmbeddedDocumentField(Feedback))
     recomended_t = BooleanField(default=False)
