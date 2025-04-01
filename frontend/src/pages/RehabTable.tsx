@@ -1,14 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Col, Container, Modal, OverlayTrigger, Row, Table, Tooltip } from 'react-bootstrap';
-import { FaInfoCircle, FaPlus, FaStar } from 'react-icons/fa';
+import { Button, Col, Container, Modal, OverlayTrigger, Row, Table, Tooltip, Nav, Navbar, Card, Form, Badge} from 'react-bootstrap';
+import { FaInfoCircle, FaPlus, FaStar, FaMinus } from 'react-icons/fa';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
 import apiClient from '../api/client';
-import { t } from 'i18next';
-import AddRecommendationModal from '../components/AddRecomendationModal';
-
+import { t} from 'i18next';
+import Select from 'react-select';
+import config from '../config/config.json'
+import AddInterventionModal from '../components/AddRecomendationModal';
+import InterventionCalendar from '../components/InterventionCalendar';
+import InterventionRepeatModal from '../components/InterventionRepeatModal';
+import PatientInterventionPopUp from '../components/PatientInterventionPopUp';
+import {generateTagColors, getBadgeVariantFromUrl, getMediaTypeLabelFromUrl} from '../utils/interventions';
 
 const RehabTable: React.FC = () => {
   const navigate = useNavigate();
@@ -16,15 +21,54 @@ const RehabTable: React.FC = () => {
   const [patientName, setPatientName] = useState<string>('John Doe');
   const [patientUsername, setPatientUsername] = useState<string>('');
   const [patientType, setPatientType] = useState<string>('');
-  const [patientStartDate, setPatientStartDate] = useState<Date | null>(null);
-  const [patientDuration, setPatientDuration] = useState<number>(0);
-  const today = new Date();
-  const tableRef = useRef<HTMLDivElement>(null);
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showInterFeedbackModal, setShowInterFeedbackModal] = useState<boolean>(false);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
+  const [showExerciseStats, setShowExerciseStats] = useState<any>(null);
   const [exerciseStats, setExerciseStats] = useState<any>(null);
+  const [repeatSettings, setRepeatSettings] = useState<any>(null);
+  const [selectedTab, setSelectedTab] = useState('patient');
+  const [allInterventions, setAllInterventions] = useState([]);
+  const [showRepeatModal, setshowRepeatModal] = useState<boolean>(false);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [filteredRecommendations, setFilteredRecommendations] = useState<any[]>([]);
+  const [recommendationTypeFilter, setRecommendationTypeFilter] = useState<string>('');
+  const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const userLang = t.language || 'en';
+  // @ts-ignore
+  const specialisations = authStore.specialisation.split(',').map(s => s.trim())
+  const diagnoses = Array.isArray(specialisations)
+  ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+  : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [patientTypeFilter, setPatientTypeFilter] = useState('');
+  const [contentTypeFilter, setContentTypeFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
+
+  const fetchAll = async () => {
+    try {
+      const res = await apiClient.get(`patients/${localStorage.getItem('selectedPatient') || patientUsername}/rehab`);
+      setPatientData(res.data);
+      
+    } catch (e) {
+      console.error('Error loading all interventions', e);
+    }
+  };
+  const fetchInts = async () => {
+    try {
+      const res = await apiClient.get('recommendations/all/');
+      setAllInterventions(res.data);
+      setRecommendations(res.data);
+      setFilteredRecommendations(res.data)
+    } catch (e) {
+      console.error('Error loading all interventions', e);
+    }
+  };
+
 
   useEffect(() => {
     authStore.checkAuthentication();
@@ -36,304 +80,356 @@ const RehabTable: React.FC = () => {
 
     if (localStorage.getItem('selectedPatient')) {
       setPatientUsername(localStorage.getItem('selectedPatient') as string || '');
-      fetchPatientData();
-      fetchPatientDetails();
+      setPatientName(localStorage.getItem('selectedPatientName') as string || '');
+    
+      fetchAll();
+      fetchInts();
     }
   }, [navigate]);
-
-  const fetchPatientData = async () => {
-    try {
-      const response = await apiClient.get(`patients/${localStorage.getItem('selectedPatient') || patientUsername}/rehab`);
-      //localStorage.removeItem('selectedPatient');
-      setPatientName(response.data.patient_name);
-      setPatientData(response.data.reha_data);
-      setPatientType(response.data.function || '');
-    } catch (error) {
-      console.error('Error fetching patient data', error);
-    }
-  };
-
-  const fetchPatientDetails = async () => {
-    try {
-      const response = await apiClient.get(`patients/${localStorage.getItem('selectedPatient')}`);
-      const patientData = response.data;
-      const created_at = patientData.created_at;
-      const duration = patientData.duration;
-      setPatientName(`${patientData.first_name} ${patientData.name}` || '');
-      // Handle the $date format and convert it to a JavaScript Date object
-      // Parse the created_at string into a JavaScript Date object
-
-      const startDate = created_at ? new Date(created_at) : new Date();
-      setPatientStartDate(startDate);
-      setPatientDuration(duration);
-    } catch (error) {
-      console.error('Error fetching patient details', error);
-    }
-  };
-
-  const generateDateRange = () => {
-    if (!patientStartDate || patientDuration <= 0) return [];
-    const dates = [];
-    for (let i = 0; i < patientDuration; i++) {
-      const date = new Date(patientStartDate);
-      date.setDate(patientStartDate.getDate() + i);
-      dates.push(date);
-    }
-    return dates;
-  };
-
-  const allDates = generateDateRange();
-
-  const formatDate = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-  };
 
   const handleExerciseClick = (intervention: any) => {
     if (intervention) {
       setSelectedExercise(intervention);
-      setShowModal(true);
+      setShowInfoInterventionModal(true);
     }
   };
 
-  const handleAddRecommendation = async (recommendationId: number) => {
-    try {
-      await apiClient.post('recommendations/add-to-patient/', {
-        patient_id: patientUsername,
-        intervention_id: recommendationId,
-      });
-      setShowAddModal(false); // Close the modal after adding
-      fetchPatientData(); // Refresh the table data
-    } catch (error) {
-      console.error('Error adding recommendation:', error);
+  const handleAddIntervention =  (intervention: number) => {
+    setshowRepeatModal(true)
+    setSelectedExercise(intervention);
+  };
+
+  const showStats = (intervention: any) => {
+    if (intervention) {
+      setSelectedExercise(intervention);
+      setShowExerciseStats(true);
     }
   };
 
-  const handleShowInfo = (intervention: any) => {
-    const completedCount = intervention.completion_dates.length;
-    const totalCount =
-      completedCount + intervention.not_completed_dates.length + intervention.future_dates.length;
-    const averageRating =
-      intervention.feedback.reduce((sum: number, fb: any) => sum + (fb.rating || 0), 0) /
-      (intervention.feedback.length || 1);
 
-    setExerciseStats({
-      name: intervention.intervention_title,
-      completedCount,
-      totalCount,
-      averageRating: averageRating.toFixed(1),
-    });
-
-    setShowInfoModal(true);
-  };
-
-  const handleDeleteExercise = async (interventionTitle: string) => {
+  const handleDeleteExercise = async (intervention) => {
     try {
-      const selectedIntervention = patientData.find(
-        (intervention) => intervention.intervention_title === interventionTitle
-      );
+    const res = await apiClient.post('recommendations/remove-from-patient/', 
+        {
+          patientId: patientUsername,
+          intervention: intervention,
+        });
+    if (res.status == 200 || res.status == 201) {
+      console.error('Error loading all interventions');
 
-      if (!selectedIntervention) {
-        console.error('Intervention not found');
-        return;
+          
+        }
+      } catch (e) {
+        console.error('Error loading all interventions', e);
       }
 
-      const { intervention_id } = selectedIntervention;
+      console.log('Intervention removed for patient:', patientUsername);
+      fetchInts();
 
-      await apiClient.post('recommendations/remove-from-patient', {
-        patient_id: patientUsername,
-        intervention_id,
-      });
-
-      console.log('Recommendation removed for patient:', patientUsername);
-
-      setPatientData((prevData) =>
-        prevData.map((intervention) => {
-          if (intervention.intervention_id === intervention_id) {
-            const now = new Date();
-            const updatedFutureDates = intervention.future_dates.filter(
-              (date: string) => new Date(date) <= now
-            );
-
-            return {
-              ...intervention,
-              recomended_t: false,
-              future_dates: updatedFutureDates,
-            };
-          }
-
-          return intervention;
-        })
-      );
-
-      setShowInfoModal(false);
-    } catch (error) {
-      console.error('Error removing recommendation:', error);
-    }
   };
 
+
+  // Generate colors dynamically
+  const tagColors = generateTagColors(config.RecomendationInfo.tags);
+
+
+  // Filter recommendations based on selected filters and search term
+  useEffect(() => {
+    let filtered = recommendations;
+
+    if (patientTypeFilter) {
+      filtered = filtered.filter((rec) =>
+        // Check if `rec.patient_types` contains a matching patient type or diagnosis
+        rec.patient_types.some((pt) => {
+          const matchesType = patientTypeFilter ? pt.diagnosis === patientTypeFilter : true;
+          return matchesType;
+        })
+      );
+    }
+
+    if (contentTypeFilter) {
+      // @ts-ignore
+      filtered = filtered.filter((rec) => rec.content_type === contentTypeFilter);
+    }
+
+    if (tagFilter.length > 0) {
+      // @ts-ignore
+      filtered = filtered.filter((rec) =>
+        rec.tags.some((tag) => tagFilter.includes(tag))
+      );
+    }
+
+    if (benefitForFilter.length > 0) {
+      // @ts-ignore
+      filtered = filtered.filter((rec) =>
+        rec.benefitFor.some((benefit) => benefitForFilter.includes(benefit))
+      );
+    }
+
+    if (searchTerm) {
+
+      filtered = filtered.filter((rec) =>
+        // @ts-ignore
+        rec.title.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+    }
+
+    setFilteredRecommendations(filtered);
+  }, [
+    searchTerm,
+    patientTypeFilter,
+    contentTypeFilter,
+    benefitForFilter,
+    tagFilter,
+    recommendations,
+  ]);
+
+
+
   return (
+    <>
     <div className="d-flex flex-column vh-100">
       <Header isLoggedIn={authStore.isAuthenticated} />
 
-      <Container className="flex-grow-1 my-4">
-        <Row className="justify-content-center">
-          <Col xs={12} lg={10}>
-            <h2 className="text-center mb-4">{patientName}</h2>
-            <Button
-              variant="primary"
-              onClick={() => setShowAddModal(true)}
-              className="mb-3"
-            >
-              <FaPlus /> {t("Add Recommendation")}
-            </Button>
-            <div className="table-responsive shadow-sm p-3 mb-5 bg-white rounded" style={{ maxHeight: '400px' }}>
-              <Table bordered hover className="table-striped">
-                <thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}>
-                <tr>
-                  <th>{t("Day")}</th>
-                  {patientData.map((intervention, idx) => (
-                    <th key={idx}>
-                      {intervention.intervention_title}{' '}
-                      <OverlayTrigger
-                        placement="top"
-                        overlay={
-                          <Tooltip>
-                            {t("Show description and average stats for")} {intervention.intervention_title}
-                          </Tooltip>
-                        }
-                      >
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => handleShowInfo(intervention)}
-                        >
-                          <FaInfoCircle />
-                        </Button>
-                      </OverlayTrigger>
-                    </th>
-                  ))}
-                </tr>
-                </thead>
-                <tbody style={{ maxHeight: '350px', overflow: 'scroll', tableLayout: 'fixed' } }>
-                {allDates.map((date, idx) => (
-                  <tr key={idx}>
-                    <td
-                      style={{
-                        fontWeight: date.toDateString() === today.toDateString() ? 'bold' : 'normal',
-                      }}
+      <Container fluid className="mt-4">
+        <Row>
+          <Col>
+          <h2 className="text-center mb-4">{patientName}</h2>
+          </Col>
+        </Row>
+
+        <Row>
+          {/* LEFT PANEL: Interventions + Tab Switcher */}
+          <Col md={3} style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+            {/* Tab Switcher */}
+            <Card className="mb-3">
+              <Card.Header>
+                <Nav variant="tabs" activeKey={selectedTab} onSelect={(k) => setSelectedTab(k || 'patient')}>
+                  <Nav.Item>
+                    <Nav.Link eventKey="patient">{(t"Patient's Interventions")}</Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link eventKey="all">{(t"All Interventions")}</Nav.Link>
+                  </Nav.Item>
+                </Nav>
+              </Card.Header>
+            </Card>
+
+              {/* Filters */}
+            {selectedTab === 'all' && (
+              <Card className="mb-3">
+                <Card.Body>
+                  <Row className="mb-3">
+                    <Col>
+                      <Form.Group controlId="searchInput">
+                        <Form.Control
+                          type="text"
+                          placeholder={t('Search Interventions')}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  <Row className="mb-3">
+                    <Col>
+                      <Form.Select value={patientTypeFilter} onChange={(e) => setPatientTypeFilter(e.target.value)}>
+                        <option value="">{t('Filter by Patient Type')}</option>
+                        {diagnoses.map((type: string) => (
+                          <option key={type} value={type}>{t(type)}</option>
+                        ))}
+                      </Form.Select>
+                    </Col>
+                    <Col>
+                      <Form.Select value={contentTypeFilter} onChange={(e) => setContentTypeFilter(e.target.value)}>
+                        <option value="">{t('Filter by Content Type')}</option>
+                        {config.RecomendationInfo.types.map((type) => (
+                          <option key={type} value={type}>{t(type)}</option>
+                        ))}
+                      </Form.Select>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col>
+                      <Select
+                        isMulti
+                        options={config.RecomendationInfo.tags.map(tag => ({ value: tag, label: t(tag) }))}
+                        value={tagFilter.map(tag => ({ value: tag, label: tag }))}
+                        onChange={opts => setTagFilter(opts.map(opt => opt.value))}
+                        placeholder={t('Filter by Tags')}
+                      />
+                    </Col>
+                    <Col>
+                      <Select
+                        isMulti
+                        options={config.RecomendationInfo.benefits.map(b => ({ value: b, label: t(b) }))}
+                        value={benefitForFilter.map(b => ({ value: b, label: b }))}
+                        onChange={opts => setBenefitForFilter(opts.map(opt => opt.value))}
+                        placeholder={t('Filter by Benefit')}
+                      />
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            )}
+           {/* Intervention List - Scrollable */}
+            <Card style={{ flex: 1, overflowY: 'auto' }}>
+              <Card.Body>
+                {(selectedTab === 'patient'
+                  ? allInterventions.filter((intervention) =>
+                      patientData?.interventions?.some((item) => item._id === intervention._id)
+                    )
+                  : filteredRecommendations).map((intervention) => {
+                  const patientHasIntervention = patientData?.interventions?.find(
+                    (item) => item._id === intervention._id
+                  );
+                  const hasFutureDates = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date());
+
+                  return (
+                    <div
+                      key={intervention._id}
+                      className="d-flex justify-content-between align-items-center mb-2 p-2 rounded shadow-sm"
+                      style={{ cursor: 'pointer', backgroundColor: '#f8f9fa' }}
+                      onClick={() => handleExerciseClick(intervention)}
                     >
-                      {`${t("Day")} ${idx + 1}`} ({formatDate(date)})
-                    </td>
-                    {patientData.map((intervention, intIdx) => {
-                      const formattedDate = formatDate(date)
-                      const isDone = intervention.completion_dates.some(
-                        (d: string) => formatDate(new Date(d)) === formattedDate,
-                      )
-                      const isNotDone = intervention.not_completed_dates.some(
-                        (d: string) => formatDate(new Date(d)) === formattedDate,
-                      )
-                      const isFuture = intervention.future_dates.some(
-                        (d: string) => formatDate(new Date(d)) === formattedDate,
-                      )
-                      return (
-                        <td
-                          key={intIdx}
-                          className="text-center align-middle"
-                          style={{
-                            backgroundColor: isDone
-                              ? '#28a745' // Green for done
-                              : isNotDone
-                                ? '#dc3545' // Red for not done
-                                : isFuture
-                                  ? '#FFA500' // Orange for future
-                                  : '#d3d3d3', // Gray for no data
-                            color: isDone || isNotDone ? 'white' : 'black',
-                            fontWeight: isDone || isNotDone ? 'bold' : 'normal',
-                          }}
-                          onClick={() =>
-                            (isDone || isNotDone || isFuture) && handleExerciseClick(intervention)
-                          }
-                        >
-                          {isDone ? t('Done') : isNotDone ? t('Not Done') : isFuture ? t('Upcoming') : ''}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-                </tbody>
-              </Table>
-            </div>
+                      <div>
+                        <strong>{intervention.title}</strong>
+                        <div className="text-muted">
+                          {t(intervention.content_type.charAt(0).toUpperCase() + intervention.content_type.slice(1))}
+                        </div>
+                        <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
+                          {getMediaTypeLabelFromUrl(intervention.media_url, intervention.link)}
+                        </Badge>
+                      </div>
+
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {selectedTab === 'all' && !hasFutureDates && (
+                          <Button size="sm" variant="success" onClick={() => handleAddIntervention(intervention)} className="me-1">
+                            <FaPlus />
+                          </Button>
+                        )}
+                        {selectedTab === 'all' && hasFutureDates && (
+                          <Button size="sm" variant="danger" onClick={() => handleDeleteExercise(intervention._id)}>
+                            <FaMinus />
+                          </Button>
+                        )}
+                        {selectedTab === 'patient' && (
+                          <>
+                            <Button size="sm" variant="primary" onClick={() => showStats(intervention)}>{t('Statistics')}</Button>
+                            <Button size="sm" variant="danger" onClick={() => handleDeleteExercise(intervention._id)}>
+                              <FaMinus />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* MIDDLE PANEL: Calendar */}
+          <Col md={9}>
+            <InterventionCalendar
+              interventions={patientData.interventions || []}
+              onSelectEvent={(event) => {
+                setSelectedExercise(event);
+                setSelectedDate(event.start.toISOString().split('T')[0]);
+                setShowInterFeedbackModal(true);
+              }}
+            />
           </Col>
         </Row>
       </Container>
 
       <Footer />
 
-      <AddRecommendationModal
-        show={showAddModal}
-        onHide={() => setShowAddModal(false)}
-        onAdd={handleAddRecommendation}
-        patient={patientUsername}
-        existingRecommendations={patientData.map((intervention) => intervention.intervention_id)}
-        patientFunction={patientType}
-      />
+      {selectedExercise && ShowInfoInterventionModal && <PatientInterventionPopUp show={true} item={selectedExercise} handleClose={() => setShowInfoInterventionModal(false)} />}
 
-      {/* Modal for viewing exercise details */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+      {showRepeatModal && <InterventionRepeatModal show={true} onHide={() => setshowRepeatModal(false)} patient={localStorage.getItem('selectedPatient') || patientUsername} intervention={selectedExercise} />}
+      
+      {showInterFeedbackModal && selectedExercise && <Modal show={showInterFeedbackModal} onHide={() => setShowInterFeedbackModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>{t("Intervention Details")}</Modal.Title>
+          <Modal.Title>{selectedExercise.title} ({selectedDate})</Modal.Title> 
         </Modal.Header>
         <Modal.Body>
-          {selectedExercise ? (
-            <>
-              <h5>{selectedExercise.intervention_title}</h5>
-              <p>{selectedExercise.description}</p>
-              <p>
-                <FaStar size={24} color={'gold'} /> {selectedExercise.feedback?.[0]?.rating ?? '0'}  / 5
-              </p>
-            </>
-          ) : (
-            <p>{t("No Intervention selected.")}</p>
-          )}
+          <>
+            <p>
+              {allInterventions.find(item => item._id === selectedExercise._id)?.description || t("No description available")}
+            </p>
+            <h5>{t("Feedback")}</h5>
+            {(() => {
+              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise._id);
+              const feedbackEntries = intervention?.dates
+                ?.filter(d => d.feedback && d.feedback.answer)
+                ?.map(d => ({
+                  answer: d.feedback.answer,
+                  questionText:
+                    d.question?.translations?.find(t => t.language === userLang)?.text ||
+                    d.question?.translations?.find(t => t.language === 'en')?.text ||
+                    ''
+                }))
+                .filter(e => e.questionText); // filter out if no question text
+
+              if (feedbackEntries?.length) {
+                return feedbackEntries.map((entry, idx) => (
+                  <>
+                  <div key={idx} className="mb-3">
+                    <p><strong>{entry.questionText}</strong></p>
+                    <p>{entry.answer}</p>
+                  </div>
+                  </>
+                ));
+              } else {
+                return <p>{t("No feedback available")}</p>;
+              }
+            })()}
+          </>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
-            {t("Close")}
-          </Button>
         </Modal.Footer>
-      </Modal>
+      </Modal>}
 
-      {/* Info Modal for exercise stats */}
-      <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
+      {selectedExercise && showExerciseStats && <Modal show={showExerciseStats} onHide={() => setShowExerciseStats(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>{exerciseStats?.name} {t("Information")}</Modal.Title>
+          <Modal.Title>{selectedExercise.title} {t("Information")}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {exerciseStats && (
-            <>
-              <p>
-                <strong>{t("Completed:")}</strong> {exerciseStats.completedCount} / {exerciseStats.totalCount}
-              </p>
-              <p>
-                <strong>{t("Average Rating:")}</strong> {exerciseStats.averageRating}{' '}
-                <FaStar size={24} color={'gold'} />
-              </p>
-            </>
-          )}
+        {(() => {
+              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise._id);
+              const statics = intervention?.stats
+
+              if (statics?.length) {
+                return (
+                  <>
+                    <p>
+                      <strong>{t("Completed:")}</strong> {statics.completedCount} / {statics.currentTotalCount}
+                      <strong>{t("Completed from All:")}</strong> {statics.completedCount} / {statics.totalCount}
+                      <strong>{t("Feedback Answered:")}</strong> {statics.completedFeedbackCount} / {statics.totalCount}
+                    </p>
+                    <p>
+                     {/* <strong>{t("Average Rating:")}</strong> {statics.averageRating}{' '}
+                      <FaStar size={24} color={'gold'} />*/}
+                    </p>
+                    </>
+                );
+              } else {
+                return <p>{t("No feedback available")}</p>;
+              }
+            })()}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="danger" onClick={() => handleDeleteExercise(exerciseStats?.name || '')}>
-            {t("Delete Exercise")}
-          </Button>
-          <Button variant="secondary" onClick={() => setShowInfoModal(false)}>
-             {t("Close")}
-          </Button>
         </Modal.Footer>
-      </Modal>
+      </Modal>}
+    
+      
+      
+
     </div>
+    </>
   );
 };
 

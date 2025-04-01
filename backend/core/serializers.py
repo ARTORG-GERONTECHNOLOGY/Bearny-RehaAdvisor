@@ -1,7 +1,7 @@
 # core/serializers.py
 
 from rest_framework import serializers
-from .models import Recommendation, PatientType
+from .models import Intervention, PatientType
 
 # Define PatientTypeSerializer
 class PatientTypeSerializer(serializers.Serializer):
@@ -9,8 +9,8 @@ class PatientTypeSerializer(serializers.Serializer):
     frequency = serializers.CharField()
     include_option = serializers.BooleanField()
 
-# Define RecommendationSerializer
-class RecommendationSerializer(serializers.Serializer):
+# Define InterventionSerializer
+class InterventionSerializer(serializers.Serializer):
     title = serializers.CharField()
     description = serializers.CharField()
     content_type = serializers.CharField()
@@ -20,7 +20,7 @@ class RecommendationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         patient_types_data = validated_data.pop('patient_types')
-        recommendation = Recommendation(**validated_data)
+        recommendation = Intervention(**validated_data)
         recommendation.patient_types = [
             PatientType(**pt_data) for pt_data in patient_types_data
         ]
