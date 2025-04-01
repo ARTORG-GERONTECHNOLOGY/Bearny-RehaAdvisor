@@ -9,13 +9,13 @@ import Select from 'react-select';
 import InfoBubble from '../common/InfoBubble';
 import { t } from 'i18next';
 
-interface AddRecommendationPopupProps {
+interface AddInterventionPopupProps {
   show: boolean;
   handleClose: () => void;
   onSuccess: () => void;
 }
 
-const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, handleClose, onSuccess }) => {
+const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({ show, handleClose, onSuccess }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     title: '',
@@ -154,15 +154,15 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>{t('Add New Recommendation')}</Modal.Title>
+        <Modal.Title>{t('Add New Intervention')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{t('Recommendationsuccessfullyadded')}</Alert>}
+        {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
 
         <Form onSubmit={handleSubmit}>
           <Form.Group controlId="title">
-            <Form.Label>{t('RecommendationTitle')}</Form.Label>
+            <Form.Label>{t('InterventionTitle')}</Form.Label>
             <Form.Control
               type="text"
               placeholder={t('Enterrecommendationtitle')}
@@ -356,4 +356,4 @@ const AddRecommendationPopup: React.FC<AddRecommendationPopupProps> = ({ show, h
   );
 };
 
-export default AddRecommendationPopup;
+export default AddInterventionPopup;

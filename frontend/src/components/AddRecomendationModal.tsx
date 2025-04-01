@@ -2,32 +2,32 @@ import React, { useEffect, useState } from 'react';
 import { Badge, Button, Col, Form, ListGroup, Modal, Row, Spinner } from 'react-bootstrap';
 import apiClient from '../api/client';
 import { t } from 'i18next';
-interface AddRecommendationModalProps {
+interface AddInterventionModalProps {
   show: boolean;
   onHide: () => void;
   onAdd: (recommendationId: number) => void;
   patient: string;
-  existingRecommendations: number[]; // IDs of recommendations that the patient already has
+  existingInterventions: number[]; // IDs of recommendations that the patient already has
   patientFunction: string;
 }
 
-const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
+const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
                                                                          show,
                                                                          onHide,
                                                                          onAdd,
                                                                          patient,
-                                                                         existingRecommendations,
+                                                                         existingInterventions,
                                                                          patientFunction,
                                                                        }) => {
   const [loading, setLoading] = useState<boolean>(true);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [filteredRecommendations, setFilteredRecommendations] = useState<any[]>([]);
+  const [recommendations, setInterventions] = useState<any[]>([]);
+  const [filteredInterventions, setFilteredInterventions] = useState<any[]>([]);
   const [contentTypeFilter, setContentTypeFilter] = useState<string>('');
-  const [recommendationTypeFilter, setRecommendationTypeFilter] = useState<string>('');
+  const [recommendationTypeFilter, setInterventionTypeFilter] = useState<string>('');
 
   useEffect(() => {
     if (show) {
-      fetchRecommendations();
+      fetchInterventions();
     }
   }, [show]);
 
@@ -35,12 +35,12 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
     applyFilters();
   }, [contentTypeFilter, recommendationTypeFilter, recommendations]);
 
-  const fetchRecommendations = async () => {
+  const fetchInterventions = async () => {
     setLoading(true);
     try {
       const response = await apiClient.get(`recommendations/suggestions/${patient}`);
-      setRecommendations(response.data.recommendations);
-      setFilteredRecommendations(response.data.recommendations);
+      setInterventions(response.data.recommendations);
+      setFilteredInterventions(response.data.recommendations);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
     }
@@ -64,7 +64,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
       );
     }
 
-    setFilteredRecommendations(filtered);
+    setFilteredInterventions(filtered);
   };
 
   const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
@@ -126,7 +126,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   return (
     <Modal show={show} onHide={onHide} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>{t("Add Recommendation")}</Modal.Title>
+        <Modal.Title>{t("Add Intervention")}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {loading ? (
@@ -152,7 +152,7 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
                 <Form.Group controlId="recommendationTypeFilter">
                   <Form.Label>{t("Filter by Core/Supportive")}</Form.Label>
                   <Form.Select value={recommendationTypeFilter}
-                               onChange={(e) => setRecommendationTypeFilter(e.target.value)}>
+                               onChange={(e) => setInterventionTypeFilter(e.target.value)}>
                     <option value="">{t("All")}</option>
                     <option value="Core">{t("Core")}</option>
                     <option value="Supportive">{t("Supportive")}</option>
@@ -161,10 +161,10 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
               </Col>
             </Row>
 
-            {/* Recommendations List */}
+            {/* Interventions List */}
             <ListGroup>
-              {filteredRecommendations.map((rec) => {
-                const alreadyAdded = existingRecommendations.includes(rec._id);
+              {filteredInterventions.map((rec) => {
+                const alreadyAdded = existingInterventions.includes(rec._id);
 
                 return (
                   <ListGroup.Item key={rec._id} className="d-flex justify-content-between align-items-center">
@@ -202,4 +202,4 @@ const AddRecommendationModal: React.FC<AddRecommendationModalProps> = ({
   );
 };
 
-export default AddRecommendationModal;
+export default AddInterventionModal;

@@ -1,6 +1,6 @@
 import json
 
-from app.models import Recommendation, PatientInterventions
+from app.models import Intervention, PatientInterventions
 from django.contrib.auth.hashers import make_password
 from django.test import TestCase
 from django.urls import reverse
@@ -48,7 +48,7 @@ class PatientViewsTestCase(TestCase):
             sex='female'
         ).save()
 
-        self.recommendation = Recommendation(
+        self.recommendation = Intervention(
             title="Exercise 1",
             description="Test Exercise",
             content_type="video"
@@ -67,7 +67,7 @@ class PatientViewsTestCase(TestCase):
         """Clean up the test data."""
         Patient.objects.delete()
         Therapist.objects.delete()
-        Recommendation.objects.delete()
+        Intervention.objects.delete()
         PatientInterventions.objects.delete()
 
     def test_get_patient(self):
@@ -94,7 +94,7 @@ class PatientViewsTestCase(TestCase):
 
     def test_add_intervention_to_patient(self):
         """Test adding an intervention to a patient."""
-        new_recommendation = Recommendation(
+        new_recommendation = Intervention(
             title="Exercise 2",
             description="New Exercise",
             content_type="video"
