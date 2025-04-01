@@ -5,7 +5,7 @@ import authStore from '../stores/authStore';  // Import the authStore for access
 import Header from '../components/common/Header';  // Header component
 import Footer from '../components/common/Footer';  // Footer component
 import WelcomeArea from '../components/WelcomeArea';  // Welcome section component
-import RecommendationList from '../components/RecommendationsList';  // List of recommendations
+import InterventionList from '../components/RecommendationsList';
 import { Container, Row, Col } from 'react-bootstrap';  // Responsive grid system
 
 const PatientView: React.FC = observer(() => {
@@ -23,10 +23,6 @@ const PatientView: React.FC = observer(() => {
     }
   }, [navigate]);
 
-  // Show a loading message or spinner while authentication check is in progress
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <Container fluid className="d-flex flex-column min-vh-100">
@@ -39,9 +35,9 @@ const PatientView: React.FC = observer(() => {
           {/* Welcome Area */}
           <WelcomeArea user={'patient'} />
 
-          {/* Recommendations Section */}
+          {/* Interventions Section */}
           <div className="mt-4">
-            <RecommendationList/>
+            <InterventionList/>
           </div>
         </Col>
       </Row>

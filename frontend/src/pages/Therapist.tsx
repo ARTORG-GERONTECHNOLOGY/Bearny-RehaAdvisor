@@ -69,8 +69,9 @@ const Therapist: React.FC = () => {
     setSelectedItem(item);
     setShowPopup(true);
   };
-  const handleRehabButton = (item: any) => {
-    localStorage.setItem('selectedPatient', item.username);
+  const handleRehabButton = (item: any, name: string) => {
+    localStorage.setItem('selectedPatient', item);
+    localStorage.setItem('selectedPatientName', name);
     navigate(`/rehabtable`);
   };
 
@@ -109,9 +110,6 @@ const Therapist: React.FC = () => {
     setFilteredPatients(filtered);
   }, [genderFilter, durationFilter, searchTerm, patients]);
 
-  if (loading) {
-    return <div>{t("Loading")}</div>;
-  }
 
   return (
     <div className="therapist-view-container">
@@ -193,7 +191,7 @@ const Therapist: React.FC = () => {
                 <td>
                   <Button
                     variant="primary"
-                    onClick={() => handleRehabButton(patient)}
+                    onClick={() => handleRehabButton(patient['_id'], `${patient.first_name} ${patient.name}`)}
                   >
                     {t('Go to Rehab Table')}
                   </Button>

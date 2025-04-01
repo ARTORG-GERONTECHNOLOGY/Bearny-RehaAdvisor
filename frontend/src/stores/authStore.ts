@@ -144,12 +144,13 @@ class AuthStore {
   }
 
   checkAuthentication() {
-    const storedUserType = localStorage.getItem('userType');
+    
     const sessionStart = localStorage.getItem('sessionStart');
-    const id = localStorage.getItem('id')
-    this.setSpecialisation(localStorage.getItem('specialisation') as string);
-
+    
     if (sessionStart) {
+      const id = localStorage.getItem('id')
+      this.setSpecialisation(localStorage.getItem('specialisation') as string);
+      const storedUserType = localStorage.getItem('userType');
       const currentTime = new Date().getTime();
       const elapsedTime = currentTime - parseInt(sessionStart);
       console.log(elapsedTime)

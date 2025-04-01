@@ -5,13 +5,12 @@ import { useTranslation } from "react-i18next";
 import apiClient from "../api/client";
 import PatientInterventionPopUp from "./PatientInterventionPopUp";
 import FeedbackPopup from "../components/FeedbackPopup";
-import "../assets/styles/RecommendationList.css";
 import config from "../config/config.json";
 import { t } from 'i18next';
 
-const RecommendationList = () => {
+const InterventionList = () => {
   const { t } = useTranslation();
-  const [recommendations, setRecommendations] = useState([]);
+  const [recommendations, setInterventions] = useState([]);
   const [markedAsUsed, setMarkedAsUsed] = useState({});
   const [userRating, setUserRating] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
@@ -27,7 +26,7 @@ const RecommendationList = () => {
     try {
       const response = await apiClient.get(`patients/${localStorage.getItem("id")}/today`);
       const data = response.data || [];
-      setRecommendations(data);
+      setInterventions(data);
       const initialMarkedAsUsed = {};
       data.forEach((rec) => {
         initialMarkedAsUsed[rec.intervention_id] = isTodayCompleted(rec.completion_dates);
@@ -56,7 +55,7 @@ const RecommendationList = () => {
         intervention_id: id,
       });
       setMarkedAsUsed((prev) => ({ ...prev, [id]: true }));
-      setRecommendations((prevData) =>
+      setInterventions((prevData) =>
         prevData.map((rec) =>
           rec.intervention_id === id
             ? { ...rec, completion_dates: [...rec.completion_dates, new Date().toISOString()] }
@@ -79,7 +78,7 @@ const RecommendationList = () => {
   return (
     <>
     <div className="recommendation-list">
-      <h2 className="text-center mb-5">{t("RecommendationsforToday")}</h2>
+      <h2 className="text-center mb-5">{t("InterventionsforToday")}</h2>
 
       {recommendations.length > 0 ? (
         <div className="scrollable-container">
@@ -140,4 +139,4 @@ const RecommendationList = () => {
   );
 };
 
-export default RecommendationList;
+export default InterventionList;
