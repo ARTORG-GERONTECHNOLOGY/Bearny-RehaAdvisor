@@ -9,15 +9,15 @@ import authStore from '../stores/authStore';
 import apiClient from '../api/client';
 import ProductPopup from '../components/ProductPopup';
 import config from '../config/config.json';
-import AddRecommendationPopup from '../components/forms/AddRecomendationPopUp';
+import AddInterventionPopup from '../components/forms/AddRecomendationPopUp';
 import Select from 'react-select';
 import {generateTagColors, getBadgeVariantFromUrl, getMediaTypeLabelFromUrl} from '../utils/interventions';
 
 
 
 const TherapistRecomendations: React.FC = () => {
-  const [recommendations, setRecommendations] = useState([]);
-  const [filteredRecommendations, setFilteredRecommendations] = useState([]);
+  const [recommendations, setInterventions] = useState([]);
+  const [filteredInterventions, setFilteredInterventions] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,10 @@ const TherapistRecomendations: React.FC = () => {
   const { t } = useTranslation();
   const [showPopupAdd, setShowPopupAdd] = useState(false);
   // @ts-ignore
-  const diagnoses = config?.patientInfo?.function?.[authStore?.specialisation]?.diagnosis || [];
+  const specialisations = authStore.specialisation.split(',').map(s => s.trim())
+  const diagnoses = Array.isArray(specialisations)
+  ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+  : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
   const handleOpen = () => setShowPopupAdd(true);
   const handleClose = () => setShowPopupAdd(false);
 
@@ -58,8 +61,8 @@ const TherapistRecomendations: React.FC = () => {
   const fetchData = async () => {
     try {
       const recommendationResponse = await apiClient.get('recommendations/all/');
-      setRecommendations(recommendationResponse.data);
-      setFilteredRecommendations(recommendationResponse.data);
+      setInterventions(recommendationResponse.data);
+      setFilteredInterventions(recommendationResponse.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -137,7 +140,7 @@ const TherapistRecomendations: React.FC = () => {
       );
     }
 
-    setFilteredRecommendations(filtered);
+    setFilteredInterventions(filtered);
   }, [
     searchTerm,
     patientTypeFilter,
@@ -166,16 +169,16 @@ const TherapistRecomendations: React.FC = () => {
         <Row className="justify-content-center mb-3">
           <Col xs={12} md={9} className="mx-auto">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-              {/* Add Recommendation Button (Left-Aligned on Large Screens) */}
+              {/* Add Intervention Button (Left-Aligned on Large Screens) */}
               <Button onClick={handleOpen} className="btn-primary w-100 w-md-auto">
-                {t('Add Recommendation')}
+                {t('Add Intervention')}
               </Button>
 
               {/* Search Input (Right-Aligned on Large Screens) */}
               <Form.Group controlId="searchInput" className="w-100 w-md-auto">
                 <Form.Control
                   type="text"
-                  placeholder={t('Search Recommendations')}
+                  placeholder={t('Search Interventions')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ minWidth: '250px' }} // Prevents shrinking too much
@@ -185,7 +188,7 @@ const TherapistRecomendations: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Filters & Recommendations Section (Centered & Same Width) */}
+        {/* Filters & Interventions Section (Centered & Same Width) */}
         <Row className="justify-content-center">
           <Col md={9} className="mx-auto">
             {/* Filters Card (Same Width as List) */}
@@ -289,9 +292,9 @@ const TherapistRecomendations: React.FC = () => {
               </Row>
             </Card>
 
-            {/* Display Recommendations List (Same Width as Filters Card) */}
+            {/* Display Interventions List (Same Width as Filters Card) */}
             <ListGroup className="shadow-sm w-100 mt-4">
-              {filteredRecommendations.map((recommendation) => (
+              {filteredInterventions.map((recommendation) => (
                 <ListGroup.Item
                   key={recommendation['_id']}
                   action
@@ -340,7 +343,7 @@ const TherapistRecomendations: React.FC = () => {
           tagColors={tagColors}
         />
       )}
-      <AddRecommendationPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()} />
+      <AddInterventionPopup show={showPopupAdd} handleClose={handleClose} onSuccess={() => fetchData()} />
       <Footer />
     </div>
   );

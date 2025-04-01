@@ -13,7 +13,7 @@ const PatientPopup_re = ({ show, item, handleClose }) => {
       <Modal.Body>
         <p><strong>{t("Age:")}</strong> {item.age}</p>
         <p><strong>{t("Feedback:")}</strong> {item.feedback}</p>
-        <p><strong>{t("Recommendations:")}</strong> {item.recommendations.join(', ')}</p>
+        <p><strong>{t("Interventions:")}</strong> {item.recommendations.join(', ')}</p>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={handleClose}>

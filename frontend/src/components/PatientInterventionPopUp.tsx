@@ -16,7 +16,7 @@ interface PatientInterventionPopUpProps {
   handleClose: () => void;
 }
 
-const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ show, item, handleClose }) => {
+const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ show, item, handleClose}) => {
   const tagColors = generateTagColors(item.tags || []);
 
   const renderMediaContent = () => {
@@ -55,7 +55,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ sho
           </div>
         );
       case 'Image':
-        return <img src={item.media_file} alt={t("Recommendation")} className="img-fluid rounded shadow" />;
+        return <img src={item.media_file} alt={t("Intervention")} className="img-fluid rounded shadow" />;
     case 'Link':
         return (
             <Microlink
