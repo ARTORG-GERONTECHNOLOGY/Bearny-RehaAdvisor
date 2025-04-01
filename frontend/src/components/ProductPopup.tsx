@@ -9,6 +9,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import Microlink from '@microlink/react';
 import ReactPlayer from "react-player";
 import ReactAudioPlayer from 'react-audio-player';
+import InterventionRepeatModal from './InterventionRepeatModal';
 
 interface ProductPopupProps {
   show: boolean;
@@ -21,8 +22,14 @@ interface ProductPopupProps {
 const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, therapist, tagColors }) => {
   const [selectedDiagnoses, setSelectedDiagnoses] = useState<string[]>([]);
   const [selectedAll, setSelectedAll] = useState<boolean>(false);
+  const [showScheduler, setShowScheduler] =  useState<boolean>(false);
+  const [selectedIntervention, setSelectedIntervention] = useState<string>('');
+  const [selectedDiagnose, setSelectedDiagnose] = useState<string>('');
   // @ts-ignore
-  const diagnoses = config?.patientInfo?.function?.[authStore?.specialisation]?.diagnosis || [];
+  const specialisations = authStore.specialisation.split(',').map(s => s.trim())
+  const diagnoses = Array.isArray(specialisations)
+  ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+  : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
 
   useEffect(() => {
     if (show) {
@@ -31,7 +38,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   }, [show]);
 
   const renderMediaContent = () => {
-      if (!item.media_file && !item.link) return <p className="text-muted">No media available</p>;
+      if (!item.media_file && !item.link) return(<p className="text-muted">{t("No media available")}</p>);
   
       const mediaType = getMediaTypeLabelFromUrl(item.media_file, item.link);
   
@@ -66,7 +73,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
             </div>
           );
         case 'Image':
-          return <img src={item.media_file} alt="Recommendation" className="img-fluid rounded shadow" />;
+          return <img src={item.media_file} alt="Intervention" className="img-fluid rounded shadow" />;
       case 'Link':
           return (
               <Microlink
@@ -106,17 +113,25 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     setSelectedDiagnoses((prevSelected) =>
       isChecked ? prevSelected.filter((d) => d !== diagnosis) : [...prevSelected, diagnosis],
     );
+    if (isChecked) {
+      try {
+        await apiClient.post('recommendations/remove-from-patient-types/', {
+          diagnosis,
+          intervention_id: item['_id'],
+          therapist: authStore.id,
+        });
+      } catch (error) {
+        console.error(`Error updating intervention for ${diagnosis}:`, error);
+      }
 
-    try {
-      const endpoint = isChecked ? 'recommendations/remove-from-patient-types/' : 'recommendations/assign-to-patient-types/';
-      await apiClient.post(endpoint, {
-        diagnosis,
-        intervention_id: item['_id'],
-        therapist: authStore.id,
-      });
-    } catch (error) {
-      console.error(`Error updating intervention for ${diagnosis}:`, error);
     }
+    else {
+      setSelectedIntervention(item['_id'])
+      setShowScheduler(true)
+      setSelectedDiagnose(diagnosis)
+    }
+
+    
   };
 
   const handleAllCheckboxChange = async () => {
@@ -124,18 +139,27 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     setSelectedAll(newSelectedAll);
     setSelectedDiagnoses(newSelectedAll ? diagnoses : []);
 
-    try {
-      await apiClient.post(newSelectedAll ? 'recommendations/assign-to-patient-types/' : 'recommendations/remove-from-patient-types/', {
-        diagnosis: 'all',
-        intervention_id: item['_id'],
-        therapist: authStore.id,
-      });
-    } catch (error) {
-      console.error('Error updating "all" checkbox:', error);
+    if (newSelectedAll) {
+      try {
+        await apiClient.post('recommendations/remove-from-patient-types/', {
+          diagnosis: 'all',
+          intervention_id: item['_id'],
+          therapist: authStore.id,
+        });
+      } catch (error) {
+        console.error(`Error updating intervention for all`, error);
+      }
+
+    }
+    else {
+      setSelectedIntervention(item['_id'])
+      setShowScheduler(true)
+      setSelectedDiagnose('all')
     }
   };
 
   return (
+    <>
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton className="d-flex justify-content-between align-items-center">
       <Modal.Title>
@@ -179,6 +203,21 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     </Modal.Title>
     </Modal.Header>
     <Modal.Body>
+      {/* Recomended section */}
+      <Row className="pb-3 mb-3 border-bottom">
+        <h5>{t("Recomended to patients:")}</h5>
+        {item.patient_types.map((type, idx) => (
+          <React.Fragment key={idx}>
+            <Col>
+              <p className="text-muted">{type.diagnosis} ({type.type})</p>
+            </Col>
+            <Col>
+              <p className="text-muted">{t("Frequnecy:")} {type.frequency}</p>
+            </Col>
+          </React.Fragment>
+        ))}
+      </Row>
+      
 
   {/* Description Section with Spacing & Shadow Separator */}
   <Row className="pb-3 mb-3 border-bottom">
@@ -199,7 +238,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   </Row>
 
         <hr />
-        <h5>{t('AssigntoPatientTypes')}</h5>
+        <h5>{t('Assign as initial intervention for patietns with specific diagnoses')}</h5>
         <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
           <ListGroup>
             <ListGroup.Item>
@@ -214,24 +253,45 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
               </label>
             </ListGroup.Item>
             {!selectedAll &&
-              diagnoses.map((diagnosis: string) => (
-                <ListGroup.Item key={diagnosis}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedDiagnoses.includes(diagnosis)}
-                      onChange={() => handleCheckboxChange(diagnosis)}
-                      className="me-2"
-                    />
-                    {t(diagnosis)}
-                  </label>
-                </ListGroup.Item>
-              ))}
+              diagnoses.map((diagnosis: string) => {
+                // Is the diagnosis explicitly recommended?
+                const isSpecificallyRecommended = item.patient_types?.some(
+                  (pt) => pt.diagnosis === diagnosis
+                );
+
+                // Is the diagnosis type covered by any "All" entry for the user's specialisations?
+                const isRecommendedForAllType = item.patient_types?.some(
+                  (pt) =>
+                    pt.diagnosis === 'All' &&
+                    specialisations.includes(pt.type) // matches any of the user's specialisations
+                );
+
+                const showRecommended = isSpecificallyRecommended || isRecommendedForAllType;
+
+                return (
+                  <ListGroup.Item key={diagnosis}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedDiagnoses.includes(diagnosis)}
+                        onChange={() => handleCheckboxChange(diagnosis)}
+                        className="me-2"
+                      />
+                      {t(diagnosis)}{' '}
+                      {showRecommended && <span className="text-success">({t("recommended")})</span>}
+                    </label>
+                  </ListGroup.Item>
+                );
+              })}
+
           </ListGroup>
         </div>
       </Modal.Body>
       <Modal.Footer />
     </Modal>
+
+    {showScheduler && <InterventionRepeatModal show={true} onHide={() => setShowScheduler(false)} patient={selectedDiagnose} intervention={selectedIntervention}/>}
+    </>
   );
 };
 

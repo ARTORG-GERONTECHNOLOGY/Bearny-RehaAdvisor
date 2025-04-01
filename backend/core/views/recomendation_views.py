@@ -8,8 +8,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-
-from core.models import Recommendation, PatientInterventions, PatientType, RecommendationAssignment
+from bson import ObjectId
+from core.models import Intervention, PatientInterventions, PatientType, InterventionAssignment, DefaultInterventions, DiagnosisAssignmentSettings
 from core.models import Therapist, Patient
 from utils.config import config
 from utils.utils import (
@@ -29,7 +29,7 @@ FILE_TYPE_FOLDERS = {
 @permission_classes([IsAuthenticated])
 def get_recommendations(request):
     try:
-        recommendations = Recommendation.objects.all()
+        recommendations = Intervention.objects.all()
         recommendations_list = [
             {
                 "_id": str(rec.id),
@@ -75,7 +75,7 @@ def create_intervention(request):
             data['patientTypes'] = json.loads(data['patientTypes'])
 
         # Check if a recommendation with the same title already exists
-        if Recommendation.objects(title=data['title']).first():
+        if Intervention.objects(title=data['title']).first():
             return JsonResponse({'success': False, 'error': 'A recommendation with this title already exists.'},
                                 status=400)
 
@@ -111,8 +111,8 @@ def create_intervention(request):
             
             img_file_path = default_storage.save(file_path, img_file)
 
-        # Create the new Recommendation document
-        recommendation = Recommendation(
+        # Create the new Intervention document
+        recommendation = Intervention(
             title=data['title'],
             description=data['description'],
             content_type=data['contentType'],
@@ -126,7 +126,7 @@ def create_intervention(request):
         )
         recommendation.save()
 
-        return JsonResponse({'success': True, 'message': 'Recommendation added successfully!'})
+        return JsonResponse({'success': True, 'message': 'Intervention added successfully!'})
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -141,7 +141,7 @@ def get_recommendation_info(request, intervention_id):
         return JsonResponse({'error': 'Invalid request method'}, status=400)
 
     try:
-        recommendation = Recommendation.objects.get(pk=intervention_id)
+        recommendation = Intervention.objects.get(pk=intervention_id)
         feedbacks = [
             {
                 'date': fb.date,
@@ -162,8 +162,8 @@ def get_recommendation_info(request, intervention_id):
         }
 
         return JsonResponse({'recommendation': recommendation_data, 'feedback': feedbacks}, status=200)
-    except Recommendation.DoesNotExist:
-        return JsonResponse({'error': 'Recommendation not found.'}, status=404)
+    except Intervention.DoesNotExist:
+        return JsonResponse({'error': 'Intervention not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -173,36 +173,41 @@ def get_recommendation_info(request, intervention_id):
 def get_recommended_diagnoses_for_intervention(request, intervention, specialisation, therapist_id):
     if request.method == 'GET':
         try:
-            # Retrieve the therapist
-            therapist = Therapist.objects.get(username=therapist_id)
+            # Convert IDs to ObjectId
+            therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
+            intervention_id = ObjectId(intervention)
 
-            # Fetch all diagnoses for the given specialization
-            all_diagnoses = config["patientInfo"]["function"][specialisation]["diagnosis"]
+            # Parse all diagnoses from specialisations
+            specialisations = [s.strip() for s in specialisation.split(',')]
+            all_diagnoses = []
+            for spec in specialisations:
+                diagnoses = config["patientInfo"]["function"].get(spec, {}).get("diagnosis", [])
+                all_diagnoses.extend(diagnoses)
 
-            # Initialize the response structure
+            # Prepare response structure
             diagnosis_status = {diagnosis: False for diagnosis in all_diagnoses}
             all_flag = False
 
-            # Check if the therapist has default recommendations for the provided intervention
+            # Find the default recommendation matching this intervention
             default_rec = next(
-                (rec for rec in therapist.default_recommendations if rec.recommendation == intervention),
+                (rec for rec in therapist.default_recommendations if rec.recommendation.id == intervention_id),
                 None
             )
 
             if default_rec:
-                # Mark diagnoses as true if they're part of the default recommendation
-                for diagnosis, assigned in default_rec.diagnosis_assignments.items():
+                for diagnosis, settings in default_rec.diagnosis_assignments.items():
                     if diagnosis == "all":
-                        all_flag = assigned
+                        all_flag = settings.active
                     elif diagnosis in diagnosis_status:
-                        diagnosis_status[diagnosis] = assigned
+                        diagnosis_status[diagnosis] = settings.active
+
 
             return JsonResponse({"diagnoses": diagnosis_status, "all": all_flag}, status=200)
 
         except Therapist.DoesNotExist:
             return JsonResponse({"error": "Therapist not found"}, status=404)
-        except Recommendation.DoesNotExist:
-            return JsonResponse({"error": "Recommendation not found"}, status=404)
+        except Intervention.DoesNotExist:
+            return JsonResponse({"error": "Intervention not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -215,39 +220,50 @@ def assign_intervention_to_patient_types(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            diagnosis = data.get('diagnosis')
-            intervention_id = data.get('intervention_id')
-            therapist_id = data.get('therapist')
+            therapist = Therapist.objects.get(userId=ObjectId(data.get("therapistId")))
+            interventions_data = data.get("interventions", [])
 
-            if not diagnosis or not intervention_id or not therapist_id:
-                return JsonResponse({'error': 'Missing diagnosis, intervention_id, or therapist'}, status=400)
+            if not interventions_data:
+                return JsonResponse({'error': 'No intervention data provided'}, status=400)
 
-            intervention = Recommendation.objects.get(pk=intervention_id)
-            therapist = Therapist.objects.get(username=therapist_id)
+            intervention_data = interventions_data[0]
+            intervention = Intervention.objects.get(id=ObjectId(intervention_data.get("interventionId")))
+            diagnosis = data.get('patientId')
 
-            if diagnosis == "all":
-                patients = Patient.objects.filter(therapist=therapist)
-            else:
-                patients = Patient.objects.filter(therapist=therapist, diagnosis__contains=diagnosis)
+            # Prepare settings for this diagnosis
+            diagnosis_settings = {
+                'active': True,
+                'interval': intervention_data.get('interval'),
+                'unit': intervention_data.get('unit'),
+                'selected_days': intervention_data.get('selectedDays'),
+                'end_type': intervention_data.get('end', {}).get('type'),
+                'count_limit': intervention_data.get('end', {}).get('count'),
+            }
+            print(diagnosis_settings)
+            print(intervention)
 
-            for patient in patients:
-                PatientInterventions.get_ord_create(patient, intervention)
-
-            # Update therapist's default recommendations
+            # Check if this intervention already exists in the therapist's defaults
             for rec in therapist.default_recommendations:
-                if rec.recommendation == intervention_id:
-                    rec.diagnosis_assignments[diagnosis] = True
+                print(rec.recommendation)
+                if rec.recommendation == intervention:
+                    print(rec.diagnosis_assignments)
+                    # FIX
+                    rec.diagnosis_assignments[diagnosis] = DiagnosisAssignmentSettings(**diagnosis_settings)
                     break
-            else:
-                therapist.default_recommendations.append(RecommendationAssignment(
-                    recommendation=intervention_id,
-                    diagnosis_assignments={diagnosis: True}
-                ))
+                else:
+                    print('hi')
+                    # Add new intervention with settings for this diagnosis
+                    therapist.default_recommendations.append(DefaultInterventions(
+                        recommendation=intervention,
+                        diagnosis_assignments={
+                            diagnosis: DiagnosisAssignmentSettings(**diagnosis_settings)
+                        }
+                    ))
+
             therapist.save()
+            return JsonResponse({'success': 'Default Intervention created'}, status=201)
 
-            return JsonResponse({'success': f'Intervention assigned to {patients.count()} patients'}, status=201)
-
-        except Recommendation.DoesNotExist:
+        except Intervention.DoesNotExist:
             return JsonResponse({'error': 'Intervention not found'}, status=404)
         except Therapist.DoesNotExist:
             return JsonResponse({'error': 'Therapist not found'}, status=404)
@@ -265,33 +281,23 @@ def delete_intervention_from_patient_types(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
+            intervention_id = data.get("intervention_id")
             diagnosis = data.get('diagnosis')
-            intervention_id = data.get('intervention_id')
-            therapist_id = data.get('therapist')
 
-            if not diagnosis or not intervention_id or not therapist_id:
-                return JsonResponse({'error': 'Missing diagnosis, intervention_id, or therapist'}, status=400)
-
-            intervention = Recommendation.objects.get(pk=intervention_id)
-            therapist = Therapist.objects.get(username=therapist_id)
-
-            if diagnosis == "all":
-                patients = Patient.objects.filter(therapist=therapist)
-            else:
-                patients = Patient.objects.filter(therapist=therapist, diagnosis__contains=diagnosis)
-
-            for patient in patients:
-                PatientInterventions.un_recommend(patient, intervention)
+            therapist = Therapist.objects.get(userId=ObjectId(data.get("therapist")))
+            intervention = Intervention.objects.get(id=ObjectId(intervention_id))
 
             # Update therapist's default recommendations
             for rec in therapist.default_recommendations:
-                if rec.recommendation == intervention_id and diagnosis in rec.diagnosis_assignments:
+                if rec.recommendation == intervention and diagnosis in rec.diagnosis_assignments:
                     del rec.diagnosis_assignments[diagnosis]
+                    break  # Optional: stop once found
+
             therapist.save()
 
-            return JsonResponse({'success': f'Intervention removed from {patients.count()} patients'}, status=201)
+            return JsonResponse({'success': 'Intervention removed from default recommendations'}, status=201)
 
-        except Recommendation.DoesNotExist:
+        except Intervention.DoesNotExist:
             return JsonResponse({'error': 'Intervention not found'}, status=404)
         except Therapist.DoesNotExist:
             return JsonResponse({'error': 'Therapist not found'}, status=404)
@@ -301,6 +307,7 @@ def delete_intervention_from_patient_types(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 #TODO
 @csrf_exempt

@@ -11,7 +11,7 @@ import apiClient from '../api/client';
 import config from '../../src/config/config.json';
 import axios from 'axios';
 
-const AddRecommendationView: React.FC = observer(() => {
+const AddInterventionView: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   // @ts-ignore
@@ -119,14 +119,14 @@ const AddRecommendationView: React.FC = observer(() => {
 
       <Container className="flex-grow-1 d-flex justify-content-center align-items-center">
         <div className="main-content p-5" style={{ maxWidth: '600px', width: '100%' }}>
-          <h2 className="mb-4 text-center">{t('AddNewRecommendation')}</h2>
+          <h2 className="mb-4 text-center">{t('AddNewIntervention')}</h2>
 
           {error && <Alert variant="danger">{error}</Alert>}
-          {success && <Alert variant="success">{t("Recommendationsuccessfullyadded")}</Alert>}
+          {success && <Alert variant="success">{t("Interventionsuccessfullyadded")}</Alert>}
 
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="title">
-              <Form.Label>{t("RecommendationTitle")}</Form.Label>
+              <Form.Label>{t("InterventionTitle")}</Form.Label>
               <Form.Control
                 type="text"
                 placeholder={t("Enterrecommendationtitle")}
@@ -262,4 +262,4 @@ const AddRecommendationView: React.FC = observer(() => {
   );
 });
 
-export default AddRecommendationView;
+export default AddInterventionView;

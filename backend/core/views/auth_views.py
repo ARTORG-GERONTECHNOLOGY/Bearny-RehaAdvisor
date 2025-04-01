@@ -9,12 +9,83 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
 from django.db.models import Q
 from bson import ObjectId
+from django.utils import timezone
 
-from core.models import Therapist, Patient, User, Therapist, Logs
+from core.models import Therapist, Patient, User, Therapist, Logs, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs
 from utils.utils import (
     get_labels,
-    generate_custom_id
+    generate_custom_id,
+    generate_repeat_dates
 )
+
+
+def create_rehab_plan(patient, therapist):
+    try:
+        new_interventions = []
+        patient_diagnoses = patient.diagnosis  # Assuming it's a list
+        interventions_data = therapist.default_recommendations
+
+        for item in interventions_data:
+            for diagnosis in patient_diagnoses:
+                # Skip if the intervention is not assigned to this diagnosis
+                if diagnosis not in item.diagnosis_assignments:
+                    continue
+
+                assignment_data = item.diagnosis_assignments[diagnosis]
+
+                if not assignment_data.active:
+                    continue
+
+                # Construct intervention schedule config
+                intervention_dates = {
+                    "interval": int(assignment_data.interval) or 1,
+                    "unit": assignment_data.unit or "week",
+                    "selectedDays": assignment_data.selected_days or [],
+                    'end':{
+                        "type": assignment_data.end_type or "never",
+                        "count": assignment_data.count_limit,
+                    }
+                   
+                }
+                scheduled_dates = generate_repeat_dates(patient.reha_end_date, intervention_dates)
+                assignment = InterventionAssignment(
+                    interventionId=item.recommendation,
+                    frequency="",  # Adjust if needed
+                    notes="",
+                    dates=scheduled_dates
+                )
+                new_interventions.append(assignment)
+        # Avoid duplicates by checking existing plan
+        existing_plan = RehabilitationPlan.objects(patientId=patient).first()
+        if existing_plan:
+            existing_ids = {str(i.interventionId.id) for i in existing_plan.interventions}
+            interventions_to_add = [
+                ni for ni in new_interventions
+                if str(ni.interventionId.id) not in existing_ids
+            ]
+            if interventions_to_add:
+                existing_plan.interventions.extend(interventions_to_add)
+                existing_plan.updatedAt = timezone.now()
+                existing_plan.save()
+        else:
+            rehab_plan = RehabilitationPlan(
+                patientId=patient,
+                therapistId=therapist,
+                startDate=patient.userId.createdAt,
+                endDate=patient.reha_end_date,
+                status="active",
+                interventions=new_interventions,
+                createdAt=timezone.now(),
+                updatedAt=timezone.now()
+            )
+            rehab_plan.save()
+
+        return True
+
+    except Exception as e:
+        print(f"Error creating rehab plan: {e}")
+
+
 
 
 @csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
@@ -27,8 +98,10 @@ def login(request):
             user = User.objects.filter(__raw__={"$or": [{"email": data.get('email')}, {"username": data.get('email')}]}).first()
             if user.role == 'Therapist':
                 name = Therapist.objects.get(userId=user).first_name
+                spec = Therapist.objects.get(userId=user).specializations
             else:
                 name = Patient.objects.get(userId=user).first_name
+                spec = Patient.objects.get(userId=user).function
 
         except Therapist.DoesNotExist:
             user = None
@@ -48,12 +121,14 @@ def login(request):
                     refresh = RefreshToken.for_user(user)
                     access_token = str(refresh.access_token)
                     refresh_token = str(refresh)
+
                     return JsonResponse({
                         'user_type': user['role'],
                         'id': str(user.id),  # Convert to string if using ObjectId or ensure compatibility
                         'access_token': access_token,
                         'refresh_token': refresh_token,
-                        'full_name': name
+                        'full_name': name,
+                        'specialisation': spec
                     }, status=200)
                 else:
                     return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
@@ -178,7 +253,11 @@ def register(request):
                 )
 
             patient.save()
-            return JsonResponse({'message': 'Patient registered successfully', 'id': user.username}, status=201)
+            res = create_rehab_plan(patient, pat_therapist)
+            if res:
+                return JsonResponse({'message': 'Patient registered successfully', 'id': user.username}, status=201)
+            else:
+                return JsonResponse({'error': 'Rehabilitation plan creation failed.'}, status=400)
 
         elif user_type == 'Therapist':
             therapist = Therapist(
@@ -236,3 +315,4 @@ if verification.is_expired():
 
 # If verification is successful, you can now authenticate the user and log them in
 verification.delete()  # Optionally, delete the verification code after successful login'''
+

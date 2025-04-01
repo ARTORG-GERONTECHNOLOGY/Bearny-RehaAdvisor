@@ -103,7 +103,7 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="Recommendation",
+            name="Intervention",
             fields=[
                 (
                     "id",
