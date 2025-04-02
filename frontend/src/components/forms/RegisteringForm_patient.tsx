@@ -46,7 +46,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
     professionalStatus: '',
     levelOfEducation: '',
     civilStatus: '',
-    socialSupport: '',
+    socialSupport: [],
     rehaEndDate: '',
     careGiver: ''
 
@@ -163,7 +163,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <h3>{t(formSteps[step]?.title)}</h3> {/* ✅ Fix: Ensure step exists */}
+        <h3>{t(formSteps[step]?.title)}</h3> 
 
         {formSteps[step]?.fields.map((field) => (
           <div key={field.name} className="mb-3">
@@ -192,7 +192,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ pageType, therapist 
             {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
           </div>
         ))}
-        {/* 🔹 Display API Error Alert */}
+        {/* Display API Error Alert */}
       {apiError && <div className="alert alert-danger">{apiError}</div>}
       {registered && (
         <div className="alert alert-success">
