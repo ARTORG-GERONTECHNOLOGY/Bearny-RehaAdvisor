@@ -206,10 +206,10 @@ const RehabTable: React.FC = () => {
               <Card.Header>
                 <Nav variant="tabs" activeKey={selectedTab} onSelect={(k) => setSelectedTab(k || 'patient')}>
                   <Nav.Item>
-                    <Nav.Link eventKey="patient">{(t"Patient's Interventions")}</Nav.Link>
+                    <Nav.Link eventKey="patient">{t("Patient's Interventions")}</Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Nav.Link eventKey="all">{(t"All Interventions")}</Nav.Link>
+                    <Nav.Link eventKey="all">{t("All Interventions")}</Nav.Link>
                   </Nav.Item>
                 </Nav>
               </Card.Header>
