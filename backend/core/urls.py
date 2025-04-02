@@ -69,6 +69,8 @@ urlpatterns = [
           name='get_recommended_diagnoses_for_intervention'),
      path('api/recommendations/<str:intervention_id>/', recomendation_views.get_recommendation_info,
           name='get_recommendation_info'),
+     path('api/recomendation/add/patientgroup/', recomendation_views.post_add_new_patient_group,
+          name='post_add_new_patient_group'),
 ]
 
 # Only add this if DEBUG=True, which is typical in development
