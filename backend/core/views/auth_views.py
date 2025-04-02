@@ -245,7 +245,7 @@ def register(request):
                     lifestyle=data.get('lifestyle'),  # Assuming lifestyle is provided
                     personal_goals=data.get('lifeGoals'),  # Assuming personal goals are provided
                     medication_intake=data.get('medicationIntake', '-'),  # Assuming medication intake is provided
-                    social_support=data.get('socialSupport', '-'),  # Assuming social support is provided
+                    social_support=data.get('socialSupport', []),  # Assuming social support is provided
                     access_word=data.get('password'), 
                     duration=int((reha_end_date.date() - datetime.today().date()).days),
                     reha_end_date=reha_end_date,
