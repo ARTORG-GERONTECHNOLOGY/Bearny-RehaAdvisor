@@ -309,6 +309,50 @@ def delete_intervention_from_patient_types(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def post_add_new_patient_group(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+
+        intervention_id = data.get("interventionId")
+        diagnosis = data.get("diagnosis")
+        spec_type = data.get("speciality")
+        frequency = data.get("frequency")
+
+        if not all([intervention_id, diagnosis, spec_type, frequency]):
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+        intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
+
+        new_entry = PatientType(
+            type= spec_type,
+            diagnosis= diagnosis,
+            frequency= frequency,
+            include_option= True
+        )
+
+        # Initialize if necessary
+        if not intervention.patient_types:
+            intervention.patient_types = []
+
+        # Prevent duplicates
+        for pt in intervention.patient_types:
+            if pt['diagnosis'] == diagnosis and pt['type'] == spec_type:
+                return JsonResponse({'success': False, 'message': 'Diagnosis already exists for this specialization'}, status=400)
+        intervention.patient_types.append(new_entry)
+        intervention.save()
+
+        return JsonResponse({'success': True, 'message': 'Diagnosis added successfully to intervention'})
+
+    except Intervention.DoesNotExist:
+        return JsonResponse({'error': 'Intervention not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 #TODO
 @csrf_exempt
 def update_daily_recomendations(request):
