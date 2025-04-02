@@ -1,6 +1,6 @@
 import { t } from 'i18next';
 import React, { useEffect, useState } from 'react';
-import { Col, ListGroup, Modal, Row, Badge } from 'react-bootstrap';
+import { Col, ListGroup, Modal, Row, Badge, Button, Form } from 'react-bootstrap';
 import apiClient from '../api/client';
 import config from '../config/config.json';
 import authStore from '../stores/authStore';
@@ -10,6 +10,7 @@ import Microlink from '@microlink/react';
 import ReactPlayer from "react-player";
 import ReactAudioPlayer from 'react-audio-player';
 import InterventionRepeatModal from './InterventionRepeatModal';
+import AddDiagnosisModal from './DiagnosisAssignmentForm';
 
 interface ProductPopupProps {
   show: boolean;
@@ -30,6 +31,46 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   const diagnoses = Array.isArray(specialisations)
   ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
   : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
+
+
+  const [newRows, setNewRows] = useState([{ specialisation: '', diagnosis: '', frequency: '', saved: false }]);
+
+  const addNewRow = () => {
+    setNewRows([...newRows, { diagnosis: '', frequency: '', saved: false }]);
+  };
+  
+  const updateRow = (idx, field, value) => {
+    setNewRows(prev => {
+      const updated = [...prev];
+      updated[idx][field] = value;
+      return updated;
+    });
+  };
+  
+  const saveRow = async (idx) => {
+    const row = newRows[idx];
+    if (!row.specialisation || !row.diagnosis || !row.frequency) return;
+
+  
+    try {
+      await apiClient.post('/recomendation/add/patientgroup/', {
+        interventionId: item['_id'],
+        therapistId: authStore.id,
+        speciality: row.specialisation,
+        diagnosis: row.diagnosis,
+        frequency: row.frequency,
+      });
+  
+      setNewRows(prev => {
+        const updated = [...prev];
+        updated[idx].saved = true;
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to save row:', err);
+    }
+  };
+  
 
   useEffect(() => {
     if (show) {
@@ -203,20 +244,83 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     </Modal.Title>
     </Modal.Header>
     <Modal.Body>
-      {/* Recomended section */}
+      {/* Existing recommended section */}
       <Row className="pb-3 mb-3 border-bottom">
         <h5>{t("Recomended to patients:")}</h5>
         {item.patient_types.map((type, idx) => (
-          <React.Fragment key={idx}>
+          <Row>
             <Col>
               <p className="text-muted">{type.diagnosis} ({type.type})</p>
             </Col>
             <Col>
               <p className="text-muted">{t("Frequnecy:")} {type.frequency}</p>
             </Col>
-          </React.Fragment>
+          </Row>
         ))}
-      </Row>
+  
+
+      {/* Add new rows section */}
+      {newRows.map((row, idx) => {
+        const diagOptions = row.specialisation
+          ? config.patientInfo.function[row.specialisation]?.diagnosis || []
+          : [];
+
+        return (
+          <Row key={idx} className="align-items-center mb-3">
+            <Col>
+              <Form.Select
+                value={row.specialisation}
+                onChange={(e) => updateRow(idx, 'specialisation', e.target.value)}
+                disabled={row.saved}
+              >
+                <option value="">{t('Select Specialisation')}</option>
+                {specialisations.map((spec) => (
+                  <option key={spec} value={spec}>{t(spec)}</option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col>
+              <Form.Select
+                value={row.diagnosis}
+                onChange={(e) => updateRow(idx, 'diagnosis', e.target.value)}
+                disabled={row.saved}
+              >
+                <option value="">{t('Select Diagnosis')}</option>
+                {diagOptions.map((diag) => (
+                  <option key={diag} value={diag}>{t(diag)}</option>
+                ))}
+                <option value="All">{t("All")}</option>
+              </Form.Select>
+            </Col>
+            <Col>
+              <Form.Select
+                value={row.frequency}
+                onChange={(e) => updateRow(idx, 'frequency', e.target.value)}
+                disabled={row.saved}
+              >
+                <option value="">{t("SelectFrequency")}</option>
+                {config.RecomendationInfo.frequency.map((freq) => (
+                  <option key={freq} value={freq}>{t(freq)}</option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col xs="auto" className="d-flex">
+              {!row.saved && (
+                <Button variant="success" className="me-2" onClick={() => saveRow(idx)}>
+                  {t("Save")}
+                </Button>
+              )}
+              {row.saved && idx === newRows.length - 1 && (
+                <Button variant="secondary" onClick={addNewRow}>
+                  +
+                </Button>
+              )}
+            </Col>
+          </Row>
+        );
+      })}
+
+    </Row>
       
 
   {/* Description Section with Spacing & Shadow Separator */}
@@ -291,6 +395,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     </Modal>
 
     {showScheduler && <InterventionRepeatModal show={true} onHide={() => setShowScheduler(false)} patient={selectedDiagnose} intervention={selectedIntervention}/>}
+
     </>
   );
 };
