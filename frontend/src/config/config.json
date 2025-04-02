@@ -101,6 +101,18 @@
         "In a Relationship",
         "Separated"
         ],
+        "social_support": [
+          "Weight Loss",
+          "Muscle Gain",
+          "Increased Flexibility",
+          "Pain Reduction",
+          "Stress Management",
+          "Increased Endurance",
+          "Improved Mobility",
+          "Overall Health Improvement",
+          "Disease Management",
+          "Enhanced Mental Health"
+        ],
         "lifestyle": [
         "Sedentary",
         "Moderate Exercise",
@@ -303,7 +315,32 @@
           "In a Relationship",
           "Separated"
           ], "be_name": "marital_status"} ,
-        { "name": "socialSupport", "label": "Social Support", "type": "text", "required": false, "be_name": "social_support"},
+        { "name": "socialSupport", "label": "Social Support", "type": "multi-select", "required": false, "be_name": "social_support", "options":[
+          "Close family member",
+          "Trusted friend",
+          "Spouse or partner",
+          "Support group",
+          "Religious or spiritual advisor",
+          "Pet companionship",
+          "Help with household chores",
+          "Transportation assistance",
+          "Help with shopping or errands",
+          "Meal preparation",
+          "Childcare support",
+          "Financial help from family or friends",
+          "Therapist or counselor",
+          "Social worker",
+          "Case manager",
+          "Primary care physician",
+          "Rehabilitation specialist",
+          "Mental health professional",
+          "Community center programs",
+          "Neighborhood or local clubs",
+          "Religious or faith-based community",
+          "Peer support groups",
+          "Volunteer organizations",
+          "Online forums or communities"
+        ]},
         { "name": "lifestyle", "label": "Lifestyle", "type": "multi-select", "required": false, "options": [
           "Sedentary",
           "Moderate Exercise",
