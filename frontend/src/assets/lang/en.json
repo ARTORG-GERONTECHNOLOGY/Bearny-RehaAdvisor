@@ -1,4 +1,9 @@
 {
+"Here are your recommendations for": "Here are your recommendations for",
+"Missed": "Missed",
+"Duration": "Duration",
+"minutes": "minutes",
+"Previous": "Previous",
 "Select an intervention": "Select an intervention",
 "Avg. Feedback": "Avg. Feedback",
 "Rating": "Rating",
@@ -19,9 +24,6 @@
 "All Interventions": "All Interventions",
 "Assign as initial intervention for patietns with specific diagnoses": "Assign as initial intervention for patietns with specific diagnoses",
 "Add New Intervention": "Add New Intervention",
-
-
-
   "Change Password": "Change Password",
  "No clinics set":" No clinics set",
   "No specialization set": "No specialization set",
