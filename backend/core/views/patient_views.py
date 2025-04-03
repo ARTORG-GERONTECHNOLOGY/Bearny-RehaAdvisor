@@ -9,8 +9,6 @@ from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
-
-
 from core.models import Intervention, PatientInterventions, Feedback, GeneralFeedback, User, Patient, Therapist, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs
 from utils.utils import (
     convert_to_serializable,
@@ -178,19 +176,58 @@ def mark_intervention_done_by_patient(request):
         patient_id = data.get('patient_id')
         intervention_id = data.get('intervention_id')
 
-        intervention = PatientInterventions.objects.get(patient_id=patient_id, intervention_id=intervention_id)
-        date = timezone.now()
-        print("hii")
-        intervention.mark_done()
-        
-        intervention.not_completed_dates = [d for d in intervention.not_completed_dates if d.date() != date.date()]
-        intervention.save()
+        if not patient_id or not intervention_id:
+            return JsonResponse({'error': 'Missing patient_id or intervention_id'}, status=400)
+
+        # Get patient and intervention objects
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
+
+        # Get rehabilitation plan
+        rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+        if not rehab_plan:
+            return JsonResponse({'error': 'No rehabilitation plan found for this patient'}, status=404)
+
+        today = timezone.now().date()
+        start = datetime.combine(today, datetime.min.time())
+        end = datetime.combine(today, datetime.max.time())
+
+        # Check if a log entry already exists for today
+        log = PatientInterventionLogs.objects(
+            userId=patient,
+            interventionId=intervention,
+            rehabilitationPlanId=rehab_plan,
+            date__gte=start,
+            date__lte=end
+        ).first()
+
+        if log:
+            if 'completed' not in log.status:
+                log.status.append('completed')
+                log.updatedAt = timezone.now()
+                log.save()
+        else:
+            # Create a new log entry
+            log = PatientInterventionLogs(
+                userId=patient,
+                rehabilitationPlanId=rehab_plan,
+                interventionId=intervention,
+                date=timezone.now(),
+                status=['completed'],
+                createdAt=timezone.now(),
+                updatedAt=timezone.now()
+            )
+            log.save()
 
         return JsonResponse({'message': 'Marked as done successfully'}, status=200)
-    except PatientInterventions.DoesNotExist:
+
+    except Patient.DoesNotExist:
+        return JsonResponse({'error': 'Patient not found'}, status=404)
+    except Intervention.DoesNotExist:
         return JsonResponse({'error': 'Intervention not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -272,20 +309,84 @@ def get_patient_recommendations(request, patient_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@csrf_exempt  # For simplicity; handle CSRF properly in production
+@csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_patient_reha_today(request, patient_id):
+def get_patient_reha_plan(request, patient_id):
     if request.method == 'GET':
         try:
-            # Fetch user info using the User model
-            # patient = Patient.objects.get(pk=patient_id) TODO
+            # Fetch patient and their rehab plan
             patient = Patient.objects.get(userId=ObjectId(patient_id))
-            today_rec = PatientInterventions.get_today_recommendations(patient)
-            # Convert to a serializable dictionary
-            return JsonResponse(today_rec, safe=False)
+            rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+
+            if not rehab_plan:
+                return JsonResponse({"rehab_plan": [], "message": "No rehabilitation plan found"}, status=200)
+
+            today = timezone.now().date()
+            today_interventions = []
+
+            for intervention in rehab_plan.interventions:
+                intervention_obj = intervention.interventionId
+
+                # Fetch all logs for this patient and this intervention
+                logs = PatientInterventionLogs.objects(
+                    userId=patient,
+                    rehabilitationPlanId=rehab_plan,
+                    interventionId=intervention_obj
+                )
+
+                # Parse feedback logs
+                today = timezone.now().date()
+                feedback_data = []
+                completion_dates = []
+
+                for log in logs:
+                    if "completed" in log.status:
+                        completion_dates.append(log.date.isoformat())
+
+                    # Today's feedback
+                    if log.date.date() == today:
+                        for fb in log.feedback:
+                            feedback_data.append({
+                                'date': log.date.isoformat(),
+                                'comment': getattr(log, 'comments', ''),
+                                'rating': fb.answer
+                            })
+
+                # Build the response structure
+                rec_data = {
+                    'intervention_id': str(intervention_obj.pk),
+                    'intervention_title': intervention_obj.title,
+                    'description': intervention_obj.description,
+                    'frequency': intervention.frequency,
+                    'dates': [d.isoformat() for d in intervention.dates],
+                    'completion_dates': completion_dates,
+                    'content_type': intervention_obj.content_type,
+                    'benefitFor': intervention_obj.benefitFor,
+                    'tags': intervention_obj.tags,
+                    'preview_img': (
+                        f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention_obj.preview_img)}"
+                        if intervention_obj.preview_img else ''
+                    ),
+                    'duration': intervention_obj.duration,
+                    'feedback': feedback_data
+                }
+                # Handle content type: link or media file
+                if intervention_obj.link:
+                    rec_data["link"] = intervention_obj.link
+                elif intervention_obj.media_file:
+                    media_file = intervention_obj.media_file
+                    if media_file:
+                        media_file_path = os.path.join(settings.MEDIA_URL, media_file)
+                        rec_data["media_file"] = f'{settings.MEDIA_HOST}{media_file_path}'
+
+                today_interventions.append(rec_data)
+
+            return JsonResponse(today_interventions, safe=False)
 
         except Exception as e:
             return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
 @csrf_exempt

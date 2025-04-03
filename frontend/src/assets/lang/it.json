@@ -1,4 +1,10 @@
-{"Select an intervention": "Seleziona un intervento",
+{
+  "Here are your recommendations for": "Ecco le tue raccomandazioni per",
+  "Missed": "Mancato",
+  "Duration": "Durata",
+  "minutes": "minuti",
+  "Previous": "Precedente",
+  "Select an intervention": "Seleziona un intervento",
   "Avg. Feedback": "Media feedback",
   "Rating": "Valutazione",
   "Select a date": "Seleziona una data",
