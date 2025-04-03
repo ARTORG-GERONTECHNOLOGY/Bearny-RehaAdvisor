@@ -48,18 +48,16 @@ urlpatterns = [
      path('api/patients/<str:patient_id>/todays/', patient_views.get_patient_recommendations,
           name='get_patient_recommendations'),
      path('api/recommendations/suggestions/<str:patient_id>/', patient_views.get_recommendation_options_for_patient,
-          name='get_recommendation_options_for_patient'),
-
-     # Patients functions
-     # TODO
-     path('api/patients/<str:patient_id>/today/', patient_views.get_patient_reha_today, name='get_patient_reha_today'),
+          name='get_recommendation_options_for_patient'), # TODO Delete
      path('api/patients/<str:patient_id>/feedback/<str:intervention_id>/', patient_views.patient_post_feedback,
          name='patient_post_feedback'),
-     path('api/recommendations/mark-done/', patient_views.mark_intervention_done_by_patient,
-         name='mark_intervention_done_by_patient'),
      path('api/patients/get-questions/', patient_views.get_feedback_questions,
          name='get_feedback_questions'),
-     
+
+     # Patients functions
+     path('api/patients/rehabilitation-plan/<str:patient_id>/', patient_views.get_patient_reha_plan, name='get_patient_reha_plan'),
+     path('api/recommendations/mark-done/', patient_views.mark_intervention_done_by_patient,
+         name='mark_intervention_done_by_patient'),
 
      # Interventions
      path('api/recommendations/all/', recomendation_views.get_recommendations, name='get_recommendations'),
