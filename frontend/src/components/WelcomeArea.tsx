@@ -29,16 +29,16 @@ const WelcomeArea: React.FC<WelcomeAreaProps> = ({ user }) => {
   // Set message based on user type (patient or not)
   const getUserMessage = () => {
     if (user === 'patient') {
-      return t("Here are your recommendations for today.");
+      return t("Here are your recommendations for");
     } else {
       return t("You can manage patients and review recommendations.");
     }
   };
 
   return (
-    <div className="welcome-area">
+    <div className="welcome-area text-center my-4">
       <h2>{getWelcomeMessage()}, {localStorage.getItem('fullName')}</h2>
-      <p>{getUserMessage()}</p>
+      <h4>{getUserMessage()}</h4>
     </div>
   );
 };
