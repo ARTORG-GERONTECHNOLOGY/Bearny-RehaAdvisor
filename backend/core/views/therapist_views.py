@@ -48,37 +48,36 @@ def get_patients_by_therapist(request, therapist_id):
 def get_rehabilitation_plan(request, patient_id):
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-
+    print('hi')
     try:
         plans = RehabilitationPlan.objects.filter(patientId=ObjectId(patient_id)).order_by('-createdAt')
         plan_list = []
 
         for plan in plans:
             plan_data = {
-                'planName': plan.planName,
                 'startDate': plan.startDate.isoformat(),
                 'endDate': plan.endDate.isoformat(),
                 'status': plan.status,
                 'interventions': []
             }
+            
 
             for interv in plan.interventions:
                 intervention_obj = interv.interventionId
                 intervention_name = getattr(intervention_obj, 'title', 'Unnamed Intervention')
 
-                completed_dates = set(
-                    log.date.date() for log in PatientInterventionLogs.objects(
-                        userId=plan.patientId,
-                        interventionId=intervention_obj,
-                        status__icontains="completed"
-                    )
-                )
-
-                logs_with_feedback = PatientInterventionLogs.objects(
+                # Collect all completed dates for this intervention
+                completed_dates = set()
+                logs = PatientInterventionLogs.objects(
                     userId=plan.patientId,
                     interventionId=intervention_obj
                 )
 
+                for log in logs:
+                    if "completed" in log.status:
+                        completed_dates.add(log.date.date())
+
+                print('hi')
                 today = timezone.now().date()
                 intervention_dates = []
                 for date in interv.dates:
@@ -102,7 +101,7 @@ def get_rehabilitation_plan(request, patient_id):
                         'status': status,
                         'feedback': feedback_entry
                     })
-
+                print('hi')
                 plan_data['interventions'].append({
                     'interventionId': str(interv.interventionId.id),
                     'interventionTitle': intervention_name,
