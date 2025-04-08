@@ -15,6 +15,7 @@ const AddPatient = lazy(() => import('../pages/AddPatient'));
 const RehabTable = lazy(() => import('../pages/RehabTable'));
 const TherapistRecomendations = lazy(() => import('../pages/TherapistRecomendations'));
 const ErrorPage = lazy(() => import('../components/common/Error'));
+const HealthSlider = lazy(() => import('../pages/eva'));
 
 // Define a loading fallback function using createElement
 function LoadingFallback() {
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
   { path: '/addpatient', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(AddPatient)) },
   { path: '/rehabtable', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(RehabTable)) },
   { path: '/interventions', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(TherapistRecomendations)) },
+  { path: '/eva', element: createElement(Suspense, { fallback: createElement(LoadingFallback) }, createElement(HealthSlider)) },
 ]);
 
 // Replace JSX with createElement

@@ -3,7 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from datetime import timedelta
-from core.models import Therapist, Patient, Researcher
+from core.models import Therapist, Patient
 
 def parse_start_date(start_date):
     if isinstance(start_date, str):
