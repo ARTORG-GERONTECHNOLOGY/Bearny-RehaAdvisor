@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
-from core.models import Intervention, PatientInterventions, PatientType, InterventionAssignment, DefaultInterventions, DiagnosisAssignmentSettings
+from core.models import Intervention, PatientType, InterventionAssignment, DefaultInterventions, DiagnosisAssignmentSettings
 from core.models import Therapist, Patient
 from utils.config import config
 from utils.utils import (
