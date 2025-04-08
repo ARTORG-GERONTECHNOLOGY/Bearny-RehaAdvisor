@@ -9,12 +9,16 @@ from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
-from core.models import Intervention, PatientInterventions, Feedback, GeneralFeedback, User, Patient, Therapist, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs
+from core.models import Intervention, GeneralFeedback, User, Patient, Therapist, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs, FeedbackQuestion, FeedbackEntry, PatientICFRating
 from utils.utils import (
     convert_to_serializable,
     serialize_datetime,
     generate_repeat_dates
 )
+import random
+import os
+from django.conf import settings
+
 
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
@@ -49,90 +53,113 @@ def get_patient(request, patient_id):
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def patient_post_feedback(request, patient_id, intervention_id):
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-    try:
-        data = json.loads(request.body)
-        comment = data.get('comment', '')
-        rating = data.get('rating', '')
-
-        if not comment and not rating:
-            return JsonResponse({'error': 'At least one of comment or rating is required.'}, status=400)
-
-        patient_intervention = PatientInterventions.objects.get(patient_id=patient_id, intervention_id=intervention_id)
-        recommendation = Intervention.objects.get(id=intervention_id)
-
-        today = timezone.now().date()
-        feedback = next(
-            (fb for fb in patient_intervention.feedback if
-             fb.intervention_id == recommendation and fb.date.date() == today),
-            None
-        )
-
-        if feedback:
-            if comment:
-                feedback.comment = comment
-            if rating:
-                feedback.rating = str(rating)
-        else:
-            patient_intervention.feedback.append(
-                Feedback(intervention_id=recommendation, comment=comment, rating=str(rating))
-            )
-
-        patient_intervention.save()
-        return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
-    except PatientInterventions.DoesNotExist:
-        return JsonResponse({'error': 'Intervention not found for the patient.'}, status=404)
-    except Intervention.DoesNotExist:
-        return JsonResponse({'error': 'Intervention not found.'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
 def patient_post_questionnaire_feedback(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
         data = json.loads(request.body)
-        files = request.FILES
         user_id = data.get("userId")
         intervention_id = data.get("interventionId")
+        responses = data.get("responses", [])
 
-        responses = data.get("responses")
-        processed_responses = []
+        if not responses:
+            return JsonResponse({'error': 'No feedback responses provided.'}, status=400)
 
+        # Retrieve patient
+        patient = Patient.objects.get(userId=ObjectId(user_id))
 
-        # TODO audio processing
+        if intervention_id:
+            # Handle intervention-based feedback
+            intervention = Intervention.objects.get(id=ObjectId(intervention_id))
+            rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+            if not rehab_plan:
+                return JsonResponse({'error': 'Rehabilitation plan not found.'}, status=404)
 
-        if not intervention_id =='':
-            patient_intervention = PatientInterventions.objects.get(patient_id=user_id, intervention_id=intervention_id)
-            recommendation = Intervention.objects.get(id=intervention_id)
- 
-            patient_intervention.feedback.append(
-                Feedback(intervention_id=recommendation, comment=str(responses)) # TODO
-            )
-            patient_intervention.save()
+            today = timezone.now().date()
+            start = datetime.combine(today, datetime.min.time())
+            end = datetime.combine(today, datetime.max.time())
+
+            # Find or create today's log
+            log = PatientInterventionLogs.objects(
+                userId=patient,
+                interventionId=intervention,
+                date__gte=start,
+                date__lte=end
+            ).first()
+
+            if not log:
+                log = PatientInterventionLogs(
+                    userId=patient,
+                    interventionId=intervention,
+                    date=timezone.now(),
+                    status=[],
+                    feedback=[],
+                    comments=""
+                )
+
+            for response in responses:
+                question_text = response.get("question", '')
+                answer = response.get("answer")
+
+                question_obj = FeedbackQuestion.objects.filter(
+                    translations__text=question_text
+                ).first()
+
+                if not question_obj:
+                    continue  # Skip if question not found
+
+                answer_str = ", ".join(answer) if isinstance(answer, list) else str(answer)
+
+                log.feedback.append(FeedbackEntry(
+                    questionId=question_obj,
+                    answer=answer_str
+                ))
+
+            log.updatedAt = timezone.now()
+            log.save()
+
         else:
-            # patient = Patient.objects.get(pk=ObjectId(user_id)) TODO
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-            general_feedback = GeneralFeedback.objects.create(
-                patient_id=patient, comment=responses
-            )
-            general_feedback.save()
-        
+            # Handle Healthstatus feedback using PatientICFRating
+            for response in responses:
+                question_text = response.get("question", '')
+                answer = response.get("answer")
+                notes = response.get("notes", "")
+
+                question_obj = FeedbackQuestion.objects.filter(
+                    translations__text=question_text,
+                    questionSubject="Healthstatus"
+                ).first()
+
+                if not question_obj:
+                    continue
+
+                answer_int = int(answer) if isinstance(answer, (int, str)) and str(answer).isdigit() else None
+
+                PatientICFRating.objects.create(
+                    questionId=question_obj,
+                    patientId=patient,
+                    icfCode=question_obj.icfCode,
+                    rating=answer_int,
+                    notes=notes,
+                    feedback_entries=[
+                        FeedbackEntry(
+                            questionId=question_obj,
+                            answer=str(answer)
+                        )
+                    ]
+                )
+
         return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
-    except PatientInterventions.DoesNotExist:
-        return JsonResponse({'error': 'Intervention not found for the patient.'}, status=404)
-    except Intervention.DoesNotExist:
-        return JsonResponse({'error': 'Intervention not found.'}, status=404)
+
     except Patient.DoesNotExist:
         return JsonResponse({'error': 'Patient not found.'}, status=404)
+    except Intervention.DoesNotExist:
+        return JsonResponse({'error': 'Intervention not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -237,7 +264,6 @@ def get_rehab_data(request, patient_id):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
     try:
-        # patient = Patient.objects.get(username=patient_id) TODO
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         reha_data = PatientInterventions.get_patient_interventions_with_feedback_and_future_dates(patient)
         return JsonResponse({
@@ -442,44 +468,56 @@ def create_patient_icf_rating(request):
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_feedback_questions(request, question_key):
+def get_feedback_questions(request, questionaire_type, patient_id):
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
-        if question_key == 'Healthstatus':
-            patient_id = request.GET.get('patient_id')
-            patient = Patient.objects.get(id=ObjectId(patient_id))
+        questions = []
+
+        if questionaire_type == 'Healthstatus':
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
 
             # Get previous ICF ratings for the patient
             ratings = list(PatientICFRating.objects.filter(patientId=patient))
-            if ratings:
-                # Sort ratings from best (low) to worst (high)
+
+            if ratings: # TODO
                 sorted_ratings = sorted(ratings, key=lambda r: r.rating)
                 strong_icfs = [r.icfCode for r in sorted_ratings[:2]]
                 weak_icfs = [r.icfCode for r in sorted_ratings[-4:]]
-                icf_codes = strong_icfs + weak_icfs
+                icf_codes = list(set(strong_icfs + weak_icfs))
             else:
-                # Pick 10 random ICF codes if no ratings available
-                all_codes = FeedbackQuestion.objects.filter(questionKey='Healthstatus').distinct('icfCode')
-                icf_codes = random.sample(all_codes, min(10, len(all_codes)))
+                # If no ratings, pick random questions
+                all_codes = FeedbackQuestion.objects.filter(questionSubject="Healthstatus").distinct('icfCode')
+                icf_codes = random.sample(all_codes, min(5, len(all_codes)))
 
-            questions = FeedbackQuestion.objects.filter(questionKey__in=icf_codes)
+            # Get questions that match the ICF codes
+            questions = FeedbackQuestion.objects.filter(icfCode__in=icf_codes, questionSubject="Healthstatus")
+
+        elif questionaire_type == 'Intervention':
+            questions = FeedbackQuestion.objects.filter(questionSubject='Intervention')
+
         else:
-            # For non-ICF types (e.g., intervention-based)
-            questions = FeedbackQuestion.objects.filter(questionKey=question_key)
+            return JsonResponse({'error': 'Invalid questionnaire type.'}, status=400)
 
+        # Serialize questions
         questions_data = [
             {
                 "questionKey": q.questionKey,
+                "answerType": q.answer_type,
                 "translations": [{"language": t.language, "text": t.text} for t in q.translations],
                 "possibleAnswers": [{"language": t.language, "text": t.text} for t in q.possibleAnswers]
             }
             for q in questions
         ]
+
         return JsonResponse({"questions": questions_data}, safe=False)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({'error': 'Patient not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -534,7 +572,6 @@ def create_rehabilitation_plan(request):
             rehab_plan = RehabilitationPlan(
                 patientId=patient,
                 therapistId=therapist,
-                planName=data.get("planName", f"Rehab Plan {timezone.now().date()}"),
                 startDate=patient.userId.createdAt,
                 endDate=patient.reha_end_date,
                 status=data.get("status", "active"),
@@ -553,7 +590,6 @@ def create_rehabilitation_plan(request):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_rehabilitation_plan(request, patient_id):
-
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -568,75 +604,77 @@ def get_rehabilitation_plan(request, patient_id):
             'interventions': []
         }
 
+        today = timezone.now().date()
+
         for interv in plan.interventions:
-            # Get intervention details
             intervention_obj = interv.interventionId
             intervention_name = getattr(intervention_obj, 'title', 'Unnamed Intervention')
 
-            # Prepare status tracking
-            completed_dates = set(
-                log.date.date() for log in PatientInterventionLogs.objects(
-                    userId=plan.patientId,
-                    interventionId=intervention_obj,
-                    status__icontains="completed"
-                )
-            )
-            feedbacks = set(
-                log.feedback for log in PatientInterventionLogs.objects(
-                    userId=plan.patientId,
-                    interventionId=intervention_obj,
-                    status__icontains="completed"
-                )
-            )
-            
-            questions = set(
-                log.feedback.questionId.translations for log in PatientInterventionLogs.objects(
-                    userId=plan.patientId,
-                    interventionId=intervention_obj,
-                    status__icontains="completed"
-                )
+            logs = PatientInterventionLogs.objects(
+                userId=plan.patientId,
+                interventionId=intervention_obj
             )
 
+            completed_dates = {log.date.date() for log in logs if "completed" in log.status}
+            intervention_dates = []
             totalnum_int = len(interv.dates)
             current_total_int = 0
             completed_int = 0
             rating_sum_int = 0
             rating_num_int = 0
-            
-            today = timezone.now().date()
-            intervention_dates = []
-            for idx, date in enumerate(interv.dates):
+
+            for date in interv.dates:
                 day = date.date()
-                if day in completed_dates:
+                log = next((l for l in logs if l.date.date() == day), None)
+
+                # Determine status
+                if log and "completed" in log.status:
                     status = "completed"
-                    feed = feedbacks[idx]
-                    quest = questions[idx]
                     completed_int += 1
                     current_total_int += 1
-                    
                 elif day < today:
                     status = "missed"
-                    feed = ''
-                    quest = ''
                     current_total_int += 1
                 elif day == today:
                     status = "today"
-                    feed = ''
-                    quest = ''
                 else:
                     status = "upcoming"
-                    feed = ''
-                    quest = ''
 
-                intervention_dates.append({
+                # Gather feedback
+                feedback_entries = []
+                if log and log.feedback:
+                    for fb in log.feedback:
+                        if fb.questionId:
+                            feedback_entries.append({
+                                'question': {
+                                    'id': str(fb.questionId.id),
+                                    'translations': [
+                                        {'language': t.language, 'text': t.text}
+                                        for t in fb.questionId.translations
+                                    ]
+                                },
+                                'comment': fb.comment,
+                                'answer': fb.answer
+                            })
+
+                            # Optional: calculate average rating if numeric
+                            if fb.answer.isdigit():
+                                rating_sum_int += int(fb.answer)
+                                rating_num_int += 1
+
+                date_data = {
                     'datetime': date.isoformat(),
-                    'status': status,
-                    'feedback': feed,
-                    'question': quest
-                })
+                    'status': status
+                }
+
+                if feedback_entries:
+                    date_data['feedback'] = feedback_entries
+
+                intervention_dates.append(date_data)
+
 
             plan_data['interventions'].append({
-                '_id': str(interv.interventionId.id),
+                '_id': str(intervention_obj.id),
                 'title': intervention_name,
                 'frequency': interv.frequency,
                 'notes': interv.notes,
@@ -650,7 +688,6 @@ def get_rehabilitation_plan(request, patient_id):
 
         plan_data['createdAt'] = plan.createdAt.isoformat()
         plan_data['updatedAt'] = plan.updatedAt.isoformat()
-
 
         return JsonResponse(plan_data, safe=False)
 
