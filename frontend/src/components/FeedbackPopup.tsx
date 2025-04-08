@@ -3,6 +3,7 @@ import { Modal, Button, ProgressBar, Form, Row, Col, Alert } from "react-bootstr
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash } from "react-icons/fa";
 import apiClient from "../api/client";
 import { t } from 'i18next';
+import config from "../config/config.json";
 
 const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -21,11 +22,13 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
 
   useEffect(() => {
     if (!show) {
+
       setAnswers({});
       setAudioURL(null);
       setRecordingTime(0);
       setMicPermissionDenied(false);
       setCurrentQuestionIndex(0);
+
     }
   }, [show]);
 
@@ -45,7 +48,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const handleAnswerChange = (e) => {
     setAnswers({
       ...answers,
-      [questions[currentQuestionIndex].be_name]: e.target.value,
+      [questions[currentQuestionIndex].questionKey]: e.target.value,
     });
   };
 
@@ -97,7 +100,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/wav" });
         const audioURL = URL.createObjectURL(audioBlob);
         setAudioURL(audioURL);
-        setAnswers(prev => ({ ...prev, [currentQuestion.be_name]: audioBlob }));
+        setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: audioBlob }));
         setRecordingTime(0);
         clearInterval(timerRef.current);
       };
@@ -125,18 +128,18 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const deleteRecording = () => {
     setAudioURL(null);
     setRecordingTime(0);
-    setAnswers(prev => ({ ...prev, [currentQuestion.be_name]: null }));
+    setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: null }));
   };
 
   const handleSubmit = async () => {
     
     try {
-      await apiClient.post("patients/feedback/questionaire", {
+      await apiClient.post("patients/feedback/questionaire/", {
         interventionId: interventionId,
         userId: userId,
-        responses: questions.map((question) => ({
-          question: question.label,
-          answer: answers[question.be_name] || "",
+        responses: questions.map((q) => ({
+          question: q.label,
+          answer: answers[q.questionKey] || "",
         }))
       });
 
@@ -170,8 +173,8 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                 {currentQuestion.options.map((option, index) => (
                   <Button
                     key={index}
-                    variant={answers[currentQuestion.be_name]?.includes(option) ? "primary" : "outline-primary"}
-                    onClick={() => handleOptionSelect(option, currentQuestion.be_name, true)}
+                    variant={answers[currentQuestion.questionKey]?.includes(option) ? "primary" : "outline-primary"}
+                    onClick={() => handleOptionSelect(option, currentQuestion.questionKey, true)}
                   >
                     {t(option)}
                   </Button>
@@ -183,8 +186,8 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                 {currentQuestion.options.map((option, index) => (
                   <Button
                     key={index}
-                    variant={answers[currentQuestion.be_name]?.includes(option) ? "primary" : "outline-primary"}
-                    onClick={() => handleOptionSelect(option, currentQuestion.be_name, false)}
+                    variant={answers[currentQuestion.questionKey]?.includes(option) ? "primary" : "outline-primary"}
+                    onClick={() => handleOptionSelect(option, currentQuestion.questionKey, false)}
                   >
                     {t(option)}
                   </Button>
@@ -213,10 +216,10 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
                   <Form.Control
                     as="textarea"
                     rows={4}
-                    id={currentQuestion.be_name}
+                    id={currentQuestion.questionKey}
                     placeholder={t("Type your response")}
                     className="mb-3"
-                    value={answers[questions[currentQuestionIndex].be_name] || ""}
+                    value={answers[questions[currentQuestionIndex].questionKey] || ""}
                     onChange={handleAnswerChange}
                   />
                 )}

@@ -30,9 +30,7 @@ urlpatterns = [
      # Therapist's Patient Management
      path('api/therapists/<str:therapist_id>/patients/', therapist_views.get_patients_by_therapist,
           name='get_patients_by_therapist'),
-     path('api/patients/<str:patient_id>/', patient_views.get_patient, name='get_patient'),
-
-     path('api/patients/<str:patient_id>/rehab/', patient_views.get_rehabilitation_plan, name='get_rehabilitation_plan'),
+     path('api/patients/patient/<str:patient_id>/', patient_views.get_patient, name='get_patient'),
      path('api/recommendations/add-to-patient/', patient_views.create_rehabilitation_plan,
           name='create_rehabilitation_plan'),
      path('api/recommendations/assign-to-patient-types/', recomendation_views.assign_intervention_to_patient_types,
@@ -41,23 +39,19 @@ urlpatterns = [
           name='delete_intervention_from_patient_types'),
      path('api/recommendations/remove-from-patient/', patient_views.del_rehabilitation_plan_intervention,
           name='del_rehabilitation_plan_intervention'),
-    
-    # TODO
-     path('api/patients/feedback/questionaire', patient_views.patient_post_questionnaire_feedback,
-         name='patient_post_feedback'),
-     path('api/patients/<str:patient_id>/todays/', patient_views.get_patient_recommendations,
-          name='get_patient_recommendations'),
-     path('api/recommendations/suggestions/<str:patient_id>/', patient_views.get_recommendation_options_for_patient,
-          name='get_recommendation_options_for_patient'), # TODO Delete
-     path('api/patients/<str:patient_id>/feedback/<str:intervention_id>/', patient_views.patient_post_feedback,
-         name='patient_post_feedback'),
-     path('api/patients/get-questions/', patient_views.get_feedback_questions,
-         name='get_feedback_questions'),
+     path('api/patients/rehabilitation-plan/therapist/<str:patient_id>/', patient_views.get_rehabilitation_plan, name='get_rehabilitation_plan'),
+
 
      # Patients functions
-     path('api/patients/rehabilitation-plan/<str:patient_id>/', patient_views.get_patient_reha_plan, name='get_patient_reha_plan'),
+     path('api/patients/feedback/questionaire/', patient_views.patient_post_questionnaire_feedback,
+         name='patient_post_feedback'),
+      path('api/patients/rehabilitation-plan/patient/<str:patient_id>/', patient_views.get_patient_reha_plan,
+          name='get_patient_reha_plan'),
      path('api/recommendations/mark-done/', patient_views.mark_intervention_done_by_patient,
          name='mark_intervention_done_by_patient'),
+     path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/', patient_views.get_feedback_questions,
+         name='get_feedback_questions'),
+     
 
      # Interventions
      path('api/recommendations/all/', recomendation_views.get_recommendations, name='get_recommendations'),
