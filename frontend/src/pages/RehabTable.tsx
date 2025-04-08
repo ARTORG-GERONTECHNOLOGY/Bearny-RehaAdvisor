@@ -51,7 +51,7 @@ const RehabTable: React.FC = () => {
 
   const fetchAll = async () => {
     try {
-      const res = await apiClient.get(`patients/${localStorage.getItem('selectedPatient') || patientUsername}/rehab`);
+      const res = await apiClient.get(`patients/rehabilitation-plan/therapist/${localStorage.getItem('selectedPatient') || patientUsername}/`);
       setPatientData(res.data);
       
     } catch (e) {
@@ -357,36 +357,40 @@ const RehabTable: React.FC = () => {
         </Modal.Header>
         <Modal.Body>
           <>
-            <p>
-              {allInterventions.find(item => item._id === selectedExercise._id)?.description || t("No description available")}
-            </p>
             <h5>{t("Feedback")}</h5>
+           
             {(() => {
-              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise._id);
-              const feedbackEntries = intervention?.dates
-                ?.filter(d => d.feedback && d.feedback.answer)
-                ?.map(d => ({
-                  answer: d.feedback.answer,
-                  questionText:
-                    d.question?.translations?.find(t => t.language === userLang)?.text ||
-                    d.question?.translations?.find(t => t.language === 'en')?.text ||
-                    ''
-                }))
-                .filter(e => e.questionText); // filter out if no question text
+              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise?._id);
+              const dayData = intervention?.dates?.find(d =>
+                new Date(d.datetime).toISOString().slice(0, 10) === selectedDate
+              );
+              const feedbackEntries = dayData?.feedback || [];
 
-              if (feedbackEntries?.length) {
-                return feedbackEntries.map((entry, idx) => (
-                  <>
-                  <div key={idx} className="mb-3">
-                    <p><strong>{entry.questionText}</strong></p>
-                    <p>{entry.answer}</p>
-                  </div>
-                  </>
-                ));
-              } else {
-                return <p>{t("No feedback available")}</p>;
-              }
+              return (
+                <>
+                  {feedbackEntries.length > 0 ? (
+                    feedbackEntries.map((entry, idx) => {
+                      const questionText =
+                        entry.question?.translations?.find(t => t.language === userLang)?.text ||
+                        entry.question?.translations?.find(t => t.language === 'en')?.text ||
+                        "";
+
+                      return (
+                        
+                        <div key={idx} className="mb-3">
+                          <hr /> {/* Divider here */}
+                          <p><strong>{questionText}</strong></p>
+                          <p>{entry.answer}</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p>{t("No feedback available")}</p>
+                  )}
+                </>
+              );
             })()}
+
           </>
         </Modal.Body>
         <Modal.Footer>
@@ -399,22 +403,111 @@ const RehabTable: React.FC = () => {
         </Modal.Header>
         <Modal.Body>
         {(() => {
-              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise._id);
-              const statics = intervention?.stats
+              const intervention = patientData?.interventions?.find(i => i._id === selectedExercise?._id);
 
-              if (statics?.length) {
+              if (!intervention) return <p>{t("No statistics available")}</p>;
+              
+              const totalCount = intervention.dates?.length || 0;
+              const completedCount = intervention.dates?.filter(d => d.status === 'completed')?.length || 0;
+              const feedbackCount = intervention.dates?.filter(d => d.feedback?.length > 0)?.length || 0;
+              const currentTotalCount = intervention.currentTotalCount;
+              
+
+              if (intervention) {
                 return (
                   <>
-                    <p>
-                      <strong>{t("Completed:")}</strong> {statics.completedCount} / {statics.currentTotalCount}
-                      <strong>{t("Completed from All:")}</strong> {statics.completedCount} / {statics.totalCount}
-                      <strong>{t("Feedback Answered:")}</strong> {statics.completedFeedbackCount} / {statics.totalCount}
-                    </p>
-                    <p>
-                     {/* <strong>{t("Average Rating:")}</strong> {statics.averageRating}{' '}
-                      <FaStar size={24} color={'gold'} />*/}
-                    </p>
-                    </>
+                      <strong>{t("Total Sessions")}:</strong> {totalCount}<br />
+                      <div className="mb-4">
+                      <div className="mb-4">
+                        <div className="progress">
+                          <div
+                            className="progress-bar bg-success"
+                            role="progressbar"
+                            style={{ width: `${isFinite(completedCount / totalCount * 100) ? completedCount / totalCount * 100 : 0}%` }} // assuming 1-5 scale
+                            aria-valuenow={isFinite(completedCount / totalCount * 100) ? completedCount / totalCount * 100 : 0}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite(Math.floor(completedCount / totalCount * 100)) ? completedCount / totalCount * 100 : 0}%
+                          </div>
+                          <div
+                            className="progress-bar bg-danger"
+                            role="progressbar"
+                            style={{ width: `${Math.floor((currentTotalCount - completedCount) / totalCount * 100) ? Math.floor((currentTotalCount - completedCount) / totalCount * 100) : 0}%`}} // assuming 1-5 scale
+                            aria-valuenow={Math.floor((currentTotalCount - completedCount) / totalCount * 100) ? Math.floor((currentTotalCount - completedCount) / totalCount * 100) : 0 }
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite(Math.floor((currentTotalCount - completedCount) / totalCount * 100)) ? Math.floor((currentTotalCount - completedCount) / totalCount * 100) : 0}%
+                          </div>
+                          <div
+                            className="progress-bar bg-warning"
+                            role="progressbar"
+                            style={{ width: `${isFinite(Math.floor((totalCount - currentTotalCount) / totalCount * 100)) ? Math.floor((totalCount - currentTotalCount) / totalCount * 100) : 100}%`}} // assuming 1-5 scale
+                            aria-valuenow={isFinite(Math.floor((totalCount - currentTotalCount) / totalCount * 100)) ? Math.floor((totalCount - currentTotalCount) / totalCount * 100) : 100}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite(Math.floor((totalCount - currentTotalCount) / totalCount * 100)) ? Math.floor((totalCount - currentTotalCount) / totalCount * 100) : 100}%
+                          </div>
+                        </div>
+                      </div>
+
+                        <strong>{t("Current Sessions")}:</strong>
+                        <div className="mb-4">
+                        <div className="progress">
+                          <div
+                            className="progress-bar bg-success"
+                            role="progressbar"
+                            style={{ width: `${isFinite(completedCount / currentTotalCount * 100) ? (completedCount / currentTotalCount * 100) : 0}%` }} // assuming 1-5 scale
+                            aria-valuenow={isFinite(completedCount / currentTotalCount * 100) ? (completedCount / currentTotalCount * 100) : 0}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite(completedCount / currentTotalCount * 100) ? Math.floor(completedCount / currentTotalCount * 100) : 0}%
+                          </div>
+                          <div
+                            className="progress-bar bg-danger"
+                            role="progressbar"
+                            style={{ width: `${isFinite((currentTotalCount - completedCount) / currentTotalCount * 100) ? (currentTotalCount - completedCount) / currentTotalCount * 100 : 100}%` }} // assuming 1-5 scale
+                            aria-valuenow={isFinite((currentTotalCount - completedCount) / currentTotalCount * 100) ? (currentTotalCount - completedCount) / currentTotalCount * 100 : 100}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite((currentTotalCount - completedCount) / currentTotalCount * 100) ? Math.floor((currentTotalCount - completedCount) / currentTotalCount * 100) : 100}%
+                          </div>
+                        </div>
+                        </div>
+
+                      <strong>{t("Current Feedback Answered")}:</strong>
+                      <div className="mb-4">
+                      <div className="progress">
+                          <div
+                            className="progress-bar bg-success"
+                            role="progressbar"
+                            style={{ width: `${isFinite(feedbackCount / currentTotalCount * 100) ? (feedbackCount / currentTotalCount * 100) : 0}%` }} // assuming 1-5 scale
+                            aria-valuenow={isFinite(feedbackCount / currentTotalCount * 100) ? (feedbackCount / currentTotalCount * 100) : 0}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite(feedbackCount / currentTotalCount * 100) ? Math.floor(feedbackCount / currentTotalCount * 100) : 0}%
+                          </div>
+                          <div
+                            className="progress-bar bg-danger"
+                            role="progressbar"
+                            style={{ width: `${isFinite((currentTotalCount - feedbackCount) / currentTotalCount * 100) ? (currentTotalCount - feedbackCount) / currentTotalCount * 100 : 100}%` }} // assuming 1-5 scale
+                            aria-valuenow={isFinite((currentTotalCount - feedbackCount) / currentTotalCount * 100) ? (currentTotalCount - feedbackCount) / currentTotalCount * 100 : 100 }
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                          >
+                            {isFinite((currentTotalCount - feedbackCount) / currentTotalCount * 100) ? Math.floor(currentTotalCount - feedbackCount) / currentTotalCount * 100 : 100}%
+                          </div>
+                        </div>
+                        </div>
+                      </div>
+                  </>
+
+
                 );
               } else {
                 return <p>{t("No feedback available")}</p>;

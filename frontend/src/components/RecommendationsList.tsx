@@ -16,14 +16,47 @@ const InterventionList = () => {
   const [feedbackQuestions, setFeedbackQuestions] = useState([]);
   const [viewMode, setViewMode] = useState("day");
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showHealthPopup, setShowHealthPopup] = useState(false);
+
 
   useEffect(() => {
     fetchInterventions();
+    getQuestionaire();
   }, []);
+
+  const getQuestionaire = async () => {
+    try {
+      const data = await apiClient.get(`/patients/get-questions/Healthstatus/${localStorage.getItem("id")}/`);
+      const res  = data.data
+      const language = localStorage.getItem("language") || "en";
+  
+      const formattedQuestions = res.questions.map((q) => {
+        const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
+        const options = q.possibleAnswers
+          .filter(opt => opt.language === language)
+          .map(opt => opt.text);
+  
+        return {
+          questionKey: q.questionKey,
+          label,
+          options,
+          type: q.answerType,
+        };
+      });
+      console.log("Loaded health questionnaire");
+      setFeedbackQuestions(formattedQuestions);
+      setShowHealthPopup(true);  // 👈 This triggers the automatic popup on load
+      console.log("Questions:", formattedQuestions);
+
+    } catch (error) {
+      console.error("Error fetching health questionnaire:", error);
+    }
+  };
+  
 
   const fetchInterventions = async () => {
     try {
-      const res = await apiClient.get(`patients/rehabilitation-plan/${localStorage.getItem("id")}/`);
+      const res = await apiClient.get(`/patients/rehabilitation-plan/patient/${localStorage.getItem("id")}/`);
       setRecommendations(res.data || []);
     } catch (error) {
       console.error("Failed to load interventions", error);
@@ -49,7 +82,24 @@ const InterventionList = () => {
         });
         setRecommendations(updated);
         setFeedbackItem(interventionId);
-        setFeedbackQuestions(config.FeedbackQuestions[0].fields);
+        const data = await apiClient.get(`/patients/get-questions/Intervention/${localStorage.getItem("id")}/`);
+        const res  = data.data
+        const language = localStorage.getItem("language") || "en";
+    
+        const formattedQuestions = res.questions.map((q) => {
+          const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
+          const options = q.possibleAnswers
+            .filter(opt => opt.language === language)
+            .map(opt => opt.text);
+    
+          return {
+            questionKey: q.questionKey,
+            label,
+            options,
+            type: q.answerType,
+          };
+        });
+        setFeedbackQuestions(formattedQuestions);
         setShowFeedbackPopup(true);
       }
     } catch (error) {
@@ -64,14 +114,18 @@ const InterventionList = () => {
 
   const renderStatus = (rec, date) => {
     if (isToday(date)) {
-      return (
-        isCompletedOn(rec, date) ? (
-          <Badge bg="success">{t("Done")}</Badge>
-        ) : (
-          <Button size="sm" onClick={() => handleMarkAsDone(rec.intervention_id)}>
-            {t("Ididit")}
-          </Button>
-        )
+      return isCompletedOn(rec, date) ? (
+        <Badge bg="success">{t("Done")}</Badge>
+      ) : (
+        <Button
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation(); // ⛔ prevent card click
+            handleMarkAsDone(rec.intervention_id);
+          }}
+        >
+          {t("Ididit")}
+        </Button>
       );
     }
     if (isPast(date)) {
@@ -85,6 +139,7 @@ const InterventionList = () => {
       return <Badge bg="info">{t("Upcoming")}</Badge>;
     }
   };
+  
 
   const renderDayColumn = (date) => {
     const dateKey = format(date, "yyyy-MM-dd");
@@ -164,14 +219,14 @@ const InterventionList = () => {
 
       {viewMode === "week" ? renderWeekView() : renderDayView()}
 
-      {selectedItem && (
+      {selectedItem && !showFeedbackPopup && (
         <PatientInterventionPopUp
           show={true}
           item={selectedItem}
           handleClose={() => setSelectedItem(null)}
         />
       )}
-      {showFeedbackPopup && feedbackQuestions.length > 0 && (
+      {showFeedbackPopup && (
         <FeedbackPopup
           show={true}
           interventionId={feedbackItem || ""}
@@ -179,6 +234,15 @@ const InterventionList = () => {
           onClose={() => setShowFeedbackPopup(false)}
         />
       )}
+      {showHealthPopup && (
+        <FeedbackPopup
+          show={true}
+          interventionId={""}  // Empty since it's general health
+          questions={feedbackQuestions}
+          onClose={() => setShowHealthPopup(false)}
+        />
+      )}
+
     </div>
   );
 };
