@@ -13,7 +13,8 @@ from core.models import Intervention, GeneralFeedback, User, Patient, Therapist,
 from utils.utils import (
     convert_to_serializable,
     serialize_datetime,
-    generate_repeat_dates
+    generate_repeat_dates,
+    sanitize_text
 )
 import random
 import os
@@ -113,7 +114,7 @@ def patient_post_questionnaire_feedback(request):
 
                 log.feedback.append(FeedbackEntry(
                     questionId=question_obj,
-                    answer=answer_str
+                    answer=sanitize_text(answer_str)
                 ))
 
             log.updatedAt = timezone.now()
@@ -145,7 +146,7 @@ def patient_post_questionnaire_feedback(request):
                     feedback_entries=[
                         FeedbackEntry(
                             questionId=question_obj,
-                            answer=str(answer)
+                            answer=sanitize_text(str(answer))
                         )
                     ]
                 )
@@ -433,7 +434,7 @@ def create_patient_intervention_log(request):
             date=timezone.now(),
             status=data.get("status", []),
             feedback=data.get("feedback", []),
-            comments=data.get("comments", ""),
+            comments=sanitize_text(data.get("comments", "")),
             createdAt=timezone.now(),
             updatedAt=timezone.now()
         )
@@ -458,7 +459,7 @@ def create_patient_icf_rating(request):
             icfCode=data.get("icfCode"),
             date=timezone.now(),
             rating=int(data.get("rating")),
-            notes=data.get("notes", "")
+            notes=sanitize_text(data.get("notes", ""))
         )
         icf_rating.save()
         return JsonResponse({'message': 'ICF Rating recorded successfully'}, status=201)
@@ -517,7 +518,6 @@ def get_feedback_questions(request, questionaire_type, patient_id):
         return JsonResponse({'error': 'Patient not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
 
 
 @csrf_exempt

@@ -15,7 +15,8 @@ from core.models import Therapist, Patient, User, Therapist, Logs, InterventionA
 from utils.utils import (
     get_labels,
     generate_custom_id,
-    generate_repeat_dates
+    generate_repeat_dates,
+    sanitize_text
 )
 
 
@@ -84,8 +85,6 @@ def create_rehab_plan(patient, therapist):
 
     except Exception as e:
         print(f"Error creating rehab plan: {e}")
-
-
 
 
 @csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
@@ -214,8 +213,8 @@ def register(request):
             username = generate_custom_id( data.get('userType')),
             role =  data.get('userType'),
             createdAt = datetime.today(),
-            email = data.get('email'),
-            phone = data.get('phone', ''),
+            email = sanitize_text(data.get('email')),
+            phone = sanitize_text(data.get('phone', '')),
             pwdhash = password,
             isActive = data.get('userType') == "Patient"
         )
@@ -230,8 +229,8 @@ def register(request):
 
                 patient = Patient(
                     userId=user,
-                    name=data.get('lastName'),
-                    first_name=data.get('firstName'),
+                    name=sanitize_text(data.get('lastName'), True),
+                    first_name=sanitize_text(data.get('firstName'), True),
                     age=data.get('age', ''),  # Assuming age is provided
                     therapist=pat_therapist,  # Assuming therapist ID is provided
                     sex=data.get('sex'),  # Assuming sex is provided
@@ -243,12 +242,12 @@ def register(request):
                     marital_status=data.get('civilStatus'),  # Assuming marital status is provided
                     lifestyle=data.get('lifestyle'),  # Assuming lifestyle is provided
                     personal_goals=data.get('lifeGoals'),  # Assuming personal goals are provided
-                    medication_intake=data.get('medicationIntake', '-'),  # Assuming medication intake is provided
+                    medication_intake=sanitize_text(data.get('medicationIntake', '-')),  # Assuming medication intake is provided
                     social_support=data.get('socialSupport', []),  # Assuming social support is provided
                     access_word=data.get('password'), 
                     duration=int((reha_end_date.date() - datetime.today().date()).days),
                     reha_end_date=reha_end_date,
-                    care_giver=data.get('carreGiver', '')
+                    care_giver=sanitize_text(data.get('carreGiver', ''), True)
                 )
 
             patient.save()
@@ -261,8 +260,8 @@ def register(request):
         elif user_type == 'Therapist':
             therapist = Therapist(
                 userId = user,
-                name=data.get('lastName', ''),
-                first_name=data.get('firstName', ''),
+                name=sanitize_text(data.get('lastName', ''), True),
+                first_name=sanitize_text(data.get('firstName', ''), True),
                 specializations=data.get("specialisation"),  # Assuming specializations provided
                 clinics=data.get( "clinic"),  # Assuming clinics provided
             )
