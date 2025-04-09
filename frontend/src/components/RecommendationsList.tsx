@@ -27,31 +27,29 @@ const InterventionList = () => {
   const getQuestionaire = async () => {
     try {
       const data = await apiClient.get(`/patients/get-questions/Healthstatus/${localStorage.getItem("id")}/`);
-      const res  = data.data
+      const res = data.data;
       const language = localStorage.getItem("language") || "en";
   
       const formattedQuestions = res.questions.map((q) => {
         const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
-        const options = q.possibleAnswers
-          .filter(opt => opt.language === language)
-          .map(opt => opt.text);
-  
+      
+        const options = q.possibleAnswers || [];
+
         return {
-          questionKey: q.questionKey,
-          label,
-          options,
-          type: q.answerType,
+            questionKey: q.questionKey,
+            label,
+            options: q.possibleAnswers || [],
+            type: q.answerType,
         };
       });
-      console.log("Loaded health questionnaire");
+  
       setFeedbackQuestions(formattedQuestions);
-      setShowHealthPopup(true);  // 👈 This triggers the automatic popup on load
-      console.log("Questions:", formattedQuestions);
-
+      setShowHealthPopup(true);
     } catch (error) {
       console.error("Error fetching health questionnaire:", error);
     }
   };
+  
   
 
   const fetchInterventions = async () => {
@@ -69,7 +67,7 @@ const InterventionList = () => {
         patient_id: localStorage.getItem("id"),
         intervention_id: interventionId,
       });
-
+  
       if (res.status === 200) {
         const updated = recommendations.map((rec) => {
           if (rec.intervention_id === interventionId) {
@@ -80,25 +78,27 @@ const InterventionList = () => {
           }
           return rec;
         });
+  
         setRecommendations(updated);
         setFeedbackItem(interventionId);
+  
         const data = await apiClient.get(`/patients/get-questions/Intervention/${localStorage.getItem("id")}/`);
-        const res  = data.data
+        const res = data.data;
         const language = localStorage.getItem("language") || "en";
-    
+  
         const formattedQuestions = res.questions.map((q) => {
           const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
-          const options = q.possibleAnswers
-            .filter(opt => opt.language === language)
-            .map(opt => opt.text);
-    
+        
+          const options = q.possibleAnswers || [];
+  
           return {
-            questionKey: q.questionKey,
-            label,
-            options,
-            type: q.answerType,
+              questionKey: q.questionKey,
+              label,
+              options: q.possibleAnswers || [],
+              type: q.answerType,
           };
         });
+  
         setFeedbackQuestions(formattedQuestions);
         setShowFeedbackPopup(true);
       }
@@ -106,6 +106,7 @@ const InterventionList = () => {
       console.error("Error marking as done", error);
     }
   };
+  
 
   const isCompletedOn = (rec, date) => {
     const dateStr = format(date, "yyyy-MM-dd");
