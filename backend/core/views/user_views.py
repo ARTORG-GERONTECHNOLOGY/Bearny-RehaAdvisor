@@ -8,7 +8,8 @@ from datetime import datetime
 from core.models import Therapist, Patient, Logs, User
 from bson import ObjectId
 from utils.utils import (
-    convert_to_serializable
+    convert_to_serializable,
+    sanitize_text
 )
 from django.contrib.auth.hashers import check_password, make_password
 
@@ -71,13 +72,13 @@ def user_profile(request, user_id):
 
             for field in allowed_fields:
                 try:
-                    user_data[field] = getattr(user, field)
+                    user_data[field] = sanitize_text(getattr(user, field))
                 except AttributeError:
                     pass  # Ignore missing fields
 
             for field in allowed_fields:
                 try:
-                    therapist_data[field] = getattr(therapist, field)
+                    therapist_data[field] = sanitize_text(getattr(therapist, field))
                 except AttributeError:
                     pass  # Ignore missing fields
 
@@ -140,13 +141,13 @@ def user_profile_patient(request, user_id):
             # Update User model fields
             for key in user_fields:
                 if key in data and data[key]:
-                    setattr(user, key, data[key])
+                    setattr(user, key, sanitize_text(data[key]))
             user.save()
 
             # Update Patient model fields
             for key in patient_fields:
                 if key in data and data[key]:
-                    setattr(patient, key, data[key])
+                    setattr(patient, key, sanitize_text(data[key]))
             patient.save()
 
             # Log the update action

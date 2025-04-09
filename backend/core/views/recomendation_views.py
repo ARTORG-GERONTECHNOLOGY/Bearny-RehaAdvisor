@@ -14,7 +14,8 @@ from core.models import Therapist, Patient
 from utils.config import config
 from utils.utils import (
     get_labels,
-    generate_custom_id
+    generate_custom_id,
+    sanitize_text
 )
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
@@ -113,8 +114,8 @@ def create_intervention(request):
 
         # Create the new Intervention document
         recommendation = Intervention(
-            title=data['title'],
-            description=data['description'],
+            title=sanitize_text(data['title']),
+            description=sanitize_text(data['description']),
             content_type=data['contentType'],
             link=data.get('link', ''),  # Use `link` instead of `blogLink`
             media_file=media_file_path,  # Path to uploaded media if any
