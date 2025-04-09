@@ -53,6 +53,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   };
 
   const handleOptionSelect = (option, field, multiple = false) => {
+    console.log(answers)
     setAnswers((prev) => {
       let newValues = multiple ? [...(prev[field] || [])] : [];
       if (multiple) {
@@ -170,28 +171,50 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
           <Col md={10}>
             {currentQuestion.type === "multi-select" && (
               <div className="d-flex flex-wrap gap-2 justify-content-center">
-                {currentQuestion.options.map((option, index) => (
-                  <Button
-                    key={index}
-                    variant={answers[currentQuestion.questionKey]?.includes(option) ? "primary" : "outline-primary"}
-                    onClick={() => handleOptionSelect(option, currentQuestion.questionKey, true)}
-                  >
-                    {t(option)}
-                  </Button>
-                ))}
+               {(currentQuestion.type === "multi-select" || currentQuestion.type === "dropdown") && (
+              <div className="d-flex flex-wrap gap-2 justify-content-center">
+                {currentQuestion.options.map((option, index) => {
+                  const language = localStorage.getItem("language") || "en";
+                  const label = option.translations?.find(t => t.language === language)?.text
+                    || option.translations?.find(t => t.language === "en")?.text
+                    || option.key;
+
+                  return (
+                    <Button
+                      key={index}
+                      variant={answers[currentQuestion.questionKey]?.includes(option.key) ? "primary" : "outline-primary"}
+                      onClick={() => handleOptionSelect(option.key, currentQuestion.questionKey, true)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
               </div>
             )}
             {currentQuestion.type === "dropdown" && (
               <div className="d-flex flex-wrap gap-2 justify-content-center">
-                {currentQuestion.options.map((option, index) => (
-                  <Button
-                    key={index}
-                    variant={answers[currentQuestion.questionKey]?.includes(option) ? "primary" : "outline-primary"}
-                    onClick={() => handleOptionSelect(option, currentQuestion.questionKey, false)}
-                  >
-                    {t(option)}
-                  </Button>
-                ))}
+                {(currentQuestion.type === "multi-select" || currentQuestion.type === "dropdown") && (
+                <div className="d-flex flex-wrap gap-2 justify-content-center">
+                  {currentQuestion.options.map((option, index) => {
+                    const language = localStorage.getItem("language") || "en";
+                    const label = option.translations?.find(t => t.language === language)?.text
+                      || option.translations?.find(t => t.language === "en")?.text
+                      || option.key;
+
+                    return (
+                      <Button
+                        key={index}
+                        variant={answers[currentQuestion.questionKey]?.includes(option.key) ? "primary" : "outline-primary"}
+                        onClick={() => handleOptionSelect(option.key, currentQuestion.questionKey, false)}
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
               </div>
             )}
             {currentQuestion.type === "text" && (

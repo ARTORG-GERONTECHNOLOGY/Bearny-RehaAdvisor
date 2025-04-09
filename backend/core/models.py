@@ -46,21 +46,26 @@ class Translation(EmbeddedDocument):
     text = StringField(required=True)
 
 
-# Unified Feedback Entry
+# Answer option with multi-language translations
+class AnswerOption(EmbeddedDocument):
+    key = StringField(required=True)  # Internal key like "yes", "no"
+    translations = ListField(EmbeddedDocumentField(Translation))
+
 class FeedbackEntry(EmbeddedDocument):
     questionId = ReferenceField('FeedbackQuestion', required=True)
-    answer = StringField(required=True)  # Could be numeric or text
+    answerKey = ListField(EmbeddedDocumentField(AnswerOption))  # Unique key from possibleAnswers
     comment = StringField(default='')
     date = DateTimeField(default=timezone.now)
 
 
-# Feedback Question Model
+
+# Feedback question
 class FeedbackQuestion(Document):
     meta = {'collection': 'FeedbackQuestions'}
     questionSubject = StringField(required=True, choices=['Intervention', 'Healthstatus'])
     questionKey = StringField(required=True, unique=True)
     translations = ListField(EmbeddedDocumentField(Translation))
-    possibleAnswers = ListField(EmbeddedDocumentField(Translation))
+    possibleAnswers = ListField(EmbeddedDocumentField(AnswerOption))  # New structure
     answer_type = StringField(required=True, choices=['multi-select', 'text', 'select'])
     icfCode = StringField(default='')
     createdAt = DateTimeField(default=timezone.now)
