@@ -29,22 +29,25 @@ const InterventionList = () => {
       const data = await apiClient.get(`/patients/get-questions/Healthstatus/${localStorage.getItem("id")}/`);
       const res = data.data;
       const language = localStorage.getItem("language") || "en";
-  
-      const formattedQuestions = res.questions.map((q) => {
-        const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
-      
-        const options = q.possibleAnswers || [];
+      if(!res){
+        const formattedQuestions = res.questions.map((q) => {
+          const label = q.translations.find(t => t.language === language)?.text || q.translations[0]?.text || '';
+        
+          const options = q.possibleAnswers || [];
 
-        return {
-            questionKey: q.questionKey,
-            label,
-            options: q.possibleAnswers || [],
-            type: q.answerType,
-        };
-      });
-  
-      setFeedbackQuestions(formattedQuestions);
-      setShowHealthPopup(true);
+          return {
+              questionKey: q.questionKey,
+              label,
+              options: q.possibleAnswers || [],
+              type: q.answerType,
+          };
+        });
+      
+    
+        setFeedbackQuestions(formattedQuestions);
+        setShowHealthPopup(true);
+      
+      }
     } catch (error) {
       console.error("Error fetching health questionnaire:", error);
     }
