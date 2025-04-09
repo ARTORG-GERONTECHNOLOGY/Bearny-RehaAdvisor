@@ -246,7 +246,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     <Modal.Body>
       {/* Existing recommended section */}
       <Row className="pb-3 mb-3 border-bottom">
-        <h5>{t("Recomended to patients:")}</h5>
+        <h5>{t("Recomended to patients")}:</h5>
         {item.patient_types.map((type, idx) => (
           <Row>
             <Col>
@@ -382,7 +382,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
                         className="me-2"
                       />
                       {t(diagnosis)}{' '}
-                      {showRecommended && <span className="text-success">({t("recommended")})</span>}
+                      {showRecommended && <span className="text-success">({t("Recommended")})</span>}
                     </label>
                   </ListGroup.Item>
                 );

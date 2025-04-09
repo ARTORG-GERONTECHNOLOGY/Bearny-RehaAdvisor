@@ -9,7 +9,7 @@ from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
-from core.models import Intervention, GeneralFeedback, User, Patient, Therapist, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs, FeedbackQuestion, FeedbackEntry, PatientICFRating
+from core.models import Intervention, GeneralFeedback, User, Patient, Translation, Therapist, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs, FeedbackQuestion, FeedbackEntry, PatientICFRating, AnswerOption
 from utils.utils import (
     convert_to_serializable,
     serialize_datetime,
@@ -67,11 +67,9 @@ def patient_post_questionnaire_feedback(request):
         if not responses:
             return JsonResponse({'error': 'No feedback responses provided.'}, status=400)
 
-        # Retrieve patient
         patient = Patient.objects.get(userId=ObjectId(user_id))
 
         if intervention_id:
-            # Handle intervention-based feedback
             intervention = Intervention.objects.get(id=ObjectId(intervention_id))
             rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
             if not rehab_plan:
@@ -81,7 +79,6 @@ def patient_post_questionnaire_feedback(request):
             start = datetime.combine(today, datetime.min.time())
             end = datetime.combine(today, datetime.max.time())
 
-            # Find or create today's log
             log = PatientInterventionLogs.objects(
                 userId=patient,
                 interventionId=intervention,
@@ -108,20 +105,44 @@ def patient_post_questionnaire_feedback(request):
                 ).first()
 
                 if not question_obj:
-                    continue  # Skip if question not found
+                    continue
 
-                answer_str = ", ".join(answer) if isinstance(answer, list) else str(answer)
+                answer_keys = []
+
+                if isinstance(answer, list):
+                    for ans in answer:
+                        key_match = None
+                        for opt in question_obj.possibleAnswers:
+                            if opt.key == ans:
+                                key_match = opt
+                                break
+                            if key_match:
+                                break
+                        if key_match:
+                            answer_keys.append(key_match)
+                        else:
+                            # fallback if not found
+                            answer_keys.append(AnswerOption(
+                                key=ans,
+                                translations=[Translation(language='en', text=ans)]
+                            ))
+                else:
+                    answer_keys.append(AnswerOption(
+                                key='text',
+                                translations=[Translation(language='en', text=answer)]
+                            ))
+                    
 
                 log.feedback.append(FeedbackEntry(
                     questionId=question_obj,
-                    answer=sanitize_text(answer_str)
+                    answerKey=answer_keys
                 ))
 
             log.updatedAt = timezone.now()
             log.save()
 
         else:
-            # Handle Healthstatus feedback using PatientICFRating
+            # Handle Healthstatus feedback
             for response in responses:
                 question_text = response.get("question", '')
                 answer = response.get("answer")
@@ -135,18 +156,43 @@ def patient_post_questionnaire_feedback(request):
                 if not question_obj:
                     continue
 
-                answer_int = int(answer) if isinstance(answer, (int, str)) and str(answer).isdigit() else None
+                rating = int(answer[0]) if isinstance(answer, list) and str(answer[0]).isdigit() else None
+                answer_keys = []
 
+                if isinstance(answer, list):
+                    for ans in answer:
+                        key_match = None
+                        for opt in question_obj.possibleAnswers:
+                            if opt.key == ans:
+                                key_match = opt
+                                break
+                            if key_match:
+                                break
+                        if key_match:
+                            answer_keys.append(key_match)
+                        else:
+                            # fallback if not found
+                            answer_keys.append(AnswerOption(
+                                key=ans,
+                                translations=[Translation(language='en', text=ans)]
+                            ))
+                else:
+                    answer_keys.append(AnswerOption(
+                                key='text',
+                                translations=[Translation(language='en', text=answer)]
+                            ))
+
+                print('hi')
                 PatientICFRating.objects.create(
                     questionId=question_obj,
                     patientId=patient,
                     icfCode=question_obj.icfCode,
-                    rating=answer_int,
+                    rating=rating,
                     notes=notes,
                     feedback_entries=[
                         FeedbackEntry(
                             questionId=question_obj,
-                            answer=sanitize_text(str(answer))
+                            answerKey=answer_keys
                         )
                     ]
                 )
@@ -159,7 +205,6 @@ def patient_post_questionnaire_feedback(request):
         return JsonResponse({'error': 'Intervention not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
 
 
 @csrf_exempt
@@ -257,27 +302,6 @@ def mark_intervention_done_by_patient(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def get_rehab_data(request, patient_id):
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-    try:
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
-        reha_data = PatientInterventions.get_patient_interventions_with_feedback_and_future_dates(patient)
-        return JsonResponse({
-            'reha_data': reha_data,
-            'patient_name': f'{patient.first_name} {patient.name}',
-            'function': patient.function
-        }, safe=False, json_dumps_params={'default': serialize_datetime}, status=200)
-    except Patient.DoesNotExist:
-        return JsonResponse({'error': 'Patient not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_recommendation_options_for_patient(request, patient_id):
@@ -361,8 +385,6 @@ def get_patient_reha_plan(request, patient_id):
                     interventionId=intervention_obj
                 )
 
-                # Parse feedback logs
-                today = timezone.now().date()
                 feedback_data = []
                 completion_dates = []
 
@@ -370,14 +392,36 @@ def get_patient_reha_plan(request, patient_id):
                     if "completed" in log.status:
                         completion_dates.append(log.date.isoformat())
 
-                    # Today's feedback
                     if log.date.date() == today:
                         for fb in log.feedback:
-                            feedback_data.append({
-                                'date': log.date.isoformat(),
-                                'comment': getattr(log, 'comments', ''),
-                                'rating': fb.answer
-                            })
+                            if fb.questionId:
+                                # Match the selected answer with all translations
+                                answer_translations = []
+                                for option in fb.questionId.possibleAnswers:
+                                    if option.key == fb.answerKey:
+                                        answer_translations = [
+                                            {'language': t.language, 'text': t.text}
+                                            for t in option.translations
+                                        ]
+                                        break
+
+                                question_translations = [
+                                    {'language': t.language, 'text': t.text}
+                                    for t in fb.questionId.translations
+                                ]
+
+                                feedback_data.append({
+                                    'date': log.date.isoformat(),
+                                    'question': {
+                                        'id': str(fb.questionId.id),
+                                        'translations': question_translations
+                                    },
+                                    'answer': {
+                                        'key': fb.answerKey,
+                                        'translations': answer_translations
+                                    },
+                                    'comment': fb.comment or ''
+                                })
 
                 # Build the response structure
                 rec_data = {
@@ -397,6 +441,7 @@ def get_patient_reha_plan(request, patient_id):
                     'duration': intervention_obj.duration,
                     'feedback': feedback_data
                 }
+
                 # Handle content type: link or media file
                 if intervention_obj.link:
                     rec_data["link"] = intervention_obj.link
@@ -414,6 +459,7 @@ def get_patient_reha_plan(request, patient_id):
             return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
+
 
 
 @csrf_exempt
@@ -482,17 +528,15 @@ def get_feedback_questions(request, questionaire_type, patient_id):
             # Get previous ICF ratings for the patient
             ratings = list(PatientICFRating.objects.filter(patientId=patient))
 
-            if ratings: # TODO
+            if ratings:
                 sorted_ratings = sorted(ratings, key=lambda r: r.rating)
                 strong_icfs = [r.icfCode for r in sorted_ratings[:2]]
                 weak_icfs = [r.icfCode for r in sorted_ratings[-4:]]
                 icf_codes = list(set(strong_icfs + weak_icfs))
             else:
-                # If no ratings, pick random questions
                 all_codes = FeedbackQuestion.objects.filter(questionSubject="Healthstatus").distinct('icfCode')
                 icf_codes = random.sample(all_codes, min(5, len(all_codes)))
 
-            # Get questions that match the ICF codes
             questions = FeedbackQuestion.objects.filter(icfCode__in=icf_codes, questionSubject="Healthstatus")
 
         elif questionaire_type == 'Intervention':
@@ -507,7 +551,13 @@ def get_feedback_questions(request, questionaire_type, patient_id):
                 "questionKey": q.questionKey,
                 "answerType": q.answer_type,
                 "translations": [{"language": t.language, "text": t.text} for t in q.translations],
-                "possibleAnswers": [{"language": t.language, "text": t.text} for t in q.possibleAnswers]
+                "possibleAnswers": [
+                    {
+                        "key": ans.key,
+                        "translations": [{"language": t.language, "text": t.text} for t in ans.translations]
+                    }
+                    for ans in q.possibleAnswers
+                ] if q.possibleAnswers else []
             }
             for q in questions
         ]
@@ -645,22 +695,47 @@ def get_rehabilitation_plan(request, patient_id):
                 if log and log.feedback:
                     for fb in log.feedback:
                         if fb.questionId:
-                            feedback_entries.append({
-                                'question': {
-                                    'id': str(fb.questionId.id),
-                                    'translations': [
+                            # Prepare question info
+                            question_data = {
+                                'id': str(fb.questionId.id),
+                                'translations': [
+                                    {'language': t.language, 'text': t.text}
+                                    for t in fb.questionId.translations
+                                ]
+                            }
+
+                            # Get full translation of selected answer key
+                            selected_answer_translations = []
+                            for option in fb.questionId.possibleAnswers:
+                                if option.key == fb.answerKey:
+                                    selected_answer_translations = [
                                         {'language': t.language, 'text': t.text}
-                                        for t in fb.questionId.translations
+                                        for t in option.translations
                                     ]
-                                },
+                                    break
+
+                            feedback_entries.append({
+                                'question': question_data,
                                 'comment': fb.comment,
-                                'answer': fb.answer
+                                'answer': [
+                                    {
+                                        'key': opt.key,
+                                        'translations': [
+                                            {'language': t.language, 'text': t.text}
+                                            for t in opt.translations
+                                        ]
+                                    }
+                                    for opt in fb.answerKey
+                                ]
+
                             })
 
                             # Optional: calculate average rating if numeric
-                            if fb.answer.isdigit():
-                                rating_sum_int += int(fb.answer)
+                            try:
+                                rating_sum_int += int(fb.answerKey)
                                 rating_num_int += 1
+                            except (ValueError, TypeError):
+                                pass
 
                 date_data = {
                     'datetime': date.isoformat(),
@@ -672,7 +747,6 @@ def get_rehabilitation_plan(request, patient_id):
 
                 intervention_dates.append(date_data)
 
-
             plan_data['interventions'].append({
                 '_id': str(intervention_obj.id),
                 'title': intervention_name,
@@ -682,7 +756,7 @@ def get_rehabilitation_plan(request, patient_id):
                 'totalCount': totalnum_int,
                 'currentTotalCount': current_total_int,
                 'completedCount': completed_int,
-                'averageRating': (rating_sum_int / rating_num_int) if rating_num_int > 0 else 0,
+                'averageRating': round((rating_sum_int / rating_num_int), 1) if rating_num_int > 0 else 0,
                 'duration': getattr(intervention_obj, 'duration', 0)
             })
 
@@ -704,8 +778,7 @@ def del_rehabilitation_plan_intervention(request):
     try:
         data = json.loads(request.body)
         intervention = data.get('intervention')
-        # 
-        patient = Patient.objects.get(id=ObjectId(data.get(patientId)))
+        patient = Patient.objects.get(id=ObjectId(data.get('patientId')))
         plan = RehabilitationPlan.objects.get(patientId=patient)
 
         now = datetime.utcnow()
@@ -713,15 +786,10 @@ def del_rehabilitation_plan_intervention(request):
         for i in plan.interventions:
             if str(i.interventionId.pk) == str(intervention):
                 # Keep only past or current dates
-                i.dates = [d for d in i.dates if d.datetime <= now]
+                i.dates = [d for d in i.dates if d <= now]
 
-        # Optionally remove the intervention entirely if no dates left
+        # Remove interventions that have no dates left
         plan.interventions = [i for i in plan.interventions if i.dates]
-
-        plan.save()
-
-
-        plan["interventions"] = updated_interventions
         plan.save()
 
         return JsonResponse({"message": "Intervention removed from rehabilitation plan."}, status=200)

@@ -6,7 +6,7 @@ import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
 import apiClient from '../api/client';
-import { t} from 'i18next';
+import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import config from '../config/config.json'
 import AddInterventionModal from '../components/AddRecomendationModal';
@@ -36,7 +36,8 @@ const RehabTable: React.FC = () => {
   const [recommendationTypeFilter, setRecommendationTypeFilter] = useState<string>('');
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const userLang = t.language || 'en';
+  const { i18n, t } = useTranslation();
+  const userLang = i18n.language?.slice(0, 2) || 'en';
   // @ts-ignore
   const specialisations = authStore.specialisation.split(',').map(s => s.trim())
   const diagnoses = Array.isArray(specialisations)
@@ -114,17 +115,17 @@ const RehabTable: React.FC = () => {
           patientId: patientUsername,
           intervention: intervention,
         });
-    if (res.status == 200 || res.status == 201) {
-      console.error('Error loading all interventions');
+      if (res.status == 200 || res.status == 201) {
+          fetchAll();
+          fetchInts();
 
-          
-        }
+            
+          }
       } catch (e) {
         console.error('Error loading all interventions', e);
       }
 
       console.log('Intervention removed for patient:', patientUsername);
-      fetchInts();
 
   };
 
@@ -349,8 +350,16 @@ const RehabTable: React.FC = () => {
 
       {selectedExercise && ShowInfoInterventionModal && <PatientInterventionPopUp show={true} item={selectedExercise} handleClose={() => setShowInfoInterventionModal(false)} />}
 
-      {showRepeatModal && <InterventionRepeatModal show={true} onHide={() => setshowRepeatModal(false)} patient={localStorage.getItem('selectedPatient') || patientUsername} intervention={selectedExercise} />}
-      
+      {showRepeatModal && (
+        <InterventionRepeatModal
+          show={true}
+          onHide={() => setshowRepeatModal(false)}
+          onSuccess={fetchAll}
+          patient={localStorage.getItem('selectedPatient') || patientUsername}
+          intervention={selectedExercise}
+        />
+      )}
+
       {showInterFeedbackModal && selectedExercise && <Modal show={showInterFeedbackModal} onHide={() => setShowInterFeedbackModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>{selectedExercise.title} ({selectedDate})</Modal.Title> 
@@ -374,13 +383,20 @@ const RehabTable: React.FC = () => {
                         entry.question?.translations?.find(t => t.language === userLang)?.text ||
                         entry.question?.translations?.find(t => t.language === 'en')?.text ||
                         "";
-
+                    
                       return (
-                        
                         <div key={idx} className="mb-3">
-                          <hr /> {/* Divider here */}
+                          <hr />
                           <p><strong>{questionText}</strong></p>
-                          <p>{entry.answer}</p>
+                          <ul className="mb-0">
+                            {entry.answer.map((ans, i) => {
+                              const translation = ans.translations.find(t => t.language === userLang)?.text
+                                || ans.translations.find(t => t.language === 'en')?.text
+                                || ans.key;
+                    
+                              return <li key={i}>{translation}</li>;
+                            })}
+                          </ul>
                         </div>
                       );
                     })
