@@ -4,6 +4,43 @@ from bson import ObjectId
 from pymongo import MongoClient
 from datetime import timedelta
 from core.models import Therapist, Patient
+import re
+import unicodedata
+
+def sanitize_text(text, is_name=False):
+    if not isinstance(text, str):
+        return text  # return unchanged if not a string
+
+    # Replace special characters like ä → ae
+    char_map = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue',
+        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+        'ß': 'ss'
+    }
+    for original, replacement in char_map.items():
+        text = text.replace(original, replacement)
+
+    # Normalize accents (é → e)
+    text = unicodedata.normalize('NFKD', text)
+    text = text.encode('ASCII', 'ignore').decode('utf-8')
+
+    # Strip leading/trailing and collapse inner whitespace
+    text = text.strip()
+    text = re.sub(r'\s+', ' ', text)
+
+    if is_name:
+        # Capitalize each word (Name Case)
+        text = ' '.join(word.capitalize() for word in text.split())
+    else:
+        # Lowercase then capitalize first letter
+        text = text.capitalize()
+        # Add punctuation if missing
+        if text and text[-1] not in '.!?':
+            text += '.'
+
+    return text
+
+
 
 def parse_start_date(start_date):
     if isinstance(start_date, str):
