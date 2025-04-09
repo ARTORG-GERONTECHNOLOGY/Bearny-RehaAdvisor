@@ -365,7 +365,6 @@ def get_patient_recommendations(request, patient_id):
 def get_patient_reha_plan(request, patient_id):
     if request.method == 'GET':
         try:
-            # Fetch patient and their rehab plan
             patient = Patient.objects.get(userId=ObjectId(patient_id))
             rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
@@ -377,8 +376,6 @@ def get_patient_reha_plan(request, patient_id):
 
             for intervention in rehab_plan.interventions:
                 intervention_obj = intervention.interventionId
-
-                # Fetch all logs for this patient and this intervention
                 logs = PatientInterventionLogs.objects(
                     userId=patient,
                     rehabilitationPlanId=rehab_plan,
@@ -394,36 +391,39 @@ def get_patient_reha_plan(request, patient_id):
 
                     if log.date.date() == today:
                         for fb in log.feedback:
-                            if fb.questionId:
-                                # Match the selected answer with all translations
-                                answer_translations = []
-                                for option in fb.questionId.possibleAnswers:
-                                    if option.key == fb.answerKey:
-                                        answer_translations = [
-                                            {'language': t.language, 'text': t.text}
-                                            for t in option.translations
-                                        ]
-                                        break
+                            if not fb.questionId:
+                                continue
 
-                                question_translations = [
-                                    {'language': t.language, 'text': t.text}
-                                    for t in fb.questionId.translations
-                                ]
+                            question_translations = [
+                                {'language': t.language, 'text': t.text}
+                                for t in fb.questionId.translations
+                            ]
 
-                                feedback_data.append({
-                                    'date': log.date.isoformat(),
-                                    'question': {
-                                        'id': str(fb.questionId.id),
-                                        'translations': question_translations
-                                    },
-                                    'answer': {
-                                        'key': fb.answerKey,
-                                        'translations': answer_translations
-                                    },
-                                    'comment': fb.comment or ''
-                                })
+                            # Support for multi or single select answers
+                            answer_output = []
+                            if isinstance(fb.answerKey, list):
+                                keys = fb.answerKey
+                            else:
+                                keys = [fb.answerKey]
 
-                # Build the response structure
+                            for key in keys:
+                                option = next((opt for opt in fb.questionId.possibleAnswers if opt.key == key), None)
+                                if option:
+                                    answer_output.append({
+                                        'key': option.key,
+                                        'translations': [{'language': t.language, 'text': t.text} for t in option.translations]
+                                    })
+
+                            feedback_data.append({
+                                'date': log.date.isoformat(),
+                                'question': {
+                                    'id': str(fb.questionId.id),
+                                    'translations': question_translations
+                                },
+                                'answer': answer_output,
+                                'comment': fb.comment or ''
+                            })
+
                 rec_data = {
                     'intervention_id': str(intervention_obj.pk),
                     'intervention_title': intervention_obj.title,
@@ -442,14 +442,12 @@ def get_patient_reha_plan(request, patient_id):
                     'feedback': feedback_data
                 }
 
-                # Handle content type: link or media file
                 if intervention_obj.link:
                     rec_data["link"] = intervention_obj.link
                 elif intervention_obj.media_file:
                     media_file = intervention_obj.media_file
                     if media_file:
-                        media_file_path = os.path.join(settings.MEDIA_URL, media_file)
-                        rec_data["media_file"] = f'{settings.MEDIA_HOST}{media_file_path}'
+                        rec_data["media_file"] = f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, media_file)}"
 
                 today_interventions.append(rec_data)
 
@@ -459,7 +457,6 @@ def get_patient_reha_plan(request, patient_id):
             return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
-
 
 
 @csrf_exempt
@@ -492,29 +489,6 @@ def create_patient_intervention_log(request):
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def create_patient_icf_rating(request):
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-    try:
-        data = json.loads(request.body)
-        patient = Patient.objects.get(id=ObjectId(data.get("patientId")))
-
-        icf_rating = PatientICFRating(
-            patientId=patient,
-            icfCode=data.get("icfCode"),
-            date=timezone.now(),
-            rating=int(data.get("rating")),
-            notes=sanitize_text(data.get("notes", ""))
-        )
-        icf_rating.save()
-        return JsonResponse({'message': 'ICF Rating recorded successfully'}, status=201)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
 def get_feedback_questions(request, questionaire_type, patient_id):
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
@@ -524,12 +498,27 @@ def get_feedback_questions(request, questionaire_type, patient_id):
 
         if questionaire_type == 'Healthstatus':
             patient = Patient.objects.get(userId=ObjectId(patient_id))
+            today = timezone.now().date()
 
-            # Get previous ICF ratings for the patient
+            # Check if feedback already exists for today
+            today_ratings = PatientICFRating.objects.filter(
+                patientId=patient,
+                date__gte=datetime.combine(today, datetime.min.time()),
+                date__lte=datetime.combine(today, datetime.max.time()),
+                feedback_entries__exists=True,
+                feedback_entries__ne=[]
+            )
+
+            if today_ratings:
+                # Feedback already submitted today — return empty set
+                return JsonResponse({"questions": []}, safe=False)
+
+            # Get previous ICF ratings
             ratings = list(PatientICFRating.objects.filter(patientId=patient))
+            valid_ratings = [r for r in ratings if r.rating is not None]
 
-            if ratings:
-                sorted_ratings = sorted(ratings, key=lambda r: r.rating)
+            if valid_ratings:
+                sorted_ratings = sorted(valid_ratings, key=lambda r: r.rating)
                 strong_icfs = [r.icfCode for r in sorted_ratings[:2]]
                 weak_icfs = [r.icfCode for r in sorted_ratings[-4:]]
                 icf_codes = list(set(strong_icfs + weak_icfs))
@@ -545,7 +534,6 @@ def get_feedback_questions(request, questionaire_type, patient_id):
         else:
             return JsonResponse({'error': 'Invalid questionnaire type.'}, status=400)
 
-        # Serialize questions
         questions_data = [
             {
                 "questionKey": q.questionKey,
