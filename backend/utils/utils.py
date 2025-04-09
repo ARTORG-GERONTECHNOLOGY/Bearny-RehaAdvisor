@@ -6,6 +6,8 @@ from datetime import timedelta
 from core.models import Therapist, Patient
 import re
 import unicodedata
+from django.utils.timezone import make_aware, is_naive
+
 
 def sanitize_text(text, is_name=False):
     if not isinstance(text, str):
@@ -31,12 +33,6 @@ def sanitize_text(text, is_name=False):
     if is_name:
         # Capitalize each word (Name Case)
         text = ' '.join(word.capitalize() for word in text.split())
-    else:
-        # Lowercase then capitalize first letter
-        text = text.capitalize()
-        # Add punctuation if missing
-        if text and text[-1] not in '.!?':
-            text += '.'
 
     return text
 
@@ -54,40 +50,45 @@ def parse_start_date(start_date):
         return timezone.now().replace(tzinfo=None)
 
 def generate_repeat_dates(patient_end_date, repeat_data):
-    print(repeat_data)
     interval = repeat_data.get("interval", 1)
     unit = repeat_data.get("unit")
     selected_days = repeat_data.get("selectedDays", [])
     end_type = repeat_data["end"]["type"]
+    end_date_limit = None
     temp = repeat_data["end"].get("date", False)
     if temp:
-        end_date_limit = datetime.fromisoformat(repeat_data["end"].get("date").replace("Z", "+00:00")).isoformat()
-    count_limit = repeat_data["end"].get("count")
-    start_date =  repeat_data.get("startDate", timezone.now())
+        end_date_limit = datetime.fromisoformat(temp.replace("Z", "+00:00"))
 
-    # Weekday map for converting to weekday index
+    count_limit = repeat_data["end"].get("count")
+
+    start_date_raw = repeat_data.get("startDate", timezone.now())
+    if isinstance(start_date_raw, str):
+        current_date = datetime.fromisoformat(start_date_raw.replace("Z", "+00:00"))
+    else:
+        current_date = start_date_raw
+
     day_map = {
         "Mon": 0, "Dien": 1, "Mitt": 2, "Don": 3,
         "Fre": 4, "Sam": 5, "Son": 6
     }
-    if unit != 'day':
-        # Convert weekday names to their corresponding numbers
-        selected_weekday_nums = sorted([day_map[day] for day in selected_days])
-        selected_day_indices = [day_map[day] for day in selected_days if day in day_map]
+    selected_day_indices = [day_map[day] for day in selected_days if day in day_map]
 
-    # Final end date limit
-    if end_type == "date" and end_date_limit:
-        final_end_date = min(end_date_limit, patient_end_date)
-    else:
-        final_end_date = patient_end_date
+    if end_date_limit and is_naive(end_date_limit):
+        end_date_limit = make_aware(end_date_limit)
+
+    if is_naive(patient_end_date):
+        patient_end_date = make_aware(patient_end_date)
+
+    final_end_date = min(end_date_limit, patient_end_date) if end_date_limit else patient_end_date
+
+    if is_naive(current_date):
+        current_date = make_aware(current_date)
+
 
     generated_dates = []
-    current_date = parse_start_date(start_date)
-
     occurrence = 0
+
     while current_date <= final_end_date:
-        print(current_date)
-        print(generated_dates)
         if unit == "day":
             generated_dates.append(current_date)
             occurrence += 1
@@ -97,14 +98,11 @@ def generate_repeat_dates(patient_end_date, repeat_data):
             week_start = current_date
             for i in range(7):
                 day = week_start + timedelta(days=i)
-                print(day.weekday())
-                print('hi')
-                print(selected_day_indices)
                 if day.weekday() in selected_day_indices and day <= final_end_date:
                     generated_dates.append(day)
                     occurrence += 1
                     if end_type == "count" and occurrence >= count_limit:
-                        return [d.isoformat() for d in generated_dates]
+                        return generated_dates
             current_date += timedelta(weeks=interval)
 
         elif unit == "month":
@@ -115,7 +113,8 @@ def generate_repeat_dates(patient_end_date, repeat_data):
         if end_type == "count" and occurrence >= count_limit:
             break
 
-    return [datetime.fromisoformat(d.isoformat()) for d in generated_dates]
+    return generated_dates
+
 
 
 

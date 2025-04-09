@@ -30,7 +30,7 @@ urlpatterns = [
      # Therapist's Patient Management
      path('api/therapists/<str:therapist_id>/patients/', therapist_views.get_patients_by_therapist,
           name='get_patients_by_therapist'),
-     path('api/patients/patient/<str:patient_id>/', patient_views.get_patient, name='get_patient'),
+     path('api/patients/info/patient/<str:patient_id>/', patient_views.get_patient, name='get_patient'),
      path('api/recommendations/add-to-patient/', patient_views.create_rehabilitation_plan,
           name='create_rehabilitation_plan'),
      path('api/recommendations/assign-to-patient-types/', recomendation_views.assign_intervention_to_patient_types,
