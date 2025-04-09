@@ -36,7 +36,11 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
   // Only allow the supported locales
   const supportedLocales = ['en', 'fr', 'de', 'it'];
   const localeToUse = supportedLocales.includes(i18n.language) ? i18n.language : 'en';
-
+  const [date, setDate] = useState(new Date());
+  const handleNavigate = (newDate) => {
+    setDate(newDate);
+  };
+  
   moment.locale(localeToUse);
   const localizer = momentLocalizer(moment);
   const [view, setView] = useState(Views.AGENDA);
@@ -96,28 +100,30 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
   return (
     <div style={{ height: '80vh' }}>
       <Calendar
-        localizer={localizer}
-        events={events}
-        views={['month', 'week', 'day', 'agenda']}
-        view={view}
-        onView={(v) => setView(v)}
-        startAccessor="start"
-        endAccessor="end"
-        onSelectEvent={onSelectEvent}
-        style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '10px' }}
-        eventPropGetter={eventStyleGetter}
-        messages={calendarMessages}
-        formats={{
-          dayFormat: (date) => format(date, 'PP', { locale: currentLocale }),
-          dayHeaderFormat: (date) => format(date, 'PPPP', { locale: currentLocale }),
-          agendaDateFormat: (date) => format(date, 'PP', { locale: currentLocale }),
-          agendaTimeFormat: (date) => format(date, 'p', { locale: currentLocale }),
-          timeGutterFormat: (date) => format(date, 'p', { locale: currentLocale }),
-          agendaHeaderFormat: ({ start, end }) =>
-            `${format(start, 'P', { locale: currentLocale })} – ${format(end, 'P', { locale: currentLocale })}`,
-        }}
-        
-      />
+      localizer={localizer}
+      events={events}
+      date={date} // ← required for navigation
+      onNavigate={handleNavigate} // ← handle date changes
+      views={['month', 'week', 'day', 'agenda']}
+      view={view}
+      onView={(v) => setView(v)}
+      startAccessor="start"
+      endAccessor="end"
+      onSelectEvent={onSelectEvent}
+      style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '10px' }}
+      eventPropGetter={eventStyleGetter}
+      messages={calendarMessages}
+      formats={{
+        dayFormat: (date) => format(date, 'PP', { locale: currentLocale }),
+        dayHeaderFormat: (date) => format(date, 'PPPP', { locale: currentLocale }),
+        agendaDateFormat: (date) => format(date, 'PP', { locale: currentLocale }),
+        agendaTimeFormat: (date) => format(date, 'p', { locale: currentLocale }),
+        timeGutterFormat: (date) => format(date, 'p', { locale: currentLocale }),
+        agendaHeaderFormat: ({ start, end }) =>
+          `${format(start, 'P', { locale: currentLocale })} – ${format(end, 'P', { locale: currentLocale })}`,
+      }}
+    />
+
     </div>
   );
 };
