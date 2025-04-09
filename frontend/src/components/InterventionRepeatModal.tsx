@@ -11,11 +11,13 @@ const weekdays = ['Mon', 'Dien', 'Mitt', 'Don', 'Fre', 'Sam', 'Son'];
 interface Props {
   show: boolean;
   onHide: () => void;
+  onSuccess?: () => void; // <- Add this
   patient: string;
   intervention: string;
 }
 
-const InterventionRepeatModal: React.FC<Props> = ({ show, onHide, patient, intervention }) => {
+
+const InterventionRepeatModal: React.FC<Props> = ({ show, onHide, onSuccess, patient, intervention }) => {
   const specialisations = authStore.specialisation.split(',').map(s => s.trim())
   const diagnoses = Array.isArray(specialisations)
   ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
@@ -70,6 +72,7 @@ const InterventionRepeatModal: React.FC<Props> = ({ show, onHide, patient, inter
       );
       if (res.status == 200 || res.status == 201) {
         setSuccess(true)
+        if (onSuccess) onSuccess(); // <- Trigger callback to fetchAll
         
       }
     } catch (e) {
