@@ -117,7 +117,11 @@ const Therapist: React.FC = () => {
 
       <Container className="main-content mt-4">
         <WelcomeArea user={'Therapist'} />
+        <Row className="mb-3">
+        <Col>
         <Button onClick={handleOpen}>{t("Add a New Patient")}</Button>
+        </Col>
+        </Row>
 
         {/* Search and Filter Options */}
         <Row className="mb-3">

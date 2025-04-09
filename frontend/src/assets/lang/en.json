@@ -1,4 +1,23 @@
 {
+  "Total Sessions": "Total Sessions",
+  "Current Sessions": "Current Sessions",
+  "Current Feedback Answered": "Current Feedback Answered",
+  "No statistics available": "No statistics available",
+  "No feedback available": "No feedback available",
+  "Feedback": "Feedback",
+  "Statistics": "Statistics",
+  "Calendar": {
+    "today": "Today",
+    "previous": "Back",
+    "next": "Next",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "agenda": "Agenda",
+    "showMore": "+{{count}} more"
+  },
+  "Recommended": "Recommended",
+"Recomended to patients": "Recomended to patients",
 "Here are your recommendations for": "Here are your recommendations for",
 "Missed": "Missed",
 "Duration": "Duration",

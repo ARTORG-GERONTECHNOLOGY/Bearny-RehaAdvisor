@@ -2,11 +2,25 @@ import React, { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { parseISO, format } from 'date-fns';
-import moment from 'moment';
 import { Button } from 'react-bootstrap';
-import { t} from 'i18next';
+import { useTranslation } from 'react-i18next';
+import { de, fr, enGB, it } from 'date-fns/locale';
+import moment from 'moment';
+import 'moment/locale/fr';
+import 'moment/locale/de';
+import 'moment/locale/it';
 
-const localizer = momentLocalizer(moment);
+
+const localeMap = {
+  de: de,
+  fr: fr,
+  en: enGB,
+  it: it
+  // Add more as needed
+};
+
+
+
 
 interface InterventionCalendarProps {
   interventions: any[];
@@ -17,7 +31,28 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
   interventions,
   onSelectEvent
 }) => {
+  const { i18n } = useTranslation();
+
+  // Only allow the supported locales
+  const supportedLocales = ['en', 'fr', 'de', 'it'];
+  const localeToUse = supportedLocales.includes(i18n.language) ? i18n.language : 'en';
+
+  moment.locale(localeToUse);
+  const localizer = momentLocalizer(moment);
   const [view, setView] = useState(Views.AGENDA);
+  const { t } = useTranslation();
+  const currentLang = t.language || 'en';
+  const currentLocale = localeMap[currentLang] || enGB;
+  const calendarMessages = {
+    today: t('Calendar.today'),
+    previous: t('Calendar.previous'),
+    next: t('Calendar.next'),
+    month: t('Calendar.month'),
+    week: t('Calendar.week'),
+    day: t('Calendar.day'),
+    agenda: t('Calendar.agenda'),
+    showMore: (count: number) => t('Calendar.showMore', { count }),
+  };
 
   const events = useMemo(() => {
     const allEvents = [];
@@ -71,15 +106,17 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
         onSelectEvent={onSelectEvent}
         style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '10px' }}
         eventPropGetter={eventStyleGetter}
+        messages={calendarMessages}
         formats={{
-          dayFormat: (date, culture, localizer) => format(date, 'yyyy-MM-dd'),
-          dayHeaderFormat: (date, culture, localizer) => format(date, 'yyyy-MM-dd'),
-          agendaDateFormat: (date, culture, localizer) => format(date, 'yyyy-MM-dd'),
-          agendaTimeFormat: (date, culture, localizer) => format(date, 'HH:mm'),
-          timeGutterFormat: (date, culture, localizer) => format(date, 'HH:mm'),
-          agendaHeaderFormat: ({ start, end }, culture, localizer) =>
-            `${format(start, 'yyyy-MM-dd')} – ${format(end, 'yyyy-MM-dd')}`,
+          dayFormat: (date) => format(date, 'PP', { locale: currentLocale }),
+          dayHeaderFormat: (date) => format(date, 'PPPP', { locale: currentLocale }),
+          agendaDateFormat: (date) => format(date, 'PP', { locale: currentLocale }),
+          agendaTimeFormat: (date) => format(date, 'p', { locale: currentLocale }),
+          timeGutterFormat: (date) => format(date, 'p', { locale: currentLocale }),
+          agendaHeaderFormat: ({ start, end }) =>
+            `${format(start, 'P', { locale: currentLocale })} – ${format(end, 'P', { locale: currentLocale })}`,
         }}
+        
       />
     </div>
   );
