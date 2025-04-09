@@ -25,7 +25,7 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
       const fetchPatientData = async () => {
         try {
           setLoading(true);
-          const response = await apiClient.get(`patients/${patient_id.username}`);
+          const response = await apiClient.get(`patients/info/patient/${patient_id.username}/`);
           setPatientData(response.data);
           setFormData(response.data);
         } catch (error) {
