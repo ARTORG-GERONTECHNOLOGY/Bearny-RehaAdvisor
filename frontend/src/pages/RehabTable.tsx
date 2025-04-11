@@ -61,7 +61,7 @@ const RehabTable: React.FC = () => {
   };
   const fetchInts = async () => {
     try {
-      const res = await apiClient.get('recommendations/all/');
+      const res = await apiClient.get('interventions/all/');
       setAllInterventions(res.data);
       setRecommendations(res.data);
       setFilteredRecommendations(res.data)
@@ -110,7 +110,7 @@ const RehabTable: React.FC = () => {
 
   const handleDeleteExercise = async (intervention) => {
     try {
-    const res = await apiClient.post('recommendations/remove-from-patient/', 
+    const res = await apiClient.post('interventions/remove-from-patient/', 
         {
           patientId: patientUsername,
           intervention: intervention,
