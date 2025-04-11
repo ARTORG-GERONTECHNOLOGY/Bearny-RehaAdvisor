@@ -20,7 +20,7 @@ const InterventionPopup = ({ recommendation, show, handleClose, isDone, hasFeedb
 
   const fetchInterventionData = async () => {
     try {
-      const response = await apiClient.get(`recommendations/${recommendation.intervention_id}`);
+      const response = await apiClient.get(`interventions/${recommendation.intervention_id}`);
       setInterventionInfo(response.data.recommendation);
       setFeedbackList(response.data.feedback);
     } catch (error) {

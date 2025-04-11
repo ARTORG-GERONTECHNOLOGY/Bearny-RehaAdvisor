@@ -38,7 +38,7 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
   const fetchInterventions = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get(`recommendations/suggestions/${patient}`);
+      const response = await apiClient.get(`interventions/suggestions/${patient}`);
       setInterventions(response.data.recommendations);
       setFilteredInterventions(response.data.recommendations);
     } catch (error) {
