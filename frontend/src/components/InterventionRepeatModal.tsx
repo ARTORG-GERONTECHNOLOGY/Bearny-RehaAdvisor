@@ -52,7 +52,7 @@ const InterventionRepeatModal: React.FC<Props> = ({ show, onHide, onSuccess, pat
   const handleSubmit = async () => {
 
     try {
-      const path = isDiagnosis ? 'recommendations/assign-to-patient-types/' : 'recommendations/add-to-patient/'
+      const path = isDiagnosis ? 'interventions/assign-to-patient-types/' : 'interventions/add-to-patient/'
       const res = await apiClient.post(path,
         {
           therapistId: authStore.id,
