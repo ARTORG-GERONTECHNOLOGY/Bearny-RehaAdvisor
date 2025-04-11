@@ -66,7 +66,7 @@ const InterventionList = () => {
 
   const handleMarkAsDone = async (interventionId) => {
     try {
-      const res = await apiClient.post("recommendations/mark-done/", {
+      const res = await apiClient.post("interventions/complete/", {
         patient_id: localStorage.getItem("id"),
         intervention_id: interventionId,
       });

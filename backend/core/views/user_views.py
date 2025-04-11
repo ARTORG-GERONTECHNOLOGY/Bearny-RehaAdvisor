@@ -12,115 +12,144 @@ from utils.utils import (
     sanitize_text
 )
 from django.contrib.auth.hashers import check_password, make_password
+import logging
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def user_profile(request, user_id):
+def user_profile_view(request, user_id):
+    """
+    GET     /api/users/<user_id>/profile/     -> retrieve user therapist/patient profile
+    PUT     /api/users/<user_id>/profile/     -> update profile
+    DELETE  /api/users/<user_id>/profile/     -> soft-delete account
+    """
+    from django.contrib.auth.hashers import check_password, make_password
+    from datetime import datetime
+    import logging
 
-    # Fields to return in the response
-    allowed_fields_user = ["username", "email", "phone"]
-    allowed_fields_therapist = ["specializations", "clinics", "name", "first_name"]
+    logger = logging.getLogger(__name__)
+    
+    try:
+        user = User.objects.get(pk=ObjectId(user_id))
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    role = getattr(user, "role", "Patient")
 
     if request.method == 'GET':
         try:
-            user = User.objects.get(pk=ObjectId(user_id))
-            therapist = Therapist.objects.get(userId=ObjectId(user_id))
+            if role == 'Therapist':
+                therapist = Therapist.objects.get(userId=user.id)
+                data = {
+                    "username": user.username,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "name": therapist.name,
+                    "first_name": therapist.first_name,
+                    "specializations": therapist.specializations,
+                    "clinics": therapist.clinics,
+                }
+            else:
+                patient = Patient.objects.get(userId=user.id)
+                # Exclude sensitive/internal fields
+                excluded_user_fields = ["id", "pwdhash", "createdAt", "updatedAt"]
+                excluded_patient_fields = ["id", "pwdhash", "access_word", "therapist", "userId"]
 
-            # Extract data separately and combine
-            user_data = {field: getattr(user, field, None) for field in allowed_fields_user}
-            therapist_data = {field: getattr(therapist, field, None) for field in allowed_fields_therapist}
+                user_fields = [field.name for field in User._fields.values() if field.name not in excluded_user_fields]
+                patient_fields = [field.name for field in Patient._fields.values() if field.name not in excluded_patient_fields]
 
-            # Merge both dictionaries
-            combined_data = {**user_data, **therapist_data}
+                # Combine into one dictionary
+                response_data = {
+                    field: getattr(user, field, None) if field in user_fields else getattr(patient, field, None)
+                    for field in (user_fields + patient_fields)
+                }
 
-            return JsonResponse(combined_data, safe=False)
+            return JsonResponse(data, safe=False)
 
-        except User.DoesNotExist:
-            return JsonResponse({"error": "User not found"}, status=404)
-        except Therapist.DoesNotExist:
-            return JsonResponse({"error": "Therapist data not found"}, status=404)
+        except (Therapist.DoesNotExist, Patient.DoesNotExist) as e:
+            return JsonResponse({"error": f"{role} profile not found."}, status=404)
         except Exception as e:
+            logger.exception("Error fetching profile for user %s", user_id)
             return JsonResponse({"error": str(e)}, status=500)
 
     elif request.method == 'PUT':
-        allowed_fields = ["username", "name", "email", "phone", "specializations", "clinics"]
         try:
             data = json.loads(request.body)
-            user = User.objects.get(pk=ObjectId(user_id))
-            therapist = Therapist.objects.get(userId=ObjectId(user_id))
 
-            # Handle password update logic
+            # Update password if requested
             new_password = data.get("newPassword")
             old_password = data.get("oldPassword")
-            
+
             if new_password:
                 if not old_password:
-                    return JsonResponse({"error": "Old password is required to change the password."}, status=400)
-                if check_password(old_password, user['pwdhash']):
-                    make_password(new_password)
+                    return JsonResponse({"error": "Old password required."}, status=400)
+                if check_password(old_password, user.pwdhash):
+                    user.pwdhash = make_password(new_password)
+                else:
+                    return JsonResponse({"error": "Old password incorrect."}, status=403)
 
-            # Update other fields except
-            for key, value in data.items():
-                if key not in ["created_at", "oldPassword", "newPassword", "default_recommendations"] and value:
-                    setattr(user, key, value)
-                    setattr(therapist, key, value)
+            # Handle field updates
+            updated_fields = []
+            if role == 'Therapist':
+                therapist = Therapist.objects.get(userId=user.id)
+                for key in ["username", "email", "phone", "name", "first_name", "specializations", "clinics"]:
+                    val = data.get(key)
+                    if val:
+                        setattr(user if hasattr(user, key) else therapist, key, sanitize_text(val))
+                        updated_fields.append(key)
 
-            user.save()
-             # Combine user and patient data dynamically
-            user_data = {}
-            therapist_data = {}
+                user.save()
+                therapist.save()
 
-            for field in allowed_fields:
-                try:
-                    user_data[field] = sanitize_text(getattr(user, field))
-                except AttributeError:
-                    pass  # Ignore missing fields
+            elif role == 'Patient':
+                patient = Patient.objects.get(userId=user.id)
 
-            for field in allowed_fields:
-                try:
-                    therapist_data[field] = sanitize_text(getattr(therapist, field))
-                except AttributeError:
-                    pass  # Ignore missing fields
+                if data.get('reha_end_date'):
+                    try:
+                        data['reha_end_date'] = datetime.strptime(data.get('reha_end_date').split("T")[0], "%Y-%m-%d")
+                    except ValueError:
+                        return JsonResponse({'error': 'Invalid date format for reha_end_date'}, status=400)
 
-            combined_data = {**user_data, **therapist_data}
-            log = Logs(
-                        userId = user,
-                        action = 'UPDATE_PROFILE',
-                        userAgent = user.role
-                    )
-            log.save()
-            return JsonResponse(combined_data, status=200)
-        except Therapist.DoesNotExist:
-            return JsonResponse({"error": "User not found"}, status=404)
+                for model, allowed_fields in [(user, User._fields), (patient, Patient._fields)]:
+                    for key in allowed_fields:
+                        if key in data:
+                            setattr(model, key, sanitize_text(data[key]))
+                            updated_fields.append(key)
+
+                user.save()
+                patient.save()
+
+            Logs.objects.create(userId=user, action='UPDATE_PROFILE', userAgent=role)
+
+            return JsonResponse({"message": "Profile updated", "updated": updated_fields}, status=200)
+
         except Exception as e:
+            logger.exception("Error updating profile for user %s", user_id)
             return JsonResponse({"error": str(e)}, status=500)
 
     elif request.method == 'DELETE':
         try:
-            user = User.objects.get(pk=ObjectId(user_id))
-            therapist = Therapist.objects.get(userId=ObjectId(user_id))
-            log = Logs(
-                        userId = user,
-                        action = 'DELETE_ACCOUNT',
-                        userAgent = "Patient",
-                        details = f"{str(user)} {str(patient)}"
-                    )
-            log.save()
-            #user.delete()
             user.is_active = False
             user.save()
+
+            Logs.objects.create(
+                userId=user,
+                action='DELETE_ACCOUNT',
+                userAgent=role,
+                details=f"Soft-deleted account for {user.username}"
+            )
+
             return JsonResponse({"message": "User deleted successfully."}, status=200)
-        except Therapist.DoesNotExist:
-            return JsonResponse({"error": "User not found"}, status=404)
+
         except Exception as e:
+            logger.exception("Error deleting user %s", user_id)
             return JsonResponse({"error": str(e)}, status=500)
+
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def user_profile_patient(request, user_id):
 
     if request.method == 'PUT':
         

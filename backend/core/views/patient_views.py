@@ -14,12 +14,17 @@ from utils.utils import (
     convert_to_serializable,
     serialize_datetime,
     generate_repeat_dates,
-    sanitize_text
+    sanitize_text,
+    ensure_aware
 )
 import random
 import os
 from django.conf import settings
+import logging
+from core.models import Logs  # Ensure this includes action, userId, userAgent, details
+from django.utils.timezone import now as dj_now
 
+logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 FILE_TYPE_FOLDERS = {
     'mp4': 'videos',
@@ -32,29 +37,11 @@ FILE_TYPE_FOLDERS = {
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_patient(request, patient_id):
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-    try:
-        user = User.objects.get(username=patient_id)
-        patient = Patient.objects.get(userId=user)
-        # Combine all data from user and patient objects
-        # Dynamically get model fields
-        user_fields = [field.name for field in User._fields.values() if field.name not in ["id", "pwdhash", "createdAt", "updatedAt"]]
-        patient_fields = [field.name for field in Patient._fields.values() if field.name not in ["id", "pwdhash", "access_word", "therapist", 'userId']]
-        response_data = {field: getattr(user, field, None) if field in user_fields else getattr(patient, field, None) for field in (user_fields + patient_fields)}
-        return JsonResponse(response_data, status=200)
-
-    except Patient.DoesNotExist:
-        return JsonResponse({"error": "Patient not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def patient_post_questionnaire_feedback(request):
+def submit_patient_feedback(request):
+    """
+    POST /api/patients/feedback/questionnaire/
+    Submit feedback for either an intervention or healthstatus.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -69,9 +56,28 @@ def patient_post_questionnaire_feedback(request):
 
         patient = Patient.objects.get(userId=ObjectId(user_id))
 
+        def resolve_answers(question_obj, answer):
+            """ Match the submitted answer(s) to the question's possibleAnswers """
+            answer_keys = []
+            if isinstance(answer, list):
+                for ans in answer:
+                    matched = next((opt for opt in question_obj.possibleAnswers if opt.key == ans), None)
+                    answer_keys.append(matched or AnswerOption(
+                        key=ans,
+                        translations=[Translation(language='en', text=ans)]
+                    ))
+            else:
+                answer_keys.append(AnswerOption(
+                    key='text',
+                    translations=[Translation(language='en', text=str(answer))]
+                ))
+            return answer_keys
+
         if intervention_id:
+            # 🟢 Handle intervention-based feedback
             intervention = Intervention.objects.get(id=ObjectId(intervention_id))
             rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+
             if not rehab_plan:
                 return JsonResponse({'error': 'Rehabilitation plan not found.'}, status=404)
 
@@ -104,45 +110,17 @@ def patient_post_questionnaire_feedback(request):
                     translations__text=question_text
                 ).first()
 
-                if not question_obj:
-                    continue
-
-                answer_keys = []
-
-                if isinstance(answer, list):
-                    for ans in answer:
-                        key_match = None
-                        for opt in question_obj.possibleAnswers:
-                            if opt.key == ans:
-                                key_match = opt
-                                break
-                            if key_match:
-                                break
-                        if key_match:
-                            answer_keys.append(key_match)
-                        else:
-                            # fallback if not found
-                            answer_keys.append(AnswerOption(
-                                key=ans,
-                                translations=[Translation(language='en', text=ans)]
-                            ))
-                else:
-                    answer_keys.append(AnswerOption(
-                                key='text',
-                                translations=[Translation(language='en', text=answer)]
-                            ))
-                    
-
-                log.feedback.append(FeedbackEntry(
-                    questionId=question_obj,
-                    answerKey=answer_keys
-                ))
+                if question_obj:
+                    log.feedback.append(FeedbackEntry(
+                        questionId=question_obj,
+                        answerKey=resolve_answers(question_obj, answer)
+                    ))
 
             log.updatedAt = timezone.now()
             log.save()
 
         else:
-            # Handle Healthstatus feedback
+            # 🟢 Handle health status feedback
             for response in responses:
                 question_text = response.get("question", '')
                 answer = response.get("answer")
@@ -153,63 +131,46 @@ def patient_post_questionnaire_feedback(request):
                     questionSubject="Healthstatus"
                 ).first()
 
-                if not question_obj:
-                    continue
+                if question_obj:
+                    numeric_rating = (
+                        int(answer[0]) if isinstance(answer, list) and str(answer[0]).isdigit() else None
+                    )
 
-                rating = int(answer[0]) if isinstance(answer, list) and str(answer[0]).isdigit() else None
-                answer_keys = []
-
-                if isinstance(answer, list):
-                    for ans in answer:
-                        key_match = None
-                        for opt in question_obj.possibleAnswers:
-                            if opt.key == ans:
-                                key_match = opt
-                                break
-                            if key_match:
-                                break
-                        if key_match:
-                            answer_keys.append(key_match)
-                        else:
-                            # fallback if not found
-                            answer_keys.append(AnswerOption(
-                                key=ans,
-                                translations=[Translation(language='en', text=ans)]
-                            ))
-                else:
-                    answer_keys.append(AnswerOption(
-                                key='text',
-                                translations=[Translation(language='en', text=answer)]
-                            ))
-
-                print('hi')
-                PatientICFRating.objects.create(
-                    questionId=question_obj,
-                    patientId=patient,
-                    icfCode=question_obj.icfCode,
-                    rating=rating,
-                    notes=notes,
-                    feedback_entries=[
-                        FeedbackEntry(
-                            questionId=question_obj,
-                            answerKey=answer_keys
-                        )
-                    ]
-                )
+                    PatientICFRating.objects.create(
+                        questionId=question_obj,
+                        patientId=patient,
+                        icfCode=question_obj.icfCode,
+                        rating=numeric_rating,
+                        notes=notes,
+                        feedback_entries=[
+                            FeedbackEntry(
+                                questionId=question_obj,
+                                answerKey=resolve_answers(question_obj, answer)
+                            )
+                        ]
+                    )
 
         return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
 
     except Patient.DoesNotExist:
+        logger.warning(f"[submit_patient_feedback] Entity not found: {e}")
         return JsonResponse({'error': 'Patient not found.'}, status=404)
     except Intervention.DoesNotExist:
+        logger.warning(f"[submit_patient_feedback] Entity not found: {e}")
         return JsonResponse({'error': 'Intervention not found.'}, status=404)
     except Exception as e:
+        # Log exception to DB or file here if needed
+        logger.error(f"[submit_patient_feedback] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def add_intervention_to_patient(request):
+def add_intervention_to_patient_1(request):
+    """
+    POST /api/recommendations/add-to-patient/
+    Assigns an intervention to a single patient.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -221,26 +182,36 @@ def add_intervention_to_patient(request):
         if not patient_id or not intervention_id:
             return JsonResponse({'error': 'Missing patient_id or intervention_id'}, status=400)
 
-        # patient = Patient.objects.get(username=patient_id) TODO
-        patient = Patient.objects.get(userId=ObjectId(patient_id)) 
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=intervention_id)
 
+        # Create the relation if it doesn't exist already
         patient_intervention, created = PatientInterventions.get_or_create(patient, intervention)
+
         if created:
-            return JsonResponse({'message': 'Intervention added successfully'}, status=201)
+            return JsonResponse({'message': 'Intervention successfully assigned'}, status=201)
         else:
-            return JsonResponse({'error': 'Intervention already assigned'}, status=400)
+            return JsonResponse({'error': 'Intervention is already assigned to the patient'}, status=400)
+
     except Patient.DoesNotExist:
+        logger.warning(f"[add_intervention_to_patient] Entity not found: {e}")
         return JsonResponse({'error': 'Patient not found'}, status=404)
     except Intervention.DoesNotExist:
+        logger.warning(f"[add_intervention_to_patient] Entity not found: {e}")
         return JsonResponse({'error': 'Intervention not found'}, status=404)
     except Exception as e:
+        logger.error(f"[add_intervention_to_patient] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def mark_intervention_done_by_patient(request):
+def mark_intervention_completed(request):
+    """
+    POST /api/recommendations/mark-done/
+    Marks an intervention as completed for the current day.
+    Logs action and handles rapid duplicate marking.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -252,80 +223,93 @@ def mark_intervention_done_by_patient(request):
         if not patient_id or not intervention_id:
             return JsonResponse({'error': 'Missing patient_id or intervention_id'}, status=400)
 
-        # Get patient and intervention objects
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
-
-        # Get rehabilitation plan
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+
         if not rehab_plan:
-            return JsonResponse({'error': 'No rehabilitation plan found for this patient'}, status=404)
+            return JsonResponse({'error': 'Rehabilitation plan not found for this patient'}, status=404)
 
-        today = timezone.now().date()
-        start = datetime.combine(today, datetime.min.time())
-        end = datetime.combine(today, datetime.max.time())
+        now = timezone.now()
+        today_start = datetime.combine(now.date(), datetime.min.time())
+        today_end = datetime.combine(now.date(), datetime.max.time())
 
-        # Check if a log entry already exists for today
         log = PatientInterventionLogs.objects(
             userId=patient,
-            interventionId=intervention,
             rehabilitationPlanId=rehab_plan,
-            date__gte=start,
-            date__lte=end
+            interventionId=intervention,
+            date__gte=today_start,
+            date__lte=today_end
         ).first()
 
         if log:
-            if 'completed' not in log.status:
+            if 'completed' in log.status:
+                return JsonResponse({'message': 'Already marked as completed'}, status=200)
+            else:
                 log.status.append('completed')
-                log.updatedAt = timezone.now()
+                log.updatedAt = now
                 log.save()
         else:
-            # Create a new log entry
             log = PatientInterventionLogs(
                 userId=patient,
                 rehabilitationPlanId=rehab_plan,
                 interventionId=intervention,
-                date=timezone.now(),
+                date=now,
                 status=['completed'],
-                createdAt=timezone.now(),
-                updatedAt=timezone.now()
+                createdAt=now,
+                updatedAt=now
             )
             log.save()
 
-        return JsonResponse({'message': 'Marked as done successfully'}, status=200)
+        Logs(
+            userId=patient.userId,
+            action='MARK_INTERVENTION_COMPLETED',
+            userAgent='Patient',
+            details=f"Marked intervention {intervention.title} as done on {dj_now().isoformat()}"
+        ).save()
+
+        return JsonResponse({'message': 'Marked as completed successfully'}, status=200)
 
     except Patient.DoesNotExist:
+        logger.warning(f"[mark_intervention_completed] Entity not found: {e}")
         return JsonResponse({'error': 'Patient not found'}, status=404)
+
     except Intervention.DoesNotExist:
+        logger.warning(f"[mark_intervention_completed] Entity not found: {e}")
         return JsonResponse({'error': 'Intervention not found'}, status=404)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[mark_intervention_completed] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error', 'details': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_recommendation_options_for_patient(request, patient_id):
-    if request.method == 'GET':
-        # Retrieve the patient using the provided patient_id
-        try:
-            # patient = Patient.objects.get(username=patient_id) TODO
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-        except Patient.DoesNotExist:
-            return JsonResponse({'error': 'Patient not found'}, status=404)
+    """
+    GET /api/patients/<patient_id>/recommendation-options/
+    Returns interventions filtered by patient's function or diagnosis.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-        # Patient's diagnosis list
-        patient_diagnoses = patient.diagnosis
+    try:
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        patient_diagnoses = patient.diagnosis or []
+        patient_functions = patient.function or []
 
-        # Fetch recommendations where diagnosis matches patient diagnosis, patient.function===rec.specialisation or includes 'All'
-        recommendations = Intervention.objects.filter(Q(patient_types__type__in=patient.function) |
-                                                        (Q(patient_types__diagnosis__in=patient.diagnosis) | Q(
-                                                            patient_types__diagnosis__in="All")))
+        # Filter based on function or diagnosis (including 'All')
+        recommendations = Intervention.objects.filter(
+            Q(patient_types__type__in=patient_functions) |
+            Q(patient_types__diagnosis__in=patient_diagnoses) |
+            Q(patient_types__diagnosis="All")
+        ).distinct()
 
-        # Prepare the response data
-        recommendation_list = [
-            {
-                'title': rec.title,
+        result = []
+        for rec in recommendations:
+            result.append({
                 '_id': str(rec.id),
+                'title': rec.title,
                 'description': rec.description,
                 'content_type': rec.content_type,
                 'link': rec.link,
@@ -338,130 +322,156 @@ def get_recommendation_options_for_patient(request, patient_id):
                         'include_option': pt.include_option,
                     } for pt in rec.patient_types
                 ]
-            }
-            for rec in recommendations
-        ]
+            })
 
-        return JsonResponse({'recommendations': recommendation_list}, status=200, safe=False)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
+        return JsonResponse({'recommendations': result}, status=200)
+
+    except Patient.DoesNotExist:
+        ogger.warning(f"[get_recommendation_options_for_patient] Entity not found: {e}")
+        return JsonResponse({'error': 'Patient not found'}, status=404)
+
+    except Exception as e:
+        logger.error(f"[get_recommendation_options_for_patient] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal server error', 'details': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_patient_recommendations(request, patient_id):
+    """
+    GET /api/patients/<patient_id>/recommendations/
+    Fetches today's assigned interventions for a patient.
+    """
     if request.method != 'GET':
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
         recommendations = PatientIntervention.get_todays_recommendations(patient_id)
         return JsonResponse({'recommendations': recommendations}, safe=False, status=200)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[get_patient_recommendations] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal server error', 'details': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_patient_reha_plan(request, patient_id):
-    if request.method == 'GET':
-        try:
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-            rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+def get_patient_plan(request, patient_id):
+    """
+    GET /api/patients/rehabilitation-plan/patient/<patient_id>/
+    Fetches rehabilitation plan and today's feedback for the patient.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-            if not rehab_plan:
-                return JsonResponse({"rehab_plan": [], "message": "No rehabilitation plan found"}, status=200)
+    try:
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
-            today = timezone.now().date()
-            today_interventions = []
+        if not rehab_plan:
+            return JsonResponse({"rehab_plan": [], "message": "No rehabilitation plan found"}, status=200)
 
-            for intervention in rehab_plan.interventions:
-                intervention_obj = intervention.interventionId
-                logs = PatientInterventionLogs.objects(
-                    userId=patient,
-                    rehabilitationPlanId=rehab_plan,
-                    interventionId=intervention_obj
-                )
+        today = timezone.now().date()
+        today_interventions = []
 
-                feedback_data = []
-                completion_dates = []
+        for assignment in rehab_plan.interventions:
+            intervention = assignment.interventionId
 
-                for log in logs:
-                    if "completed" in log.status:
-                        completion_dates.append(log.date.isoformat())
+            logs = PatientInterventionLogs.objects(
+                userId=patient,
+                rehabilitationPlanId=rehab_plan,
+                interventionId=intervention
+            )
 
-                    if log.date.date() == today:
-                        for fb in log.feedback:
-                            if not fb.questionId:
-                                continue
+            completion_dates = [
+                log.date.isoformat()
+                for log in logs
+                if "completed" in log.status
+            ]
 
-                            question_translations = [
-                                {'language': t.language, 'text': t.text}
-                                for t in fb.questionId.translations
-                            ]
+            feedback_data = []
+            for log in logs:
+                if log.date.date() != today:
+                    continue
 
-                            # Support for multi or single select answers
-                            answer_output = []
-                            if isinstance(fb.answerKey, list):
-                                keys = fb.answerKey
-                            else:
-                                keys = [fb.answerKey]
+                for fb in log.feedback:
+                    if not fb.questionId:
+                        continue
 
-                            for key in keys:
-                                option = next((opt for opt in fb.questionId.possibleAnswers if opt.key == key), None)
-                                if option:
-                                    answer_output.append({
-                                        'key': option.key,
-                                        'translations': [{'language': t.language, 'text': t.text} for t in option.translations]
-                                    })
+                    question_translations = [
+                        {'language': t.language, 'text': t.text}
+                        for t in fb.questionId.translations
+                    ]
 
-                            feedback_data.append({
-                                'date': log.date.isoformat(),
-                                'question': {
-                                    'id': str(fb.questionId.id),
-                                    'translations': question_translations
-                                },
-                                'answer': answer_output,
-                                'comment': fb.comment or ''
+                    answer_output = []
+                    answer_keys = fb.answerKey if isinstance(fb.answerKey, list) else [fb.answerKey]
+
+                    for key in answer_keys:
+                        matched_option = next(
+                            (opt for opt in fb.questionId.possibleAnswers if opt.key == key),
+                            None
+                        )
+                        if matched_option:
+                            answer_output.append({
+                                'key': matched_option.key,
+                                'translations': [
+                                    {'language': t.language, 'text': t.text}
+                                    for t in matched_option.translations
+                                ]
                             })
 
-                rec_data = {
-                    'intervention_id': str(intervention_obj.pk),
-                    'intervention_title': intervention_obj.title,
-                    'description': intervention_obj.description,
-                    'frequency': intervention.frequency,
-                    'dates': [d.isoformat() for d in intervention.dates],
-                    'completion_dates': completion_dates,
-                    'content_type': intervention_obj.content_type,
-                    'benefitFor': intervention_obj.benefitFor,
-                    'tags': intervention_obj.tags,
-                    'preview_img': (
-                        f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention_obj.preview_img)}"
-                        if intervention_obj.preview_img else ''
-                    ),
-                    'duration': intervention_obj.duration,
-                    'feedback': feedback_data
-                }
+                    feedback_data.append({
+                        'date': log.date.isoformat(),
+                        'question': {
+                            'id': str(fb.questionId.id),
+                            'translations': question_translations
+                        },
+                        'answer': answer_output,
+                        'comment': fb.comment or ''
+                    })
 
-                if intervention_obj.link:
-                    rec_data["link"] = intervention_obj.link
-                elif intervention_obj.media_file:
-                    media_file = intervention_obj.media_file
-                    if media_file:
-                        rec_data["media_file"] = f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, media_file)}"
+            intervention_record = {
+                'intervention_id': str(intervention.id),
+                'intervention_title': intervention.title,
+                'description': intervention.description,
+                'frequency': assignment.frequency,
+                'dates': [d.isoformat() for d in assignment.dates],
+                'completion_dates': completion_dates,
+                'content_type': intervention.content_type,
+                'benefitFor': intervention.benefitFor,
+                'tags': intervention.tags,
+                'duration': intervention.duration,
+                'feedback': feedback_data,
+                'preview_img': (
+                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.preview_img)}"
+                    if intervention.preview_img else ''
+                )
+            }
 
-                today_interventions.append(rec_data)
+            if intervention.link:
+                intervention_record["link"] = intervention.link
+            elif intervention.media_file:
+                intervention_record["media_file"] = f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.media_file)}"
 
-            return JsonResponse(today_interventions, safe=False)
+            today_interventions.append(intervention_record)
 
-        except Exception as e:
-            return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+        return JsonResponse(today_interventions, safe=False, status=200)
 
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
+    except Patient.DoesNotExist:
+        logger.warning(f"[get_patient_plan] Entity not found: {e}")
+        return JsonResponse({'error': 'Patient not found'}, status=404)
+    except Exception as e:
+        logger.error(f"[get_patient_plan] Error for patient {patient_id}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error', 'details': str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def create_patient_intervention_log(request):
+    """
+    POST /api/patients/intervention-log/
+    Creates a patient intervention log entry.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -470,7 +480,7 @@ def create_patient_intervention_log(request):
         patient = Patient.objects.get(id=ObjectId(data.get("patientId")))
         intervention = Intervention.objects.get(id=ObjectId(data.get("interventionId")))
 
-        intervention_log = PatientInterventionLogs(
+        log = PatientInterventionLogs(
             userId=patient,
             rehabilitationPlanId=ObjectId(data.get("rehabilitationPlanId")),
             interventionId=intervention,
@@ -481,15 +491,26 @@ def create_patient_intervention_log(request):
             createdAt=timezone.now(),
             updatedAt=timezone.now()
         )
-        intervention_log.save()
+        log.save()
+
         return JsonResponse({'message': 'Patient Intervention Log created successfully'}, status=201)
+
+    except (Patient.DoesNotExist, Intervention.DoesNotExist) as e:
+        logger.warning(f"[create_patient_intervention_log] Entity not found: {e}")
+        return JsonResponse({'error': str(e)}, status=404)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[create_patient_intervention_log] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error'}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_feedback_questions(request, questionaire_type, patient_id):
+def fetch_feedback_questions(request, questionaire_type, patient_id):
+    """
+    GET /api/patients/get-questions/<questionaire_type>/<patient_id>/
+    Returns feedback questions unless already answered today.
+    """
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -500,28 +521,24 @@ def get_feedback_questions(request, questionaire_type, patient_id):
             patient = Patient.objects.get(userId=ObjectId(patient_id))
             today = timezone.now().date()
 
-            # Check if feedback already exists for today
-            today_ratings = PatientICFRating.objects.filter(
+            # Avoid repeating Healthstatus if answered today
+            today_feedback = PatientICFRating.objects.filter(
                 patientId=patient,
                 date__gte=datetime.combine(today, datetime.min.time()),
                 date__lte=datetime.combine(today, datetime.max.time()),
                 feedback_entries__exists=True,
                 feedback_entries__ne=[]
             )
-
-            if today_ratings:
-                # Feedback already submitted today — return empty set
+            if today_feedback:
                 return JsonResponse({"questions": []}, safe=False)
 
-            # Get previous ICF ratings
-            ratings = list(PatientICFRating.objects.filter(patientId=patient))
-            valid_ratings = [r for r in ratings if r.rating is not None]
+            ratings = list(PatientICFRating.objects.filter(patientId=patient, rating__ne=None))
 
-            if valid_ratings:
-                sorted_ratings = sorted(valid_ratings, key=lambda r: r.rating)
-                strong_icfs = [r.icfCode for r in sorted_ratings[:2]]
-                weak_icfs = [r.icfCode for r in sorted_ratings[-4:]]
-                icf_codes = list(set(strong_icfs + weak_icfs))
+            if ratings:
+                sorted_ratings = sorted(ratings, key=lambda r: r.rating)
+                strong = [r.icfCode for r in sorted_ratings[:2]]
+                weak = [r.icfCode for r in sorted_ratings[-4:]]
+                icf_codes = list(set(strong + weak))
             else:
                 all_codes = FeedbackQuestion.objects.filter(questionSubject="Healthstatus").distinct('icfCode')
                 icf_codes = random.sample(all_codes, min(5, len(all_codes)))
@@ -529,12 +546,11 @@ def get_feedback_questions(request, questionaire_type, patient_id):
             questions = FeedbackQuestion.objects.filter(icfCode__in=icf_codes, questionSubject="Healthstatus")
 
         elif questionaire_type == 'Intervention':
-            questions = FeedbackQuestion.objects.filter(questionSubject='Intervention')
-
+            questions = FeedbackQuestion.objects.filter(questionSubject="Intervention")
         else:
             return JsonResponse({'error': 'Invalid questionnaire type.'}, status=400)
 
-        questions_data = [
+        serialized_questions = [
             {
                 "questionKey": q.questionKey,
                 "answerType": q.answer_type,
@@ -542,7 +558,7 @@ def get_feedback_questions(request, questionaire_type, patient_id):
                 "possibleAnswers": [
                     {
                         "key": ans.key,
-                        "translations": [{"language": t.language, "text": t.text} for t in ans.translations]
+                        "translations": [{"language": tr.language, "text": tr.text} for tr in ans.translations]
                     }
                     for ans in q.possibleAnswers
                 ] if q.possibleAnswers else []
@@ -550,33 +566,36 @@ def get_feedback_questions(request, questionaire_type, patient_id):
             for q in questions
         ]
 
-        return JsonResponse({"questions": questions_data}, safe=False)
+        return JsonResponse({"questions": serialized_questions}, safe=False)
 
     except Patient.DoesNotExist:
+        logger.warning(f"[fetch_feedback_questions] Entity not found: {e}")
         return JsonResponse({'error': 'Patient not found.'}, status=404)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[fetch_feedback_questions] Error for patient {patient_id}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error'}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def create_rehabilitation_plan(request):
+def add_intervention_to_patient(request):
+    """
+    POST /api/recommendations/add-to-patient/
+    Adds interventions to a patient's rehabilitation plan.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
         data = json.loads(request.body)
         therapist = Therapist.objects.get(userId=data.get("therapistId"))
+        patient = Patient.objects.get(pk=data.get("patientId"))
         interventions_data = data.get("interventions", [])
 
-        # Load patient and therapist TODO
-        patient = Patient.objects.get(pk=data.get('patientId'))
-        
-        
-        new_interventions = []
-
+        new_assignments = []
         for item in interventions_data:
-            intervention = Intervention.objects.get(id=ObjectId(item["interventionId"]['_id']))
+            intervention = Intervention.objects.get(id=ObjectId(item["interventionId"]["_id"]))
             scheduled_dates = generate_repeat_dates(patient.reha_end_date, item)
 
             assignment = InterventionAssignment(
@@ -585,49 +604,54 @@ def create_rehabilitation_plan(request):
                 notes=item.get("notes", ""),
                 dates=scheduled_dates
             )
-            new_interventions.append(assignment)
+            new_assignments.append(assignment)
 
         existing_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if existing_plan:
-            # Get current intervention IDs to avoid duplicates
-            existing_ids = {str(i.interventionId.id) for i in existing_plan.interventions}
+            # Avoid duplicate entries
+            current_ids = {str(i.interventionId.id) for i in existing_plan.interventions}
+            to_add = [a for a in new_assignments if str(a.interventionId.id) not in current_ids]
 
-            # Filter out already added interventions
-            interventions_to_add = [
-                ni for ni in new_interventions
-                if str(ni.interventionId.id) not in existing_ids
-            ]
-
-            if interventions_to_add:
-                existing_plan.interventions.extend(interventions_to_add)
+            if to_add:
+                existing_plan.interventions.extend(to_add)
                 existing_plan.updatedAt = timezone.now()
                 existing_plan.save()
-                message = 'Rehabilitation plan updated with new interventions'
+                message = "Rehabilitation plan updated."
             else:
-                message = 'No new interventions added (already exist)'
+                message = "No new interventions added (already exist)."
         else:
-            rehab_plan = RehabilitationPlan(
+            new_plan = RehabilitationPlan(
                 patientId=patient,
                 therapistId=therapist,
                 startDate=patient.userId.createdAt,
                 endDate=patient.reha_end_date,
                 status=data.get("status", "active"),
-                interventions=new_interventions,
+                interventions=new_assignments,
                 createdAt=timezone.now(),
                 updatedAt=timezone.now()
             )
-            rehab_plan.save()
-            message = 'Rehabilitation plan created successfully'
+            new_plan.save()
+            message = "Rehabilitation plan created successfully."
 
         return JsonResponse({'message': message}, status=201)
 
+    except (Therapist.DoesNotExist, Patient.DoesNotExist, Intervention.DoesNotExist) as e:
+        logger.warning(f"[add_intervention_to_patient] Missing entity: {e}")
+        return JsonResponse({'error': str(e)}, status=404)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[add_intervention_to_patient] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error'}, status=500)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_rehabilitation_plan(request, patient_id):
+def get_patient_plan_for_therapist(request, patient_id):
+    """
+    GET /api/patients/rehabilitation-plan/therapist/<patient_id>/
+    Retrieves a structured rehabilitation plan for therapist overview.
+    """
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -635,152 +659,149 @@ def get_rehabilitation_plan(request, patient_id):
         patient = Patient.objects.get(id=ObjectId(patient_id))
         plan = RehabilitationPlan.objects.get(patientId=patient)
 
+        today = timezone.now().date()
         plan_data = {
             'startDate': plan.startDate.isoformat(),
             'endDate': plan.endDate.isoformat(),
             'status': plan.status,
+            'createdAt': plan.createdAt.isoformat(),
+            'updatedAt': plan.updatedAt.isoformat(),
             'interventions': []
         }
 
-        today = timezone.now().date()
-
-        for interv in plan.interventions:
-            intervention_obj = interv.interventionId
-            intervention_name = getattr(intervention_obj, 'title', 'Unnamed Intervention')
-
+        for assignment in plan.interventions:
+            intervention = assignment.interventionId
             logs = PatientInterventionLogs.objects(
-                userId=plan.patientId,
-                interventionId=intervention_obj
+                userId=patient,
+                interventionId=intervention
             )
 
-            completed_dates = {log.date.date() for log in logs if "completed" in log.status}
+            completed_dates = {log.date.date() for log in logs if 'completed' in log.status}
             intervention_dates = []
-            totalnum_int = len(interv.dates)
-            current_total_int = 0
-            completed_int = 0
-            rating_sum_int = 0
-            rating_num_int = 0
+            completed_count = 0
+            current_total_count = 0
+            rating_sum = 0
+            rating_count = 0
 
-            for date in interv.dates:
-                day = date.date()
-                log = next((l for l in logs if l.date.date() == day), None)
+            for date in assignment.dates:
+                log = next((l for l in logs if l.date.date() == date.date()), None)
 
-                # Determine status
                 if log and "completed" in log.status:
                     status = "completed"
-                    completed_int += 1
-                    current_total_int += 1
-                elif day < today:
+                    completed_count += 1
+                    current_total_count += 1
+                elif date.date() < today:
                     status = "missed"
-                    current_total_int += 1
-                elif day == today:
+                    current_total_count += 1
+                elif date.date() == today:
                     status = "today"
                 else:
                     status = "upcoming"
 
-                # Gather feedback
                 feedback_entries = []
                 if log and log.feedback:
                     for fb in log.feedback:
-                        if fb.questionId:
-                            # Prepare question info
-                            question_data = {
-                                'id': str(fb.questionId.id),
-                                'translations': [
-                                    {'language': t.language, 'text': t.text}
-                                    for t in fb.questionId.translations
-                                ]
-                            }
+                        if not fb.questionId:
+                            continue
 
-                            # Get full translation of selected answer key
-                            selected_answer_translations = []
-                            for option in fb.questionId.possibleAnswers:
-                                if option.key == fb.answerKey:
-                                    selected_answer_translations = [
-                                        {'language': t.language, 'text': t.text}
-                                        for t in option.translations
-                                    ]
-                                    break
+                        question_data = {
+                            'id': str(fb.questionId.id),
+                            'translations': [{'language': t.language, 'text': t.text} for t in fb.questionId.translations]
+                        }
 
-                            feedback_entries.append({
-                                'question': question_data,
-                                'comment': fb.comment,
-                                'answer': [
-                                    {
-                                        'key': opt.key,
-                                        'translations': [
-                                            {'language': t.language, 'text': t.text}
-                                            for t in opt.translations
-                                        ]
-                                    }
-                                    for opt in fb.answerKey
-                                ]
+                        answer_data = [
+                            {
+                                'key': opt.key,
+                                'translations': [{'language': tr.language, 'text': tr.text} for tr in opt.translations]
+                            } for opt in fb.answerKey
+                        ]
 
-                            })
+                        feedback_entries.append({
+                            'question': question_data,
+                            'comment': fb.comment,
+                            'answer': answer_data
+                        })
 
-                            # Optional: calculate average rating if numeric
-                            try:
-                                rating_sum_int += int(fb.answerKey)
-                                rating_num_int += 1
-                            except (ValueError, TypeError):
-                                pass
+                        # Try numeric rating
+                        try:
+                            rating_sum += int(fb.answerKey[0].key)
+                            rating_count += 1
+                        except (ValueError, TypeError, IndexError):
+                            pass
 
-                date_data = {
+                intervention_dates.append({
                     'datetime': date.isoformat(),
-                    'status': status
-                }
-
-                if feedback_entries:
-                    date_data['feedback'] = feedback_entries
-
-                intervention_dates.append(date_data)
+                    'status': status,
+                    'feedback': feedback_entries
+                })
 
             plan_data['interventions'].append({
-                '_id': str(intervention_obj.id),
-                'title': intervention_name,
-                'frequency': interv.frequency,
-                'notes': interv.notes,
+                '_id': str(intervention.id),
+                'title': intervention.title,
+                'frequency': assignment.frequency,
+                'notes': assignment.notes,
                 'dates': intervention_dates,
-                'totalCount': totalnum_int,
-                'currentTotalCount': current_total_int,
-                'completedCount': completed_int,
-                'averageRating': round((rating_sum_int / rating_num_int), 1) if rating_num_int > 0 else 0,
-                'duration': getattr(intervention_obj, 'duration', 0)
+                'totalCount': len(assignment.dates),
+                'currentTotalCount': current_total_count,
+                'completedCount': completed_count,
+                'averageRating': round(rating_sum / rating_count, 1) if rating_count > 0 else 0,
+                'duration': getattr(intervention, 'duration', 0)
             })
-
-        plan_data['createdAt'] = plan.createdAt.isoformat()
-        plan_data['updatedAt'] = plan.updatedAt.isoformat()
 
         return JsonResponse(plan_data, safe=False)
 
+    except Patient.DoesNotExist:
+        logger.warning(f"[get_patient_plan_for_therapist] Patient not found: {patient_id}")
+        return JsonResponse({'error': 'Patient not found'}, status=404)
+    except RehabilitationPlan.DoesNotExist:
+        logger.info(f"[get_patient_plan_for_therapist] No rehab plan for patient: {patient_id}")
+        return JsonResponse({'message': 'No rehabilitation plan found', 'rehab_plan': []}, status=200)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"[get_patient_plan_for_therapist] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error'}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def del_rehabilitation_plan_intervention(request):
+def remove_intervention_from_patient(request):
+    """
+    POST /api/recommendations/remove-from-patient/
+    Removes all future dates for a specific intervention from the patient's plan.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
         data = json.loads(request.body)
-        intervention = data.get('intervention')
-        patient = Patient.objects.get(id=ObjectId(data.get('patientId')))
+        intervention_id = data.get('intervention')
+        patient_id = data.get('patientId')
+
+        if not intervention_id or not patient_id:
+            return JsonResponse({'error': 'Missing required parameters'}, status=400)
+
+        patient = Patient.objects.get(id=ObjectId(patient_id))
         plan = RehabilitationPlan.objects.get(patientId=patient)
+        now = timezone.now()
 
-        now = datetime.utcnow()
-
-        for i in plan.interventions:
-            if str(i.interventionId.pk) == str(intervention):
+        for assignment in plan.interventions:
+            if str(assignment.interventionId.pk) == str(intervention_id):
                 # Keep only past or current dates
-                i.dates = [d for d in i.dates if d <= now]
+                assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
 
-        # Remove interventions that have no dates left
-        plan.interventions = [i for i in plan.interventions if i.dates]
+
+        # Remove interventions that no longer have any dates
+        plan.interventions = [a for a in plan.interventions if a.dates]
+        plan.updatedAt = timezone.now()
         plan.save()
 
-        return JsonResponse({"message": "Intervention removed from rehabilitation plan."}, status=200)
+        return JsonResponse({"message": "Intervention dates removed successfully."}, status=200)
 
+    except Patient.DoesNotExist:
+        logger.warning(f"[remove_intervention_from_patient] Patient not found: {patient_id}")
+        return JsonResponse({'error': 'Patient not found'}, status=404)
+    except RehabilitationPlan.DoesNotExist:
+        logger.warning(f"[remove_intervention_from_patient] Plan not found for patient: {patient_id}")
+        return JsonResponse({'error': 'Rehabilitation plan not found'}, status=404)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        logger.error(f"[remove_intervention_from_patient] Error removing intervention {intervention_id} from {patient_id}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal Server Error'}, status=500)

@@ -1,8 +1,8 @@
 {
     "apiEndpoints": {
-      "getPatientInterventions": "/api/patient/recommendations/today",
+      "getPatientInterventions": "/api/patient/interventions/today",
       "submitFeedback": "/api/patient/feedback",
-      "markAsDone": "/api/patient/mark-done"
+      "markAsDone": "/api/patient/complete"
     },
     "defaultSettings": {
       "defaultLanguage": "en"
