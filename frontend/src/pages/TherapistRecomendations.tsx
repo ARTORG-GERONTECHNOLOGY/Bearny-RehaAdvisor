@@ -60,7 +60,7 @@ const TherapistRecomendations: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const recommendationResponse = await apiClient.get('recommendations/all/');
+      const recommendationResponse = await apiClient.get('interventions/all/');
       setInterventions(recommendationResponse.data);
       setFilteredInterventions(recommendationResponse.data);
     } catch (error) {
