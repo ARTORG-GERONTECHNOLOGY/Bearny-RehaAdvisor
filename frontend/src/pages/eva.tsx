@@ -1,11 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 
-const questions = [
+const testQuestion = 'Testlauf Beispiel: Holzhacken';
+const realQuestions = [
   'Allgemeine Gesundheit',
-  'Körperliche Aktivität',
-  'Schlafqualität',
-  'Stresslevel',
-  'Emotionale Verfassung'
+  'Essen und Trinken',
+  'Körperpflege, Waschen, Anziehen',
+  'Toilettennutzung, Blasen- und Darmmanagement',
+  'Muskelfunktion und -kraft',
+  'Beweglichkeit, Gelenke und Knochen',
+  'Liegen, Sitzen, Aufstehen, Gehen',
+  'Fortbewegung mit Verkehrsmitteln',
+  'Herzfunktion, Atmung, Belastbarkeit',
+  'Kommunikation und Verstehen',
+  'Soziale Kontakte, Familie, Freunde',
+  'Sexualleben',
+  'Schlaf',
+  'Problemlösen und Wissen anwenden',
+  'Gedächtnis und Denken',
+  'Umgang mit Emotionen',
+  'Antrieb und Energie',
+  'Schmerz',
+  'Aufgaben im Alltag, Beruf, Freizeit',
+  'Professionelle Unterstützung',
+  'Anderen helfen',
+  'Medikamentenverwendung',
+  'Hilfsmittel und Technologien',
+  'Gesundheitsversorgung',
+  'Zugang zu Gebäuden',
+  'Umwelteinflüsse',
+  'Gesundheitsbewusstsein',
 ];
 
 export default function HealthSlider() {
@@ -14,6 +37,7 @@ export default function HealthSlider() {
   const [isDragging, setIsDragging] = useState(false);
   const [answers, setAnswers] = useState([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [testMode, setTestMode] = useState(true);
   const spectrumRef = useRef(null);
 
   const handleSliderMove = (clientY) => {
@@ -21,18 +45,16 @@ export default function HealthSlider() {
     const bounds = spectrum.getBoundingClientRect();
     let y = clientY - bounds.top;
     y = Math.max(0, Math.min(bounds.height, y));
-    const percentage = Math.round(100 - (y / bounds.height) * 100);
+    let percentage = Math.round(100 - (y / bounds.height) * 100);
+    percentage = Math.min(98, Math.max(2, percentage));
     setSliderPosition(percentage);
   };
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
   const handleMouseMove = (e) => {
-    if (isDragging) {
-      handleSliderMove(e.clientY);
-    }
+    if (isDragging) handleSliderMove(e.clientY);
   };
-
   const handleTouchMove = (e) => {
     if (e.touches.length === 1) {
       e.preventDefault();
@@ -51,7 +73,7 @@ export default function HealthSlider() {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleMouseUp);
     };
-  });
+  }, [isDragging]);
 
   const exportResults = (answers) => {
     const now = new Date();
@@ -59,17 +81,25 @@ export default function HealthSlider() {
     const csvRows = ['Frage,Prozent', ...answers.map(([q, a]) => `"${q}",${a}`)];
     const csvContent = `data:text/csv;charset=utf-8,${csvRows.join('\n')}`;
     const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `fragebogen_export_${timestamp}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.body.innerHTML = `<a href="${encodedUri}" download="fragebogen_export_${timestamp}.csv">Download</a>
+        <script>document.querySelector('a').click();</script>`;
+    } else {
+      alert('Bitte erlauben Sie Popups für diese Seite, um den Download zu ermöglichen.');
+    }
   };
 
   const exportAndNext = () => {
-    const updatedAnswers = [...answers, [questions[questionIndex], sliderPosition]];
-    if (questionIndex < questions.length - 1) {
+    if (testMode) {
+      setTestMode(false);
+      setQuestionIndex(0);
+      setSliderPosition(50);
+      return;
+    }
+
+    const updatedAnswers = [...answers, [realQuestions[questionIndex], sliderPosition]];
+    if (questionIndex < realQuestions.length - 1) {
       setAnswers(updatedAnswers);
       setQuestionIndex(questionIndex + 1);
       setSliderPosition(50);
@@ -86,98 +116,117 @@ export default function HealthSlider() {
     setSliderPosition(50);
     setAnswers([]);
     setShowSummary(false);
+    setTestMode(true);
   };
 
-  const isSmallScreen = window.innerWidth < 900;
-  const fontSizeLarge = isSmallScreen ? '5vw' : '3vw';
-  const fontSizeMedium = isSmallScreen ? '4vw' : '2vw';
-  const fontSizeSmall = isSmallScreen ? '3vw' : '1.5vw';
-  const barWidth = isSmallScreen ? '15%' : '10%';
-  const buttonFontSize = isSmallScreen ? '3vw' : '1.5vw';
-  const progressPercent = Math.round(((questionIndex) / questions.length) * 100);
-  const slider = isSmallScreen ? '20%' : '15%';
-  const ends =  isSmallScreen ? '17%' : '12%';
+  const currentQuestion = testMode ? testQuestion : realQuestions[questionIndex];
 
   return (
-    <div
-      style={{ position: 'relative', width: '100%', height: '100vh', backgroundColor: '#f6f4f0', fontFamily: 'Inter, sans-serif', overflow: 'hidden', touchAction: 'none', transition: 'all 0.5s ease-in-out' }}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleMouseUp}
-    >
+    <div style={{
+      height: '100vh',
+      padding: '3rem 2rem',
+      fontFamily: '"Atkinson Hyperlegible", sans-serif',
+      backgroundColor: '#f6f4f0',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: showSummary ? 'center' : 'space-between',
+      gap: '2rem'
+    }}>
       {showSummary ? (
-        <div style={{ padding: '5%', textAlign: 'center' }}>
-          {/*<h2>Zusammenfassung</h2>
-          <ul style={{ listStyle: 'none', padding: 0, fontSize: fontSizeMedium }}>
-            {answers.map(([q, a], idx) => (
-              <li key={idx} style={{ marginBottom: '1em' }}><strong>{q}:</strong> {a}%</li>
-            ))}
-          </ul>*/}
-          <h2>Vielen Dank für die Beantwortung der Fragen</h2>
-          <button onClick={confirmAndExport} style={{ padding: '1rem 2rem', fontSize: buttonFontSize }}>Bestätigen & Exportieren</button>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '2rem' }}>Vielen Dank für die Beantwortung der Fragen</h2>
+          <button onClick={confirmAndExport} style={{ padding: '1rem 2rem', fontSize: '1.5rem' }}>
+            Bestätigen & Exportieren
+          </button>
         </div>
       ) : (
         <>
-          {/* Progress Bar */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '8px', backgroundColor: '#ddd' }}>
-            <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#4caf50', transition: 'width 0.3s ease' }} />
+          {/* Progress */}
+          <div style={{ width: '100%', backgroundColor: '#ddd', height: '10px', borderRadius: '4px' }}>
+            <div
+              style={{
+                width: `${testMode ? 0 : ((questionIndex + 1) / realQuestions.length) * 100}%`,
+                height: '100%',
+                backgroundColor: '#4caf50',
+                borderRadius: '4px'
+              }}
+            />
           </div>
 
-          <div
-            style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: barWidth, height: '50%', background: 'linear-gradient(180deg, #80e0c2, #efece7 50%, #c1839d)' }}
-            ref={spectrumRef}
-            onClick={(e) => handleSliderMove(e.clientY)}
-          />
+          {/* Question */}
+          <div style={{ maxWidth: '900px', textAlign: 'center', fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1.4 }}>
+            {testMode ? 'Testfrage' : `Frage ${questionIndex + 1}`}<br />
+            <span style={{ display: 'inline-block', marginTop: '1rem' }}>{currentQuestion}</span>
+          </div>
 
-          <div style={{ position: 'absolute', top: '75%', left: '50%', transform: 'translateX(-50%)', width: `${ends}`, borderTop: '6px solid #c1839d', borderRadius: '5px' }} />
-          <div style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: `${ends}`, borderBottom: '6px solid #80e0c2', borderRadius: '5px' }} />
+          {/* Slider Section */}
+          {/* Spectrum container with top & bottom caps */}
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* Top Cap */}
+            <div style={{
+              height: '10px',
+              width: '120px',
+              backgroundColor: '#80e0c2',
+              borderRadius: '20px 20px 20px 20px'
+            }} />
 
-          <div
-            style={{
-              position: 'absolute',
-              top: `calc(25% + ${(100 - sliderPosition) * 0.5}%)`,
-              left: '50%',
-              opacity: '50%',
-              transform: 'translateX(-50%)',
-              width: `${slider}`,
-              height: '2%',
-              backgroundColor: isDragging ? '#000' : '#a6a394',
-              borderRadius: '10px',
-              cursor: 'grab',
-              transition: 'background-color 0.3s ease'
-            }}
-            onMouseDown={handleMouseDown}
-            onTouchStart={() => setIsDragging(true)}
-          />
+            {/* Gradient Bar */}
+            <div
+              ref={spectrumRef}
+              onClick={(e) => handleSliderMove(e.clientY)}
+              style={{
+                position: 'relative',
+                height: '400px',
+                width: '80px',
+                background: 'linear-gradient(180deg, #80e0c2, #efece7 50%, #c1839d)',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'center'
+              }}
+            >
+              {/* Slider Handle */}
+              <div
+                onMouseDown={handleMouseDown}
+                onTouchStart={() => setIsDragging(true)}
+                style={{
+                  position: 'absolute',
+                  bottom: `${sliderPosition}%`,
+                  transform: 'translateY(50%)',
+                  width: '140%',
+                  height: '20px',
+                  opacity: '65%',
+                  backgroundColor: isDragging ? '#000' : '#9d8d71',
+                  borderRadius: '10px',
+                  cursor: 'grab'
+                }}
+              />
+            </div>
 
-          <div style={{ position: 'absolute', top: '5%', left: '5%', fontSize: fontSizeLarge, fontWeight: 'bold' }}>{questionIndex + 1}</div>
-          <div style={{ position: 'absolute', top: '5%', left: '12%', fontSize: fontSizeLarge, fontWeight: 'bold' }}>{questions[questionIndex]}</div>
+            {/* Bottom Cap */}
+            <div style={{
+              height: '10px',
+              width: '120px',
+              backgroundColor: '#c1839d',
+              borderRadius: '20px 20px 20px 20px'
+            }} />
+          </div>
 
-          <div style={{ position: 'absolute', top: '24%', left: 'calc(50% - 22%)', fontSize: fontSizeSmall, color: '#80e0c2', fontWeight: 'bold' }}>Sehr gut</div>
-          <div style={{ position: 'absolute', top: '76%', left: 'calc(50% - 22%)', fontSize: fontSizeSmall, color: '#c1839d', fontWeight: 'bold' }}>Sehr schlecht</div>
 
-          <div style={{ position: 'absolute', bottom: '2%', right: '2%', fontSize: '0.8vw', color: '#707070' }}>Version 7.1, 03.04.2025</div>
-          {/*<div style={{ position: 'absolute', top: '50%', right: '5%', fontSize: fontSizeMedium, color: '#333', fontWeight: 'bold' }}>{sliderPosition}%</div>*/}
-
+          {/* Next Button */}
           <button
             onClick={exportAndNext}
             style={{
-              position: 'absolute',
-              bottom: '5%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: isSmallScreen ? '1.5rem 3rem' : '1rem 2rem',
-              fontSize: buttonFontSize,
-              backgroundColor: '#333',
+              padding: '1.2rem 3rem',
+              fontSize: '1.6rem',
+              backgroundColor: '#9d8d71',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease'
+              borderRadius: '10px',
+              cursor: 'pointer'
             }}
           >
-            Nächste Frage
+            {testMode ? 'Interview starten' : 'Nächste Frage'}
           </button>
         </>
       )}
