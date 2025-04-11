@@ -87,80 +87,126 @@ def create_rehab_plan(patient, therapist):
         print(f"Error creating rehab plan: {e}")
 
 
-@csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
-def login(request):
-    if request.method == 'POST':
-        # Parse JSON data from the request body
+import json
+import logging
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.hashers import check_password
+from bson import ObjectId
+from core.models import User, Therapist, Patient, Logs
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt  # Disabled for JWT; ensure HTTPS + token usage in frontend
+def login_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    try:
+        # Parse login data
         data = json.loads(request.body)
-        # Try to find the user by email
-        try:
-            user = User.objects.filter(__raw__={"$or": [{"email": data.get('email')}, {"username": data.get('email')}]}).first()
-            if user.role == 'Therapist':
-                name = Therapist.objects.get(userId=user).first_name
-                spec = Therapist.objects.get(userId=user).specializations
-            else:
-                name = Patient.objects.get(userId=user).first_name
-                spec = Patient.objects.get(userId=user).function
+        identifier = data.get('email')
+        raw_password = data.get('password')
 
-        except Therapist.DoesNotExist:
-            user = None
+        if not identifier or not raw_password:
+            return JsonResponse({'error': 'Email/username and password are required.'}, status=400)
 
-        if user is not None:
-            if user.isActive:
-                # Check hashed password for email login
-                if check_password(data.get('password'), user['pwdhash']):
-                    log = Logs(
-                        userId = user,
-                        action = 'LOGIN',
-                        userAgent = user.role
-                    )
-                    log.save()
-                    # Generate or fetch the token
-                    # Generate JWT tokens
-                    refresh = RefreshToken.for_user(user)
-                    access_token = str(refresh.access_token)
-                    refresh_token = str(refresh)
-                    return JsonResponse({
-                        'user_type': user['role'],
-                        'id': str(user["id"]),  # Convert to string if using ObjectId or ensure compatibility
-                        'access_token': access_token,
-                        'refresh_token': refresh_token,
-                        'full_name': name,
-                        'specialisation': spec
-                    }, status=200)
-                else:
-                    return JsonResponse({'error': 'Invalid Credentials.'}, status=400)
-            else:
-                    return JsonResponse({'error': 'User has not been yet accepted.'}, status=400)
-        else: 
-            # If user is not found by either email or username
+        # Find user by email or username
+        user = User.objects.filter(
+            __raw__={"$or": [{"email": identifier}, {"username": identifier}]}
+        ).first()
+
+        if not user:
+            logger.warning(f"Login failed: User '{identifier}' not found.")
             return JsonResponse({'error': 'User not found.'}, status=404)
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-@permission_classes([IsAuthenticated])
-@csrf_exempt  # Disable CSRF for simplicity; handle CSRF tokens properly in production.
-def logout(request):
-    if request.method == 'POST':
-        # Parse JSON data from the request body
-        data = json.loads(request.body)
-        user = User.objects.get(pk=ObjectId(data.get('userId')))
-        # Try to find the user by email
+        if not user.isActive:
+            logger.warning(f"Login failed: Inactive user '{identifier}'.")
+            return JsonResponse({'error': 'User has not yet been accepted.'}, status=403)
+
+        if not check_password(raw_password, user.pwdhash):
+            logger.warning(f"Login failed: Invalid password for user '{identifier}'.")
+            return JsonResponse({'error': 'Invalid credentials.'}, status=401)
+
+        # Retrieve user-specific info
+        profile_info = {}
         try:
-            Logs(
-                        userId = user,
-                        action = 'LOGOUT',
-                        userAgent = user.role
-            ).save()
-        except:
-            pass
-        return JsonResponse({'data': 'OK'}, status=200)
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
+            if user.role == 'Therapist':
+                therapist = Therapist.objects.get(userId=user)
+                profile_info['full_name'] = therapist.first_name
+                profile_info['specialisation'] = therapist.specializations
+            elif user.role == 'Patient':
+                patient = Patient.objects.get(userId=user)
+                profile_info['full_name'] = patient.first_name
+                profile_info['specialisation'] = patient.function
+            else:
+                profile_info['full_name'] = user.username
+                profile_info['specialisation'] = ""
+        except (Therapist.DoesNotExist, Patient.DoesNotExist) as e:
+            logger.warning(f"Profile data missing for user '{identifier}': {str(e)}")
+
+        # Create auth tokens
+        refresh = RefreshToken.for_user(user)
+        Logs.objects.create(
+            userId=user,
+            action='LOGIN',
+            userAgent=user.role
+        )
+
+        return JsonResponse({
+            'user_type': user.role,
+            'id': str(user.id),
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            **profile_info
+        }, status=200)
+
+    except json.JSONDecodeError:
+        logger.exception("Login failed: Invalid JSON payload.")
+        return JsonResponse({'error': 'Invalid input format.'}, status=400)
+    except Exception as e:
+        logger.exception("Unexpected error during login.")
+        return JsonResponse({'error': 'Internal server error.'}, status=500)
 
 
 @csrf_exempt
-def forgot_password(request):  # TODO
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    """
+    Logs a user out and creates a log entry.
+    Endpoint: POST /api/auth/logout/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('userId')
+        if not user_id:
+            return JsonResponse({'error': 'User ID is required'}, status=400)
+
+        user = User.objects.get(pk=ObjectId(user_id))
+        
+        Logs.objects.create(
+            userId=user,
+            action='LOGOUT',
+            userAgent=user.role
+        )
+        
+        return JsonResponse({'message': 'Logout successful'}, status=200)
+
+    except User.DoesNotExist:
+        logger.warning("Logout attempt for non-existent user.")
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        logger.exception("Unexpected error during logout.")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+
+
+@csrf_exempt
+def forgot_password_view(request):  # TODO
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
@@ -173,7 +219,7 @@ def forgot_password(request):  # TODO
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def reset_password(request):
+def reset_password_view(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -196,89 +242,100 @@ def reset_password(request):
 
 
 @csrf_exempt
-def register(request):
+def register_view(request):
+    """
+    Registers a new patient or therapist.
+    Endpoint: POST /api/auth/register/
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
         data = json.loads(request.body)
+
         user_type = data.get('userType')
         email = data.get('email')
-        password = make_password(data.get('password'))
+        raw_password = data.get('password')
 
-        if User.objects.filter(email=email):
+        if not user_type or not email or not raw_password:
+            return JsonResponse({'error': 'Missing required fields.'}, status=400)
+
+        if User.objects.filter(email=email).exists():
             return JsonResponse({'error': 'Email already exists'}, status=400)
 
         user = User(
-            username = generate_custom_id( data.get('userType')),
-            role =  data.get('userType'),
-            createdAt = datetime.today(),
-            email = sanitize_text(data.get('email')),
-            phone = sanitize_text(data.get('phone', '')),
-            pwdhash = password,
-            isActive = data.get('userType') == "Patient"
+            username=generate_custom_id(user_type),
+            role=user_type,
+            email=sanitize_text(email),
+            phone=sanitize_text(data.get('phone', '')),
+            pwdhash=make_password(raw_password),
+            createdAt=datetime.today(),
+            isActive=(user_type == "Patient")
         )
         user.save()
 
+        # --- Patient Registration ---
         if user_type == 'Patient':
-            # Creating a Patient with all required fields
-            therapist_user = User.objects.get(pk=data.get('therapist'))
-            pat_therapist = Therapist.objects.get(userId=therapist_user)
-            if pat_therapist:
-                reha_end_date=datetime.strptime(data.get('rehaEndDate'), "%Y-%m-%d")
+            try:
+                therapist_user = User.objects.get(pk=data.get('therapist'))
+                pat_therapist = Therapist.objects.get(userId=therapist_user)
+            except (User.DoesNotExist, Therapist.DoesNotExist):
+                return JsonResponse({'error': 'Assigned therapist not found.'}, status=404)
 
-                patient = Patient(
-                    userId=user,
-                    name=sanitize_text(data.get('lastName'), True),
-                    first_name=sanitize_text(data.get('firstName'), True),
-                    age=data.get('age', ''),  # Assuming age is provided
-                    therapist=pat_therapist,  # Assuming therapist ID is provided
-                    sex=data.get('sex'),  # Assuming sex is provided
-                    diagnosis=data.get('diagnosis'),  # Assuming diagnosis is provided
-                    function=data.get('function'),  # Assuming function is provided
-                    level_of_education=data.get('levelOfEducation'),  # Assuming education level is provided
-                    professional_status=data.get('professionalStatus'),
-                    # Assuming professional status is provided
-                    marital_status=data.get('civilStatus'),  # Assuming marital status is provided
-                    lifestyle=data.get('lifestyle'),  # Assuming lifestyle is provided
-                    personal_goals=data.get('lifeGoals'),  # Assuming personal goals are provided
-                    medication_intake=sanitize_text(data.get('medicationIntake', '-')),  # Assuming medication intake is provided
-                    social_support=data.get('socialSupport', []),  # Assuming social support is provided
-                    access_word=data.get('password'), 
-                    duration=int((reha_end_date.date() - datetime.today().date()).days),
-                    reha_end_date=reha_end_date,
-                    care_giver=sanitize_text(data.get('carreGiver', ''), True)
-                )
-
+            reha_end_date = datetime.strptime(data.get('rehaEndDate'), "%Y-%m-%d")
+            patient = Patient(
+                userId=user,
+                name=sanitize_text(data.get('lastName'), True),
+                first_name=sanitize_text(data.get('firstName'), True),
+                age=data.get('age', ''),
+                therapist=pat_therapist,
+                sex=data.get('sex'),
+                diagnosis=data.get('diagnosis'),
+                function=data.get('function'),
+                level_of_education=data.get('levelOfEducation'),
+                professional_status=data.get('professionalStatus'),
+                marital_status=data.get('civilStatus'),
+                lifestyle=data.get('lifestyle'),
+                personal_goals=data.get('lifeGoals'),
+                medication_intake=sanitize_text(data.get('medicationIntake', '-')),
+                social_support=data.get('socialSupport', []),
+                access_word=raw_password,
+                duration=(reha_end_date.date() - datetime.today().date()).days,
+                reha_end_date=reha_end_date,
+                care_giver=sanitize_text(data.get('carreGiver', ''), True)
+            )
             patient.save()
-            res = create_rehab_plan(patient, pat_therapist)
-            if res:
+
+            if create_rehab_plan(patient, pat_therapist):
                 return JsonResponse({'message': 'Patient registered successfully', 'id': user.username}, status=201)
             else:
-                return JsonResponse({'error': 'Rehabilitation plan creation failed.'}, status=400)
+                return JsonResponse({'error': 'Rehabilitation plan creation failed.'}, status=500)
 
+        # --- Therapist Registration ---
         elif user_type == 'Therapist':
             therapist = Therapist(
-                userId = user,
+                userId=user,
                 name=sanitize_text(data.get('lastName', ''), True),
                 first_name=sanitize_text(data.get('firstName', ''), True),
-                specializations=data.get("specialisation"),  # Assuming specializations provided
-                clinics=data.get( "clinic"),  # Assuming clinics provided
+                specializations=data.get("specialisation"),
+                clinics=data.get("clinic")
             )
             therapist.save()
             return JsonResponse({'message': 'Therapist registered successfully', 'id': user.username}, status=201)
 
-        else:
-            return JsonResponse({'error': 'Unsupported user type'}, status=400)
+        return JsonResponse({'error': 'Unsupported user type'}, status=400)
 
-    except Therapist.DoesNotExist:
-        return JsonResponse({'error': 'Therapist not found'}, status=404)
+    except json.JSONDecodeError:
+        logger.warning("Invalid JSON in register_view.")
+        return JsonResponse({'error': 'Invalid input format.'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.exception("Unexpected error during registration.")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+
 
 
 @csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def sendVerificationCode(request): # TODO
+def send_verification_code(request): # TODO
     user_id = json.loads(request.body)['userId']
 
     #user = User.find_one({'username': user_id})  # Adjust based on your schema
@@ -293,7 +350,7 @@ def sendVerificationCode(request): # TODO
 
 
 @csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def verify_code(request): # TODO
+def verify_code_view(request): # TODO
     code = json.loads(request.body)['verificationCode']
 
     if '0000' == code:

@@ -25,7 +25,7 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
       const fetchPatientData = async () => {
         try {
           setLoading(true);
-          const response = await apiClient.get(`patients/info/patient/${patient_id.username}/`);
+          const response = await apiClient.get(`users/${patient_id.username}/profile/`);
           setPatientData(response.data);
           setFormData(response.data);
         } catch (error) {
@@ -70,7 +70,7 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
   const handleSave = async () => {
     if (!validateInputs()) return;
     try {
-      await apiClient.put(`users/${patient_id.username}/profile/patient`, formData);
+      await apiClient.put(`users/${patient_id.username}/profile/`, formData);
       setPatientData(formData);
       setIsEditing(false);
     } catch (error) {
@@ -80,7 +80,7 @@ const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.func
 
   const handleDelete = async () => {
     try {
-      await apiClient.delete(`users/${patient_id.username}/profile/patient`);
+      await apiClient.delete(`users/${patient_id.username}/profile/`);
       handleClose();
     } catch (error) {
       console.error("Error deleting patient data", error);

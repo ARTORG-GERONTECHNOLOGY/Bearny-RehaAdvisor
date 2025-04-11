@@ -88,7 +88,7 @@ const AddInterventionView: React.FC = observer(() => {
       formPayload.append('patientTypes', JSON.stringify(formData.patientTypes));
 
       // Send the request
-      const response = await apiClient.post('recommendations/add', formPayload, {
+      const response = await apiClient.post('interventions/add', formPayload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

@@ -14,55 +14,64 @@ urlpatterns = [
      path('', core_views.index, name='index'),
 
      # Authentication
-     path('api/auth/login/', auth_views.login, name='login'),
-     path('api/auth/logout/', auth_views.logout, name='logout'),
-     path('api/auth/forgot-password/', auth_views.forgot_password, name='forgot_password'),
-     path('api/auth/reset-password/', auth_views.reset_password, name='reset_password'),
-     path('api/auth/register/', auth_views.register, name='register'),
-     path('api/auth/send-verification-code/', auth_views.sendVerificationCode, name='send_verification_code'),
-     path('api/auth/verify-code/', auth_views.verify_code, name='verify_code'),
+     path('api/auth/login/', auth_views.login_view, name='login'),
+     path('api/auth/logout/', auth_views.logout_view, name='logout'),
+     path('api/auth/forgot-password/', auth_views.forgot_password_view, name='forgot_password'),
+     path('api/auth/reset-password/', auth_views.reset_password_view, name='reset_password'),
+     path('api/auth/register/', auth_views.register_view, name='register'),
+     path('api/auth/send-verification-code/', auth_views.send_verification_code, name='send_verification_code'),
+     path('api/auth/verify-code/', auth_views.verify_code_view, name='verify_code'),
      path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
      # User Profile
-     path('api/users/<str:user_id>/profile/', user_views.user_profile, name='user_profile'),
-     path('api/users/<str:user_id>/profile/patient', user_views.user_profile_patient, name='user_profile'),
+     path('api/users/<str:user_id>/profile/', user_views.user_profile_view, name='user_profile_detail'),
 
-     # Therapist's Patient Management
-     path('api/therapists/<str:therapist_id>/patients/', therapist_views.get_patients_by_therapist,
+     # Therapist Management
+     path('api/therapists/<str:therapist_id>/patients/', therapist_views.list_therapist_patients,
           name='get_patients_by_therapist'),
-     path('api/patients/info/patient/<str:patient_id>/', patient_views.get_patient, name='get_patient'),
-     path('api/recommendations/add-to-patient/', patient_views.create_rehabilitation_plan,
-          name='create_rehabilitation_plan'),
-     path('api/recommendations/assign-to-patient-types/', recomendation_views.assign_intervention_to_patient_types,
-          name='assign_intervention_to_patient_types'),
-     path('api/recommendations/remove-from-patient-types/', recomendation_views.delete_intervention_from_patient_types,
-          name='delete_intervention_from_patient_types'),
-     path('api/recommendations/remove-from-patient/', patient_views.del_rehabilitation_plan_intervention,
-          name='del_rehabilitation_plan_intervention'),
-     path('api/patients/rehabilitation-plan/therapist/<str:patient_id>/', patient_views.get_rehabilitation_plan, name='get_rehabilitation_plan'),
 
+     # Patient Management 
 
-     # Patients functions
-     path('api/patients/feedback/questionaire/', patient_views.patient_post_questionnaire_feedback,
-         name='patient_post_feedback'),
-      path('api/patients/rehabilitation-plan/patient/<str:patient_id>/', patient_views.get_patient_reha_plan,
+     # Rehabilitation plan
+     path('api/patients/rehabilitation-plan/patient/<str:patient_id>/', patient_views.get_patient_plan,
           name='get_patient_reha_plan'),
-     path('api/recommendations/mark-done/', patient_views.mark_intervention_done_by_patient,
-         name='mark_intervention_done_by_patient'),
-     path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/', patient_views.get_feedback_questions,
-         name='get_feedback_questions'),
-     
+     path('api/patients/rehabilitation-plan/therapist/<str:patient_id>/', patient_views.get_patient_plan_for_therapist, name='get_rehabilitation_plan'),
 
-     # Interventions
-     path('api/recommendations/all/', recomendation_views.get_recommendations, name='get_recommendations'),
-     path('api/recommendations/add/', recomendation_views.create_intervention, name='create_intervention'),
-     path('api/recommendations/<str:intervention>/assigned-diagnoses/<str:specialisation>/therapist/<str:therapist_id>/',
-          recomendation_views.get_recommended_diagnoses_for_intervention,
-          name='get_recommended_diagnoses_for_intervention'),
-     path('api/recommendations/<str:intervention_id>/', recomendation_views.get_recommendation_info,
+     # Intervention assignment
+     path('api/interventions/add-to-patient/', patient_views.add_intervention_to_patient,
+          name='create_rehabilitation_plan'),
+     path('api/interventions/remove-from-patient/', patient_views.remove_intervention_from_patient,
+          name='del_rehabilitation_plan_intervention'),                                                                                                
+
+     # Feedback
+     path('api/interventions/complete/', patient_views.mark_intervention_completed,
+         name='mark_intervention_done_by_patient'), 
+     path('api/patients/feedback/questionaire/', patient_views.submit_patient_feedback,
+         name='patient_post_feedback'),
+     path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/', patient_views.fetch_feedback_questions,
+         name='get_feedback_questions'),
+
+     #  Intervention Management
+     path('api/interventions/all/', recomendation_views.list_all_interventions, name='get_recommendations'),
+     path('api/interventions/add/', recomendation_views.add_new_intervention, name='create_intervention'),
+
+     # For assigning interventions to multiple types
+     path('api/interventions/assign-to-patient-types/', recomendation_views.assign_intervention_to_types,
+          name='assign_intervention_to_patient_types'),
+     path('api/interventions/remove-from-patient-types/', recomendation_views.remove_intervention_from_types,
+          name='delete_intervention_from_patient_types'),
+
+     # View details and special diagnosis assignment
+     path('api/interventions/<str:intervention_id>/', recomendation_views.get_intervention_detail,
           name='get_recommendation_info'),
-     path('api/recomendation/add/patientgroup/', recomendation_views.post_add_new_patient_group,
+     path('api/interventions/<str:intervention>/assigned-diagnoses/<str:specialisation>/therapist/<str:therapist_id>/',
+          recomendation_views.list_intervention_diagnoses,
+          name='get_recommended_diagnoses_for_intervention'),
+
+     # Group assignment
+     path('api/recomendation/add/patientgroup/', recomendation_views.create_patient_group,
           name='post_add_new_patient_group'),
+     
 ]
 
 # Only add this if DEBUG=True, which is typical in development

@@ -15,107 +15,121 @@ FILE_TYPE_FOLDERS = {
 }
 
 
+from core.models import RehabilitationPlan, PatientInterventionLogs
+from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def get_patients_by_therapist(request, therapist_id):
+def list_therapist_patients(request, therapist_id):
+    """
+    Returns a list of patients for a given therapist ID.
+    """
     try:
         therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         patients = Patient.objects.filter(therapist=therapist)
-        patients_data = [
-            {
+
+        patient_list = []
+        for patient in patients:
+            patient_list.append({
                 "_id": str(patient.pk),
                 "therapist": str(patient.therapist.name),
-                "created_at": patient.userId.createdAt.isoformat(),  # Directly access the User object
-                "username": patient.userId.username,  # Directly access the User object
+                "created_at": patient.userId.createdAt.isoformat(),
+                "username": patient.userId.username,
                 "age": patient.age,
                 "sex": patient.sex,
                 "first_name": patient.first_name,
                 "name": patient.name,
                 "diagnosis": patient.diagnosis,
                 "duration": patient.duration
+            })
 
-            } for patient in patients
-        ]
-        return JsonResponse(patients_data, safe=False, status=200)
+        return JsonResponse(patient_list, safe=False, status=200)
+
     except Therapist.DoesNotExist:
+        logger.warning(f"Therapist with ID {therapist_id} not found.")
         return JsonResponse({"error": "Therapist not found"}, status=404)
+
     except Exception as e:
+        logger.error(f"Error in list_therapist_patients: {e}")
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_rehabilitation_plan(request, patient_id):
+    """
+    Returns the full rehabilitation plan history for a given patient.
+    """
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    print('hi')
+
     try:
         plans = RehabilitationPlan.objects.filter(patientId=ObjectId(patient_id)).order_by('-createdAt')
         plan_list = []
 
         for plan in plans:
-            plan_data = {
+            plan_info = {
                 'startDate': plan.startDate.isoformat(),
                 'endDate': plan.endDate.isoformat(),
                 'status': plan.status,
-                'interventions': []
+                'interventions': [],
+                'createdAt': plan.createdAt.isoformat(),
+                'updatedAt': plan.updatedAt.isoformat()
             }
-            
 
-            for interv in plan.interventions:
-                intervention_obj = interv.interventionId
-                intervention_name = getattr(intervention_obj, 'title', 'Unnamed Intervention')
+            today = timezone.now().date()
 
-                # Collect all completed dates for this intervention
-                completed_dates = set()
-                logs = PatientInterventionLogs.objects(
-                    userId=plan.patientId,
-                    interventionId=intervention_obj
-                )
+            for assignment in plan.interventions:
+                intervention = assignment.interventionId
+                intervention_title = getattr(intervention, 'title', 'Unnamed Intervention')
+                logs = PatientInterventionLogs.objects(userId=plan.patientId, interventionId=intervention)
 
-                for log in logs:
-                    if "completed" in log.status:
-                        completed_dates.add(log.date.date())
+                completed_dates = {log.date.date() for log in logs if "completed" in log.status}
+                logs_with_feedback = [log for log in logs if log.feedback]
 
-                print('hi')
-                today = timezone.now().date()
-                intervention_dates = []
-                for date in interv.dates:
-                    day = date.date()
-                    if day in completed_dates:
+                dates_info = []
+                for scheduled_date in assignment.dates:
+                    date_only = scheduled_date.date()
+
+                    if date_only in completed_dates:
                         status = "completed"
-                    elif day < today:
+                    elif date_only < today:
                         status = "missed"
-                    elif day == today:
+                    elif date_only == today:
                         status = "today"
                     else:
                         status = "upcoming"
 
-                    feedback_entry = next(({
-                        'feedback': log.feedback,
-                        'comments': log.comments
-                    } for log in logs_with_feedback if log.date.date() == day), None)
+                    feedback_log = next((log for log in logs_with_feedback if log.date.date() == date_only), None)
+                    feedback_data = {
+                        'feedback': [fb.to_mongo() for fb in feedback_log.feedback] if feedback_log else [],
+                        'comments': feedback_log.comments if feedback_log else ''
+                    }
 
-                    intervention_dates.append({
-                        'datetime': date.isoformat(),
+                    dates_info.append({
+                        'datetime': scheduled_date.isoformat(),
                         'status': status,
-                        'feedback': feedback_entry
+                        'feedback': feedback_data if feedback_log else []
                     })
-                print('hi')
-                plan_data['interventions'].append({
-                    'interventionId': str(interv.interventionId.id),
-                    'interventionTitle': intervention_name,
-                    'frequency': interv.frequency,
-                    'notes': interv.notes,
-                    'dates': intervention_dates
+
+                plan_info['interventions'].append({
+                    'interventionId': str(intervention.id),
+                    'interventionTitle': intervention_title,
+                    'frequency': assignment.frequency,
+                    'notes': assignment.notes,
+                    'dates': dates_info
                 })
 
-            plan_data['createdAt'] = plan.createdAt.isoformat()
-            plan_data['updatedAt'] = plan.updatedAt.isoformat()
-
-            plan_list.append(plan_data)
+            plan_list.append(plan_info)
 
         return JsonResponse({'plans': plan_list}, safe=False)
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Error in get_rehabilitation_plan: {e}")
+        return JsonResponse({'error': 'Internal Server Error', 'details': str(e)}, status=500)
+
