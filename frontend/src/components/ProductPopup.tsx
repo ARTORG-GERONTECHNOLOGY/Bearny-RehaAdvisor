@@ -136,7 +136,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
   const fetchAssignedDiagnoses = async () => {
     try {
       const response = await apiClient.get(
-        `recommendations/${item['_id']}/assigned-diagnoses/${authStore.specialisation}/therapist/${authStore.id}`,
+        `interventions/${item['_id']}/assigned-diagnoses/${authStore.specialisation}/therapist/${authStore.id}`,
       );
       const assignedDiagnoses = Object.entries(response.data.diagnoses)
         .filter(([_, isAssigned]) => isAssigned)
@@ -156,7 +156,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
     );
     if (isChecked) {
       try {
-        await apiClient.post('recommendations/remove-from-patient-types/', {
+        await apiClient.post('interventions/remove-from-patient-types/', {
           diagnosis,
           intervention_id: item['_id'],
           therapist: authStore.id,
@@ -182,7 +182,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, th
 
     if (newSelectedAll) {
       try {
-        await apiClient.post('recommendations/remove-from-patient-types/', {
+        await apiClient.post('interventions/remove-from-patient-types/', {
           diagnosis: 'all',
           intervention_id: item['_id'],
           therapist: authStore.id,
