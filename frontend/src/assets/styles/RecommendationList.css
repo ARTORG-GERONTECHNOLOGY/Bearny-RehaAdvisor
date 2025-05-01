@@ -1,21 +1,21 @@
 .recommendation-list .recommendation-card {
-    border-radius: 10px;
-    overflow: hidden;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .recommendation-list .image-preview {
-    max-height: 150px;
-    object-fit: cover;
+  max-height: 150px;
+  object-fit: cover;
 }
 
 .recommendation-list .mark-as-used-button {
-    min-width: 140px;
+  min-width: 140px;
 }
 
 .recommendation-list .feedback-stars .fa-star {
-    transition: color 0.3s ease;
+  transition: color 0.3s ease;
 }
 
 .recommendation-list .feedback-stars .fa-star:hover {
-    color: gold;
+  color: gold;
 }
