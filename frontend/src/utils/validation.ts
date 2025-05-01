@@ -1,13 +1,23 @@
-// utils/validation.ts
-
-export const isValidName = (name: string) => {
+export const isValidName = (name: string): boolean => {
   const nameRegex = /^[A-Za-z]+$/;
   return nameRegex.test(name);
 };
 
-export const validateForm = (formData: any) => {
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  repeatPassword: string;
+  [key: string]: string; // for dynamic key handling
+}
+
+export const validateForm = (
+  formData: FormData
+): { valid: boolean; newErrors: Record<string, string> } => {
   let valid = true;
-  const newErrors = {
+
+  const newErrors: Record<string, string> = {
     firstName: '',
     lastName: '',
     email: '',
@@ -15,62 +25,56 @@ export const validateForm = (formData: any) => {
     repeatPassword: '',
   };
 
-  // Name validation (no numbers allowed)
-  // Name validation (letters, spaces, and hyphens allowed)
   const nameRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\W)(?!.* ).{8,16}$/;
 
   if (!nameRegex.test(formData.firstName)) {
-    newErrors.firstName = 'First name should only contain letters, spaces.';
+    newErrors.firstName = 'First name should only contain letters and spaces.';
     valid = false;
   }
 
   if (!nameRegex.test(formData.lastName)) {
-    newErrors.lastName = 'Last name should only contain letters, spaces.';
+    newErrors.lastName = 'Last name should only contain letters and spaces.';
     valid = false;
   }
 
-  // Email validation (simple regex pattern)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!formData.email.match(emailRegex)) {
+  if (!emailRegex.test(formData.email)) {
     newErrors.email = 'Invalid email address.';
     valid = false;
   }
 
-  // Password validation (minimum 8 characters, at least 1 uppercase, 1 number, 1 special character)
-  const passwordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\W)(?!.* ).{8,16}$/;
   if (!passwordRegex.test(formData.password)) {
-    newErrors.password = formData.password;
+    newErrors.password =
+      'Password must be 8-16 characters, include upper/lowercase letters, a number, and a special character.';
     valid = false;
   }
 
-  // Repeat password validation
   if (formData.password !== formData.repeatPassword) {
     newErrors.repeatPassword = 'Passwords do not match.';
     valid = false;
   }
-  return {valid, newErrors};
+
+  return { valid, newErrors };
 };
 
-const hasNonEmptyValue = (data : any) => {
-  return Object.values(data).some(value => value !== '' && value !== null );
+// Check if any field has a non-empty value
+export const hasNonEmptyValue = (data: Record<string, unknown>): boolean => {
+  return Object.values(data).some((value) => value !== '' && value !== null);
 };
 
+export const validateCurrentStep = (
+  formData: Record<string, unknown>
+): { validity: boolean; newErrors: Record<string, string> } => {
+  const newErrors: Record<string, string> = {};
+  let validity = true;
 
-// @ts-ignore
-export const validateCurrentStep = (formData: any, step: number) => {
-  let newErrors = {};
+  for (const [key, value] of Object.entries(formData)) {
+    if (value === '' || value === null || value === undefined) {
+      newErrors[key] = `${key} cannot be empty`;
+      validity = false;
+    }
+  }
 
-// Step 1 validation (common for all user types)
-  let validity = true
-  // Loop through each key-value pair in the formData
-  Object.entries(formData).forEach(([key, value]) => {
-       if (value === '' || value === null || value === undefined) {
-         // If value is empty, set an error message
-         console.log(value)
-         // @ts-ignore
-         newErrors[key] = `${key} cannot be empty`;
-         validity = false;
-       }
-    });
-  return {validity, newErrors};
+  return { validity, newErrors };
 };

@@ -1,0 +1,17 @@
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import Error from '../../../components/common/Error'; // Adjust the import path if needed
+
+describe('Error Component', () => {
+  it('renders without crashing', () => {
+    render(<Error />);
+    const heading = screen.getByRole('heading', { name: /error/i });
+    expect(heading).toBeInTheDocument();
+  });
+
+  it('displays centered error message', () => {
+    render(<Error />);
+    const heading = screen.getByRole('heading', { name: /error/i });
+    expect(heading).toHaveStyle({ textAlign: 'center' });
+  });
+});
