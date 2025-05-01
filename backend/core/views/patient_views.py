@@ -74,7 +74,7 @@ def submit_patient_feedback(request):
             return answer_keys
 
         if intervention_id:
-            # 🟢 Handle intervention-based feedback
+            # Handle intervention-based feedback
             intervention = Intervention.objects.get(id=ObjectId(intervention_id))
             rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
@@ -263,7 +263,7 @@ def mark_intervention_completed(request):
 
         Logs(
             userId=patient.userId,
-            action='MARK_INTERVENTION_COMPLETED',
+            action='OTHER',
             userAgent='Patient',
             details=f"Marked intervention {intervention.title} as done on {dj_now().isoformat()}"
         ).save()

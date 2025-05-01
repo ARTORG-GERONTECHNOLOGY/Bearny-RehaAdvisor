@@ -3,40 +3,46 @@ import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
+
 const UnauthorizedAccess: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  const handleGoBack = () => {
-    navigate(-1); // Go back to the previous page
-  };
-
-  const handleGoHome = () => {
-    navigate('/'); // Navigate to the home page
-  };
+  const handleGoBack = () => navigate(-1);
+  const handleGoHome = () => navigate('/');
 
   return (
-    <Container fluid className="d-flex flex-column min-vh-100">
-      <Header isLoggedIn={false}/>
-      <Container className="my-5 flex-grow-1">
-       <Row className="justify-content-center">
-        <Col md={8} lg={6}>
-      <h1>{t("Unauthorized Access")}</h1>
-      <p>{t("You do not have permission to access this page.")}</p>
+    <Container fluid className="d-flex flex-column min-vh-100 px-3">
+      {/* Header */}
+      <Header isLoggedIn={false} />
 
-      <div className="mt-4">
-        <Button variant="primary" onClick={handleGoBack} className="me-2">
-           {t("Go Back")}
-        </Button>
-        <Button variant="secondary" onClick={handleGoHome}>
-          {t("Go to Home")}
-        </Button>
-      </div>
-      </Col>
-      </Row>
+      {/* Main Content */}
+      <Container className="flex-grow-1 d-flex align-items-center justify-content-center">
+        <Row className="w-100 justify-content-center">
+          <Col xs={12} md={10} lg={8} xl={6}>
+            <Card className="shadow-sm p-4 text-center">
+              <Card.Body>
+                <h1 className="mb-3">{t('Unauthorized Access')}</h1>
+                <p className="mb-4">{t('You do not have permission to access this page.')}</p>
+
+                <div className="d-grid gap-2 d-sm-flex justify-content-center">
+                  <Button variant="primary" onClick={handleGoBack}>
+                    {t('Go Back')}
+                  </Button>
+                  <Button variant="secondary" onClick={handleGoHome}>
+                    {t('Go to Home')}
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
       </Container>
-      <Footer/>
-   </Container>
+
+      {/* Footer */}
+      <Footer />
+    </Container>
   );
 };
 

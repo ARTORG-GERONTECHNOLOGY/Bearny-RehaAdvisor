@@ -1,9 +1,8 @@
 import os
 import random
 from datetime import timedelta
-
-from django.conf import settings
 from django.utils import timezone
+from django.conf import settings
 from mongoengine import (Document, DictField, StringField, EmailField, IntField, ListField, DateTimeField, BooleanField,
                          ReferenceField, EmbeddedDocument, EmbeddedDocumentField)
 
@@ -12,11 +11,20 @@ from utils.config import config
 all_diagnoses = [diagnosis for category in config["patientInfo"]["function"].values() for diagnosis in
                  category["diagnosis"]]
 
+class SMSVerification(Document):
+    meta = {'collection': '2f_auth'}
+    userId = StringField(max_length=255, required=True)
+    code = StringField(max_length=6, required=True)
+    created_at = DateTimeField(default=timezone.now)
+    expires_at = DateTimeField(required=True)
+    
+    def __str__(self):
+        return f'{self.userId} (User)'
 
 class User(Document):
     meta = {'collection': 'users'}  # MongoDB collection
     username = StringField(max_length=150, required=True)
-    role = StringField(choices=["Therapist", "Patient"], default="Therapist")
+    role = StringField(choices=["Therapist", "Patient", "Admin"], default="Therapist")
     createdAt = DateTimeField(required=True)
     updatedAt = DateTimeField(default=timezone.now)
     email = EmailField(unique=True, required=True)
@@ -210,21 +218,3 @@ class PatientICFRating(Document):
     rating = IntField()  # Score level (e.g., 0-4 or 0-10 scale)
     feedback_entries = ListField(EmbeddedDocumentField(FeedbackEntry))
     notes = StringField()  # Additional notes or observations
-
-
-class SMSVerification(Document):
-    meta = {'collection': 'sms_verifications'}
-    #user = ReferenceField(User, reverse_delete_rule=CASCADE)
-    code = StringField(max_length=6)
-    created_at = DateTimeField(default=timezone.now)
-    expires_at = DateTimeField()
-
-    def save(self, *args, **kwargs):
-        if not self.code:
-            self.code = f'{random.randint(100000, 999999)}'
-        if not self.expires_at:
-            self.expires_at = timezone.now() + timezone.timedelta(minutes=10)
-        super(SMSVerification, self).save(*args, **kwargs)
-
-    def is_expired(self):
-        return timezone.now() > self.expires_at

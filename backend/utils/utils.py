@@ -5,7 +5,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from django.utils.timezone import is_naive, make_aware
 from django.utils import timezone
-from core.models import Patient, Therapist
+from core.models import Patient, Therapist, User
 
 logger = logging.getLogger(__name__)
 import re
@@ -165,7 +165,7 @@ def generate_custom_id(user_type):
     """
     Generate a unique custom ID based on the user type.
     """
-    prefix_map = {'Therapist': 't', 'Patient': 'p', 'Researcher': 'r'}
+    prefix_map = {'Therapist': 't', 'Patient': 'p', 'Researcher': 'r', 'Admin': 'a'}
     prefix = prefix_map.get(user_type)
     
     if prefix == 'p':
@@ -174,6 +174,9 @@ def generate_custom_id(user_type):
         count = Therapist.objects.count() + 1
     elif prefix == 'r':
         count = Researcher.objects.count() + 1
+    elif prefix == 'a':
+        count = User.objects.filter(username__startswith='a').count() + 1
+
     else:
         logger.warning(f"Unknown user type for ID generation: {user_type}")
         return "unknown0"
