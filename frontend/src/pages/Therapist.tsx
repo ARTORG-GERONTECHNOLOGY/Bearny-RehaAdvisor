@@ -1,78 +1,71 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
-import PatientPopup from '../components/PatientPopup';
 import { useTranslation } from 'react-i18next';
-import WelcomeArea from '../components/WelcomeArea';
+import { useNavigate } from 'react-router-dom';
+
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
-import { useNavigate } from 'react-router-dom';
-import authStore from '../stores/authStore';
+import WelcomeArea from '../components/common/WelcomeArea';
+import PatientPopup from '../components/TherapistPatientPage/PatientPopup';
+import AddPatientPopup from '../components/AddPatient/AddPatientPopUp';
+
 import apiClient from '../api/client';
+import authStore from '../stores/authStore';
 import config from '../config/config.json';
-import AddPatientPopup from '../components/forms/AddPatientPopUp';
-import { useCallback } from 'react';
+
+import { PatientType } from '../types/index';
 
 const Therapist: React.FC = () => {
-  const [patients, setPatients] = useState([]);
-  const [filteredPatients, setFilteredPatients] = useState([]);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [patients, setPatients] = useState<PatientType[]>([]);
+  const [filteredPatients, setFilteredPatients] = useState<PatientType[]>([]);
+  const [selectedItem, setSelectedItem] = useState<PatientType | null>(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [showPopupAdd, setShowPopupAdd] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
+
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [showPopupAdd, setShowPopupAdd] = useState(false);
-
-  const handleOpen = () => setShowPopupAdd(true);
-  
-  const therapistId = authStore.id;
 
   const durationOptions = config.RehaInfo;
 
   useEffect(() => {
     authStore.checkAuthentication();
-
     if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
       navigate('/');
     } else {
-      setLoading(false);
+      fetchPatients();
     }
   }, [navigate]);
 
-  useEffect(() => {
-    if (authStore.isAuthenticated && authStore.userType === 'Therapist') {
-      
-      fetchData();
-    }
-  }, [therapistId]);
-
-  const fetchData = async () => {
+  const fetchPatients = async () => {
     try {
-      const patientResponse = await apiClient.get(`therapists/${therapistId}/patients`);
-      const patientData = patientResponse.data;
-      setPatients(patientData);
-      setFilteredPatients(patientData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      const res = await apiClient.get<PatientType[]>(`therapists/${authStore.id}/patients`);
+      setPatients(res.data);
+      setFilteredPatients(res.data);
+    } catch (err) {
+      console.error('Error fetching patients:', err);
     }
   };
+
+  const handleOpen = () => setShowPopupAdd(true);
 
   const handleClose = useCallback(() => {
-    fetchData();
+    fetchPatients();
     setShowPopupAdd(false);
-  }, [fetchData]);
-  
+  }, []);
 
-  const handleItemClick = (item: any) => {
-    setSelectedItem(item);
+  const handleItemClick = (patient: PatientType) => {
+    setSelectedItem(patient);
     setShowPopup(true);
   };
-  const handleRehabButton = (item: any, name: string) => {
-    localStorage.setItem('selectedPatient', item);
+
+  const handleRehabButton = (id: string, name: string) => {
+    localStorage.setItem('selectedPatient', id);
     localStorage.setItem('selectedPatientName', name);
-    navigate(`/rehabtable`);
+    navigate('/rehabtable');
   };
 
   const handleClosePopup = () => {
@@ -80,50 +73,46 @@ const Therapist: React.FC = () => {
     setSelectedItem(null);
   };
 
-  // Filter patients based on gender, duration, and search term
   useEffect(() => {
-    let filtered = patients;
+    let filtered = [...patients];
 
     if (genderFilter) {
-      filtered = filtered.filter((patient) => patient['sex'] === genderFilter);
+      filtered = filtered.filter((p) => p.sex === genderFilter);
     }
 
     if (durationFilter) {
-      filtered = filtered.filter((patient) => {
-        const duration = patient['duration'];
-        if (durationFilter === '< 30 days') return duration < 30;
-        if (durationFilter === '30-60 days') return duration >= 30 && duration <= 60;
-        if (durationFilter === '60-90 days') return duration > 60 && duration <= 90;
-        return duration > 90;
+      filtered = filtered.filter((p) => {
+        const d = p.duration;
+        if (durationFilter === '< 30 days') return d < 30;
+        if (durationFilter === '30-60 days') return d >= 30 && d <= 60;
+        if (durationFilter === '60-90 days') return d > 60 && d <= 90;
+        return d > 90;
       });
     }
 
     if (searchTerm) {
-      filtered = filtered.filter((patient) => {
-        // @ts-ignore
-        const fullName = `${patient.name} ${patient.first_name}`.toLowerCase();
+      filtered = filtered.filter((p) => {
+        const fullName = `${p.name} ${p.first_name}`.toLowerCase();
         return fullName.includes(searchTerm.toLowerCase());
       });
     }
 
-
     setFilteredPatients(filtered);
-  }, [genderFilter, durationFilter, searchTerm, patients]);
-
+  }, [searchTerm, genderFilter, durationFilter, patients]);
 
   return (
-    <div className="therapist-view-container">
+    <div className="d-flex flex-column min-vh-100">
       <Header isLoggedIn={authStore.isAuthenticated} />
 
       <Container className="main-content mt-4">
-        <WelcomeArea user={'Therapist'} />
+        <WelcomeArea user="Therapist" />
+
         <Row className="mb-3">
-        <Col>
-        <Button onClick={handleOpen}>{t("Add a New Patient")}</Button>
-        </Col>
+          <Col>
+            <Button onClick={handleOpen}>{t('Add a New Patient')}</Button>
+          </Col>
         </Row>
 
-        {/* Search and Filter Options */}
         <Row className="mb-3">
           <Col xs={12} sm={6} md={4} lg={3}>
             <Form.Group controlId="searchInput">
@@ -138,13 +127,13 @@ const Therapist: React.FC = () => {
 
           <Col xs={12} sm={6} md={4} lg={3}>
             <Form.Group controlId="genderFilter">
-              <Form.Select
-                value={genderFilter}
-                onChange={(e) => setGenderFilter(e.target.value)}
-              >
+              <Form.Label className="visually-hidden">{t('Filter by Gender')}</Form.Label>
+              <Form.Select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
                 <option value="">{t('Filter by Gender')}</option>
-                {config.patientInfo.sex.map((gender) => (
-                  <option key={gender} value={gender}>{t(gender)}</option>
+                {config.patientInfo.sex.map((gender: string) => (
+                  <option key={gender} value={gender}>
+                    {t(gender)}
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -152,70 +141,77 @@ const Therapist: React.FC = () => {
 
           <Col xs={12} sm={6} md={4} lg={3}>
             <Form.Group controlId="durationFilter">
+              <Form.Label className="visually-hidden">{t('Filter by Duration')}</Form.Label>
               <Form.Select
                 value={durationFilter}
                 onChange={(e) => setDurationFilter(e.target.value)}
               >
                 <option value="">{t('Filter by Duration')}</option>
-                {durationOptions.map((duration) => (
-                  <option key={duration} value={duration}>{t(duration)}</option>
+                {durationOptions.map((duration: string) => (
+                  <option key={duration} value={duration}>
+                    {t(duration)}
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>
           </Col>
         </Row>
 
-        {/* Tabular Display of Patients */}
-        <div className="table-responsive shadow-sm p-3 mb-5 bg-white rounded" style={{ maxHeight: '400px' }}>
+        <div
+          className="table-responsive shadow-sm p-3 mb-5 bg-white rounded"
+          style={{ maxHeight: '400px' }}
+        >
           <Table bordered hover className="table-striped">
-            <thead className="table-striped"
-                   style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}>
-            <tr>
-              <th>{t('Full Name')}</th>
-              <th>{t('Birth Year')}</th>
-              <th>{t('Type')}</th>
-              <th>{t('Gender')}</th>
-              <th>{t('Actions')}</th>
-            </tr>
+            <thead
+              className="table-striped"
+              style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}
+            >
+              <tr>
+                <th>{t('Full Name')}</th>
+                <th>{t('Birth Year')}</th>
+                <th>{t('Type')}</th>
+                <th>{t('Gender')}</th>
+                <th>{t('Actions')}</th>
+              </tr>
             </thead>
             <tbody>
-            {filteredPatients.map((patient) => (
-              <tr key={patient['_id']}>
-                <td>{patient['first_name']} {patient['name']}
-                  <Button
-                    variant="primary"
-                    onClick={() => handleItemClick(patient)}
-                    style={{ padding: 5, marginLeft: '20px' }}
-                  >
-                    {t('Info')}
-                  </Button></td>
-                <td>{new Date(patient['age']).getFullYear()}</td>
-                <td>{t(patient['diagnosis'])}</td>
-                <td>{t(patient['sex'])}</td>
-                <td>
-                  <Button
-                    variant="primary"
-                    onClick={() => handleRehabButton(patient['_id'], `${patient.first_name} ${patient.name}`)}
-                  >
-                    {t('Go to Rehab Table')}
-                  </Button>
-
-                </td>
-              </tr>
-            ))}
+              {filteredPatients.map((patient) => (
+                <tr key={patient._id}>
+                  <td>
+                    {patient.first_name} {patient.name}
+                    <Button
+                      variant="primary"
+                      onClick={() => handleItemClick(patient)}
+                      className="ms-3 py-1 px-2"
+                    >
+                      {t('Info')}
+                    </Button>
+                  </td>
+                  <td>{new Date(patient.age).getFullYear()}</td>
+                  <td>{t(patient.diagnosis)}</td>
+                  <td>{t(patient.sex)}</td>
+                  <td>
+                    <Button
+                      variant="primary"
+                      onClick={() =>
+                        handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
+                      }
+                    >
+                      {t('Go to Rehab Table')}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </Table>
         </div>
       </Container>
 
       {selectedItem && (
-        <PatientPopup
-          patient_id={selectedItem} // This will be null when no patient is selected
-          show={showPopup}
-          handleClose={handleClosePopup}
-        />)}
-      <AddPatientPopup show={showPopupAdd} handleClose={handleClose}  />
+        <PatientPopup patient_id={selectedItem} show={showPopup} handleClose={handleClosePopup} />
+      )}
 
+      <AddPatientPopup show={showPopupAdd} handleClose={handleClose} />
 
       <Footer />
     </div>

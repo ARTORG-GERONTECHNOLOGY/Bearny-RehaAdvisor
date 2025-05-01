@@ -1,46 +1,37 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Container, Row, Col, Card } from 'react-bootstrap';
-import FormRegisterPatient from '../components/forms/RegisteringForm_patient';  // Import the registration form component
+import { useTranslation } from 'react-i18next';
+import RegisterPatientForm from '../components/AddPatient/RegisterPatientForm';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';  // For redirecting unauthorized users
+import useAuthGuard from '../hooks/useAuthGuard';
 import authStore from '../stores/authStore';
 
 const AddPatient: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();  // Used for navigation
+  const isAuthenticated = !!authStore.userType;
+  const therapistId = authStore.id;
 
-  // Authentication and role check
-  useEffect(() => {
-    authStore.checkAuthentication();
-    if (authStore.isAuthenticated && authStore.userType !== 'Therapist') {
-      // Only therapists should have access to this page
-      navigate('/unauthorized');  // Redirect to unauthorized access page if not a therapist
-    }
-  }, [navigate]);
+  // Ensure only therapists can access this page
+  useAuthGuard('Therapist');
 
   return (
     <Container fluid className="d-flex flex-column vh-100">
-      {/* Header Component */}
-      <Header isLoggedIn={!!authStore.userType} />
+      <Header isLoggedIn={isAuthenticated} />
 
-      <div className="main-content my-5">
+      <main className="my-5 flex-grow-1">
         <Row className="justify-content-center">
-          <Col md={6}>
-            <Card>
+          <Col xs={12} md={8} lg={6}>
+            <Card className="shadow-sm">
               <Card.Body>
                 <h2 className="text-center mb-4">{t('AddaNewPatient')}</h2>
-
-                {/* Registration Form */}
-                <FormRegisterPatient pageType="patient"  therapist={authStore.id} />
+                <RegisterPatientForm therapist={therapistId} />
               </Card.Body>
             </Card>
           </Col>
         </Row>
-      </div>
+      </main>
 
-      {/* Footer Component */}
       <Footer />
     </Container>
   );
