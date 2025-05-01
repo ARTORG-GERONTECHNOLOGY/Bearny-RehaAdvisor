@@ -8,10 +8,17 @@ interface InputFieldProps {
 }
 
 const InputField: React.FC<InputFieldProps> = ({
-                                                 id, label, type, value, placeholder, onChange,
-                                               }) => (
+  id,
+  label,
+  type,
+  value,
+  placeholder,
+  onChange,
+}) => (
   <div className="mb-3">
-    <label htmlFor={id} className="form-label">{label}</label>
+    <label htmlFor={id} className="form-label">
+      {label}
+    </label>
     <input
       type={type}
       className="form-control"

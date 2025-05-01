@@ -3,55 +3,49 @@ import { Alert, Button, Col, Container, Form, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
-import apiClient from '../api/client'; // Axios instance for API requests
+import apiClient from '../api/client';
 
 const ForgotPassword: React.FC = () => {
-  const [email, setEmail] = useState(''); // State to store email input
-  const [error, setError] = useState<string | null>(null); // Error message state
-  const [success, setSuccess] = useState(false); // Success state to show success message
-  const { t } = useTranslation(); // Translation hook
+  const { t } = useTranslation();
 
-  // Handle form submission for forgot password
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent form default submission
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
 
     try {
-      // Send password reset request to the backend
       await apiClient.post('auth/forgot-password/', { email });
-      setSuccess(true); // Show success message
-      setError(null); // Clear previous errors if any
-    } catch (error) {
-      setError(t('Failed to send password reset link. Please try again.')); // Set error message
-      setSuccess(false); // Hide success message
+      setSuccess(true);
+    } catch (err) {
+      setError(t('Failed to send password reset link. Please try again.'), err);
     }
   };
 
   return (
-    <Container className="d-flex flex-column vh-100">
-      {/* Header component, not logged in */}
+    <Container fluid className="d-flex flex-column vh-100">
       <Header isLoggedIn={false} />
 
-      {/* Main Content */}
-      <Row className="flex-grow-1 justify-content-center align-items-center w-100">
-        <Col xs={12} md={6} lg={5} className="mx-auto">
+      <Row className="flex-grow-1 justify-content-center align-items-center">
+        <Col xs={12} md={6} lg={5}>
           <h2 className="text-center mb-4">{t('ForgottenPassword')}</h2>
 
-          {/* Success Alert */}
           {success && (
             <Alert variant="success" className="text-center">
               {t('Passwordresetlinksent.Pleasecheckyouremail.')}
             </Alert>
           )}
 
-          {/* Error Alert */}
           {error && (
             <Alert variant="danger" className="text-center">
               {error}
             </Alert>
           )}
 
-          {/* Forgot Password Form */}
-          <Form onSubmit={handleForgotPassword}>
+          <Form onSubmit={handleSubmit}>
             <Form.Group controlId="formEmail" className="mb-3">
               <Form.Label>{t('Emailaddress')}</Form.Label>
               <Form.Control
@@ -63,15 +57,13 @@ const ForgotPassword: React.FC = () => {
               />
             </Form.Group>
 
-            {/* Submit Button */}
-            <Button variant="primary" type="submit" className="w-100">
+            <Button type="submit" variant="primary" className="w-100">
               {t('Submit')}
             </Button>
           </Form>
         </Col>
       </Row>
 
-      {/* Footer Component */}
       <Footer />
     </Container>
   );

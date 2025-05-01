@@ -10,7 +10,12 @@ interface PasswordFieldProps {
 }
 
 const PasswordField: React.FC<PasswordFieldProps> = ({
-  id, value, onChange, showPassword, onToggle, pagetype,
+  id,
+  value,
+  onChange,
+  showPassword,
+  onToggle,
+  pagetype,
 }) => (
   <div className="mb-3 position-relative">
     <label htmlFor={id} className="form-label">

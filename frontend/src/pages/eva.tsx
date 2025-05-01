@@ -4,31 +4,31 @@ const testQuestion = 'Testlauf Beispiel: Holzhacken';
 const realQuestions = [
   'Allgemeine Gesundheit',
   'Essen und Trinken',
-  'Körperpflege, Waschen, Anziehen',
-  'Toilettennutzung, Blasen- und Darmmanagement',
+  'Sich selber und den Körper pflegen, sich waschen und kleiden',
+  'Die Toilette benutzen, das Blasenmanagement, die Urinausscheidung, die Verdauung und das Management vom Stuhlgang',
   'Muskelfunktion und -kraft',
   'Beweglichkeit, Gelenke und Knochen',
-  'Liegen, Sitzen, Aufstehen, Gehen',
-  'Fortbewegung mit Verkehrsmitteln',
-  'Herzfunktion, Atmung, Belastbarkeit',
-  'Kommunikation und Verstehen',
-  'Soziale Kontakte, Familie, Freunde',
-  'Sexualleben',
+  'Liegen, sitzen, aufstehen, gehen, die Position wechseln und sich fortbewegen',
+  'Sich mit Transportmitteln fortbewegen, z.B. Velo, Auto, ÖV oder Rollstuhl',
+  'Herzfunktion, Atmung, Leistungsfähigkeit und Belastbarkeit',
+  'Mit anderen kommunizieren, sich ausdrücken und verstehen können',
+  'Pflege von sozialen Kontakten und Umgang mit anderen, Familie und Freunde',
+  'Sexual Leben und sexuelle Funktionen',
   'Schlaf',
   'Problemlösen und Wissen anwenden',
   'Gedächtnis und Denken',
-  'Umgang mit Emotionen',
-  'Antrieb und Energie',
+  'Umgang mit Emotionen und Gefühlen',
+  'Psychische Energie und Antrieb',
   'Schmerz',
-  'Aufgaben im Alltag, Beruf, Freizeit',
-  'Professionelle Unterstützung',
+  'Ausführen von Aufgaben in Haushalt und Beruf, Freizeit und Erholung',
+  'Einstellungen und Unterstützung von professionellen Personen',
   'Anderen helfen',
-  'Medikamentenverwendung',
-  'Hilfsmittel und Technologien',
-  'Gesundheitsversorgung',
-  'Zugang zu Gebäuden',
-  'Umwelteinflüsse',
-  'Gesundheitsbewusstsein',
+  'Verwendung von Produkten und Substanzen, z. B. Medikamenten',
+  'Verwendung von Hilfsmittel und Technologien',
+  'Versorgung durch das Gesundheitswesen',
+  'Zugang zu private oder öffentlichen Gebäuden',
+  'Umwelteinflüsse und Klima',
+  'Auf Gesundheit achten',
 ];
 
 const version = 'Version 7.1, 03.04.2025';
@@ -72,7 +72,7 @@ export default function HealthSlider() {
     if (storedId) {
       setPatientId(storedId);
     } else {
-      const id = window.prompt("Bitte geben Sie Ihre Patienten-ID ein:");
+      const id = window.prompt('Bitte geben Sie Ihre Patienten-ID ein:');
       if (id && id.trim()) {
         const cleaned = id.trim();
         setPatientId(cleaned);
@@ -112,7 +112,6 @@ export default function HealthSlider() {
     URL.revokeObjectURL(url);
   };
 
-
   const exportAndNext = () => {
     if (testMode) {
       setTestMode(false);
@@ -148,19 +147,20 @@ export default function HealthSlider() {
   const progressPercent = testMode ? 0 : ((questionIndex + 1) / realQuestions.length) * 100;
 
   return (
-    <div style={{
-      height: '100vh',
-      padding: '2rem 1rem 3rem 1rem',
-      fontFamily: '"Atkinson Hyperlegible", sans-serif',
-      backgroundColor: '#f6f4f0',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: showSummary ? 'center' : 'flex-start',
-      gap: '1.5rem',
-      position: 'relative'
-    }}>
-    
+    <div
+      style={{
+        height: '100vh',
+        padding: '2rem 1rem 3rem 1rem',
+        fontFamily: '"Atkinson Hyperlegible", sans-serif',
+        backgroundColor: '#f6f4f0',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: showSummary ? 'center' : 'flex-start',
+        gap: '1.5rem',
+        position: 'relative',
+      }}
+    >
       {showSummary ? (
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: '2rem' }}>Vielen Dank für die Beantwortung der Fragen</h2>
@@ -171,43 +171,58 @@ export default function HealthSlider() {
       ) : (
         <>
           {/* Progress */}
-          <div style={{ width: '100%', backgroundColor: '#ddd', height: '10px', borderRadius: '4px' }}>
+          <div
+            style={{ width: '100%', backgroundColor: '#ddd', height: '10px', borderRadius: '4px' }}
+          >
             <div
               style={{
                 width: `${progressPercent}%`,
                 height: '100%',
                 backgroundColor: '#4caf50',
-                borderRadius: '4px'
+                borderRadius: '4px',
               }}
             />
           </div>
 
           {/* Question */}
-          <div style={{
-            maxWidth: '900px',
-            width: '100%',
-            textAlign: 'center',
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            lineHeight: 1.4,
-            marginTop: '1rem'
-          }}>
+          <div
+            style={{
+              maxWidth: '900px',
+              width: '100%',
+              textAlign: 'center',
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              lineHeight: 1.4,
+              marginTop: '1rem',
+            }}
+          >
             {testMode ? 'Testfrage' : `Frage ${questionIndex + 1}`}
             <div style={{ marginTop: '0.5rem' }}>{currentQuestion}</div>
           </div>
 
-
           {/* Slider Section */}
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-          <div style={{ color: '#80e0c2', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}>Sehr gut</div>
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <div
+              style={{ color: '#80e0c2', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}
+            >
+              Sehr gut
+            </div>
             {/* Top Cap */}
-            <div style={{
-              height: '10px',
-              width: '120px',
-              backgroundColor: '#80e0c2',
-              borderRadius: '20px 20px 20px 20px'
-            }} />
+            <div
+              style={{
+                height: '10px',
+                width: '120px',
+                backgroundColor: '#80e0c2',
+                borderRadius: '20px 20px 20px 20px',
+              }}
+            />
 
             {/* Spectrum with tap-to-set */}
             <div
@@ -220,12 +235,13 @@ export default function HealthSlider() {
                 background: 'linear-gradient(180deg, #80e0c2, #efece7 50%, #c1839d)',
                 display: 'flex',
                 alignItems: 'flex-end',
-                justifyContent: 'center'
+                justifyContent: 'center',
               }}
             >
               {/* Slider Handle */}
               <div
                 onMouseDown={handleMouseDown}
+                role="slider"
                 onTouchStart={(e) => {
                   e.stopPropagation();
                   setIsDragging(true);
@@ -239,21 +255,26 @@ export default function HealthSlider() {
                   backgroundColor: isDragging ? '#000' : '#9d8d71',
                   borderRadius: '10px',
                   opacity: 0.7,
-                  cursor: 'grab'
+                  cursor: 'grab',
                 }}
               />
             </div>
 
             {/* Bottom Cap */}
-            <div style={{
-              height: '10px',
-              width: '120px',
-              backgroundColor: '#c1839d',
-              borderRadius: '20px 20px 20px 20px'
-            }} />
-            <div style={{ color: '#c1839d', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}>Sehr schlecht</div>
-          {/* Next Button */}
-          
+            <div
+              style={{
+                height: '10px',
+                width: '120px',
+                backgroundColor: '#c1839d',
+                borderRadius: '20px 20px 20px 20px',
+              }}
+            />
+            <div
+              style={{ color: '#c1839d', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}
+            >
+              Sehr schlecht
+            </div>
+            {/* Next Button */}
           </div>
           <button
             onClick={exportAndNext}
@@ -264,7 +285,7 @@ export default function HealthSlider() {
               color: 'white',
               border: 'none',
               borderRadius: '10px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {testMode ? 'Interview starten' : 'Nächste Frage'}
@@ -273,43 +294,43 @@ export default function HealthSlider() {
       )}
 
       {/* Footer */}
-<div style={{
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  width: '100%',
-  padding: '0.5rem 1.5rem',
-  fontSize: '1rem',
-  color: '#707070',
-  position: 'absolute',
-  bottom: '5%',
-  left: 0
-}}>
-  <button
-    onClick={() => {
-      localStorage.removeItem('patient_id');
-      window.location.reload();
-    }}
-    style={{
-      fontSize: '1rem',
-      color: '#aaa',
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer'
-    }}
-  >
-    ID zurücksetzen
-  </button>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          width: '100%',
+          fontSize: '1rem',
+          color: '#707070',
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '0.5rem 1.5rem',
+          background: '#f6f4f0', // optional for contrast
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={() => {
+            localStorage.removeItem('patient_id');
+            window.location.reload();
+          }}
+          style={{
+            fontSize: '1rem',
+            color: '#aaa',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          ID zurücksetzen
+        </button>
 
-  <div>
-    {patientId ? `Teilnehmer:in: ${patientId}` : 'No ID gesetzt'}
-  </div>
+        <div>{patientId ? `Teilnehmer:in: ${patientId}` : 'No ID gesetzt'}</div>
 
-  <div>
-    {version}
-  </div>
-</div>
-
+        <div>{version}</div>
+      </div>
     </div>
   );
 }

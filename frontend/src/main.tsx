@@ -14,9 +14,10 @@ const root = createRoot(container!);
 root.render(
   <React.StrictMode>
     <I18nextProvider i18n={i18n}>
-    <React.StrictMode>
-      <Router />
-    </React.StrictMode>
-    </I18nextProvider>,
-    </React.StrictMode>,
+      <React.StrictMode>
+        <Router />
+      </React.StrictMode>
+    </I18nextProvider>
+    ,
+  </React.StrictMode>
 );

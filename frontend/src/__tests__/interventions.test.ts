@@ -1,4 +1,8 @@
-import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl, generateTagColors } from '../utils/interventions';
+import {
+  getBadgeVariantFromUrl,
+  getMediaTypeLabelFromUrl,
+  generateTagColors,
+} from '../utils/interventions';
 
 describe('getBadgeVariantFromUrl', () => {
   test('should return primary for YouTube links', () => {
