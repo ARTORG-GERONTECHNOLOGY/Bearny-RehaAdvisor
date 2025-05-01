@@ -14,7 +14,10 @@ from utils.utils import (
 from django.contrib.auth.hashers import check_password, make_password
 import logging
 logger = logging.getLogger(__name__)
-
+from mongoengine.queryset.visitor import Q
+from django.core.mail import send_mail
+from datetime import datetime, timedelta
+from django.views.decorators.http import require_http_methods
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -31,9 +34,17 @@ def user_profile_view(request, user_id):
     logger = logging.getLogger(__name__)
     
     try:
+        # First try to get the User directly by ID
         user = User.objects.get(pk=ObjectId(user_id))
     except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+        try:
+            # If not found, fallback to Patient reference
+            patient = Patient.objects.get(pk=ObjectId(user_id))
+            user = patient.userId
+        except Patient.DoesNotExist:
+            logger.exception("Error fetching profile for user or patient ID: %s", user_id)
+            return JsonResponse({"error": "Error fetching profile"}, status=500)
+
 
     role = getattr(user, "role", "Patient")
 
@@ -60,12 +71,13 @@ def user_profile_view(request, user_id):
                 patient_fields = [field.name for field in Patient._fields.values() if field.name not in excluded_patient_fields]
 
                 # Combine into one dictionary
-                response_data = {
+                data = {
                     field: getattr(user, field, None) if field in user_fields else getattr(patient, field, None)
                     for field in (user_fields + patient_fields)
                 }
 
             return JsonResponse(data, safe=False)
+
 
         except (Therapist.DoesNotExist, Patient.DoesNotExist) as e:
             return JsonResponse({"error": f"{role} profile not found."}, status=404)
@@ -223,3 +235,107 @@ def user_profile_view(request, user_id):
 
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def get_pending_users(request):
+    if request.method == 'GET':
+        try:
+            pending_users = User.objects(isActive=False)
+            result = []
+
+            for user in pending_users:
+                user_info = {
+                    "id": str(user.id),
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role,
+                    "phone": user.phone,
+                    "isActive": user.isActive,
+                }
+
+                if user.role == 'Therapist':
+                    try:
+                        therapist = Therapist.objects.get(userId=user.id)
+                        user_info.update({
+                            "name": therapist.first_name + " " + therapist.name,
+                            "specializations": therapist.specializations,
+                            "clinics": therapist.clinics,
+                        })
+                    except Therapist.DoesNotExist:
+                        user_info.update({
+                            "name": "",
+                            "specializations": [],
+                            "clinics": [],
+                        })
+                else:  # Admin or other roles without therapist info
+                    user_info.update({
+                        "name": "",
+                        "specializations": [],
+                        "clinics": [],
+                    })
+
+                result.append(user_info)
+
+            return JsonResponse({"pending_users": result}, status=200)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def accept_user(request):
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('userId')
+        user = User.objects.get(id=user_id)
+
+        user.isActive = True
+        user.save()
+        print('hi')
+        # ✅ Send email notification
+        send_mail(
+            'Account Activation',
+            'Dear user, your account has been accepted and activated. You can now log in.',
+            'noreply@yourapp.com',
+            [user.email],
+            fail_silently=False,
+        )
+
+        return JsonResponse({"message": "User accepted successfully."}, status=200)
+
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def decline_user(request):
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('userId')
+        user = User.objects.get(id=user_id)
+
+        # Option 1: Delete the user completely
+        user.delete()
+
+        # Option 2 (alternative): Keep user but mark as declined
+        # user.isDeclined = True
+        # user.save()
+
+        # ✅ Send decline email
+        send_mail(
+            'Account Declined',
+            'Dear user, we regret to inform you that your registration was not approved.',
+            'noreply@yourapp.com',
+            [user.email],
+            fail_silently=False,
+        )
+
+        return JsonResponse({"message": "User declined and deleted successfully."}, status=200)
+
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

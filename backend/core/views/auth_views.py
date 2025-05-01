@@ -1,25 +1,29 @@
 import json
-
+import random
+import string
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db.models import Q
 from bson import ObjectId
 from django.utils import timezone
 
-from core.models import Therapist, Patient, User, Therapist, Logs, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs
+from core.models import Therapist, Patient, User, Therapist, Logs, InterventionAssignment, RehabilitationPlan, PatientInterventionLogs, SMSVerification
 from utils.utils import (
     get_labels,
     generate_custom_id,
     generate_repeat_dates,
     sanitize_text
 )
+import logging
+from django.core.mail import send_mail
 
-
+from api.settings import EMAIL_HOST_USER  # Use your correct settings path
+logger = logging.getLogger(__name__)
 def create_rehab_plan(patient, therapist):
     try:
         new_interventions = []
@@ -87,17 +91,7 @@ def create_rehab_plan(patient, therapist):
         print(f"Error creating rehab plan: {e}")
 
 
-import json
-import logging
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import check_password
-from bson import ObjectId
-from core.models import User, Therapist, Patient, Logs
 
-logger = logging.getLogger(__name__)
 
 @csrf_exempt  # Disabled for JWT; ensure HTTPS + token usage in frontend
 def login_view(request):
@@ -205,17 +199,9 @@ def logout_view(request):
         return JsonResponse({'error': 'Internal server error'}, status=500)
 
 
-@csrf_exempt
-def forgot_password_view(request):  # TODO
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        data = json.loads(request.body)
-        email = data.get('email')
-        return JsonResponse({'email': email}, status=200)
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
+def generate_random_password(length=12):
+    chars = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(random.choice(chars) for _ in range(length))
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -226,15 +212,33 @@ def reset_password_view(request):
     try:
         data = json.loads(request.body)
         email = data.get('email')
-        new_password = data.get('password')
 
-        user = collection.find_one({'email': email})
-        if user:
-            hashed_password = make_password(new_password)
-            collection.update_one({'email': email}, {'$set': {'password': hashed_password}})
-            return JsonResponse({'message': 'Password reset successfully'}, status=200)
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
 
-        return JsonResponse({'error': 'User not found'}, status=404)
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Generate random password
+        new_password = generate_random_password()
+
+        # Hash and save the new password
+        hashed_password = make_password(new_password)
+        User.objects.filter(email=email).update(pwdhash=hashed_password)
+
+        # Send email with the new password
+        send_mail(
+            'Your Password Has Been Reset',
+            f'Dear {user.username},\n\nYour new password is:\n\n{new_password}\n\nPlease change it after login.',
+            EMAIL_HOST_USER,  # Sender
+            [email],          # Recipient
+            fail_silently=False,
+        )
+        print(new_password)
+
+        return JsonResponse({'message': 'Password reset successfully, email sent.'}, status=200)
+
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
@@ -260,7 +264,7 @@ def register_view(request):
         if not user_type or not email or not raw_password:
             return JsonResponse({'error': 'Missing required fields.'}, status=400)
 
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email=email):
             return JsonResponse({'error': 'Email already exists'}, status=400)
 
         user = User(
@@ -323,7 +327,7 @@ def register_view(request):
             therapist.save()
             return JsonResponse({'message': 'Therapist registered successfully', 'id': user.username}, status=201)
 
-        return JsonResponse({'error': 'Unsupported user type'}, status=400)
+        return JsonResponse({'message': 'Admin added'}, status=200)
 
     except json.JSONDecodeError:
         logger.warning("Invalid JSON in register_view.")
@@ -334,40 +338,89 @@ def register_view(request):
 
 
 
-@csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def send_verification_code(request): # TODO
-    user_id = json.loads(request.body)['userId']
+def generate_code(length=6):
+    return ''.join(random.choices(string.digits, k=length))
 
-    #user = User.find_one({'username': user_id})  # Adjust based on your schema
-    #if user:
-    #    return JsonResponse({'error': 'User not found'}, status=404)
+from twilio.rest import Client
 
-    # Generate and save verification code
-    # verification = SMSVerification.objects.create(user=user)
+def send_sms(phone_number, message):
+    account_sid = 'your_twilio_sid'
+    auth_token = 'your_twilio_auth_token'
+    client = Client(account_sid, auth_token)
 
-    # Send SMS TODO
-    return JsonResponse({'message': 'Verification code sent'}, status=200)
+    client.messages.create(
+        body=message,
+        from_='+1234567890',  # Your Twilio number
+        to=phone_number
+    )
 
 
-@csrf_exempt  # Disable CSRF for simplicity; for production, ensure to handle CSRF tokens properly.
-def verify_code_view(request): # TODO
-    code = json.loads(request.body)['verificationCode']
+@csrf_exempt
+def send_verification_code(request):
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('userId')
 
-    if '0000' == code:
+        if not user_id:
+            return JsonResponse({'error': 'Missing user ID'}, status=400)
+
+        user = User.objects.filter(pk=user_id).first()
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        code = generate_code()
+        expires_at = timezone.now() + timedelta(minutes=5)
+
+        # Save to MongoDB
+        SMSVerification(userId=user_id, code=code, expires_at=expires_at).save()
+
+        # Example: send via email (replace with SMS sending logic)
+        send_mail(
+            'Your Verification Code',
+            f'Dear {user.username},\n\nYour verification code is: {code}\n\nIt expires in 5 minutes.',
+            EMAIL_HOST_USER,
+            [user.email],
+            fail_silently=False,
+        )
+
+        return JsonResponse({'message': 'Verification code sent successfully'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def verify_code_view(request):
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('userId')
+        code = data.get('verificationCode')
+
+        if not user_id or not code:
+            return JsonResponse({'error': 'Missing user ID or verification code'}, status=400)
+
+        # Find the code in the DB
+        verification = SMSVerification.objects.filter(userId=user_id, code=code).first()
+
+        if not verification:
+            return JsonResponse({'error': 'Invalid verification code'}, status=400)
+
+        # Ensure expires_at is timezone-aware
+        expires_at = verification.expires_at
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+
+        if expires_at < timezone.now():
+            verification.delete()
+            return JsonResponse({'error': 'Verification code expired'}, status=400)
+
+        # Success: delete the verification code
+        verification.delete()
+
         return JsonResponse({'message': 'Verification successful'}, status=200)
-    else:
-        return JsonResponse({'error': 'Invalid verification code'}, status=400)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
-'''try:
-    #verification = SMSVerification.objects.get(user=user_id, code=code)
-    ver_code === code
-except SMSVerification.DoesNotExist:
-    return JsonResponse({'error': 'Invalid verification code'}, status=400)
-
-if verification.is_expired():
-    return Response({'error': 'Verification code expired'}, status=400)
-
-# If verification is successful, you can now authenticate the user and log them in
-verification.delete()  # Optionally, delete the verification code after successful login'''
 

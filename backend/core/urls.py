@@ -13,11 +13,14 @@ import core.views.views as core_views
 urlpatterns = [
      path('', core_views.index, name='index'),
 
+     path('api/admin/pending-users/', user_views.get_pending_users),
+     path('api/admin/accept-user/', user_views.accept_user),
+     path('api/admin/decline-user/', user_views.decline_user),
+
      # Authentication
      path('api/auth/login/', auth_views.login_view, name='login'),
      path('api/auth/logout/', auth_views.logout_view, name='logout'),
-     path('api/auth/forgot-password/', auth_views.forgot_password_view, name='forgot_password'),
-     path('api/auth/reset-password/', auth_views.reset_password_view, name='reset_password'),
+     path('api/auth/forgot-password/', auth_views.reset_password_view, name='reset_password_view'),
      path('api/auth/register/', auth_views.register_view, name='register'),
      path('api/auth/send-verification-code/', auth_views.send_verification_code, name='send_verification_code'),
      path('api/auth/verify-code/', auth_views.verify_code_view, name='verify_code'),
