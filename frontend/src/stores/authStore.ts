@@ -1,68 +1,43 @@
-import { action, makeAutoObservable } from 'mobx';
+import { makeAutoObservable } from 'mobx';
 import apiClient from '../api/client';
+import { AuthPayload } from '../types/index'; // or wherever you define it
 
 class AuthStore {
-  email: string = '';
-  password: string = '';
-  isAuthenticated: boolean = false;
-  loginError: string = '';
-  userType: string = ''; // Add userType to store
-  id: string = '';
-  sessionTimeout: number = 5 * 60 * 1000; // Set session timeout to 5 minutes
-  full_name: string = '';
-  specialisation: string = '';
+  email = '';
+  password = '';
+  isAuthenticated = false;
+  loginErrorMessage = '';
+  userType = '';
+  id = '';
+  fullName = '';
+  specialisation = '';
+  sessionTimeout = 5 * 60 * 1000; // 5 minutes
+
+  private _resetTimer?: () => void;
+  private _timeoutId?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    makeAutoObservable(this, {
-      setEmail: action,
-      setPassword: action,
-      setAuthenticated: action,
-      setLoginError: action,
-      loginWithHttp: action,
-      reset: action,
-      logout: action,
-      deleteUser: action,
-      checkAuthentication: action,
-      setId: action,
-      setUserType: action,
-      setFullName: action,
-      setSpecialisation: action,
-    });
-
-    this.checkAuthentication(); // Check authentication on app load
+    makeAutoObservable(this);
+    this.checkAuthentication();
   }
 
-  setSpecialisation(specialisation: string): void {
-    this.specialisation = specialisation;
+  // --- SETTERS ---
+  setEmail = (email: string) => (this.email = email);
+  setPassword = (password: string) => (this.password = password);
+  setUserType = (userType: string) => (this.userType = userType);
+  setId = (id: string) => (this.id = id);
+  setFullName = (name: string) => (this.fullName = name);
+  setSpecialisation = (spec: string) => (this.specialisation = spec);
+  setAuthenticated = (val: boolean) => (this.isAuthenticated = val);
+  setLoginError = (msg: string) => (this.loginErrorMessage = msg);
+
+  onLogoutCallback: (() => void) | null = null;
+
+  setOnLogoutCallback(callback: () => void) {
+    this.onLogoutCallback = callback;
   }
 
-  setFullName(fullName: string): void {
-    this.full_name = fullName;
-  }
-
-  // Set the email in the store
-  setEmail(email: string) {
-    this.email = email;
-  }
-  setId(id: string) {
-    this.id = id;
-  }
-  setUserType(userType: string) {
-    this.userType = userType;
-  }
-
-  setPassword(password: string) {
-    this.password = password;
-  }
-
-  setAuthenticated(isAuthenticated: boolean) {
-    this.isAuthenticated = isAuthenticated;
-  }
-
-  setLoginError(loginError: string) {
-    this.loginError = loginError;
-  }
-
+  // --- AUTH METHODS ---
   async loginWithHttp() {
     try {
       const response = await apiClient.post('auth/login/', {
@@ -70,125 +45,151 @@ class AuthStore {
         password: this.password,
       });
 
-      if (response.data && response.status === 200) {
-        localStorage.setItem('authToken', response.data.access_token);
-        localStorage.setItem('refreshToken', response.data.refresh_token);
-        this.setAuthenticated(true);
+      if (response.status === 200 && response.data) {
+        const { access_token, refresh_token, user_type, id, full_name, specialisation } =
+          response.data;
+
+        // Save to state
         this.setLoginError('');
-        this.userType = response.data['user_type'];
-        this.id = response.data['id'];
-        this.setSpecialisation(response.data['specialisation']);
-        this.setFullName(response.data['id'])
+        this.setUserType(user_type);
+        this.setId(id);
+        this.setFullName(full_name);
+        this.setSpecialisation(specialisation);
 
-        // Store data in localStorage instead of sessionStorage
-        localStorage.setItem('userType', response.data['user_type']);
-        localStorage.setItem('id', response.data['id']);
-        localStorage.setItem('fullName', response.data['full_name']);
-        localStorage.setItem('specialisation', response.data['specialisation']);
-        // Store session start time
-        const currentTime = new Date().getTime();
-        localStorage.setItem('sessionStart', currentTime.toString());
+        // Save to storage
+        this.persistAuthData({
+          access_token,
+          refresh_token,
+          user_type,
+          id,
+          full_name,
+          specialisation,
+        });
 
-        // Start the inactivity timer
+        // Start inactivity timer
         this.startInactivityTimer();
       } else {
         this.setLoginError('Invalid credentials, please try again.');
       }
-    } catch (error) {
+    } catch {
       this.setLoginError('Login failed. Please check your credentials or try again later.');
     }
+  }
+
+  logout = async () => {
+    const userIdToSend = this.id; // ✅ Capture the ID before resetting!
+
+    try {
+      await apiClient.post('auth/logout/', { userId: userIdToSend });
+    } catch {
+      this.setLoginError('Logout logging failed.');
+    }
+
+    this.reset();
+    this.clearStorage();
+    this.removeInactivityListeners();
+
+    // ✅ Trigger the redirect via callback:
+    if (this.onLogoutCallback) {
+      this.onLogoutCallback();
+    }
+  };
+
+  deleteUser() {
+    console.log(`Deleting user: ${this.email}`);
+    this.reset();
+    this.clearStorage();
   }
 
   reset() {
     this.email = '';
     this.password = '';
-    this.setLoginError('');
+    this.loginErrorMessage = '';
     this.isAuthenticated = false;
     this.userType = '';
     this.id = '';
-    this.setFullName('');
+    this.fullName = '';
     this.specialisation = '';
   }
 
-  async logout() {
-    try {
-        await apiClient.post('auth/logout/', {
-        userId: this.id,
-      });
-    }
-    catch (error) {
-      this.setLoginError('Logout loging failed.');
-    }
-    this.reset();
-    localStorage.removeItem('userType');
-    localStorage.removeItem('token');
-    localStorage.removeItem('sessionStart');
-    localStorage.removeItem('id');
-    localStorage.removeItem('fullName');
-    localStorage.removeItem('specialisation');
-    this.isAuthenticated = false;
-  }
-
-  deleteUser() {
-    console.log(`Deleting user: ${this.email}`);
-    this.email = '';
-    this.password = '';
-    this.setLoginError('');
-    this.isAuthenticated = false;
-    this.userType = '';
-    localStorage.removeItem('token');
-    this.setFullName('')
-    localStorage.removeItem('fullName');
-    localStorage.removeItem('specialisation');
-    console.log('User account deleted successfully.');
-  }
-
-  checkAuthentication() {
-    
+  // --- SESSION MANAGEMENT ---
+  checkAuthentication(callback?: () => void) {
+    const accessToken = localStorage.getItem('authToken');
     const sessionStart = localStorage.getItem('sessionStart');
-    
-    if (sessionStart) {
-      const id = localStorage.getItem('id')
-      this.setSpecialisation(localStorage.getItem('specialisation') as string);
-      const storedUserType = localStorage.getItem('userType');
-      const currentTime = new Date().getTime();
-      const elapsedTime = currentTime - parseInt(sessionStart);
-      console.log(elapsedTime)
-      console.log(this.sessionTimeout)
-      if (elapsedTime < this.sessionTimeout) {
-        console.log(storedUserType)
-        this.setAuthenticated(true);
-        this.userType = storedUserType as string;
-        // @ts-ignore
-        this.id =  id as string;
 
-        // Reset the inactivity timer
-        this.startInactivityTimer();
-      } else {
-        this.logout(); // Expire session if time limit exceeded
-      }
+    if (!accessToken || !sessionStart) {
+      this.reset();
+      this.clearStorage();
+      if (callback) callback(); // ✅ Call the callback if provided
+      return;
+    }
+
+    const elapsed = Date.now() - parseInt(sessionStart, 10);
+    if (elapsed < this.sessionTimeout) {
+      this.restoreSession();
+      this.setAuthenticated(true);
+      this.startInactivityTimer();
+    } else {
+      this.reset();
+      this.clearStorage();
+      this.removeInactivityListeners();
+      if (callback) callback(); // ✅ Call the callback here too
     }
   }
 
   startInactivityTimer() {
-    let timeoutId: ReturnType<typeof setTimeout>;
-
+    this.removeInactivityListeners();
 
     const resetTimer = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        this.logout(); // Log out after inactivity
-        window.location.reload(); // Reload page to go back to login screen
-      }, this.sessionTimeout); // Inactivity period
+      if (this._timeoutId) {
+        clearTimeout(this._timeoutId);
+      }
+      this._timeoutId = setTimeout(() => {
+        this.logout();
+      }, this.sessionTimeout);
     };
+
+    this._resetTimer = resetTimer;
 
     window.addEventListener('mousemove', resetTimer);
     window.addEventListener('keydown', resetTimer);
 
-    // Start the timer immediately
-    resetTimer();
+    resetTimer(); // Start the timer initially
+  }
+
+  removeInactivityListeners() {
+    if (this._resetTimer) {
+      window.removeEventListener('mousemove', this._resetTimer);
+      window.removeEventListener('keydown', this._resetTimer);
+    }
+    if (this._timeoutId) {
+      clearTimeout(this._timeoutId);
+      this._timeoutId = undefined;
+    }
+  }
+
+  // --- STORAGE HELPERS ---
+  persistAuthData(data: AuthPayload) {
+    localStorage.setItem('authToken', data.access_token);
+    localStorage.setItem('refreshToken', data.refresh_token);
+    localStorage.setItem('userType', data.user_type);
+    localStorage.setItem('id', data.id);
+    localStorage.setItem('fullName', data.full_name);
+    localStorage.setItem('specialisation', data.specialisation);
+    localStorage.setItem('sessionStart', Date.now().toString());
+  }
+
+  restoreSession() {
+    this.setAuthenticated(true);
+    this.setUserType(localStorage.getItem('userType') || '');
+    this.setId(localStorage.getItem('id') || '');
+    this.setFullName(localStorage.getItem('fullName') || '');
+    this.setSpecialisation(localStorage.getItem('specialisation') || '');
+  }
+
+  clearStorage() {
+    localStorage.clear();
   }
 }
 
-const authStore = new AuthStore();
-export default authStore;
+export default new AuthStore();

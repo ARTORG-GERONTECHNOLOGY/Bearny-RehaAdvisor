@@ -1,18 +1,42 @@
-import type { Config } from "jest";
+import type { Config } from 'jest';
 
 const config: Config = {
-  preset: "ts-jest",
-  testEnvironment: "jsdom",
+  preset: 'ts-jest',
+  testEnvironment: 'jsdom', // More common way of writing this
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transform: {
-    "^.+\\.(ts|tsx)$": "ts-jest",
+    '^.+\\.(ts|tsx)$': 'ts-jest',
+    '^.+\\.(js|jsx)$': 'babel-jest',
   },
   moduleNameMapper: {
-    "\\.(css|scss|sass)$": "identity-obj-proxy", // ✅ Handle CSS imports in Jest
-    "^@/(.*)$": "<rootDir>/src/$1" // ✅ Allow absolute imports with "@/"
+    '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/src/__mocks__/fileMock.js',
+    '\\.(css|scss|sass)$': 'identity-obj-proxy',
+    '^@/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(@react|react-dom|mobx-react-lite)/)", // ✅ Ensure Jest processes ES Modules
+    'node_modules/(?!(@react|react-dom|mobx-react-lite)/)',
+    '/node_modules/(?!axios)',
+    'node_modules/(?!react-pdf|pdfjs-dist)/',
   ],
+  testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/?(*.)+(spec|test).(ts|tsx)'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/index.ts', // Optional: skip barrel files
+  ],
+  coverageDirectory: 'coverage',
+  collectCoverage: true,
+  coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 85,
+      lines: 90,
+      statements: 90,
+    },
+  },
+
+  clearMocks: true,
 };
 
 export default config;

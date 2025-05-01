@@ -1,0 +1,176 @@
+import authStore from '../../stores/authStore';
+import apiClient from '../../api/client';
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+// Mock the apiClient
+jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('../../stores/adminStore'); // ✅ Ensure your store is mocked
+
+describe('authStore', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    authStore.reset();
+    authStore.removeInactivityListeners();
+  });
+
+  it('should clear storage and reset state on logout', async () => {
+    authStore.id = '12345'; // simulate a logged-in state
+
+    // Mock logout API call success
+    (apiClient.post as jest.Mock).mockResolvedValue({ status: 200 });
+
+    const callback = jest.fn();
+    authStore.setOnLogoutCallback(callback);
+
+    await authStore.logout();
+
+    expect(apiClient.post).toHaveBeenCalledWith('auth/logout/', { userId: '12345' });
+    expect(localStorage.getItem('authToken')).toBe(null);
+    expect(authStore.isAuthenticated).toBe(false);
+    expect(callback).toHaveBeenCalled(); // Check if navigation callback was triggered
+  });
+
+  it('should handle logout even if logout API fails', async () => {
+    authStore.id = '12345';
+    (apiClient.post as jest.Mock).mockRejectedValue(new Error('Logout failed'));
+
+    const callback = jest.fn();
+    authStore.setOnLogoutCallback(callback);
+
+    await authStore.logout();
+
+    expect(apiClient.post).toHaveBeenCalled();
+    expect(authStore.isAuthenticated).toBe(false); // Still should reset state
+    expect(callback).toHaveBeenCalled(); // Callback still triggered
+  });
+
+  it('should correctly restore session if session is valid', () => {
+    localStorage.setItem('authToken', 'fake-token');
+    localStorage.setItem('sessionStart', Date.now().toString());
+    localStorage.setItem('userType', 'Therapist');
+    localStorage.setItem('id', '12345');
+    localStorage.setItem('fullName', 'John Doe');
+    localStorage.setItem('specialisation', 'Physio');
+
+    authStore.checkAuthentication(() => {});
+
+    expect(authStore.isAuthenticated).toBe(true);
+    expect(authStore.userType).toBe('Therapist');
+    expect(authStore.id).toBe('12345');
+  });
+
+  it('should logout if session is expired', () => {
+    const expiredTime = Date.now() - authStore.sessionTimeout - 1000;
+    localStorage.setItem('authToken', 'expired-token');
+    localStorage.setItem('sessionStart', expiredTime.toString());
+
+    const callback = jest.fn();
+    authStore.setOnLogoutCallback(callback);
+
+    authStore.checkAuthentication(callback);
+
+    expect(authStore.isAuthenticated).toBe(false);
+    expect(callback).toHaveBeenCalled(); // Should redirect due to timeout
+  });
+
+  describe('authStore - Inactivity Timeout Logout', () => {
+    beforeEach(() => {
+      jest.useFakeTimers(); // Enable fake timers
+      jest.clearAllTimers();
+      localStorage.clear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers(); // Restore real timers
+      jest.clearAllMocks();
+    });
+
+    it('should logout after session timeout due to inactivity', async () => {
+      const mockPost = apiClient.post as jest.Mock;
+      mockPost.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          access_token: 'fake-token',
+          refresh_token: 'fake-refresh-token',
+          user_type: 'Therapist',
+          id: '123',
+          full_name: 'Test User',
+          specialisation: 'Physio',
+        },
+      });
+
+      const logoutCallback = jest.fn();
+      authStore.setOnLogoutCallback(logoutCallback);
+
+      localStorage.setItem('authToken', 'fake-token');
+      localStorage.setItem('sessionStart', Date.now().toString());
+      localStorage.setItem('userType', 'Therapist');
+      localStorage.setItem('id', '123');
+      localStorage.setItem('fullName', 'Test User');
+      localStorage.setItem('specialisation', 'Physio');
+
+      authStore.checkAuthentication(() => {});
+
+      expect(authStore.isAuthenticated).toBe(true);
+
+      // Fast-forward until just before timeout
+      jest.advanceTimersByTime(authStore.sessionTimeout - 1000);
+      expect(authStore.isAuthenticated).toBe(true); // Still authenticated
+
+      // Now fast-forward the remaining time to trigger the timeout
+      jest.advanceTimersByTime(10000);
+      await jest.runOnlyPendingTimersAsync();
+
+      expect(authStore.isAuthenticated).toBe(false); // Should be logged out
+      expect(logoutCallback).toHaveBeenCalled();
+      expect(mockPost).toHaveBeenCalledWith('auth/logout/', { userId: '123' });
+    });
+
+    it('should reset the inactivity timer on user activity', async () => {
+      const mockPost = apiClient.post as jest.Mock;
+      mockPost.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          access_token: 'fake-token',
+          refresh_token: 'fake-refresh-token',
+          user_type: 'Therapist',
+          id: '123',
+          full_name: 'Test User',
+          specialisation: 'Physio',
+        },
+      });
+
+      const logoutCallback = jest.fn();
+      authStore.setOnLogoutCallback(logoutCallback);
+
+      localStorage.setItem('authToken', 'fake-token');
+      localStorage.setItem('sessionStart', Date.now().toString());
+      localStorage.setItem('userType', 'Therapist');
+      localStorage.setItem('id', '123');
+      localStorage.setItem('fullName', 'Test User');
+      localStorage.setItem('specialisation', 'Physio');
+
+      authStore.checkAuthentication(() => {});
+
+      const event = new Event('mousemove');
+      const halfwayTime = authStore.sessionTimeout / 2;
+
+      // Move halfway through the timeout
+      jest.advanceTimersByTime(halfwayTime);
+
+      // Simulate user activity
+      window.dispatchEvent(event);
+
+      // Timer should reset, so another full timeout period should be needed
+      jest.advanceTimersByTime(halfwayTime);
+      expect(authStore.isAuthenticated).toBe(true); // Still authenticated
+
+      // Now advance full timeout period after the reset
+      jest.advanceTimersByTime(authStore.sessionTimeout);
+      await jest.runOnlyPendingTimersAsync();
+      expect(authStore.isAuthenticated).toBe(false); // Should be logged out now
+      expect(logoutCallback).toHaveBeenCalled();
+    });
+  });
+});
