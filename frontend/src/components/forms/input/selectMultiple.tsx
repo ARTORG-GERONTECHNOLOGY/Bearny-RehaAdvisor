@@ -2,7 +2,7 @@ import React from 'react';
 
 import Select from 'react-select';
 import makeAnimated from 'react-select/animated';
-import { colourOptions } from '../../../data/data';
+import { colourOptions } from '../../../assets/styles/colours';
 
 const animatedComponents = makeAnimated();
 

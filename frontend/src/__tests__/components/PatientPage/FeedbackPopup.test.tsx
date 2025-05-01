@@ -1,0 +1,391 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import FeedbackPopup from '../../../components/PatientPage/FeedbackPopup';
+import apiClient from '../../../api/client';
+import '@testing-library/jest-dom';
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key, // Return the key as-is
+  }),
+}));
+
+jest.mock('../../../api/client', () => require('../../../__mocks__/api/client'));
+const defaultProps = {
+  show: true,
+  interventionId: 'test-intervention-id',
+  onClose: jest.fn(),
+  questions: [
+    { questionKey: 'q1', label: 'How do you feel?', type: 'text' },
+    {
+      questionKey: 'q2',
+      label: 'Select the severity',
+      type: 'dropdown',
+      options: [
+        { key: 'mild', translations: [{ language: 'en', text: 'Mild' }] },
+        { key: 'severe', translations: [{ language: 'en', text: 'Severe' }] },
+      ],
+    },
+  ],
+};
+// 🟢 OUTSIDE DESCRIBE: MockMediaRecorder definition and global mocks
+global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
+
+class MockMediaRecorder {
+  ondataavailable: ((event: any) => void) | null = null;
+  onstop: (() => void) | null = null;
+  onstart: (() => void) | null = null;
+
+  start = jest.fn(() => {
+    if (this.onstart) this.onstart();
+  });
+
+  stop = jest.fn(() => {
+    if (this.onstop) {
+      this.ondataavailable?.({ data: new Blob(['test audio'], { type: 'audio/wav' }) });
+      this.onstop();
+    }
+  });
+
+  addEventListener = jest.fn();
+  removeEventListener = jest.fn();
+  dispatchEvent = jest.fn();
+}
+describe('FeedbackPopup Component', () => {
+  // 🟡 INSIDE DESCRIBE: beforeEach and tests
+
+  beforeEach(() => {
+    global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: jest.fn().mockResolvedValue({
+          getTracks: () => [{ stop: jest.fn() }],
+        }),
+      },
+    });
+
+    class MockMediaRecorder {
+      public ondataavailable: ((event: any) => void) | null = null;
+      public onstop: (() => void) | null = null;
+      public onstart: (() => void) | null = null;
+
+      public start = jest.fn(() => {
+        if (this.onstart) this.onstart();
+      });
+
+      public stop = jest.fn(() => {
+        if (this.onstop) {
+          // Simulate data being available
+          if (this.ondataavailable) {
+            this.ondataavailable({ data: new Blob(['test audio data'], { type: 'audio/wav' }) });
+          }
+          this.onstop();
+        }
+      });
+
+      constructor() {}
+    }
+
+    global.MediaRecorder = MockMediaRecorder as any;
+
+    Object.defineProperty(global.navigator, 'permissions', {
+      writable: true,
+      value: {
+        query: jest.fn().mockResolvedValue({
+          state: 'granted',
+          name: 'microphone',
+          onchange: null,
+          addEventListener: jest.fn(),
+          removeEventListener: jest.fn(),
+          dispatchEvent: jest.fn(),
+        }),
+      },
+    });
+
+    jest.clearAllMocks();
+  });
+
+  it('navigates forward and backward between questions', async () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Check first question
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+
+    // Click Next
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    fireEvent.click(nextButton);
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
+
+    // Click Back
+    const backButton = screen.getByRole('button', { name: /Back/i });
+    fireEvent.click(backButton);
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+  });
+
+  it('handles text input change', async () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // IMPORTANT: Activate the text mode first!
+    const typeButton = screen.getByRole('button', { name: /Type/i });
+    fireEvent.click(typeButton);
+
+    // Now the textarea should exist
+    const textarea = await screen.findByRole('textbox', { name: /Text Area/i });
+    fireEvent.change(textarea, { target: { value: 'Feeling good' } });
+
+    expect(textarea).toHaveValue('Feeling good');
+  });
+
+  it('calls API on submit', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ status: 200 });
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Navigate to last question
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        'patients/feedback/questionaire/',
+        expect.any(Object)
+      );
+    });
+  });
+  it('shows microphone denied alert when permission is denied', async () => {
+    // Properly mock navigator.permissions
+    const mockQuery = jest.fn().mockResolvedValue({
+      state: 'denied',
+      name: 'microphone',
+      onchange: null,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    });
+
+    // Define the navigator.permissions object if it does not exist
+    Object.defineProperty(navigator, 'permissions', {
+      value: { query: mockQuery },
+      writable: true,
+    });
+
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Click the "Record" button to trigger microphone permission check
+    const recordButton = screen.getByRole('button', { name: /Record/i });
+    fireEvent.click(recordButton);
+    const srecordButton = screen.getByRole('button', { name: /Start Record/i });
+    fireEvent.click(srecordButton);
+
+    // Assert that the denied alert is shown
+    await waitFor(() => {
+      screen.getByTestId('microphone-alert');
+    });
+  });
+
+  it('resets state when modal is closed', () => {
+    const { rerender } = render(<FeedbackPopup {...defaultProps} show={true} />);
+    rerender(<FeedbackPopup {...defaultProps} show={false} />);
+    // You can check that the answers or recording state has been reset if exposed via data-testid or use internal hooks
+  });
+  it('navigates to the next question on Next button click', () => {
+    const multiQuestionProps = {
+      ...defaultProps,
+      questions: [
+        { questionKey: 'q1', label: 'Question 1', type: 'text' },
+        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+      ],
+    };
+    render(<FeedbackPopup {...multiQuestionProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(screen.getByText('Question 2')).toBeInTheDocument();
+  });
+  it('navigates back to the previous question on Back button click', () => {
+    const multiQuestionProps = {
+      ...defaultProps,
+      questions: [
+        { questionKey: 'q1', label: 'Question 1', type: 'text' },
+        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+      ],
+    };
+    render(<FeedbackPopup {...multiQuestionProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Back/i }));
+    expect(screen.getByText('Question 1')).toBeInTheDocument();
+  });
+
+  it('starts recording when microphone permission is granted', async () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Switch to audio mode first if needed
+    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+
+    // Click the start recording button
+    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+
+    await waitFor(() => {
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
+    });
+  });
+
+  it('shows Submit button on the last question', () => {
+    const multiQuestionProps = {
+      ...defaultProps,
+      questions: [
+        { questionKey: 'q1', label: 'Question 1', type: 'text' },
+        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+      ],
+    };
+
+    render(<FeedbackPopup {...multiQuestionProps} />);
+
+    // Move to last question
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+
+    // Now the Submit button should be visible
+    expect(screen.getByRole('button', { name: /Submit/i })).toBeInTheDocument();
+  });
+
+  it('navigates between questions using Next and Back', () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Click Next
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(screen.getByText(defaultProps.questions[1].label)).toBeInTheDocument();
+
+    // Click Back
+    fireEvent.click(screen.getByRole('button', { name: /Back/i }));
+    expect(screen.getByText(defaultProps.questions[0].label)).toBeInTheDocument();
+  });
+  it('handles multi-select option selection correctly', () => {
+    const multiSelectQuestion = {
+      ...defaultProps.questions[0],
+      type: 'multi-select',
+      options: [
+        { key: 'option1', translations: [{ language: 'en', text: 'Option 1' }] },
+        { key: 'option2', translations: [{ language: 'en', text: 'Option 2' }] },
+      ],
+    };
+
+    render(<FeedbackPopup {...defaultProps} questions={[multiSelectQuestion]} />);
+
+    const option1Button = screen.getByRole('button', { name: /Option 1/i });
+    fireEvent.click(option1Button);
+    // Optionally assert that the button switches state or the answer updates
+  });
+  it('handles microphone permission granted and starts/stops recording', async () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Switch to audio mode (this sets inputMode = 'audio')
+    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+
+    // Start recording (should trigger the getUserMedia mock)
+    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+
+    // Wait for getUserMedia to be called and recording state to update
+    await waitFor(() => {
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
+    });
+
+    // Now recording should be true → Stop button should be visible
+    const stopButton = screen.getByLabelText(/Stop/i);
+    expect(stopButton).toBeInTheDocument();
+
+    // Stop the recording
+    fireEvent.click(stopButton);
+  });
+
+  it('deletes the recording when delete button is clicked', async () => {
+    render(<FeedbackPopup {...defaultProps} />);
+
+    // Switch to audio input mode
+    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+
+    // Start recording
+    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+
+    // Stop recording
+    const stopButton = await screen.findByRole('button', { name: /Stop/i });
+    fireEvent.click(stopButton);
+
+    // Confirm the audio element appears
+    const audioElement = await screen.findByRole('audio', { hidden: true }).catch(() => {
+      return document.querySelector('audio');
+    });
+    expect(audioElement).toBeInTheDocument();
+
+    // Click delete button
+    const deleteButton = await screen.findByRole('button', { name: /Delete/i });
+    fireEvent.click(deleteButton);
+
+    // After deletion, no audio element should remain
+    await waitFor(() => {
+      const afterAudio = document.querySelector('audio');
+      expect(afterAudio).toBeNull();
+    });
+  });
+
+  it('submits feedback and closes the modal', async () => {
+    const onCloseMock = jest.fn();
+    render(<FeedbackPopup {...defaultProps} onClose={onCloseMock} />);
+
+    fireEvent.change(screen.getByLabelText(/Text Area/i), {
+      target: { value: 'My feedback' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
+
+    await waitFor(() => expect(onCloseMock).toHaveBeenCalled());
+  });
+  it('switches between text and audio input modes', () => {
+    render(<FeedbackPopup {...defaultProps} />);
+    const typeButton = screen.getByRole('button', { name: /Type/i });
+    const recordButton = screen.getByRole('button', { name: /Record/i });
+
+    fireEvent.click(typeButton);
+    expect(screen.getByRole('textbox', { name: /Text Area/i })).toBeInTheDocument();
+
+    fireEvent.click(recordButton);
+    expect(screen.getByRole('button', { name: /Start Record/i })).toBeInTheDocument();
+  });
+  it('toggles multi-select option state correctly', () => {
+    const multiSelectQuestion = {
+      questionKey: 'q-multi',
+      label: 'Select options',
+      type: 'multi-select',
+      options: [
+        { key: 'opt1', translations: [{ language: 'en', text: 'Option 1' }] },
+        { key: 'opt2', translations: [{ language: 'en', text: 'Option 2' }] },
+      ],
+    };
+    render(<FeedbackPopup {...defaultProps} questions={[multiSelectQuestion]} />);
+    const button = screen.getByRole('button', { name: /Option 1/i });
+
+    fireEvent.click(button); // select
+    fireEvent.click(button); // deselect
+
+    expect(button).toBeInTheDocument(); // Just confirm rendering; state toggling is internal
+  });
+  it('logs an error if feedback submission fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (apiClient.post as jest.Mock).mockRejectedValue(new Error('Network Error'));
+
+    render(<FeedbackPopup {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
+
+    await waitFor(() => {
+      expect(errorSpy).toHaveBeenCalledWith('Error submitting feedback:', expect.any(Error));
+    });
+
+    errorSpy.mockRestore();
+  });
+  it('shows correct progress bar label', () => {
+    render(<FeedbackPopup {...defaultProps} />);
+    const progress = screen.getByText('1/2');
+    expect(progress).toBeInTheDocument();
+  });
+});

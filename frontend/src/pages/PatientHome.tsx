@@ -1,61 +1,55 @@
-import React, { useState } from 'react';
-import { Button, Col, Container, Row } from 'react-bootstrap'; // Bootstrap components for layout
-import Header from '../components/common/Header'; // Header component
-import Footer from '../components/common/Footer'; // Footer component
-import LoginForm from '../components/forms/LoginForm'; // LoginForm modal component
-import { useTranslation } from 'react-i18next'; // Translation hook for multi-language support
+import React, { useEffect, useState } from 'react';
+import { Button, Col, Container, Row } from 'react-bootstrap';
+import Header from '../components/common/Header';
+import Footer from '../components/common/Footer';
+import LoginForm from '../components/HomePage/LoginForm';
+import { useTranslation } from 'react-i18next';
 import authStore from '../stores/authStore';
-
+import { useNavigate } from 'react-router-dom';
 const PatientHome: React.FC = () => {
-  const [showLoginModal, setShowLoginModal] = useState(false); // State to control login modal visibility
-  const { t } = useTranslation(); // Hook for translating text
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const { t } = useTranslation();
+  const navigate = useNavigate();
 
-  // Function to show the login modal
-  const handleShow = () => setShowLoginModal(!showLoginModal);
-
+  const toggleLoginModal = () => setShowLoginModal((prev) => !prev);
+  useEffect(() => {
+    authStore.checkAuthentication();
+    if (authStore.isAuthenticated || authStore.userType === 'Patient') {
+      navigate('/patient');
+    }
+  }, [navigate]);
   return (
-    <>
-      {/* Main container that spans full viewport height (vh-100) */}
-      <Container fluid className="d-flex flex-column vh-100">
-        {/* Header Component */}
-        <Header isLoggedIn={authStore.isAuthenticated} /> {/* Header receives the login status as prop */}
-
-        {/* Main content section: vertically and horizontally centered */}
-        <Row className="flex-grow-1 d-flex justify-content-center align-items-center text-center">
-          <Col xs="auto">
-            {/* Web App Name */}
-            <h1 className="mb-4">Tele-rehabilitation</h1>
-
-            {/* Image */}
+    <div className="d-flex flex-column min-vh-100">
+      <Header isLoggedIn={authStore.isAuthenticated} />
+      <Container
+        fluid
+        className="flex-grow-1 d-flex flex-column justify-content-center px-3 px-sm-4"
+      >
+        <Row className="justify-content-center align-items-center text-center flex-grow-1">
+          <Col xs={12} md={8} lg={6}>
+            <h1 className="mb-3 display-5">Tele-rehabilitation</h1>
+            <p className="lead mb-4">{t('Welcome to the Patient Login Page')}</p>
             <img
               src="/home.jpg"
-              alt="Tele-rehabilitation Logo"
-              style={{ maxWidth: '20%', height: 'auto', marginTop: '20px' }}
+              alt="Tele-rehabilitation"
+              className="img-fluid mb-4"
+              style={{ maxHeight: '200px', objectFit: 'contain' }}
             />
-            {/* Informational Text */}
-            <p className="lead">{t('Welcome to the Patient Login Page')}</p>
           </Col>
         </Row>
 
-        {/* Login Button Section */}
-        <Row className="d-flex justify-content-center mb-5">
-          <Col xs="auto" className="text-center">
-            <Button
-              style={{ width: '200px', height: '75px' }} // Inline styles for button dimensions
-              onClick={handleShow} // Show login modal when button is clicked
-            >
-              {t('Login')} {/* Translated button text */}
+        <Row className="justify-content-center mb-5 text-center">
+          <Col xs={10} sm={6} md={4} className="mb-3 mb-md-0">
+            <Button className="w-100 py-3 fs-5" onClick={toggleLoginModal}>
+              {t('Login')}
             </Button>
           </Col>
         </Row>
-
-        {/* Login Form Modal */}
-        <LoginForm show={showLoginModal} handleClose={handleShow} pageType="patient" /> {/* Modal for patient login */}
       </Container>
-
-      {/* Footer Component */}
-      <Footer /> {/* Footer placed outside the main container to be rendered at the bottom */}
-    </>
+      <Footer />
+      {/* Login Modal */}
+      <LoginForm show={showLoginModal} pageType={'patient'} handleClose={toggleLoginModal} />
+    </div>
   );
 };
 
