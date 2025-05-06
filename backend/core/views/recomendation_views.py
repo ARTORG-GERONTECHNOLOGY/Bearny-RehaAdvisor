@@ -9,7 +9,7 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from bson import ObjectId
 from core.models import Intervention, PatientType, InterventionAssignment, DefaultInterventions, DiagnosisAssignmentSettings
-from core.models import Therapist, Patient
+from core.models import Therapist, Patient, PatientInterventionLogs
 from utils.config import config
 from utils.utils import (
     get_labels,
@@ -33,7 +33,7 @@ FILE_TYPE_FOLDERS = {
 @permission_classes([IsAuthenticated])
 def list_all_interventions(request):
     """
-    GET /api/recommendations/all/
+    GET /api/interventions/all/
     Return a list of all interventions with relevant metadata.
     """
     try:
@@ -84,7 +84,7 @@ def list_all_interventions(request):
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
-    POST /api/recommendations/add/
+    POST /api/interventions/add/
     Create a new intervention with optional media and image upload.
     """
     if request.method != 'POST':
@@ -159,7 +159,7 @@ def add_new_intervention(request):
 @permission_classes([IsAuthenticated])
 def get_intervention_detail(request, intervention_id):
     """
-    GET /api/recommendations/<intervention_id>/
+    GET /api/interventions/<intervention_id>/
     Returns intervention metadata and feedbacks (if any).
     """
     if request.method != 'GET':
@@ -169,7 +169,8 @@ def get_intervention_detail(request, intervention_id):
         intervention = Intervention.objects.get(pk=intervention_id)
 
         feedbacks = []
-        patient_logs = PatientInterventions.objects.filter(intervention_id=intervention_id)
+        patient_logs = PatientInterventionLogs.objects.filter(interventionId=intervention)
+
 
         for log in patient_logs:
             for entry in log.feedback:
@@ -197,9 +198,10 @@ def get_intervention_detail(request, intervention_id):
 
         return JsonResponse({'recommendation': data, 'feedback': feedbacks}, status=200)
 
-    except Intervention.DoesNotExist:
+    except Intervention.DoesNotExist as e:
         logger.warning(f"[get_intervention_detail] Entity not found: {e}")
-        return JsonResponse({'error': 'Intervention not found.'}, status=404)
+        return JsonResponse({'error': 'Intervention not found'}, status=404)
+
     except Exception as e:
         logger.error(f"[get_intervention_detail] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
@@ -210,7 +212,7 @@ def get_intervention_detail(request, intervention_id):
 @permission_classes([IsAuthenticated])
 def list_intervention_diagnoses(request, intervention, specialisation, therapist_id):
     """
-    GET /api/recommendations/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
+    GET /api/interventions/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
     Returns a mapping of diagnoses to their assigned status and the 'all' flag.
     """
     if request.method != 'GET':
@@ -249,7 +251,7 @@ def list_intervention_diagnoses(request, intervention, specialisation, therapist
             "all": all_flag
         }, status=200)
 
-    except Therapist.DoesNotExist:
+    except Therapist.DoesNotExist as e:
         logger.warning(f"[list_intervention_diagnoses] Entity not found: {e}")
         return JsonResponse({'error': 'Therapist not found'}, status=404)
     except Exception as e:
@@ -261,7 +263,7 @@ def list_intervention_diagnoses(request, intervention, specialisation, therapist
 @permission_classes([IsAuthenticated])
 def assign_intervention_to_types(request):
     """
-    POST /api/recommendations/assign-to-patient-types/
+    POST /api/interventions/assign-to-patient-types/
     Assign an intervention with repeat settings to a diagnosis group for a therapist.
     """
     if request.method != 'POST':
@@ -303,12 +305,12 @@ def assign_intervention_to_types(request):
         therapist.save()
         return JsonResponse({'success': 'Default intervention settings saved'}, status=201)
 
-    except (Therapist.DoesNotExist, Intervention.DoesNotExist):
+    except (Therapist.DoesNotExist, Intervention.DoesNotExist) as e:
         logger.warning(f"[assign_intervention_to_types] Entity not found: {e}")
         return JsonResponse({'error': 'Therapist or intervention not found'}, status=404)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         logger.error(f"[assign_intervention_to_types] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+        return JsonResponse({'error': 'Bad request'}, status=400)
     except Exception as e:
         logger.error(f"[assign_intervention_to_types] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
@@ -319,7 +321,7 @@ def assign_intervention_to_types(request):
 @permission_classes([IsAuthenticated])
 def remove_intervention_from_types(request):
     """
-    POST /api/recommendations/remove-from-patient-types/
+    POST /api/interventions/remove-from-patient-types/
     Removes the assignment of an intervention to a diagnosis type from a therapist's defaults.
     """
     if request.method != 'POST':
@@ -339,7 +341,7 @@ def remove_intervention_from_types(request):
         therapist.save()
         return JsonResponse({'success': 'Diagnosis removed from intervention'}, status=200)
 
-    except (Therapist.DoesNotExist, Intervention.DoesNotExist):
+    except (Therapist.DoesNotExist, Intervention.DoesNotExist) as e:
         logger.warning(f"[remove_intervention_from_types] Entity not found: {e}")
         return JsonResponse({'error': 'Therapist or intervention not found'}, status=404)
     except json.JSONDecodeError:
@@ -354,7 +356,7 @@ def remove_intervention_from_types(request):
 @permission_classes([IsAuthenticated])
 def create_patient_group(request):
     """
-    POST /api/recommendations/add/patientgroup/
+    POST /api/interventions/add/patientgroup/
     Adds a new diagnosis entry to an intervention's specialization group.
     """
     if request.method != 'POST':
@@ -408,7 +410,7 @@ def update_daily_recomendations(request):
         try:
             patients = Patient.objects.get()
             for patient in patients:
-                _ = PatientInterventions.get_patient_interventions_with_feedback_and_future_dates(patient)
+                _ = PatientInterventionLogs.get_patient_interventions_with_feedback_and_future_dates(patient)
 
             return JsonResponse({'success': 'Done.'}, status=200)
         except Exception as e:
