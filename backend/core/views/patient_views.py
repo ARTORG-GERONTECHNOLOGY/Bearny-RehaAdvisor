@@ -23,7 +23,7 @@ from django.conf import settings
 import logging
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from django.utils.timezone import now as dj_now
-
+from django.core.files.storage import default_storage
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 FILE_TYPE_FOLDERS = {
@@ -39,21 +39,61 @@ FILE_TYPE_FOLDERS = {
 @permission_classes([IsAuthenticated])
 def submit_patient_feedback(request):
     """
-    POST /api/patients/feedback/questionnaire/
-    Submit feedback for either an intervention or healthstatus.
+    POST api/patients/feedback/questionaire/
+    Submit feedback for either an intervention or healthstatus, with optional audio file.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
-        data = json.loads(request.body)
-        user_id = data.get("userId")
-        intervention_id = data.get("interventionId")
-        responses = data.get("responses", [])
+        # Handle audio file (if provided)
+        audio_file = request.FILES.get('audio_file')
+        transcription = None
+        saved_audio_path = None
+
+        if audio_file:
+            recognizer = sr.Recognizer()
+            ext = audio_file.name.split('.')[-1].lower()
+            folder = FILE_TYPE_FOLDERS.get(ext, 'audio')
+            filename = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{audio_file.name}"
+            saved_audio_path = default_storage.save(os.path.join(folder, filename), audio_file)
+
+            logger.info(f"[submit_patient_feedback] Saved audio file at {saved_audio_path}")
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as temp_audio:
+                for chunk in default_storage.open(saved_audio_path).chunks():
+                    temp_audio.write(chunk)
+                temp_audio_path = temp_audio.name
+
+            try:
+                with sr.AudioFile(temp_audio_path) as source:
+                    audio_data = recognizer.record(source)
+                    transcription = recognizer.recognize_google(audio_data)
+                    logger.info(f"[submit_patient_feedback] Transcription: {transcription}")
+
+            except sr.UnknownValueError:
+                logger.warning("[submit_patient_feedback] Could not transcribe audio.")
+            except sr.RequestError as e:
+                logger.error(f"[submit_patient_feedback] Speech recognition error: {e}")
+            finally:
+                os.remove(temp_audio_path)
+
+        if request.content_type.startswith('multipart/form-data'):
+            user_id = request.POST.get("userId")
+            intervention_id = request.POST.get("interventionId")
+            responses_raw = request.POST.get("responses", "[]")
+            responses = json.loads(responses_raw)
+        else:
+            data = json.loads(request.body)
+            user_id = data.get("userId")
+            intervention_id = data.get("interventionId")
+            responses = data.get("responses", [])
+
 
         if not responses:
             return JsonResponse({'error': 'No feedback responses provided.'}, status=400)
 
+        logger.info(f"Looking up patient: {user_id}")
         patient = Patient.objects.get(userId=ObjectId(user_id))
 
         def resolve_answers(question_obj, answer):
@@ -96,6 +136,7 @@ def submit_patient_feedback(request):
                 log = PatientInterventionLogs(
                     userId=patient,
                     interventionId=intervention,
+                    rehabilitationPlanId=rehab_plan,
                     date=timezone.now(),
                     status=[],
                     feedback=[],
@@ -111,10 +152,20 @@ def submit_patient_feedback(request):
                 ).first()
 
                 if question_obj:
+                    # ✅ If the question is text type and we have a transcription, replace answer
+                    if question_obj.answer_type == 'text' and transcription:
+                        logger.info(f"[submit_patient_feedback] Replacing text answer with transcription.")
+                        answer = transcription
+
                     log.feedback.append(FeedbackEntry(
                         questionId=question_obj,
-                        answerKey=resolve_answers(question_obj, answer)
+                        answerKey=resolve_answers(question_obj, answer),
+                        comment=response.get("notes", "")
                     ))
+
+            # Optionally, you might want to log the audio file path somewhere
+            if saved_audio_path:
+                log.comments = f"{log.comments}\nAudio file saved at: {saved_audio_path}".strip()
 
             log.updatedAt = timezone.now()
             log.save()
@@ -132,11 +183,15 @@ def submit_patient_feedback(request):
                 ).first()
 
                 if question_obj:
+                    if question_obj.answer_type == 'text' and transcription:
+                        logger.info(f"[submit_patient_feedback] Replacing text answer with transcription.")
+                        answer = transcription
+
                     numeric_rating = (
                         int(answer[0]) if isinstance(answer, list) and str(answer[0]).isdigit() else None
                     )
 
-                    PatientICFRating.objects.create(
+                    new_entry = PatientICFRating(
                         questionId=question_obj,
                         patientId=patient,
                         icfCode=question_obj.icfCode,
@@ -145,30 +200,37 @@ def submit_patient_feedback(request):
                         feedback_entries=[
                             FeedbackEntry(
                                 questionId=question_obj,
-                                answerKey=resolve_answers(question_obj, answer)
+                                answerKey=resolve_answers(question_obj, answer),
+                                comment=notes
                             )
                         ]
                     )
 
+                    # Save audio file path in notes if applicable
+                    if saved_audio_path:
+                        new_entry.notes = f"{new_entry.notes}\nAudio file saved at: {saved_audio_path}".strip()
+
+                    new_entry.save()
+
         return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[submit_patient_feedback] Entity not found: {e}")
+        logger.warning(f"[submit_patient_feedback] Entity not found")
         return JsonResponse({'error': 'Patient not found.'}, status=404)
     except Intervention.DoesNotExist:
-        logger.warning(f"[submit_patient_feedback] Entity not found: {e}")
+        logger.warning(f"[submit_patient_feedback] Entity not found")
         return JsonResponse({'error': 'Intervention not found.'}, status=404)
     except Exception as e:
-        # Log exception to DB or file here if needed
         logger.error(f"[submit_patient_feedback] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient_1(request):
     """
-    POST /api/recommendations/add-to-patient/
+    POST /api/interventions/add-to-patient/
     Assigns an intervention to a single patient.
     """
     if request.method != 'POST':
@@ -186,7 +248,7 @@ def add_intervention_to_patient_1(request):
         intervention = Intervention.objects.get(pk=intervention_id)
 
         # Create the relation if it doesn't exist already
-        patient_intervention, created = PatientInterventions.get_or_create(patient, intervention)
+        patient_intervention, created = PatientInterventionLogs.get_or_create(patient, intervention)
 
         if created:
             return JsonResponse({'message': 'Intervention successfully assigned'}, status=201)
@@ -194,10 +256,10 @@ def add_intervention_to_patient_1(request):
             return JsonResponse({'error': 'Intervention is already assigned to the patient'}, status=400)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[add_intervention_to_patient] Entity not found: {e}")
+        logger.warning(f"[add_intervention_to_patient] Entity not found")
         return JsonResponse({'error': 'Patient not found'}, status=404)
     except Intervention.DoesNotExist:
-        logger.warning(f"[add_intervention_to_patient] Entity not found: {e}")
+        logger.warning(f"[add_intervention_to_patient] Entity not found")
         return JsonResponse({'error': 'Intervention not found'}, status=404)
     except Exception as e:
         logger.error(f"[add_intervention_to_patient] Unexpected error: {str(e)}", exc_info=True)
@@ -208,7 +270,7 @@ def add_intervention_to_patient_1(request):
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
     """
-    POST /api/recommendations/mark-done/
+    POST /api/interventions/mark-done/
     Marks an intervention as completed for the current day.
     Logs action and handles rapid duplicate marking.
     """
@@ -252,13 +314,14 @@ def mark_intervention_completed(request):
         else:
             log = PatientInterventionLogs(
                 userId=patient,
-                rehabilitationPlanId=rehab_plan,
                 interventionId=intervention,
-                date=now,
-                status=['completed'],
-                createdAt=now,
-                updatedAt=now
+                rehabilitationPlanId=rehab_plan,  # ✅ ADD THIS
+                date=timezone.now(),
+                status=[],
+                feedback=[],
+                comments=""
             )
+
             log.save()
 
         Logs(
@@ -271,68 +334,17 @@ def mark_intervention_completed(request):
         return JsonResponse({'message': 'Marked as completed successfully'}, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[mark_intervention_completed] Entity not found: {e}")
+        logger.warning(f"[mark_intervention_completed] Entity not found")
         return JsonResponse({'error': 'Patient not found'}, status=404)
 
     except Intervention.DoesNotExist:
-        logger.warning(f"[mark_intervention_completed] Entity not found: {e}")
+        logger.warning(f"[mark_intervention_completed] Entity not found")
         return JsonResponse({'error': 'Intervention not found'}, status=404)
 
     except Exception as e:
         logger.error(f"[mark_intervention_completed] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({'error': 'Internal Server Error', 'details': str(e)}, status=500)
 
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def get_recommendation_options_for_patient(request, patient_id):
-    """
-    GET /api/patients/<patient_id>/recommendation-options/
-    Returns interventions filtered by patient's function or diagnosis.
-    """
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-    try:
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
-        patient_diagnoses = patient.diagnosis or []
-        patient_functions = patient.function or []
-
-        # Filter based on function or diagnosis (including 'All')
-        recommendations = Intervention.objects.filter(
-            Q(patient_types__type__in=patient_functions) |
-            Q(patient_types__diagnosis__in=patient_diagnoses) |
-            Q(patient_types__diagnosis="All")
-        ).distinct()
-
-        result = []
-        for rec in recommendations:
-            result.append({
-                '_id': str(rec.id),
-                'title': rec.title,
-                'description': rec.description,
-                'content_type': rec.content_type,
-                'link': rec.link,
-                'media_file': rec.media_file,
-                'patient_types': [
-                    {
-                        'type': pt.type,
-                        'diagnosis': pt.diagnosis,
-                        'frequency': pt.frequency,
-                        'include_option': pt.include_option,
-                    } for pt in rec.patient_types
-                ]
-            })
-
-        return JsonResponse({'recommendations': result}, status=200)
-
-    except Patient.DoesNotExist:
-        ogger.warning(f"[get_recommendation_options_for_patient] Entity not found: {e}")
-        return JsonResponse({'error': 'Patient not found'}, status=404)
-
-    except Exception as e:
-        logger.error(f"[get_recommendation_options_for_patient] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({'error': 'Internal server error', 'details': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -458,7 +470,7 @@ def get_patient_plan(request, patient_id):
         return JsonResponse(today_interventions, safe=False, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[get_patient_plan] Entity not found: {e}")
+        logger.warning(f"[get_patient_plan] Entity not found")
         return JsonResponse({'error': 'Patient not found'}, status=404)
     except Exception as e:
         logger.error(f"[get_patient_plan] Error for patient {patient_id}: {str(e)}", exc_info=True)
@@ -482,15 +494,14 @@ def create_patient_intervention_log(request):
 
         log = PatientInterventionLogs(
             userId=patient,
-            rehabilitationPlanId=ObjectId(data.get("rehabilitationPlanId")),
             interventionId=intervention,
+            rehabilitationPlanId=rehab_plan,  # ✅ ADD THIS
             date=timezone.now(),
-            status=data.get("status", []),
-            feedback=data.get("feedback", []),
-            comments=sanitize_text(data.get("comments", "")),
-            createdAt=timezone.now(),
-            updatedAt=timezone.now()
+            status=[],
+            feedback=[],
+            comments=""
         )
+
         log.save()
 
         return JsonResponse({'message': 'Patient Intervention Log created successfully'}, status=201)
@@ -515,10 +526,11 @@ def fetch_feedback_questions(request, questionaire_type, patient_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     try:
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
         questions = []
 
         if questionaire_type == 'Healthstatus':
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
+            
             today = timezone.now().date()
 
             # Avoid repeating Healthstatus if answered today
@@ -569,7 +581,7 @@ def fetch_feedback_questions(request, questionaire_type, patient_id):
         return JsonResponse({"questions": serialized_questions}, safe=False)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[fetch_feedback_questions] Entity not found: {e}")
+        logger.warning(f"[fetch_feedback_questions] Patient not found.")
         return JsonResponse({'error': 'Patient not found.'}, status=404)
 
     except Exception as e:
@@ -581,7 +593,7 @@ def fetch_feedback_questions(request, questionaire_type, patient_id):
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient(request):
     """
-    POST /api/recommendations/add-to-patient/
+    POST /api/interventions/add-to-patient/
     Adds interventions to a patient's rehabilitation plan.
     """
     if request.method != 'POST':
@@ -765,7 +777,7 @@ def get_patient_plan_for_therapist(request, patient_id):
 @permission_classes([IsAuthenticated])
 def remove_intervention_from_patient(request):
     """
-    POST /api/recommendations/remove-from-patient/
+    POST /api/interventions/remove-from-patient/
     Removes all future dates for a specific intervention from the patient's plan.
     """
     if request.method != 'POST':
