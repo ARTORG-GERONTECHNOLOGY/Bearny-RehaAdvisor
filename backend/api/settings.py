@@ -9,19 +9,19 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+
+import logging
 import os
 from datetime import timedelta
 from pathlib import Path
-import logging
 
-
-#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend' # when real
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend' # when real
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your_email@gmail.com'
-EMAIL_HOST_PASSWORD = 'your_app_password'  # Use an App Password if 2FA is on
+EMAIL_HOST_USER = "your_email@gmail.com"
+EMAIL_HOST_PASSWORD = "your_app_password"  # Use an App Password if 2FA is on
 # Note: If you're using Gmail, you need to enable "App passwords" under your Google account security settings.
 
 logging.basicConfig(level=logging.DEBUG)
@@ -30,13 +30,16 @@ logging.basicConfig(level=logging.DEBUG)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # .env.
-SECRET_KEY = os.environ.get("SECRET_KEY", 'biglongsecretstuffhere')
+SECRET_KEY = os.environ.get("SECRET_KEY", "biglongsecretstuffhere")
 
 # .env.
 DEBUG = os.environ.get("DEBUG", default=True)
-HOST = os.environ.get("HOST", '0.0.0.0')
+HOST = os.environ.get("HOST", "0.0.0.0")
 # .env.
-ALLOWED_HOSTS = ['159.100.246.89', '159.100.246.89:8000']#os.environ.get("DJANGO_ALLOWED_HOSTS", '159.100.246.89').split(" ")
+ALLOWED_HOSTS = [
+    "159.100.246.89",
+    "159.100.246.89:8000",
+]  # os.environ.get("DJANGO_ALLOWED_HOSTS", '159.100.246.89').split(" ")
 # If you want to allow all origins (not recommended for production):
 CORS_ALLOWED_ORIGINS = [
     "http://159.100.246.89:3000",  # React frontend
@@ -51,12 +54,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "core",
-    'rest_framework.authtoken',
+    "rest_framework.authtoken",
     "corsheaders",
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -108,18 +111,18 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # Default for all views
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",  # Default for all views
     ],
 }
 
@@ -142,41 +145,41 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,  # Keeps Django's default logs
-    'formatters': {
-        'verbose': {
-            'format': '[{asctime}] {levelname} {name}: {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,  # Keeps Django's default logs
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
         },
-        'simple': {
-            'format': '{levelname}: {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'file': {
-            'level': 'WARNING',  # or INFO, ERROR, etc.
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/app.log'),
-            'formatter': 'verbose',
-        },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+        "simple": {
+            "format": "{levelname}: {message}",
+            "style": "{",
         },
     },
-    'loggers': {
-        'django': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
+    "handlers": {
+        "file": {
+            "level": "WARNING",  # or INFO, ERROR, etc.
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/app.log"),
+            "formatter": "verbose",
         },
-        'core': {  # Example for your app
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
-            'propagate': False,
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "core": {  # Example for your app
+            "handlers": ["file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
         },
     },
 }
