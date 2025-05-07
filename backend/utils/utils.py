@@ -1,19 +1,24 @@
 import logging
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
+
 from bson import ObjectId
-from pymongo import MongoClient
-from django.utils.timezone import is_naive, make_aware
+from dateutil.relativedelta import relativedelta
 from django.utils import timezone
+from django.utils.timezone import is_naive, make_aware
+from pymongo import MongoClient
+
 from core.models import Patient, Therapist, User
 
 logger = logging.getLogger(__name__)
 import re
 import unicodedata
-from django.utils.timezone import make_aware, is_naive
+
+from django.utils.timezone import is_naive, make_aware
+
 
 def ensure_aware(dt):
     return make_aware(dt) if is_naive(dt) else dt
+
 
 def sanitize_text(text, is_name=False):
     if not isinstance(text, str):
@@ -21,24 +26,28 @@ def sanitize_text(text, is_name=False):
 
     # Replace special characters like ä → ae
     char_map = {
-        'ä': 'ae', 'ö': 'oe', 'ü': 'ue',
-        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
-        'ß': 'ss'
+        "ä": "ae",
+        "ö": "oe",
+        "ü": "ue",
+        "Ä": "Ae",
+        "Ö": "Oe",
+        "Ü": "Ue",
+        "ß": "ss",
     }
     for original, replacement in char_map.items():
         text = text.replace(original, replacement)
 
     # Normalize accents (é → e)
-    text = unicodedata.normalize('NFKD', text)
-    text = text.encode('ASCII', 'ignore').decode('utf-8')
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ASCII", "ignore").decode("utf-8")
 
     # Strip leading/trailing and collapse inner whitespace
     text = text.strip()
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
 
     if is_name:
         # Capitalize each word (Name Case)
-        text = ' '.join(word.capitalize() for word in text.split())
+        text = " ".join(word.capitalize() for word in text.split())
 
     return text
 
@@ -49,7 +58,9 @@ def parse_start_date(start_date):
     """
     try:
         if isinstance(start_date, str):
-            return datetime.fromisoformat(start_date.replace("Z", "+00:00")).replace(tzinfo=None)
+            return datetime.fromisoformat(start_date.replace("Z", "+00:00")).replace(
+                tzinfo=None
+            )
         elif isinstance(start_date, datetime):
             return start_date.replace(tzinfo=None)
     except Exception as e:
@@ -78,10 +89,7 @@ def generate_repeat_dates(patient_end_date, repeat_data):
 
     current_date = parse_start_date(repeat_data.get("startDate", timezone.now()))
 
-    day_map = {
-        "Mon": 0, "Dien": 1, "Mitt": 2, "Don": 3,
-        "Fre": 4, "Sam": 5, "Son": 6
-    }
+    day_map = {"Mon": 0, "Dien": 1, "Mitt": 2, "Don": 3, "Fre": 4, "Sam": 5, "Son": 6}
     selected_day_indices = [day_map[day] for day in selected_days if day in day_map]
 
     # Ensure all dates are aware
@@ -92,7 +100,9 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     if is_naive(current_date):
         current_date = make_aware(current_date)
 
-    final_end_date = min(end_date_limit, patient_end_date) if end_date_limit else patient_end_date
+    final_end_date = (
+        min(end_date_limit, patient_end_date) if end_date_limit else patient_end_date
+    )
     generated_dates = []
     occurrence = 0
 
@@ -125,7 +135,9 @@ def get_db_handle(db_name, host, port, username, password):
     """
     Create a MongoDB client connection and return the database handle.
     """
-    client = MongoClient(host=host, port=int(port), username=username, password=password)
+    client = MongoClient(
+        host=host, port=int(port), username=username, password=password
+    )
     return client[db_name], client
 
 
@@ -158,24 +170,26 @@ def get_labels(data, key):
     items = data.get(key, [])
     if not isinstance(items, list):
         items = [items]
-    return [item["label"] for item in items if isinstance(item, dict) and "label" in item]
+    return [
+        item["label"] for item in items if isinstance(item, dict) and "label" in item
+    ]
 
 
 def generate_custom_id(user_type):
     """
     Generate a unique custom ID based on the user type.
     """
-    prefix_map = {'Therapist': 't', 'Patient': 'p', 'Researcher': 'r', 'Admin': 'a'}
+    prefix_map = {"Therapist": "t", "Patient": "p", "Researcher": "r", "Admin": "a"}
     prefix = prefix_map.get(user_type)
-    
-    if prefix == 'p':
+
+    if prefix == "p":
         count = Patient.objects.count() + 1
-    elif prefix == 't':
+    elif prefix == "t":
         count = Therapist.objects.count() + 1
-    elif prefix == 'r':
+    elif prefix == "r":
         count = Researcher.objects.count() + 1
-    elif prefix == 'a':
-        count = User.objects.filter(username__startswith='a').count() + 1
+    elif prefix == "a":
+        count = User.objects.filter(username__startswith="a").count() + 1
 
     else:
         logger.warning(f"Unknown user type for ID generation: {user_type}")
