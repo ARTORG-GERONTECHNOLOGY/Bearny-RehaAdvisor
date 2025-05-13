@@ -3,7 +3,7 @@ import logging
 import random
 import string
 from datetime import datetime, timedelta
-
+from twilio.rest import Client
 from bson import ObjectId
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
@@ -15,7 +15,11 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from api.settings import EMAIL_HOST_USER  # Use your correct settings path
+from django.conf import settings
+logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
+email_user = settings.EMAIL_HOST_USER
+
+
 from core.models import (
     InterventionAssignment,
     Logs,
@@ -367,7 +371,7 @@ def generate_code(length=6):
     return "".join(random.choices(string.digits, k=length))
 
 
-from twilio.rest import Client
+
 
 
 def send_sms(phone_number, message):
@@ -413,6 +417,9 @@ def send_verification_code(request):
         )
 
     except Exception as e:
+        logger.error(
+            f"[send_verification_code] Unexpected error: {str(e)}", exc_info=True
+        )
         return JsonResponse({"error": str(e)}, status=500)
 
 

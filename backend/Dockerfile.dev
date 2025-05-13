@@ -1,13 +1,5 @@
-# Use a base Ubuntu image
 FROM ubuntu:22.04
-
-# set work directory
-WORKDIR /srv/app
-
-# set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-# Activate conda environment and install dependencies
+WORKDIR /app
 
 # Install necessary system packages
 RUN apt-get update && \
@@ -24,21 +16,17 @@ COPY ./environment.yml .
 RUN conda env create -f environment.yml
 RUN echo "source activate teleRehabApp" > ~/.bashrc
 
-ENV PATH /opt/conda/envs/teleRehabApp/bin:$PATH
-# install dependencies
-RUN pip install --upgrade pip
-COPY ./requirements.txt .
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# install temp dependencies for build of pyscopg2 etc
-RUN pip install -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# copy entrypoint.sh
-#COPY ./entrypoint.sh .
-
-# copy project
 COPY . .
+ENV PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=api.settings.prod
 
-# run entrypoint.sh
-#ENTRYPOINT ["/srv/app/entrypoint.sh"]
+# collect static, run migrations
+RUN python manage.py collectstatic --noinput
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "api.wsgi:application", "--bind", "0.0.0.0:8000"]
