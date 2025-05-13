@@ -16,6 +16,8 @@ const RehabTable = lazy(() => import('../pages/RehabTable'));
 const TherapistRecomendations = lazy(() => import('../pages/TherapistInterventions'));
 const ErrorPage = lazy(() => import('../components/common/Error'));
 const HealthSlider = lazy(() => import('../pages/eva'));
+const TermsAndConditions = lazy(() => import('../pages/TermsAndConditions'));
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
 
 import RootLayout from '../RootLayout';
 
@@ -145,6 +147,22 @@ export const router = createBrowserRouter([
       Suspense,
       { fallback: createElement(LoadingFallback) },
       createElement(HealthSlider)
+    ),
+  },
+  {
+    path: '/terms',
+    element: createElement(
+      Suspense,
+      { fallback: createElement(LoadingFallback) },
+      createElement(TermsAndConditions)
+    ),
+  },
+  {
+    path: '/privacypolicy',
+    element: createElement(
+      Suspense,
+      { fallback: createElement(LoadingFallback) },
+      createElement(PrivacyPolicy)
     ),
   },
 ]);

@@ -9,3 +9,10 @@ pymongo
 django-multiselectfield
 djangorestframework
 SpeechRecognition
+mongoengine
+gunicorn
+django-cors-headers
+djangorestframework
+djangorestframework-simplejwt
+python-dateutil
+twilio
