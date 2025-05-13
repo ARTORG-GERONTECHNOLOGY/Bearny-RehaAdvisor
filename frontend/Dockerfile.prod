@@ -1,0 +1,38 @@
+# Use Ubuntu as the base image
+FROM ubuntu:22.04
+
+# Install Node.js and npm
+ENV NODE_VERSION=18.x
+
+# Set work directory
+WORKDIR /app
+
+# Install Node.js, npm, and necessary packages
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
+    apt-get install -y nodejs build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add to $PATH
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Install app dependencies
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Add app code
+COPY . ./
+
+# ---- KEY: Pass env argument ----
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Confirm env variable (for debugging — optional)
+RUN echo "Building with VITE_API_URL=$VITE_API_URL"
+
+
+RUN VITE_API_URL=${VITE_API_URL} npm run build
+RUN ls -l /app/dist || ls -l /app/build
+    
