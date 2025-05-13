@@ -1,0 +1,26 @@
+# Ignore node dependencies
+node_modules/
+
+# Ignore Python virtualenv (if used)
+venv/
+
+# Ignore MongoDB data
+mongo_data/
+
+# Ignore Git metadata
+.git/
+.gitignore
+
+# Ignore Docker artifacts
+docker-compose.override.yml
+docker-compose.dev.yml
+# Ignore MongoDB data
+mongo_data/
+
+# Ignore certbot secrets and configs
+nginx/certbot/conf/
+nginx/certbot/www/
+
+# Ignore common local/dev folders
+node_modules/
+.git/

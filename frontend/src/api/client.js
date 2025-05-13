@@ -1,6 +1,11 @@
 import axios from 'axios';
 
+axios.defaults.xsrfCookieName = 'csrftoken';
+axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
+console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
 
 // Create a reusable Axios instance
 const apiClient = axios.create({
