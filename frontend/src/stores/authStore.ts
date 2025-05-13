@@ -40,7 +40,9 @@ class AuthStore {
   // --- AUTH METHODS ---
   async loginWithHttp() {
     try {
-      const response = await apiClient.post('auth/login/', {
+      console.log('Full URL:', apiClient.defaults.baseURL + '/auth/login/');
+
+      const response = await apiClient.post('/auth/login/', {
         email: this.email,
         password: this.password,
       });
