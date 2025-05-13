@@ -11,7 +11,7 @@ import core.views.user_views as user_views
 import core.views.views as core_views
 
 urlpatterns = [
-    path("", core_views.index, name="index"),
+    path("api/", core_views.index, name="index"),
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),
