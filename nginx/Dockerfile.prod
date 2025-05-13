@@ -1,0 +1,50 @@
+# Use Ubuntu as the base image
+FROM ubuntu:22.04 AS react-builder
+
+# Install Node.js and npm
+ENV NODE_VERSION=18.x
+
+# Set work directory
+WORKDIR /app
+
+# Install Node.js, npm, and necessary packages
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
+    apt-get install -y nodejs build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add to $PATH
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Install app dependencies
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
+
+# Add app code
+COPY frontend/ ./
+
+# ---- KEY: Pass env argument ----
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Confirm env variable (for debugging — optional)
+RUN echo "Building with VITE_API_URL=$VITE_API_URL"
+
+
+RUN VITE_API_URL=${VITE_API_URL} npm run build
+RUN ls -l /app/dist || ls -l /app/build
+
+
+
+FROM nginx:stable-alpine
+
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx/prod.nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY --from=react-builder /app/dist /usr/share/nginx/html
+
+
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD nginx -t || exit 1
