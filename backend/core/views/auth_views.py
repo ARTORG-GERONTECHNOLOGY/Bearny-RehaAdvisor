@@ -247,13 +247,14 @@ def reset_password_view(request):
 
         # Send email with the new password
         send_mail(
-            "Your Password Has Been Reset",
-            f"Dear {user.username},\n\nYour new password is:\n\n{new_password}\n\nPlease change it after login.",
-            EMAIL_HOST_USER,  # Sender
-            [email],  # Recipient
+            subject="Your Password Has Been Reset",
+            message=(
+                f"Dear {user.username},\n\nYour new password is:\n\n{new_password}\n\nPlease change it after login."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
             fail_silently=False,
         )
-        print(new_password)
 
         return JsonResponse(
             {"message": "Password reset successfully, email sent."}, status=200
@@ -405,10 +406,14 @@ def send_verification_code(request):
 
         # Example: send via email (replace with SMS sending logic)
         send_mail(
-            "Your Verification Code",
-            f"Dear {user.username},\n\nYour verification code is: {code}\n\nIt expires in 5 minutes.",
-            EMAIL_HOST_USER,
-            [user.email],
+            subject="Your Verification Code",
+            message=(
+                f"Hello {user.username},\n\n"
+                f"Your verification code is: {code}\n\n"
+                "It will expire in 5 minutes."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
             fail_silently=False,
         )
 
