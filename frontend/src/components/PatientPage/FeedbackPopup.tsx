@@ -135,20 +135,45 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
 
   const handleSubmit = async () => {
     try {
-      await apiClient.post('patients/feedback/questionaire/', {
-        interventionId: interventionId,
-        userId: userId,
-        responses: questions.map((q) => ({
-          question: q.label,
-          answer: answers[q.questionKey] || '',
-        })),
+      const formData = new FormData();
+  
+      // 1) required IDs
+      formData.append("userId", userId);
+      formData.append("interventionId", interventionId);
+  
+      // 2) loop over your questions…
+      questions.forEach((q) => {
+        const key = q.questionKey;
+        const answer = answers[key];
+  
+        if (answer instanceof Blob) {
+          // an audio recording
+          formData.append(key, answer, `${key}.wav`);
+        } else {
+          // plain‐text answer
+          formData.append(key, answer || "");
+        }
       });
-
-      onClose(); // Close the modal after submission
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
+  
+      // 3) POST as multipart/form-data
+      await apiClient.post(
+        "/patients/feedback/questionaire/",
+        formData,
+        {
+          headers: {
+            // let axios set the boundary for you
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+  
+      onClose();
+    } catch (err) {
+      console.error("Error submitting feedback:", err);
     }
   };
+  
+  
 
   return (
     <Modal show={show} onHide={onClose} centered>

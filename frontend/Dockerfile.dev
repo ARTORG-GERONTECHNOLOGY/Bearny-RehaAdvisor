@@ -5,7 +5,7 @@ FROM ubuntu:22.04
 # Set environment variables
 ENV NODE_VERSION=18.x
 # set work directory
-WORKDIR /srv/app/
+WORKDIR /app/
 # Install Node.js, npm, and other necessary packages
 RUN apt-get update && \
     apt-get install -y curl && \
@@ -17,14 +17,12 @@ RUN apt-get update && \
 ARG VITE_API_URL
 
 # add to $PATH
-ENV PATH /srv/app/node_modules/.bin:$PATH
+ENV PATH /app/node_modules/.bin:$PATH
 
 # install app dependencies
 COPY package.json ./
 RUN npm install
 
-# add app
-COPY . ./
 # Expose Vite dev server port
 EXPOSE 3000
 
