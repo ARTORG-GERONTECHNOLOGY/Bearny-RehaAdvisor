@@ -54,6 +54,7 @@ dependencies:
   - xz=5.4.6
   - zlib=1.2.13
   - djongo
+  - ffmpeg
   - pip:
       - dataclasses==0.6
       - django==5.1.1

@@ -16,7 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-
+from pydub import AudioSegment   
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from core.models import (
     AnswerOption,
@@ -39,6 +39,7 @@ from utils.utils import (
     generate_repeat_dates,
     sanitize_text,
     serialize_datetime,
+    transcribe_file,
 )
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
@@ -57,217 +58,221 @@ FILE_TYPE_FOLDERS = {
 def submit_patient_feedback(request):
     """
     POST api/patients/feedback/questionaire/
-    Submit feedback for either an intervention or healthstatus, with optional audio file.
+    Expects multipart/form-data:
+      - userId, interventionId (or omit interventionId for health-status path)
+      - For each question: either a text field <questionKey> or a file field <questionKey>.
+    Transcodes any audio to WAV, then transcribes, and saves both file path & transcription.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        # Handle audio file (if provided)
-        audio_file = request.FILES.get("audio_file")
-        transcription = None
-        saved_audio_path = None
+        # 1) Required IDs
+        user_id = request.POST.get("userId")
+        intervention_id = request.POST.get("interventionId", None)
+        if not user_id:
+            return JsonResponse({"error": "Missing userId"}, status=400)
 
-        if audio_file:
-            recognizer = sr.Recognizer()
-            ext = audio_file.name.split(".")[-1].lower()
+        # 2) Process uploads + text fields
+        recognizer = sr.Recognizer()
+        answers = {}         # questionKey → {"file_path": ..., "transcription": ...} or plain string
+
+        # 2a) Handle audio uploads first
+        for key, audio_file in request.FILES.items():
+            # save raw upload
+            ext = audio_file.name.rsplit(".", 1)[-1].lower()
             folder = FILE_TYPE_FOLDERS.get(ext, "audio")
-            filename = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{audio_file.name}"
-            saved_audio_path = default_storage.save(
-                os.path.join(folder, filename), audio_file
-            )
+            timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+            filename = f"{timestamp}_{audio_file.name}"
+            saved_path = default_storage.save(os.path.join(folder, filename), audio_file)
+            logger.info(f"[submit_patient_feedback] Saved raw audio to {saved_path}")
 
-            logger.info(
-                f"[submit_patient_feedback] Saved audio file at {saved_audio_path}"
-            )
+            # write to temp for pydub
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp_in:
+                for chunk in default_storage.open(saved_path).chunks():
+                    tmp_in.write(chunk)
+                tmp_in_path = tmp_in.name
 
-            with tempfile.NamedTemporaryFile(
-                delete=False, suffix=f".{ext}"
-            ) as temp_audio:
-                for chunk in default_storage.open(saved_audio_path).chunks():
-                    temp_audio.write(chunk)
-                temp_audio_path = temp_audio.name
-
+            # transcode to WAV
+            wav_path = tmp_in_path + ".wav"
             try:
-                with sr.AudioFile(temp_audio_path) as source:
+                AudioSegment.from_file(tmp_in_path).export(wav_path, format="wav")
+            except Exception as e:
+                logger.error(f"Audio transcoding failed for {key}: {e}", exc_info=True)
+                os.remove(tmp_in_path)
+                continue
+
+            # transcribe
+            '''
+            # Use the recognizer to transcribe the audio# 1) detect device
+            device = 0 if torch.cuda.is_available() else "cpu"
+            print("Using device:", device)
+
+            # 2) choose model
+            model_name = "openai/whisper-small.en"
+
+            # 3) instantiate ASR pipeline
+            asr = pipeline(
+                "automatic-speech-recognition",
+                model=model_name,
+                device=device,
+                chunk_length_s=30,        # split longer files
+                generation_kwargs={"max_new_tokens": 50},
+            )
+
+            # 4) run on a sample file
+            result = asr("path/to/sample_audio.mp3")
+            transcription = result["text"]
+            '''
+            transcription = None
+            try:
+                with sr.AudioFile(wav_path) as source:
                     audio_data = recognizer.record(source)
                     transcription = recognizer.recognize_google(audio_data)
-                    logger.info(
-                        f"[submit_patient_feedback] Transcription: {transcription}"
-                    )
-
+                    logger.info(f"[submit_patient_feedback] Transcription for {key}: {transcription}")
             except sr.UnknownValueError:
-                logger.warning("[submit_patient_feedback] Could not transcribe audio.")
+                logger.warning(f"[submit_patient_feedback] Could not transcribe {key}")
             except sr.RequestError as e:
-                logger.error(f"[submit_patient_feedback] Speech recognition error: {e}")
+                logger.error(f"[submit_patient_feedback] Speech rec error for {key}: {e}")
             finally:
-                os.remove(temp_audio_path)
+                # cleanup temp files
+                os.remove(tmp_in_path)
+                os.remove(wav_path)
 
-        if request.content_type.startswith("multipart/form-data"):
-            user_id = request.POST.get("userId")
-            intervention_id = request.POST.get("interventionId")
-            responses_raw = request.POST.get("responses", "[]")
-            responses = json.loads(responses_raw)
-        else:
-            data = json.loads(request.body)
-            user_id = data.get("userId")
-            intervention_id = data.get("interventionId")
-            responses = data.get("responses", [])
+            # store both file path and transcription
+            answers[key] = {
+                "file_path": saved_path,
+                "transcription": transcription or ""
+            }
 
-        if not responses:
-            return JsonResponse(
-                {"error": "No feedback responses provided."}, status=400
-            )
+        # 2b) Handle plain-text fields (but don’t overwrite audio entries)
+        for key, val in request.POST.items():
+            if key in ("userId", "interventionId"):
+                continue
+            if key not in answers:
+                answers[key] = val
 
-        logger.info(f"Looking up patient: {user_id}")
-        patient = Patient.objects.get(userId=ObjectId(user_id))
+        # 3) Lookup patient
+        try:
+            patient = Patient.objects.get(userId=ObjectId(user_id))
+        except Patient.DoesNotExist:
+            return JsonResponse({"error": "Patient not found."}, status=404)
 
-        def resolve_answers(question_obj, answer):
-            """Match the submitted answer(s) to the question's possibleAnswers"""
-            answer_keys = []
-            if isinstance(answer, list):
-                for ans in answer:
-                    matched = next(
-                        (opt for opt in question_obj.possibleAnswers if opt.key == ans),
-                        None,
-                    )
-                    answer_keys.append(
-                        matched
-                        or AnswerOption(
-                            key=ans, translations=[Translation(language="en", text=ans)]
-                        )
-                    )
-            else:
-                answer_keys.append(
-                    AnswerOption(
-                        key="text",
-                        translations=[Translation(language="en", text=str(answer))],
-                    )
-                )
-            return answer_keys
-
+        # 4) Decide branch: intervention feedback vs health status
         if intervention_id:
-            # Handle intervention-based feedback
-            intervention = Intervention.objects.get(id=ObjectId(intervention_id))
-            rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+            try:
+                intervention = Intervention.objects.get(id=ObjectId(intervention_id))
+            except Intervention.DoesNotExist:
+                return JsonResponse({"error": "Intervention not found."}, status=404)
 
-            if not rehab_plan:
-                return JsonResponse(
-                    {"error": "Rehabilitation plan not found."}, status=404
-                )
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+            if not plan:
+                return JsonResponse({"error": "Rehab plan not found."}, status=404)
 
+            # get or create today’s log
             today = timezone.now().date()
-            start = datetime.combine(today, datetime.min.time())
-            end = datetime.combine(today, datetime.max.time())
-
             log = PatientInterventionLogs.objects(
                 userId=patient,
                 interventionId=intervention,
-                date__gte=start,
-                date__lte=end,
             ).first()
-
             if not log:
                 log = PatientInterventionLogs(
                     userId=patient,
                     interventionId=intervention,
-                    rehabilitationPlanId=rehab_plan,
+                    rehabilitationPlanId=plan,
                     date=timezone.now(),
                     status=[],
                     feedback=[],
                     comments="",
                 )
 
-            for response in responses:
-                question_text = response.get("question", "")
-                answer = response.get("answer")
+            # 5) Build FeedbackEntry objects
+            for qkey, answer_val in answers.items():
+                qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
+                if not qobj:
+                    continue
 
-                question_obj = FeedbackQuestion.objects.filter(
-                    translations__text=question_text
-                ).first()
+                # decide text answer and comment
+                if isinstance(answer_val, dict):
+                    text_ans = answer_val["transcription"]
+                    comment = f"Audio saved at {answer_val['file_path']}"
+                else:
+                    text_ans = str(answer_val)
+                    comment = ""
 
-                if question_obj:
-                    # ✅ If the question is text type and we have a transcription, replace answer
-                    if question_obj.answer_type == "text" and transcription:
-                        logger.info(
-                            f"[submit_patient_feedback] Replacing text answer with transcription."
+                # resolve AnswerOption list
+                def to_options(ans_str):
+                    opt = next((o for o in qobj.possibleAnswers if o.key == ans_str), None)
+                    if opt:
+                        return [opt]
+                    return [
+                        AnswerOption(
+                            key="text",
+                            translations=[Translation(language="en", text=ans_str)],
                         )
-                        answer = transcription
+                    ]
 
-                    log.feedback.append(
-                        FeedbackEntry(
-                            questionId=question_obj,
-                            answerKey=resolve_answers(question_obj, answer),
-                            comment=response.get("notes", ""),
-                        )
-                    )
-
-            # Optionally, you might want to log the audio file path somewhere
-            if saved_audio_path:
-                log.comments = (
-                    f"{log.comments}\nAudio file saved at: {saved_audio_path}".strip()
+                entry = FeedbackEntry(
+                    questionId=qobj,
+                    answerKey=to_options(text_ans),
+                    comment=comment,
                 )
+                log.feedback.append(entry)
 
             log.updatedAt = timezone.now()
             log.save()
 
         else:
-            # 🟢 Handle health status feedback
-            for response in responses:
-                question_text = response.get("question", "")
-                answer = response.get("answer")
-                notes = response.get("notes", "")
-
-                question_obj = FeedbackQuestion.objects.filter(
-                    translations__text=question_text, questionSubject="Healthstatus"
+            # Health-status feedback (similar pattern)
+            for qkey, answer_val in answers.items():
+                qobj = FeedbackQuestion.objects.filter(
+                    questionKey=qkey, questionSubject="Healthstatus"
                 ).first()
+                if not qobj:
+                    continue
 
-                if question_obj:
-                    if question_obj.answer_type == "text" and transcription:
-                        logger.info(
-                            f"[submit_patient_feedback] Replacing text answer with transcription."
+                if isinstance(answer_val, dict):
+                    text_ans = answer_val["transcription"]
+                    notes = f"Audio saved at {answer_val['file_path']}"
+                else:
+                    text_ans = str(answer_val)
+                    notes = ""
+
+                # numeric rating if multi-choice list
+                numeric = (
+                    int(text_ans)
+                    if text_ans.isdigit()
+                    else None
+                )
+
+                entry = FeedbackEntry(
+                    questionId=qobj,
+                    answerKey=[
+                        next(
+                            (o for o in qobj.possibleAnswers if o.key == text_ans),
+                            AnswerOption(
+                                key="text",
+                                translations=[Translation(language="en", text=text_ans)],
+                            ),
                         )
-                        answer = transcription
+                    ],
+                    comment=notes,
+                )
 
-                    numeric_rating = (
-                        int(answer[0])
-                        if isinstance(answer, list) and str(answer[0]).isdigit()
-                        else None
-                    )
-
-                    new_entry = PatientICFRating(
-                        questionId=question_obj,
-                        patientId=patient,
-                        icfCode=question_obj.icfCode,
-                        rating=numeric_rating,
-                        notes=notes,
-                        feedback_entries=[
-                            FeedbackEntry(
-                                questionId=question_obj,
-                                answerKey=resolve_answers(question_obj, answer),
-                                comment=notes,
-                            )
-                        ],
-                    )
-
-                    # Save audio file path in notes if applicable
-                    if saved_audio_path:
-                        new_entry.notes = f"{new_entry.notes}\nAudio file saved at: {saved_audio_path}".strip()
-
-                    new_entry.save()
+                rating = PatientICFRating(
+                    questionId=qobj,
+                    patientId=patient,
+                    icfCode=qobj.icfCode,
+                    rating=numeric,
+                    notes=notes,
+                    feedback_entries=[entry],
+                )
+                rating.save()
 
         return JsonResponse({"message": "Feedback submitted successfully"}, status=201)
 
-    except Patient.DoesNotExist:
-        logger.warning(f"[submit_patient_feedback] Entity not found")
-        return JsonResponse({"error": "Patient not found."}, status=404)
-    except Intervention.DoesNotExist:
-        logger.warning(f"[submit_patient_feedback] Entity not found")
-        return JsonResponse({"error": "Intervention not found."}, status=404)
     except Exception as e:
-        logger.error(
-            f"[submit_patient_feedback] Unexpected error: {str(e)}", exc_info=True
-        )
+        logger.exception("Unexpected error in submit_patient_feedback")
         return JsonResponse({"error": str(e)}, status=500)
 
 
