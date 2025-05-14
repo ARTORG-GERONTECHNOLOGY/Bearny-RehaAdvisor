@@ -14,7 +14,19 @@ import re
 import unicodedata
 
 from django.utils.timezone import is_naive, make_aware
+import tempfile
+from pydub import AudioSegment
+import speech_recognition as sr
 
+def transcribe_file(input_path):
+    # convert ANYTHING into a proper WAV
+    wav_path = input_path + ".wav"
+    AudioSegment.from_file(input_path).export(wav_path, format="wav")
+
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(wav_path) as source:
+        audio_data = recognizer.record(source)
+        return recognizer.recognize_google(audio_data)
 
 def ensure_aware(dt):
     return make_aware(dt) if is_naive(dt) else dt
