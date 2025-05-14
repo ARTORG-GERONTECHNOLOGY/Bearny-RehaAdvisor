@@ -19,5 +19,3 @@ SECURE_SSL_REDIRECT = False  # Disable forced HTTPS redirect in dev
 STATICFILES_DIRS = [BASE_DIR / "static"]  # if using non-collected static
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # Don't send real emails in dev

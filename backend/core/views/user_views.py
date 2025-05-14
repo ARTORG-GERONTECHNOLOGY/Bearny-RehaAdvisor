@@ -240,13 +240,14 @@ def accept_user(request):
 
         user.isActive = True
         user.save()
-        print("hi")
-        # ✅ Send email notification
+
         send_mail(
-            "Account Activation",
-            "Dear user, your account has been accepted and activated. You can now log in.",
-            "noreply@yourapp.com",
-            [user.email],
+            subject="Account Activation",
+            message=(
+                "Dear user, your account has been accepted and activated. You can now log in."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
             fail_silently=False,
         )
 
@@ -268,14 +269,16 @@ def decline_user(request):
 
         # Delete and send email...
         user.delete()
-
         send_mail(
-            "Account Declined",
-            "Dear user, we regret to inform you that your registration was not approved.",
-            "noreply@yourapp.com",
-            [user.email],
+            subject="Account Declined",
+            message=(
+                f"Dear user, we regret to inform you that your registration was not approved."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
             fail_silently=False,
         )
+        
 
         return JsonResponse(
             {"message": "User declined and deleted successfully."}, status=200
