@@ -46,6 +46,10 @@ def list_all_interventions(request):
     try:
         interventions = Intervention.objects.all()
         results = []
+        print("MEDIA_HOST:", getattr(settings, "MEDIA_HOST", "NOT SET"))
+        logger.info(
+            f"MEDIA_HOST:", getattr(settings, "MEDIA_HOST", "NOT SET"), exc_info=True
+        )
 
         for item in interventions:
             results.append(

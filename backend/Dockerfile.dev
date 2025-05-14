@@ -20,13 +20,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
+RUN apt-get update && apt-get install -y ffmpeg
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
 ENV PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=api.settings.prod
 
-# collect static, run migrations
-RUN python manage.py collectstatic --noinput
-
-CMD ["gunicorn", "api.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--reload", "api.wsgi:application"]
