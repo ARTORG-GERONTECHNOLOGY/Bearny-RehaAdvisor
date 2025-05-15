@@ -5,6 +5,7 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
+import ErrorAlert from '../common/ErrorAlert';
 
 interface FormData {
   email: string;
@@ -48,7 +49,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [registered, setRegistered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null); //  Stores API Errors
+  const [error, setError] = useState<string | null>(null);
+  
 
   const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
@@ -70,7 +72,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     setStep(0);
     setErrors({});
     setRegistered(false);
-    setApiError(null);
     setShowPassword(false);
     setShowPasswordRepeat(false);
 
@@ -175,7 +176,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setApiError(null); // 🔹 Clear previous API errors
     if (validateStep()) {
       try {
         const response = await apiClient.post('/auth/register/', formData);
@@ -186,9 +186,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         console.error('Registration error: ', error);
         // 🔹 Check if error has a response and extract the error message
         if (error.response) {
-          setApiError(error.response.data?.error || t('An error occurred. Please try again.'));
+          setError(error.response.data?.error || t('An error occurred. Please try again.'));
         } else {
-          setApiError(t('An unexpected error occurred. Please try again.'));
+          setError(t('An unexpected error occurred. Please try again.'));
         }
       }
     }
@@ -208,6 +208,16 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       </Modal.Header>
       <Modal.Body>
         <form onSubmit={handleSubmit}>
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+        {registered && (
+            <div className="alert alert-success">
+              <div>
+                {t(
+                  'You have been Registered. Your account information will be sent to the given email, when your account has been approved.'
+                )}
+              </div>
+            </div>
+          )}
           <h3>{formSteps[step].title}</h3>
 
           {formSteps[step]?.fields.map((field) => (
@@ -308,18 +318,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
             </div>
           ))}
-
-          {/* 🔹 Display API Error Alert */}
-          {apiError && <div className="alert alert-danger">{apiError}</div>}
-          {registered && (
-            <div className="alert alert-success">
-              <div>
-                {t(
-                  'You have been Registered. Your account information will be sent to the given email, when your account has been approved.'
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="d-flex justify-content-between mt-4">
             {step > 0 && !registered && (
