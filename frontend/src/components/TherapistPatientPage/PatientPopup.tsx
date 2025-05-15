@@ -6,7 +6,7 @@ import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
 import config from '../../config/config.json';
 import { PatientType } from '../../types/index';
-
+import ErrorAlert from '../common/ErrorAlert';
 interface PatientPopupProps {
   patient_id: PatientType;
   show: boolean;
@@ -52,6 +52,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
       setFormData({ ...normalizedData, ...fetchedData });
     } catch (error) {
       console.error('Error fetching patient data:', error);
+      setError(t('Failed to fetch patient data. Please try again later.'));
     } finally {
       setLoading(false);
     }
@@ -181,7 +182,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
           <Modal.Title>{formData.name || t('Patient')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <p className="text-danger">{error}</p>}
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
           {config.PatientForm.map((section, idx) => (
             <div key={idx}>
               <h5 className="mb-3">{t(section.title)}</h5>
