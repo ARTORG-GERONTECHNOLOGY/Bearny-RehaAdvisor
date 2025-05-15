@@ -3,7 +3,8 @@ import apiClient from '../api/client';
 
 class AdminStore {
   pendingEntries: any[] = []; // <-- Make sure this is initialized as an empty array
-
+  error: string = '';
+  
   constructor() {
     makeAutoObservable(this);
   }
@@ -12,8 +13,9 @@ class AdminStore {
     try {
       const response = await apiClient.get('/admin/pending-users');
       this.pendingEntries = response.data.pending_users; // ✅ Correct mapping
-    } catch (error) {
-      console.error('Failed to fetch pending entries:', error);
+    } catch (err {
+      console.error('Failed to fetch pending entries:', err);
+      this.error = 'Failed to fetch pending entries. Please try again later.';
     }
   };
 
@@ -21,8 +23,9 @@ class AdminStore {
     try {
       await apiClient.post('/admin/accept-user/', { userId: entryId });
       this.fetchPendingEntries(); // refresh the list after acceptance
-    } catch (error) {
-      console.error('Error accepting entry:', error);
+    } catch (err) {
+      console.error('Error accepting entry:', err);
+      this.error = 'Failed to accept entry. Please try again later.';
     }
   }
 
@@ -30,8 +33,9 @@ class AdminStore {
     try {
       await apiClient.post('/admin/decline-user/', { userId: entryId });
       this.fetchPendingEntries(); // refresh the list after decline
-    } catch (error) {
-      console.error('Error declining entry:', error);
+    } catch (err) {
+      console.error('Error declining entry:', err);
+      this.error = 'Failed to decline entry. Please try again later.';
     }
   }
 }

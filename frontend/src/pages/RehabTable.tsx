@@ -15,7 +15,7 @@ import PatientInterventionPopUp from '../components/PatientPage/PatientIntervent
 import InterventionFeedbackModal from '../components/RehaTablePage/InterventionFeedbackModal';
 import InterventionStatsModal from '../components/RehaTablePage/InterventionStatsModal';
 import { Intervention } from '../types';
-
+import ErrorAlert from '../components/common/ErrorAlert';
 import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
 
@@ -25,7 +25,7 @@ const RehabTable: React.FC = () => {
   });
   const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   const [showExerciseStats, setShowExerciseStats] = useState<boolean>(false);
-
+  const [error, setError] = useState('');
   const [allInterventions, setAllInterventions] = useState<Intervention[]>([]);
   const [recommendations, setRecommendations] = useState<Intervention[]>([]);
   const [filteredRecommendations, setFilteredRecommendations] = useState<Intervention[]>([]);
@@ -38,6 +38,7 @@ const RehabTable: React.FC = () => {
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const { i18n, t } = useTranslation();
+  
   //const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   //const [allInterventions, setAllInterventions] = useState<Intervention[]>([]);
   //const [patientData, setPatientData] = useState<{
@@ -64,6 +65,7 @@ const RehabTable: React.FC = () => {
       setPatientData(res.data);
     } catch (e) {
       console.error('Error loading all interventions', e);
+      setError('Error loading patients interventions. Reload the page or try again later.');
     }
   };
   const fetchInts = async () => {
@@ -74,6 +76,7 @@ const RehabTable: React.FC = () => {
       setFilteredRecommendations(res.data);
     } catch (e) {
       console.error('Error loading all interventions', e);
+      setError('Error loading interventions. Reload the page or try again later.');
     }
   };
 
@@ -125,6 +128,7 @@ const RehabTable: React.FC = () => {
       }
     } catch (e) {
       console.error('Error loading all interventions', e);
+      setError('Failed to delete the intervention. Try again now or later.');
     }
 
     console.log('Intervention removed for patient:', patientUsername);
@@ -159,7 +163,18 @@ const RehabTable: React.FC = () => {
               <h2 className="text-center mb-4">{patientName}</h2>
             </Col>
           </Row>
-
+          <Row>
+            <Col>
+              {error && (
+                <ErrorAlert
+                  message={error}
+                  onClose={() => {
+                    setError('');
+                  }}
+                />
+              )}
+            </Col>
+          </Row>
           <Row>
             {/* LEFT PANEL: Interventions + Tab Switcher */}
             <Col md={3} style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
