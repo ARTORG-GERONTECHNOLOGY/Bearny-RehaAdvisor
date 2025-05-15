@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-
+import ErrorAlert from '../components/common/ErrorAlert';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
@@ -21,7 +21,7 @@ const Therapist: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<PatientType | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [showPopupAdd, setShowPopupAdd] = useState(false);
-
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
@@ -47,6 +47,7 @@ const Therapist: React.FC = () => {
       setFilteredPatients(res.data);
     } catch (err) {
       console.error('Error fetching patients:', err);
+      setError('Failed to fetch patients. Please try again later.');
     }
   };
 
@@ -106,7 +107,18 @@ const Therapist: React.FC = () => {
 
       <Container className="main-content mt-4">
         <WelcomeArea user="Therapist" />
-
+        <Row>
+            <Col>
+              {error && (
+                <ErrorAlert
+                  message={error}
+                  onClose={() => {
+                    setError('');
+                  }}
+                />
+              )}
+            </Col>
+          </Row>
         <Row className="mb-3">
           <Col>
             <Button onClick={handleOpen}>{t('Add a New Patient')}</Button>
