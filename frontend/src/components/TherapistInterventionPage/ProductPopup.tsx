@@ -10,7 +10,7 @@ import Microlink from '@microlink/react';
 import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
 import InterventionRepeatModal from '../RehaTablePage/InterventionRepeatModal';
-
+import ErrorAlert from '../common/ErrorAlert';
 interface ProductPopupProps {
   show: boolean;
   item: {
@@ -40,7 +40,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
   const [showScheduler, setShowScheduler] = useState<boolean>(false);
   const [selectedIntervention, setSelectedIntervention] = useState<string>('');
   const [selectedDiagnose, setSelectedDiagnose] = useState<string>('');
-
+  const [error, setError] = useState('');
   const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
   const diagnoses = Array.isArray(specialisations)
     ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
@@ -86,6 +86,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
       });
     } catch (err) {
       console.error('Failed to save row:', err);
+      setError('Failed to save row. Please try again.');
     }
   };
 
@@ -165,6 +166,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
       setSelectedAll(response.data.all);
     } catch (error) {
       console.error('Error fetching assigned diagnoses:', error);
+      setError('Failed to fetch assigned diagnoses. Please try again.');
     }
   };
 
@@ -182,6 +184,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
         });
       } catch (error) {
         console.error(`Error updating intervention for ${diagnosis}:`, error);
+        setError(`Failed to update intervention for ${diagnosis}. Please try again.`);
       }
     } else {
       setSelectedIntervention(item['_id']);
@@ -204,6 +207,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
         });
       } catch (error) {
         console.error(`Error updating intervention for all`, error);
+        setError(`Failed to update intervention for all. Please try again.`);
       }
     } else {
       setSelectedIntervention(item['_id']);
@@ -251,7 +255,15 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
+         
+          {/* Description Section with Spacing & Shadow Separator */}
           {/* Existing recommended section */}
+          {error &&
+          <Row className="pb-3 mb-3 border-bottom">
+            <Col>
+             <ErrorAlert message={error} onClose={() => setError(null)} />
+            </Col>
+          </Row>}
           <Row className="pb-3 mb-3 border-bottom">
             <h5>{t('Recomended to patients')}:</h5>
             {item.patient_types.map((type, idx) => (

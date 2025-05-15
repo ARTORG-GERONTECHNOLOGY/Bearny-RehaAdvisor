@@ -3,6 +3,7 @@ import { Form, Button } from 'react-bootstrap';
 import Select from 'react-select';
 import config from '../../config/config.json';
 import { t } from 'i18next';
+import ErrorAlert from '../common/ErrorAlert';
 
 const EditUserInfo = ({ userData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -40,19 +41,25 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
   };
 
   const handleSubmit = (e) => {
-    if (!validateInputs()) return;
-    e.preventDefault();
+    e.preventDefault(); // Always prevent default first
+  
+    const isValid = validateInputs(); // This sets or clears error
+  
+    if (!isValid) return;
+  
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      alert(t('New passwords do not match!'));
+      setError(t('New passwords do not match!'));
       return;
     }
+  
+    setError(''); // Final cleanup
     onSave(formData);
   };
 
   return (
     <>
       <Form onSubmit={handleSubmit}>
-        {error && <p className="text-danger">{error}</p>}
+      {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
         {config.TherapistForm.flatMap((section) => section.fields)
           .filter(
             (field) =>
