@@ -3,6 +3,8 @@ import { Modal, Button, ProgressBar, Form, Row, Col, Alert } from 'react-bootstr
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash } from 'react-icons/fa';
 import apiClient from '../../api/client';
 import { useTranslation } from 'react-i18next';
+import ErrorAlert from '../common/ErrorAlert';
+
 const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const { t, i18n } = useTranslation();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -17,6 +19,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
   const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const timerRef = useRef(null);
   const userId = localStorage.getItem('id');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!show) {
@@ -170,6 +173,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
       onClose();
     } catch (err) {
       console.error("Error submitting feedback:", err);
+      setError(err.message || 'Error submitting feedback. Please try again.');
     }
   };
   
@@ -332,6 +336,7 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
             {t('Submit')}
           </Button>
         )}
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
       </Modal.Footer>
     </Modal>
   );
