@@ -9,6 +9,7 @@ import handleApiError from '../../utils/errorHandler';
 import InputField from '../forms/input/InputField';
 import PasswordField from '../forms/input/PasswordField';
 import ForgotPasswordLink from '../common/ForgotPasswordLink';
+import ErrorAlert from '../common/ErrorAlert';
 
 interface LoginFormProps {
   show: boolean;
@@ -22,28 +23,44 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
   const [showPassword, setShowPassword] = useState(false);
   const [is2FARequired, setIs2FARequired] = useState(false); // State for handling 2FA
   const [verificationCode, setVerificationCode] = useState(''); // State for the 2FA code
+  const [error, setError] = useState<string | null>(null);
 
   const handleToggle = () => setShowPassword(!showPassword);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setError(''); // Clear any previous errors
+  
     try {
       await authStore.loginWithHttp();
-
-      // If it's a non-patient user, trigger 2FA
+  
+      // Explicit check after login TODO Check success of request not if authenticated
+      if (authStore.loginErrorMessage) {
+        setError(authStore.loginErrorMessage);
+        return;
+      }
+  
       if (pageType !== 'patient') {
         setIs2FARequired(true);
-        // Trigger the backend to send the verification code via SMS
-        await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
+  
+        try {
+          await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
+        } catch (sendCodeErr) {
+          setError('Login succeeded but failed to send verification code.');
+          console.error('2FA code send failed:', sendCodeErr);
+        }
+  
       } else {
         authStore.setAuthenticated(true);
-        navigate(`/${authStore.userType.toLowerCase()}`); // Directly navigate for patient
+        navigate(`/${authStore.userType.toLowerCase()}`);
       }
-    } catch (error) {
-      handleApiError(error, authStore);
+  
+    } catch (err) {
+      handleApiError(err, authStore);
+      setError(err.message || 'Login failed. Please try again.');
     }
   };
+  
 
   // Handle 2FA Code Submission
   const handle2FASubmit = async (e: React.FormEvent) => {
@@ -61,8 +78,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
       } else {
         authStore.setLoginError(t('Invalid verification code'));
       }
-    } catch (error) {
-      handleApiError(error, authStore);
+    } catch (err) {
+      handleApiError(err, authStore);
+      setError(err.message || 'Invalid verification code');
     }
   };
 
@@ -88,6 +106,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
       <Modal.Body>
         {!is2FARequired ? (
           <form onSubmit={handleSubmit}>
+            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
             {/* Email or Username Field */}
             <InputField
               id="email"
@@ -126,6 +145,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
         ) : (
           // 2FA Form (shown after successful username/password login for non-patients)
           <form onSubmit={handle2FASubmit}>
+            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
             <h5>{t('Entertheverificationcodesenttoyourphone')}</h5>
             <InputField
               id="verificationCode"
@@ -135,10 +155,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
               onChange={(e) => setVerificationCode(e.target.value)}
               placeholder={t('Enterverificationcode')}
             />
-
-            {authStore.loginError && (
-              <div className="alert alert-danger">{authStore.loginError}</div>
-            )}
 
             <button type="submit" className="btn btn-primary">
               {t('SubmitCode')}
