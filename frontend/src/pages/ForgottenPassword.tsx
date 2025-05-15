@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import apiClient from '../api/client';
-
+import ErrorAlert from '../components/common/ErrorAlert';
 const ForgotPassword: React.FC = () => {
   const { t } = useTranslation();
 
@@ -39,13 +39,13 @@ const ForgotPassword: React.FC = () => {
             </Alert>
           )}
 
-          {error && (
-            <Alert variant="danger" className="text-center">
-              {error}
+          <Form onSubmit={handleSubmit}>
+          {success && (
+            <Alert variant="success" className="text-center">
+              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
             </Alert>
           )}
-
-          <Form onSubmit={handleSubmit}>
+          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
             <Form.Group controlId="formEmail" className="mb-3">
               <Form.Label>{t('Emailaddress')}</Form.Label>
               <Form.Control

@@ -10,7 +10,7 @@ import ProductPopup from '../components/TherapistInterventionPage/ProductPopup';
 import FilterBar from '../components/TherapistInterventionPage/FilterBar';
 import InterventionList from '../components/TherapistInterventionPage/InterventionList';
 import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp';
-
+import ErrorAlert from '../components/common/ErrorAlert';
 import config from '../config/config.json';
 import apiClient from '../api/client';
 import authStore from '../stores/authStore';
@@ -33,6 +33,7 @@ const TherapistRecomendations: React.FC = () => {
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [frequencyFilter, setFrequencyFilter] = useState('');
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
+  const [error, setError] = useState('');
 
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -61,6 +62,7 @@ const TherapistRecomendations: React.FC = () => {
       setFilteredInterventions(res.data);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
+      setError(t('Error fetching recommendations. Please try again later.'));
     }
   };
 
@@ -134,6 +136,18 @@ const TherapistRecomendations: React.FC = () => {
       <Header isLoggedIn />
       <Container className="main-content mt-4">
         <WelcomeArea user="TherapistPatients" />
+        <Row>
+            <Col>
+              {error && (
+                <ErrorAlert
+                  message={error}
+                  onClose={() => {
+                    setError('');
+                  }}
+                />
+              )}
+            </Col>
+          </Row>
 
         {/* Row for button above filters */}
         <Row className="mb-3">
