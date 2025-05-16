@@ -985,3 +985,58 @@ def remove_intervention_from_patient(request):
             exc_info=True,
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def initial_patient_questionaire(request, patient_id):
+    """
+    GET /users/<patient_id>/initial-questionaire/
+    Returns the initial questionnaire for a patient.
+
+    POST /users/<patient_id>/initial-questionaire/
+    Submits the initial questionnaire for a patient.
+    """
+
+    try:
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        if request.method == "GET":
+            
+            if not all([
+                patient.level_of_education,
+                patient.professional_status,
+                patient.marital_status,
+                patient.lifestyle,
+                patient.personal_goals
+            ]):
+                return JsonResponse({"data": True}, status=200)
+            else:
+                return JsonResponse({"data": False}, status=200)
+        
+        elif request.method == "POST":
+            data = json.loads(request.body)
+            level_of_education = data.get("level_of_education")
+            professional_status = data.get("professional_status")
+            marital_status = data.get("marital_status")
+            lifestyle = data.get("lifestyle")
+            personal_goals = data.get("personal_goals")
+
+            if not all([level_of_education, professional_status, marital_status, lifestyle, personal_goals]):
+                return JsonResponse({"error": "All fields are required."}, status=400)
+
+            patient.level_of_education = level_of_education
+            patient.professional_status = professional_status
+            patient.marital_status = marital_status
+            patient.lifestyle = lifestyle
+            patient.personal_goals = personal_goals
+            patient.save()
+
+            return JsonResponse({"message": "Initial questionnaire submitted successfully."}, status=201)
+        else:
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+    except Patient.DoesNotExist:
+        logger.warning(f"[initial_patient_questionaire] Patient not found: {patient_id}")
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    except Exception as e:
+        logger.error(f"[initial_patient_questionaire] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal Server Error"}, status=500)
+

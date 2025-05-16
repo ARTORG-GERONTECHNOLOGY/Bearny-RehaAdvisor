@@ -7,6 +7,7 @@ import { enUS, de, fr, it } from 'date-fns/locale';
 import apiClient from '../../api/client';
 import PatientInterventionPopUp from './PatientInterventionPopUp';
 import FeedbackPopup from './FeedbackPopup';
+import PatientQuestionaire from './PatientQuestionaire';
 
 const InterventionList = () => {
   const { t, i18n } = useTranslation();
@@ -18,6 +19,7 @@ const InterventionList = () => {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showHealthPopup, setShowHealthPopup] = useState(false);
+  const [showPatientPopup, setShowPatientPopup] = useState(false); // TODO
 
   // ✅ Map language to date-fns locale
   const localeMap = {
@@ -31,6 +33,7 @@ const InterventionList = () => {
 
   useEffect(() => {
     fetchInterventions();
+    getInitialQuestionnaire();
     getQuestionnaire();
   }, []);
 
@@ -56,6 +59,18 @@ const InterventionList = () => {
       setShowHealthPopup(true);
     } catch (error) {
       console.error('Error fetching health questionnaire:', error);
+    }
+  };
+
+  const getInitialQuestionnaire = async () => {
+    try {
+      const { data: res } = await apiClient.get(
+        `users/${localStorage.getItem('id')}/initial-questionaire/`
+      );
+
+      setShowPatientPopup(res.data);
+    } catch (error) {
+      console.error('Error checking questionnaire:', error);
     }
   };
 
@@ -258,6 +273,13 @@ const InterventionList = () => {
           interventionId={''}
           questions={feedbackQuestions}
           onClose={() => setShowHealthPopup(false)}
+        />
+      )}
+      {showPatientPopup && (
+        <PatientQuestionaire
+          patient_id={localStorage.getItem('id')}
+          show={true}
+          handleClose={() => setShowPatientPopup(false)}
         />
       )}
     </div>
