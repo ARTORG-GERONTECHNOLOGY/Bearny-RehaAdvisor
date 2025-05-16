@@ -789,4 +789,31 @@ describe('InterventionList Component', () => {
       expect(screen.getByText(/Upcoming/i)).toBeInTheDocument();
     });
   });
+
+  it('calls getInitialQuestionnaire and shows PatientQuestionaire popup if data exists', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/initial-questionaire/')) {
+        return Promise.resolve({ data: { name: 'John Doe' } }); // mock returned questionnaire
+      }
+      if (url.includes('/patients/rehabilitation-plan/patient/')) {
+        return Promise.resolve({ data: [] }); // mock rehab plan
+      }
+      if (url.includes('/patients/get-questions/Healthstatus/')) {
+        return Promise.resolve({ data: { questions: [] } }); // mock health questions
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<InterventionList />);
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        'users/67d588798c0494979e4633e4/initial-questionaire/'
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/John Doe/)).toBeInTheDocument(); // assuming name renders inside PatientQuestionaire
+    });
+  });
 });

@@ -237,23 +237,23 @@ class Patient(Document):
     level_of_education = StringField(
         max_length=30,
         choices=config["patientInfo"]["level_of_education"],
-        required=True,
+        required=False,
     )
     professional_status = StringField(
         max_length=30,
         choices=config["patientInfo"]["professional_status"],
-        required=True,
+        required=False,
     )
     marital_status = StringField(
-        max_length=30, choices=config["patientInfo"]["marital_status"], required=True
+        max_length=30, choices=config["patientInfo"]["marital_status"], required=False
     )
     lifestyle = ListField(
         StringField(max_length=200, choices=config["patientInfo"]["lifestyle"]),
-        required=True,
+        required=False,
     )
     personal_goals = ListField(
         StringField(max_length=200, choices=config["patientInfo"]["personal_goals"]),
-        required=True,
+        required=False,
     )
     all_diagnoses = [
         diagnosis
