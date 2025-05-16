@@ -82,6 +82,8 @@ urlpatterns = [
         patient_views.fetch_feedback_questions,
         name="get_feedback_questions",
     ),
+    path("api/users/<str:patient_id>/initial-questionaire/", patient_views.initial_patient_questionaire, name="initial_questionaire"),
+
     #  Intervention Management
     path(
         "api/interventions/all/",
