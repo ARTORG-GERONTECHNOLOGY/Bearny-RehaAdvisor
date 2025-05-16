@@ -95,7 +95,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>
-          <h2>{item.title}</h2>
+          <h2>{item.intervention_title}</h2>
           <h5 className="text-muted">{item.content_type}</h5>
           {item.benefitFor?.length > 0 && (
             <div className="mt-2 d-flex flex-wrap gap-2">
