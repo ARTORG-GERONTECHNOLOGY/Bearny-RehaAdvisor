@@ -69,6 +69,12 @@ const Therapist: React.FC = () => {
     navigate('/rehabtable');
   };
 
+  const handleProgressButton = (id: string, name: string) => {
+    localStorage.setItem('selectedPatient', id);
+    localStorage.setItem('selectedPatientName', name);
+    navigate('/health');
+  };
+
   const handleClosePopup = () => {
     setShowPopup(false);
     setSelectedItem(null);
@@ -210,6 +216,16 @@ const Therapist: React.FC = () => {
                       }
                     >
                       {t('Go to Rehab Table')}
+                    </Button>
+                  </td>
+                  <td>
+                    <Button
+                      variant="primary"
+                      onClick={() =>
+                        handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
+                      }
+                    >
+                      {t('Go to Progress Page')}
                     </Button>
                   </td>
                 </tr>

@@ -14,10 +14,13 @@ const AddRecomendations = lazy(() => import('../pages/AddInterventionView'));
 const AddPatient = lazy(() => import('../pages/AddPatient'));
 const RehabTable = lazy(() => import('../pages/RehabTable'));
 const TherapistRecomendations = lazy(() => import('../pages/TherapistInterventions'));
-const ErrorPage = lazy(() => import('../components/common/Error'));
+const ErrorPages = lazy(() => import('../components/common/Error'));
 const HealthSlider = lazy(() => import('../pages/eva'));
 const TermsAndConditions = lazy(() => import('../pages/TermsAndConditions'));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
+const SuccessPage = lazy(() => import('../pages/SuccessPage'));
+const ErrorPage = lazy(() => import('../pages/ErrorPage'));
+const HealthPage = lazy(() => import('../pages/HealthPage'));
 
 import RootLayout from '../RootLayout';
 
@@ -41,7 +44,7 @@ export const router = createBrowserRouter([
     element: createElement(
       Suspense,
       { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(ErrorPage) }) // ✅ FIXED here
+      createElement(RootLayout, { children: createElement(ErrorPages) }) // ✅ FIXED here
     ),
   },
   {
@@ -164,6 +167,18 @@ export const router = createBrowserRouter([
       { fallback: createElement(LoadingFallback) },
       createElement(PrivacyPolicy)
     ),
+  },
+  {
+    path: '/fitbit-success',
+    element: createElement(SuccessPage),
+  },
+  {
+    path: '/fitbit-error',
+    element: createElement(ErrorPage),
+  },
+  {
+    path: '/health',
+    element: createElement(HealthPage),
   },
 ]);
 

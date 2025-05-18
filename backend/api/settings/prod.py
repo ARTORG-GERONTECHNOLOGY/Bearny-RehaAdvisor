@@ -17,5 +17,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 
-
+# Fitbit settings
+FITBIT_CLIENT_ID = ''
+FITBIT_CLIENT_SECRET = 'YOUR_CLIENT_SECRET'
+FITBIT_REDIRECT_URI = 'https://yourdomain.com/fitbit/callback/'
+FRONTEND_URL = 'https://yourfrontend.com'
 
