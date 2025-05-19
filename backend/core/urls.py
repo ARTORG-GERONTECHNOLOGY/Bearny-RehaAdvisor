@@ -9,6 +9,7 @@ import core.views.recomendation_views as recomendation_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
+import core.views.fitbit_view as fitbit_views
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -123,6 +124,10 @@ urlpatterns = [
         recomendation_views.create_patient_group,
         name="post_add_new_patient_group",
     ),
+    path('api/fitbit/callback/', fitbit_views.fitbit_callback, name='fitbit_callback'),
+    path('api/fitbit/status/<str:patient_id>/', fitbit_views.fitbit_status, name='fitbit_status'),  # API endpoint to check connection
+    path("api/fitbit/health-data/<str:patient_id>/", fitbit_views.get_fitbit_health_data, name="fitbit_health_data"),
+
 ]
 
 # Only add this if DEBUG=True, which is typical in development
