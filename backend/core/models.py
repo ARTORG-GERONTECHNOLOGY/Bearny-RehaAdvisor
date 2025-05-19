@@ -25,8 +25,7 @@ all_diagnoses = [
     for category in config["patientInfo"]["function"].values()
     for diagnosis in category["diagnosis"]
 ]
-
-
+        
 class SMSVerification(Document):
     meta = {"collection": "2f_auth"}
     userId = StringField(max_length=255, required=True)
@@ -51,6 +50,22 @@ class User(Document):
 
     def __str__(self):
         return f"{self.username} (User)"
+        
+class FitbitUserToken(Document):
+    user = ReferenceField(User, required=True)
+    access_token = StringField(max_length=255)
+    refresh_token = StringField(max_length=255)
+    expires_at = DateTimeField()
+    fitbit_user_id = StringField(max_length=100)
+
+    def __str__(self):
+        return f"{self.user.username} Fitbit Token"
+        
+class FitbitData(Document):
+    user = ReferenceField(User)
+    date = DateTimeField(required=True)
+    steps = IntField()
+    resting_heart_rate = IntField()
 
 
 class Logs(Document):

@@ -31,7 +31,13 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR.parent / 'collected_static'  # or '/srv/static'
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'frontend_static',
+]
+
 
 ROOT_URLCONF = "api.urls"
 WSGI_APPLICATION = "api.wsgi.application"
@@ -46,10 +52,9 @@ USE_TZ = True
 
 MEDIA_HOST = os.environ.get("MEDIA_HOST", "http://localhost:8000")
 
-STATIC_URL = "/api_static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
 MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join("/srv/app/media", "/srv/app/media")
+MEDIA_ROOT = "/app/media"
+
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
@@ -76,7 +81,21 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
-
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],  # or just []
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
@@ -91,3 +110,7 @@ EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "info@reha-advisor.ch")
 EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"] #"nrk37CAYsTW&3sJ"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+import sys
+print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
+print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)

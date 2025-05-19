@@ -123,7 +123,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (response.status === 200) {
+      if (response.status === 201) {
         setSuccess(true);
         setFormData({
           title: '',
@@ -141,7 +141,18 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         setSuccess(false);
         setError('');
       }
-    } catch (error) {
+      else {
+        if (axios.isAxiosError(error) && error.response) {
+          setError(error.response.data.error || t('Error adding recommendation'));
+        } else {
+          setError(t('An unexpected error occurred'));
+        }
+      }
+    } 
+   
+    
+    
+    catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         setError(error.response.data.error || t('Error adding recommendation'));
       } else {
@@ -150,8 +161,27 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
   };
 
+  const handleModalClose = () => {
+    setFormData({
+      title: '',
+      description: '',
+      duration: 0,
+      contentType: 'Article',
+      link: '',
+      benefitFor: [],
+      tagList: [],
+      mediaFile: null,
+      previewImage: null,
+      patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
+    });
+    setError('');
+    setSuccess(false);
+    handleClose();  // original parent close
+  };
+  
+
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
+    <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{t('Add New Intervention')}</Modal.Title>
       </Modal.Header>
@@ -340,11 +370,17 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
             <FaPlus /> {t('AddAnotherPatientType')}
           </Button>
 
-          {!success && (
-            <Button variant="primary" type="submit" className="mt-4 w-100">
-              {t('Submit')}
-            </Button>
-          )}
+          {success ? (
+  <Alert variant="success" className="mt-4 text-center">
+    {t('Intervention successfully added')}
+  </Alert>
+) : (
+  <Button variant="primary" type="submit" className="mt-4 w-100">
+    {t('Submit')}
+  </Button>
+)}  
+
+
         </Form>
       </Modal.Body>
     </Modal>
