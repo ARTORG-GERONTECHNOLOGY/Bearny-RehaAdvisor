@@ -19,3 +19,9 @@ SECURE_SSL_REDIRECT = False  # Disable forced HTTPS redirect in dev
 STATICFILES_DIRS = [BASE_DIR / "static"]  # if using non-collected static
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+
+# Fitbit settings
+FITBIT_CLIENT_ID = '23QHGK'
+FITBIT_CLIENT_SECRET = 'ff87f98918198616ecf5c9b66a81482e'
+FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/'
+FRONTEND_URL = 'https://dev.reha-advisor.ch'
