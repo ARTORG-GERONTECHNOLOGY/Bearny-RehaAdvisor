@@ -183,8 +183,21 @@ const InterventionList = () => {
             onClick={() => setSelectedItem(rec)}
             style={{ cursor: 'pointer' }}
           >
+            {rec.preview_img && (
+              <img
+                src={rec.preview_img}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                }}
+              />
+            )}
             <Card.Body>
               <Card.Title>{rec.intervention_title}</Card.Title>
+              
               <Card.Text className="text-muted">
                 <div>
                   {rec.description.length > 50
@@ -195,7 +208,7 @@ const InterventionList = () => {
                   {t('Duration')}: {rec.duration} {t('minutes')}
                 </div>
               </Card.Text>
-              {rec.preview_img && <img src={rec.preview_img} alt="" className="img-fluid" />}
+              
             </Card.Body>
             <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
           </Card>
