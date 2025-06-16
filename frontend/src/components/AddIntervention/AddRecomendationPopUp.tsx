@@ -33,8 +33,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  
- 
+
   // Fetch diagnoses based on selected specialization
 
   const getDiagnosesForSpecialization = (specialization) => {
@@ -63,27 +62,19 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-// Handle file upload (with video compression)
-const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  // Handle file upload
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
 
-  let processedFile = file;
+    setFormData((prev) => ({ ...prev, mediaFile: file }));
+  };
 
-  setFormData((prev) => ({ ...prev, mediaFile: processedFile }));
-};
-
- const handleImgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  try {
+  // Handle file upload
+  const handleImgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
 
     setFormData((prev) => ({ ...prev, previewImage: file }));
-  } catch (err) {
-    console.error('Image compression failed:', err);
-  }
-};
+  };
 
   const handleMultiChange = (field, selectedOptions) => {
     setFormData({
@@ -316,7 +307,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
           {formData.patientTypes.map((patient, index) => (
             <Row key={index} className="align-items-center">
               <Col xs={4}>
-                <Form.Group controlId={`patientType-${index}`}>
+                <Form.Group controlId={patientType-${index}}>
                   <Form.Label>{t('PatientType')}</Form.Label>
                   <Form.Control
                     as="select"
@@ -334,7 +325,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 </Form.Group>
               </Col>
               <Col xs={4}>
-                <Form.Group controlId={`diagnoses-${index}`}>
+                <Form.Group controlId={diagnoses-${index}}>
                   <Form.Label>{t('Diagnosis')}</Form.Label>
                   <Form.Control
                     as="select"
@@ -355,7 +346,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 </Form.Group>
               </Col>
               <Col xs={4}>
-                <Form.Group controlId={`frequency-${index}`}>
+                <Form.Group controlId={frequency-${index}}>
                   <Form.Label>{t('RecomendationFrequency')}</Form.Label>
                   <Form.Control
                     as="select"
