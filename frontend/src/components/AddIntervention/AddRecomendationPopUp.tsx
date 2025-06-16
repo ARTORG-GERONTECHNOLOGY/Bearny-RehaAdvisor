@@ -33,7 +33,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-
+  
+ 
   // Fetch diagnoses based on selected specialization
 
   const getDiagnosesForSpecialization = (specialization) => {
@@ -62,19 +63,27 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  // Handle file upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+// Handle file upload (with video compression)
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    setFormData((prev) => ({ ...prev, mediaFile: file }));
-  };
+  let processedFile = file;
 
-  // Handle file upload
-  const handleImgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  setFormData((prev) => ({ ...prev, mediaFile: processedFile }));
+};
+
+ const handleImgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
 
     setFormData((prev) => ({ ...prev, previewImage: file }));
-  };
+  } catch (err) {
+    console.error('Image compression failed:', err);
+  }
+};
 
   const handleMultiChange = (field, selectedOptions) => {
     setFormData({

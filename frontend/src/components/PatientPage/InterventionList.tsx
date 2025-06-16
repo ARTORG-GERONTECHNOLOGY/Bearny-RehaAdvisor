@@ -105,7 +105,7 @@ const InterventionList = () => {
         setFeedbackItem(interventionId);
 
         const { data: res } = await apiClient.get(
-          `/patients/get-questions/Intervention/${localStorage.getItem('id')}/`
+          `/patients/get-questions/Intervention/${localStorage.getItem('id')}/${interventionId}/`
         );
         const language = i18n.language || 'en';
 
@@ -149,12 +149,13 @@ const InterventionList = () => {
       );
     }
     if (isPast(date)) {
-      return isCompletedOn ? (
+      return isCompletedOn(rec, date) ? (
         <Badge bg="success">{t('Done')}</Badge>
       ) : (
         <Badge bg="secondary">{t('Missed')}</Badge>
       );
     }
+
     return <Badge bg="info">{t('Upcoming')}</Badge>;
   };
 

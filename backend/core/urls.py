@@ -79,7 +79,7 @@ urlpatterns = [
         name="patient_post_feedback",
     ),
     path(
-        "api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/",
+        "api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/<str:intervention_id>/",
         patient_views.fetch_feedback_questions,
         name="get_feedback_questions",
     ),
