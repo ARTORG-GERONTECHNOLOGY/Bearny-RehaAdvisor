@@ -659,7 +659,8 @@ def create_patient_intervention_log(request):
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def fetch_feedback_questions(request, questionaire_type, patient_id, intervention_id):
+def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
+
     """
     GET /api/patients/get-questions/<questionaire_type>/<patient_id>/?interventionId=<id>
     Returns feedback questions; if the matching intervention assignment
@@ -678,8 +679,8 @@ def fetch_feedback_questions(request, questionaire_type, patient_id, interventio
             # Avoid repeating Healthstatus if answered today
             today_feedback = PatientICFRating.objects.filter(
                 patientId=patient,
-                date__gte=datetime.combine(today, datetime.min.time()),
-                date__lte=datetime.combine(today, datetime.max.time()),
+                date__gte=datetime.datetime.combine(today, datetime.datetime.min.time()),
+                date__lte=datetime.datetime.combine(today, datetime.datetime.max.time()),
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
             )
