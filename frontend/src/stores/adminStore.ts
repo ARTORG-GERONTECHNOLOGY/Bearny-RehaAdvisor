@@ -4,7 +4,7 @@ import apiClient from '../api/client';
 class AdminStore {
   pendingEntries: any[] = []; // <-- Make sure this is initialized as an empty array
   error: string = '';
-  
+
   constructor() {
     makeAutoObservable(this);
   }
@@ -13,7 +13,7 @@ class AdminStore {
     try {
       const response = await apiClient.get('/admin/pending-users');
       this.pendingEntries = response.data.pending_users; // ✅ Correct mapping
-    } catch (err ) {
+    } catch (err) {
       console.error('Failed to fetch pending entries:', err);
       this.error = 'Failed to fetch pending entries. Please try again later.';
     }

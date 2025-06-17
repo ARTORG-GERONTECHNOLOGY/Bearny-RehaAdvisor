@@ -8,11 +8,13 @@ jest.mock('react-i18next', () => ({
 jest.mock('../../../api/client', () => ({
   __esModule: true,
   default: {
-    post: jest.fn(() => Promise.reject({
-      response: {
-        data: { error: 'Email already exists' },
-      },
-    })),
+    post: jest.fn(() =>
+      Promise.reject({
+        response: {
+          data: { error: 'Email already exists' },
+        },
+      })
+    ),
   },
 }));
 
@@ -24,15 +26,11 @@ describe('FormRegister - ErrorAlert behavior', () => {
     const submitButton = screen.getByRole('button', { name: /submit/i });
     fireEvent.click(submitButton);
 
-    await waitFor(() =>
-      expect(screen.getByText('Email already exists')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('Email already exists')).toBeInTheDocument());
 
     const closeButton = screen.getByRole('button', { name: /close/i });
     fireEvent.click(closeButton);
 
-    await waitFor(() =>
-      expect(screen.queryByText('Email already exists')).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText('Email already exists')).not.toBeInTheDocument());
   });
 });
