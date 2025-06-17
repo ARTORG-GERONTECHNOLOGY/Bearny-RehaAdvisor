@@ -154,6 +154,7 @@ class Intervention(Document):
     preview_img = StringField()
     patient_types = ListField(EmbeddedDocumentField(PatientType))
     duration = IntField()
+    require_video_feedback = BooleanField(default=False)
 
 
 # General Feedback – site-wide, not per intervention
@@ -178,6 +179,8 @@ class PatientInterventionLogs(Document):
     comments = StringField()
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
+    video_url    = StringField(null=True)     # new
+    video_expired= BooleanField(default=False) # new
 
 
 class InterventionAssignment(EmbeddedDocument):
@@ -189,6 +192,7 @@ class InterventionAssignment(EmbeddedDocument):
         DateTimeField()
     )  # List of scheduled dates/times for this intervention
     notes = StringField()  # Additional notes on the intervention
+    require_video_feedback = BooleanField(default=False)  # Whether video feedback is required
 
 
 class DiagnosisAssignmentSettings(EmbeddedDocument):

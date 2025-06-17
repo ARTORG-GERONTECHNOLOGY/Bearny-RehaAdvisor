@@ -78,11 +78,9 @@ urlpatterns = [
         patient_views.submit_patient_feedback,
         name="patient_post_feedback",
     ),
-    path(
-        "api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/",
-        patient_views.fetch_feedback_questions,
-        name="get_feedback_questions",
-    ),
+    path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/', patient_views.get_feedback_questions, name='get_feedback_questions_no_intervention'),
+    path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/<str:intervention_id>/', patient_views.get_feedback_questions, name='get_feedback_questions'),
+
     path("api/users/<str:patient_id>/initial-questionaire/", patient_views.initial_patient_questionaire, name="initial_questionaire"),
 
     #  Intervention Management

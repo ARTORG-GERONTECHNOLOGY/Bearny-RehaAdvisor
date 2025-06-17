@@ -38,7 +38,7 @@ const RehabTable: React.FC = () => {
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const { i18n, t } = useTranslation();
-  
+
   //const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   //const [allInterventions, setAllInterventions] = useState<Intervention[]>([]);
   //const [patientData, setPatientData] = useState<{
@@ -391,20 +391,36 @@ const RehabTable: React.FC = () => {
           />
         )}
 
-        {showInterFeedbackModal && selectedExercise && (
-          <InterventionFeedbackModal
-            show={showInterFeedbackModal}
-            onClose={() => setShowInterFeedbackModal(false)}
-            exercise={selectedExercise}
-            feedbackEntries={
-              patientData?.interventions
-                ?.find((int) => int._id === selectedExercise._id)
-                ?.dates?.find((d) => d.datetime.split('T')[0] === selectedDate)?.feedback || []
-            }
-            date={selectedDate}
-            userLang={userLang}
-          />
-        )}
+        {showInterFeedbackModal &&
+          selectedExercise &&
+          (() => {
+            const selectedIntervention = patientData?.interventions?.find(
+              (int) => int._id === selectedExercise._id
+            );
+            const selectedLog = selectedIntervention?.dates?.find(
+              (d) => d.datetime.split('T')[0] === selectedDate
+            );
+
+            return (
+              <InterventionFeedbackModal
+                show={showInterFeedbackModal}
+                onClose={() => setShowInterFeedbackModal(false)}
+                exercise={selectedExercise}
+                feedbackEntries={selectedLog?.feedback || []}
+                video={
+                  selectedLog?.video
+                    ? {
+                        video_url: selectedLog.video.video_url,
+                        video_expired: selectedLog.video.video_expired,
+                        comment: selectedLog.video.comment,
+                      }
+                    : undefined
+                }
+                date={selectedDate}
+                userLang={userLang}
+              />
+            );
+          })()}
 
         <InterventionStatsModal
           show={showExerciseStats}
