@@ -137,17 +137,17 @@ const TherapistRecomendations: React.FC = () => {
       <Container className="main-content mt-4">
         <WelcomeArea user="TherapistPatients" />
         <Row>
-            <Col>
-              {error && (
-                <ErrorAlert
-                  message={error}
-                  onClose={() => {
-                    setError('');
-                  }}
-                />
-              )}
-            </Col>
-          </Row>
+          <Col>
+            {error && (
+              <ErrorAlert
+                message={error}
+                onClose={() => {
+                  setError('');
+                }}
+              />
+            )}
+          </Col>
+        </Row>
 
         {/* Row for button above filters */}
         <Row className="mb-3">

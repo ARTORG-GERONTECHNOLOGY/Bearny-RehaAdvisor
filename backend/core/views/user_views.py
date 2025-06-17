@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime
-
+from django.conf import settings
 from bson import ObjectId
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse

@@ -50,7 +50,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
 
   const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
@@ -208,8 +207,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       </Modal.Header>
       <Modal.Body>
         <form onSubmit={handleSubmit}>
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-        {registered && (
+          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+          {registered && (
             <div className="alert alert-success">
               <div>
                 {t(
