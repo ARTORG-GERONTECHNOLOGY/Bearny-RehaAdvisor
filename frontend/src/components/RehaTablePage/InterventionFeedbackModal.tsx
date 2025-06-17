@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import React from 'react';
 import { Modal } from 'react-bootstrap';
+import ReactPlayer from 'react-player';
 import { Intervention } from '../../types';
 
 interface FeedbackEntry {
@@ -14,22 +15,30 @@ interface FeedbackEntry {
   comment?: string;
 }
 
+interface VideoFeedback {
+  video_url: string;
+  video_expired: boolean;
+  comment?: string;
+}
+
 interface Props {
   show: boolean;
   onClose: () => void;
   exercise: Intervention;
-  feedbackEntries?: FeedbackEntry[]; // ✅ Mark as optional
+  feedbackEntries?: FeedbackEntry[];
   date: string;
   userLang: string;
+  video?: VideoFeedback;
 }
 
 const InterventionFeedbackModal: React.FC<Props> = ({
   show,
   onClose,
   exercise,
-  feedbackEntries = [], // ✅ Default to empty array
+  feedbackEntries = [],
   date,
   userLang,
+  video,
 }) => {
   const { t } = useTranslation();
 
@@ -42,20 +51,40 @@ const InterventionFeedbackModal: React.FC<Props> = ({
       </Modal.Header>
       <Modal.Body>
         <h5>{t('Feedback')}</h5>
+
+        {/* Render video feedback if present */}
+        {video && (
+          <>
+            <hr />
+            <p>
+              <strong>{t('Video feedback')}</strong>
+            </p>
+            {video.comment && <p className="fst-italic">{video.comment}</p>}
+            {!video.video_expired ? (
+              <div className="rounded shadow-sm overflow-hidden mt-3">
+                <ReactPlayer url={video.video_url} width="100%" height="400px" controls />
+              </div>
+            ) : (
+              <p className="text-muted mt-3">{t('Video feedback has expired.')}</p>
+            )}
+          </>
+        )}
+
+        {/* Render other feedback entries */}
         {feedbackEntries.length > 0 ? (
           feedbackEntries.map((entry, idx) => {
             const questionText =
-              entry.question?.translations?.find((t) => t.language === userLang)?.text ||
-              entry.question?.translations?.find((t) => t.language === 'en')?.text ||
+              entry.question.translations.find((t) => t.language === userLang)?.text ||
+              entry.question.translations.find((t) => t.language === 'en')?.text ||
               '';
 
             return (
-              <div key={idx} className="mb-3">
+              <div key={idx} className="mb-4">
                 <hr />
                 <p>
                   <strong>{questionText}</strong>
                 </p>
-                <ul className="mb-0">
+                <ul className="mb-2">
                   {entry.answer.map((ans, i) => {
                     const translation =
                       ans.translations.find((t) => t.language === userLang)?.text ||
@@ -64,6 +93,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                     return <li key={i}>{translation}</li>;
                   })}
                 </ul>
+                {entry.comment && <p className="fst-italic">{entry.comment}</p>}
               </div>
             );
           })

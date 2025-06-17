@@ -6,12 +6,13 @@ import authStore from '../../stores/authStore';
 import apiClient from '../../api/client';
 import { t } from 'i18next';
 import config from '../../config/config.json';
+
 const weekdays = ['Mon', 'Dien', 'Mitt', 'Don', 'Fre', 'Sam', 'Son'];
 
 interface Props {
   show: boolean;
   onHide: () => void;
-  onSuccess?: () => void; // <- Add this
+  onSuccess?: () => void;
   patient: string;
   intervention: string;
 }
@@ -23,10 +24,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
   patient,
   intervention,
 }) => {
-  const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
-  const diagnoses = Array.isArray(specialisations)
-    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
-    : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
+  // existing state…
   const [interval, setInterval] = useState(1);
   const [unit, setUnit] = useState('week');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -34,8 +32,16 @@ const InterventionRepeatModal: React.FC<Props> = ({
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [startDate, setstartDate] = useState<Date | null>(null);
   const [occurrenceCount, setOccurrenceCount] = useState(10);
-  const [success, setSuccess] = useState<boolean>(false);
   const [startTime, setStartTime] = useState<string>('08:00');
+  const [success, setSuccess] = useState<boolean>(false);
+
+  // new state for video feedback requirement
+  const [requireVideoFeedback, setRequireVideoFeedback] = useState<boolean>(false);
+
+  const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
+  const diagnoses = Array.isArray(specialisations)
+    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+    : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
   const isDiagnosis = diagnoses.includes(patient) || patient === 'all';
 
   const toggleDay = (day: string) => {
@@ -46,7 +52,6 @@ const InterventionRepeatModal: React.FC<Props> = ({
 
   const getCombinedStartDate = (): string => {
     if (!startDate) return new Date().toISOString();
-
     const [hours, minutes] = (startTime || '08:00').split(':').map(Number);
     const combined = new Date(startDate);
     combined.setHours(hours, minutes, 0, 0);
@@ -58,30 +63,34 @@ const InterventionRepeatModal: React.FC<Props> = ({
       const path = isDiagnosis
         ? 'interventions/assign-to-patient-types/'
         : 'interventions/add-to-patient/';
-      const res = await apiClient.post(path, {
+
+      const payload = {
         therapistId: authStore.id,
         patientId: patient,
         interventions: [
           {
-            interval: interval,
+            interval,
             interventionId: intervention,
-            unit: unit,
+            unit,
             startDate: getCombinedStartDate(),
-            selectedDays: selectedDays,
+            selectedDays,
             end: {
               type: endOption,
               date: endOption === 'date' ? endDate : null,
               count: endOption === 'count' ? occurrenceCount : null,
             },
+            require_video_feedback: requireVideoFeedback, // ← new flag
           },
         ],
-      });
-      if (res.status == 200 || res.status == 201) {
+      };
+
+      const res = await apiClient.post(path, payload);
+      if (res.status === 200 || res.status === 201) {
         setSuccess(true);
-        if (onSuccess) onSuccess(); // <- Trigger callback to fetchAll
+        if (onSuccess) onSuccess();
       }
     } catch (e) {
-      console.error('Error loading all interventions', e);
+      console.error('Error assigning intervention', e);
     }
   };
 
@@ -90,6 +99,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
       <Modal.Header closeButton>
         <Modal.Title>{t('Frequency')}</Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
         {!isDiagnosis && (
           <>
@@ -153,47 +163,67 @@ const InterventionRepeatModal: React.FC<Props> = ({
           </div>
         )}
 
-        <Form.Group className="mb-3">
-          <Form.Label>{t('Ends')}</Form.Label>
-          <div>
-            <Form.Check
-              type="radio"
-              label="Never"
-              checked={endOption === 'never'}
-              onChange={() => setEndOption('never')}
-            />
-            <Form.Check
-              type="radio"
-              label="On date"
-              checked={endOption === 'date'}
-              onChange={() => setEndOption('date')}
-            />
-            {endOption === 'date' && (
-              <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                className="form-control mt-2"
+        <Form.Group as={Row} className="mb-3">
+          <Form.Label column sm={4}>
+            {t('Ends')}
+          </Form.Label>
+          <Col sm={8}>
+            <div>
+              <Form.Check
+                type="radio"
+                label="Never"
+                checked={endOption === 'never'}
+                onChange={() => setEndOption('never')}
               />
-            )}
-            <Form.Check
-              type="radio"
-              label="After N times"
-              checked={endOption === 'count'}
-              onChange={() => setEndOption('count')}
-            />
-            {endOption === 'count' && (
-              <Form.Control
-                className="mt-2"
-                type="number"
-                value={occurrenceCount}
-                onChange={(e) => setOccurrenceCount(parseInt(e.target.value))}
+              <Form.Check
+                type="radio"
+                label="On date"
+                checked={endOption === 'date'}
+                onChange={() => setEndOption('date')}
               />
-            )}
-          </div>
+              {endOption === 'date' && (
+                <DatePicker
+                  selected={endDate}
+                  onChange={(date) => setEndDate(date)}
+                  className="form-control mt-2"
+                />
+              )}
+              <Form.Check
+                type="radio"
+                label="After N times"
+                checked={endOption === 'count'}
+                onChange={() => setEndOption('count')}
+              />
+              {endOption === 'count' && (
+                <Form.Control
+                  className="mt-2"
+                  type="number"
+                  value={occurrenceCount}
+                  onChange={(e) => setOccurrenceCount(parseInt(e.target.value))}
+                />
+              )}
+            </div>
+          </Col>
+        </Form.Group>
+
+        {/* NEW: Require video feedback checkbox */}
+        <Form.Group as={Row} className="mb-3">
+          <Col>
+            <Form.Check
+              type="checkbox"
+              label={t('Ask video feedback from patient')}
+              checked={requireVideoFeedback}
+              onChange={() => setRequireVideoFeedback((prev) => !prev)}
+            />
+            <Form.Text muted>
+              {t('Patients will be prompted to upload or record a video of the exercise.')}
+            </Form.Text>
+          </Col>
         </Form.Group>
       </Modal.Body>
+
       <Modal.Footer>
-        {!success && (
+        {!success ? (
           <>
             <Button variant="secondary" onClick={onHide}>
               {t('Cancel')}
@@ -202,8 +232,9 @@ const InterventionRepeatModal: React.FC<Props> = ({
               {t('Save')}
             </Button>
           </>
+        ) : (
+          <div className="alert alert-success">{t('Success!')}</div>
         )}
-        {success && <div className="alert alert-success">{t('Succes.')}</div>}
       </Modal.Footer>
     </Modal>
   );

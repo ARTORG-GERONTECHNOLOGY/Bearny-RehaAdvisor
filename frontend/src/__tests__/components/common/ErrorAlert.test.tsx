@@ -12,10 +12,10 @@ describe('ErrorAlert component', () => {
   it('calls onClose when dismissed', () => {
     const onCloseMock = jest.fn();
     render(<ErrorAlert message={testMessage} onClose={onCloseMock} />);
-    
+
     const closeButton = screen.getByRole('button');
     fireEvent.click(closeButton);
-    
+
     expect(onCloseMock).toHaveBeenCalledTimes(1);
   });
 

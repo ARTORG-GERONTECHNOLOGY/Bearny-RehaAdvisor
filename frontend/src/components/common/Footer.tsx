@@ -24,7 +24,6 @@ const Footer: FunctionComponent = () => {
                 {t('Privacy Policy')}
               </Link>
             </small>
-
           </div>
         </div>
       </div>

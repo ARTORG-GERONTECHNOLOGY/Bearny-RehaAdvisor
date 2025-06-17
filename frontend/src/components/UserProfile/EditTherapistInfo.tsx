@@ -42,16 +42,16 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault(); // Always prevent default first
-  
+
     const isValid = validateInputs(); // This sets or clears error
-  
+
     if (!isValid) return;
-  
+
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
       setError(t('New passwords do not match!'));
       return;
     }
-  
+
     setError(''); // Final cleanup
     onSave(formData);
   };
@@ -59,7 +59,7 @@ const EditUserInfo = ({ userData, onSave, onCancel }) => {
   return (
     <>
       <Form onSubmit={handleSubmit}>
-      {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
         {config.TherapistForm.flatMap((section) => section.fields)
           .filter(
             (field) =>
