@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from 'recharts';
 import { Container, Row, Col, Button, ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
 import Header from '../components/common/Header';
@@ -47,12 +47,15 @@ const HealthPage: React.FC = () => {
     }
 
     const userId = localStorage.getItem('selectedPatient') || patientUsername;
-    axios.get(`/api/fitbit/health-data/${userId}/`)
-      .then(res => {
-        const sorted = res.data.data.sort((a: HealthEntry, b: HealthEntry) => a.date.localeCompare(b.date));
+    axios
+      .get(`/api/fitbit/health-data/${userId}/`)
+      .then((res) => {
+        const sorted = res.data.data.sort((a: HealthEntry, b: HealthEntry) =>
+          a.date.localeCompare(b.date)
+        );
         setAllData(sorted);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Failed to fetch health data', err);
         setError(err.response?.data?.error || 'Failed to load Fitbit data.');
       });
@@ -86,7 +89,7 @@ const HealthPage: React.FC = () => {
       }
     }
 
-    const filtered = allData.filter(entry => {
+    const filtered = allData.filter((entry) => {
       const entryDate = new Date(entry.date);
       return entryDate >= rangeStart && entryDate <= rangeEnd;
     });
@@ -129,7 +132,11 @@ const HealthPage: React.FC = () => {
 
   const exportPDF = () => {
     const doc = new jsPDF();
-    const rows = filteredData.map(entry => [entry.date, entry.steps ?? '-', entry.resting_heart_rate ?? '-']);
+    const rows = filteredData.map((entry) => [
+      entry.date,
+      entry.steps ?? '-',
+      entry.resting_heart_rate ?? '-',
+    ]);
     autoTable(doc, {
       head: [['Date', 'Steps', 'Resting Heart Rate']],
       body: rows,
@@ -181,15 +188,23 @@ const HealthPage: React.FC = () => {
 
           <Col className="text-center">
             <div className="d-flex justify-content-center align-items-center mt-2">
-              <Button variant="secondary" onClick={() => setPage(prev => prev - 1)}>←</Button>
+              <Button variant="secondary" onClick={() => setPage((prev) => prev - 1)}>
+                ←
+              </Button>
               <span className="mx-3">{getCurrentRangeLabel()}</span>
-              <Button variant="secondary" onClick={() => setPage(prev => prev + 1)}>→</Button>
+              <Button variant="secondary" onClick={() => setPage((prev) => prev + 1)}>
+                →
+              </Button>
             </div>
           </Col>
 
           <Col className="d-flex justify-content-end">
-            <Button variant="outline-success" className="me-2" onClick={exportCSV}>Export CSV</Button>
-            <Button variant="outline-danger" onClick={exportPDF}>Export PDF</Button>
+            <Button variant="outline-success" className="me-2" onClick={exportCSV}>
+              Export CSV
+            </Button>
+            <Button variant="outline-danger" onClick={exportPDF}>
+              Export PDF
+            </Button>
           </Col>
         </Row>
 
@@ -205,8 +220,12 @@ const HealthPage: React.FC = () => {
                   setViewMode(val);
                 }}
               >
-                <ToggleButton id="week" value="week">Week</ToggleButton>
-                <ToggleButton id="month" value="month">Month</ToggleButton>
+                <ToggleButton id="week" value="week">
+                  Week
+                </ToggleButton>
+                <ToggleButton id="month" value="month">
+                  Month
+                </ToggleButton>
               </ToggleButtonGroup>
             </div>
           </Col>
@@ -235,7 +254,12 @@ const HealthPage: React.FC = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="resting_heart_rate" stroke="#82ca9d" name="Resting HR" />
+                <Line
+                  type="monotone"
+                  dataKey="resting_heart_rate"
+                  stroke="#82ca9d"
+                  name="Resting HR"
+                />
               </LineChart>
             </ResponsiveContainer>
           </Col>

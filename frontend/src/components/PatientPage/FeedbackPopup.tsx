@@ -147,55 +147,55 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
     setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: null }));
   };
 
-// COUNTDOWN + VIDEO RECORDING
-const startVideoRecording = async () => {
-  setError(null);
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  previewRef.current.srcObject = stream;
+  // COUNTDOWN + VIDEO RECORDING
+  const startVideoRecording = async () => {
+    setError(null);
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    previewRef.current.srcObject = stream;
 
-  // Countdown
-  let sec = 10;
-  setCountdown(sec);
-  const interval = setInterval(() => {
-    sec--;
+    // Countdown
+    let sec = 10;
     setCountdown(sec);
-    if (sec === 0) {
-      clearInterval(interval);
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      videoChunks.current = [];
-      recorder.ondataavailable = (event) => videoChunks.current.push(event.data);
-      recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        const videoBlob = new Blob(videoChunks.current, { type: 'video/webm' });
-        if (videoBlob.size > MAX_VIDEO_SIZE) {
-          setError(t('Video too large (max 50MB)'));
-          return;
-        }
-        const url = URL.createObjectURL(videoBlob);
-        setVideoURL(url);
-        setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: videoBlob }));
-      };
-      recorder.start();
-      setRecording(true);
-      setCountdown(null);
-    }
-  }, 1000);
-};
+    const interval = setInterval(() => {
+      sec--;
+      setCountdown(sec);
+      if (sec === 0) {
+        clearInterval(interval);
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        videoChunks.current = [];
+        recorder.ondataavailable = (event) => videoChunks.current.push(event.data);
+        recorder.onstop = () => {
+          stream.getTracks().forEach((track) => track.stop());
+          const videoBlob = new Blob(videoChunks.current, { type: 'video/webm' });
+          if (videoBlob.size > MAX_VIDEO_SIZE) {
+            setError(t('Video too large (max 50MB)'));
+            return;
+          }
+          const url = URL.createObjectURL(videoBlob);
+          setVideoURL(url);
+          setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: videoBlob }));
+        };
+        recorder.start();
+        setRecording(true);
+        setCountdown(null);
+      }
+    }, 1000);
+  };
 
-// VIDEO UPLOAD
-const handleUpload = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (file.size > MAX_VIDEO_SIZE) {
-    setError(t('Video too large (max 50MB)'));
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  setUploadVideoFile(file);
-  setVideoURL(url);
-  setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: file }));
-};
+  // VIDEO UPLOAD
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > MAX_VIDEO_SIZE) {
+      setError(t('Video too large (max 50MB)'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setUploadVideoFile(file);
+    setVideoURL(url);
+    setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: file }));
+  };
 
   const stopVideoRecording = () => {
     mediaRecorderRef.current?.stop();
@@ -208,51 +208,47 @@ const handleUpload = (e) => {
   };
 
   const handleSubmit = async () => {
-  try {
-    const formData = new FormData();
+    try {
+      const formData = new FormData();
 
-    // Required IDs
-    formData.append("userId", userId);
-    formData.append("interventionId", interventionId);
+      // Required IDs
+      formData.append('userId', userId);
+      formData.append('interventionId', interventionId);
 
-    questions.forEach((q) => {
-      const key = q.questionKey;
-      const answer = answers[key];
+      questions.forEach((q) => {
+        const key = q.questionKey;
+        const answer = answers[key];
 
-      if (answer instanceof Blob) {
-        const isVideo = answer.type?.startsWith('video/') ?? false;
-        const extension = isVideo ? 'webm' : 'wav';
-        const fieldName = isVideo ? `${key}_video` : key;
+        if (answer instanceof Blob) {
+          const isVideo = answer.type?.startsWith('video/') ?? false;
+          const extension = isVideo ? 'webm' : 'wav';
+          const fieldName = isVideo ? `${key}_video` : key;
 
-        formData.append(fieldName, answer, `${key}.${extension}`);
+          formData.append(fieldName, answer, `${key}.${extension}`);
+        } else if (typeof answer === 'string' || typeof answer === 'number') {
+          formData.append(key, answer.toString());
+        } else if (Array.isArray(answer)) {
+          // Multi-select answers are stringified
+          formData.append(key, JSON.stringify(answer));
+        } else {
+          // Fallback for undefined or null
+          formData.append(key, '');
+        }
+      });
 
-      } else if (typeof answer === 'string' || typeof answer === 'number') {
-        formData.append(key, answer.toString());
-      } else if (Array.isArray(answer)) {
-        // Multi-select answers are stringified
-        formData.append(key, JSON.stringify(answer));
-      } else {
-        // Fallback for undefined or null
-        formData.append(key, '');
-      }
-    });
+      // Submit form
+      await apiClient.post('/patients/feedback/questionaire/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-    // Submit form
-    await apiClient.post("/patients/feedback/questionaire/", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    onClose();
-  } catch (err) {
-    console.error("Error submitting feedback:", err);
-    setError(err.message || 'Error submitting feedback. Please try again.');
-  }
-};
-
-  
-  
+      onClose();
+    } catch (err) {
+      console.error('Error submitting feedback:', err);
+      setError(err.message || 'Error submitting feedback. Please try again.');
+    }
+  };
 
   return (
     <Modal show={show} onHide={onClose} centered>
@@ -375,7 +371,6 @@ const handleUpload = (e) => {
                       <Button variant="primary" aria-label="Start Record" onClick={startRecording}>
                         <FaMicrophone /> {t('Start Recording')}
                       </Button>
-                      
                     )}
                     {audioURL && (
                       <div className="mt-3">
@@ -394,99 +389,101 @@ const handleUpload = (e) => {
                 )}
               </>
             )}
-           {currentQuestion.type === 'video' && (
-  <div className="d-flex flex-column align-items-center">
-    {videoURL ? (
-      <>
-        <ReactPlayer url={videoURL} controls width="100%" height="300px" className="mb-3" />
-        <Button variant="warning" onClick={deleteVideo} className="mb-3">
-          <FaTrash className="me-1" /> {t('Delete')}
-        </Button>
-      </>
-    ) : (
-      <>
-        {/* Live preview */}
-        <video
-          ref={previewRef}
-          autoPlay
-          muted
-          style={{ width: '100%', maxHeight: 200, background: '#000' }}
-        />
+            {currentQuestion.type === 'video' && (
+              <div className="d-flex flex-column align-items-center">
+                {videoURL ? (
+                  <>
+                    <ReactPlayer
+                      url={videoURL}
+                      controls
+                      width="100%"
+                      height="300px"
+                      className="mb-3"
+                    />
+                    <Button variant="warning" onClick={deleteVideo} className="mb-3">
+                      <FaTrash className="me-1" /> {t('Delete')}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {/* Live preview */}
+                    <video
+                      ref={previewRef}
+                      autoPlay
+                      muted
+                      style={{ width: '100%', maxHeight: 200, background: '#000' }}
+                    />
 
-        {/* Countdown */}
-        {countdown !== null && (
-          <div className="my-2 text-center fs-5">
-            {t('Starting in')} {countdown}s...
-          </div>
-        )}
+                    {/* Countdown */}
+                    {countdown !== null && (
+                      <div className="my-2 text-center fs-5">
+                        {t('Starting in')} {countdown}s...
+                      </div>
+                    )}
 
-{/* Buttons: only shown if not recording */}
-{!recording && countdown === null && (
-  <>
-    <div className="d-flex gap-2 mt-2">
-      <Button onClick={startVideoRecording}>
-        {t('Record Video')}
-      </Button>
-      <Form.Label className="btn btn-outline-secondary mb-0">
-        <FaUpload className="me-1" />
-        {t('Upload')}
-        <Form.Control
-          type="file"
-          accept="video/*"
-          onChange={handleUpload}
-          hidden
-        />
-      </Form.Label>
-    </div>
+                    {/* Buttons: only shown if not recording */}
+                    {!recording && countdown === null && (
+                      <>
+                        <div className="d-flex gap-2 mt-2">
+                          <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
+                          <Form.Label className="btn btn-outline-secondary mb-0">
+                            <FaUpload className="me-1" />
+                            {t('Upload')}
+                            <Form.Control
+                              type="file"
+                              accept="video/*"
+                              onChange={handleUpload}
+                              hidden
+                            />
+                          </Form.Label>
+                        </div>
 
-    {/* Message row */}
-    <div className="mt-2 text-center small text-muted">
-      <div>{t('This will start a 10-second countdown before recording.')}</div>
-      <div>{t('This video will be destroyed after 14 days automatically.')}</div>
-    </div>
-  </>
-)}
+                        {/* Message row */}
+                        <div className="mt-2 text-center small text-muted">
+                          <div>{t('This will start a 10-second countdown before recording.')}</div>
+                          <div>
+                            {t('This video will be destroyed after 14 days automatically.')}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
-
-        {/* Stop button shown only during recording */}
-        {recording && (
-          <Button variant="danger" onClick={stopVideoRecording} className="mt-2">
-            {t('Stop Recording')}
-          </Button>
-        )}
-      </>
-    )}
-  </div>
-)}
-
-
+                    {/* Stop button shown only during recording */}
+                    {recording && (
+                      <Button variant="danger" onClick={stopVideoRecording} className="mt-2">
+                        {t('Stop Recording')}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </Col>
         </Row>
       </Modal.Body>
       <Modal.Footer className="d-flex justify-content-between align-items-center">
-  <div>
-    {currentQuestionIndex > 0 && (
-      <Button variant="secondary" onClick={handleBack} aria-label="Back">
-        {t('Back')}
-      </Button>
-    )}
-  </div>
+        <div>
+          {currentQuestionIndex > 0 && (
+            <Button variant="secondary" onClick={handleBack} aria-label="Back">
+              {t('Back')}
+            </Button>
+          )}
+        </div>
 
-  <div>
-    {currentQuestionIndex + 1 < questions.length ? (
-      <Button variant="primary" onClick={handleNext} aria-label="Next">
-        {t('Next')}
-      </Button>
-    ) : (
-      <Button variant="success" onClick={handleSubmit} aria-label="Submit">
-        {t('Submit')}
-      </Button>
-    )}
-  </div>
+        <div>
+          {currentQuestionIndex + 1 < questions.length ? (
+            <Button variant="primary" onClick={handleNext} aria-label="Next">
+              {t('Next')}
+            </Button>
+          ) : (
+            <Button variant="success" onClick={handleSubmit} aria-label="Submit">
+              {t('Submit')}
+            </Button>
+          )}
+        </div>
 
-  {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-</Modal.Footer>
-
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+      </Modal.Footer>
     </Modal>
   );
 };

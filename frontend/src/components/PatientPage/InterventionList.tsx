@@ -198,7 +198,7 @@ const InterventionList = () => {
             )}
             <Card.Body>
               <Card.Title>{rec.intervention_title}</Card.Title>
-              
+
               <Card.Text className="text-muted">
                 <div>
                   {rec.description.length > 50
@@ -209,7 +209,6 @@ const InterventionList = () => {
                   {t('Duration')}: {rec.duration} {t('minutes')}
                 </div>
               </Card.Text>
-              
             </Card.Body>
             <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
           </Card>

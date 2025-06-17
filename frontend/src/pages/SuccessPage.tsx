@@ -4,7 +4,8 @@ import { useLocation } from 'react-router-dom';
 const SuccessPage: React.FC = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const message = queryParams.get('message') || 'Your Fitbit account has been successfully connected.';
+  const message =
+    queryParams.get('message') || 'Your Fitbit account has been successfully connected.';
   return (
     <div style={styles.container}>
       <h1 style={styles.success}>🎉 Success</h1>

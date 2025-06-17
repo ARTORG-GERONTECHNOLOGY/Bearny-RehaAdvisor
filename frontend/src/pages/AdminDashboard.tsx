@@ -27,7 +27,7 @@ const AdminDashboard: React.FC = observer(() => {
         } catch (error) {
           console.error('Error fetching pending entries:', error);
           setLoading(false);
-          setError('Failed to fetch pending entries. Please try again later.')
+          setError('Failed to fetch pending entries. Please try again later.');
         }
         setLoading(false);
       }
@@ -39,7 +39,7 @@ const AdminDashboard: React.FC = observer(() => {
     adminStore.acceptEntry(entryId);
     if (adminStore.error) {
       console.error('Error accepting entry:', adminStore.error);
-      setError(t('Failed to accept entry. Please try again later.'))
+      setError(t('Failed to accept entry. Please try again later.'));
     }
   };
 
@@ -48,7 +48,7 @@ const AdminDashboard: React.FC = observer(() => {
       adminStore.declineEntry(entryId);
       if (adminStore.error) {
         console.error('Error declining entry:', adminStore.error);
-        setError(t('Failed to decline entry. Please try again later.'))
+        setError(t('Failed to decline entry. Please try again later.'));
       }
     }
   };
@@ -61,13 +61,13 @@ const AdminDashboard: React.FC = observer(() => {
         <h1 className="text-center">{t('Admin Dashboard')}</h1>
         <h3 className="text-center mb-4">{t('Pending Therapists, Researchers, and Content')}</h3>
         {error && (
-                <ErrorAlert
-                  message={error}
-                  onClose={() => {
-                    setError('');
-                  }}
-                />
-              )}
+          <ErrorAlert
+            message={error}
+            onClose={() => {
+              setError('');
+            }}
+          />
+        )}
         {adminStore.pendingEntries.length === 0 ? (
           <p className="text-center text-muted">{t('No pending entries')}</p>
         ) : (

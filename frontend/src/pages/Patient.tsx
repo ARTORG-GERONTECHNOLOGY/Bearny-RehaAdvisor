@@ -41,19 +41,19 @@ const PatientView: React.FC = observer(() => {
       </Row>
       <Row className="my-4 justify-content-center text-center">
         <Col xs={12}>
-        <FitbitConnectButton />
+          <FitbitConnectButton />
         </Col>
       </Row>
       <Row className="my-4 justify-content-center text-center">
         <Col xs={9}>
-        {error && (
-                <ErrorAlert
-                  message={error}
-                  onClose={() => {
-                    setError('');
-                  }}
-                />
-              )}
+          {error && (
+            <ErrorAlert
+              message={error}
+              onClose={() => {
+                setError('');
+              }}
+            />
+          )}
         </Col>
       </Row>
 
