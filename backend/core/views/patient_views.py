@@ -3,7 +3,7 @@ import logging
 import os
 import random
 import tempfile
-from datetime import datetime
+import datetime
 
 import speech_recognition as sr
 from bson import ObjectId
@@ -53,128 +53,156 @@ FILE_TYPE_FOLDERS = {
 }
 
 
+import os
+import json
+import tempfile
+
+from django.conf import settings
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.core.files.storage import default_storage
+
+import speech_recognition as sr
+from pydub import AudioSegment
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+from bson import ObjectId
+from core.models import (
+    Patient,
+    Intervention,
+    RehabilitationPlan,
+    PatientInterventionLogs,
+    PatientICFRating,
+    FeedbackQuestion,
+    FeedbackEntry,
+    AnswerOption,
+    Translation,
+)
+FILE_TYPE_FOLDERS = {
+    "mp4": "videos",
+    "mp3": "audio",
+    "jpg": "images",
+    "png": "images",
+    "pdf": "documents",
+}
+
+
+logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def submit_patient_feedback(request):
     """
-    POST api/patients/feedback/questionaire/
-    Expects multipart/form-data:
-      - userId, interventionId (or omit interventionId for health-status path)
-      - For each question: either a text field <questionKey> or a file field <questionKey>.
-    Transcodes any audio to WAV, then transcribes, and saves both file path & transcription.
+    POST /api/patients/feedback/questionaire/
+    Handles submission of patient feedback with optional video/audio input.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        # 1) Required IDs
         user_id = request.POST.get("userId")
         intervention_id = request.POST.get("interventionId", None)
         if not user_id:
             return JsonResponse({"error": "Missing userId"}, status=400)
 
-        # 2) Process uploads + text fields
         recognizer = sr.Recognizer()
-        answers = {}         # questionKey → {"file_path": ..., "transcription": ...} or plain string
+        answers = {}
 
-        # 2a) Handle audio uploads first
-        for key, audio_file in request.FILES.items():
-            # save raw upload
-            ext = audio_file.name.rsplit(".", 1)[-1].lower()
+        # --- File uploads (audio/video) ---
+        for key, upload in request.FILES.items():
+            ct = upload.content_type or ""
+            ts = timezone.now().strftime("%Y%m%d%H%M%S")
+
+            if ct.startswith("video/"):
+                ext = upload.name.rsplit(".", 1)[-1].lower()
+                fname = f"{ts}_{upload.name}"
+                path = default_storage.save(f"video_feedback/{fname}", upload)
+                url = f"{settings.MEDIA_HOST}{default_storage.url(path)}"
+                logger.info(f"[submit_patient_feedback] Saved video to {path}")
+
+                normalized_key = key.replace("_video", "")
+                answers[normalized_key] = {
+                    "video_url": url,
+                    "uploaded_at": timezone.now(),
+                }
+                continue
+            print(answers)
+            ext = upload.name.rsplit(".", 1)[-1].lower()
             folder = FILE_TYPE_FOLDERS.get(ext, "audio")
-            timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
-            filename = f"{timestamp}_{audio_file.name}"
-            saved_path = default_storage.save(os.path.join(folder, filename), audio_file)
+            fname = f"{ts}_{upload.name}"
+            saved_path = default_storage.save(os.path.join(folder, fname), upload)
             logger.info(f"[submit_patient_feedback] Saved raw audio to {saved_path}")
 
-            # write to temp for pydub
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp_in:
                 for chunk in default_storage.open(saved_path).chunks():
                     tmp_in.write(chunk)
                 tmp_in_path = tmp_in.name
 
-            # transcode to WAV
             wav_path = tmp_in_path + ".wav"
             try:
                 AudioSegment.from_file(tmp_in_path).export(wav_path, format="wav")
             except Exception as e:
-                logger.error(f"Audio transcoding failed for {key}: {e}", exc_info=True)
+                logger.error(f"[submit_patient_feedback] Audio transcoding failed for {key}: {e}", exc_info=True)
                 os.remove(tmp_in_path)
                 continue
 
-            # transcribe
-            '''
-            # Use the recognizer to transcribe the audio# 1) detect device
-            device = 0 if torch.cuda.is_available() else "cpu"
-            print("Using device:", device)
-
-            # 2) choose model
-            model_name = "openai/whisper-small.en"
-
-            # 3) instantiate ASR pipeline
-            asr = pipeline(
-                "automatic-speech-recognition",
-                model=model_name,
-                device=device,
-                chunk_length_s=30,        # split longer files
-                generation_kwargs={"max_new_tokens": 50},
-            )
-
-            # 4) run on a sample file
-            result = asr("path/to/sample_audio.mp3")
-            transcription = result["text"]
-            '''
-            transcription = None
+            transcription = ""
             try:
                 with sr.AudioFile(wav_path) as source:
                     audio_data = recognizer.record(source)
                     transcription = recognizer.recognize_google(audio_data)
                     logger.info(f"[submit_patient_feedback] Transcription for {key}: {transcription}")
             except sr.UnknownValueError:
-                logger.warning(f"[submit_patient_feedback] Could not transcribe {key}")
+                logger.warning(f"[submit_patient_feedback] Could not transcribe audio for {key}")
             except sr.RequestError as e:
-                logger.error(f"[submit_patient_feedback] Speech rec error for {key}: {e}")
+                logger.error(f"[submit_patient_feedback] Speech recognition error for {key}: {e}")
             finally:
-                # cleanup temp files
                 os.remove(tmp_in_path)
                 os.remove(wav_path)
 
-            # store both file path and transcription
             answers[key] = {
                 "file_path": saved_path,
-                "transcription": transcription or ""
+                "transcription": transcription,
             }
+            print(answers)
 
-        # 2b) Handle plain-text fields (but don’t overwrite audio entries)
+        # --- Plain-text answers ---
         for key, val in request.POST.items():
             if key in ("userId", "interventionId"):
                 continue
             if key not in answers:
-                answers[key] = val
-
-        # 3) Lookup patient
+                try:
+                    answers[key] = json.loads(val)
+                except Exception:
+                    answers[key] = val
+        logger.info(f"[submit_patient_feedback] Collected answers: {answers}")
+        # --- Lookup patient ---
         try:
             patient = Patient.objects.get(userId=ObjectId(user_id))
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found."}, status=404)
 
-        # 4) Decide branch: intervention feedback vs health status
         if intervention_id:
-            try:
-                intervention = Intervention.objects.get(id=ObjectId(intervention_id))
-            except Intervention.DoesNotExist:
+            intervention = Intervention.objects.filter(id=ObjectId(intervention_id)).first()
+            if not intervention:
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
             plan = RehabilitationPlan.objects(patientId=patient).first()
             if not plan:
-                return JsonResponse({"error": "Rehab plan not found."}, status=404)
+                return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
-            # get or create today’s log
             today = timezone.now().date()
             log = PatientInterventionLogs.objects(
                 userId=patient,
                 interventionId=intervention,
+                date__gte=datetime.datetime.combine(today, datetime.time.min),
+                date__lte=datetime.datetime.combine(today, datetime.time.max),
             ).first()
+
+
             if not log:
                 log = PatientInterventionLogs(
                     userId=patient,
@@ -186,38 +214,45 @@ def submit_patient_feedback(request):
                     comments="",
                 )
 
-            # 5) Build FeedbackEntry objects
             for qkey, answer_val in answers.items():
-                qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
-                if not qobj:
+                if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
+                    log.video_url = answer_val["video_url"]
+                    log.video_expired = False
+                    log.comments += f"\nVideo uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
                     continue
 
-                # decide text answer and comment
-                if isinstance(answer_val, dict):
+                qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
+                if not qobj:
+                    logger.warning(f"[submit_patient_feedback] No FeedbackQuestion found for key: {qkey}")
+                    continue
+
+                entry_kwargs = {"questionId": qobj}
+                opts = []
+                comment = ""
+
+                if isinstance(answer_val, dict) and "transcription" in answer_val:
                     text_ans = answer_val["transcription"]
                     comment = f"Audio saved at {answer_val['file_path']}"
+                    opts = [AnswerOption(key="text", translations=[Translation(language="en", text=text_ans)])]
+
+                elif isinstance(answer_val, list):
+                    for val in answer_val:
+                        opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
+                        opts.append(opt if opt else AnswerOption(
+                            key=val,
+                            translations=[Translation(language="en", text=val)]
+                        ))
                 else:
-                    text_ans = str(answer_val)
-                    comment = ""
+                    val = str(answer_val)
+                    opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
+                    opts = [opt if opt else AnswerOption(
+                        key=val,
+                        translations=[Translation(language="en", text=val)]
+                    )]
 
-                # resolve AnswerOption list
-                def to_options(ans_str):
-                    opt = next((o for o in qobj.possibleAnswers if o.key == ans_str), None)
-                    if opt:
-                        return [opt]
-                    return [
-                        AnswerOption(
-                            key="text",
-                            translations=[Translation(language="en", text=ans_str)],
-                        )
-                    ]
-
-                entry = FeedbackEntry(
-                    questionId=qobj,
-                    answerKey=to_options(text_ans),
-                    comment=comment,
-                )
-                log.feedback.append(entry)
+                entry_kwargs["answerKey"] = opts
+                entry_kwargs["comment"] = comment
+                log.feedback.append(FeedbackEntry(**entry_kwargs))
 
             log.updatedAt = timezone.now()
             log.save()
@@ -269,11 +304,15 @@ def submit_patient_feedback(request):
                 )
                 rating.save()
 
+
         return JsonResponse({"message": "Feedback submitted successfully"}, status=201)
 
     except Exception as e:
         logger.exception("Unexpected error in submit_patient_feedback")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+
 
 
 @csrf_exempt
@@ -357,8 +396,8 @@ def mark_intervention_completed(request):
             )
 
         now = timezone.now()
-        today_start = datetime.combine(now.date(), datetime.min.time())
-        today_end = datetime.combine(now.date(), datetime.max.time())
+        today_start = datetime.datetime.combine(now.date(), datetime.datetime.min.time())
+        today_end = datetime.datetime.combine(now.date(), datetime.datetime.max.time())
 
         log = PatientInterventionLogs.objects(
             userId=patient,
@@ -383,7 +422,7 @@ def mark_intervention_completed(request):
                 interventionId=intervention,
                 rehabilitationPlanId=rehab_plan,  # ✅ ADD THIS
                 date=timezone.now(),
-                status=[],
+                status=["completed"],
                 feedback=[],
                 comments="",
             )
@@ -573,6 +612,8 @@ def get_patient_plan(request, patient_id):
         )
 
 
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def create_patient_intervention_log(request):
@@ -591,9 +632,9 @@ def create_patient_intervention_log(request):
         log = PatientInterventionLogs(
             userId=patient,
             interventionId=intervention,
-            rehabilitationPlanId=rehab_plan,  # ✅ ADD THIS
+            rehabilitationPlanId=rehab_plan,  
             date=timezone.now(),
-            status=[],
+            status=['completed'],
             feedback=[],
             comments="",
         )
@@ -618,27 +659,28 @@ def create_patient_intervention_log(request):
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def fetch_feedback_questions(request, questionaire_type, patient_id):
+def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
+
     """
-    GET /api/patients/get-questions/<questionaire_type>/<patient_id>/
-    Returns feedback questions unless already answered today.
+    GET /api/patients/get-questions/<questionaire_type>/<patient_id>/?interventionId=<id>
+    Returns feedback questions; if the matching intervention assignment
+    has require_video_feedback=True, appends a video‐request question.
     """
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
-        questions = []
 
+        # 1) Determine the set of base questions
         if questionaire_type == "Healthstatus":
-
             today = timezone.now().date()
 
             # Avoid repeating Healthstatus if answered today
             today_feedback = PatientICFRating.objects.filter(
                 patientId=patient,
-                date__gte=datetime.combine(today, datetime.min.time()),
-                date__lte=datetime.combine(today, datetime.max.time()),
+                date__gte=datetime.datetime.combine(today, datetime.datetime.min.time()),
+                date__lte=datetime.datetime.combine(today, datetime.datetime.max.time()),
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
             )
@@ -660,41 +702,76 @@ def fetch_feedback_questions(request, questionaire_type, patient_id):
                 ).distinct("icfCode")
                 icf_codes = random.sample(all_codes, min(5, len(all_codes)))
 
-            questions = FeedbackQuestion.objects.filter(
+            questions_qs = FeedbackQuestion.objects.filter(
                 icfCode__in=icf_codes, questionSubject="Healthstatus"
             )
 
         elif questionaire_type == "Intervention":
-            questions = FeedbackQuestion.objects.filter(questionSubject="Intervention")
+            questions_qs = FeedbackQuestion.objects.filter(
+                questionSubject="Intervention"
+            )
+
         else:
             return JsonResponse({"error": "Invalid questionnaire type."}, status=400)
 
-        serialized_questions = [
-            {
+        # 2) Serialize base questions
+        serialized = []
+        for q in questions_qs:
+            serialized.append({
                 "questionKey": q.questionKey,
                 "answerType": q.answer_type,
                 "translations": [
-                    {"language": t.language, "text": t.text} for t in q.translations
+                    {"language": tr.language, "text": tr.text}
+                    for tr in q.translations
                 ],
-                "possibleAnswers": (
-                    [
-                        {
-                            "key": ans.key,
-                            "translations": [
-                                {"language": tr.language, "text": tr.text}
-                                for tr in ans.translations
-                            ],
-                        }
-                        for ans in q.possibleAnswers
-                    ]
-                    if q.possibleAnswers
-                    else []
-                ),
-            }
-            for q in questions
-        ]
+                "possibleAnswers": [
+                    {
+                        "key": opt.key,
+                        "translations": [
+                            {"language": t2.language, "text": t2.text}
+                            for t2 in opt.translations
+                        ],
+                    }
+                    for opt in (q.possibleAnswers or [])
+                ],
+            })
 
-        return JsonResponse({"questions": serialized_questions}, safe=False)
+        # 3) If Intervention, check assignment flag
+        if questionaire_type == "Intervention":
+            if intervention_id:
+                plan = RehabilitationPlan.objects(patientId=patient).first()
+                print("DEBUG: Intervention ID from query:", intervention_id)
+                print("DEBUG: Available interventions in plan:", [str(a.interventionId) for a in plan.interventions])
+                print("DEBUG: Comparing intervention IDs:")
+                for a in plan.interventions:
+                    print(" -", str(getattr(a.interventionId, 'id', a.interventionId)), "==", intervention_id)
+
+                if plan:
+
+                    assignment = next(
+                        (
+                            a for a in plan.interventions
+                            if str(getattr(a.interventionId, 'id', a.interventionId)) == intervention_id
+                        ),
+                        None,
+                    )
+
+                    if assignment and getattr(assignment, "require_video_feedback", False):
+                        # Append video question
+                        serialized.append({
+                            "questionKey": "video_example",
+                            "answerType": "video",
+                            "translations": [
+                                {"language": "en", "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera."},
+                                {"language": "it", "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s di attesa—posiziona la fotocamera."},
+                                {"language": "de", "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s Verzögerung—bitte richten Sie die Kamera aus."},
+                                {"language": "fr", "text": "Votre thérapeute a demandé une vidéo. L’enregistrement commencera après un délai de 10 s—veuillez placer votre caméra."},
+                            ],
+                            "possibleAnswers": [],
+                        })
+
+
+        return JsonResponse({"questions": serialized}, safe=False)
 
     except Patient.DoesNotExist:
         logger.warning(f"[fetch_feedback_questions] Patient not found.")
@@ -708,12 +785,14 @@ def fetch_feedback_questions(request, questionaire_type, patient_id):
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient(request):
     """
     POST /api/interventions/add-to-patient/
-    Adds interventions to a patient's rehabilitation plan.
+    Adds interventions to a patient's rehabilitation plan, optionally
+    marking them as requiring video feedback.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -721,7 +800,7 @@ def add_intervention_to_patient(request):
     try:
         data = json.loads(request.body)
         therapist = Therapist.objects.get(userId=data.get("therapistId"))
-        patient = Patient.objects.get(pk=data.get("patientId"))
+        patient   = Patient.objects.get(pk=data.get("patientId"))
         interventions_data = data.get("interventions", [])
 
         new_assignments = []
@@ -731,11 +810,15 @@ def add_intervention_to_patient(request):
             )
             scheduled_dates = generate_repeat_dates(patient.reha_end_date, item)
 
+            # read the new flag (default False)
+            require_video = bool(item.get("require_video_feedback", False))
+
             assignment = InterventionAssignment(
                 interventionId=intervention,
                 frequency=item.get("frequency", ""),
                 notes=item.get("notes", ""),
                 dates=scheduled_dates,
+                require_video_feedback=require_video,   # ← new field
             )
             new_assignments.append(assignment)
 
@@ -743,12 +826,9 @@ def add_intervention_to_patient(request):
 
         if existing_plan:
             # Avoid duplicate entries
-            current_ids = {
-                str(i.interventionId.id) for i in existing_plan.interventions
-            }
+            current_ids = { str(a.interventionId.id) for a in existing_plan.interventions }
             to_add = [
-                a
-                for a in new_assignments
+                a for a in new_assignments
                 if str(a.interventionId.id) not in current_ids
             ]
 
@@ -775,11 +855,7 @@ def add_intervention_to_patient(request):
 
         return JsonResponse({"message": message}, status=201)
 
-    except (
-        Therapist.DoesNotExist,
-        Patient.DoesNotExist,
-        Intervention.DoesNotExist,
-    ) as e:
+    except (Therapist.DoesNotExist, Patient.DoesNotExist, Intervention.DoesNotExist) as e:
         logger.warning(f"[add_intervention_to_patient] Missing entity: {e}")
         return JsonResponse({"error": str(e)}, status=404)
 
@@ -789,6 +865,9 @@ def add_intervention_to_patient(request):
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+
+
+from urllib.parse import urljoin
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -877,18 +956,28 @@ def get_patient_plan_for_therapist(request, patient_id):
                             }
                         )
 
-                        # Try numeric rating
                         try:
                             rating_sum += int(fb.answerKey[0].key)
                             rating_count += 1
                         except (ValueError, TypeError, IndexError):
                             pass
 
+                # Add video feedback if present on the log
+                video_feedback = None
+                if log and log.video_url:
+                    normalized_url = urljoin(settings.MEDIA_HOST, log.video_url)
+                    video_feedback = {
+                        "video_url": normalized_url,
+                        "video_expired": log.video_expired,
+                        "comment": log.comments or "",
+                    }
+
                 intervention_dates.append(
                     {
                         "datetime": date.isoformat(),
                         "status": status,
                         "feedback": feedback_entries,
+                        **({"video": video_feedback} if video_feedback else {}),
                     }
                 )
 
@@ -929,6 +1018,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             exc_info=True,
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
 
 
 @csrf_exempt

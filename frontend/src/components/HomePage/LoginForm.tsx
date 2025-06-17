@@ -30,37 +30,34 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); // Clear any previous errors
-  
+
     try {
       await authStore.loginWithHttp();
-  
+
       // Explicit check after login TODO Check success of request not if authenticated
       if (authStore.loginErrorMessage) {
         setError(authStore.loginErrorMessage);
         return;
       }
-  
+
       if (pageType !== 'patient') {
         setIs2FARequired(true);
-  
+
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
         } catch (sendCodeErr) {
           setError('Login succeeded but failed to send verification code.');
           console.error('2FA code send failed:', sendCodeErr);
         }
-  
       } else {
         authStore.setAuthenticated(true);
         navigate(`/${authStore.userType.toLowerCase()}`);
       }
-  
     } catch (err) {
       handleApiError(err, authStore);
       setError(err.message || 'Login failed. Please try again.');
     }
   };
-  
 
   // Handle 2FA Code Submission
   const handle2FASubmit = async (e: React.FormEvent) => {

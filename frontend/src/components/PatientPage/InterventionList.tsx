@@ -105,7 +105,7 @@ const InterventionList = () => {
         setFeedbackItem(interventionId);
 
         const { data: res } = await apiClient.get(
-          `/patients/get-questions/Intervention/${localStorage.getItem('id')}/`
+          `/patients/get-questions/Intervention/${localStorage.getItem('id')}/${interventionId}/`
         );
         const language = i18n.language || 'en';
 
@@ -149,12 +149,13 @@ const InterventionList = () => {
       );
     }
     if (isPast(date)) {
-      return isCompletedOn ? (
+      return isCompletedOn(rec, date) ? (
         <Badge bg="success">{t('Done')}</Badge>
       ) : (
         <Badge bg="secondary">{t('Missed')}</Badge>
       );
     }
+
     return <Badge bg="info">{t('Upcoming')}</Badge>;
   };
 
@@ -197,7 +198,7 @@ const InterventionList = () => {
             )}
             <Card.Body>
               <Card.Title>{rec.intervention_title}</Card.Title>
-              
+
               <Card.Text className="text-muted">
                 <div>
                   {rec.description.length > 50
@@ -208,7 +209,6 @@ const InterventionList = () => {
                   {t('Duration')}: {rec.duration} {t('minutes')}
                 </div>
               </Card.Text>
-              
             </Card.Body>
             <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
           </Card>

@@ -107,7 +107,7 @@ describe('HealthSlider', () => {
     fireEvent.click(screen.getByText(/Bestätigen/i));
     expect(downloadSpy).toHaveBeenCalled();
   });
-  
+
   test('slider is draggable via mouse events', async () => {
     render(<HealthSlider />);
     const sliderHandle = screen.getByRole('slider');
