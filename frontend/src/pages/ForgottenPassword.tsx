@@ -40,12 +40,12 @@ const ForgotPassword: React.FC = () => {
           )}
 
           <Form onSubmit={handleSubmit}>
-          {success && (
-            <Alert variant="success" className="text-center">
-              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
-            </Alert>
-          )}
-          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+            {success && (
+              <Alert variant="success" className="text-center">
+                {t('Passwordresetlinksent.Pleasecheckyouremail.')}
+              </Alert>
+            )}
+            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
             <Form.Group controlId="formEmail" className="mb-3">
               <Form.Label>{t('Emailaddress')}</Form.Label>
               <Form.Control

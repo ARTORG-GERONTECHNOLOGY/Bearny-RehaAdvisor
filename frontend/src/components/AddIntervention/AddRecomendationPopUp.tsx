@@ -307,7 +307,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
           {formData.patientTypes.map((patient, index) => (
             <Row key={index} className="align-items-center">
               <Col xs={4}>
-                <Form.Group controlId={`patientType-${index}`}>
+                <Form.Group controlId={patientType-${index}}>
                   <Form.Label>{t('PatientType')}</Form.Label>
                   <Form.Control
                     as="select"
@@ -325,7 +325,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                 </Form.Group>
               </Col>
               <Col xs={4}>
-                <Form.Group controlId={`diagnoses-${index}`}>
+                <Form.Group controlId={diagnoses-${index}}>
                   <Form.Label>{t('Diagnosis')}</Form.Label>
                   <Form.Control
                     as="select"
@@ -346,7 +346,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                 </Form.Group>
               </Col>
               <Col xs={4}>
-                <Form.Group controlId={`frequency-${index}`}>
+                <Form.Group controlId={frequency-${index}}>
                   <Form.Label>{t('RecomendationFrequency')}</Form.Label>
                   <Form.Control
                     as="select"

@@ -1,4 +1,3 @@
-
 import { render, screen, fireEvent } from '@testing-library/react';
 import ProductPopup from '../../../components/TherapistInterventionPage/ProductPopup';
 import React from 'react';
@@ -10,9 +9,7 @@ const mockItem = {
   content_type: 'video',
   benefitFor: ['mobility'],
   tags: ['rehab', 'exercise'],
-  patient_types: [
-    { type: 'Orthopedic', diagnosis: 'Knee Injury', frequency: 'Weekly' },
-  ],
+  patient_types: [{ type: 'Orthopedic', diagnosis: 'Knee Injury', frequency: 'Weekly' }],
   media_file: null,
   media_url: null,
   link: null,
@@ -26,12 +23,7 @@ const tagColors = {
 describe('ProductPopup Error Handling', () => {
   it('displays an error alert if error state is set', () => {
     render(
-      <ProductPopup
-        show={true}
-        item={mockItem}
-        handleClose={() => {}}
-        tagColors={tagColors}
-      />
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
     );
 
     // Simulate the error state manually if useState isn't mocked

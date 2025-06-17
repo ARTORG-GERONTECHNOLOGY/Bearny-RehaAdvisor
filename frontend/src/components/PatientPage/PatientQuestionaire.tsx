@@ -38,24 +38,20 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
   };
 
-
   const handleSave = async () => {
     try {
       const payload = {
         ...formData,
         patient_id: patient_id, // support both object or string ID
       };
-  
-      await apiClient.post(`/users/${patient_id}/initial-questionaire/`, formData);
 
+      await apiClient.post(`/users/${patient_id}/initial-questionaire/`, formData);
     } catch (error) {
       console.error('Error updating patient data:', error);
     }
     handleClose();
   };
-  
 
-  
   const renderField = (field: any) => {
     const fieldValue = formData[field.be_name];
     const commonProps = {
@@ -122,28 +118,28 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
           <Modal.Title>{t('Initial Questionaire')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
           {config.PatientInitialQuestionaire.map((section, idx) => (
             <div key={idx}>
               <h5 className="mb-3">{t(section.title)}</h5>
-              
-                {section.fields
-                  .filter((field) => field.type !== 'password' && field.type !== 'repeatPassword')
-                  .map((field, fieldIdx) => (
-                    <Row>
-                      <Form.Group className="mb-2">
-                        <Form.Label>{t(field.label)}</Form.Label>
-                        {renderField(field)}
-                      </Form.Group>
-                    </Row>
-                  ))}
+
+              {section.fields
+                .filter((field) => field.type !== 'password' && field.type !== 'repeatPassword')
+                .map((field, fieldIdx) => (
+                  <Row>
+                    <Form.Group className="mb-2">
+                      <Form.Label>{t(field.label)}</Form.Label>
+                      {renderField(field)}
+                    </Form.Group>
+                  </Row>
+                ))}
             </div>
           ))}
         </Modal.Body>
         <Modal.Footer>
-              <Button variant="success" onClick={handleSave}>
-                {t('Submit')}
-              </Button>
+          <Button variant="success" onClick={handleSave}>
+            {t('Submit')}
+          </Button>
         </Modal.Footer>
       </Modal>
     </>

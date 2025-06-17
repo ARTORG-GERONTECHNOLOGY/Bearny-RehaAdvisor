@@ -25,14 +25,7 @@ jest.mock('../../../stores/authStore', () => ({
 
 describe('LoginForm - ErrorAlert integration', () => {
   const setup = (props = {}) =>
-    render(
-      <LoginForm
-        show={true}
-        handleClose={jest.fn()}
-        pageType="regular"
-        {...props}
-      />
-    );
+    render(<LoginForm show={true} handleClose={jest.fn()} pageType="regular" {...props} />);
 
   it('displays ErrorAlert when error is set', async () => {
     authStore.loginWithHttp.mockImplementation(() => {
@@ -43,9 +36,7 @@ describe('LoginForm - ErrorAlert integration', () => {
 
     fireEvent.submit(screen.getByRole('button', { name: /login/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Invalid credentials')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('Invalid credentials')).toBeInTheDocument());
   });
 
   it('hides ErrorAlert when dismiss button is clicked', async () => {
