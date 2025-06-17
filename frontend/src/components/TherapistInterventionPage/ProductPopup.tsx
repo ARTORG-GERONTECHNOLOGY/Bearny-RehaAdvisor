@@ -255,15 +255,15 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-         
           {/* Description Section with Spacing & Shadow Separator */}
           {/* Existing recommended section */}
-          {error &&
-          <Row className="pb-3 mb-3 border-bottom">
-            <Col>
-             <ErrorAlert message={error} onClose={() => setError(null)} />
-            </Col>
-          </Row>}
+          {error && (
+            <Row className="pb-3 mb-3 border-bottom">
+              <Col>
+                <ErrorAlert message={error} onClose={() => setError(null)} />
+              </Col>
+            </Row>
+          )}
           <Row className="pb-3 mb-3 border-bottom">
             <h5>{t('Recomended to patients')}:</h5>
             {item.patient_types.map((type, idx) => (

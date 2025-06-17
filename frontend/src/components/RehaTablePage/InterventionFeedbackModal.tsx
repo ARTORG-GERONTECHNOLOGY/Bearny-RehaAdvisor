@@ -62,12 +62,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
             {video.comment && <p className="fst-italic">{video.comment}</p>}
             {!video.video_expired ? (
               <div className="rounded shadow-sm overflow-hidden mt-3">
-                <ReactPlayer
-                  url={video.video_url}
-                  width="100%"
-                  height="400px"
-                  controls
-                />
+                <ReactPlayer url={video.video_url} width="100%" height="400px" controls />
               </div>
             ) : (
               <p className="text-muted mt-3">{t('Video feedback has expired.')}</p>

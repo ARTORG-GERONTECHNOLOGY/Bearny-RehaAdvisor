@@ -4,7 +4,9 @@ import { useLocation } from 'react-router-dom';
 const ErrorPage: React.FC = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const message = queryParams.get('message') || 'There was a problem connecting your Fitbit account. Please try again.';
+  const message =
+    queryParams.get('message') ||
+    'There was a problem connecting your Fitbit account. Please try again.';
   return (
     <div style={styles.container}>
       <h1 style={styles.error}>⚠️ Error</h1>

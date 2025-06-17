@@ -182,7 +182,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
           <Modal.Title>{formData.name || t('Patient')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
           {config.PatientForm.map((section, idx) => (
             <div key={idx}>
               <h5 className="mb-3">{t(section.title)}</h5>

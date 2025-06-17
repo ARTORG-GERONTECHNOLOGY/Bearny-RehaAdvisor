@@ -79,7 +79,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
               date: endOption === 'date' ? endDate : null,
               count: endOption === 'count' ? occurrenceCount : null,
             },
-            require_video_feedback: requireVideoFeedback,  // ← new flag
+            require_video_feedback: requireVideoFeedback, // ← new flag
           },
         ],
       };
@@ -126,7 +126,6 @@ const InterventionRepeatModal: React.FC<Props> = ({
                 />
               </Col>
             </Form.Group>
-
           </>
         )}
 
@@ -164,48 +163,46 @@ const InterventionRepeatModal: React.FC<Props> = ({
           </div>
         )}
 
-
         <Form.Group as={Row} className="mb-3">
           <Form.Label column sm={4}>
             {t('Ends')}
           </Form.Label>
           <Col sm={8}>
             <div>
-            <Form.Check
-              type="radio"
-              label="Never"
-              checked={endOption === 'never'}
-              onChange={() => setEndOption('never')}
-            />
-            <Form.Check
-              type="radio"
-              label="On date"
-              checked={endOption === 'date'}
-              onChange={() => setEndOption('date')}
-            />
-            {endOption === 'date' && (
-              <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                className="form-control mt-2"
+              <Form.Check
+                type="radio"
+                label="Never"
+                checked={endOption === 'never'}
+                onChange={() => setEndOption('never')}
               />
-            )}
-            <Form.Check
-              type="radio"
-              label="After N times"
-              checked={endOption === 'count'}
-              onChange={() => setEndOption('count')}
-            />
-            {endOption === 'count' && (
-              <Form.Control
-                className="mt-2"
-                type="number"
-                value={occurrenceCount}
-                onChange={(e) => setOccurrenceCount(parseInt(e.target.value))}
+              <Form.Check
+                type="radio"
+                label="On date"
+                checked={endOption === 'date'}
+                onChange={() => setEndOption('date')}
               />
-            )}
-          </div>
-
+              {endOption === 'date' && (
+                <DatePicker
+                  selected={endDate}
+                  onChange={(date) => setEndDate(date)}
+                  className="form-control mt-2"
+                />
+              )}
+              <Form.Check
+                type="radio"
+                label="After N times"
+                checked={endOption === 'count'}
+                onChange={() => setEndOption('count')}
+              />
+              {endOption === 'count' && (
+                <Form.Control
+                  className="mt-2"
+                  type="number"
+                  value={occurrenceCount}
+                  onChange={(e) => setOccurrenceCount(parseInt(e.target.value))}
+                />
+              )}
+            </div>
           </Col>
         </Form.Group>
 
@@ -228,8 +225,12 @@ const InterventionRepeatModal: React.FC<Props> = ({
       <Modal.Footer>
         {!success ? (
           <>
-            <Button variant="secondary" onClick={onHide}>{t('Cancel')}</Button>
-            <Button variant="primary" onClick={handleSubmit}>{t('Save')}</Button>
+            <Button variant="secondary" onClick={onHide}>
+              {t('Cancel')}
+            </Button>
+            <Button variant="primary" onClick={handleSubmit}>
+              {t('Save')}
+            </Button>
           </>
         ) : (
           <div className="alert alert-success">{t('Success!')}</div>

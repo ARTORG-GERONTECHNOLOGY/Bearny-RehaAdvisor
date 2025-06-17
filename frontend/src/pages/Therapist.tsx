@@ -114,17 +114,17 @@ const Therapist: React.FC = () => {
       <Container className="main-content mt-4">
         <WelcomeArea user="Therapist" />
         <Row>
-            <Col>
-              {error && (
-                <ErrorAlert
-                  message={error}
-                  onClose={() => {
-                    setError('');
-                  }}
-                />
-              )}
-            </Col>
-          </Row>
+          <Col>
+            {error && (
+              <ErrorAlert
+                message={error}
+                onClose={() => {
+                  setError('');
+                }}
+              />
+            )}
+          </Col>
+        </Row>
         <Row className="mb-3">
           <Col>
             <Button onClick={handleOpen}>{t('Add a New Patient')}</Button>
