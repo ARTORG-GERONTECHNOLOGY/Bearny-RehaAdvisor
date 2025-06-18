@@ -162,3 +162,23 @@ def get_rehabilitation_plan(request, patient_id):
         return JsonResponse(
             {"error": "Internal Server Error", "details": str(e)}, status=500
         )
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def get_patients_by_therapist(request, therapist_id):
+    """
+    GET /api/therapists/<therapist_id>/patients/
+    Returns list of patients (first name, last name, id) assigned to a therapist.
+    """
+    try:
+        patients = Patient.objects.filter(therapistId=ObjectId(therapist_id))
+        data = [
+            {
+                "id": str(p.userId),
+                "firstName": p.first_name,
+                "lastName": p.name,
+            }
+            for p in patients
+        ]
+        return JsonResponse(data, safe=False, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
