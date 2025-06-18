@@ -1,4 +1,9 @@
 {
+  "Private": "Privat",
+  "Select a patient": "Patient auswählen",
+  "Assign to Patient": "Patient zuweisen",
+  "Private interventions can include patient videos and will not be accessible or assignable to others.": "Private Interventionen können Patientenvideos enthalten und sind für andere nicht zugänglich oder zuweisbar.",
+  "Make this a private intervention (only visible to the assigned patients)": "Diese Intervention privat machen (nur für zugewiesene Patienten sichtbar)",
   "Failed to compress video. Upload the original or try again.": "Video konnte nicht komprimiert werden. Laden Sie das Original hoch oder versuchen Sie es erneut.",
   "Stop Recording": "Aufnahme stoppen",
   "This video will be destroyed after 14 days automatically.": "Dieses Video wird nach 14 Tagen automatisch gelöscht.",

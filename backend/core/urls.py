@@ -84,11 +84,8 @@ urlpatterns = [
     path("api/users/<str:patient_id>/initial-questionaire/", patient_views.initial_patient_questionaire, name="initial_questionaire"),
 
     #  Intervention Management
-    path(
-        "api/interventions/all/",
-        recomendation_views.list_all_interventions,
-        name="get_recommendations",
-    ),
+    path("api/interventions/all/", recomendation_views.list_all_interventions),
+    path("api/interventions/all/<str:patient_id>/", recomendation_views.list_all_interventions),
     path(
         "api/interventions/add/",
         recomendation_views.add_new_intervention,
@@ -125,6 +122,7 @@ urlpatterns = [
     path('api/fitbit/callback/', fitbit_views.fitbit_callback, name='fitbit_callback'),
     path('api/fitbit/status/<str:patient_id>/', fitbit_views.fitbit_status, name='fitbit_status'),  # API endpoint to check connection
     path("api/fitbit/health-data/<str:patient_id>/", fitbit_views.get_fitbit_health_data, name="fitbit_health_data"),
+    path("api/therapists/<str:therapist_id>/patients/", therapist_views.get_patients_by_therapist, name="get_patients_by_therapist"),
 
 ]
 
