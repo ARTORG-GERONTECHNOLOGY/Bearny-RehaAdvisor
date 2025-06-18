@@ -64,13 +64,15 @@ const RehabTable: React.FC = () => {
       );
       setPatientData(res.data);
     } catch (e) {
-      console.error('Error loading all interventions', e);
+      console.error('Error loading patient interventions', e);
       setError('Error loading patients interventions. Reload the page or try again later.');
     }
   };
   const fetchInts = async () => {
     try {
-      const res = await apiClient.get('interventions/all/');
+      const res = await apiClient.get(
+        `interventions/all/${localStorage.getItem('selectedPatient') || patientUsername}/`
+      );
       setAllInterventions(res.data);
       setRecommendations(res.data);
       setFilteredRecommendations(res.data);
@@ -295,7 +297,12 @@ const RehabTable: React.FC = () => {
                         onClick={() => handleExerciseClick(intervention)}
                       >
                         <div>
-                          <strong>{intervention.title}</strong>
+                          <strong>
+                            {intervention.title}{' '}
+                            {intervention.is_private && (
+                              <span className="ms-2 text-primary">{t('Private')}</span>
+                            )}
+                          </strong>
                           <div className="text-muted">
                             {t(
                               intervention.content_type.charAt(0).toUpperCase() +

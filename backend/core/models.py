@@ -154,7 +154,9 @@ class Intervention(Document):
     preview_img = StringField()
     patient_types = ListField(EmbeddedDocumentField(PatientType))
     duration = IntField()
-    require_video_feedback = BooleanField(default=False)
+    is_private = BooleanField(default=False)
+    private_patient_id = ReferenceField("Patient", required=False, null=True)
+
 
 
 # General Feedback – site-wide, not per intervention
