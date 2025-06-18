@@ -1,4 +1,9 @@
 {
+  "Private": "Private",
+  "Select a patient": "Select a patient",
+  "Assign to Patient": "Assign to Patient",
+  "Private interventions can include patient videos and will not be accessible or assignable to others.": "Private interventions can include patient videos and will not be accessible or assignable to others.",
+  "Make this a private intervention (only visible to the assigned patients)": "Make this a private intervention (only visible to the assigned patients)",
   "Failed to compress video. Upload the original or try again.": "Failed to compress video. Upload the original or try again.",
   "Stop Recording": "Stop Recording",
   "This video will be destroyed after 14 days automatically.": "This video will be destroyed after 14 days automatically.",

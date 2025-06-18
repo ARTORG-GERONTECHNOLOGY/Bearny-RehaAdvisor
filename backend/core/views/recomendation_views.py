@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-
+from mongoengine.queryset.visitor import Q
 from bson import ObjectId
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -38,62 +38,62 @@ FILE_TYPE_FOLDERS = {
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def list_all_interventions(request):
+def list_all_interventions(request, patient_id=None):
     """
-    GET /api/interventions/all/
-    Return a list of all interventions with relevant metadata.
+    GET /api/interventions/all/(<str:patient_id>/)?
+    Return public interventions and optionally private ones for the patient (listed first).
     """
     try:
-        interventions = Intervention.objects.all()
-        results = []
-        print("MEDIA_HOST:", getattr(settings, "MEDIA_HOST", "NOT SET"))
-        logger.info(
-            f"MEDIA_HOST:", getattr(settings, "MEDIA_HOST", "NOT SET"), exc_info=True
-        )
+        public_interventions = Intervention.objects.filter(Q(is_private=False) | Q(is_private__exists=False))
 
-        for item in interventions:
-            results.append(
-                {
-                    "_id": str(item.pk),
-                    "title": item.title,
-                    "description": item.description,
-                    "content_type": item.content_type,
-                    "patient_types": [
-                        {
-                            "type": pt.type,
-                            "frequency": pt.frequency,
-                            "include_option": pt.include_option,
-                            "diagnosis": pt.diagnosis,
-                        }
-                        for pt in item.patient_types
-                    ],
-                    "link": item.link or "",
-                    "media_file": (
-                        f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, item.media_file)}"
-                        if item.media_file
-                        else ""
-                    ),
-                    "preview_img": (
-                        f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, item.preview_img)}"
-                        if item.preview_img
-                        else ""
-                    ),
-                    "duration": item.duration,
-                    "benefitFor": item.benefitFor,
-                    "tags": item.tags,
-                }
-            )
+        private_interventions = []
+        if patient_id:
+            try:
+                private_interventions = Intervention.objects.filter(
+                    is_private=True,
+                    private_patient_id=ObjectId(patient_id)
+                )
+            except Exception as e:
+                logger.warning(f"Invalid patient ID or private fetch error: {e}")
 
-        return JsonResponse(results, safe=False, status=200)
+        def serialize(item):
+            return {
+                "_id": str(item.pk),
+                "title": item.title,
+                "description": item.description,
+                "content_type": item.content_type,
+                "patient_types": [
+                    {
+                        "type": pt.type,
+                        "frequency": pt.frequency,
+                        "include_option": pt.include_option,
+                        "diagnosis": pt.diagnosis,
+                    }
+                    for pt in item.patient_types
+                ],
+                "link": item.link or "",
+                "media_file": (
+                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, item.media_file)}"
+                    if item.media_file else ""
+                ),
+                "preview_img": (
+                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, item.preview_img)}"
+                    if item.preview_img else ""
+                ),
+                "duration": item.duration,
+                "benefitFor": item.benefitFor,
+                "tags": item.tags,
+                "is_private": item.is_private,  # Include privacy status
+            }
+
+        serialized_data = [serialize(i) for i in private_interventions] + [serialize(i) for i in public_interventions]
+
+        return JsonResponse(serialized_data, safe=False, status=200)
 
     except Exception as e:
-        # You can log to Logs model or an external service here
-        logger.error(
-            f"[list_all_interventions] Unexpected error: {str(e)}", exc_info=True
-        )
-        return JsonResponse(
-            {"error": "Internal Server Error", "details": str(e)}, status=500
-        )
+        logger.error(f"[list_all_interventions] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -101,7 +101,7 @@ def list_all_interventions(request):
 def add_new_intervention(request):
     """
     POST /api/interventions/add/
-    Create a new intervention with optional media and image upload.
+    Create a new intervention, supporting private assignments and isolated media handling.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -111,6 +111,9 @@ def add_new_intervention(request):
 
         if "patientTypes" in data:
             data["patientTypes"] = json.loads(data["patientTypes"])
+
+        is_private = data.get("isPrivate", "false").lower() == "true"
+        patient_id = data.get("patientId")
 
         if Intervention.objects.filter(title=data["title"]).first():
             return JsonResponse(
@@ -131,26 +134,30 @@ def add_new_intervention(request):
             for pt in data.get("patientTypes", [])
         ]
 
-        # Save media file if present
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+
+        # Define patient path for private media
+        private_path = os.path.join("private", str(patient_id)) if is_private and patient_id else ""
+
+        # Save media file
         media_path = ""
         if "media_file" in request.FILES:
             media_file = request.FILES["media_file"]
             ext = media_file.name.split(".")[-1].lower()
-            folder = FILE_TYPE_FOLDERS.get(ext, "others")
-            filename = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{media_file.name}"
-            media_path = default_storage.save(
-                os.path.join(folder, filename), media_file
-            )
+            folder = private_path if is_private else FILE_TYPE_FOLDERS.get(ext, "others")
+            filename = f"{timestamp}_{media_file.name}"
+            media_path = default_storage.save(os.path.join(folder, filename), media_file)
 
         # Save preview image
         preview_path = ""
         if "img_file" in request.FILES:
             img = request.FILES["img_file"]
             ext = img.name.split(".")[-1].lower()
-            folder = FILE_TYPE_FOLDERS.get(ext, "others")
-            filename = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{img.name}"
+            folder = private_path if is_private else FILE_TYPE_FOLDERS.get(ext, "others")
+            filename = f"{timestamp}_{img.name}"
             preview_path = default_storage.save(os.path.join(folder, filename), img)
 
+        # Create the intervention
         new_intervention = Intervention(
             title=sanitize_text(data["title"]),
             description=sanitize_text(data["description"]),
@@ -158,11 +165,14 @@ def add_new_intervention(request):
             link=data.get("link", ""),
             media_file=media_path,
             preview_img=preview_path,
-            patient_types=patient_types,
+            patient_types=patient_types if not is_private else [],
             duration=data.get("duration"),
             benefitFor=data.get("benefitFor", "").split(","),
             tags=data.get("tagList", "").split(","),
+            is_private=is_private,
+            private_patient_id=ObjectId(patient_id) if is_private and patient_id else None,
         )
+
         new_intervention.save()
 
         return JsonResponse(
@@ -170,10 +180,10 @@ def add_new_intervention(request):
         )
 
     except Exception as e:
-        logger.error(
-            f"[add_new_intervention] Unexpected error: {str(e)}", exc_info=True
-        )
+        logger.error("[add_new_intervention] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
 
 
 @csrf_exempt
