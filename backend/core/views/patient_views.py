@@ -32,6 +32,7 @@ from core.models import (
     Therapist,
     Translation,
     User,
+    FitbitData
 )
 from utils.utils import (
     convert_to_serializable,
@@ -267,28 +268,36 @@ def submit_patient_feedback(request):
                     continue
 
                 if isinstance(answer_val, dict):
-                    text_ans = answer_val["transcription"]
-                    notes = f"Audio saved at {answer_val['file_path']}"
+                    text_ans = answer_val.get("transcription", "").strip()
+                    notes = f"Audio saved at {answer_val.get('file_path')}"
+                elif isinstance(answer_val, list):
+                    text_ans = answer_val[0].strip() if answer_val else ""
+                    notes = ""
                 else:
-                    text_ans = str(answer_val)
+                    text_ans = str(answer_val).strip()
                     notes = ""
 
-                # numeric rating if multi-choice list
-                numeric = (
-                    int(text_ans)
-                    if text_ans.isdigit()
-                    else None
-                )
+                # Prevent accidental saving of stringified lists
+                if text_ans.startswith("[") and text_ans.endswith("]"):
+                    try:
+                        text_ans = json.loads(text_ans)[0]
+                    except Exception:
+                        text_ans = text_ans.strip("[]").strip("'").strip('"')
+
+                # Find matching answer option to reuse translations
+                opt_match = next((opt for opt in qobj.possibleAnswers if opt.key == text_ans), None)
+
+                if opt_match:
+                    translations = opt_match.translations
+                else:
+                    translations = [Translation(language="en", text=text_ans)]
 
                 entry = FeedbackEntry(
                     questionId=qobj,
                     answerKey=[
-                        next(
-                            (o for o in qobj.possibleAnswers if o.key == text_ans),
-                            AnswerOption(
-                                key="text",
-                                translations=[Translation(language="en", text=text_ans)],
-                            ),
+                        AnswerOption(
+                            key=text_ans,
+                            translations=translations
                         )
                     ],
                     comment=notes,
@@ -298,10 +307,11 @@ def submit_patient_feedback(request):
                     questionId=qobj,
                     patientId=patient,
                     icfCode=qobj.icfCode,
-                    rating=numeric,
+                    rating=int(text_ans) if text_ans.isdigit() else None,
                     notes=notes,
                     feedback_entries=[entry],
                 )
+
                 rating.save()
 
 
@@ -672,39 +682,115 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
 
-        # 1) Determine the set of base questions
         if questionaire_type == "Healthstatus":
             today = timezone.now().date()
+            now = timezone.now()
+            seven_days_ago = now - datetime.timedelta(days=7)
+            two_weeks_ago = now - datetime.timedelta(days=14)
 
-            # Avoid repeating Healthstatus if answered today
-            today_feedback = PatientICFRating.objects.filter(
+            # Avoid asking general Healthstatus if answered within the last 7 days
+            recent_feedback = PatientICFRating.objects.filter(
                 patientId=patient,
-                date__gte=datetime.datetime.combine(today, datetime.datetime.min.time()),
-                date__lte=datetime.datetime.combine(today, datetime.datetime.max.time()),
+                date__gte=seven_days_ago,
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
             )
-            if today_feedback:
+            if recent_feedback:
                 return JsonResponse({"questions": []}, safe=False)
 
-            ratings = list(
-                PatientICFRating.objects.filter(patientId=patient, rating__ne=None)
+            # Step 1: Get question IDs where questionKey starts with "16_profile_"
+            profile_question_ids = list(
+                FeedbackQuestion.objects(questionKey__startswith="16_profile_").only("id").scalar("id")
             )
 
-            if ratings:
-                sorted_ratings = sorted(ratings, key=lambda r: r.rating)
-                strong = [r.icfCode for r in sorted_ratings[:2]]
-                weak = [r.icfCode for r in sorted_ratings[-4:]]
-                icf_codes = list(set(strong + weak))
+            # Step 2: Filter PatientICFRating for any feedback entry matching those question IDs
+            last_2_weeks = timezone.now() - datetime.timedelta(days=14)
+            profile_check = PatientICFRating.objects.filter(
+                patientId=patient,
+                date__gte=last_2_weeks,
+                feedback_entries__exists=True,
+                feedback_entries__ne=[],
+                feedback_entries__elemMatch={"questionId__in": profile_question_ids}
+            )
+
+            if not profile_check:
+                # Return full 16_profile_ questionnaire every 2 weeks
+                questions_qs = FeedbackQuestion.objects.filter(
+                    questionSubject="Healthstatus",
+                    questionKey__startswith="16_profile_"
+                )
+                serialized = [
+                    {
+                        "questionKey": q.questionKey,
+                        "answerType": q.answer_type,
+                        "translations": [
+                            {"language": tr.language, "text": tr.text}
+                            for tr in q.translations
+                        ],
+                        "possibleAnswers": [
+                            {
+                                "key": opt.key,
+                                "translations": [
+                                    {"language": t2.language, "text": t2.text}
+                                    for t2 in opt.translations
+                                ],
+                            }
+                            for opt in (q.possibleAnswers or [])
+                        ],
+                    }
+                    for q in questions_qs
+                ]
+                return JsonResponse({"questions": serialized}, safe=False)
+
+            # Department-based logic (weekly)
+            department = (patient.function or [""])[0].strip().lower()
+
+            if department == "cardiology":
+                questions_qs = FeedbackQuestion.objects.filter(
+                    questionSubject="Healthstatus",
+                    questionKey__startswith="10_heart_failure"
+                )
+
+            elif department == "orthopaedics":
+                all_mobility = list(FeedbackQuestion.objects.filter(
+                    questionSubject="Healthstatus",
+                    questionKey__startswith="mobility_bank_"
+                ))
+                questions_qs = random.sample(all_mobility, min(6, len(all_mobility)))
+
             else:
-                all_codes = FeedbackQuestion.objects.filter(
-                    questionSubject="Healthstatus"
-                ).distinct("icfCode")
-                icf_codes = random.sample(all_codes, min(5, len(all_codes)))
+                combined_pool = list(FeedbackQuestion.objects.filter(
+                    questionSubject="Healthstatus",
+                    questionKey__regex=r"^(fatigue|physical_function)_"
+                ))
+                questions_qs = random.sample(combined_pool, min(6, len(combined_pool)))
 
-            questions_qs = FeedbackQuestion.objects.filter(
-                icfCode__in=icf_codes, questionSubject="Healthstatus"
-            )
+            # Serialize selected questions
+            serialized = [
+                {
+                    "questionKey": q.questionKey,
+                    "answerType": q.answer_type,
+                    "translations": [
+                        {"language": tr.language, "text": tr.text}
+                        for tr in q.translations
+                    ],
+                    "possibleAnswers": [
+                        {
+                            "key": opt.key,
+                            "translations": [
+                                {"language": t2.language, "text": t2.text}
+                                for t2 in opt.translations
+                            ],
+                        }
+                        for opt in (q.possibleAnswers or [])
+                    ],
+                }
+                for q in questions_qs
+            ]
+            return JsonResponse({"questions": serialized}, safe=False)
+
+
+
 
         elif questionaire_type == "Intervention":
             questions_qs = FeedbackQuestion.objects.filter(
@@ -1128,5 +1214,228 @@ def initial_patient_questionaire(request, patient_id):
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
         logger.error(f"[initial_patient_questionaire] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def get_patient_healthstatus_history(request, patient_id):
+    """
+    GET /api/patients/healthstatus-history/<patient_id>/
+    Returns all non-intervention (Healthstatus) feedbacks over time.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+
+        # Fetch all FeedbackQuestions of type "Healthstatus"
+        questions = FeedbackQuestion.objects(questionSubject="Healthstatus")
+
+        # Map questionId to metadata
+        question_map = {
+            str(q.id): {
+                "questionKey": q.questionKey,
+                "icfCode": q.icfCode,
+                "answerType": q.answer_type,
+                "translations": [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in q.translations
+                ],
+                "answerMap": {
+                    opt.key: [
+                        {"language": tr.language, "text": tr.text}
+                        for tr in opt.translations
+                    ]
+                    for opt in (q.possibleAnswers or [])
+                },
+            }
+            for q in questions
+        }
+
+        # Fetch all PatientICFRating entries
+        ratings = PatientICFRating.objects(patientId=patient).order_by("date")
+
+        result = []
+
+        for rating in ratings:
+            for entry in rating.feedback_entries:
+                qid = str(entry.questionId.id) if entry.questionId and hasattr(entry.questionId, 'id') else None
+                if not qid or qid not in question_map:
+                    continue
+
+
+                qmeta = question_map[qid]
+                result.append({
+                    "questionKey": qmeta["questionKey"],
+                    "icfCode": qmeta["icfCode"],
+                    "date": rating.date.isoformat(),
+                    "answers": [
+                        {
+                            "key": ans.key,
+                            "translations": [
+                                {"language": t.language, "text": t.text}
+                                for t in ans.translations
+                            ]
+                        } for ans in entry.answerKey
+                    ],
+                    "comment": entry.comment,
+                    "questionTranslations": qmeta["translations"],
+                    "answerType": qmeta["answerType"],
+                })
+
+        return JsonResponse({"history": result}, safe=False)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+
+    except Exception as e:
+        logger.error(f"[get_patient_healthstatus_history] {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def get_combined_health_data(request, patient_id):
+    try:
+        if not patient_id or patient_id == "null":
+            return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Exception:
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
+
+        from_str = request.GET.get("from")
+        to_str = request.GET.get("to")
+
+        if from_str and to_str:
+            from_date = datetime.datetime.strptime(from_str, '%Y-%m-%d')
+            to_date = datetime.datetime.strptime(to_str, '%Y-%m-%d')
+        else:
+            to_date = timezone.now()
+            from_date = to_date - datetime.timedelta(days=30)
+
+        # Normalize to start and end of day
+        from_datetime = datetime.datetime.combine(from_date.date(), datetime.time.min)
+        to_datetime = datetime.datetime.combine(to_date.date(), datetime.time.max)
+
+
+        # 1. Fitbit Data
+        fitbit_entries = FitbitData.objects(
+            user=patient.userId,
+            date__gte=from_date,
+            date__lte=to_date
+        ).order_by("date")
+
+        fitbit_data = []
+        for entry in fitbit_entries:
+            fitbit_data.append({
+                "date": entry.date.strftime('%Y-%m-%d'),
+                "steps": entry.steps,
+                "resting_heart_rate": entry.resting_heart_rate,
+                "floors": entry.floors,
+                "distance": entry.distance,
+                "calories": entry.calories,
+                "active_minutes": entry.active_minutes,
+                "heart_rate_zones": [
+                    {
+                        "name": zone.name,
+                        "minutes": zone.minutes,
+                        "caloriesOut": zone.caloriesOut,
+                        "min": zone.min,
+                        "max": zone.max
+                    } for zone in (entry.heart_rate_zones or [])
+                ],
+                "sleep": {
+                    "sleep_duration": entry.sleep.sleep_duration if entry.sleep else None,
+                    "sleep_start": entry.sleep.sleep_start if entry.sleep else None,
+                    "sleep_end": entry.sleep.sleep_end if entry.sleep else None,
+                    "awakenings": entry.sleep.awakenings if entry.sleep else None
+                },
+                "breathing_rate": entry.breathing_rate,
+                "hrv": entry.hrv,
+                "exercise": entry.exercise
+            })
+
+        # 2. Healthstatus Feedback Data
+        questions = FeedbackQuestion.objects(questionSubject="Healthstatus")
+        question_map = {
+            str(q.id): {
+                "questionKey": q.questionKey,
+                "icfCode": q.icfCode,
+                "answerType": q.answer_type,
+                "translations": [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in q.translations
+                ],
+                "answerMap": {
+                    opt.key: [
+                        {"language": tr.language, "text": tr.text}
+                        for tr in opt.translations
+                    ]
+                    for opt in (q.possibleAnswers or [])
+                },
+            }
+            for q in questions
+        }
+
+        feedback_result = []
+        print(f"Querying ratings for patient {patient.userId} from {from_date} to {to_date}")
+        print("Available dates: %s", [r.date for r in PatientICFRating.objects(patientId=patient)])
+
+        ratings = PatientICFRating.objects(
+            patientId=patient,
+            date__gte=from_date,
+            date__lte=to_date
+        ).order_by("date")
+        print(f"DEBUG: Found {ratings.count()} ratings for patient {patient_id} from {from_date} to {to_date}")
+
+        for rating in ratings:
+            for entry in rating.feedback_entries:
+                if not hasattr(entry, "questionId") or not entry.questionId:
+                    continue
+                try:
+                    qid = str(entry.questionId.id)
+                except Exception:
+                    continue
+                if qid not in question_map:
+                    continue
+
+                qmeta = question_map[qid]
+                parsed_answers = []
+                for ans in entry.answerKey:
+                    parsed_answers.append({
+                        "key": ans.key,
+                        "translations": [
+                            {"language": t.language, "text": t.text}
+                            for t in ans.translations
+                        ]
+                    })
+
+                feedback_result.append({
+                    "questionKey": qmeta["questionKey"],
+                    "icfCode": qmeta["icfCode"],
+                    "date": rating.date.isoformat(),
+                    "answers": parsed_answers,
+                    "comment": entry.comment,
+                    "questionTranslations": qmeta["translations"],
+                    "answerType": qmeta["answerType"],
+                })
+
+
+
+
+        return JsonResponse({
+            "fitbit": fitbit_data,
+            "questionnaire": feedback_result,
+        }, safe=False)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+
+    except Exception as e:
+        logger.error(f"[get_combined_health_data] {str(e)}", exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 

@@ -17,4 +17,3 @@ djangorestframework-simplejwt
 python-dateutil
 twilio
 pydub
-ffmpeg-python 
