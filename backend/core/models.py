@@ -16,6 +16,7 @@ from mongoengine import (
     ListField,
     ReferenceField,
     StringField,
+    FloatField,
 )
 
 from utils.config import config
@@ -52,20 +53,55 @@ class User(Document):
         return f"{self.username} (User)"
         
 class FitbitUserToken(Document):
-    user = ReferenceField(User, required=True)
-    access_token = StringField(max_length=255)
-    refresh_token = StringField(max_length=255)
+    user = ReferenceField(User, required=True, unique=True)
+    access_token = StringField(required=True, max_length=2048)
+    refresh_token = StringField(required=True, max_length=2048)
     expires_at = DateTimeField()
-    fitbit_user_id = StringField(max_length=100)
-
-    def __str__(self):
-        return f"{self.user.username} Fitbit Token"
+    fitbit_user_id = StringField(required=True)
         
+
+class HeartRateZone(EmbeddedDocument):
+    name = StringField()
+    minutes = IntField()
+    caloriesOut = FloatField()
+    min = IntField()
+    max = IntField()
+
+class SleepData(EmbeddedDocument):
+    sleep_duration = IntField()  # in ms
+    sleep_start = StringField()  # ISO datetime string
+    sleep_end = StringField()    # ISO datetime string
+    awakenings = IntField()
+
 class FitbitData(Document):
-    user = ReferenceField(User)
-    date = DateTimeField(required=True)
+    user = ReferenceField(User, required=True)
+    date = DateTimeField(required=True, unique_with="user")
+
+    # Core activity & heart rate
     steps = IntField()
     resting_heart_rate = IntField()
+    heart_rate_zones = ListField(EmbeddedDocumentField(HeartRateZone))
+
+    # Physical activity
+    floors = IntField()
+    distance = FloatField()  # in km or miles depending on user setting
+    calories = FloatField()
+    active_minutes = IntField()
+
+    # Sleep
+    sleep = EmbeddedDocumentField(SleepData)
+
+    # Detailed physiological signals
+    breathing_rate = DictField()    # Breaths per minute
+    hrv = DictField()               # Heart rate variability metrics
+
+    # Exercise logs
+    exercise = DictField()          # Exercise session metadata (duration, type, etc.)
+
+    meta = {
+        'indexes': ['user', 'date'],
+        'ordering': ['-date']
+    }
 
 
 class Logs(Document):

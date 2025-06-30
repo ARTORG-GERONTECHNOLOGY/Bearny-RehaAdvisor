@@ -123,7 +123,8 @@ urlpatterns = [
     path('api/fitbit/status/<str:patient_id>/', fitbit_views.fitbit_status, name='fitbit_status'),  # API endpoint to check connection
     path("api/fitbit/health-data/<str:patient_id>/", fitbit_views.get_fitbit_health_data, name="fitbit_health_data"),
     path("api/therapists/<str:therapist_id>/patients/", therapist_views.get_patients_by_therapist, name="get_patients_by_therapist"),
-
+    path("api/patients/healthstatus-history/<str:patient_id>/", patient_views.get_patient_healthstatus_history, name="get_patient_healthstatus_history"),
+    path("api/patients/health-combined-history/<str:patient_id>/", patient_views.get_combined_health_data, name="get_combined_health_data"),
 ]
 
 # Only add this if DEBUG=True, which is typical in development
