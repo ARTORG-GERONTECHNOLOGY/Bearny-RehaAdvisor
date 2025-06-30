@@ -108,13 +108,16 @@ class Logs(Document):
     meta = {"collection": "logs"}  # MongoDB collection
     userId = ReferenceField(User, required=True)
     action = StringField(
-        choices=["LOGIN", "LOGOUT", "UPDATE_PROFILE", "DELETE_ACCOUNT", "OTHER"],
+        choices=["LOGIN", "LOGOUT", "UPDATE_PROFILE", "DELETE_ACCOUNT", "OTHER", "REHATABLE", "HEALTH_PAGE"],
         default="Therapist",
         required=True,
     )
     timestamp = DateTimeField(default=timezone.now)
+    ended = DateTimeField(required=False, null=True)  # Optional end time for actions like "REHATABLE"
+    started = DateTimeField(required=False, null=True)  # Optional start time for actions like "REHATABLE"
     userAgent = StringField(max_length=20, required=True)
-    details = StringField(max_length=500)
+    patient = ReferenceField("Patient", required=False, null=True)  # Optional, for actions related to patients
+    details = StringField(max_length=1000)
 
     def __str__(self):
         return f"{self.userId} (Logs)"
