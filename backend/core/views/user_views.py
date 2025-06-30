@@ -105,30 +105,27 @@ def user_profile_view(request, user_id):
                     )
 
             updated_fields = []
+            old_data = {}
+
             if role == "Therapist":
                 therapist = Therapist.objects.get(userId=user.id)
                 for key in [
-                    "username",
-                    "email",
-                    "phone",
-                    "name",
-                    "first_name",
-                    "specializations",
-                    "clinics",
+                    "username", "email", "phone", "name", "first_name", "specializations", "clinics"
                 ]:
                     val = data.get(key)
                     if val:
-                        setattr(
-                            user if hasattr(user, key) else therapist,
-                            key,
-                            sanitize_text(val),
-                        )
+                        target = user if hasattr(user, key) else therapist
+                        old_val = getattr(target, key, None)
+                        old_data[key] = str(old_val)
+                        setattr(target, key, sanitize_text(val))
                         updated_fields.append(key)
 
                 user.save()
                 therapist.save()
+
             elif role == "Patient":
-                patient = Patient.objects.get(userId=user.id)
+                patient = Patient.objects.get(pk=user_id)
+
                 if data.get("reha_end_date"):
                     try:
                         data["reha_end_date"] = datetime.strptime(
@@ -136,29 +133,32 @@ def user_profile_view(request, user_id):
                         )
                     except ValueError:
                         return JsonResponse(
-                            {"error": "Invalid date format for reha_end_date"},
-                            status=400,
+                            {"error": "Invalid date format for reha_end_date"}, status=400
                         )
 
-                for model, allowed_fields in [
-                    (user, User._fields),
-                    (patient, Patient._fields),
-                ]:
+                for model, allowed_fields in [(user, User._fields), (patient, Patient._fields)]:
                     for key in allowed_fields:
                         if key in data:
+                            old_val = getattr(model, key, None)
+                            old_data[key] = str(old_val)
                             setattr(model, key, sanitize_text(data[key]))
                             updated_fields.append(key)
 
                 user.save()
                 patient.save()
 
-            Logs.objects.create(userId=user, action="UPDATE_PROFILE", userAgent=role)
-            return JsonResponse(
-                {"message": "Profile updated", "updated": updated_fields}, status=200
+            Logs.objects.create(
+                userId=user,
+                action="UPDATE_PROFILE",
+                userAgent=role,
+                details=f"Previous values: {old_data}"
             )
+            return JsonResponse({"message": "Profile updated", "updated": updated_fields}, status=200)
+
         except Exception as e:
             logger.exception("Error updating profile for user %s", user_id)
             return JsonResponse({"error": str(e)}, status=500)
+
 
     elif request.method == "DELETE":
         try:

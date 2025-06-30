@@ -3,8 +3,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
+import json
+from core.models import Patient, Therapist, User, Logs
+from django.utils.dateparse import parse_datetime
 
-from core.models import Patient, Therapist, User
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -182,3 +184,35 @@ def get_patients_by_therapist(request, therapist_id):
         return JsonResponse(data, safe=False, status=200)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def create_log(request):
+    try:
+        data = json.loads(request.body)
+        user = data.get('user')
+      
+        # Parse datetime safely
+        started = parse_datetime(data.get("started")) if data.get("started") else None
+        ended = parse_datetime(data.get("ended")) if data.get("ended") else None
+        patient = data.get("patient")  # Optional patient reference
+        if patient:
+            patient = Patient.objects.get(pk=ObjectId(patient))
+        if user:
+            user = User.objects.get(id=ObjectId(user))
+        log = Logs(
+            userId=user,
+            action=data.get("action", "OTHER"),
+            started=started,
+            ended=ended,
+            userAgent=data.get("userAgent", ""),
+            patient=patient,
+            details=data.get("details", "")[:500],
+        )
+        log.save()
+        logger.info(f"[i13n] Log saved for user {user.id} with action {log.action}")
+        return JsonResponse({"status": "ok", "log_id": str(log.id)}, status=201)
+
+    except Exception as e:
+        logger.error(f"[i13n] Failed to save log: {e}", exc_info=True)
+        return JsonResponse({"error": "Failed to create log"}, status=500)
