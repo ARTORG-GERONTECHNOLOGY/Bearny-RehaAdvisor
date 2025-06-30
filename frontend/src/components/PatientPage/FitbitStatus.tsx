@@ -3,7 +3,8 @@ import apiClient from '../../api/client'; // ✅ Adjust path as needed
 
 const FITBIT_CLIENT_ID = '23QHGK';
 const FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/';
-const FITBIT_SCOPES = 'activity heartrate profile';
+const FITBIT_SCOPES =
+  'activity heartrate respiratory_rate oxygen_saturation temperature electrocardiogram profile sleep';
 
 const FitbitConnectButton: React.FC = () => {
   const [connected, setConnected] = useState<boolean | null>(null);
