@@ -89,7 +89,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const handleSave = async () => {
     if (!validateInputs()) return;
     try {
-      await apiClient.put(`users/${patient_id.username}/profile/`, formData);
+      await apiClient.put(`users/${localStorage.getItem('selectedPatient')}/profile/`, formData);
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating patient data:', error);
@@ -98,7 +98,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
 
   const handleDelete = async () => {
     try {
-      await apiClient.delete(`users/${patient_id.username}/profile/`);
+      await apiClient.delete(`users/${localStorage.getItem('selectedPatient')}/profile/`);
       handleClose();
     } catch (error) {
       console.error('Error deleting patient data:', error);
