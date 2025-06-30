@@ -81,23 +81,58 @@ const RehabTable: React.FC = () => {
       setError('Error loading interventions. Reload the page or try again later.');
     }
   };
-
   useEffect(() => {
-    authStore.checkAuthentication();
+  authStore.checkAuthentication();
 
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
+  if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+    navigate('/');
+    return;
+  }
 
-    if (localStorage.getItem('selectedPatient')) {
-      setPatientUsername((localStorage.getItem('selectedPatient') as string) || '');
-      setPatientName((localStorage.getItem('selectedPatientName') as string) || '');
+  if (localStorage.getItem('selectedPatient')) {
+    setPatientUsername(localStorage.getItem('selectedPatient') as string);
+    setPatientName(localStorage.getItem('selectedPatientName') as string);
+    fetchAll();
+    fetchInts();
+  }
 
-      fetchAll();
-      fetchInts();
-    }
-  }, [navigate]);
+  const entryTime = Date.now();
+  const patient = localStorage.getItem('selectedPatient');
+  const therapist = authStore?.id || 'unknown';
+
+  console.log(
+    `[i13n] Therapist ${therapist} opened RehabTable for ${patient} at ${new Date(entryTime).toISOString()}`
+  );
+
+  return () => {
+    const exitTime = Date.now();
+    const durationMs = exitTime - entryTime;
+    const durationMin = (durationMs / 60000).toFixed(2);
+
+    console.log(`[i13n] Therapist ${therapist} left RehabTable after ${durationMin} minutes`);
+
+    // Fire-and-forget: run logging asynchronously
+    (async () => {
+      try {
+        await apiClient.post('/analytics/log', {
+          userAgent: 'Therapist',
+          user: therapist,
+          patient: patient,
+          action: 'REHATABLE',
+          started: new Date(entryTime).toISOString(),
+          ended: new Date(exitTime).toISOString(),
+          details: `Viewed ${patient} rehabilitation plan for ${durationMin} minutes`,
+        });
+        console.log(
+          `[i13n] Action: REHATABLE, Details: ${patient}, Duration: ${durationMin} minutes`
+        );
+      } catch (err) {
+        console.error('Error logging action:', err);
+      }
+    })();
+  };
+}, [navigate]);
+
 
   const handleExerciseClick = (intervention: Intervention) => {
     if (intervention) {
