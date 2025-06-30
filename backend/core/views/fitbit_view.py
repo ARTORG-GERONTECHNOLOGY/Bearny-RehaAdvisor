@@ -12,7 +12,6 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 from django.utils.timezone import make_aware, is_naive
 logger = logging.getLogger(__name__)
-
 FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'
 
 
@@ -136,17 +135,56 @@ def get_fitbit_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
 
-        # Use MongoEngine query and sort
-        entries = FitbitData.objects(user=patient.userId).order_by('date')
+        # Parse optional time range
+        from_str = request.GET.get('from')
+        to_str = request.GET.get('to')
 
-        data = [
-            {
+        if from_str and to_str:
+            from_date = datetime.datetime.strptime(from_str, '%Y-%m-%d').date()
+            to_date = datetime.datetime.strptime(to_str, '%Y-%m-%d').date()
+        else:
+            # Default: last 30 days
+            to_date = timezone.now().date()
+            from_date = to_date - datetime.timedelta(days=30)
+
+        # Filter by date range and sort
+        entries = FitbitData.objects(
+            user=patient.userId,
+            date__gte=from_date,
+            date__lte=to_date
+        ).order_by('date')
+
+        data = []
+        for entry in entries:
+            data.append({
                 "date": entry.date.strftime('%Y-%m-%d'),
                 "steps": entry.steps,
                 "resting_heart_rate": entry.resting_heart_rate,
-            }
-            for entry in entries
-        ]
+                "floors": entry.floors,
+                "distance": entry.distance,
+                "calories": entry.calories,
+                "active_minutes": entry.active_minutes,
+                "heart_rate_zones": [
+                    {
+                        "name": zone.name,
+                        "minutes": zone.minutes,
+                        "caloriesOut": zone.caloriesOut,
+                        "min": zone.min,
+                        "max": zone.max
+                    } for zone in (entry.heart_rate_zones or [])
+                ],
+                "sleep": {
+                    "sleep_duration": entry.sleep.sleep_duration if entry.sleep else None,
+                    "sleep_start": entry.sleep.sleep_start if entry.sleep else None,
+                    "sleep_end": entry.sleep.sleep_end if entry.sleep else None,
+                    "awakenings": entry.sleep.awakenings if entry.sleep else None
+                },
+                "eda": entry.eda,
+                "skin_temperature": entry.skin_temperature,
+                "spo2": entry.spo2,
+                "breathing_rate": entry.breathing_rate,
+                "exercise": entry.exercise
+            })
 
         return JsonResponse({"data": data}, safe=False)
 
