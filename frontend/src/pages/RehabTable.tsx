@@ -18,6 +18,7 @@ import { Intervention } from '../types';
 import ErrorAlert from '../components/common/ErrorAlert';
 import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
+import { translateText } from '../utils/translate';
 
 const RehabTable: React.FC = () => {
   const [patientData, setPatientData] = useState<{ interventions: Intervention[] }>({
@@ -38,6 +39,9 @@ const RehabTable: React.FC = () => {
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const { i18n, t } = useTranslation();
+  const [translatedInterventions, setTranslatedInterventions] = useState<
+    Record<string, { title: string; content_type: string; detectedLang?: string }>
+  >({});
 
   //const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   //const [allInterventions, setAllInterventions] = useState<Intervention[]>([]);
@@ -74,6 +78,25 @@ const RehabTable: React.FC = () => {
         `interventions/all/${localStorage.getItem('selectedPatient') || patientUsername}/`
       );
       setAllInterventions(res.data);
+      const translations = await Promise.all(
+        res.data.map(async (intv) => {
+          const translatedTitle = await translateText(intv.title);
+          const translatedType = await translateText(
+            intv.content_type.charAt(0).toUpperCase() + intv.content_type.slice(1)
+          );
+
+          return {
+            id: intv._id,
+            title: translatedTitle.translatedText,
+            content_type: translatedType.translatedText,
+            detectedLang: translatedTitle.detectedSourceLanguage,
+          };
+        })
+      );
+
+      const mappedTranslations = Object.fromEntries(translations.map((t) => [t.id, t]));
+      setTranslatedInterventions(mappedTranslations);
+
       setRecommendations(res.data);
       setFilteredRecommendations(res.data);
     } catch (e) {
@@ -82,57 +105,56 @@ const RehabTable: React.FC = () => {
     }
   };
   useEffect(() => {
-  authStore.checkAuthentication();
+    authStore.checkAuthentication();
 
-  if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-    navigate('/');
-    return;
-  }
+    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+      navigate('/');
+      return;
+    }
 
-  if (localStorage.getItem('selectedPatient')) {
-    setPatientUsername(localStorage.getItem('selectedPatient') as string);
-    setPatientName(localStorage.getItem('selectedPatientName') as string);
-    fetchAll();
-    fetchInts();
-  }
+    if (localStorage.getItem('selectedPatient')) {
+      setPatientUsername(localStorage.getItem('selectedPatient') as string);
+      setPatientName(localStorage.getItem('selectedPatientName') as string);
+      fetchAll();
+      fetchInts();
+    }
 
-  const entryTime = Date.now();
-  const patient = localStorage.getItem('selectedPatient');
-  const therapist = authStore?.id || 'unknown';
+    const entryTime = Date.now();
+    const patient = localStorage.getItem('selectedPatient');
+    const therapist = authStore?.id || 'unknown';
 
-  console.log(
-    `[i13n] Therapist ${therapist} opened RehabTable for ${patient} at ${new Date(entryTime).toISOString()}`
-  );
+    console.log(
+      `[i13n] Therapist ${therapist} opened RehabTable for ${patient} at ${new Date(entryTime).toISOString()}`
+    );
 
-  return () => {
-    const exitTime = Date.now();
-    const durationMs = exitTime - entryTime;
-    const durationMin = (durationMs / 60000).toFixed(2);
+    return () => {
+      const exitTime = Date.now();
+      const durationMs = exitTime - entryTime;
+      const durationMin = (durationMs / 60000).toFixed(2);
 
-    console.log(`[i13n] Therapist ${therapist} left RehabTable after ${durationMin} minutes`);
+      console.log(`[i13n] Therapist ${therapist} left RehabTable after ${durationMin} minutes`);
 
-    // Fire-and-forget: run logging asynchronously
-    (async () => {
-      try {
-        await apiClient.post('/analytics/log', {
-          userAgent: 'Therapist',
-          user: therapist,
-          patient: patient,
-          action: 'REHATABLE',
-          started: new Date(entryTime).toISOString(),
-          ended: new Date(exitTime).toISOString(),
-          details: `Viewed ${patient} rehabilitation plan for ${durationMin} minutes`,
-        });
-        console.log(
-          `[i13n] Action: REHATABLE, Details: ${patient}, Duration: ${durationMin} minutes`
-        );
-      } catch (err) {
-        console.error('Error logging action:', err);
-      }
-    })();
-  };
-}, [navigate]);
-
+      // Fire-and-forget: run logging asynchronously
+      (async () => {
+        try {
+          await apiClient.post('/analytics/log', {
+            userAgent: 'Therapist',
+            user: therapist,
+            patient: patient,
+            action: 'REHATABLE',
+            started: new Date(entryTime).toISOString(),
+            ended: new Date(exitTime).toISOString(),
+            details: `Viewed ${patient} rehabilitation plan for ${durationMin} minutes`,
+          });
+          console.log(
+            `[i13n] Action: REHATABLE, Details: ${patient}, Duration: ${durationMin} minutes`
+          );
+        } catch (err) {
+          console.error('Error logging action:', err);
+        }
+      })();
+    };
+  }, [navigate]);
 
   const handleExerciseClick = (intervention: Intervention) => {
     if (intervention) {
@@ -333,17 +355,19 @@ const RehabTable: React.FC = () => {
                       >
                         <div>
                           <strong>
-                            {intervention.title}{' '}
+                            {translatedInterventions[intervention._id]?.title || intervention.title}{' '}
                             {intervention.is_private && (
                               <span className="ms-2 text-primary">{t('Private')}</span>
                             )}
                           </strong>
                           <div className="text-muted">
-                            {t(
-                              intervention.content_type.charAt(0).toUpperCase() +
-                                intervention.content_type.slice(1)
-                            )}
+                            {translatedInterventions[intervention._id]?.content_type ||
+                              t(
+                                intervention.content_type.charAt(0).toUpperCase() +
+                                  intervention.content_type.slice(1)
+                              )}
                           </div>
+
                           <Badge
                             bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}
                           >

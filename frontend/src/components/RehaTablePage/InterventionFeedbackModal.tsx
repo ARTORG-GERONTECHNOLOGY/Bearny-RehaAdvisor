@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import ReactPlayer from 'react-player';
 import { Intervention } from '../../types';
+import { translateText } from '../../utils/translate';
 
 interface FeedbackEntry {
   question: {
@@ -41,18 +42,40 @@ const InterventionFeedbackModal: React.FC<Props> = ({
   video,
 }) => {
   const { t } = useTranslation();
+  const [translatedTitle, setTranslatedTitle] = useState('');
+  const [detectedLang, setDetectedLang] = useState('');
+
+  useEffect(() => {
+    if (show && exercise?.title) {
+      translateText(exercise.title)
+        .then(({ translatedText, detectedSourceLanguage }) => {
+          setTranslatedTitle(translatedText);
+          setDetectedLang(detectedSourceLanguage);
+        })
+        .catch(() => {
+          setTranslatedTitle(exercise.title);
+          setDetectedLang('');
+        });
+    }
+  }, [exercise?.title, show]);
 
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          {exercise?.title} ({date})
+          {translatedTitle}{' '}
+          {detectedLang && (
+            <span className="text-muted">
+              ({t('Original language:')} {detectedLang})
+            </span>
+          )}{' '}
+          ({date})
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <h5>{t('Feedback')}</h5>
 
-        {/* Render video feedback if present */}
+        {/* Video feedback section */}
         {video && (
           <>
             <hr />
@@ -70,7 +93,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           </>
         )}
 
-        {/* Render other feedback entries */}
+        {/* Other feedback entries */}
         {feedbackEntries.length > 0 ? (
           feedbackEntries.map((entry, idx) => {
             const questionText =
