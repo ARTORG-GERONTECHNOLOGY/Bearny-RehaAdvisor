@@ -1,4 +1,13 @@
 services:
+  libretranslate:
+    image: libretranslate/libretranslate
+    container_name: libretranslate
+    environment:
+      LT_LOAD_ONLY: "en,fr,de,it"
+    restart: unless-stopped
+    networks:
+      - telereha
+
   db-dev:
     image: mongo:8.0.3
     container_name: db
@@ -70,6 +79,7 @@ services:
       - django-dev
       - react-dev
       - db-dev
+      - libretranslate
     networks:
       - telereha
 
