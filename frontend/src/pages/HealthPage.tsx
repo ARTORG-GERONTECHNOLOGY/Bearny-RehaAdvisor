@@ -1301,60 +1301,64 @@ const HealthPage: React.FC = () => {
     }
   }, [startDate, endDate]);
 
- useEffect(() => {
-  authStore.checkAuthentication();
+  useEffect(() => {
+    authStore.checkAuthentication();
 
-  if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-    navigate('/');
-    return;
-  }
-
-  const entryTime = Date.now();
-  const therapist = authStore?.id || 'unknown';
-  const patient = localStorage.getItem('selectedPatient');
-
-  console.log(`[i13n] Therapist ${therapist} opened HealthPage for ${patient} at ${new Date(entryTime).toISOString()}`);
-
-  let frameId: number;
-  frameId = requestAnimationFrame(() => {
-    try {
-      drawFitbitChart();
-      drawSleepChart();
-      if (questionnaireData.length) {
-        drawQuestionnaireTotalScoreChart();
-        drawQuestionnaireLinesChart(visibleQuestions);
-      }
-      drawHeartRateZoneChart();
-      drawFloorsChart();
-      drawStepsChart();
-      drawDistanceChart();
-      drawBreathingRateChart();
-      drawHRVChart();
-      drawExerciseStackedBar(fitbitData, '#exerciseBarSvg');
-    } catch (e) {
-      console.error('Chart drawing failed:', e);
+    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+      navigate('/');
+      return;
     }
-  });
 
-  return () => {
-    cancelAnimationFrame(frameId);
+    const entryTime = Date.now();
+    const therapist = authStore?.id || 'unknown';
+    const patient = localStorage.getItem('selectedPatient');
 
-    const exitTime = Date.now();
-    const durationMs = exitTime - entryTime;
-    const durationMin = (durationMs / 60000).toFixed(2);
+    console.log(
+      `[i13n] Therapist ${therapist} opened HealthPage for ${patient} at ${new Date(entryTime).toISOString()}`
+    );
 
-    console.log(`[i13n] Therapist ${therapist} left HealthPage after ${durationMin} minutes`);
-
-    apiClient.post('/analytics/log', {
-      action: 'HEALTH_PAGE',
-      started: new Date(entryTime).toISOString(),
-      ended: new Date(exitTime).toISOString(),
-      details: `Viewed ${patient} health page for ${durationMin} minutes`,
-    }).catch((err) => {
-      console.error('[i13n] Failed to log HealthPage view:', err);
+    let frameId: number;
+    frameId = requestAnimationFrame(() => {
+      try {
+        drawFitbitChart();
+        drawSleepChart();
+        if (questionnaireData.length) {
+          drawQuestionnaireTotalScoreChart();
+          drawQuestionnaireLinesChart(visibleQuestions);
+        }
+        drawHeartRateZoneChart();
+        drawFloorsChart();
+        drawStepsChart();
+        drawDistanceChart();
+        drawBreathingRateChart();
+        drawHRVChart();
+        drawExerciseStackedBar(fitbitData, '#exerciseBarSvg');
+      } catch (e) {
+        console.error('Chart drawing failed:', e);
+      }
     });
-  };
-}, [fitbitData, questionnaireData, startDate, endDate, visibleFitbit, visibleQuestions]);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+
+      const exitTime = Date.now();
+      const durationMs = exitTime - entryTime;
+      const durationMin = (durationMs / 60000).toFixed(2);
+
+      console.log(`[i13n] Therapist ${therapist} left HealthPage after ${durationMin} minutes`);
+
+      apiClient
+        .post('/analytics/log', {
+          action: 'HEALTH_PAGE',
+          started: new Date(entryTime).toISOString(),
+          ended: new Date(exitTime).toISOString(),
+          details: `Viewed ${patient} health page for ${durationMin} minutes`,
+        })
+        .catch((err) => {
+          console.error('[i13n] Failed to log HealthPage view:', err);
+        });
+    };
+  }, [fitbitData, questionnaireData, startDate, endDate, visibleFitbit, visibleQuestions]);
 
   const exportPlotsAsCSV = () => {
     let csvContent = '';

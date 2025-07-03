@@ -11,6 +11,8 @@ import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
 import InterventionRepeatModal from '../RehaTablePage/InterventionRepeatModal';
 import ErrorAlert from '../common/ErrorAlert';
+import { translateText } from '../../utils/translate';
+
 interface ProductPopupProps {
   show: boolean;
   item: {
@@ -49,6 +51,10 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
   const [newRows, setNewRows] = useState([
     { specialisation: '', diagnosis: '', frequency: '', saved: false },
   ]);
+  const [translatedText, setTranslatedText] = useState('');
+  const [detectedSourceLanguage, setDetectedSourceLanguage] = useState('');
+  const [translatedTitle, setTranslatedTitle] = useState('');
+  const [titleSourceLang, setTitleSourceLang] = useState('');
 
   const addNewRow = () => {
     setNewRows([...newRows, { diagnosis: '', frequency: '', saved: false }]);
@@ -91,10 +97,25 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
   };
 
   useEffect(() => {
+    const translateContent = async () => {
+      if (item?.description) {
+        const { translatedText, detectedSourceLanguage } = await translateText(item.description);
+        setTranslatedText(translatedText);
+        setDetectedSourceLanguage(detectedSourceLanguage);
+      }
+
+      if (item?.title) {
+        const { translatedText: titleText, detectedSourceLanguage: titleLang } =
+          await translateText(item.title);
+        setTranslatedTitle(titleText);
+        setTitleSourceLang(titleLang);
+      }
+    };
+
     if (show) {
-      fetchAssignedDiagnoses();
+      translateContent();
     }
-  }, [show]);
+  }, [show, item]);
 
   const renderMediaContent = () => {
     if (!item.media_file && !item.link)
@@ -221,7 +242,7 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
       <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
         <Modal.Header closeButton className="d-flex justify-content-between align-items-center">
           <Modal.Title>
-            <h2>{item.title}</h2>
+            <h2>{translatedTitle || item.title}</h2>
             <h3 className="text-muted">{t(item.content_type)}</h3>
 
             {/* Beneft for Section - Directly Below Content Type */}
@@ -353,7 +374,14 @@ const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, ta
           <Row className="pb-3 mb-3 border-bottom">
             <Col>
               <h5>{t('Description')}</h5>
-              <p className="text-muted">{item.description}</p>
+              <p className="text-muted">
+                {translatedText || item.description}{' '}
+                {detectedSourceLanguage && (
+                  <span className="ms-2 text-secondary">
+                    ({t('Original language:')} {detectedSourceLanguage})
+                  </span>
+                )}
+              </p>
             </Col>
           </Row>
 

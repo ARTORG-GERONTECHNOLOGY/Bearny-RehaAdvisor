@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import { Intervention } from '../../types'; // adjust path as needed
+import { Intervention } from '../../types';
+import { translateText } from '../../utils/translate'; // Adjust path if needed
+
 interface Props {
   show: boolean;
   onClose: () => void;
   exercise: Intervention;
-  interventionData: Intervention; // or create a more specific type if needed
+  interventionData: Intervention;
   t: (key: string) => string;
 }
 
@@ -16,24 +18,49 @@ const InterventionStatsModal: React.FC<Props> = ({
   interventionData,
   t,
 }) => {
+  const [translatedTitle, setTranslatedTitle] = useState('');
+  const [detectedSourceLanguage, setDetectedSourceLanguage] = useState('');
+
   const totalCount = interventionData?.dates?.length || 0;
   const completedCount =
     interventionData?.dates?.filter((d) => d.status === 'completed')?.length || 0;
   const feedbackCount = interventionData?.dates?.filter((d) => d.feedback?.length > 0)?.length || 0;
   const currentTotalCount = interventionData?.currentTotalCount || 0;
 
+  useEffect(() => {
+    const translateTitle = async () => {
+      try {
+        const { translatedText, detectedSourceLanguage } = await translateText(
+          exercise?.title || ''
+        );
+        setTranslatedTitle(translatedText);
+        setDetectedSourceLanguage(detectedSourceLanguage);
+      } catch (err) {
+        setTranslatedTitle(exercise?.title || '');
+        setDetectedSourceLanguage('');
+      }
+    };
+
+    if (show) translateTitle();
+  }, [exercise?.title, show]);
+
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          {exercise?.title} {t('Information')}
+          {translatedTitle}{' '}
+          {detectedSourceLanguage && (
+            <span className="text-muted">
+              ({t('Original language:')} {detectedSourceLanguage})
+            </span>
+          )}{' '}
+          – {t('Information')}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <strong>{t('Total Sessions')}:</strong> {totalCount}
         <br />
         <div className="mb-4">
-          {/* Total Stats */}
           <div className="progress">
             <div
               className="progress-bar bg-success"
@@ -47,7 +74,9 @@ const InterventionStatsModal: React.FC<Props> = ({
             />
             <div
               className="progress-bar bg-warning"
-              style={{ width: `${((totalCount - currentTotalCount) / totalCount) * 100 || 0}%` }}
+              style={{
+                width: `${((totalCount - currentTotalCount) / totalCount) * 100 || 0}%`,
+              }}
             />
           </div>
         </div>
