@@ -3,6 +3,7 @@ import { Button, Card, Row, Col, ToggleButtonGroup, ToggleButton, Badge } from '
 import { useTranslation } from 'react-i18next';
 import { startOfWeek, addDays, format, isToday, isPast } from 'date-fns';
 import { enUS, de, fr, it } from 'date-fns/locale';
+import { translateText } from '../../utils/translate';
 
 import apiClient from '../../api/client';
 import PatientInterventionPopUp from './PatientInterventionPopUp';
@@ -79,7 +80,30 @@ const InterventionList = () => {
       const { data } = await apiClient.get(
         `/patients/rehabilitation-plan/patient/${localStorage.getItem('id')}/`
       );
-      setRecommendations(data || []);
+      const language = i18n.language || 'en';
+
+      const translated = await Promise.all(
+        data.map(async (rec) => {
+          const { translatedText: title, detectedSourceLanguage: titleLang } = await translateText(
+            rec.intervention_title,
+            language
+          );
+          const { translatedText: desc, detectedSourceLanguage: descLang } = await translateText(
+            rec.description || '',
+            language
+          );
+
+          return {
+            ...rec,
+            translated_title: title,
+            translated_description: desc,
+            titleLang,
+            descLang,
+          };
+        })
+      );
+
+      setRecommendations(translated || []);
     } catch (error) {
       console.error('Failed to load interventions', error);
     }
@@ -197,14 +221,27 @@ const InterventionList = () => {
               />
             )}
             <Card.Body>
-              <Card.Title>{rec.intervention_title}</Card.Title>
+              <Card.Title>
+                {rec.translated_title}{' '}
+                {rec.titleLang && (
+                  <small className="text-muted">
+                    ({t('Original language:')} {rec.titleLang})
+                  </small>
+                )}
+              </Card.Title>
 
               <Card.Text className="text-muted">
                 <div>
-                  {rec.description.length > 50
-                    ? `${rec.description.slice(0, 50)}...`
-                    : rec.description}
+                  {rec.translated_description.length > 50
+                    ? `${rec.translated_description.slice(0, 50)}...`
+                    : rec.translated_description}
+                  {rec.descLang && (
+                    <span className="text-muted ms-2">
+                      ({t('Original language:')} {rec.descLang})
+                    </span>
+                  )}
                 </div>
+
                 <div>
                   {t('Duration')}: {rec.duration} {t('minutes')}
                 </div>
