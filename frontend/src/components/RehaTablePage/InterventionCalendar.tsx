@@ -1,68 +1,68 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { parseISO, format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { de, fr, enGB, it } from 'date-fns/locale';
 import moment from 'moment';
-import 'moment/locale/fr';
-import 'moment/locale/de';
-import 'moment/locale/it';
+import { translateText } from '../../utils/translate'; // make sure this path is correct
 
-const localeMap = {
-  de: de,
-  fr: fr,
-  en: enGB,
-  it: it,
-  // Add more as needed
-};
-interface InterventionDate {
-  datetime: string;
-  status: 'completed' | 'missed' | 'upcoming' | 'today';
-  feedback: string[]; // You can refine this type if feedback structure is known
-}
+const localeMap = { de, fr, en: enGB, it };
 
-interface Intervention {
-  _id: string;
-  title: string;
-  duration: number; // in minutes
-  dates: InterventionDate[];
-}
-
-interface CalendarEvent {
-  title: string;
-  start: Date;
-  end: Date;
-  status: string;
-  feedback?: string[];
-  _id: string;
-}
-
-interface InterventionCalendarProps {
-  interventions: Intervention[];
-  onSelectEvent: (event: CalendarEvent) => void;
-}
-
-const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
-  interventions,
-  onSelectEvent,
-}) => {
-  const { i18n } = useTranslation();
-
-  // Only allow the supported locales
-  const supportedLocales = ['en', 'fr', 'de', 'it'];
-  const localeToUse = supportedLocales.includes(i18n.language) ? i18n.language : 'en';
-  const [date, setDate] = useState(new Date());
-  const handleNavigate = (newDate: Date) => {
-    setDate(newDate);
-  };
-
-  moment.locale(localeToUse);
-  const localizer = momentLocalizer(moment);
-  const [view, setView] = useState(Views.AGENDA);
-  const { t } = useTranslation();
-  const currentLang = t.language || 'en';
+const InterventionCalendar = ({ interventions, onSelectEvent }) => {
+  const { i18n, t } = useTranslation();
+  const currentLang = i18n.language || 'en';
   const currentLocale = localeMap[currentLang] || enGB;
+  const localizer = momentLocalizer(moment);
+  const [date, setDate] = useState(new Date());
+  const [view, setView] = useState(Views.AGENDA);
+  const [translatedTitles, setTranslatedTitles] = useState({});
+
+  // Translate all titles on mount or when interventions change
+  useEffect(() => {
+    const translateTitles = async () => {
+      const result = {};
+      for (const i of interventions) {
+        try {
+          const { translatedText, detectedSourceLanguage } = await translateText(i.title);
+          result[i._id] = {
+            text: translatedText,
+            from: detectedSourceLanguage,
+          };
+        } catch {
+          result[i._id] = { text: i.title, from: null };
+        }
+      }
+      setTranslatedTitles(result);
+    };
+
+    translateTitles();
+  }, [interventions]);
+
+  const events = useMemo(() => {
+    const evts = [];
+    interventions.forEach((intervention) => {
+      const titleInfo = translatedTitles[intervention._id];
+      const translatedTitle = titleInfo?.text || intervention.title;
+      const langSuffix = titleInfo?.from ? ` (${t('Original language:')} ${titleInfo.from})` : '';
+
+      intervention.dates.forEach((entry) => {
+        const baseDate = parseISO(entry.datetime);
+        evts.push({
+          title: translatedTitle,
+          start: baseDate,
+          end: new Date(baseDate.getTime() + intervention.duration * 60000),
+          status: entry.status,
+          feedback: entry.feedback,
+          _id: intervention._id,
+        });
+      });
+    });
+    return evts;
+  }, [interventions, translatedTitles, t]);
+
+  const handleNavigate = (newDate) => setDate(newDate);
+
   const calendarMessages = {
     today: t('Calendar.today'),
     previous: t('Calendar.previous'),
@@ -71,59 +71,12 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
     week: t('Calendar.week'),
     day: t('Calendar.day'),
     agenda: t('Calendar.agenda'),
-    showMore: (count: number) => t('Calendar.showMore', { count }),
+    showMore: (count) => t('Calendar.showMore', { count }),
   };
 
-  const events: CalendarEvent[] = useMemo(() => {
-    const allEvents: CalendarEvent[] = [];
-
-    interventions.forEach((intervention) => {
-      intervention.dates.forEach((entry) => {
-        const baseDate = parseISO(entry.datetime);
-        allEvents.push({
-          title: intervention.title,
-          start: baseDate,
-          end: new Date(baseDate.getTime() + intervention.duration * 60 * 1000),
-          status: entry.status,
-          feedback: entry.feedback,
-          _id: intervention._id,
-        });
-      });
-    });
-
-    return allEvents;
-  }, [interventions]);
-
-  const renderMonthEvent = ({ event }: { event: CalendarEvent }) => {
-    return (
-      <div
-        style={{
-          backgroundColor:
-            event.status === 'completed'
-              ? '#28a745'
-              : event.status === 'missed'
-                ? '#dc3545'
-                : event.status === 'upcoming'
-                  ? '#FFA500'
-                  : '#007bff',
-          color: 'white',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          fontSize: '0.75rem',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-        title={event.title} // Tooltip on hover
-      >
-        {event.title}
-      </div>
-    );
-  };
-
-  const eventStyleGetter = (event: any) => {
-    return {
-      style: {
+  const renderMonthEvent = ({ event }) => (
+    <div
+      style={{
         backgroundColor:
           event.status === 'completed'
             ? '#28a745'
@@ -133,21 +86,43 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
                 ? '#FFA500'
                 : '#007bff',
         color: 'white',
-        borderRadius: '5px',
-        padding: '4px',
-        margin: '2px 0',
-        height: 'auto',
-      },
-    };
-  };
+        padding: '2px 6px',
+        borderRadius: '4px',
+        fontSize: '0.75rem',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      title={event.title}
+    >
+      {event.title}
+    </div>
+  );
+
+  const eventStyleGetter = (event) => ({
+    style: {
+      backgroundColor:
+        event.status === 'completed'
+          ? '#28a745'
+          : event.status === 'missed'
+            ? '#dc3545'
+            : event.status === 'upcoming'
+              ? '#FFA500'
+              : '#007bff',
+      color: 'white',
+      borderRadius: '5px',
+      padding: '4px',
+      margin: '2px 0',
+    },
+  });
 
   return (
     <div style={{ height: '80vh' }}>
       <Calendar
         localizer={localizer}
         events={events}
-        date={date} // ← required for navigation
-        onNavigate={handleNavigate} // ← handle date changes
+        date={date}
+        onNavigate={handleNavigate}
         views={['month', 'week', 'day', 'agenda']}
         view={view}
         onView={(v) => setView(v)}
@@ -159,7 +134,7 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
         messages={calendarMessages}
         components={{
           month: {
-            event: renderMonthEvent, // 👈 Custom render for month events
+            event: renderMonthEvent,
           },
         }}
         formats={{
@@ -168,9 +143,7 @@ const InterventionCalendar: React.FC<InterventionCalendarProps> = ({
           agendaDateFormat: (date) => format(date, 'PP', { locale: currentLocale }),
           agendaTimeFormat: (date) => format(date, 'p', { locale: currentLocale }),
           timeGutterFormat: (date) => format(date, 'p', { locale: currentLocale }),
-          eventTimeRangeFormat: () => {
-            return '';
-          },
+          eventTimeRangeFormat: () => '',
           agendaHeaderFormat: ({ start, end }) =>
             `${format(start, 'P', { locale: currentLocale })} – ${format(end, 'P', { locale: currentLocale })}`,
         }}
