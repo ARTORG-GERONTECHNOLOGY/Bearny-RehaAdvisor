@@ -1,0 +1,790 @@
+{
+  "URL": "http://159.100.246.89:8000/api",
+  "apiEndpoints": {
+    "getPatientInterventions": "/api/patient/interventions/today",
+    "submitFeedback": "/api/patient/feedback",
+    "markAsDone": "/api/patient/complete"
+  },
+  "defaultSettings": {
+    "defaultLanguage": "en"
+  },
+  "patientInfo": {
+    "sex": ["Male", "Female"],
+    "functionPat": {
+      "Cardiology": [
+        "Myocardial Infarction (Heart Attack)",
+        "Coronary Artery Disease",
+        "High blood pressure",
+        "Stroke",
+        "Arrhytmia",
+        "Congestive heart failure",
+        "Coronary Artery Disease (CAD)",
+        "Stable Angina",
+        "Unstable Angina",
+        "Silent Ischemia",
+        "Prinzmetal's (Variant) Angina",
+        "Atrial Fibrillation (AFib)",
+        "Atrial Flutter",
+        "Ventricular Tachycardia",
+        "Ventricular Fibrillation",
+        "Supraventricular Tachycardia (SVT)",
+        "Bradycardia (Slow Heart Rate)",
+        "Heart Block (1st, 2nd, or 3rd degree)",
+        "Dilated Cardiomyopathy",
+        "Hypertrophic Cardiomyopathy",
+        "Restrictive Cardiomyopathy",
+        "Arrhythmogenic Right Ventricular Cardiomyopathy (ARVC)",
+        "Congestive Heart Failure (CHF)",
+        "Left-Sided Heart Failure",
+        "Right-Sided Heart Failure",
+        "Systolic vs. Diastolic Heart Failure",
+        "Acute Decompensated Heart Failure",
+        "Pulmonary Hypertension",
+        "Pulmonary Embolism (PE)",
+        "Peripheral Arterial Disease (PAD)",
+        "Aortic Aneurysm",
+        "Aortic Dissection",
+        "Atrial Septal Defect (ASD)",
+        "Ventricular Septal Defect (VSD)",
+        "Patent Ductus Arteriosus (PDA)",
+        "Tetralogy of Fallot",
+        "Coarctation of the Aorta",
+        "Transposition of the Great Arteries (TGA)",
+        "Endocarditis",
+        "Pericarditis",
+        "Myocarditis",
+        "Rheumatic Heart Disease",
+        "Aortic Stenosis",
+        "Mitral Stenosis",
+        "Tricuspid Stenosis",
+        "Aortic Regurgitation",
+        "Mitral Regurgitation",
+        "Tricuspid Regurgitation",
+        "Pulmonary Valve Disease"
+      ],
+      "Neurology": [
+          "Stroke", 
+          "Parkinson",
+          "Alzheimer's Disease",
+          "Multiple Sclerosis",
+          "Epilepsy",
+          "Migraine",
+          "Amyotrophic Lateral Sclerosis (ALS)",
+          "Traumatic Brain Injury (TBI)",
+          "Peripheral Neuropathy",
+          "Huntington's Disease",
+          "Dementia (unspecified)",
+          "Guillain-Barré Syndrome",
+          "Cerebral Palsy",
+          "Myasthenia Gravis",
+          "Brain Tumor",
+          "Encephalitis",
+          "Meningitis",
+          "Trigeminal Neuralgia",
+          "Tension-type Headache",
+          "Restless Legs Syndrome"
+      ],
+      "Orthopedics": [
+        "Back Pain",
+    "Osteoarthritis",
+    "Rheumatoid Arthritis",
+    "Osteoporosis",
+    "Fracture (General)",
+    "Hip Fracture",
+    "Femoral Neck Fracture",
+    "Wrist Fracture (Colles Fracture)",
+    "Shoulder Dislocation",
+    "Rotator Cuff Tear",
+    "Anterior Cruciate Ligament (ACL) Injury",
+    "Meniscus Tear",
+    "Tennis Elbow (Lateral Epicondylitis)",
+    "Carpal Tunnel Syndrome",
+    "Scoliosis",
+    "Kyphosis",
+    "Lumbar Disc Herniation",
+    "Cervical Spondylosis",
+    "Plantar Fasciitis",
+    "Achilles Tendinitis",
+    "Bursitis (e.g., Hip, Shoulder)",
+    "Patellofemoral Pain Syndrome",
+    "Spinal Stenosis",
+    "Frozen Shoulder (Adhesive Capsulitis)",
+    "Ankle Sprain",
+    "Hip Osteonecrosis (Avascular Necrosis)"
+      ],
+      "Pediatrics": ["Asthma"]
+    },
+    "function": {
+      "Cardiology": {
+        "diagnosis": [
+          "Myocardial Infarction (Heart Attack)",
+          "Coronary Artery Disease",
+          "High blood pressure",
+          "Stroke",
+          "Arrhytmia",
+          "Congestive heart failure",
+          "Coronary Artery Disease (CAD)",
+                  "Stable Angina",
+        "Unstable Angina",
+        "Silent Ischemia",
+        "Prinzmetal's (Variant) Angina",
+        "Atrial Fibrillation (AFib)",
+        "Atrial Flutter",
+        "Ventricular Tachycardia",
+        "Ventricular Fibrillation",
+        "Supraventricular Tachycardia (SVT)",
+        "Bradycardia (Slow Heart Rate)",
+        "Heart Block (1st, 2nd, or 3rd degree)",
+        "Dilated Cardiomyopathy",
+        "Hypertrophic Cardiomyopathy",
+        "Restrictive Cardiomyopathy",
+        "Arrhythmogenic Right Ventricular Cardiomyopathy (ARVC)",
+        "Congestive Heart Failure (CHF)",
+        "Left-Sided Heart Failure",
+        "Right-Sided Heart Failure",
+        "Systolic vs. Diastolic Heart Failure",
+        "Acute Decompensated Heart Failure",
+        "Pulmonary Hypertension",
+        "Pulmonary Embolism (PE)",
+        "Peripheral Arterial Disease (PAD)",
+        "Aortic Aneurysm",
+        "Aortic Dissection",
+        "Atrial Septal Defect (ASD)",
+        "Ventricular Septal Defect (VSD)",
+        "Patent Ductus Arteriosus (PDA)",
+        "Tetralogy of Fallot",
+        "Coarctation of the Aorta",
+        "Transposition of the Great Arteries (TGA)",
+        "Endocarditis",
+        "Pericarditis",
+        "Myocarditis",
+        "Rheumatic Heart Disease",
+        "Aortic Stenosis",
+        "Mitral Stenosis",
+        "Tricuspid Stenosis",
+        "Aortic Regurgitation",
+        "Mitral Regurgitation",
+        "Tricuspid Regurgitation",
+        "Pulmonary Valve Disease"
+        ]
+      },
+      "Neurology": {
+        "diagnosis": [
+          "Stroke", 
+          "Parkinson",
+          "Alzheimer's Disease",
+          "Multiple Sclerosis",
+          "Epilepsy",
+          "Migraine",
+          "Amyotrophic Lateral Sclerosis (ALS)",
+          "Traumatic Brain Injury (TBI)",
+          "Peripheral Neuropathy",
+          "Huntington's Disease",
+          "Dementia (unspecified)",
+          "Guillain-Barré Syndrome",
+          "Cerebral Palsy",
+          "Myasthenia Gravis",
+          "Brain Tumor",
+          "Encephalitis",
+          "Meningitis",
+          "Trigeminal Neuralgia",
+          "Tension-type Headache",
+          "Restless Legs Syndrome"
+        ]
+      },
+      "Orthopedics": {
+        "diagnosis": [
+          "Back Pain",
+    "Osteoarthritis",
+    "Rheumatoid Arthritis",
+    "Osteoporosis",
+    "Fracture (General)",
+    "Hip Fracture",
+    "Femoral Neck Fracture",
+    "Wrist Fracture (Colles Fracture)",
+    "Shoulder Dislocation",
+    "Rotator Cuff Tear",
+    "Anterior Cruciate Ligament (ACL) Injury",
+    "Meniscus Tear",
+    "Tennis Elbow (Lateral Epicondylitis)",
+    "Carpal Tunnel Syndrome",
+    "Scoliosis",
+    "Kyphosis",
+    "Lumbar Disc Herniation",
+    "Cervical Spondylosis",
+    "Plantar Fasciitis",
+    "Achilles Tendinitis",
+    "Bursitis (e.g., Hip, Shoulder)",
+    "Patellofemoral Pain Syndrome",
+    "Spinal Stenosis",
+    "Frozen Shoulder (Adhesive Capsulitis)",
+    "Ankle Sprain",
+    "Hip Osteonecrosis (Avascular Necrosis)"
+        ]
+      },
+      "Pediatrics": {
+        "diagnosis": ["Asthma"]
+      },
+      "Sports Medicine": {
+        "diagnosis": ["Twisted ankle"]
+      },
+      "Psychiatry": {
+        "diagnosis": ["Depression"]
+      },
+      "Oncology": {
+        "diagnosis": ["Bone Cancer"]
+      }
+    },
+    "level_of_education": [
+      "High School",
+      "Associate Degree",
+      "Bachelor's Degree",
+      "Master's Degree",
+      "Doctorate",
+      "No Formal Education"
+    ],
+    "professional_status": [
+      "Employed Full-Time",
+      "Employed Part-Time",
+      "Self-Employed",
+      "Unemployed",
+      "Retired",
+      "Student"
+    ],
+    "marital_status": [
+      "Single",
+      "Married",
+      "Divorced",
+      "Widowed",
+      "In a Relationship",
+      "Separated"
+    ],
+    "social_support": [
+      "Weight Loss",
+      "Muscle Gain",
+      "Increased Flexibility",
+      "Pain Reduction",
+      "Stress Management",
+      "Increased Endurance",
+      "Improved Mobility",
+      "Overall Health Improvement",
+      "Disease Management",
+      "Enhanced Mental Health"
+    ],
+    "lifestyle": [
+      "Sedentary",
+      "Moderate Exercise",
+      "High Physical Activity",
+      "Smoker",
+      "Non-Smoker",
+      "Vegetarian",
+      "Vegan",
+      "Low-Carb Diet",
+      "High Protein Diet",
+      "Alcohol Use"
+    ],
+    "personal_goals": [
+      "Weight Loss",
+      "Muscle Gain",
+      "Increased Flexibility",
+      "Pain Reduction",
+      "Stress Management",
+      "Increased Endurance",
+      "Improved Mobility",
+      "Overall Health Improvement",
+      "Disease Management",
+      "Enhanced Mental Health"
+    ]
+  },
+  "therapistInfo": {
+    "specializations": [
+      "Cardiology",
+      "Neurology",
+      "Orthopedics",
+      "Pediatrics",
+      "Sports Medicine",
+      "Psychiatry",
+      "Dermatology",
+      "Oncology",
+      "Endocrinology",
+      "Physical Therapy"
+    ],
+    "clinics": [
+      "Downtown Clinic",
+      "Health Plus Clinic",
+      "Northside Medical Center",
+      "Wellness and Care Center",
+      "Family Health Clinic",
+      "Elite Medical Group",
+      "Premier Care Clinic",
+      "Rehab & Recovery Clinic",
+      "Holistic Health Center",
+      "Neighborhood Wellness Clinic"
+    ]
+  },
+  "Users": ["Therapist"],
+  "userInfo": {
+    "userTypes": ["Therapist", "Researcher", "Patient", "Admin"],
+    "formLength": {
+      "Therapist": [7, 9],
+      "Researcher": [7, 9],
+      "Patient": [5, 9, 12, 17]
+    }
+  },
+  "RecomendationInfo": {
+    "frequency": ["Daily", "Every-2nd-day", "Weekly", "Once"],
+    "frequencyDays": [1, 2, 7, 0],
+    "types": [
+      "Articles",
+      "Educational Material",
+      "Exercises",
+      "Audio",
+      "Video",
+      "PDFs",
+      "Websites",
+      "Manuals",
+      "Apps",
+      "Games"
+    ],
+    "tags": [
+      "Nondigital Activity",
+      "Digital Activity",
+      "Mild",
+      "Moderate",
+      "Intense",
+      "Easy",
+      "Medium",
+      "Dificult",
+      "At Home",
+      "Outside",
+      "indoor",
+      "Outdoor",
+      "Anywhere",
+      "Sports Facility",
+      "No Equipment Needed",
+      "Minimal Equipment",
+      "Wearable-Assisted",
+      "VR/AR-Based",
+      "Physical Therapy (PT)",
+      "Occupational Therapy (OT)",
+      "Speech Therapy (ST)",
+      "Psychological Therapy",
+      "Cognitive Rehabilitation",
+      "Nutritional Therapy",
+      "Social Reintegration",
+      "Pain Management",
+      "Mobility Enhancement",
+      "Balance & Coordination",
+      "Endurance Training",
+      "Muscle Strengthening",
+      "Cognitive Skills Development",
+      "Communication & Speech",
+      "Weight-Bearing Restrictions",
+      "Range of Motion (ROM) Precautions"
+    ],
+    "benefits": [
+      "Schlaf",
+      "Psychische Gesundheit",
+      "Mobility",
+      "kardiorespiratorische Fitness",
+      "Muskelkraft"
+    ],
+    "intensity": ["Core", "Supportive"]
+  },
+  "RehaInfo": ["< 30 days", "30-60 days", "60-90 days", "> 90 days"],
+  "PatientForm": [
+    {
+      "title": "Personal Information",
+      "fields": [
+        {
+          "name": "firstName",
+          "label": "First Name",
+          "type": "text",
+          "required": true,
+          "be_name": "first_name"
+        },
+        {
+          "name": "lastName",
+          "label": "Last Name",
+          "type": "text",
+          "required": true,
+          "be_name": "name"
+        },
+        {
+          "name": "email",
+          "label": "Email Address",
+          "type": "email",
+          "required": true,
+          "be_name": "email"
+        },
+        {
+          "name": "phone",
+          "label": "Phone Number",
+          "type": "text",
+          "required": false,
+          "be_name": "phone"
+        },
+        {
+          "name": "careGiver",
+          "label": "Care Giver (Optional)",
+          "type": "text",
+          "required": false,
+          "be_name": "care_giver"
+        },
+        {
+          "name": "password",
+          "label": "Password",
+          "type": "text",
+          "required": true,
+          "be_name": "password"
+        },
+        { "name": "repeatPassword", "label": "Confirm Password", "type": "text", "required": true }
+      ]
+    },
+    {
+      "title": "Additional Details",
+      "fields": [
+        {
+          "name": "age",
+          "label": "Birth Date",
+          "type": "date",
+          "required": true,
+          "be_name": "age"
+        },
+        {
+          "name": "sex",
+          "label": "Gender",
+          "type": "dropdown",
+          "required": true,
+          "options": ["Male", "Female"],
+          "be_name": "sex"
+        }
+      ]
+    },
+    {
+      "title": "Medical Information",
+      "fields": [
+        {
+          "name": "function",
+          "label": "Speciality",
+          "type": "multi-select",
+          "required": true,
+          "options": [
+            "Cardiology",
+            "Neurology",
+            "Orthopedics",
+            "Pediatrics",
+            "Sports Medicine",
+            "Psychiatry",
+            "Oncology"
+          ],
+          "be_name": "function"
+        },
+        {
+          "name": "diagnosis",
+          "label": "Diagnosis",
+          "type": "multi-select",
+          "required": false,
+          "be_name": "diagnosis"
+        },
+        {
+          "name": "medicationIntake",
+          "label": "Medication (Optional)",
+          "type": "text",
+          "required": false,
+          "be_name": "medication_intake"
+        },
+        {
+          "name": "rehaEndDate",
+          "label": "Rehabilitation End Date",
+          "type": "date",
+          "required": true,
+          "be_name": "reha_end_date"
+        }
+      ]
+    }
+  ],
+
+  "TherapistForm": [
+    {
+      "title": "Personal Information",
+      "fields": [
+        {
+          "name": "firstName",
+          "label": "First Name",
+          "type": "text",
+          "required": true,
+          "be_name": "first_name"
+        },
+        {
+          "name": "lastName",
+          "label": "Last Name",
+          "type": "text",
+          "required": true,
+          "be_name": "name"
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "type": "email",
+          "required": true,
+          "be_name": "email"
+        },
+        { "name": "phone", "label": "Phone", "type": "text", "required": true, "be_name": "phone" },
+        {
+          "name": "password",
+          "label": "Password",
+          "type": "password",
+          "required": true,
+          "be_name": "password"
+        },
+        {
+          "name": "repeatPassword",
+          "label": "Repeat Password",
+          "type": "password",
+          "required": true,
+          "be_name": "repeatPassword"
+        },
+        {
+          "name": "userType",
+          "label": "User Type",
+          "type": "dropdown",
+          "required": true,
+          "options": ["Therapist", "Admin"],
+          "be_name": "userType"
+        }
+      ]
+    },
+    {
+      "title": "Additional Information",
+      "fields": [
+        {
+          "name": "specialisation",
+          "label": "Specialisation",
+          "type": "multi-select",
+          "required": true,
+          "be_name": "specializations",
+          "options": [
+            "Cardiology",
+            "Neurology",
+            "Orthopedics",
+            "Pediatrics",
+            "Sports Medicine",
+            "Psychiatry",
+            "Dermatology",
+            "Oncology",
+            "Endocrinology",
+            "Physical Therapy"
+          ]
+        },
+        {
+          "name": "clinic",
+          "label": "Clinics",
+          "type": "multi-select",
+          "required": true,
+          "be_name": "clinics",
+          "options": [
+            "Downtown Clinic",
+            "Health Plus Clinic",
+            "Northside Medical Center",
+            "Wellness and Care Center",
+            "Family Health Clinic",
+            "Elite Medical Group",
+            "Premier Care Clinic",
+            "Rehab & Recovery Clinic",
+            "Holistic Health Center",
+            "Neighborhood Wellness Clinic"
+          ]
+        }
+      ]
+    }
+  ],
+  "UserProfile": {
+    "Specialisation": "specializations",
+    "Clinics": "clinics",
+    "First Name": "first_name",
+    "Last Name": "name",
+    "Email": "email",
+    "Phone": "phone"
+  },
+  "FeedbackQuestions": [
+    {
+      "title": "Intervention",
+      "fields": [
+        {
+          "name": "wholeIntervention",
+          "label": "Haben Sie die gesamte Intervention durchgeführt?",
+          "type": "text",
+          "be_name": "whole_intervention"
+        },
+        {
+          "name": "opinion",
+          "label": "Wie hat es Ihnen gefallen?",
+          "type": "dropdown",
+          "required": false,
+          "options": ["Negativ", "Neutral", "Positiv"],
+          "be_name": "opinion"
+        },
+        {
+          "name": "opinionExp",
+          "label": "Könnten Sie näher erläutern, warum Sie so über die Intervention denken?",
+          "type": "text",
+          "be_name": "opinion_exp"
+        },
+        {
+          "name": "keyWords",
+          "label": "Wählen Sie die Worte, die Ihre Gedanken zu dem Einsatz am besten beschreiben.",
+          "type": "multi-select",
+          "required": true,
+          "be_name": "key_words",
+          "options": [
+            "Bewegend",
+            "Kräftigend",
+            "Energiegeladen",
+            "Anstrengend",
+            "Motivierend",
+            "Erfrischend",
+            "Bewusstseinserweiternd",
+            "Geistig aktivierend",
+            "Lehrreich",
+            "Achtsam"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ICF",
+      "fields": [
+        {
+          "name": "Funktionsfähigkeit",
+          "label": "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.",
+          "type": "text",
+          "be_name": "Functionality",
+          "Topic": "Functionality"
+        },
+        {
+          "name": "Dependency",
+          "label": "Wie gross war Ihr Bedarf an Hilfe bei Schlafproblemen?",
+          "type": "text",
+          "be_name": "dependency",
+          "Topic": "Need or dependency"
+        }
+      ]
+    }
+  ],
+  "PatientInitialQuestionaire":[
+    {
+      "title": "Life Style Information",
+      "fields": [
+        {
+          "name": "professionalStatus",
+          "label": "Professional Status",
+          "type": "dropdown",
+          "required": false,
+          "options": [
+            "Employed Full-Time",
+            "Employed Part-Time",
+            "Self-Employed",
+            "Unemployed",
+            "Retired",
+            "Student"
+          ],
+          "be_name": "professional_status"
+        },
+        {
+          "name": "levelOfEducation",
+          "label": "Level of Education",
+          "type": "dropdown",
+          "required": false,
+          "options": [
+            "High School",
+            "Associate Degree",
+            "Bachelor's Degree",
+            "Master's Degree",
+            "Doctorate",
+            "No Formal Education"
+          ],
+          "be_name": "level_of_education"
+        },
+        {
+          "name": "civilStatus",
+          "label": "Civil Status",
+          "type": "dropdown",
+          "required": false,
+          "options": ["Single", "Married", "Divorced", "Widowed", "In a Relationship", "Separated"],
+          "be_name": "marital_status"
+        },
+        {
+          "name": "socialSupport",
+          "label": "Social Support",
+          "type": "multi-select",
+          "required": false,
+          "be_name": "social_support",
+          "options": [
+            "Close family member",
+            "Trusted friend",
+            "Spouse or partner",
+            "Support group",
+            "Religious or spiritual advisor",
+            "Pet companionship",
+            "Help with household chores",
+            "Transportation assistance",
+            "Help with shopping or errands",
+            "Meal preparation",
+            "Childcare support",
+            "Financial help from family or friends",
+            "Therapist or counselor",
+            "Social worker",
+            "Case manager",
+            "Primary care physician",
+            "Rehabilitation specialist",
+            "Mental health professional",
+            "Community center programs",
+            "Neighborhood or local clubs",
+            "Religious or faith-based community",
+            "Peer support groups",
+            "Volunteer organizations",
+            "Online forums or communities"
+          ]
+        },
+        {
+          "name": "lifestyle",
+          "label": "Lifestyle",
+          "type": "multi-select",
+          "required": false,
+          "options": [
+            "Sedentary",
+            "Moderate Exercise",
+            "High Physical Activity",
+            "Smoker",
+            "Non-Smoker",
+            "Vegetarian",
+            "Vegan",
+            "Low-Carb Diet",
+            "High Protein Diet",
+            "Alcohol Use"
+          ],
+          "be_name": "lifestyle"
+        },
+        {
+          "name": "lifeGoals",
+          "label": "Life Goals",
+          "type": "multi-select",
+          "required": false,
+          "options": [
+            "Weight Loss",
+            "Muscle Gain",
+            "Increased Flexibility",
+            "Pain Reduction",
+            "Stress Management",
+            "Increased Endurance",
+            "Improved Mobility",
+            "Overall Health Improvement",
+            "Disease Management",
+            "Enhanced Mental Health"
+          ],
+          "be_name": "personal_goals"
+        
+  }]
+    }]
+}
