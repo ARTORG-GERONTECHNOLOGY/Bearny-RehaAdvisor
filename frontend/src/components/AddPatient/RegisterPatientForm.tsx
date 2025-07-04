@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Button } from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import { useTranslation } from 'react-i18next';
+import InfoBubble from '../common/InfoBubble';
 
 interface FormData {
   [key: string]: string | number | string[] | boolean;
@@ -70,11 +71,11 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     const currentStep = formSteps[step];
 
     currentStep.fields.forEach((field) => {
-      if (
-        field.required &&
-        (!formData[field.name] ||
-          (Array.isArray(formData[field.name]) && (formData[field.name] as string[]).length === 0))
-      ) {
+      const value = formData[field.name];
+      const isEmpty =
+        !value || (Array.isArray(value) && value.length === 0) || value === undefined;
+
+      if (field.required && isEmpty) {
         newErrors[field.name] = `${t(field.label)} ${t('is required.')}`;
       }
     });
@@ -83,11 +84,12 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
     }
 
-    if (formData.email && currentStep.fields.some((f) => f.name === 'email')) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email as string)) {
-        newErrors.email = t('Invalid email format.');
-      }
+    if (
+      formData.email &&
+      currentStep.fields.some((f) => f.name === 'email') &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email as string)
+    ) {
+      newErrors.email = t('Invalid email format.');
     }
 
     if (
@@ -114,10 +116,11 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
+
     if (validateStep()) {
       try {
         const response = await apiClient.post('/auth/register/', formData);
-        if (response.status === 200 || response.status === 201) {
+        if ([200, 201].includes(response.status)) {
           setRegistered(true);
           setPatientId(response.data.id);
         }
@@ -130,105 +133,80 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h3>{t(formSteps[step]?.title)}</h3>
+    <Form onSubmit={handleSubmit}>
+      <h4 className="mb-4">{t(formSteps[step]?.title)}</h4>
 
       {formSteps[step]?.fields.map((field) => (
-        <div key={field.name} className="mb-3">
-          <label htmlFor={field.name} className="form-label">
+        <Form.Group controlId={field.name} className="mb-3" key={field.name}>
+          <Form.Label>
             {t(field.label)}
-          </label>
+            {field.tooltip && <InfoBubble tooltip={t(field.tooltip)} />}
+          </Form.Label>
 
           {field.type === 'multi-select' ? (
             <Select
-              id={field.name}
               isMulti
+              id={field.name}
               options={
-                field.name === 'diagnosis' &&
-                Array.isArray(formData.function) &&
-                formData.function.length > 0
-                  ? Array.isArray(formData.function)
-                    ? formData.function.flatMap(
-                        (spec) =>
-                          specialityDiagnosisMap[spec]?.map((diag) => ({
-                            value: diag,
-                            label: t(diag),
-                          })) || []
-                      )
-                    : []
-                  : field.options?.map((option) => ({ value: option, label: t(option) }))
+                field.name === 'diagnosis' && Array.isArray(formData.function) && formData.function.length > 0
+                  ? formData.function.flatMap(
+                      (spec) =>
+                        specialityDiagnosisMap[spec]?.map((diag) => ({
+                          value: diag,
+                          label: t(diag),
+                        })) || []
+                    )
+                  : field.options?.map((option) => ({ value: option, label: t(option) })) || []
               }
-              value={(formData[field.name] as string[]).map((value) => ({ value, label: value }))}
-              onChange={(selectedOptions) =>
-                handleMultiSelectChange([...selectedOptions], field.name)
-              }
+              value={(formData[field.name] as string[]).map((v) => ({ value: v, label: t(v) }))}
+              onChange={(options) => handleMultiSelectChange(options, field.name)}
             />
           ) : field.type === 'dropdown' ? (
-            <select
-              id={field.name}
-              className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+            <Form.Control
+              as="select"
               value={(formData[field.name] as string) || ''}
               onChange={handleChange}
+              isInvalid={!!errors[field.name]}
             >
-              <option value="">
-                {t('Select')} {t(field.label)}
-              </option>
+              <option value="">{t('Select')} {t(field.label)}</option>
               {field.options?.map((option) => (
                 <option key={option} value={option}>
                   {t(option)}
                 </option>
               ))}
-            </select>
+            </Form.Control>
           ) : (
-            <input
+            <Form.Control
               type={field.type}
-              id={field.name}
-              className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
               value={(formData[field.name] as string) || ''}
               onChange={handleChange}
+              isInvalid={!!errors[field.name]}
             />
           )}
 
-          {errors[field.name] && <div className="text-danger mt-1">{errors[field.name]}</div>}
-        </div>
+          {errors[field.name] && (
+            <Form.Text className="text-danger">{errors[field.name]}</Form.Text>
+          )}
+        </Form.Group>
       ))}
 
       {apiError && <div className="alert alert-danger">{apiError}</div>}
-      {registered && (
-        <div className="alert alert-success">
-          <p>
-            {t(
-              'The patient has been registered. Account information has been sent to the given email.'
-            )}
-          </p>
-          <p>
-            <strong>{t('Patient ID:')}</strong> {patientId}
-          </p>
-          <p>
-            <strong>{t('Access Word:')}</strong> {formData.password}
-          </p>
+
+      {registered ? (
+        <div className="alert alert-success mt-4">
+          <p>{t('The patient has been registered. Account information has been sent to the given email.')}</p>
+          <p><strong>{t('Patient ID:')}</strong> {patientId}</p>
+          <p><strong>{t('Access Word:')}</strong> {formData.password}</p>
           <Link to="/patient_home">{t('Click here to log in')}</Link>
         </div>
+      ) : (
+        <div className="d-flex justify-content-between mt-4">
+          {step > 0 && <Button variant="secondary" onClick={prevStep}>{t('Back')}</Button>}
+          {step < formSteps.length - 1 && <Button variant="primary" onClick={nextStep}>{t('Next')}</Button>}
+          {step === formSteps.length - 1 && <Button type="submit" variant="success">{t('Submit')}</Button>}
+        </div>
       )}
-
-      <div className="d-flex justify-content-between mt-4">
-        {step > 0 && !registered && (
-          <Button variant="secondary" onClick={prevStep}>
-            {t('Back')}
-          </Button>
-        )}
-        {step < formSteps.length - 1 && !registered && (
-          <Button variant="primary" onClick={nextStep}>
-            {t('Next')}
-          </Button>
-        )}
-        {step === formSteps.length - 1 && !registered && (
-          <Button type="submit" variant="success">
-            {t('Submit')}
-          </Button>
-        )}
-      </div>
-    </form>
+    </Form>
   );
 };
 

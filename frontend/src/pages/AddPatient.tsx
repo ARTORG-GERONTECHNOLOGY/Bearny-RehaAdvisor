@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+
 import RegisterPatientForm from '../components/AddPatient/RegisterPatientForm';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -9,11 +10,16 @@ import authStore from '../stores/authStore';
 
 const AddPatient: React.FC = () => {
   const { t } = useTranslation();
+
+  // Restrict to therapists
+  useAuthGuard('Therapist');
+
   const isAuthenticated = !!authStore.userType;
   const therapistId = authStore.id;
 
-  // Ensure only therapists can access this page
-  useAuthGuard('Therapist');
+  useEffect(() => {
+    document.title = t('AddaNewPatient') || 'Add New Patient';
+  }, [t]);
 
   return (
     <Container fluid className="d-flex flex-column vh-100">

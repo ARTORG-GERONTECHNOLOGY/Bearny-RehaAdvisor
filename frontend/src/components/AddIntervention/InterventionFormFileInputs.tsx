@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import InfoBubble from '../common/InfoBubble';
 
 interface InterventionFormFileInputsProps {
   show: boolean;
@@ -14,7 +15,7 @@ const InterventionFormFileInputs: React.FC<InterventionFormFileInputsProps> = ({
   const { t } = useTranslation();
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+    const file = e.target.files?.[0] || null;
     onFileChange(file);
   };
 
@@ -22,13 +23,19 @@ const InterventionFormFileInputs: React.FC<InterventionFormFileInputsProps> = ({
 
   return (
     <Form.Group controlId="mediaFile" className="mt-3">
-      <Form.Label>{t('UploadMediaFile')}</Form.Label>
+      <Form.Label>
+        {t('UploadMediaFile')}{' '}
+        <InfoBubble tooltip={t('Use this to upload a related video, audio, image, or PDF file.')} />
+      </Form.Label>
       <Form.Control
         type="file"
-        accept="image/*, video/*, audio/*, .pdf"
+        accept="image/*,video/*,audio/*,application/pdf"
         onChange={handleFileInputChange}
+        aria-label={t('UploadMediaFile')}
       />
-      <Form.Text className="text-muted">{t('SupportedFormats')}: JPG, PNG, MP4, MP3, PDF</Form.Text>
+      <Form.Text className="text-muted">
+        {t('SupportedFormats')}: JPG, PNG, MP4, MP3, PDF
+      </Form.Text>
     </Form.Group>
   );
 };
