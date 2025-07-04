@@ -62,8 +62,9 @@ const getMediaTypeLabelFromUrl = (
   return 'Unknown';
 };
 
+// -------------------- FIXED UTILITY FUNCTION --------------------
 const getPatientTypeInfo = (patientTypes: PatientType[], patientFunction: string) =>
-  patientTypes.find((pt) => pt.type === patientFunction[0]);
+  patientTypes.find((pt) => pt.type === patientFunction);
 
 // -------------------- COMPONENT --------------------
 const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
@@ -99,9 +100,8 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
   }, [show, fetchInterventions]);
 
   const filteredInterventions = recommendations.filter((rec) => {
-    const matchesContentType =
-      !contentTypeFilter ||
-      getMediaTypeLabelFromUrl(rec.media_url, rec.link, t) === contentTypeFilter;
+    const mediaType = getMediaTypeLabelFromUrl(rec.media_url, rec.link, t);
+    const matchesContentType = !contentTypeFilter || mediaType === contentTypeFilter;
 
     const matchesRecommendationType =
       !recommendationTypeFilter ||
@@ -120,7 +120,7 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
       <Modal.Body>
         {loading ? (
           <div className="text-center">
-            <Spinner animation="border" variant="primary" role="status" />
+            <Spinner animation="border" role="status" aria-label="Loading recommendations" />
           </div>
         ) : (
           <>
@@ -158,7 +158,9 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
 
             <ListGroup>
               {filteredInterventions.length === 0 ? (
-                <div className="text-center">{t('No interventions available')}</div>
+                <ListGroup.Item className="text-center text-muted">
+                  {t('No interventions available')}
+                </ListGroup.Item>
               ) : (
                 filteredInterventions.map((rec) => {
                   const alreadyAdded = existingInterventions.includes(rec._id);
@@ -176,7 +178,7 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
                             {getMediaTypeLabelFromUrl(rec.media_url, rec.link, t)}
                           </Badge>
                         </h5>
-                        <p>{t(rec.description)}</p>
+                        <p>{rec.description}</p>
                         <p>
                           <strong>{t('Frequency:')}</strong>{' '}
                           {patientTypeInfo?.frequency || t('None')}
@@ -187,7 +189,11 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
                         </p>
                       </div>
                       {!alreadyAdded ? (
-                        <Button variant="success" onClick={() => onAdd(rec._id)}>
+                        <Button
+                          variant="success"
+                          onClick={() => onAdd(rec._id)}
+                          aria-label={`Add ${rec.title}`}
+                        >
                           {t('Add')}
                         </Button>
                       ) : (

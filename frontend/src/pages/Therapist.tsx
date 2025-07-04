@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
+import { Button, Col, Container, Form, Row, Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -47,7 +47,7 @@ const Therapist: React.FC = () => {
       setFilteredPatients(res.data);
     } catch (err) {
       console.error('Error fetching patients:', err);
-      setError('Failed to fetch patients. Please try again later.');
+      setError(t('Failed to fetch patients. Please try again later.'));
     }
   };
 
@@ -107,6 +107,12 @@ const Therapist: React.FC = () => {
     setFilteredPatients(filtered);
   }, [searchTerm, genderFilter, durationFilter, patients]);
 
+  const renderTooltip = (text: string) => (
+    <OverlayTrigger overlay={<Tooltip>{text}</Tooltip>} placement="top">
+      <span className="ms-2 text-muted" style={{ cursor: 'pointer' }}>🛈</span>
+    </OverlayTrigger>
+  );
+
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header isLoggedIn={authStore.isAuthenticated} />
@@ -118,9 +124,7 @@ const Therapist: React.FC = () => {
             {error && (
               <ErrorAlert
                 message={error}
-                onClose={() => {
-                  setError('');
-                }}
+                onClose={() => setError('')}
               />
             )}
           </Col>
@@ -185,9 +189,18 @@ const Therapist: React.FC = () => {
               style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}
             >
               <tr>
-                <th>{t('Full Name')}</th>
-                <th>{t('Birth Year')}</th>
-                <th>{t('Type')}</th>
+                <th>
+                  {t('Full Name')}
+                  {renderTooltip(t('Patient first name and last name'))}
+                </th>
+                <th>
+                  {t('Birth Year')}
+                  {renderTooltip(t('Extracted from stored birthdate'))}
+                </th>
+                <th>
+                  {t('Type')}
+                  {renderTooltip(t('Primary diagnosis or rehab category'))}
+                </th>
                 <th>{t('Gender')}</th>
                 <th>{t('Actions')}</th>
               </tr>
@@ -214,13 +227,12 @@ const Therapist: React.FC = () => {
                       onClick={() =>
                         handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
                       }
+                      className="me-2"
                     >
                       {t('Go to Rehab Table')}
                     </Button>
-                  </td>
-                  <td>
                     <Button
-                      variant="primary"
+                      variant="secondary"
                       onClick={() =>
                         handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
                       }

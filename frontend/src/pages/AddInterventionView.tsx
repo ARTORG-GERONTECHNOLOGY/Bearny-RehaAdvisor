@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Container, Form } from 'react-bootstrap';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -28,6 +28,8 @@ const AddInterventionView: React.FC = observer(() => {
   const [formData, setFormData] = useState<typeof defaultForm>(defaultForm);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const alertRef = useRef<HTMLDivElement>(null);
 
   const diagnoses = config?.patientInfo?.function?.[authStore.specialisation]?.diagnosis || [];
 
@@ -41,6 +43,14 @@ const AddInterventionView: React.FC = observer(() => {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    if (error || success) {
+      setTimeout(() => {
+        alertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [error, success]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -51,10 +61,11 @@ const AddInterventionView: React.FC = observer(() => {
   };
 
   const handlePatientTypeChange = (index: number, field: string, value: string | boolean) => {
-    const updated = [...formData.patientTypes];
-
-    updated[index][field] = value;
-    setFormData((prev) => ({ ...prev, patientTypes: updated }));
+    setFormData((prev) => {
+      const updated = [...prev.patientTypes];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, patientTypes: updated };
+    });
   };
 
   const addPatientType = () => {
@@ -68,6 +79,7 @@ const AddInterventionView: React.FC = observer(() => {
     e.preventDefault();
     setError('');
     setSuccess(false);
+    setIsSubmitting(true);
 
     try {
       const payload = new FormData();
@@ -84,14 +96,16 @@ const AddInterventionView: React.FC = observer(() => {
 
       if (res.status === 200) {
         setSuccess(true);
-        setFormData(defaultForm);
+        setFormData({ ...defaultForm, mediaFile: null });
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
-        setError(err.response.data.error || 'Error adding intervention');
+        setError(err.response.data.error || t('Erroraddingintervention'));
       } else {
-        setError('An unexpected error occurred');
+        setError(t('Unexpectederror'));
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -103,8 +117,10 @@ const AddInterventionView: React.FC = observer(() => {
         <div className="main-content p-5" style={{ maxWidth: 650, width: '100%' }}>
           <h2 className="mb-4 text-center">{t('AddNewIntervention')}</h2>
 
-          {error && <Alert variant="danger">{error}</Alert>}
-          {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
+          <div ref={alertRef}>
+            {error && <Alert variant="danger">{error}</Alert>}
+            {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
+          </div>
 
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="title">
@@ -160,6 +176,7 @@ const AddInterventionView: React.FC = observer(() => {
             <InterventionFormFileInputs
               show={formData.contentType !== 'app'}
               onFileChange={handleFileChange}
+              key={formData.mediaFile ? formData.mediaFile.name : 'fileinput'}
             />
 
             <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
@@ -170,13 +187,13 @@ const AddInterventionView: React.FC = observer(() => {
               onChange={handlePatientTypeChange}
             />
 
-            <Button variant="link" className="mt-3" onClick={addPatientType}>
+            <Button variant="link" className="mt-3" onClick={addPatientType} aria-label="Add another patient type">
               <FaPlus /> {t('AddAnotherPatientType')}
             </Button>
 
             {!success && (
-              <Button type="submit" className="mt-4 w-100">
-                {t('Submit')}
+              <Button type="submit" className="mt-4 w-100" disabled={isSubmitting}>
+                {isSubmitting ? t('Submitting...') : t('Submit')}
               </Button>
             )}
           </Form>
