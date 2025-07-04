@@ -1,8 +1,26 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+import os
 
+DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE = True
 BASE_DIR = Path(__file__).resolve().parent.parent
+# settings.py
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'beat.db',  # or another file path
+    }
+}
+
+CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, 'celery_worker.state')
+DATABASE_ROUTERS = ['core.routers.BeatRouter']
+
+# Redis broker
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "biglongsecretstuffhere")
 APPEND_SLASH = True
@@ -18,6 +36,7 @@ INSTALLED_APPS = [
     "core",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_celery_beat"
 ]
 
 MIDDLEWARE = [
@@ -108,7 +127,7 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "info@reha-advisor.ch")
-EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"] #"nrk37CAYsTW&3sJ"
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #"nrk37CAYsTW&3sJ"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 import sys

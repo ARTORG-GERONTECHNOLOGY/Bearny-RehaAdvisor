@@ -67,4 +67,5 @@ dependencies:
       - pyjwt==2.4.0
       - pytz==2024.2
       - sqlparse==0.5.1
+      - django-celery-beat==2.8.1
 

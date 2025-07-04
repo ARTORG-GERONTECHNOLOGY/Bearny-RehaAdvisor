@@ -35,9 +35,58 @@ services:
       - ./backend/:/app
       - static:/app/static
       - media:/app/media
-      - ./frontend/src/config/:/app/config 
+      - ./frontend/src/config/:/app/config
     depends_on:
       - db-dev
+      - redis
+    networks:
+      - telereha
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: celery
+    restart: always
+    command: celery -A api worker --loglevel=info --statedb=/app/celery_worker.state
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - django-dev
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_WORKER_PREFETCH_MULTIPLIER=1
+      - CELERY_WORKER_STATE_DB=/app/celery_worker.state
+    networks:
+      - telereha
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: celery-beat
+    restart: always
+    command: sh -c "DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True celery -A api beat --loglevel=info"
+
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - django-dev
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=api.settings
+      - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
     networks:
       - telereha
 
