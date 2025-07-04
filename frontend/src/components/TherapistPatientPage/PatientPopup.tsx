@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
+import {
+  Button,
+  Col,
+  Form,
+  Modal,
+  Row,
+  Spinner,
+  Alert,
+} from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import apiClient from '../../api/client';
@@ -7,6 +15,7 @@ import authStore from '../../stores/authStore';
 import config from '../../config/config.json';
 import { PatientType } from '../../types/index';
 import ErrorAlert from '../common/ErrorAlert';
+
 interface PatientPopupProps {
   patient_id: PatientType;
   show: boolean;
@@ -23,7 +32,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
@@ -50,8 +59,8 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
       );
 
       setFormData({ ...normalizedData, ...fetchedData });
-    } catch (error) {
-      console.error('Error fetching patient data:', error);
+    } catch (err) {
+      console.error('Error fetching patient data:', err);
       setError(t('Failed to fetch patient data. Please try again later.'));
     } finally {
       setLoading(false);
@@ -62,7 +71,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    setFormData({ ...formData, [id]: value });
+    setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleMultiSelectChange = (
@@ -89,60 +98,69 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const handleSave = async () => {
     if (!validateInputs()) return;
     try {
-      await apiClient.put(`users/${localStorage.getItem('selectedPatient')}/profile/`, formData);
+      await apiClient.put(`users/${patient_id._id}/profile/`, formData);
       setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating patient data:', error);
+    } catch (err) {
+      console.error('Error updating patient data:', err);
+      setError(t('Failed to update patient data. Please try again.'));
     }
   };
 
   const handleDelete = async () => {
     try {
-      await apiClient.delete(`users/${localStorage.getItem('selectedPatient')}/profile/`);
+      await apiClient.delete(`users/${patient_id._id}/profile/`);
       handleClose();
-    } catch (error) {
-      console.error('Error deleting patient data:', error);
+    } catch (err) {
+      console.error('Error deleting patient:', err);
+      setError(t('Failed to delete patient. Please try again.'));
     }
   };
 
   const renderField = (field: any) => {
     const fieldValue = formData[field.be_name];
     const isDisabled = !isEditing || field.be_name === 'access_word';
-    const commonProps = {
-      name: field.be_name,
-      id: field.be_name,
-      value: fieldValue || '',
-      onChange: handleChange,
-      disabled: isDisabled,
-      required: field.required,
-    };
+    const fieldId = `field-${field.be_name}`;
 
     if (field.type === 'multi-select') {
       const options =
         field.be_name === 'diagnosis' && formData.function?.length
           ? formData.function.flatMap(
-              (speciality: string) =>
-                specialityDiagnosisMap[speciality]?.map((diag) => ({
+              (spec: string) =>
+                specialityDiagnosisMap[spec]?.map((diag) => ({
                   value: diag,
                   label: t(diag),
                 })) || []
             )
-          : field.options?.map((opt: string) => ({ value: opt, label: t(opt) }));
+          : field.options?.map((opt: string) => ({
+              value: opt,
+              label: t(opt),
+            })) || [];
 
       return (
         <Select
-          id={field.be_name}
+          inputId={fieldId}
           isMulti
+          isDisabled={isDisabled}
           options={options}
-          value={(fieldValue || []).map((val: string) => ({ value: val, label: t(val) }))}
-          onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.be_name)}
+          value={(fieldValue || []).map((val: string) => ({
+            value: val,
+            label: t(val),
+          }))}
+          onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
+          aria-label={t(field.label)}
         />
       );
     }
 
     if (field.type === 'dropdown') {
       return (
-        <Form.Select {...commonProps}>
+        <Form.Select
+          id={fieldId}
+          value={fieldValue || ''}
+          onChange={handleChange}
+          disabled={isDisabled}
+          aria-label={t(field.label)}
+        >
           <option value="">{t('Select an option')}</option>
           {field.options.map((opt: string) => (
             <option key={opt} value={opt}>
@@ -156,20 +174,32 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     if (field.type === 'date') {
       return (
         <Form.Control
+          id={fieldId}
           type="date"
-          {...commonProps}
           value={fieldValue ? new Date(fieldValue).toISOString().split('T')[0] : ''}
+          onChange={handleChange}
+          disabled={isDisabled}
+          aria-label={t(field.label)}
         />
       );
     }
 
-    return <Form.Control type={field.type} {...commonProps} />;
+    return (
+      <Form.Control
+        id={fieldId}
+        type={field.type}
+        value={fieldValue || ''}
+        onChange={handleChange}
+        disabled={isDisabled}
+        aria-label={t(field.label)}
+      />
+    );
   };
 
   if (!patient_id || loading) {
     return (
       <div className="text-center my-4">
-        <Spinner animation="border" role="status" />
+        <Spinner animation="border" role="status" aria-label={t('Loading')} />
         <p className="mt-3">{t('Loading')}...</p>
       </div>
     );
@@ -182,16 +212,16 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
           <Modal.Title>{formData.name || t('Patient')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+          {error && <ErrorAlert message={error} onClose={() => setError('')} />}
           {config.PatientForm.map((section, idx) => (
-            <div key={idx}>
+            <div key={idx} className="mb-4">
               <h5 className="mb-3">{t(section.title)}</h5>
-              <Row>
+              <Row className="g-3">
                 {section.fields
-                  .filter((field) => field.type !== 'password' && field.type !== 'repeatPassword')
-                  .map((field, fieldIdx) => (
-                    <Col md={6} key={fieldIdx}>
-                      <Form.Group className="mb-2">
+                  .filter((f) => !['password', 'repeatPassword'].includes(f.type))
+                  .map((field, index) => (
+                    <Col xs={12} md={6} key={index}>
+                      <Form.Group controlId={`field-${field.be_name}`}>
                         <Form.Label>{t(field.label)}</Form.Label>
                         {renderField(field)}
                       </Form.Group>
@@ -216,7 +246,11 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
               <Button variant="warning" onClick={() => setIsEditing(true)}>
                 {t('Edit')}
               </Button>
-              <Button variant="danger" onClick={() => setShowConfirmDelete(true)}>
+              <Button
+                variant="danger"
+                onClick={() => setShowConfirmDelete(true)}
+                aria-label={t('DeletePatient')}
+              >
                 {t('DeletePatient')}
               </Button>
             </>
@@ -225,9 +259,14 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal show={showConfirmDelete} onHide={() => setShowConfirmDelete(false)} centered>
+      <Modal
+        show={showConfirmDelete}
+        onHide={() => setShowConfirmDelete(false)}
+        centered
+        aria-labelledby="delete-confirmation-title"
+      >
         <Modal.Header closeButton>
-          <Modal.Title>{t('ConfirmDeletion')}</Modal.Title>
+          <Modal.Title id="delete-confirmation-title">{t('ConfirmDeletion')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>{t('DeleteConfirPAt')}</p>
