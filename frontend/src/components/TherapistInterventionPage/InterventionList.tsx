@@ -23,7 +23,9 @@ interface Props {
 }
 
 const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => {
-  const [translatedTitles, setTranslatedTitles] = useState<Record<string, { title: string; lang: string | null }>>({});
+  const [translatedTitles, setTranslatedTitles] = useState<
+    Record<string, { title: string; lang: string | null }>
+  >({});
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -76,6 +78,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
         const translated = translatedTitles[rec._id];
         const title = translated?.title || rec.title;
         const originalLang = translated?.lang;
+        const isTranslated =
+          originalLang &&
+          title.trim().toLowerCase() !== rec.title.trim().toLowerCase();
 
         return (
           <ListGroup.Item
@@ -83,11 +88,16 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
             action
             onClick={() => onClick(rec)}
             className="d-flex justify-content-between align-items-center flex-wrap"
-            aria-label={t('Intervention')} // Accessibility for screen readers
+            aria-label={t('Intervention')}
           >
             <div className="d-flex flex-column">
-              <strong>{title}</strong>
-              {originalLang && (
+              <strong
+                {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}
+              >
+                {title}
+              </strong>
+
+              {isTranslated && (
                 <small className="text-muted fst-italic">
                   ({t('Translated from')}: {originalLang})
                 </small>

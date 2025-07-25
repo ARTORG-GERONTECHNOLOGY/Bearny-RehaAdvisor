@@ -8,6 +8,8 @@ import {
   Button,
   Form,
   Container,
+  OverlayTrigger,
+  Tooltip,
 } from 'react-bootstrap';
 import { Document, Page } from 'react-pdf';
 import Microlink from '@microlink/react';
@@ -42,12 +44,12 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
       if (item?.description) {
         const { translatedText, detectedSourceLanguage } = await translateText(item.description);
         setTranslatedText(translatedText);
-        setDetectedLang(detectedSourceLanguage);
+        setDetectedLang(translatedText !== item.description ? detectedSourceLanguage : '');
       }
       if (item?.title) {
         const { translatedText: tTitle, detectedSourceLanguage: tLang } = await translateText(item.title);
         setTranslatedTitle(tTitle);
-        setTitleLang(tLang);
+        setTitleLang(tTitle !== item.title ? tLang : '');
       }
     };
     if (show) translate();
@@ -133,7 +135,17 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
     <>
       <Modal show={show} onHide={handleClose} centered size="lg" scrollable>
         <Modal.Header closeButton>
-          <Modal.Title as="h2">{translatedTitle || item.title}</Modal.Title>
+          <Modal.Title as="h2">
+            {titleLang ? (
+              <OverlayTrigger
+                overlay={<Tooltip>{item.title}</Tooltip>}
+              >
+                <span>{translatedTitle}</span>
+              </OverlayTrigger>
+            ) : (
+              item.title
+            )}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && <ErrorAlert message={error} onClose={() => setError('')} />}
@@ -143,11 +155,12 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
               <Col xs={12} md={6}>
                 <h5>Description</h5>
                 <p className="text-muted">
-                  {translatedText || item.description}
-                  {detectedLang && (
-                    <span className="ms-2 text-secondary">
-                      (Original: {detectedLang})
-                    </span>
+                  {detectedLang ? (
+                    <OverlayTrigger overlay={<Tooltip>{item.description}</Tooltip>}>
+                      <span>{translatedText}</span>
+                    </OverlayTrigger>
+                  ) : (
+                    item.description
                   )}
                 </p>
               </Col>

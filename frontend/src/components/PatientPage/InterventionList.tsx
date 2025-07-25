@@ -7,8 +7,6 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Badge,
-  OverlayTrigger,
-  Tooltip,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { startOfWeek, addDays, format, isToday, isPast } from 'date-fns';
@@ -179,23 +177,32 @@ const InterventionList = () => {
     const filtered = recommendations.filter((rec) => rec.dates.some((d) => d.startsWith(dateKey)));
 
     return (
-      <Col
+      <div
         key={dateKey}
-        style={{ flex: isWeekView ? '0 0 14.28%' : '0 0 100%', maxWidth: isWeekView ? '14.28%' : '100%' }}
-        className="mb-3"
+        style={{
+          flex: isWeekView ? '0 0 280px' : '1 0 100%',
+          maxWidth: isWeekView ? '280px' : '100%',
+          minWidth: isWeekView ? '260px' : '100%',
+          padding: '0 0.5rem',
+        }}
       >
         <h6 className="text-center">{format(date, 'EEE dd.MM', { locale: currentLocale })}</h6>
         {filtered.map((rec) => (
-          <Card key={rec.intervention_id} className="mb-3" onClick={() => setSelectedItem(rec)} style={{ cursor: 'pointer' }}>
+          <Card
+            key={rec.intervention_id}
+            className="mb-3"
+            onClick={() => setSelectedItem(rec)}
+            style={{ cursor: 'pointer', minHeight: 300 }}
+          >
             {rec.preview_img && (
               <img
                 src={rec.preview_img}
                 alt="preview"
-                style={{ width: '100%', height: 200, objectFit: 'cover', objectPosition: 'center' }}
+                style={{ width: '100%', height: 180, objectFit: 'cover' }}
               />
             )}
             <Card.Body>
-              <Card.Title>
+              <Card.Title style={{ fontSize: '1rem' }}>
                 {rec.translated_title}{' '}
                 {rec.titleLang && (
                   <small className="text-muted">
@@ -203,20 +210,22 @@ const InterventionList = () => {
                   </small>
                 )}
               </Card.Title>
-              <Card.Text className="text-muted">
+              <Card.Text style={{ fontSize: '0.9rem' }}>
                 {rec.translated_description?.slice(0, 50)}...
                 {rec.descLang && (
                   <span className="text-muted ms-2">
                     ({t('Original language:')} {rec.descLang})
                   </span>
                 )}
-                <div>{t('Duration')}: {rec.duration} {t('minutes')}</div>
+                <div>
+                  {t('Duration')}: {rec.duration} {t('minutes')}
+                </div>
               </Card.Text>
             </Card.Body>
             <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
           </Card>
         ))}
-      </Col>
+      </div>
     );
   };
 
@@ -229,7 +238,17 @@ const InterventionList = () => {
         <h5 className="text-center mb-3">
           {format(weekDates[0], 'dd.MM')} - {format(weekDates[6], 'dd.MM')} ({t('Week')} {weekNumber})
         </h5>
-        <Row className="g-3">{weekDates.map((date) => renderDayColumn(date, true))}</Row>
+        <div
+          style={{
+            display: 'flex',
+            overflowX: 'auto',
+            paddingBottom: '1rem',
+            scrollbarWidth: 'thin',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {weekDates.map((date) => renderDayColumn(date, true))}
+        </div>
       </>
     );
   };
@@ -250,8 +269,7 @@ const InterventionList = () => {
 
   return (
     <div className="p-3">
-      {/* Navigation and Toggle View */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <Button onClick={() => handleNavigate('prev')} title={t('Go back')}>
           {t('Previous')}
         </Button>
