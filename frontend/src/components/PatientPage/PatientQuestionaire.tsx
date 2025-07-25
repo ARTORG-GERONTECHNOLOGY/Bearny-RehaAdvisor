@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
@@ -40,16 +40,15 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
 
   const handleSave = async () => {
     try {
-      const payload = {
+      await apiClient.post(`/users/${patient_id}/initial-questionaire/`, {
         ...formData,
-        patient_id: patient_id, // support both object or string ID
-      };
-
-      await apiClient.post(`/users/${patient_id}/initial-questionaire/`, formData);
-    } catch (error) {
-      console.error('Error updating patient data:', error);
+        patient_id,
+      });
+      handleClose();
+    } catch (err: any) {
+      console.error('Error saving questionnaire:', err);
+      setError(t('Failed to submit questionnaire'));
     }
-    handleClose();
   };
 
   const renderField = (field: any) => {
@@ -60,27 +59,32 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       value: fieldValue || '',
       onChange: handleChange,
       required: field.required,
+      'aria-label': t(field.label),
     };
 
     if (field.type === 'multi-select') {
-      const options = field.options?.map((opt: string) => ({ value: opt, label: t(opt) }));
-
+      const options = field.options?.map((opt: string) => ({ value: opt, label: t(opt) })) || [];
       return (
         <Select
           id={field.be_name}
           isMulti
           options={options}
-          value={(fieldValue || []).map((val: string) => ({ value: val, label: t(val) }))}
-          onChange={(selectedOptions) => handleMultiSelectChange(selectedOptions, field.be_name)}
+          placeholder={t('Select options')}
+          value={(fieldValue || []).map((val: string) => ({
+            value: val,
+            label: t(val),
+          }))}
+          onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
         />
       );
     }
 
     if (field.type === 'dropdown') {
+      const options = field.options || [];
       return (
         <Form.Select {...commonProps}>
           <option value="">{t('Select an option')}</option>
-          {field.options.map((opt: string) => (
+          {options.map((opt: string) => (
             <option key={opt} value={opt}>
               {t(opt)}
             </option>
@@ -99,7 +103,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       );
     }
 
-    return <Form.Control type={field.type} {...commonProps} />;
+    return <Form.Control type={field.type} placeholder={t(field.placeholder || '')} {...commonProps} />;
   };
 
   if (!patient_id) {
@@ -112,37 +116,34 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   }
 
   return (
-    <>
-      <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
-        <Modal.Header closeButton>
-          <Modal.Title>{t('Initial Questionaire')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-          {config.PatientInitialQuestionaire.map((section, idx) => (
-            <div key={idx}>
-              <h5 className="mb-3">{t(section.title)}</h5>
-
-              {section.fields
-                .filter((field) => field.type !== 'password' && field.type !== 'repeatPassword')
-                .map((field, fieldIdx) => (
-                  <Row>
-                    <Form.Group className="mb-2">
-                      <Form.Label>{t(field.label)}</Form.Label>
-                      {renderField(field)}
-                    </Form.Group>
-                  </Row>
-                ))}
-            </div>
-          ))}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="success" onClick={handleSave}>
-            {t('Submit')}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </>
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
+      <Modal.Header closeButton>
+        <Modal.Title>{t('Initial Questionnaire')}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {error && <ErrorAlert message={error} onClose={() => setError('')} />}
+        {config.PatientInitialQuestionaire.map((section, idx) => (
+          <div key={idx} className="mb-4">
+            <h5 className="mb-3">{t(section.title)}</h5>
+            {section.fields
+              .filter((field) => !['password', 'repeatPassword'].includes(field.type))
+              .map((field, fieldIdx) => (
+                <Row key={field.be_name || `${field.label}-${fieldIdx}`} className="mb-3">
+                  <Form.Group as={Col}>
+                    <Form.Label>{t(field.label)}</Form.Label>
+                    {renderField(field)}
+                  </Form.Group>
+                </Row>
+              ))}
+          </div>
+        ))}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="success" onClick={handleSave}>
+          {t('Submit')}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };
 
