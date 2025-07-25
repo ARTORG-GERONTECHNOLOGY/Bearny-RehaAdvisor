@@ -1,65 +1,61 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Row, Col, ToggleButtonGroup, ToggleButton, Badge } from 'react-bootstrap';
+import {
+  Button,
+  Card,
+  Row,
+  Col,
+  ToggleButtonGroup,
+  ToggleButton,
+  Badge,
+} from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { startOfWeek, addDays, format, isToday, isPast } from 'date-fns';
 import { enUS, de, fr, it } from 'date-fns/locale';
-import { translateText } from '../../utils/translate';
-
 import apiClient from '../../api/client';
 import PatientInterventionPopUp from './PatientInterventionPopUp';
 import FeedbackPopup from './FeedbackPopup';
 import PatientQuestionaire from './PatientQuestionaire';
+import { translateText } from '../../utils/translate';
 
 const InterventionList = () => {
   const { t, i18n } = useTranslation();
   const [recommendations, setRecommendations] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [feedbackItem, setFeedbackItem] = useState(null);
-  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [feedbackQuestions, setFeedbackQuestions] = useState([]);
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [showHealthPopup, setShowHealthPopup] = useState(false);
-  const [showPatientPopup, setShowPatientPopup] = useState(false); // TODO
+  const [showPatientPopup, setShowPatientPopup] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
-  // ✅ Map language to date-fns locale
-  const localeMap = {
-    en: enUS,
-    de: de,
-    fr: fr,
-    it: it,
-  };
-
+  const localeMap = { en: enUS, de, fr, it };
   const currentLocale = useMemo(() => localeMap[i18n.language] || enUS, [i18n.language]);
 
   useEffect(() => {
     fetchInterventions();
     getInitialQuestionnaire();
-    getQuestionnaire();
+    getHealthQuestionnaire();
   }, []);
 
-  const getQuestionnaire = async () => {
+  const getHealthQuestionnaire = async () => {
     try {
       const { data: res } = await apiClient.get(
         `/patients/get-questions/Healthstatus/${localStorage.getItem('id')}/`
       );
-      const language = i18n.language || 'en';
-      if (!res.questions[0]) return;
+      if (!res.questions?.length) return;
 
-      const formattedQuestions = res.questions.map((q) => ({
+      const lang = i18n.language || 'en';
+      const formatted = res.questions.map((q) => ({
         questionKey: q.questionKey,
-        label:
-          q.translations.find((t) => t.language === language)?.text ||
-          q.translations[0]?.text ||
-          '',
+        label: q.translations.find((t) => t.language === lang)?.text || q.translations[0]?.text || '',
         options: q.possibleAnswers || [],
         type: q.answerType,
       }));
-
-      setFeedbackQuestions(formattedQuestions);
+      setFeedbackQuestions(formatted);
       setShowHealthPopup(true);
-    } catch (error) {
-      console.error('Error fetching health questionnaire:', error);
+    } catch (err) {
+      console.error('Error loading health questionnaire:', err);
     }
   };
 
@@ -68,10 +64,9 @@ const InterventionList = () => {
       const { data: res } = await apiClient.get(
         `users/${localStorage.getItem('id')}/initial-questionaire/`
       );
-
       setShowPatientPopup(res.data);
-    } catch (error) {
-      console.error('Error checking questionnaire:', error);
+    } catch (err) {
+      console.error('Error checking initial questionnaire:', err);
     }
   };
 
@@ -80,19 +75,18 @@ const InterventionList = () => {
       const { data } = await apiClient.get(
         `/patients/rehabilitation-plan/patient/${localStorage.getItem('id')}/`
       );
-      const language = i18n.language || 'en';
+      const lang = i18n.language || 'en';
 
       const translated = await Promise.all(
         data.map(async (rec) => {
           const { translatedText: title, detectedSourceLanguage: titleLang } = await translateText(
             rec.intervention_title,
-            language
+            lang
           );
           const { translatedText: desc, detectedSourceLanguage: descLang } = await translateText(
             rec.description || '',
-            language
+            lang
           );
-
           return {
             ...rec,
             translated_title: title,
@@ -102,52 +96,47 @@ const InterventionList = () => {
           };
         })
       );
-
-      setRecommendations(translated || []);
-    } catch (error) {
-      console.error('Failed to load interventions', error);
+      setRecommendations(translated);
+    } catch (err) {
+      console.error('Failed to load interventions:', err);
     }
   };
 
-  const handleMarkAsDone = async (interventionId) => {
+  const handleMarkAsDone = async (interventionId: string) => {
     try {
-      const res = await apiClient.post('interventions/complete/', {
+      await apiClient.post('interventions/complete/', {
         patient_id: localStorage.getItem('id'),
         intervention_id: interventionId,
       });
 
-      if (res.status === 200) {
-        const updated = recommendations.map((rec) =>
+      setRecommendations((prev) =>
+        prev.map((rec) =>
           rec.intervention_id === interventionId
             ? {
                 ...rec,
                 completion_dates: [...rec.completion_dates, new Date().toISOString()],
               }
             : rec
-        );
-        setRecommendations(updated);
-        setFeedbackItem(interventionId);
+        )
+      );
+      setFeedbackItem(interventionId);
 
-        const { data: res } = await apiClient.get(
-          `/patients/get-questions/Intervention/${localStorage.getItem('id')}/${interventionId}/`
-        );
-        const language = i18n.language || 'en';
+      const { data: res } = await apiClient.get(
+        `/patients/get-questions/Intervention/${localStorage.getItem('id')}/${interventionId}/`
+      );
 
-        const formattedQuestions = res.questions.map((q) => ({
-          questionKey: q.questionKey,
-          label:
-            q.translations.find((t) => t.language === language)?.text ||
-            q.translations[0]?.text ||
-            '',
-          options: q.possibleAnswers || [],
-          type: q.answerType,
-        }));
+      const lang = i18n.language || 'en';
+      const formatted = res.questions.map((q) => ({
+        questionKey: q.questionKey,
+        label: q.translations.find((t) => t.language === lang)?.text || q.translations[0]?.text || '',
+        options: q.possibleAnswers || [],
+        type: q.answerType,
+      }));
 
-        setFeedbackQuestions(formattedQuestions);
-        setShowFeedbackPopup(true);
-      }
-    } catch (error) {
-      console.error('Error marking as done', error);
+      setFeedbackQuestions(formatted);
+      setShowFeedbackPopup(true);
+    } catch (err) {
+      console.error('Error marking intervention as done:', err);
     }
   };
 
@@ -167,6 +156,7 @@ const InterventionList = () => {
             e.stopPropagation();
             handleMarkAsDone(rec.intervention_id);
           }}
+          title={t('Click when completed')}
         >
           {t('Ididit')}
         </Button>
@@ -179,7 +169,6 @@ const InterventionList = () => {
         <Badge bg="secondary">{t('Missed')}</Badge>
       );
     }
-
     return <Badge bg="info">{t('Upcoming')}</Badge>;
   };
 
@@ -188,17 +177,14 @@ const InterventionList = () => {
     const filtered = recommendations.filter((rec) => rec.dates.some((d) => d.startsWith(dateKey)));
 
     return (
-      <Col
+      <div
         key={dateKey}
-        xs={12}
-        sm={isWeekView ? 6 : 12}
-        md={isWeekView ? 4 : 12}
-        style={
-          isWeekView
-            ? { flex: '0 0 14.28%', maxWidth: '14.28%' }
-            : { flex: '0 0 100%', maxWidth: '100%' }
-        }
-        className="mb-3"
+        style={{
+          flex: isWeekView ? '0 0 280px' : '1 0 100%',
+          maxWidth: isWeekView ? '280px' : '100%',
+          minWidth: isWeekView ? '260px' : '100%',
+          padding: '0 0.5rem',
+        }}
       >
         <h6 className="text-center">{format(date, 'EEE dd.MM', { locale: currentLocale })}</h6>
         {filtered.map((rec) => (
@@ -206,22 +192,17 @@ const InterventionList = () => {
             key={rec.intervention_id}
             className="mb-3"
             onClick={() => setSelectedItem(rec)}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', minHeight: 300 }}
           >
             {rec.preview_img && (
               <img
                 src={rec.preview_img}
-                alt=""
-                style={{
-                  width: '100%',
-                  height: '200px',
-                  objectFit: 'cover',
-                  objectPosition: 'center',
-                }}
+                alt="preview"
+                style={{ width: '100%', height: 180, objectFit: 'cover' }}
               />
             )}
             <Card.Body>
-              <Card.Title>
+              <Card.Title style={{ fontSize: '1rem' }}>
                 {rec.translated_title}{' '}
                 {rec.titleLang && (
                   <small className="text-muted">
@@ -229,19 +210,13 @@ const InterventionList = () => {
                   </small>
                 )}
               </Card.Title>
-
-              <Card.Text className="text-muted">
-                <div>
-                  {rec.translated_description.length > 50
-                    ? `${rec.translated_description.slice(0, 50)}...`
-                    : rec.translated_description}
-                  {rec.descLang && (
-                    <span className="text-muted ms-2">
-                      ({t('Original language:')} {rec.descLang})
-                    </span>
-                  )}
-                </div>
-
+              <Card.Text style={{ fontSize: '0.9rem' }}>
+                {rec.translated_description?.slice(0, 50)}...
+                {rec.descLang && (
+                  <span className="text-muted ms-2">
+                    ({t('Original language:')} {rec.descLang})
+                  </span>
+                )}
                 <div>
                   {t('Duration')}: {rec.duration} {t('minutes')}
                 </div>
@@ -250,7 +225,7 @@ const InterventionList = () => {
             <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
           </Card>
         ))}
-      </Col>
+      </div>
     );
   };
 
@@ -258,14 +233,22 @@ const InterventionList = () => {
     const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekDates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
     const weekNumber = format(start, 'I');
-
     return (
       <>
         <h5 className="text-center mb-3">
-          {format(weekDates[0], 'dd.MM', { locale: currentLocale })} -{' '}
-          {format(weekDates[6], 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
+          {format(weekDates[0], 'dd.MM')} - {format(weekDates[6], 'dd.MM')} ({t('Week')} {weekNumber})
         </h5>
-        <Row className="g-3">{weekDates.map((date) => renderDayColumn(date, true))}</Row>
+        <div
+          style={{
+            display: 'flex',
+            overflowX: 'auto',
+            paddingBottom: '1rem',
+            scrollbarWidth: 'thin',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {weekDates.map((date) => renderDayColumn(date, true))}
+        </div>
       </>
     );
   };
@@ -275,20 +258,21 @@ const InterventionList = () => {
       <h5 className="text-center mb-3">
         {format(selectedDate, 'EEEE, dd.MM.yyyy', { locale: currentLocale })}
       </h5>
-      <Row className="g-3">{renderDayColumn(selectedDate, false)}</Row>
+      <Row className="g-3">{renderDayColumn(selectedDate)}</Row>
     </>
   );
 
-  const handleNavigate = (direction) => {
-    const modifier = direction === 'next' ? 1 : -1;
+  const handleNavigate = (dir: 'prev' | 'next') => {
     const delta = viewMode === 'day' ? 1 : 7;
-    setSelectedDate(addDays(selectedDate, delta * modifier));
+    setSelectedDate((prev) => addDays(prev, dir === 'next' ? delta : -delta));
   };
 
   return (
     <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <Button onClick={() => handleNavigate('prev')}>{t('Previous')}</Button>
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <Button onClick={() => handleNavigate('prev')} title={t('Go back')}>
+          {t('Previous')}
+        </Button>
         <ToggleButtonGroup type="radio" name="viewMode" value={viewMode} onChange={setViewMode}>
           <ToggleButton id="day" value="day" variant="outline-primary">
             {t('Day')}
@@ -297,30 +281,32 @@ const InterventionList = () => {
             {t('Week')}
           </ToggleButton>
         </ToggleButtonGroup>
-        <Button onClick={() => handleNavigate('next')}>{t('Next')}</Button>
+        <Button onClick={() => handleNavigate('next')} title={t('Go forward')}>
+          {t('Next')}
+        </Button>
       </div>
 
       {viewMode === 'week' ? renderWeekView() : renderDayView()}
 
       {selectedItem && !showFeedbackPopup && (
         <PatientInterventionPopUp
-          show={true}
+          show
           item={selectedItem}
           handleClose={() => setSelectedItem(null)}
         />
       )}
       {showFeedbackPopup && (
         <FeedbackPopup
-          show={true}
+          show
           interventionId={feedbackItem || ''}
-          questions={feedbackQuestions || []}
+          questions={feedbackQuestions}
           onClose={() => setShowFeedbackPopup(false)}
         />
       )}
       {showHealthPopup && (
         <FeedbackPopup
-          show={true}
-          interventionId={''}
+          show
+          interventionId=""
           questions={feedbackQuestions}
           onClose={() => setShowHealthPopup(false)}
         />
@@ -328,7 +314,7 @@ const InterventionList = () => {
       {showPatientPopup && (
         <PatientQuestionaire
           patient_id={localStorage.getItem('id')}
-          show={true}
+          show
           handleClose={() => setShowPatientPopup(false)}
         />
       )}

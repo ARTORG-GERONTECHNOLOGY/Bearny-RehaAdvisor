@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
+import {
+  Button,
+  Col,
+  Container,
+  Form,
+  Row,
+  Card
+} from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+
 import ErrorAlert from '../components/common/ErrorAlert';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -47,7 +55,7 @@ const Therapist: React.FC = () => {
       setFilteredPatients(res.data);
     } catch (err) {
       console.error('Error fetching patients:', err);
-      setError('Failed to fetch patients. Please try again later.');
+      setError(t('Failed to fetch patients. Please try again later.'));
     }
   };
 
@@ -110,18 +118,12 @@ const Therapist: React.FC = () => {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header isLoggedIn={authStore.isAuthenticated} />
-
       <Container className="main-content mt-4">
         <WelcomeArea user="Therapist" />
         <Row>
           <Col>
             {error && (
-              <ErrorAlert
-                message={error}
-                onClose={() => {
-                  setError('');
-                }}
-              />
+              <ErrorAlert message={error} onClose={() => setError('')} />
             )}
           </Col>
         </Row>
@@ -131,116 +133,102 @@ const Therapist: React.FC = () => {
           </Col>
         </Row>
 
-        <Row className="mb-3">
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="searchInput">
-              <Form.Control
-                type="text"
-                placeholder={t('Search Patients')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </Form.Group>
+        <Row className="mb-3 g-3">
+          <Col xs={12} md={4}>
+            <Form.Control
+              type="text"
+              placeholder={t('Search Patients')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </Col>
-
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="genderFilter">
-              <Form.Label className="visually-hidden">{t('Filter by Gender')}</Form.Label>
-              <Form.Select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
-                <option value="">{t('Filter by Gender')}</option>
-                {config.patientInfo.sex.map((gender: string) => (
-                  <option key={gender} value={gender}>
-                    {t(gender)}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+          <Col xs={12} md={4}>
+            <Form.Select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+            >
+              <option value="">{t('Filter by Gender')}</option>
+              {config.patientInfo.sex.map((gender: string) => (
+                <option key={gender} value={gender}>
+                  {t(gender)}
+                </option>
+              ))}
+            </Form.Select>
           </Col>
-
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Form.Group controlId="durationFilter">
-              <Form.Label className="visually-hidden">{t('Filter by Duration')}</Form.Label>
-              <Form.Select
-                value={durationFilter}
-                onChange={(e) => setDurationFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Duration')}</option>
-                {durationOptions.map((duration: string) => (
-                  <option key={duration} value={duration}>
-                    {t(duration)}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+          <Col xs={12} md={4}>
+            <Form.Select
+              value={durationFilter}
+              onChange={(e) => setDurationFilter(e.target.value)}
+            >
+              <option value="">{t('Filter by Duration')}</option>
+              {durationOptions.map((duration: string) => (
+                <option key={duration} value={duration}>
+                  {t(duration)}
+                </option>
+              ))}
+            </Form.Select>
           </Col>
         </Row>
 
-        <div
-          className="table-responsive shadow-sm p-3 mb-5 bg-white rounded"
-          style={{ maxHeight: '400px' }}
-        >
-          <Table bordered hover className="table-striped">
-            <thead
-              className="table-striped"
-              style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'white' }}
-            >
-              <tr>
-                <th>{t('Full Name')}</th>
-                <th>{t('Birth Year')}</th>
-                <th>{t('Type')}</th>
-                <th>{t('Gender')}</th>
-                <th>{t('Actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPatients.map((patient) => (
-                <tr key={patient._id}>
-                  <td>
-                    {patient.first_name} {patient.name}
-                    <Button
-                      variant="primary"
-                      onClick={() => handleItemClick(patient)}
-                      className="ms-3 py-1 px-2"
-                    >
-                      {t('Info')}
-                    </Button>
-                  </td>
-                  <td>{new Date(patient.age).getFullYear()}</td>
-                  <td>{t(patient.diagnosis)}</td>
-                  <td>{t(patient.sex)}</td>
-                  <td>
-                    <Button
-                      variant="primary"
-                      onClick={() =>
-                        handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
-                      }
-                    >
-                      {t('Go to Rehab Table')}
-                    </Button>
-                  </td>
-                  <td>
-                    <Button
-                      variant="primary"
-                      onClick={() =>
-                        handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
-                      }
-                    >
-                      {t('Go to Progress Page')}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
+        {filteredPatients.map((patient) => (
+          <Card key={patient._id} className="mb-4 shadow-sm">
+            <Card.Body>
+              <Card.Title>
+                {patient.first_name} {patient.name}
+              </Card.Title>
+              <Card.Text>
+                <strong>{t('Birth Year')}:</strong> {new Date(patient.age).getFullYear()} <br />
+                <strong>{t('Type')}:</strong> {t(patient.diagnosis)} <br />
+                <strong>{t('Gender')}:</strong> {t(patient.sex)}
+              </Card.Text>
+
+              <Row className="g-2">
+                <Col xs={12} sm={6} md={4}>
+                  <Button
+                    variant="success"
+                    className="w-100"
+                    onClick={() => handleItemClick(patient)}
+                  >
+                    {t('Info')}
+                  </Button>
+                </Col>
+                <Col xs={12} sm={6} md={4}>
+                  <Button
+                    variant="primary"
+                    className="w-100"
+                    onClick={() =>
+                      handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
+                    }
+                  >
+                    {t('Go to Rehab Table')}
+                  </Button>
+                </Col>
+                <Col xs={12} sm={12} md={4}>
+                  <Button
+                    variant="primary"
+                    className="w-100"
+                    onClick={() =>
+                      handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
+                    }
+                  >
+                    {t('Go to Progress Page')}
+                  </Button>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+        ))}
       </Container>
 
       {selectedItem && (
-        <PatientPopup patient_id={selectedItem} show={showPopup} handleClose={handleClosePopup} />
+        <PatientPopup
+          patient_id={selectedItem}
+          show={showPopup}
+          handleClose={handleClosePopup}
+        />
       )}
 
       <AddPatientPopup show={showPopupAdd} handleClose={handleClose} />
-
       <Footer />
     </div>
   );

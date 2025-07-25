@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
-const testQuestion = 'Testlauf Beispiel: Holzhacken';
-const realQuestions = [
+const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
+const REAL_QUESTIONS = [
   'Allgemeine Gesundheit',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
@@ -31,54 +31,54 @@ const realQuestions = [
   'Auf Gesundheit achten',
 ];
 
-const version = 'Version 7.1, 03.04.2025';
+const VERSION = 'Version 7.1, 03.04.2025';
 
 export default function HealthSlider() {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [answers, setAnswers] = useState([]);
+  const [answers, setAnswers] = useState<[string, number][]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [testMode, setTestMode] = useState(true);
   const [patientId, setPatientId] = useState('');
-  const spectrumRef = useRef(null);
+  const spectrumRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSliderMove = (clientY) => {
+  const currentQuestion = testMode ? TEST_QUESTION : REAL_QUESTIONS[questionIndex];
+  const progressPercent = testMode ? 0 : ((questionIndex + 1) / REAL_QUESTIONS.length) * 100;
+
+  const handleSliderMove = useCallback((clientY: number) => {
     const spectrum = spectrumRef.current;
+    if (!spectrum) return;
     const bounds = spectrum.getBoundingClientRect();
     let y = clientY - bounds.top;
     y = Math.max(0, Math.min(bounds.height, y));
     let percentage = Math.round(100 - (y / bounds.height) * 100);
     percentage = Math.min(98, Math.max(2, percentage));
     setSliderPosition(percentage);
-  };
-
-  const handleMouseDown = () => setIsDragging(true);
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleMouseMove = (e) => {
-    if (isDragging) handleSliderMove(e.clientY);
-  };
-
-  const handleTouchMove = (e) => {
-    if (isDragging && e.touches.length === 1) {
-      e.preventDefault();
-      handleSliderMove(e.touches[0].clientY);
-    }
-  };
+  }, []);
 
   useEffect(() => {
     const storedId = localStorage.getItem('patient_id');
     if (storedId) {
       setPatientId(storedId);
     } else {
-      const id = window.prompt('Bitte geben Sie Ihre Patienten-ID ein:');
-      if (id && id.trim()) {
-        const cleaned = id.trim();
-        setPatientId(cleaned);
+      const input = window.prompt('Bitte geben Sie Ihre Patienten-ID ein:');
+      if (input && input.trim()) {
+        const cleaned = input.trim();
         localStorage.setItem('patient_id', cleaned);
+        setPatientId(cleaned);
       }
     }
+
+    const handleMouseMove = (e: MouseEvent) => isDragging && handleSliderMove(e.clientY);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDragging && e.touches.length === 1) {
+        e.preventDefault();
+        handleSliderMove(e.touches[0].clientY);
+      }
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -91,13 +91,11 @@ export default function HealthSlider() {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, handleSliderMove]);
 
-  const exportResults = (answers) => {
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const fileName = `SUBJ_${patientId || 'Unbekannt'}-${version.replace(/\W+/g, '_')}-Date_${dateStr}.csv`;
-
+  const exportResults = (answers: [string, number][]) => {
+    const now = new Date().toISOString().split('T')[0];
+    const fileName = `SUBJ_${patientId || 'Unbekannt'}-${VERSION.replace(/\W+/g, '_')}-Date_${now}.csv`;
     const csvRows = ['Frage,Prozent', ...answers.map(([q, a]) => `"${q}",${a}`)];
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -120,8 +118,8 @@ export default function HealthSlider() {
       return;
     }
 
-    const updatedAnswers = [...answers, [realQuestions[questionIndex], sliderPosition]];
-    if (questionIndex < realQuestions.length - 1) {
+    const updatedAnswers = [...answers, [REAL_QUESTIONS[questionIndex], sliderPosition]];
+    if (questionIndex < REAL_QUESTIONS.length - 1) {
       setAnswers(updatedAnswers);
       setQuestionIndex(questionIndex + 1);
       setSliderPosition(50);
@@ -134,20 +132,17 @@ export default function HealthSlider() {
   const confirmAndExport = () => {
     exportResults(answers);
     alert('Fragebogen abgeschlossen!');
+    setAnswers([]);
     setQuestionIndex(0);
     setSliderPosition(50);
-    setAnswers([]);
     setShowSummary(false);
     setTestMode(true);
     localStorage.removeItem('patient_id');
     window.location.reload();
   };
 
-  const currentQuestion = testMode ? testQuestion : realQuestions[questionIndex];
-  const progressPercent = testMode ? 0 : ((questionIndex + 1) / realQuestions.length) * 100;
-
   return (
-    <div
+    <main
       style={{
         height: '100vh',
         padding: '2rem 1rem 3rem 1rem',
@@ -163,68 +158,35 @@ export default function HealthSlider() {
     >
       {showSummary ? (
         <div style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '2rem' }}>Vielen Dank für die Beantwortung der Fragen</h2>
-          <button onClick={confirmAndExport} style={{ padding: '1rem 2rem', fontSize: '1.5rem' }}>
+          <h2>Vielen Dank für die Beantwortung der Fragen</h2>
+          <button onClick={confirmAndExport} style={{ fontSize: '1.5rem', padding: '1rem 2rem' }}>
             Bestätigen & Exportieren
           </button>
         </div>
       ) : (
         <>
-          {/* Progress */}
-          <div
-            style={{ width: '100%', backgroundColor: '#ddd', height: '10px', borderRadius: '4px' }}
-          >
+          {/* Progress Bar */}
+          <div style={{ width: '100%', height: '10px', background: '#ddd', borderRadius: '4px' }}>
             <div
               style={{
                 width: `${progressPercent}%`,
                 height: '100%',
-                backgroundColor: '#4caf50',
+                background: '#4caf50',
                 borderRadius: '4px',
               }}
             />
           </div>
 
           {/* Question */}
-          <div
-            style={{
-              maxWidth: '900px',
-              width: '100%',
-              textAlign: 'center',
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              lineHeight: 1.4,
-              marginTop: '1rem',
-            }}
-          >
-            {testMode ? 'Testfrage' : `Frage ${questionIndex + 1}`}
-            <div style={{ marginTop: '0.5rem' }}>{currentQuestion}</div>
-          </div>
+          <section style={{ maxWidth: '900px', textAlign: 'center' }}>
+            <h2>{testMode ? 'Testfrage' : `Frage ${questionIndex + 1}`}</h2>
+            <p style={{ fontSize: '1.5rem' }}>{currentQuestion}</p>
+          </section>
 
-          {/* Slider Section */}
-          <div
-            style={{
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <div
-              style={{ color: '#80e0c2', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}
-            >
-              Sehr gut
-            </div>
-            {/* Top Cap */}
-            <div
-              style={{
-                height: '10px',
-                width: '120px',
-                backgroundColor: '#80e0c2',
-                borderRadius: '20px 20px 20px 20px',
-              }}
-            />
-
-            {/* Spectrum with tap-to-set */}
+          {/* Slider UI */}
+          <section style={{ textAlign: 'center' }}>
+            <div style={{ color: '#80e0c2', fontWeight: 'bold' }}>Sehr gut</div>
+            <div style={{ height: '10px', width: '120px', background: '#80e0c2', borderRadius: 20 }} />
             <div
               ref={spectrumRef}
               onClick={(e) => handleSliderMove(e.clientY)}
@@ -232,20 +194,17 @@ export default function HealthSlider() {
                 position: 'relative',
                 height: '400px',
                 width: '80px',
+                margin: '0 auto',
                 background: 'linear-gradient(180deg, #80e0c2, #efece7 50%, #c1839d)',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'center',
               }}
             >
-              {/* Slider Handle */}
               <div
-                onMouseDown={handleMouseDown}
-                role="slider"
+                onMouseDown={() => setIsDragging(true)}
                 onTouchStart={(e) => {
                   e.stopPropagation();
                   setIsDragging(true);
                 }}
+                role="slider"
                 style={{
                   position: 'absolute',
                   bottom: `${sliderPosition}%`,
@@ -259,33 +218,19 @@ export default function HealthSlider() {
                 }}
               />
             </div>
+            <div style={{ height: '10px', width: '120px', background: '#c1839d', borderRadius: 20 }} />
+            <div style={{ color: '#c1839d', fontWeight: 'bold' }}>Sehr schlecht</div>
+          </section>
 
-            {/* Bottom Cap */}
-            <div
-              style={{
-                height: '10px',
-                width: '120px',
-                backgroundColor: '#c1839d',
-                borderRadius: '20px 20px 20px 20px',
-              }}
-            />
-            <div
-              style={{ color: '#c1839d', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}
-            >
-              Sehr schlecht
-            </div>
-            {/* Next Button */}
-          </div>
           <button
             onClick={exportAndNext}
             style={{
-              padding: '1.2rem 3rem',
-              fontSize: '1.6rem',
-              backgroundColor: '#9d8d71',
-              color: 'white',
-              border: 'none',
+              padding: '1rem 3rem',
+              fontSize: '1.5rem',
+              background: '#9d8d71',
+              color: '#fff',
               borderRadius: '10px',
-              cursor: 'pointer',
+              border: 'none',
             }}
           >
             {testMode ? 'Interview starten' : 'Nächste Frage'}
@@ -293,22 +238,18 @@ export default function HealthSlider() {
         </>
       )}
 
-      {/* Footer */}
-      <div
+      <footer
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          width: '100%',
           fontSize: '1rem',
-          color: '#707070',
           position: 'fixed',
           bottom: 0,
-          left: 0,
-          right: 0,
+          width: '100%',
           padding: '0.5rem 1.5rem',
-          background: '#f6f4f0', // optional for contrast
-          zIndex: 10,
+          background: '#f6f4f0',
+          color: '#707070',
         }}
       >
         <button
@@ -316,21 +257,13 @@ export default function HealthSlider() {
             localStorage.removeItem('patient_id');
             window.location.reload();
           }}
-          style={{
-            fontSize: '1rem',
-            color: '#aaa',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-          }}
+          style={{ fontSize: '1rem', color: '#aaa', background: 'none', border: 'none' }}
         >
           ID zurücksetzen
         </button>
-
         <div>{patientId ? `Teilnehmer:in: ${patientId}` : 'No ID gesetzt'}</div>
-
-        <div>{version}</div>
-      </div>
-    </div>
+        <div>{VERSION}</div>
+      </footer>
+    </main>
   );
 }

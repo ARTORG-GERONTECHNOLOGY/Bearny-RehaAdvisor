@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Modal } from 'react-bootstrap';
+import { Button, Modal, Spinner } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
@@ -8,17 +8,6 @@ import config from '../../config/config.json';
 import ErrorAlert from '../common/ErrorAlert';
 
 interface FormData {
-  email: string;
-  password: string;
-  repeatPassword: string;
-  userType: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  specialisation?: string[];
-  clinic?: string[];
-  researcherInfo?: string;
-  adminInfo?: string;
   [key: string]: string | string[];
 }
 
@@ -29,6 +18,8 @@ interface RegisterFormProps {
 
 const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const { t } = useTranslation();
+  const formSteps = config.TherapistForm;
+  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -48,12 +39,11 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [registered, setRegistered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
-
-  const handleCloseForm = () => {
+  const resetForm = () => {
     setFormData({
       email: '',
       password: '',
@@ -67,45 +57,38 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       researcherInfo: '',
       adminInfo: '',
     });
-
     setStep(0);
     setErrors({});
     setRegistered(false);
+    setError(null);
     setShowPassword(false);
-    setShowPasswordRepeat(false);
-
-    handleRegShow(); // ✅ Toggles the modal visibility
+    setShowRepeatPassword(false);
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
+  const handleCloseForm = () => {
+    resetForm();
+    handleRegShow();
   };
-
-  const toggleRepeatPasswordVisibility = () => {
-    setShowPasswordRepeat(!showPasswordRepeat);
-  };
-
-  const formSteps = config.TherapistForm;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
     setErrors((prev) => ({ ...prev, [id]: '' }));
 
-    // **Ensure form fields exist when switching userType**
+    // Adjust fields based on user type
     if (id === 'userType') {
-      const newFormData = { ...formData, userType: value };
-
       if (value === 'Therapist') {
-        newFormData.specialisation = newFormData.specialisation || [];
-        newFormData.clinic = newFormData.clinic || [];
+        setFormData((prev) => ({
+          ...prev,
+          userType: value,
+          specialisation: [],
+          clinic: [],
+        }));
       } else if (value === 'Researcher') {
-        newFormData.researcherInfo = newFormData.researcherInfo || '';
+        setFormData((prev) => ({ ...prev, userType: value, researcherInfo: '' }));
       } else if (value === 'admin') {
-        newFormData.adminInfo = newFormData.adminInfo || '';
+        setFormData((prev) => ({ ...prev, userType: value, adminInfo: '' }));
       }
-
-      setFormData(newFormData);
     }
   };
 
@@ -113,45 +96,49 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     selectedOptions: { value: string; label: string }[] | null,
     fieldName: string
   ) => {
-    const selectedValues = selectedOptions ? selectedOptions.map((option) => option.value) : [];
-    setFormData({ ...formData, [fieldName]: selectedValues });
-    setErrors({ ...errors, [fieldName]: '' });
+    const selectedValues = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
+    setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
+    setErrors((prev) => ({ ...prev, [fieldName]: '' }));
+  };
+
+  const togglePassword = (which: 'main' | 'repeat') => {
+    if (which === 'main') setShowPassword((prev) => !prev);
+    else setShowRepeatPassword((prev) => !prev);
   };
 
   const validateStep = () => {
     const newErrors: Record<string, string> = {};
-    const currentStep = formSteps[step];
+    const fields = formSteps[step]?.fields || [];
 
-    currentStep.fields.forEach((field) => {
-      if (field.required && (!formData[field.name] || formData[field.name]?.length === 0)) {
-        newErrors[field.name] = `${field.label} is required.`;
+    fields.forEach((field) => {
+      const val = formData[field.name];
+      if (field.required && (!val || (Array.isArray(val) && val.length === 0))) {
+        newErrors[field.name] = t('This field is required.');
       }
     });
 
-    // **Phone Number Validation** (Only Numbers, Minimum 8-15 Digits)
     if (formData.phone && !/^\d{8,15}$/.test(formData.phone as string)) {
       newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
     }
 
-    if (formData.email && currentStep.fields.some((f) => f.name === 'email')) {
+    if (formData.email && fields.some((f) => f.name === 'email')) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email as string)) {
         newErrors.email = t('Invalid email format.');
       }
     }
 
-    // **Password Validation** (At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character)
-    if (formData.password) {
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-      if (!passwordRegex.test(formData.password as string)) {
+    if (formData.password && fields.some((f) => f.name === 'password')) {
+      const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+      if (!pwdRegex.test(formData.password as string)) {
         newErrors.password = t(
-          'Password must have at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special character.'
+          'Password must include 8+ characters, an uppercase, lowercase, number and special character.'
         );
       }
     }
 
     if (
-      currentStep.fields.some((f) => f.name === 'password') &&
+      fields.some((f) => f.name === 'password') &&
       formData.password !== formData.repeatPassword
     ) {
       newErrors.repeatPassword = t('Passwords do not match.');
@@ -161,63 +148,44 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () => {
-    if (validateStep() && step < formSteps.length - 1) {
-      setStep(step + 1);
-    }
-  };
-
-  const prevStep = () => {
-    if (step > 0) {
-      setStep(step - 1);
-    }
-  };
+  const nextStep = () => validateStep() && step < formSteps.length - 1 && setStep(step + 1);
+  const prevStep = () => step > 0 && setStep(step - 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateStep()) {
-      try {
-        const response = await apiClient.post('/auth/register/', formData);
-        if ((response.data && response.status == 200) || response.status == 201) {
-          setRegistered(true);
-        }
-      } catch (error) {
-        console.error('Registration error: ', error);
-        // 🔹 Check if error has a response and extract the error message
-        if (error.response) {
-          setError(error.response.data?.error || t('An error occurred. Please try again.'));
-        } else {
-          setError(t('An unexpected error occurred. Please try again.'));
-        }
+    if (!validateStep()) return;
+
+    try {
+      setLoading(true);
+      const response = await apiClient.post('/auth/register/', formData);
+      if (response.status === 200 || response.status === 201) {
+        setRegistered(true);
       }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || t('An unexpected error occurred.');
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Modal
-      show={show}
-      onHide={handleCloseForm}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard={false}
-    >
+    <Modal show={show} onHide={handleCloseForm} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
-        <Modal.Title>Register</Modal.Title>
+        <Modal.Title>{t('Register')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <form onSubmit={handleSubmit}>
           {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
           {registered && (
             <div className="alert alert-success">
-              <div>
-                {t(
-                  'You have been Registered. Your account information will be sent to the given email, when your account has been approved.'
-                )}
-              </div>
+              {t(
+                'You have been registered. Account info will be emailed after approval.'
+              )}
             </div>
           )}
-          <h3>{formSteps[step].title}</h3>
+
+          <h4>{t(formSteps[step]?.title)}</h4>
 
           {formSteps[step]?.fields.map((field) => (
             <div key={field.name} className="mb-3">
@@ -229,87 +197,66 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                 <Select
                   id={field.name}
                   isMulti
+                  value={(formData[field.name] as string[]).map((val) => ({
+                    value: val,
+                    label: t(val),
+                  }))}
                   options={
                     field.name === 'diagnosis' && formData.function.length > 0
                       ? formData.function.flatMap(
-                          (speciality) =>
-                            specialityDiagnosisMap[speciality]?.map((diag) => ({
+                          (spec) =>
+                            specialityDiagnosisMap[spec]?.map((diag) => ({
                               value: diag,
-                              label: diag,
+                              label: t(diag),
                             })) || []
                         )
-                      : field.options?.map((option) => ({ value: option, label: t(option) }))
+                      : field.options?.map((opt) => ({ value: opt, label: t(opt) }))
                   }
-                  value={(formData[field.name] as string[]).map((value) => ({
-                    value,
-                    label: t(value),
-                  }))}
-                  onChange={(selectedOptions) =>
-                    handleMultiSelectChange(selectedOptions, field.name)
-                  }
+                  onChange={(options) => handleMultiSelectChange(options, field.name)}
                 />
               ) : field.type === 'dropdown' ? (
                 <select
                   id={field.name}
                   className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
-                  value={(formData[field.name] as string) || ''}
+                  value={formData[field.name] as string}
                   onChange={handleChange}
                 >
-                  <option value="">Select {field.label}</option>
-                  {field.options?.map((option) => (
-                    <option key={option} value={option}>
-                      {t(option)}
+                  <option value="">{t('Select')} {t(field.label)}</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {t(opt)}
                     </option>
                   ))}
                 </select>
               ) : field.type === 'password' ? (
                 <div className="position-relative">
                   <input
-                    type={
-                      field.name === 'password'
-                        ? showPassword
-                          ? 'text'
-                          : 'password'
-                        : showPasswordRepeat
-                          ? 'text'
-                          : 'password'
-                    }
+                    type={field.name === 'password' ? (showPassword ? 'text' : 'password') : showRepeatPassword ? 'text' : 'password'}
                     className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                     id={field.name}
-                    value={(formData[field.name] as string) || ''}
+                    value={formData[field.name] as string}
                     onChange={handleChange}
                   />
                   <span
                     className="position-absolute end-0 top-50 translate-middle-y me-3"
-                    style={{ cursor: 'pointer' }}
-                    onClick={
-                      field.name === 'password'
-                        ? togglePasswordVisibility
-                        : toggleRepeatPasswordVisibility
-                    }
+                    role="button"
+                    onClick={() => togglePassword(field.name === 'password' ? 'main' : 'repeat')}
                   >
-                    {field.name === 'password' ? (
-                      showPassword ? (
-                        <FaEye size={25} onClick={togglePasswordVisibility} />
-                      ) : (
-                        <FaEyeSlash size={25} onClick={togglePasswordVisibility} />
-                      )
-                    ) : showPasswordRepeat ? (
-                      <FaEye size={25} onClick={toggleRepeatPasswordVisibility} />
-                    ) : (
-                      <FaEyeSlash size={25} onClick={toggleRepeatPasswordVisibility} />
-                    )}
+                    {field.name === 'password'
+                      ? showPassword
+                        ? <FaEye />
+                        : <FaEyeSlash />
+                      : showRepeatPassword
+                        ? <FaEye />
+                        : <FaEyeSlash />}
                   </span>
-                  {errors[field.name] && (
-                    <div className="text-danger mt-1">{errors[field.name]}</div>
-                  )}
                 </div>
               ) : (
                 <input
                   type={field.type}
                   className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                   id={field.name}
-                  value={(formData[field.name] as string) || ''}
+                  value={formData[field.name] as string}
                   onChange={handleChange}
                 />
               )}
@@ -321,7 +268,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
           <div className="d-flex justify-content-between mt-4">
             {step > 0 && !registered && (
               <Button variant="secondary" onClick={prevStep}>
-                Back
+                {t('Back')}
               </Button>
             )}
             {step < formSteps.length - 1 && !registered && (
@@ -330,8 +277,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               </Button>
             )}
             {step === formSteps.length - 1 && !registered && (
-              <Button type="submit" variant="success">
-                {t('Submit')}
+              <Button type="submit" variant="success" disabled={loading}>
+                {loading ? <Spinner size="sm" /> : t('Submit')}
               </Button>
             )}
           </div>

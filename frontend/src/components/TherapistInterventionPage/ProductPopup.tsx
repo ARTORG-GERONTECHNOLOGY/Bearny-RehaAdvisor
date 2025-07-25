@@ -1,450 +1,290 @@
-import { t } from 'i18next';
 import React, { useEffect, useState } from 'react';
-import { Col, ListGroup, Modal, Row, Badge, Button, Form } from 'react-bootstrap';
-import apiClient from '../../api/client';
-import config from '../../config/config.json';
-import authStore from '../../stores/authStore';
-import { getMediaTypeLabelFromUrl } from '../../utils/interventions';
+import {
+  Col,
+  ListGroup,
+  Modal,
+  Row,
+  Badge,
+  Button,
+  Form,
+  Container,
+  OverlayTrigger,
+  Tooltip,
+} from 'react-bootstrap';
 import { Document, Page } from 'react-pdf';
 import Microlink from '@microlink/react';
 import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
+import apiClient from '../../api/client';
+import config from '../../config/config.json';
+import authStore from '../../stores/authStore';
 import InterventionRepeatModal from '../RehaTablePage/InterventionRepeatModal';
 import ErrorAlert from '../common/ErrorAlert';
+import { getMediaTypeLabelFromUrl } from '../../utils/interventions';
 import { translateText } from '../../utils/translate';
 
-interface ProductPopupProps {
-  show: boolean;
-  item: {
-    _id: string;
-    title: string;
-    description: string;
-    content_type: string;
-    benefitFor: string[];
-    tags: string[];
-    patient_types: {
-      type: string;
-      diagnosis: string;
-      frequency: string;
-      include_option?: boolean;
-    }[];
-    media_file?: string;
-    media_url?: string;
-    link?: string;
-  };
-  handleClose: () => void;
-  tagColors: Record<string, string>;
-}
-
-const ProductPopup: React.FC<ProductPopupProps> = ({ show, item, handleClose, tagColors }) => {
-  const [selectedDiagnoses, setSelectedDiagnoses] = useState<string[]>([]);
-  const [selectedAll, setSelectedAll] = useState<boolean>(false);
-  const [showScheduler, setShowScheduler] = useState<boolean>(false);
-  const [selectedIntervention, setSelectedIntervention] = useState<string>('');
-  const [selectedDiagnose, setSelectedDiagnose] = useState<string>('');
-  const [error, setError] = useState('');
-  const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
-  const diagnoses = Array.isArray(specialisations)
-    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
-    : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
-
-  const [newRows, setNewRows] = useState([
-    { specialisation: '', diagnosis: '', frequency: '', saved: false },
-  ]);
+const ProductPopup = ({ show, item, handleClose, tagColors }) => {
   const [translatedText, setTranslatedText] = useState('');
-  const [detectedSourceLanguage, setDetectedSourceLanguage] = useState('');
   const [translatedTitle, setTranslatedTitle] = useState('');
-  const [titleSourceLang, setTitleSourceLang] = useState('');
+  const [detectedLang, setDetectedLang] = useState('');
+  const [titleLang, setTitleLang] = useState('');
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState([]);
+  const [selectedAll, setSelectedAll] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [selectedDiagnose, setSelectedDiagnose] = useState('');
+  const [selectedIntervention, setSelectedIntervention] = useState('');
+  const [newRows, setNewRows] = useState([{ specialisation: '', diagnosis: '', frequency: '', saved: false }]);
+  const [error, setError] = useState('');
 
-  const addNewRow = () => {
-    setNewRows([...newRows, { diagnosis: '', frequency: '', saved: false }]);
+  const specialisations = authStore.specialisation?.split(',').map((s) => s.trim()) || [];
+  const diagnoses = specialisations.flatMap(spec => config?.patientInfo?.function?.[spec]?.diagnosis || []);
+
+  useEffect(() => {
+    const translate = async () => {
+      if (item?.description) {
+        const { translatedText, detectedSourceLanguage } = await translateText(item.description);
+        setTranslatedText(translatedText);
+        setDetectedLang(translatedText !== item.description ? detectedSourceLanguage : '');
+      }
+      if (item?.title) {
+        const { translatedText: tTitle, detectedSourceLanguage: tLang } = await translateText(item.title);
+        setTranslatedTitle(tTitle);
+        setTitleLang(tTitle !== item.title ? tLang : '');
+      }
+    };
+    if (show) translate();
+  }, [item, show]);
+
+  const renderMediaContent = () => {
+    const type = getMediaTypeLabelFromUrl(item.media_file, item.link);
+    switch (type) {
+      case 'Video':
+        return <ReactPlayer url={item.media_file || item.link} width="100%" height="auto" controls />;
+      case 'Audio':
+        return <ReactAudioPlayer src={item.media_file || item.link} controls />;
+      case 'PDF':
+        return (
+          <div>
+            <Document file={item.media_url}>
+              <Page pageNumber={1} width={300} />
+            </Document>
+            <a href={item.media_file} className="btn btn-outline-primary mt-2" target="_blank" rel="noreferrer">
+              Open PDF
+            </a>
+          </div>
+        );
+      case 'Image':
+        return <img src={item.media_file} alt="Intervention media" className="img-fluid rounded" />;
+      case 'Link':
+        return <Microlink url={item.link} style={{ width: '100%' }} />;
+      default:
+        return (
+          <a href={item.media_file || item.link} className="btn btn-secondary" target="_blank" rel="noreferrer">
+            Open Resource
+          </a>
+        );
+    }
   };
 
-  const updateRow = (
-    idx: number,
-    field: 'specialisation' | 'diagnosis' | 'frequency',
-    value: string
-  ) => {
-    setNewRows((prev) => {
-      const updated = [...prev];
-      updated[idx][field] = value;
-      return updated;
+  const updateRow = (idx, field, val) => {
+    setNewRows(prev => {
+      const copy = [...prev];
+      copy[idx][field] = val;
+      return copy;
     });
   };
 
   const saveRow = async (idx) => {
     const row = newRows[idx];
     if (!row.specialisation || !row.diagnosis || !row.frequency) return;
-
     try {
       await apiClient.post('/recomendation/add/patientgroup/', {
-        interventionId: item['_id'],
+        interventionId: item._id,
         therapistId: authStore.id,
         speciality: row.specialisation,
         diagnosis: row.diagnosis,
         frequency: row.frequency,
       });
-
-      setNewRows((prev) => {
-        const updated = [...prev];
-        updated[idx].saved = true;
-        return updated;
+      setNewRows(prev => {
+        const copy = [...prev];
+        copy[idx].saved = true;
+        return copy;
       });
-    } catch (err) {
-      console.error('Failed to save row:', err);
+    } catch (e) {
       setError('Failed to save row. Please try again.');
     }
   };
 
-  useEffect(() => {
-    const translateContent = async () => {
-      if (item?.description) {
-        const { translatedText, detectedSourceLanguage } = await translateText(item.description);
-        setTranslatedText(translatedText);
-        setDetectedSourceLanguage(detectedSourceLanguage);
-      }
-
-      if (item?.title) {
-        const { translatedText: titleText, detectedSourceLanguage: titleLang } =
-          await translateText(item.title);
-        setTranslatedTitle(titleText);
-        setTitleSourceLang(titleLang);
-      }
-    };
-
-    if (show) {
-      translateContent();
-    }
-  }, [show, item]);
-
-  const renderMediaContent = () => {
-    if (!item.media_file && !item.link)
-      return <p className="text-muted">{t('No media available')}</p>;
-
-    const mediaType = getMediaTypeLabelFromUrl(item.media_file, item.link);
-
-    switch (mediaType) {
-      case 'Video':
-        return (
-          <div className="rounded shadow-sm overflow-hidden">
-            <ReactPlayer url={item.media_file || item.link} width="100%" height="400px" controls />
-          </div>
-        );
-      case 'Audio':
-        return <ReactAudioPlayer src={item.media_file || item.link} controls />;
-      case 'PDF':
-        return (
-          <div className="pdf-preview">
-            <Document file={item.media_url} loading={<p>{t('Loading PDF...')}</p>}>
-              <Page pageNumber={1} width={300} />
-            </Document>
-            <a
-              href={item.media_file}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-primary mt-2"
-            >
-              {t('Open PDF')}
-            </a>
-          </div>
-        );
-      case 'Image':
-        return (
-          <img src={item.media_file} alt="Intervention" className="img-fluid rounded shadow" />
-        );
-      case 'Link':
-        return (
-          <Microlink
-            url={item.link}
-            style={{ width: '100%', borderRadius: '10px', marginTop: '10px' }}
-          />
-        );
-
-      default:
-        return (
-          <a
-            href={item.link || item.media_file}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-secondary"
-          >
-            {t('Open Resource')}
-          </a>
-        );
-    }
-  };
-
-  const fetchAssignedDiagnoses = async () => {
-    try {
-      const response = await apiClient.get(
-        `interventions/${item['_id']}/assigned-diagnoses/${authStore.specialisation}/therapist/${authStore.id}`
-      );
-      const assignedDiagnoses = Object.entries(response.data.diagnoses)
-        .filter(([, isAssigned]) => isAssigned)
-        .map(([diagnosis]) => diagnosis);
-
-      setSelectedDiagnoses(assignedDiagnoses);
-      setSelectedAll(response.data.all);
-    } catch (error) {
-      console.error('Error fetching assigned diagnoses:', error);
-      setError('Failed to fetch assigned diagnoses. Please try again.');
-    }
-  };
-
-  const handleCheckboxChange = async (diagnosis: string) => {
+  const handleCheckboxChange = async (diagnosis) => {
     const isChecked = selectedDiagnoses.includes(diagnosis);
-    setSelectedDiagnoses((prevSelected) =>
-      isChecked ? prevSelected.filter((d) => d !== diagnosis) : [...prevSelected, diagnosis]
-    );
     if (isChecked) {
-      try {
-        await apiClient.post('interventions/remove-from-patient-types/', {
-          diagnosis,
-          intervention_id: item['_id'],
-          therapist: authStore.id,
-        });
-      } catch (error) {
-        console.error(`Error updating intervention for ${diagnosis}:`, error);
-        setError(`Failed to update intervention for ${diagnosis}. Please try again.`);
-      }
+      setSelectedDiagnoses((prev) => prev.filter((d) => d !== diagnosis));
+      await apiClient.post('interventions/remove-from-patient-types/', {
+        diagnosis,
+        intervention_id: item._id,
+        therapist: authStore.id,
+      });
     } else {
-      setSelectedIntervention(item['_id']);
-      setShowScheduler(true);
       setSelectedDiagnose(diagnosis);
-    }
-  };
-
-  const handleAllCheckboxChange = async () => {
-    const newSelectedAll = !selectedAll;
-    setSelectedAll(newSelectedAll);
-    setSelectedDiagnoses(newSelectedAll ? diagnoses : []);
-
-    if (newSelectedAll) {
-      try {
-        await apiClient.post('interventions/remove-from-patient-types/', {
-          diagnosis: 'all',
-          intervention_id: item['_id'],
-          therapist: authStore.id,
-        });
-      } catch (error) {
-        console.error(`Error updating intervention for all`, error);
-        setError(`Failed to update intervention for all. Please try again.`);
-      }
-    } else {
-      setSelectedIntervention(item['_id']);
+      setSelectedIntervention(item._id);
       setShowScheduler(true);
-      setSelectedDiagnose('all');
     }
   };
 
   return (
     <>
-      <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
-        <Modal.Header closeButton className="d-flex justify-content-between align-items-center">
-          <Modal.Title>
-            <h2>{translatedTitle || item.title}</h2>
-            <h3 className="text-muted">{t(item.content_type)}</h3>
-
-            {/* Beneft for Section - Directly Below Content Type */}
-            {item.benefitFor?.length > 0 && (
-              <>
-                <div className="mt-2 d-flex flex-wrap gap-2">
-                  {item.benefitFor.map((benefit) => (
-                    <Badge key={benefit} style={{ color: 'white' }} className="me-1">
-                      {t('benefit')}
-                    </Badge>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Tags Section - Directly Below Content Type */}
-            {item.tags?.length > 0 && (
-              <div className="mt-2 d-flex flex-wrap gap-2">
-                {item.tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    bg=""
-                    style={{ backgroundColor: tagColors[tag] || 'grey', color: 'white' }}
-                    className="me-1"
-                  >
-                    {t(tag)}
-                  </Badge>
-                ))}
-              </div>
+      <Modal show={show} onHide={handleClose} centered size="lg" scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2">
+            {titleLang ? (
+              <OverlayTrigger
+                overlay={<Tooltip>{item.title}</Tooltip>}
+              >
+                <span>{translatedTitle}</span>
+              </OverlayTrigger>
+            ) : (
+              item.title
             )}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {/* Description Section with Spacing & Shadow Separator */}
-          {/* Existing recommended section */}
-          {error && (
-            <Row className="pb-3 mb-3 border-bottom">
-              <Col>
-                <ErrorAlert message={error} onClose={() => setError(null)} />
+          {error && <ErrorAlert message={error} onClose={() => setError('')} />}
+
+          <Container fluid>
+            <Row className="mb-3">
+              <Col xs={12} md={6}>
+                <h5>Description</h5>
+                <p className="text-muted">
+                  {detectedLang ? (
+                    <OverlayTrigger overlay={<Tooltip>{item.description}</Tooltip>}>
+                      <span>{translatedText}</span>
+                    </OverlayTrigger>
+                  ) : (
+                    item.description
+                  )}
+                </p>
+              </Col>
+
+              <Col xs={12} md={6}>
+                <h5>Media</h5>
+                {renderMediaContent()}
               </Col>
             </Row>
-          )}
-          <Row className="pb-3 mb-3 border-bottom">
-            <h5>{t('Recomended to patients')}:</h5>
-            {item.patient_types.map((type, idx) => (
-              <Row key={idx}>
-                <Col>
-                  <p className="text-muted">
-                    {type.diagnosis} ({type.type})
-                  </p>
-                </Col>
-                <Col>
-                  <p className="text-muted">
-                    {t('Frequnecy:')} {type.frequency}
-                  </p>
-                </Col>
-              </Row>
-            ))}
 
-            {/* Add new rows section */}
-            {newRows.map((row, idx) => {
-              const diagOptions = row.specialisation
-                ? config.patientInfo.function[row.specialisation]?.diagnosis || []
-                : [];
+            <Row className="mb-3">
+              <Col>
+                <h5>Tags & Benefits</h5>
+                {item.tags?.map((tag) => (
+                  <Badge
+                    key={tag}
+                    className="me-2 mb-1"
+                    style={{ backgroundColor: tagColors[tag] || '#888', color: '#fff' }}
+                    role="status"
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+                {item.benefitFor?.map((b) => (
+                  <Badge key={b} className="me-2 mb-1 bg-info text-dark">{b}</Badge>
+                ))}
+              </Col>
+            </Row>
 
-              return (
-                <Row key={idx} className="align-items-center mb-3">
-                  <Col>
-                    <Form.Select
-                      value={row.specialisation}
-                      onChange={(e) => updateRow(idx, 'specialisation', e.target.value)}
-                      disabled={row.saved}
-                    >
-                      <option value="">{t('Select Specialisation')}</option>
-                      {specialisations.map((spec) => (
-                        <option key={spec} value={spec}>
-                          {t(spec)}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Col>
-                  <Col>
-                    <Form.Select
-                      value={row.diagnosis}
-                      onChange={(e) => updateRow(idx, 'diagnosis', e.target.value)}
-                      disabled={row.saved}
-                    >
-                      <option value="">{t('Select Diagnosis')}</option>
-                      {diagOptions.map((diag) => (
-                        <option key={diag} value={diag}>
-                          {t(diag)}
-                        </option>
-                      ))}
-                      <option value="All">{t('All')}</option>
-                    </Form.Select>
-                  </Col>
-                  <Col>
-                    <Form.Select
-                      value={row.frequency}
-                      onChange={(e) => updateRow(idx, 'frequency', e.target.value)}
-                      disabled={row.saved}
-                    >
-                      <option value="">{t('SelectFrequency')}</option>
-                      {config.RecomendationInfo.frequency.map((freq) => (
-                        <option key={freq} value={freq}>
-                          {t(freq)}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Col>
-                  <Col xs="auto" className="d-flex">
-                    {!row.saved && (
-                      <Button variant="success" className="me-2" onClick={() => saveRow(idx)}>
-                        {t('Save')}
-                      </Button>
-                    )}
-                    {row.saved && idx === newRows.length - 1 && (
-                      <Button variant="secondary" onClick={addNewRow}>
-                        +
-                      </Button>
-                    )}
-                  </Col>
-                </Row>
-              );
-            })}
-          </Row>
-
-          {/* Description Section with Spacing & Shadow Separator */}
-          <Row className="pb-3 mb-3 border-bottom">
-            <Col>
-              <h5>{t('Description')}</h5>
-              <p className="text-muted">
-                {translatedText || item.description}{' '}
-                {detectedSourceLanguage && (
-                  <span className="ms-2 text-secondary">
-                    ({t('Original language:')} {detectedSourceLanguage})
-                  </span>
-                )}
-              </p>
-            </Col>
-          </Row>
-
-          {/* Content Type and Source Side-by-Side */}
-          <Row className="pb-3 mb-3">
-            <Col>
-              <h5>{t('Source')}</h5>
-              <ListGroup variant="flush">
-                <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
-              </ListGroup>
-            </Col>
-          </Row>
-
-          <hr />
-          <h5>{t('Assign as initial intervention for patietns with specific diagnoses')}</h5>
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            <ListGroup>
-              <ListGroup.Item>
-                <label>
-                  <input
+            <Row className="mb-3">
+              <Col>
+                <h5>Assign to Diagnoses</h5>
+                <div style={{ maxHeight: 200, overflowY: 'auto' }} aria-label="Diagnoses list">
+                  <Form.Check
                     type="checkbox"
+                    label="All"
                     checked={selectedAll}
-                    onChange={handleAllCheckboxChange}
-                    className="me-2"
+                    onChange={() => setSelectedAll(!selectedAll)}
+                    aria-checked={selectedAll}
                   />
-                  {t('All')}
-                </label>
-              </ListGroup.Item>
-              {!selectedAll &&
-                diagnoses.map((diagnosis: string) => {
-                  // Is the diagnosis explicitly recommended?
-                  const isSpecificallyRecommended = item.patient_types?.some(
-                    (pt) => pt.diagnosis === diagnosis
-                  );
+                  {!selectedAll &&
+                    diagnoses.map((d) => (
+                      <Form.Check
+                        key={d}
+                        type="checkbox"
+                        label={d}
+                        checked={selectedDiagnoses.includes(d)}
+                        onChange={() => handleCheckboxChange(d)}
+                        aria-checked={selectedDiagnoses.includes(d)}
+                      />
+                    ))}
+                </div>
+              </Col>
+            </Row>
 
-                  // Is the diagnosis type covered by any "All" entry for the user's specialisations?
-                  const isRecommendedForAllType = item.patient_types?.some(
-                    (pt) => pt.diagnosis === 'All' && specialisations.includes(pt.type) // matches any of the user's specialisations
-                  );
-
-                  const showRecommended = isSpecificallyRecommended || isRecommendedForAllType;
+            <Row className="mb-3">
+              <Col>
+                <h5>Assign to Additional</h5>
+                {newRows.map((row, idx) => {
+                  const diagOptions = row.specialisation
+                    ? config?.patientInfo?.function?.[row.specialisation]?.diagnosis || []
+                    : [];
 
                   return (
-                    <ListGroup.Item key={diagnosis}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={selectedDiagnoses.includes(diagnosis)}
-                          onChange={() => handleCheckboxChange(diagnosis)}
-                          className="me-2"
-                        />
-                        {t(diagnosis)}{' '}
-                        {showRecommended && (
-                          <span className="text-success">({t('Recommended')})</span>
+                    <Row key={idx} className="g-2 align-items-center mb-2">
+                      <Col xs={12} md={4}>
+                        <Form.Select
+                          value={row.specialisation}
+                          onChange={(e) => updateRow(idx, 'specialisation', e.target.value)}
+                          disabled={row.saved}
+                          aria-label="Specialisation select"
+                        >
+                          <option value="">Select Specialisation</option>
+                          {specialisations.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Col>
+                      <Col xs={12} md={4}>
+                        <Form.Select
+                          value={row.diagnosis}
+                          onChange={(e) => updateRow(idx, 'diagnosis', e.target.value)}
+                          disabled={row.saved}
+                          aria-label="Diagnosis select"
+                        >
+                          <option value="">Select Diagnosis</option>
+                          {diagOptions.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Col>
+                      <Col xs={12} md={3}>
+                        <Form.Select
+                          value={row.frequency}
+                          onChange={(e) => updateRow(idx, 'frequency', e.target.value)}
+                          disabled={row.saved}
+                          aria-label="Frequency select"
+                        >
+                          <option value="">Select Frequency</option>
+                          {config?.RecomendationInfo?.frequency.map((f) => (
+                            <option key={f} value={f}>
+                              {f}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Col>
+                      <Col xs={12} md={1} className="d-flex justify-content-end">
+                        {!row.saved && (
+                          <Button variant="success" onClick={() => saveRow(idx)} aria-label="Save assignment">
+                            ✓
+                          </Button>
                         )}
-                      </label>
-                    </ListGroup.Item>
+                      </Col>
+                    </Row>
                   );
                 })}
-            </ListGroup>
-          </div>
+              </Col>
+            </Row>
+          </Container>
         </Modal.Body>
-        <Modal.Footer />
       </Modal>
 
       {showScheduler && (
