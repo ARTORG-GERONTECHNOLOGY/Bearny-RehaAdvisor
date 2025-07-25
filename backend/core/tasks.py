@@ -15,7 +15,7 @@ def run_delete_expired_videos():
 def run_delete_expired_videos():
     subprocess.call(['python', 'manage.py', 'fetch_fitbit_data'])
 
-@shared_task
-def test_celery():
-    print("✅ Celery is working!")
-    return "Task ran successfully"
+#@shared_task
+#def test_celery():
+#    print("✅ Celery is working!")
+#    return "Task ran successfully"

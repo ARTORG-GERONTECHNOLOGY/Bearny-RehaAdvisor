@@ -12,7 +12,7 @@ import {
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
+import InfoBubble from '../components/common/InfoBubble'; // Optional, for tooltip hints
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import EditUserInfo from '../components/UserProfile/EditTherapistInfo';
@@ -114,28 +114,30 @@ const UserProfile: React.FC = () => {
         <>
           <p>
             <strong>
-              {renderHint(
-                t('Therapist’s areas of clinical expertise'),
-                t('Specialization')
-              )}
+             
+              
+                 
+                {t('Specialization')}
               :
             </strong>{' '}
             {userData?.specializations?.length
               ? userData.specializations.map(t).join(', ')
               : t('No specialization set')}
+              <InfoBubble tooltip={t('Therapist’s areas of clinical expertise')} />
           </p>
 
           <p>
             <strong>
-              {renderHint(
-                t('Affiliated institutions or work locations'),
+              
+              {
                 t('Clinics')
-              )}
+              }
               :
             </strong>{' '}
             {userData?.clinics?.length
               ? userData.clinics.join(', ')
               : t('No clinics set')}
+              <InfoBubble tooltip={t('Affiliated institutions or work locations')} />
           </p>
         </>
       )}
