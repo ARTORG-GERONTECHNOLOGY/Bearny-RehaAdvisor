@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Card, Modal } from 'react-bootstrap';
-import FormRegisterPatient from './RegisterPatientForm'; // Import the registration form component
+import FormRegisterPatient from './RegisterPatientForm';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom'; // For redirecting unauthorized users
+import { useNavigate } from 'react-router-dom';
 import authStore from '../../stores/authStore';
 
 interface AddPatientPopupProps {
@@ -12,13 +12,15 @@ interface AddPatientPopupProps {
 
 const AddPatientPopup: React.FC<AddPatientPopupProps> = ({ show, handleClose }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate(); // Used for navigation
+  const navigate = useNavigate();
 
-  // Authentication and role check
   useEffect(() => {
+    // Ensure latest auth status
     authStore.checkAuthentication();
+
+    // Only therapists can access this modal
     if (authStore.isAuthenticated && authStore.userType !== 'Therapist') {
-      navigate('/unauthorized'); // Redirect to unauthorized access page if not a therapist
+      navigate('/unauthorized');
     }
   }, [navigate]);
 
@@ -30,8 +32,12 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = ({ show, handleClose }) 
       <Modal.Body>
         <Card>
           <Card.Body>
-            {/* Registration Form */}
-            <FormRegisterPatient therapist={authStore.id} />
+            {/* Patient Registration Form */}
+            {authStore.id ? (
+              <FormRegisterPatient therapist={authStore.id} />
+            ) : (
+              <p className="text-muted text-center">{t('Loading user information...')}</p>
+            )}
           </Card.Body>
         </Card>
       </Modal.Body>

@@ -5,9 +5,9 @@ import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import apiClient from '../api/client';
 import ErrorAlert from '../components/common/ErrorAlert';
+
 const ForgotPassword: React.FC = () => {
   const { t } = useTranslation();
-
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -21,48 +21,48 @@ const ForgotPassword: React.FC = () => {
       await apiClient.post('auth/forgot-password/', { email });
       setSuccess(true);
     } catch (err) {
-      setError(t('Failed to send password reset link. Please try again.'), err);
+      setError(t('Failed to send password reset link. Please try again.'));
     }
   };
 
   return (
-    <Container fluid className="d-flex flex-column vh-100">
+    <Container fluid className="d-flex flex-column min-vh-100 px-3 px-md-4">
       <Header isLoggedIn={false} />
 
-      <Row className="flex-grow-1 justify-content-center align-items-center">
-        <Col xs={12} md={6} lg={5}>
-          <h2 className="text-center mb-4">{t('ForgottenPassword')}</h2>
+      <main className="flex-grow-1 d-flex justify-content-center align-items-center">
+        <Row className="w-100 justify-content-center">
+          <Col xs={12} sm={10} md={8} lg={6} xl={5}>
+            <div className="p-4 shadow-sm bg-white rounded">
+              <h2 className="text-center mb-4">{t('ForgottenPassword')}</h2>
 
-          {success && (
-            <Alert variant="success" className="text-center">
-              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
-            </Alert>
-          )}
+              {success && (
+                <Alert variant="success" className="text-center">
+                  {t('Passwordresetlinksent.Pleasecheckyouremail.')}
+                </Alert>
+              )}
 
-          <Form onSubmit={handleSubmit}>
-            {success && (
-              <Alert variant="success" className="text-center">
-                {t('Passwordresetlinksent.Pleasecheckyouremail.')}
-              </Alert>
-            )}
-            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-            <Form.Group controlId="formEmail" className="mb-3">
-              <Form.Label>{t('Emailaddress')}</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder={t('Enteryouremail')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Form.Group>
+              {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
-            <Button type="submit" variant="primary" className="w-100">
-              {t('Submit')}
-            </Button>
-          </Form>
-        </Col>
-      </Row>
+              <Form onSubmit={handleSubmit}>
+                <Form.Group controlId="formEmail" className="mb-3">
+                  <Form.Label>{t('Emailaddress')}</Form.Label>
+                  <Form.Control
+                    type="email"
+                    placeholder={t('Enteryouremail')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </Form.Group>
+
+                <Button type="submit" variant="primary" className="w-100 py-2">
+                  {t('Submit')}
+                </Button>
+              </Form>
+            </div>
+          </Col>
+        </Row>
+      </main>
 
       <Footer />
     </Container>

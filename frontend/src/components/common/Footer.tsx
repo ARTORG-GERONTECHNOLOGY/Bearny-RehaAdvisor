@@ -1,29 +1,26 @@
 import { FunctionComponent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom'; // Make sure you're using React Router
+import { Link } from 'react-router-dom';
 
 const Footer: FunctionComponent = () => {
   const { t } = useTranslation();
 
   return (
-    <footer
-      className="bg-body-tertiary py-4 mt-auto w-100"
-      style={{ width: '100%', position: 'relative' }}
-    >
+    <footer className="bg-body-tertiary py-4 mt-auto w-100">
       <div className="container-fluid">
         <div className="row">
-          <div className="col text-center">
-            <small>
+          <div className="col-12 text-center text-md-start px-3">
+            <small className="d-block">
               &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('All rights reserved.')}
-              {' | '}
-              <Link to="/terms" className="text-decoration-underline">
+            </small>
+            <div className="d-flex justify-content-center justify-content-md-start gap-3 mt-2 flex-wrap">
+              <Link to="/terms" className="text-decoration-underline small">
                 {t('Terms & Conditions')}
               </Link>
-              {' | '}
-              <Link to="/privacypolicy" className="text-decoration-underline">
+              <Link to="/privacypolicy" className="text-decoration-underline small">
                 {t('Privacy Policy')}
               </Link>
-            </small>
+            </div>
           </div>
         </div>
       </div>

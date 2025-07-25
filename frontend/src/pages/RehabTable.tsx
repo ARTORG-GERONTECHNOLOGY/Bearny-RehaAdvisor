@@ -236,7 +236,7 @@ const RehabTable: React.FC = () => {
           </Row>
           <Row>
             {/* LEFT PANEL: Interventions + Tab Switcher */}
-            <Col md={3} style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+            <Col xs={12} md={3} className="mb-3 mb-md-0">
               {/* Tab Switcher */}
               <Card className="mb-3">
                 <Card.Header>
@@ -424,7 +424,7 @@ const RehabTable: React.FC = () => {
             </Col>
 
             {/* MIDDLE PANEL: Calendar */}
-            <Col md={9}>
+            <Col xs={12} md={9}>
               <InterventionCalendar
                 interventions={patientData.interventions || []}
                 onSelectEvent={(event) => {

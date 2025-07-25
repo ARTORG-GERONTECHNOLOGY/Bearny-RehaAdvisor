@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Button, Col, Form, Modal, Row } from 'react-bootstrap';
 import { FaPlus } from 'react-icons/fa';
 import apiClient from '../../api/client';
@@ -8,46 +8,78 @@ import Select from 'react-select';
 import InfoBubble from '../common/InfoBubble';
 import { t } from 'i18next';
 
+// ------------------ Types & Defaults ------------------
 interface AddInterventionPopupProps {
   show: boolean;
   handleClose: () => void;
   onSuccess: () => void;
 }
 
+const defaultPatientType = {
+  type: '',
+  frequency: '',
+  includeOption: null,
+  diagnosis: '',
+  diagnosesOptions: [],
+};
+
+const defaultFormData = {
+  title: '',
+  description: '',
+  duration: 0,
+  contentType: 'Article',
+  link: '',
+  benefitFor: [],
+  isPrivate: false,
+  tagList: [],
+  mediaFile: null,
+  previewImage: null,
+  patientId: '',
+  patientTypes: [defaultPatientType],
+};
+
+// ------------------ Component ------------------
 const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   show,
   handleClose,
   onSuccess,
 }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    duration: 0,
-    contentType: 'Article',
-    link: '',
-    benefitFor: [],
-    isPrivate: false,
-    tagList: [],
-    mediaFile: null,
-    previewImage: null,
-    patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
-  });
+  const [formData, setFormData] = useState(defaultFormData);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [therapistPatients, setTherapistPatients] = useState<{ id: string; name: string }[]>([]);
 
-  // Fetch diagnoses based on selected specialization
+  // ------------------ Derived Options ------------------
+  const tagOptions = useMemo(
+    () =>
+      config.RecomendationInfo.tags.map((tag) => ({
+        value: tag,
+        label: t(tag.charAt(0).toUpperCase() + tag.slice(1)),
+      })),
+    [t]
+  );
 
-  const getDiagnosesForSpecialization = (specialization) => {
+  const benefitOptions = useMemo(
+    () =>
+      config.RecomendationInfo.benefits.map((benefit) => ({
+        value: benefit,
+        label: t(benefit.charAt(0).toUpperCase() + benefit.slice(1)),
+      })),
+    [t]
+  );
+
+  const specializationKeys = Object.keys(config.patientInfo.function);
+
+  const getDiagnosesForSpecialization = (specialization: string) => {
     return config?.patientInfo?.function?.[specialization]?.diagnosis || [];
   };
 
+  // ------------------ Fetch Patients (for Private) ------------------
   useEffect(() => {
     const fetchTherapistPatients = async () => {
       try {
         const therapistId = localStorage.getItem('id');
         const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
-        // Map to expected format
         const patientOptions = data.map((p) => ({
           id: p._id,
           name: `${p.first_name || ''} ${p.name || ''}`.trim(),
@@ -63,120 +95,85 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
   }, [formData.isPrivate]);
 
-  // Handle changes in the patient type and update diagnosis options
-
-  const handlePatientTypeChange = (index, field, value) => {
-    const updatedPatientTypes = [...formData.patientTypes];
-
-    updatedPatientTypes[index][field] = value;
-
-    // Update diagnoses options when specialization changes
-    if (field === 'type') {
-      updatedPatientTypes[index].diagnosesOptions = getDiagnosesForSpecialization(value);
-      updatedPatientTypes[index].diagnosis = ''; // Reset diagnosis selection
-    }
-
-    setFormData((prev) => ({ ...prev, patientTypes: updatedPatientTypes }));
+  // ------------------ Handlers ------------------
+  const resetForm = () => {
+    setFormData(defaultFormData);
+    setError('');
+    setSuccess(false);
   };
 
-  // Handle form input changes
+  const handlePatientTypeChange = (index: number, field: string, value: string | boolean) => {
+    const updated = [...formData.patientTypes];
+    updated[index][field] = value;
+
+    if (field === 'type') {
+      updated[index].diagnosesOptions = getDiagnosesForSpecialization(value as string);
+      updated[index].diagnosis = '';
+    }
+
+    setFormData((prev) => ({ ...prev, patientTypes: updated }));
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  // Handle file upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (field: 'mediaFile' | 'previewImage') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
-    setFormData((prev) => ({ ...prev, mediaFile: file }));
+    if (file) {
+      setFormData((prev) => ({ ...prev, [field]: file }));
+    }
   };
 
-  // Handle file upload
-  const handleImgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-
-    setFormData((prev) => ({ ...prev, previewImage: file }));
-  };
-
-  const handleMultiChange = (field, selectedOptions) => {
-    setFormData({
-      ...formData,
-      [field]: selectedOptions.map((option) => option.value),
-    });
+  const handleMultiChange = (field: keyof typeof formData, selectedOptions: any[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: selectedOptions.map((opt) => opt.value),
+    }));
   };
 
   const addPatientType = () => {
     setFormData((prev) => ({
       ...prev,
-      patientTypes: [
-        ...prev.patientTypes,
-        { type: '', frequency: '', includeOption: null, diagnosis: '' },
-      ],
+      patientTypes: [...prev.patientTypes, { ...defaultPatientType }],
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess(false);
 
     try {
-      const formPayload = new FormData();
-      formPayload.append('title', formData.title);
-      formPayload.append('description', formData.description);
-      formPayload.append('contentType', formData.contentType);
-      formPayload.append('img_file', formData.previewImage);
-
-      formPayload.append('duration', formData.duration);
-
-      formPayload.append('benefitFor', formData.benefitFor);
-
-      formPayload.append('tagList', formData.tagList);
-
-      if (formData.link) {
-        formPayload.append('link', formData.link);
-      } else if (formData.mediaFile) {
-        formPayload.append('media_file', formData.mediaFile);
-      }
-      formPayload.append('isPrivate', formData.isPrivate.toString());
+      const payload = new FormData();
+      payload.append('title', formData.title);
+      payload.append('description', formData.description);
+      payload.append('duration', String(formData.duration));
+      payload.append('contentType', formData.contentType);
+      if (formData.link) payload.append('link', formData.link);
+      if (formData.mediaFile) payload.append('media_file', formData.mediaFile);
+      if (formData.previewImage) payload.append('img_file', formData.previewImage);
+      payload.append('tagList', JSON.stringify(formData.tagList));
+      payload.append('benefitFor', JSON.stringify(formData.benefitFor));
+      payload.append('isPrivate', String(formData.isPrivate));
       if (formData.isPrivate && formData.patientId) {
-        formPayload.append('patientId', formData.patientId);
+        payload.append('patientId', formData.patientId);
       }
+      payload.append('patientTypes', JSON.stringify(formData.patientTypes));
 
-      formPayload.append('patientTypes', JSON.stringify(formData.patientTypes));
-
-      const response = await apiClient.post('interventions/add/', formPayload, {
+      const res = await apiClient.post('interventions/add/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (response.status === 201) {
+      if (res.status === 201) {
         setSuccess(true);
-        setFormData({
-          title: '',
-          description: '',
-          duration: 0,
-          contentType: 'blog',
-          benefitFor: [],
-          link: '',
-          tagList: [],
-          mediaFile: null,
-          previewImage: null,
-          patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
-        });
-        onSuccess(); // Callback for parent component
-        setSuccess(false);
-        setError('');
-      } else {
-        if (axios.isAxiosError(error) && error.response) {
-          setError(error.response.data.error || t('Error adding recommendation'));
-        } else {
-          setError(t('An unexpected error occurred'));
-        }
+        resetForm();
+        onSuccess();
       }
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
-        setError(error.response.data.error || t('Error adding recommendation'));
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response) {
+        setError(err.response.data.error || t('Error adding recommendation'));
       } else {
         setError(t('An unexpected error occurred'));
       }
@@ -184,32 +181,13 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   };
 
   const handleModalClose = () => {
-    setFormData({
-      title: '',
-      description: '',
-      duration: 0,
-      contentType: 'Article',
-      link: '',
-      benefitFor: [],
-      tagList: [],
-      mediaFile: null,
-      previewImage: null,
-      patientTypes: [{ type: '', frequency: '', includeOption: null, diagnosis: '' }],
-    });
-    setError('');
-    setSuccess(false);
-    handleClose(); // original parent close
+    resetForm();
+    handleClose();
   };
 
+  // ------------------ Render ------------------
   return (
-    <Modal
-      show={show}
-      onHide={handleModalClose}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard={false}
-    >
+    <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{t('Add New Intervention')}</Modal.Title>
       </Modal.Header>
@@ -218,17 +196,19 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
 
         <Form onSubmit={handleSubmit}>
+          {/* Title */}
           <Form.Group controlId="title">
             <Form.Label>{t('InterventionTitle')}</Form.Label>
             <Form.Control
               type="text"
               placeholder={t('Enterrecommendationtitle')}
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={handleChange}
               required
             />
           </Form.Group>
 
+          {/* Description */}
           <Form.Group controlId="description" className="mt-3">
             <Form.Label>{t('Description')}</Form.Label>
             <Form.Control
@@ -236,68 +216,41 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
               rows={3}
               placeholder={t('Enterdescription')}
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={handleChange}
               required
             />
           </Form.Group>
 
-          <Form.Group controlId="duration">
+          {/* Duration */}
+          <Form.Group controlId="duration" className="mt-3">
             <Form.Label>{t('RecomendationDuration(min)')}</Form.Label>
-            <InfoBubble
-              tooltip={t(
-                'Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes'
-              )}
-            />
+            <InfoBubble tooltip={t('Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes')} />
             <Form.Control
               type="number"
-              placeholder={t('Enterrecommendationduartioninminutes')}
               value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+              onChange={handleChange}
+              placeholder={t('Enterrecommendationduartioninminutes')}
               required
             />
           </Form.Group>
 
+          {/* Tags */}
           <Form.Group controlId="tagList" className="mt-3">
             <Form.Label>{t('TagList')}</Form.Label>
             <InfoBubble tooltip={t('Selectmultipletagstocategorizetherecommendation')} />
-            <Select
-              isMulti
-              options={config.RecomendationInfo.tags.map((type) => ({
-                value: type,
-                label: t(type.charAt(0).toUpperCase() + type.slice(1)),
-              }))}
-              value={formData.tagList.map((value) => ({
-                value,
-                label: value.charAt(0).toUpperCase() + value.slice(1),
-              }))}
-              onChange={(selectedOptions) => handleMultiChange('tagList', selectedOptions)}
-            />
+            <Select isMulti options={tagOptions} value={tagOptions.filter((opt) => formData.tagList.includes(opt.value))} onChange={(opts) => handleMultiChange('tagList', opts)} />
           </Form.Group>
 
+          {/* Benefit For */}
           <Form.Group controlId="benefitFor" className="mt-3">
             <Form.Label>{t('BenefitFor')}</Form.Label>
-            <Select
-              isMulti
-              options={config.RecomendationInfo.benefits.map((type) => ({
-                value: type,
-                label: t(type.charAt(0).toUpperCase() + type.slice(1)),
-              }))}
-              value={formData.benefitFor.map((value) => ({
-                value,
-                label: value.charAt(0).toUpperCase() + value.slice(1),
-              }))}
-              onChange={(selectedOptions) => handleMultiChange('benefitFor', selectedOptions)}
-            />
+            <Select isMulti options={benefitOptions} value={benefitOptions.filter((opt) => formData.benefitFor.includes(opt.value))} onChange={(opts) => handleMultiChange('benefitFor', opts)} />
           </Form.Group>
 
+          {/* Content Type */}
           <Form.Group controlId="contentType" className="mt-3">
             <Form.Label>{t('ContentType')}</Form.Label>
-            <Form.Control
-              as="select"
-              value={formData.contentType}
-              onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
-              required
-            >
+            <Form.Control as="select" value={formData.contentType} onChange={handleChange} required>
               <option value="">{t('SelectContentType')}</option>
               {config.RecomendationInfo.types.map((type) => (
                 <option key={type} value={type}>
@@ -307,139 +260,91 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
             </Form.Control>
           </Form.Group>
 
+          {/* Link */}
           <Form.Group controlId="link" className="mt-3">
             <Form.Label>{t('Link(Optional)')}</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder={t('Enterlink')}
-              value={formData.link}
-              onChange={handleChange}
-            />
+            <Form.Control type="text" placeholder={t('Enterlink')} value={formData.link} onChange={handleChange} />
           </Form.Group>
 
+          {/* Media File */}
           <Form.Group controlId="mediaFile" className="mt-3">
             <Form.Label>{t('UploadFile(Optional)')}</Form.Label>
-            <Form.Control
-              type="file"
-              accept="image/*,video/*,audio/*,application/pdf"
-              onChange={handleFileChange}
-            />
+            <Form.Control type="file" accept="image/*,video/*,audio/*,application/pdf" onChange={handleFileChange('mediaFile')} />
           </Form.Group>
 
+          {/* Preview Image */}
+          <Form.Group controlId="previewImage" className="mt-3">
+            <Form.Label>{t('UploadaPreviewImage')}</Form.Label>
+            <Form.Control type="file" accept="image/*" onChange={handleFileChange('previewImage')} />
+          </Form.Group>
+
+          {/* Is Private */}
           <Form.Group controlId="isPrivate" className="mt-3">
-            <Form.Check
-              type="checkbox"
-              label={t('Make this a private intervention (only visible to the assigned patient)')}
-              checked={formData.isPrivate}
-              onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
-            />
-            <small className="text-muted">
-              {t(
-                'Private interventions can include patient videos and will not be accessible or assignable to others.'
-              )}
-            </small>
+            <Form.Check type="checkbox" label={t('Make this a private intervention (only visible to the assigned patient)')} checked={formData.isPrivate} onChange={(e) => setFormData((prev) => ({ ...prev, isPrivate: e.target.checked }))} />
+            <small className="text-muted">{t('Private interventions can include patient videos and will not be accessible or assignable to others.')}</small>
           </Form.Group>
 
+          {/* Assign Patient (if private) */}
           {formData.isPrivate && (
             <Form.Group controlId="patientId" className="mt-3">
               <Form.Label>{t('Assign to Patient')}</Form.Label>
-              <Form.Control
-                as="select"
-                value={formData.patientId}
-                onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                required
-              >
+              <Form.Control as="select" value={formData.patientId} onChange={handleChange} required>
                 <option value="">{t('Select a patient')}</option>
                 {therapistPatients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </Form.Control>
             </Form.Group>
           )}
 
-          <Form.Group controlId="previewImage" className="mt-3">
-            <Form.Label>{t('UploadaPreviewImage')}</Form.Label>
-            <Form.Control type="file" accept="image/*" onChange={handleImgChange} />
-          </Form.Group>
-
+          {/* Patient Type Assignments (only if not private) */}
           {!formData.isPrivate && (
             <>
               <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
-              {formData.patientTypes.map((patient, index) => (
-                <Row key={index} className="align-items-center">
-                  <Col xs={4}>
-                    <Form.Group controlId={`patientType-${index}`}>
+              {formData.patientTypes.map((pt, idx) => (
+                <Row key={idx} className="mb-3">
+                  <Col md={4}>
+                    <Form.Group>
                       <Form.Label>{t('PatientType')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={patient.type}
-                        onChange={(e) => handlePatientTypeChange(index, 'type', e.target.value)}
-                      >
+                      <Form.Control as="select" value={pt.type} onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}>
                         <option value="">{t('SelectType')}</option>
-                        {Object.keys(config.patientInfo.function).map((specialization) => (
-                          <option key={specialization} value={specialization}>
-                            {t(specialization)}
-                          </option>
+                        {specializationKeys.map((spec) => (
+                          <option key={spec} value={spec}>{t(spec)}</option>
                         ))}
                       </Form.Control>
                     </Form.Group>
                   </Col>
-                  <Col xs={4}>
-                    <Form.Group controlId={`diagnoses-${index}`}>
+                  <Col md={4}>
+                    <Form.Group>
                       <Form.Label>{t('Diagnosis')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={patient.diagnosis}
-                        onChange={(e) =>
-                          handlePatientTypeChange(index, 'diagnosis', e.target.value)
-                        }
-                      >
+                      <Form.Control as="select" value={pt.diagnosis} onChange={(e) => handlePatientTypeChange(idx, 'diagnosis', e.target.value)}>
                         <option value="">{t('SelectDiagnosis')}</option>
-                        {(patient.diagnosesOptions || []).map((diag) => (
-                          <option key={diag} value={diag}>
-                            {t(diag)}
-                          </option>
+                        {(pt.diagnosesOptions || []).map((d) => (
+                          <option key={d} value={d}>{t(d)}</option>
                         ))}
-                        <option key="All" value="All">
-                          {t('All')}
-                        </option>
+                        <option value="All">{t('All')}</option>
                       </Form.Control>
                     </Form.Group>
                   </Col>
-                  <Col xs={4}>
-                    <Form.Group controlId={`frequency-${index}`}>
+                  <Col md={4}>
+                    <Form.Group>
                       <Form.Label>{t('RecomendationFrequency')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={patient.frequency}
-                        onChange={(e) =>
-                          handlePatientTypeChange(index, 'frequency', e.target.value)
-                        }
-                      >
+                      <Form.Control as="select" value={pt.frequency} onChange={(e) => handlePatientTypeChange(idx, 'frequency', e.target.value)}>
                         <option value="">{t('SelectFrequency')}</option>
-                        {config.RecomendationInfo.frequency.map((freq) => (
-                          <option key={freq} value={freq}>
-                            {t(freq)}
-                          </option>
+                        {config.RecomendationInfo.frequency.map((f) => (
+                          <option key={f} value={f}>{t(f)}</option>
                         ))}
                       </Form.Control>
                     </Form.Group>
                   </Col>
                 </Row>
               ))}
-              <Button variant="link" className="mt-3" onClick={addPatientType}>
-                <FaPlus /> {t('AddAnotherPatientType')}
-              </Button>
+              <Button variant="link" onClick={addPatientType}><FaPlus /> {t('AddAnotherPatientType')}</Button>
             </>
           )}
 
-          {success ? (
-            <Alert variant="success" className="mt-4 text-center">
-              {t('Intervention successfully added')}
-            </Alert>
-          ) : (
+          {/* Submit */}
+          {!success && (
             <Button variant="primary" type="submit" className="mt-4 w-100">
               {t('Submit')}
             </Button>
