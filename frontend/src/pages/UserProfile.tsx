@@ -1,19 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Container, Row, Spinner, Alert } from 'react-bootstrap';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Container,
+  OverlayTrigger,
+  Row,
+  Spinner,
+  Tooltip,
+} from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
+import InfoBubble from '../components/common/InfoBubble'; // Optional, for tooltip hints
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import EditUserInfo from '../components/UserProfile/EditTherapistInfo';
 import DeleteConfirmation from '../components/UserProfile/DeleteConfirmation';
+
 import authStore from '../stores/authStore';
 import apiClient from '../api/client';
 import { UserType } from '../types/index';
 
 const UserProfile: React.FC = () => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -46,9 +57,9 @@ const UserProfile: React.FC = () => {
 
   const handleSave = async (updatedUserData: UserType) => {
     try {
-      await apiClient.put<UserType>(`/users/${therapistId}/profile/`, updatedUserData);
-      const response = await apiClient.get<UserType>(`/users/${therapistId}/profile`);
-      setUserData(response.data);
+      await apiClient.put(`/users/${therapistId}/profile/`, updatedUserData);
+      const refreshed = await apiClient.get(`/users/${therapistId}/profile`);
+      setUserData(refreshed.data);
       setIsEditing(false);
     } catch (err) {
       console.error('Profile update failed:', err);
@@ -70,6 +81,20 @@ const UserProfile: React.FC = () => {
     }
   };
 
+  const renderHint = (tooltip: string, label: string) => (
+    <>
+      {label}{' '}
+      <OverlayTrigger
+        placement="right"
+        overlay={<Tooltip>{tooltip}</Tooltip>}
+      >
+        <span role="img" aria-label="info" style={{ cursor: 'pointer' }}>
+          ℹ️
+        </span>
+      </OverlayTrigger>
+    </>
+  );
+
   const renderProfileDetails = () => (
     <>
       <h4 className="text-center mb-4">
@@ -88,14 +113,31 @@ const UserProfile: React.FC = () => {
       {authStore.userType === 'Therapist' && (
         <>
           <p>
-            <strong>{t('Specialization')}:</strong>{' '}
+            <strong>
+             
+              
+                 
+                {t('Specialization')}
+              :
+            </strong>{' '}
             {userData?.specializations?.length
               ? userData.specializations.map(t).join(', ')
               : t('No specialization set')}
+              <InfoBubble tooltip={t('Therapist’s areas of clinical expertise')} />
           </p>
+
           <p>
-            <strong>{t('Clinics')}:</strong>{' '}
-            {userData?.clinics?.length ? userData.clinics.join(', ') : t('No clinics set')}
+            <strong>
+              
+              {
+                t('Clinics')
+              }
+              :
+            </strong>{' '}
+            {userData?.clinics?.length
+              ? userData.clinics.join(', ')
+              : t('No clinics set')}
+              <InfoBubble tooltip={t('Affiliated institutions or work locations')} />
           </p>
         </>
       )}
@@ -123,27 +165,23 @@ const UserProfile: React.FC = () => {
                 <h2>{t('User Profile')}</h2>
               </Card.Header>
               <Card.Body>
-                {loading && (
+                {loading ? (
                   <div className="text-center my-4">
                     <Spinner animation="border" role="status" />
                     <p className="mt-3">{t('Loading')}...</p>
                   </div>
-                )}
-
-                {error && (
+                ) : error ? (
                   <Alert variant="danger" className="text-center">
                     {error}
                   </Alert>
-                )}
-
-                {!loading && !isEditing && userData && renderProfileDetails()}
-
-                {!loading && isEditing && userData && (
+                ) : isEditing && userData ? (
                   <EditUserInfo
                     userData={userData}
                     onSave={handleSave}
                     onCancel={() => setIsEditing(false)}
                   />
+                ) : (
+                  userData && renderProfileDetails()
                 )}
               </Card.Body>
             </Card>
@@ -151,7 +189,6 @@ const UserProfile: React.FC = () => {
         </Row>
       </Container>
 
-      {/* Delete Confirmation Modal */}
       {showDeletePopup && (
         <DeleteConfirmation
           show={showDeletePopup}

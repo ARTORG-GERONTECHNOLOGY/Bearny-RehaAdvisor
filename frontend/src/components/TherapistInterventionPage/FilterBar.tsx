@@ -41,94 +41,120 @@ const FilterBar: React.FC<Props> = ({
   config,
   t,
 }) => (
-  <Card className="p-3 shadow-sm w-100">
+  <Card className="p-3 shadow-sm w-100" aria-label={t('Filter Interventions')}>
     <Row className="g-3">
       <Col xs={12}>
-        <Form.Control
-          type="text"
-          placeholder={t('Search Interventions')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <Form.Group controlId="searchInput">
+          <Form.Label visuallyHidden>{t('Search Interventions')}</Form.Label>
+          <Form.Control
+            type="text"
+            placeholder={t('Search Interventions')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Form.Select
-          value={patientTypeFilter}
-          onChange={(e) => setPatientTypeFilter(e.target.value)}
-        >
-          <option value="">{t('Filter by Patient Type')}</option>
-          {diagnoses.map((type) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
+        <Form.Group controlId="filterPatientType">
+          <Form.Label visuallyHidden>{t('Filter by Patient Type')}</Form.Label>
+          <Form.Select
+            value={patientTypeFilter}
+            onChange={(e) => setPatientTypeFilter(e.target.value)}
+          >
+            <option value="">{t('Filter by Patient Type')}</option>
+            {diagnoses.map((type) => (
+              <option key={type} value={type}>
+                {t(type)}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Form.Select
-          value={coreSupportFilter}
-          onChange={(e) => setCoreSupportFilter(e.target.value)}
-        >
-          <option value="">{t('Filter by Core/Supportive')}</option>
-          {(config.RecomendationInfo.intensity as string[]).map((opt) => (
-            <option key={opt} value={opt}>
-              {t(opt)}
-            </option>
-          ))}
-        </Form.Select>
+        <Form.Group controlId="filterCoreSupport">
+          <Form.Label visuallyHidden>{t('Filter by Core/Supportive')}</Form.Label>
+          <Form.Select
+            value={coreSupportFilter}
+            onChange={(e) => setCoreSupportFilter(e.target.value)}
+          >
+            <option value="">{t('Filter by Core/Supportive')}</option>
+            {config?.RecomendationInfo?.intensity?.map((opt: string) => (
+              <option key={opt} value={opt}>
+                {t(opt)}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Form.Select
-          value={contentTypeFilter}
-          onChange={(e) => setContentTypeFilter(e.target.value)}
-        >
-          <option value="">{t('Filter by Content Type')}</option>
-          {(config.RecomendationInfo.types as string[]).map((type) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
+        <Form.Group controlId="filterContentType">
+          <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
+          <Form.Select
+            value={contentTypeFilter}
+            onChange={(e) => setContentTypeFilter(e.target.value)}
+          >
+            <option value="">{t('Filter by Content Type')}</option>
+            {config?.RecomendationInfo?.types?.map((type: string) => (
+              <option key={type} value={type}>
+                {t(type)}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Select
-          isMulti
-          placeholder={t('Filter by Tags')}
-          options={(config.RecomendationInfo.tags as string[]).map((tag) => ({
-            value: tag,
-            label: t(tag),
-          }))}
-          value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-          onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
-        />
+        <Form.Group controlId="filterTags">
+          <Form.Label visuallyHidden>{t('Filter by Tags')}</Form.Label>
+          <Select
+            isMulti
+            placeholder={t('Filter by Tags')}
+            options={config?.RecomendationInfo?.tags?.map((tag: string) => ({
+              value: tag,
+              label: t(tag),
+            }))}
+            value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
+            onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
+            aria-label={t('Filter by Tags')}
+          />
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Select
-          isMulti
-          placeholder={t('Filter by Benefit')}
-          options={(config.RecomendationInfo.benefits as string[]).map((b) => ({
-            value: b,
-            label: t(b),
-          }))}
-          value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-          onChange={(opts) => setBenefitForFilter(opts.map((opt) => opt.value))}
-        />
+        <Form.Group controlId="filterBenefit">
+          <Form.Label visuallyHidden>{t('Filter by Benefit')}</Form.Label>
+          <Select
+            isMulti
+            placeholder={t('Filter by Benefit')}
+            options={config?.RecomendationInfo?.benefits?.map((b: string) => ({
+              value: b,
+              label: t(b),
+            }))}
+            value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
+            onChange={(opts) => setBenefitForFilter(opts.map((opt) => opt.value))}
+            aria-label={t('Filter by Benefit')}
+          />
+        </Form.Group>
       </Col>
 
       <Col sm={6} md={4} lg={3}>
-        <Form.Select value={frequencyFilter} onChange={(e) => setFrequencyFilter(e.target.value)}>
-          <option value="">{t('Filter by Frequency')}</option>
-          {(config.RecomendationInfo.frequency as string[]).map((freq) => (
-            <option key={freq} value={freq}>
-              {t(freq)}
-            </option>
-          ))}
-        </Form.Select>
+        <Form.Group controlId="filterFrequency">
+          <Form.Label visuallyHidden>{t('Filter by Frequency')}</Form.Label>
+          <Form.Select
+            value={frequencyFilter}
+            onChange={(e) => setFrequencyFilter(e.target.value)}
+          >
+            <option value="">{t('Filter by Frequency')}</option>
+            {config?.RecomendationInfo?.frequency?.map((freq: string) => (
+              <option key={freq} value={freq}>
+                {t(freq)}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
       </Col>
     </Row>
   </Card>

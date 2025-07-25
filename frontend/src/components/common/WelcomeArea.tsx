@@ -2,15 +2,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface WelcomeAreaProps {
-  user: string; // Define the type of user prop (string in this case)
+  user: string; // 'patient' or other
 }
 
 const WelcomeArea: React.FC<WelcomeAreaProps> = ({ user }) => {
-  const { t } = useTranslation(); // ✅ Use the hook, NOT direct import from i18next
-  // Get the current hour
+  const { t } = useTranslation();
+
   const currentHour = new Date().getHours();
 
-  // Determine the welcome message based on the time of day
   const getWelcomeMessage = () => {
     if (currentHour >= 5 && currentHour < 12) {
       return t('Good Morning');
@@ -23,7 +22,6 @@ const WelcomeArea: React.FC<WelcomeAreaProps> = ({ user }) => {
     }
   };
 
-  // Set message based on user type (patient or not)
   const getUserMessage = () => {
     if (user === 'patient') {
       return t('Here are your recommendations for');
@@ -32,12 +30,14 @@ const WelcomeArea: React.FC<WelcomeAreaProps> = ({ user }) => {
     }
   };
 
+  const fullName = localStorage.getItem('fullName') || t('User');
+
   return (
-    <div className="welcome-area text-center my-4">
-      <h2>
-        {getWelcomeMessage()}, {localStorage.getItem('fullName')}
+    <div className="welcome-area text-center my-4 px-2">
+      <h2 className="fs-3 fs-md-2 fw-bold text-wrap text-break" aria-label={getWelcomeMessage()}>
+        {getWelcomeMessage()}, {fullName}
       </h2>
-      <h4>{getUserMessage()}</h4>
+      <h4 className="fs-6 fs-md-5 text-secondary">{getUserMessage()}</h4>
     </div>
   );
 };

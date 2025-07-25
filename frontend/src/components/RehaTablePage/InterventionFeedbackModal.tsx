@@ -32,6 +32,18 @@ interface Props {
   video?: VideoFeedback;
 }
 
+// Helper to get translated text with fallback to English
+const getTranslation = (
+  translations: { language: string; text: string }[],
+  lang: string
+): string => {
+  return (
+    translations.find((t) => t.language === lang)?.text ||
+    translations.find((t) => t.language === 'en')?.text ||
+    ''
+  );
+};
+
 const InterventionFeedbackModal: React.FC<Props> = ({
   show,
   onClose,
@@ -47,7 +59,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (show && exercise?.title) {
-      translateText(exercise.title)
+      translateText(exercise.title, userLang)
         .then(({ translatedText, detectedSourceLanguage }) => {
           setTranslatedTitle(translatedText);
           setDetectedLang(detectedSourceLanguage);
@@ -57,10 +69,10 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           setDetectedLang('');
         });
     }
-  }, [exercise?.title, show]);
+  }, [exercise?.title, show, userLang]);
 
   return (
-    <Modal show={show} onHide={onClose} centered>
+    <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>
           {translatedTitle}{' '}
@@ -69,59 +81,53 @@ const InterventionFeedbackModal: React.FC<Props> = ({
               ({t('Original language:')} {detectedLang})
             </span>
           )}{' '}
-          ({date})
+          <span className="ms-2 text-secondary">({date})</span>
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <h5>{t('Feedback')}</h5>
+        <section className="mb-4">
+          <h6 className="fw-bold">{t('Feedback')}</h6>
+        </section>
 
         {/* Video feedback section */}
         {video && (
-          <>
+          <section className="mb-4">
             <hr />
-            <p>
-              <strong>{t('Video feedback')}</strong>
-            </p>
+            <p className="fw-bold mb-1">{t('Video feedback')}</p>
             {video.comment && <p className="fst-italic">{video.comment}</p>}
             {!video.video_expired ? (
               <div className="rounded shadow-sm overflow-hidden mt-3">
                 <ReactPlayer url={video.video_url} width="100%" height="400px" controls />
               </div>
             ) : (
-              <p className="text-muted mt-3">{t('Video feedback has expired.')}</p>
+              <p className="text-muted mt-2">{t('Video feedback has expired.')}</p>
             )}
-          </>
+          </section>
         )}
 
-        {/* Other feedback entries */}
+        {/* Text/audio/multiselect feedback */}
         {feedbackEntries.length > 0 ? (
           feedbackEntries.map((entry, idx) => {
-            const questionText =
-              entry.question.translations.find((t) => t.language === userLang)?.text ||
-              entry.question.translations.find((t) => t.language === 'en')?.text ||
-              '';
+            const questionText = getTranslation(entry.question.translations, userLang);
 
             return (
-              <div key={idx} className="mb-4">
+              <section key={idx} className="mb-4">
                 <hr />
-                <p>
-                  <strong>{questionText}</strong>
-                </p>
-                <ul className="mb-2">
-                  {entry.answer.map((ans, i) => {
-                    const translation =
-                      ans.translations.find((t) => t.language === userLang)?.text ||
-                      ans.translations.find((t) => t.language === 'en')?.text ||
-                      ans.key;
-                    return <li key={i}>{translation}</li>;
-                  })}
-                </ul>
+                <p className="fw-bold">{questionText}</p>
+                {entry.answer.length > 0 && (
+                  <ul className="mb-2">
+                    {entry.answer.map((ans, i) => {
+                      const answerText = getTranslation(ans.translations, userLang) || ans.key;
+                      return <li key={i}>{answerText}</li>;
+                    })}
+                  </ul>
+                )}
                 {entry.comment && <p className="fst-italic">{entry.comment}</p>}
-              </div>
+              </section>
             );
           })
         ) : (
-          <p>{t('No feedback available')}</p>
+          <p className="text-muted">{t('No feedback available')}</p>
         )}
       </Modal.Body>
     </Modal>

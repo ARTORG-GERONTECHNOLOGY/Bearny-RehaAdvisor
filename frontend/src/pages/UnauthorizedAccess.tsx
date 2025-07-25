@@ -13,37 +13,11 @@ const UnauthorizedAccess: React.FC = () => {
   const handleGoHome = () => navigate('/');
 
   return (
-    <Container fluid className="d-flex flex-column min-vh-100 px-3">
+    <Container fluid className="d-flex flex-column min-vh-100 px-3 px-sm-4">
       {/* Header */}
       <Header isLoggedIn={false} />
 
       {/* Main Content */}
-      <Container className="flex-grow-1 d-flex align-items-center justify-content-center">
+      <Container className="flex-grow-1 d-flex align-items-center justify-content-center py-4">
         <Row className="w-100 justify-content-center">
-          <Col xs={12} md={10} lg={8} xl={6}>
-            <Card className="shadow-sm p-4 text-center">
-              <Card.Body>
-                <h1 className="mb-3">{t('Unauthorized Access')}</h1>
-                <p className="mb-4">{t('You do not have permission to access this page.')}</p>
-
-                <div className="d-grid gap-2 d-sm-flex justify-content-center">
-                  <Button variant="primary" onClick={handleGoBack}>
-                    {t('Go Back')}
-                  </Button>
-                  <Button variant="secondary" onClick={handleGoHome}>
-                    {t('Go to Home')}
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
-
-      {/* Footer */}
-      <Footer />
-    </Container>
-  );
-};
-
-export default UnauthorizedAccess;
+          <Col xs={12} sm={10} md={8} lg={6} xl={5}>

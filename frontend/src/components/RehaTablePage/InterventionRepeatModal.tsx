@@ -24,19 +24,16 @@ const InterventionRepeatModal: React.FC<Props> = ({
   patient,
   intervention,
 }) => {
-  // existing state…
   const [interval, setInterval] = useState(1);
   const [unit, setUnit] = useState('week');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [endOption, setEndOption] = useState<'never' | 'date' | 'count'>('never');
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [startDate, setstartDate] = useState<Date | null>(null);
+  const [startDate, setStartDate] = useState<Date | null>(null);
   const [occurrenceCount, setOccurrenceCount] = useState(10);
-  const [startTime, setStartTime] = useState<string>('08:00');
-  const [success, setSuccess] = useState<boolean>(false);
-
-  // new state for video feedback requirement
-  const [requireVideoFeedback, setRequireVideoFeedback] = useState<boolean>(false);
+  const [startTime, setStartTime] = useState('08:00');
+  const [success, setSuccess] = useState(false);
+  const [requireVideoFeedback, setRequireVideoFeedback] = useState(false);
 
   const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
   const diagnoses = Array.isArray(specialisations)
@@ -79,7 +76,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
               date: endOption === 'date' ? endDate : null,
               count: endOption === 'count' ? occurrenceCount : null,
             },
-            require_video_feedback: requireVideoFeedback, // ← new flag
+            require_video_feedback: requireVideoFeedback,
           },
         ],
       };
@@ -95,89 +92,95 @@ const InterventionRepeatModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered aria-labelledby="repeat-modal-title">
       <Modal.Header closeButton>
-        <Modal.Title>{t('Frequency')}</Modal.Title>
+        <Modal.Title id="repeat-modal-title">{t('Frequency')}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {!isDiagnosis && (
-          <>
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={4}>
-                Starts
-              </Form.Label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date) => setstartDate(date)}
-                className="form-control mt-2"
-                dateFormat="yyyy-MM-dd"
-              />
-            </Form.Group>
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={4}>
-                {t('Start Time')}
-              </Form.Label>
-              <Col sm={8}>
-                <Form.Control
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+        <Form>
+          {!isDiagnosis && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label htmlFor="start-date">{t('Start Date')}</Form.Label>
+                <DatePicker
+                  selected={startDate}
+                  onChange={(date) => setStartDate(date)}
+                  className="form-control"
+                  dateFormat="yyyy-MM-dd"
+                  id="start-date"
+                  aria-label={t('Start Date')}
                 />
-              </Col>
+              </Form.Group>
+
+              <Form.Group as={Row} className="mb-3" controlId="start-time">
+                <Form.Label column sm={4}>
+                  {t('Start Time')}
+                </Form.Label>
+                <Col sm={8}>
+                  <Form.Control
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    aria-label={t('Start Time')}
+                  />
+                </Col>
+              </Form.Group>
+            </>
+          )}
+
+          <Form.Group as={Row} className="mb-3" controlId="repeat-every">
+            <Form.Label column sm={4}>
+              {t('Repeat every')}
+            </Form.Label>
+            <Col sm={4}>
+              <Form.Control
+                type="number"
+                min="1"
+                value={interval}
+                onChange={(e) => setInterval(parseInt(e.target.value))}
+                aria-label={t('Interval')}
+              />
+            </Col>
+            <Col sm={4}>
+              <Form.Select value={unit} onChange={(e) => setUnit(e.target.value)}>
+                <option value="day">{t('Day')}</option>
+                <option value="week">{t('Week')}</option>
+                <option value="month">{t('Month')}</option>
+              </Form.Select>
+            </Col>
+          </Form.Group>
+
+          {unit === 'week' && (
+            <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
+              <div className="d-flex flex-wrap gap-2">
+                {weekdays.map((day, idx) => (
+                  <Button
+                    key={idx}
+                    variant={selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
+                    onClick={() => toggleDay(day)}
+                    aria-pressed={selectedDays.includes(day)}
+                    aria-label={t(`Day ${day}`)}
+                  >
+                    {day}
+                  </Button>
+                ))}
+              </div>
             </Form.Group>
-          </>
-        )}
+          )}
 
-        <Form.Group as={Row} className="mb-3">
-          <Form.Label column sm={4}>
-            {t('Repeat every')}
-          </Form.Label>
-          <Col sm={3}>
-            <Form.Control
-              type="number"
-              value={interval}
-              onChange={(e) => setInterval(parseInt(e.target.value))}
-            />
-          </Col>
-          <Col sm={5}>
-            <Form.Select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              <option value="day">{t('Day')}</option>
-              <option value="week">{t('Week')}</option>
-              <option value="month">{t('Month')}</option>
-            </Form.Select>
-          </Col>
-        </Form.Group>
-
-        {unit === 'week' && (
-          <div className="d-flex justify-content-between mb-3">
-            {weekdays.map((day, idx) => (
-              <Button
-                key={idx}
-                variant={selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
-                onClick={() => toggleDay(day)}
-              >
-                {day}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        <Form.Group as={Row} className="mb-3">
-          <Form.Label column sm={4}>
-            {t('Ends')}
-          </Form.Label>
-          <Col sm={8}>
-            <div>
+          <Form.Group className="mb-3" role="radiogroup" aria-label={t('End options')}>
+            <Form.Label>{t('Ends')}</Form.Label>
+            <div className="d-flex flex-column gap-2">
               <Form.Check
                 type="radio"
-                label="Never"
+                label={t('Never')}
                 checked={endOption === 'never'}
                 onChange={() => setEndOption('never')}
               />
               <Form.Check
                 type="radio"
-                label="On date"
+                label={t('On date')}
                 checked={endOption === 'date'}
                 onChange={() => setEndOption('date')}
               />
@@ -185,32 +188,32 @@ const InterventionRepeatModal: React.FC<Props> = ({
                 <DatePicker
                   selected={endDate}
                   onChange={(date) => setEndDate(date)}
-                  className="form-control mt-2"
+                  className="form-control"
+                  dateFormat="yyyy-MM-dd"
+                  aria-label={t('End date')}
                 />
               )}
               <Form.Check
                 type="radio"
-                label="After N times"
+                label={t('After N times')}
                 checked={endOption === 'count'}
                 onChange={() => setEndOption('count')}
               />
               {endOption === 'count' && (
                 <Form.Control
-                  className="mt-2"
                   type="number"
                   value={occurrenceCount}
                   onChange={(e) => setOccurrenceCount(parseInt(e.target.value))}
+                  aria-label={t('Number of occurrences')}
                 />
               )}
             </div>
-          </Col>
-        </Form.Group>
+          </Form.Group>
 
-        {/* NEW: Require video feedback checkbox */}
-        <Form.Group as={Row} className="mb-3">
-          <Col>
+          <Form.Group className="mb-3">
             <Form.Check
               type="checkbox"
+              id="require-video-feedback"
               label={t('Ask video feedback from patient')}
               checked={requireVideoFeedback}
               onChange={() => setRequireVideoFeedback((prev) => !prev)}
@@ -218,8 +221,8 @@ const InterventionRepeatModal: React.FC<Props> = ({
             <Form.Text muted>
               {t('Patients will be prompted to upload or record a video of the exercise.')}
             </Form.Text>
-          </Col>
-        </Form.Group>
+          </Form.Group>
+        </Form>
       </Modal.Body>
 
       <Modal.Footer>
@@ -233,7 +236,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
             </Button>
           </>
         ) : (
-          <div className="alert alert-success">{t('Success!')}</div>
+          <div className="alert alert-success w-100 text-center m-0">{t('Success!')}</div>
         )}
       </Modal.Footer>
     </Modal>
