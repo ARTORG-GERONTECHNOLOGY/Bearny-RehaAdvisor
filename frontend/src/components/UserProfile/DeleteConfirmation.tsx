@@ -1,21 +1,50 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
-const DeleteConfirmation = ({ show, handleClose, handleConfirm }) => {
+interface DeleteConfirmationProps {
+  show: boolean;
+  handleClose: () => void;
+  handleConfirm: () => void;
+}
+
+const DeleteConfirmation: React.FC<DeleteConfirmationProps> = ({
+  show,
+  handleClose,
+  handleConfirm,
+}) => {
+  const { t } = useTranslation();
+
   return (
-    <Modal show={show} onHide={handleClose} centered>
+    <Modal
+      show={show}
+      onHide={handleClose}
+      centered
+      backdrop="static"
+      keyboard={false}
+      aria-labelledby="delete-account-modal-title"
+    >
       <Modal.Header closeButton>
-        <Modal.Title>Delete Account</Modal.Title>
+        <Modal.Title id="delete-account-modal-title">
+          {t('Delete Account')}
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p>{t('Are you sure you want to delete your account? This action cannot be undone.')}</p>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>
+        <Button
+          variant="secondary"
+          onClick={handleClose}
+          aria-label={t('Cancel')}
+        >
           {t('Cancel')}
         </Button>
-        <Button variant="danger" onClick={handleConfirm}>
+        <Button
+          variant="danger"
+          onClick={handleConfirm}
+          aria-label={t('Delete Account')}
+        >
           {t('Delete Account')}
         </Button>
       </Modal.Footer>

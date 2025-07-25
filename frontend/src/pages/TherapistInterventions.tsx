@@ -50,7 +50,6 @@ const TherapistRecomendations: React.FC = () => {
     if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
       navigate('/');
     } else {
-      setLoading(false);
       fetchData();
     }
   }, [navigate]);
@@ -63,6 +62,8 @@ const TherapistRecomendations: React.FC = () => {
     } catch (error) {
       console.error('Error fetching recommendations:', error);
       setError(t('Error fetching recommendations. Please try again later.'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,7 +150,6 @@ const TherapistRecomendations: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Row for button above filters */}
         <Row className="mb-3">
           <Col xs={12} md="auto">
             <Button onClick={handleOpen} className="btn-primary">
@@ -158,7 +158,6 @@ const TherapistRecomendations: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Filters */}
         <Row className="mb-4">
           <Col xs={12}>
             <FilterBar
@@ -183,7 +182,6 @@ const TherapistRecomendations: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Intervention List */}
         <Row>
           <Col xs={12}>
             <InterventionList

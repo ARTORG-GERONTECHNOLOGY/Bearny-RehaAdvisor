@@ -7,7 +7,7 @@ import authStore from '../../stores/authStore';
 // Flag imports
 import flagDe from '../../assets/flags/de.png';
 import flagFr from '../../assets/flags/fr.png';
-import flagEn from '../../assets/flags/gb.png'; // Replace with actual filename
+import flagEn from '../../assets/flags/gb.png';
 import flagIt from '../../assets/flags/it.png';
 
 const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
@@ -33,7 +33,7 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
   };
 
   return (
-    <Navbar expand="lg" className="bg-body-tertiary">
+    <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
       <Container fluid className="d-flex justify-content-between align-items-center">
         {/* Brand */}
         <Navbar.Brand>
@@ -44,7 +44,7 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
           />
         </Navbar.Brand>
 
-        {/* Language selector: small screens */}
+        {/* Language selector: small screens (dropdown) */}
         <div className="ms-auto d-lg-none">
           <Dropdown align="end">
             <Dropdown.Toggle
@@ -69,23 +69,12 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
               />
             </Dropdown.Toggle>
 
-            <Dropdown.Menu
-              style={{
-                minWidth: 'auto',
-                padding: '4px 0',
-                textAlign: 'center',
-              }}
-            >
+            <Dropdown.Menu>
               {Object.entries(languageOptions).map(([lang, flag]) => (
                 <Dropdown.Item
                   key={lang}
                   onClick={() => handleLanguageChange(lang)}
-                  style={{
-                    padding: '4px 8px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
+                  className="text-center"
                 >
                   <img
                     src={flag}
@@ -103,8 +92,8 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
           </Dropdown>
         </div>
 
-        {/* Navbar toggle for auth */}
-        {isLoggedIn && <Navbar.Toggle aria-controls="basic-navbar-nav" />}
+        {/* Toggle button: always available on small screens */}
+        <Navbar.Toggle aria-controls="basic-navbar-nav" />
 
         <Navbar.Collapse id="basic-navbar-nav">
           {isLoggedIn && (
@@ -131,7 +120,7 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
             </Nav>
           )}
 
-          {/* Language selector: large screens */}
+          {/* Language selector: large screens (toggle buttons) */}
           <div className="d-none d-lg-block ms-auto">
             <ButtonGroup className="ms-3">
               {languages.map((lang) => (
