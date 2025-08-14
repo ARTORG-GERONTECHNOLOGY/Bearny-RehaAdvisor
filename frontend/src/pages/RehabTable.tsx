@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Col, Container, Row, Nav, Card, Form, Badge } from 'react-bootstrap';
-import { FaPlus, FaMinus } from 'react-icons/fa';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
@@ -19,6 +18,9 @@ import ErrorAlert from '../components/common/ErrorAlert';
 import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
 import { translateText } from '../utils/translate';
+import { ButtonGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { FaPlus, FaMinus, FaChartBar } from 'react-icons/fa';
+
 
 const RehabTable: React.FC = () => {
   const [patientData, setPatientData] = useState<{ interventions: Intervention[] }>({
@@ -213,10 +215,14 @@ const RehabTable: React.FC = () => {
 
   return (
     <>
-      <div className="d-flex flex-column vh-100">
-        <Header isLoggedIn={authStore.isAuthenticated} />
+{/* OUTER WRAPPER */}
+<div className="d-flex flex-column min-vh-100">
+  <Header isLoggedIn={authStore.isAuthenticated} />
 
-        <Container fluid className="mt-4">
+  {/* MAIN CONTENT AREA */}
+  <div className="flex-grow-1 d-flex flex-column overflow-hidden">
+    <Container fluid className="mt-4 d-flex flex-column flex-grow-1 overflow-hidden">
+
           <Row>
             <Col>
               <h2 className="text-center mb-4">{patientName}</h2>
@@ -234,9 +240,15 @@ const RehabTable: React.FC = () => {
               )}
             </Col>
           </Row>
-          <Row>
-            {/* LEFT PANEL: Interventions + Tab Switcher */}
-            <Col xs={12} md={3} className="mb-3 mb-md-0">
+          {/* PANELS ROW */}
+      <Row className="flex-grow-1 overflow-hidden">
+        {/* LEFT PANEL */}
+        <Col
+          xs={12}
+          md={3}
+          className="mb-3 mb-md-0 d-flex flex-column overflow-hidden min-h-0"
+        >
+
               {/* Tab Switcher */}
               <Card className="mb-3">
                 <Card.Header>
@@ -331,7 +343,7 @@ const RehabTable: React.FC = () => {
                 </Card>
               )}
               {/* Intervention List - Scrollable */}
-              <Card style={{ flex: 1, overflowY: 'auto' }}>
+              <Card className="flex-grow-1 overflow-auto min-h-0">
                 <Card.Body>
                   {(selectedTab === 'patient'
                     ? allInterventions.filter((intervention) =>
@@ -347,84 +359,105 @@ const RehabTable: React.FC = () => {
                     );
 
                     return (
-                      <div
-                        key={intervention._id}
-                        className="d-flex justify-content-between align-items-center mb-2 p-2 rounded shadow-sm"
-                        style={{ cursor: 'pointer', backgroundColor: '#f8f9fa' }}
-                        onClick={() => handleExerciseClick(intervention)}
-                      >
-                        <div>
-                          <strong>
-                            {translatedInterventions[intervention._id]?.title || intervention.title}{' '}
-                            {intervention.is_private && (
-                              <span className="ms-2 text-primary">{t('Private')}</span>
-                            )}
-                          </strong>
-                          <div className="text-muted">
-                            {translatedInterventions[intervention._id]?.content_type ||
-                              t(
-                                intervention.content_type.charAt(0).toUpperCase() +
-                                  intervention.content_type.slice(1)
-                              )}
-                          </div>
+                    <div 
+                    key={intervention._id}
+                    className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
+                    style={{
+                      cursor: 'pointer',
+                      backgroundColor: '#f8f9fa',
+                      gap: '0.5rem',
+                    }}
+                    onClick={() => handleExerciseClick(intervention)}
+                  >
+                    <div className="flex-grow-1">
+                      <strong>
+                        {translatedInterventions[intervention._id]?.title || intervention.title}{' '}
+                        {intervention.is_private && (
+                          <span className="ms-2 text-primary">{t('Private')}</span>
+                        )}
+                      </strong>
 
-                          <Badge
-                            bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}
-                          >
-                            {getMediaTypeLabelFromUrl(intervention.media_url, intervention.link)}
-                          </Badge>
-                        </div>
+                      <div className="text-muted">
+                        {translatedInterventions[intervention._id]?.content_type ||
+                          t(
+                            intervention.content_type.charAt(0).toUpperCase() +
+                              intervention.content_type.slice(1)
+                          )}
+                      </div>
 
-                        <div onClick={(e) => e.stopPropagation()}>
-                          {selectedTab === 'all' && !hasFutureDates && (
+                      <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
+                        {getMediaTypeLabelFromUrl(intervention.media_url, intervention.link)}
+                      </Badge>
+                    </div>
+
+                    {/* action column (fixed-ish width due to icon-only buttons) */}
+                    <div style={{ flex: '0 0 auto' }}>
+                      <div onClick={(e) => e.stopPropagation()} className="ms-2">
+                        <ButtonGroup size="sm" vertical>
+                          {/* Stats */}
+                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
                             <Button
-                              size="sm"
-                              variant="success"
-                              onClick={() => handleAddIntervention(intervention)}
-                              className="me-1"
+                              variant="outline-primary"
+                              onClick={() => showStats(intervention)}
+                              aria-label={t('Statistics')}
                             >
-                              <FaPlus />
+                              <FaChartBar />
                             </Button>
-                          )}
-                          {selectedTab === 'all' && hasFutureDates && (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleDeleteExercise(intervention._id)}
-                            >
-                              <FaMinus />
-                            </Button>
-                          )}
-                          {selectedTab === 'patient' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => showStats(intervention)}
-                              >
-                                {t('Statistics')}
-                              </Button>
-                              {hasFutureDates && (
+                          </OverlayTrigger>
+
+                          {selectedTab === 'all' ? (
+                            hasFutureDates ? (
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                                 <Button
-                                  size="sm"
-                                  variant="danger"
+                                  variant="outline-danger"
                                   onClick={() => handleDeleteExercise(intervention._id)}
+                                  aria-label={t('Remove')}
                                 >
                                   <FaMinus />
                                 </Button>
-                              )}
-                            </>
+                              </OverlayTrigger>
+                            ) : (
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
+                                <Button
+                                  variant="outline-success"
+                                  onClick={() => handleAddIntervention(intervention)}
+                                  aria-label={t('Add')}
+                                >
+                                  <FaPlus />
+                                </Button>
+                              </OverlayTrigger>
+                            )
+                          ) : (
+                            // patient tab
+                            hasFutureDates && (
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
+                                <Button
+                                  variant="outline-danger"
+                                  onClick={() => handleDeleteExercise(intervention._id)}
+                                  aria-label={t('Remove')}
+                                >
+                                  <FaMinus />
+                                </Button>
+                              </OverlayTrigger>
+                            )
                           )}
-                        </div>
+                        </ButtonGroup>
                       </div>
+                    </div>
+                  </div>
+                
                     );
                   })}
                 </Card.Body>
               </Card>
             </Col>
+            
 
             {/* MIDDLE PANEL: Calendar */}
-            <Col xs={12} md={9}>
+
+             <Col xs={12} md={9} className="d-flex flex-column overflow-hidden min-h-0">
+          {/* Calendar wrapper gets the space and scrolls if needed */}
+          <div className="flex-grow-1 overflow-auto min-h-0">
               <InterventionCalendar
                 interventions={patientData.interventions || []}
                 onSelectEvent={(event) => {
@@ -433,7 +466,8 @@ const RehabTable: React.FC = () => {
                   setShowInterFeedbackModal(true);
                 }}
               />
-            </Col>
+             </div>
+        </Col>
           </Row>
         </Container>
 
@@ -498,7 +532,9 @@ const RehabTable: React.FC = () => {
           t={t}
         />
       </div>
+      </div> 
     </>
+    
   );
 };
 
