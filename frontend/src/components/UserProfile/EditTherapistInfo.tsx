@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Form, Button } from 'react-bootstrap';
+import { Form, Button, InputGroup } from 'react-bootstrap';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import config from '../../config/config.json';
 import ErrorAlert from '../common/ErrorAlert';
-
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface Props {
   userData: Record<string, any>;
@@ -23,6 +23,13 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
   });
 
   const [error, setError] = useState<string>('');
+
+  // Show/hide toggles for password fields
+  const [showPassword, setShowPassword] = useState({
+    old: false,
+    new: false,
+    confirm: false,
+  });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -65,6 +72,7 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
   return (
     <Form onSubmit={handleSubmit} aria-label={t('Edit Profile Form')}>
       {error && <ErrorAlert message={error} onClose={() => setError('')} />}
+
       {config.TherapistForm.flatMap((section) => section.fields)
         .filter((field) =>
           ![
@@ -112,35 +120,70 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
           </Form.Group>
         ))}
 
-      {/* Password fields */}
+      {/* Old Password */}
       <Form.Group className="mb-3" controlId="oldPassword">
         <Form.Label>{t('Old Password')}</Form.Label>
-        <Form.Control
-          type="password"
-          value={formData.oldPassword}
-          onChange={handleChange}
-          aria-required="false"
-        />
+        <InputGroup>
+          <Form.Control
+            type={showPassword.old ? 'text' : 'password'}
+            value={formData.oldPassword}
+            onChange={handleChange}
+            aria-required="false"
+          />
+          <Button
+            variant="outline-secondary"
+            type="button"
+            onClick={() => setShowPassword((p) => ({ ...p, old: !p.old }))}
+            aria-label={showPassword.old ? t('Hide password') : t('Show password')}
+            title={showPassword.old ? t('Hide password') : t('Show password')}
+          >
+            {showPassword.old ? <FaEyeSlash /> : <FaEye />}
+          </Button>
+        </InputGroup>
       </Form.Group>
 
+      {/* New Password */}
       <Form.Group className="mb-3" controlId="newPassword">
         <Form.Label>{t('New Password')}</Form.Label>
-        <Form.Control
-          type="password"
-          value={formData.newPassword}
-          onChange={handleChange}
-          aria-required="false"
-        />
+        <InputGroup>
+          <Form.Control
+            type={showPassword.new ? 'text' : 'password'}
+            value={formData.newPassword}
+            onChange={handleChange}
+            aria-required="false"
+          />
+          <Button
+            variant="outline-secondary"
+            type="button"
+            onClick={() => setShowPassword((p) => ({ ...p, new: !p.new }))}
+            aria-label={showPassword.new ? t('Hide password') : t('Show password')}
+            title={showPassword.new ? t('Hide password') : t('Show password')}
+          >
+            {showPassword.new ? <FaEyeSlash /> : <FaEye />}
+          </Button>
+        </InputGroup>
       </Form.Group>
 
+      {/* Confirm Password */}
       <Form.Group className="mb-3" controlId="confirmPassword">
         <Form.Label>{t('Confirm New Password')}</Form.Label>
-        <Form.Control
-          type="password"
-          value={formData.confirmPassword}
-          onChange={handleChange}
-          aria-required="false"
-        />
+        <InputGroup>
+          <Form.Control
+            type={showPassword.confirm ? 'text' : 'password'}
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            aria-required="false"
+          />
+          <Button
+            variant="outline-secondary"
+            type="button"
+            onClick={() => setShowPassword((p) => ({ ...p, confirm: !p.confirm }))}
+            aria-label={showPassword.confirm ? t('Hide password') : t('Show password')}
+            title={showPassword.confirm ? t('Hide password') : t('Show password')}
+          >
+            {showPassword.confirm ? <FaEyeSlash /> : <FaEye />}
+          </Button>
+        </InputGroup>
       </Form.Group>
 
       <div className="d-flex justify-content-between">
