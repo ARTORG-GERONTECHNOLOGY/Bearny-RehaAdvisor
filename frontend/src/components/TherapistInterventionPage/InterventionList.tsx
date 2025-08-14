@@ -1,9 +1,7 @@
+// components/TherapistInterventionPage/InterventionList.tsx
 import React, { useEffect, useState } from 'react';
 import { ListGroup, Badge, Spinner } from 'react-bootstrap';
-import {
-  getBadgeVariantFromUrl,
-  getMediaTypeLabelFromUrl,
-} from '../../utils/interventions';
+import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../../utils/interventions';
 import { translateText } from '../../utils/translate';
 
 interface Intervention {
@@ -15,45 +13,47 @@ interface Intervention {
   tags?: string[];
 }
 
+interface TitleMap { [id: string]: { title: string; lang: string | null } }
+
 interface Props {
   items: Intervention[];
   onClick: (item: Intervention) => void;
   t: (key: string) => string;
   tagColors: Record<string, string>;
+  /** Optional: if provided, use these titles and do NOT translate here */
+  translatedTitles?: TitleMap;
 }
 
-const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => {
-  const [translatedTitles, setTranslatedTitles] = useState<
-    Record<string, { title: string; lang: string | null }>
-  >({});
-  const [loading, setLoading] = useState<boolean>(true);
+const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, translatedTitles }) => {
+  const [localTitles, setLocalTitles] = useState<TitleMap>({});
+  const [loading, setLoading] = useState<boolean>(!translatedTitles);
 
+  // Only translate locally if parent didn't provide translatedTitles
   useEffect(() => {
+    if (translatedTitles) {
+      setLoading(false);
+      return;
+    }
     const translateAll = async () => {
       setLoading(true);
-      const updates: Record<string, { title: string; lang: string | null }> = {};
+      const updates: TitleMap = {};
       for (const rec of items) {
         if (!rec?.title) continue;
         try {
           const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
-          updates[rec._id] = {
-            title: translatedText,
-            lang: detectedSourceLanguage,
-          };
+          updates[rec._id] = { title: translatedText, lang: detectedSourceLanguage };
         } catch {
           updates[rec._id] = { title: rec.title, lang: null };
         }
       }
-      setTranslatedTitles(updates);
+      setLocalTitles(updates);
       setLoading(false);
     };
+    if (items.length > 0) translateAll();
+    else setLoading(false);
+  }, [items, translatedTitles]);
 
-    if (items.length > 0) {
-      translateAll();
-    } else {
-      setLoading(false);
-    }
-  }, [items]);
+  const titles = translatedTitles ?? localTitles;
 
   if (loading) {
     return (
@@ -75,12 +75,11 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
   return (
     <ListGroup className="shadow-sm w-100 mt-4" aria-label={t('Intervention List')}>
       {items.map((rec) => {
-        const translated = translatedTitles[rec._id];
+        const translated = titles[rec._id];
         const title = translated?.title || rec.title;
         const originalLang = translated?.lang;
         const isTranslated =
-          originalLang &&
-          title.trim().toLowerCase() !== rec.title.trim().toLowerCase();
+          originalLang && title.trim().toLowerCase() !== rec.title.trim().toLowerCase();
 
         return (
           <ListGroup.Item
@@ -91,9 +90,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
             aria-label={t('Intervention')}
           >
             <div className="d-flex flex-column">
-              <strong
-                {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}
-              >
+              <strong {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}>
                 {title}
               </strong>
 
@@ -111,10 +108,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
                     <Badge
                       key={tag}
                       bg=""
-                      style={{
-                        backgroundColor: tagColors[tag] || 'gray',
-                        color: '#fff',
-                      }}
+                      style={{ backgroundColor: tagColors[tag] || 'gray', color: '#fff' }}
                       className="text-capitalize"
                     >
                       {t(tag)}
@@ -125,10 +119,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors }) => 
             </div>
 
             <div>
-              <Badge
-                bg={getBadgeVariantFromUrl(rec.media_url, rec.link)}
-                aria-label={t('Media type')}
-              >
+              <Badge bg={getBadgeVariantFromUrl(rec.media_url, rec.link)} aria-label={t('Media type')}>
                 {t(getMediaTypeLabelFromUrl(rec.media_url, rec.link))}
               </Badge>
             </div>
