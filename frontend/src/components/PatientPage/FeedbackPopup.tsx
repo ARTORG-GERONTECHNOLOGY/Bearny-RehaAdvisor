@@ -245,7 +245,10 @@ const FeedbackPopup = ({ show, interventionId, questions, onClose }) => {
             <Button
               key={i}
               variant={selected.includes(opt.key) ? 'primary' : 'outline-primary'}
-              onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
+              onClick={() => {
+              handleOptionSelect(opt.key, currentQuestion.questionKey, multiple);
+              setCurrentQuestionIndex((i) => i + 1);
+              }}
               aria-label={label}
               title={label}
             >
