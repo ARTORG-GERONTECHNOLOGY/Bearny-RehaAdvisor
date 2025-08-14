@@ -45,15 +45,29 @@ const TherapistRecomendations: React.FC = () => {
     ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
     : config?.patientInfo?.function?.[specialisations as string]?.diagnosis || [];
 
+  const [authChecked, setAuthChecked] = useState(false);
+
   useEffect(() => {
-    authStore.checkAuthentication();
+    let mounted = true;
+    (async () => {
+      try {
+        await authStore.checkAuthentication();   // <-- wait for hydration
+      } finally {
+        if (mounted) setAuthChecked(true);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return; // wait until check finished
+
     if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
       navigate('/');
-    } else {
-      fetchData();
+      return;
     }
-  }, [navigate]);
-
+    fetchData();
+  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate]);
   const fetchData = async () => {
     try {
       const res = await apiClient.get<InterventionTypeTh[]>('interventions/all/');
