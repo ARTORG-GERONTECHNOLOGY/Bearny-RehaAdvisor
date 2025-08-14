@@ -10,7 +10,7 @@ import InputField from '../forms/input/InputField';
 import PasswordField from '../forms/input/PasswordField';
 import ForgotPasswordLink from '../common/ForgotPasswordLink';
 import ErrorAlert from '../common/ErrorAlert';
-import InfoBubble from '../common/InfoBubble'; // Optional, for tooltip hints
+import InfoBubble from '../common/InfoBubble';
 
 interface LoginFormProps {
   show: boolean;
@@ -26,7 +26,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleToggle = () => setShowPassword(!showPassword);
+  const handleToggle = () => setShowPassword((s) => !s);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +86,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
     setIs2FARequired(false);
     setVerificationCode('');
     setError(null);
+    setShowPassword(false);
   };
 
   return (
@@ -121,7 +122,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
               required
             />
 
-            {/* Password input */}
+            {/* Password with eye toggle */}
             <PasswordField
               id="password"
               value={authStore.password}
