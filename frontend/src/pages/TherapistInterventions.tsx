@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-
+import { translateText } from '../utils/translate'; // you already use this elsewhere
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
@@ -24,6 +24,11 @@ const TherapistRecomendations: React.FC = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [showPopupAdd, setShowPopupAdd] = useState(false);
   const [loading, setLoading] = useState(true);
+const norm = (s: string) =>
+  (s || '')
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,9 +39,39 @@ const TherapistRecomendations: React.FC = () => {
   const [frequencyFilter, setFrequencyFilter] = useState('');
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
   const [error, setError] = useState('');
+  // TherapistRecomendations.tsx (add near your other state)
+type TitleMap = Record<string, { title: string; lang: string | null }>;
+const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
+
 
   const navigate = useNavigate();
-  const { t } = useTranslation();
+ const { i18n, t } = useTranslation();
+
+useEffect(() => {
+  let cancelled = false;
+
+  const run = async () => {
+    if (!recommendations.length) {
+      setTranslatedTitles({});
+      return;
+    }
+    const pairs = await Promise.all(
+      recommendations.map(async (rec) => {
+        try {
+          const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
+          return [rec._id, { title: translatedText, lang: detectedSourceLanguage }] as const;
+        } catch {
+          return [rec._id, { title: rec.title, lang: null }] as const;
+        }
+      })
+    );
+    if (!cancelled) setTranslatedTitles(Object.fromEntries(pairs));
+  };
+
+  run();
+  return () => { cancelled = true; };
+}, [recommendations, i18n.language]);
+
   const tagColors = generateTagColors(config.RecomendationInfo.tags);
 
   const specialisations = authStore.specialisation?.split(',').map((s) => s.trim()) || [];
@@ -118,10 +153,12 @@ const TherapistRecomendations: React.FC = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter((rec) =>
-        rec.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+    const q = norm(searchTerm);
+    filtered = filtered.filter((rec) => {
+      const display = translatedTitles[rec._id]?.title ?? rec.title;
+      return norm(display).includes(q);
+    });
+  }
 
     setFilteredInterventions(filtered);
   }, [
@@ -133,6 +170,7 @@ const TherapistRecomendations: React.FC = () => {
     benefitForFilter,
     frequencyFilter,
     recommendations,
+    translatedTitles,
   ]);
 
   const handleOpen = () => setShowPopupAdd(true);
@@ -199,11 +237,13 @@ const TherapistRecomendations: React.FC = () => {
         <Row>
           <Col xs={12}>
             <InterventionList
-              items={filteredInterventions}
-              onClick={handleItemClick}
-              t={t}
-              tagColors={tagColors}
-            />
+  items={filteredInterventions}
+  onClick={handleItemClick}
+  t={t}
+  tagColors={tagColors}
+  translatedTitles={translatedTitles}
+/>
+
           </Col>
         </Row>
       </Container>
