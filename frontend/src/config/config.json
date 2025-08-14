@@ -383,11 +383,11 @@
       "Range of Motion (ROM) Precautions"
     ],
     "benefits": [
-      "Schlaf",
-      "Psychische Gesundheit",
+ "Sleep",
+      "Mental health",
       "Mobility",
-      "kardiorespiratorische Fitness",
-      "Muskelkraft"
+      "Cardiorespiratory fitness",
+      "Muscle strength"
     ],
     "intensity": ["Core", "Supportive"]
   },
@@ -496,7 +496,7 @@
         },
         {
           "name": "rehaEndDate",
-          "label": "Rehabilitation End Date",
+          "label": "Rehabilitations End Date (Modifiable afterwords)",
           "type": "date",
           "required": true,
           "be_name": "reha_end_date"
