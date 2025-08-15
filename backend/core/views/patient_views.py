@@ -1,9 +1,11 @@
 import json
 import logging
-import os
 import random
-import tempfile
 import datetime
+import re, tempfile, os
+from pydub import AudioSegment
+from pydub.utils import which as pd_which
+
 
 import speech_recognition as sr
 from bson import ObjectId
@@ -88,7 +90,7 @@ FILE_TYPE_FOLDERS = {
     "png": "images",
     "pdf": "documents",
 }
-
+FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
@@ -112,63 +114,78 @@ def submit_patient_feedback(request):
         recognizer = sr.Recognizer()
         answers = {}
 
-        # --- File uploads (audio/video) ---
         for key, upload in request.FILES.items():
             ct = upload.content_type or ""
             ts = timezone.now().strftime("%Y%m%d%H%M%S")
 
+            # --- Video (unchanged) ---
             if ct.startswith("video/"):
                 ext = upload.name.rsplit(".", 1)[-1].lower()
                 fname = f"{ts}_{upload.name}"
                 path = default_storage.save(f"video_feedback/{fname}", upload)
                 url = f"{settings.MEDIA_HOST}{default_storage.url(path)}"
                 logger.info(f"[submit_patient_feedback] Saved video to {path}")
-
-                normalized_key = key.replace("_video", "")
-                answers[normalized_key] = {
-                    "video_url": url,
-                    "uploaded_at": timezone.now(),
-                }
+                normalized_key = re.sub(r"_(video)$", "", key)
+                answers[normalized_key] = {"video_url": url, "uploaded_at": timezone.now()}
                 continue
-            print(answers)
+
+            # --- Audio (robust) ---
             ext = upload.name.rsplit(".", 1)[-1].lower()
             folder = FILE_TYPE_FOLDERS.get(ext, "audio")
             fname = f"{ts}_{upload.name}"
             saved_path = default_storage.save(os.path.join(folder, fname), upload)
+            public_url = f"{settings.MEDIA_HOST}{default_storage.url(saved_path)}"
             logger.info(f"[submit_patient_feedback] Saved raw audio to {saved_path}")
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp_in:
-                for chunk in default_storage.open(saved_path).chunks():
-                    tmp_in.write(chunk)
-                tmp_in_path = tmp_in.name
-
-            wav_path = tmp_in_path + ".wav"
-            try:
-                AudioSegment.from_file(tmp_in_path).export(wav_path, format="wav")
-            except Exception as e:
-                logger.error(f"[submit_patient_feedback] Audio transcoding failed for {key}: {e}", exc_info=True)
-                os.remove(tmp_in_path)
-                continue
+            # Normalize key to match FeedbackQuestion.questionKey (e.g. q1_audio -> q1)
+            normalized_key = re.sub(r"_(audio|file|voice|recording)$", "", key)
 
             transcription = ""
+            converted_ok = False
             try:
-                with sr.AudioFile(wav_path) as source:
-                    audio_data = recognizer.record(source)
-                    transcription = recognizer.recognize_google(audio_data)
-                    logger.info(f"[submit_patient_feedback] Transcription for {key}: {transcription}")
-            except sr.UnknownValueError:
-                logger.warning(f"[submit_patient_feedback] Could not transcribe audio for {key}")
-            except sr.RequestError as e:
-                logger.error(f"[submit_patient_feedback] Speech recognition error for {key}: {e}")
-            finally:
-                os.remove(tmp_in_path)
-                os.remove(wav_path)
+                if ext in {"wav", "flac", "aiff", "aif"}:
+                    # These are directly supported by speech_recognition
+                    with default_storage.open(saved_path, "rb") as f:
+                        with sr.AudioFile(f) as source:
+                            audio_data = recognizer.record(source)
+                            transcription = recognizer.recognize_google(audio_data)
+                    converted_ok = True
+                elif FFMPEG_OK:
+                    # Convert to wav using ffmpeg/pydub
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp_in:
+                        for chunk in default_storage.open(saved_path).chunks():
+                            tmp_in.write(chunk)
+                        tmp_in_path = tmp_in.name
 
-            answers[key] = {
+                    wav_path = tmp_in_path + ".wav"
+                    try:
+                        AudioSegment.from_file(tmp_in_path).export(wav_path, format="wav")
+                        with sr.AudioFile(wav_path) as source:
+                            audio_data = recognizer.record(source)
+                            transcription = recognizer.recognize_google(audio_data)
+                        converted_ok = True
+                    except Exception as e:
+                        logger.error("[submit_patient_feedback] ffmpeg/pydub conversion failed for %s: %s",
+                                    key, e, exc_info=True)
+                    finally:
+                        try: os.remove(tmp_in_path)
+                        except Exception: pass
+                        try: os.remove(wav_path)
+                        except Exception: pass
+                else:
+                    logger.warning("[submit_patient_feedback] ffmpeg not available; skipping transcription for %s", key)
+            except (ValueError, sr.UnknownValueError, sr.RequestError) as e:
+                # ValueError is what you see in the screenshot when a non-supported file hits AudioFile
+                logger.warning("[submit_patient_feedback] Transcription failed for %s: %s", key, e)
+
+            # ALWAYS record the answer—even if transcription failed or conversion isn't possible
+            answers[normalized_key] = {
                 "file_path": saved_path,
-                "transcription": transcription,
+                "audio_url": public_url,
+                "transcription": transcription,  # may be ""
+                "converted_ok": converted_ok,    # optional debug flag
             }
-            print(answers)
+
 
         # --- Plain-text answers ---
         for key, val in request.POST.items():
@@ -224,36 +241,35 @@ def submit_patient_feedback(request):
 
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
                 if not qobj:
-                    logger.warning(f"[submit_patient_feedback] No FeedbackQuestion found for key: {qkey}")
+                    logger.warning("[submit_patient_feedback] No FeedbackQuestion found for key: %s", qkey)
                     continue
 
                 entry_kwargs = {"questionId": qobj}
                 opts = []
                 comment = ""
 
-                if isinstance(answer_val, dict) and "transcription" in answer_val:
-                    text_ans = answer_val["transcription"]
-                    comment = f"Audio saved at {answer_val['file_path']}"
-                    opts = [AnswerOption(key="text", translations=[Translation(language="en", text=text_ans)])]
-
+                if isinstance(answer_val, dict) and ("audio_url" in answer_val or "transcription" in answer_val):
+                    text_ans = (answer_val.get("transcription") or "").strip()
+                    comment = f"Audio saved at {answer_val.get('file_path')}"
+                    # Put a placeholder text if transcription is empty, so there's always one AnswerOption
+                    opts = [AnswerOption(key="text",
+                                        translations=[Translation(language="en", text=text_ans or " ")])]
+                    entry_kwargs["audio_url"] = answer_val.get("audio_url")
                 elif isinstance(answer_val, list):
                     for val in answer_val:
                         opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
-                        opts.append(opt if opt else AnswerOption(
-                            key=val,
-                            translations=[Translation(language="en", text=val)]
-                        ))
+                        opts.append(opt if opt else AnswerOption(key=val,
+                                    translations=[Translation(language="en", text=val)]))
                 else:
                     val = str(answer_val)
                     opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
-                    opts = [opt if opt else AnswerOption(
-                        key=val,
-                        translations=[Translation(language="en", text=val)]
-                    )]
+                    opts = [opt if opt else AnswerOption(key=val,
+                                translations=[Translation(language="en", text=val)])]
 
                 entry_kwargs["answerKey"] = opts
                 entry_kwargs["comment"] = comment
                 log.feedback.append(FeedbackEntry(**entry_kwargs))
+
 
             log.updatedAt = timezone.now()
             log.save()
@@ -1038,6 +1054,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                             {
                                 "question": question_data,
                                 "comment": fb.comment,
+                                'audio_url': fb.audio_url,
                                 "answer": answer_data,
                             }
                         )
