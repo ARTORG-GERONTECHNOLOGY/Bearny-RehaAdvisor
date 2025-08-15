@@ -142,6 +142,7 @@ class FeedbackEntry(EmbeddedDocument):
     )  # Unique key from possibleAnswers
     comment = StringField(default="")
     date = DateTimeField(default=timezone.now)
+    audio_url = StringField(null=True)
 
 
 # Feedback question
