@@ -1,3 +1,5 @@
+// components/RehaTablePage/InterventionFeedbackModal.tsx
+
 import { useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
@@ -6,14 +8,12 @@ import { Intervention } from '../../types';
 import { translateText } from '../../utils/translate';
 
 interface FeedbackEntry {
-  question: {
-    translations: { language: string; text: string }[];
-  };
-  answer: {
-    key: string;
-    translations: { language: string; text: string }[];
-  }[];
+  // allow both shapes: backend sends answerKey; older UI used answer
+  answer?: { key: string; translations: { language: string; text: string }[] }[];
+  answerKey?: { key: string; translations: { language: string; text: string }[] }[];
+  question: { translations: { language: string; text: string }[] };
   comment?: string;
+  audio_url?: string; // <-- NEW
 }
 
 interface VideoFeedback {
@@ -32,17 +32,13 @@ interface Props {
   video?: VideoFeedback;
 }
 
-// Helper to get translated text with fallback to English
 const getTranslation = (
   translations: { language: string; text: string }[],
   lang: string
-): string => {
-  return (
-    translations.find((t) => t.language === lang)?.text ||
-    translations.find((t) => t.language === 'en')?.text ||
-    ''
-  );
-};
+): string =>
+  translations.find((t) => t.language === lang)?.text ||
+  translations.find((t) => t.language === 'en')?.text ||
+  '';
 
 const InterventionFeedbackModal: React.FC<Props> = ({
   show,
@@ -77,10 +73,8 @@ const InterventionFeedbackModal: React.FC<Props> = ({
         <Modal.Title>
           {translatedTitle}{' '}
           {detectedLang && (
-            <span className="text-muted">
-              ({t('Original language:')} {detectedLang})
-            </span>
-          )}{' '}
+            <span className="text-muted">({t('Original language:')} {detectedLang})</span>
+          )}
           <span className="ms-2 text-secondary">({date})</span>
         </Modal.Title>
       </Modal.Header>
@@ -89,7 +83,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           <h6 className="fw-bold">{t('Feedback')}</h6>
         </section>
 
-        {/* Video feedback section */}
+        {/* Video feedback section (unchanged) */}
         {video && (
           <section className="mb-4">
             <hr />
@@ -105,24 +99,45 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           </section>
         )}
 
-        {/* Text/audio/multiselect feedback */}
+        {/* Text / audio / multiselect feedback */}
         {feedbackEntries.length > 0 ? (
           feedbackEntries.map((entry, idx) => {
             const questionText = getTranslation(entry.question.translations, userLang);
+            const answers = (entry.answer ?? entry.answerKey ?? []) as {
+              key: string;
+              translations: { language: string; text: string }[];
+            }[];
 
             return (
               <section key={idx} className="mb-4">
-                <hr />
+                <hr/>
                 <p className="fw-bold">{questionText}</p>
-                {entry.answer.length > 0 && (
+
+                {/* If audio was recorded: let therapist listen to the ORIGINAL */}
+                {entry.audio_url && (
+                  <div className="mb-2">
+                    <div className="small text-muted">
+                      {t('Original audio (no translation)')}
+                    </div>
+                    <audio
+                      controls
+                      preload="none"
+                      src={entry.audio_url}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
+
+                {/* Render any answers/transcriptions as usual */}
+                {answers.length > 0 && (
                   <ul className="mb-2">
-                    {entry.answer.map((ans, i) => {
-                      const answerText = getTranslation(ans.translations, userLang) || ans.key;
-                      return <li key={i}>{answerText}</li>;
+                    {answers.map((ans, i) => {
+                      const answerText =
+                        getTranslation(ans.translations, userLang) || ans.key;
+                      return <li key={i}>{answerText || t("No transcription.")}</li>;
                     })}
                   </ul>
                 )}
-                {entry.comment && <p className="fst-italic">{entry.comment}</p>}
               </section>
             );
           })
