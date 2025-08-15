@@ -967,6 +967,191 @@ def add_intervention_to_patient(request):
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+# views/interventions.py
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
+from django.utils import timezone
+from bson import ObjectId
+import datetime, json
+
+# Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
+WEEKDAY_MAP = {'Mon':0, 'Dien':1, 'Mitt':2, 'Don':3, 'Fre':4, 'Sam':5, 'Son':6}
+
+def _parse_iso(d: str) -> datetime.datetime:
+    # Accept YYYY-MM-DD or full ISO
+    if len(d) == 10:
+        # date only, start of day in server TZ
+        dt = datetime.datetime.fromisoformat(d)  # naive
+        return timezone.make_aware(datetime.datetime(dt.year, dt.month, dt.day, 0, 0, 0))
+    return timezone.make_aware(datetime.datetime.fromisoformat(d.replace('Z', '+00:00')))
+
+def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+def _generate_dates_from(schedule: dict, effective_from: datetime.datetime,
+                         plan_end: datetime.datetime, max_count: int = 1000):
+    """
+    schedule = {
+      'interval': int,
+      'unit': 'day'|'week'|'month',
+      'startDate': ISO string,
+      'startTime': 'HH:mm',
+      'selectedDays': ['Mon','Fre',...],   # for week
+      'end': {'type':'never'|'date'|'count','date': ISO|null, 'count': int|null}
+    }
+    Returns list[datetime.datetime] (aware).
+    """
+    interval = int(schedule.get('interval', 1))
+    unit = schedule.get('unit', 'week')
+    selected_days = schedule.get('selectedDays') or []
+    start_iso = schedule.get('startDate')
+    start_time = schedule.get('startTime') or '08:00'
+    end_cfg = schedule.get('end') or {'type': 'never', 'date': None, 'count': None}
+
+    # base start
+    base_start = _parse_iso(start_iso) if start_iso else timezone.now()
+    hh, mm = (int(x) for x in (start_time or '08:00').split(':'))
+    base_start = base_start.replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+    # first possible date is max(base_start, effective_from)
+    cursor = max(base_start, effective_from)
+
+    # compute hard stop
+    hard_stop = plan_end
+    if end_cfg.get('type') == 'date' and end_cfg.get('date'):
+        hard_stop = min(hard_stop, _parse_iso(end_cfg['date']))
+
+    out = []
+
+    def _advance_day(dt, n=1):
+        return dt + datetime.timedelta(days=n)
+
+    def _advance_week(dt, n=1):
+        return dt + datetime.timedelta(weeks=n)
+
+    def _advance_month(dt, n=1):
+        # naive month add
+        y, m = dt.year, dt.month + n
+        while m > 12:
+            y += 1; m -= 12
+        day = min(dt.day, [31,29 if y%4==0 and (y%100!=0 or y%400==0) else 28,31,30,31,30,31,31,30,31,30,31][m-1])
+        return dt.replace(year=y, month=m, day=day)
+
+    if unit == 'day':
+        while cursor <= hard_stop:
+            out.append(cursor)
+            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                break
+            cursor = _advance_day(cursor, interval)
+
+    elif unit == 'week':
+        # Find the start-of-week for cursor (Mon=0)
+        cursor_day = _ceil_to_day(cursor)
+        # iterate by weeks; within each week add selected weekdays
+        count = 0
+        while cursor_day <= hard_stop and count < max_count:
+            # all weekdays in this week
+            for label in selected_days:
+                wd = WEEKDAY_MAP.get(label, None)
+                if wd is None: continue
+                candidate = cursor_day + datetime.timedelta(days=(wd - cursor_day.weekday()) % 7)
+                candidate = candidate.replace(hour=hh, minute=mm)
+                if candidate >= cursor and candidate <= hard_stop:
+                    out.append(candidate)
+                    if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                        return out
+            cursor_day = _advance_week(cursor_day, interval)
+            count += 1
+
+    elif unit == 'month':
+        # Use the day-of-month from cursor
+        dom = cursor.day
+        cur = cursor
+        while cur <= hard_stop:
+            out.append(cur)
+            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                break
+            cur = _advance_month(cur, interval)
+            # try to preserve HH:mm set earlier
+            cur = cur.replace(hour=hh, minute=mm)
+
+    return out
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def modify_intervention_from_date(request):
+    """
+    POST /api/interventions/modify-patient/
+    Body:
+    {
+      therapistId, patientId, interventionId,
+      effectiveFrom: 'YYYY-MM-DD',
+      require_video_feedback: bool,
+      keep_current: bool?,                 # if true, only update flags
+      schedule: { ... }                    # required if keep_current is not true
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    try:
+        body = json.loads(request.body)
+        patient_id = body.get("patientId")
+        intervention_id = body.get("interventionId")
+        effective_from = body.get("effectiveFrom")
+        keep_current = bool(body.get("keep_current", False))
+        require_video = bool(body.get("require_video_feedback", False))
+        schedule = body.get("schedule")
+
+        if not (patient_id and intervention_id and effective_from):
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        # Look up patient & plan
+        patient = Patient.objects.get(pk=ObjectId(patient_id)) if len(patient_id) == 24 else Patient.objects.get(userId=ObjectId(patient_id))
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        if not plan:
+            return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
+
+        # Find assignment
+        target = None
+        for a in plan.interventions:
+            if str(a.interventionId.id) == str(intervention_id):
+                target = a
+                break
+        if not target:
+            return JsonResponse({"error": "Intervention assignment not found."}, status=404)
+
+        # Always update flags
+        target.require_video_feedback = require_video
+
+        eff_dt = _parse_iso(effective_from)
+
+        if not keep_current:
+            if not schedule:
+                return JsonResponse({"error": "schedule required when keep_current is false"}, status=400)
+
+            # Keep past dates; replace future ones
+            past = [d for d in target.dates if d < eff_dt]
+            plan_end = plan.endDate if plan.endDate else timezone.now() + datetime.timedelta(days=365)
+
+            new_dates = _generate_dates_from(schedule, eff_dt, plan_end)
+
+            target.dates = past + new_dates
+
+        plan.updatedAt = timezone.now()
+        plan.save()
+
+        return JsonResponse({"message": "Updated", "updatedCount": len(target.dates)}, status=200)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found."}, status=404)
+    except Exception as e:
+        import logging
+        logging.exception("modify_intervention_from_date failed")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 
 
 from urllib.parse import urljoin
