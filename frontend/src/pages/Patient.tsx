@@ -20,7 +20,7 @@ const PatientView: React.FC = observer(() => {
     authStore.checkAuthentication();
 
     if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-      navigate('/patient_home');
+      navigate('/');
     } else {
       setLoading(false);
     }
