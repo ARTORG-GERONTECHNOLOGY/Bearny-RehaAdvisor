@@ -7,6 +7,9 @@ from pydub import AudioSegment
 from pydub.utils import which as pd_which
 
 
+import datetime, json
+from urllib.parse import urljoin
+
 import speech_recognition as sr
 from bson import ObjectId
 from django.conf import settings
@@ -967,9 +970,237 @@ def add_intervention_to_patient(request):
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+# views/interventions.py
 
 
-from urllib.parse import urljoin
+# Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
+WEEKDAY_MAP = {'Mon':0, 'Dien':1, 'Mitt':2, 'Don':3, 'Fre':4, 'Sam':5, 'Son':6}
+
+def _tz_local():
+    return timezone.get_current_timezone()
+
+def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
+    """Return tz-aware datetime in local tz."""
+    if timezone.is_naive(d):
+        return timezone.make_aware(d, _tz_local())
+    return d.astimezone(_tz_local())
+
+def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
+    """Return tz-aware datetime in UTC (uses datetime.timezone.utc)."""
+    if timezone.is_naive(d):
+        return timezone.make_aware(d, datetime.timezone.utc)
+    return d.astimezone(datetime.timezone.utc)
+
+def _parse_iso(s: str) -> datetime.datetime:
+    """
+    Accepts 'YYYY-MM-DD' or full ISO, with/without 'Z' or offset.
+    Returns local tz-aware datetime.
+    """
+    s = (s or "").strip()
+    if not s:
+        return _as_aware_local(timezone.now())
+
+    if len(s) == 10:
+        d = datetime.date.fromisoformat(s)
+        naive = datetime.datetime.combine(d, datetime.time.min)
+        return _as_aware_local(naive)
+
+    s = s.replace("Z", "+00:00")
+    dt = datetime.datetime.fromisoformat(s)
+    if timezone.is_naive(dt):
+        return _as_aware_local(dt)
+    return dt.astimezone(_tz_local())
+
+def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+# English + German short labels
+WEEKDAY_MAP = {
+    "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6,
+    "M": 0, "T": 1, "W": 2, "Th": 3, "F": 4, "Sa": 5, "Su": 6,
+    "Di": 1, "Mi": 2, "Do": 3, "Fr": 4, "Sa": 5, "So": 6,
+}
+
+def _advance_month(dt: datetime.datetime, n: int = 1) -> datetime.datetime:
+    y, m = dt.year, dt.month + n
+    while m > 12:
+        y += 1
+        m -= 12
+    days_in_month = [31, 29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28,
+                     31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]
+    day = min(dt.day, days_in_month)
+    return dt.replace(year=y, month=m, day=day)
+
+
+# -----------------------------
+# Generator
+# -----------------------------
+
+def _generate_dates_from(
+    schedule: dict,
+    effective_from: datetime.datetime,
+    plan_end: datetime.datetime,
+    max_count: int = 1000
+):
+    """
+    schedule = {
+      'interval': int,
+      'unit': 'day'|'week'|'month',
+      'startDate': ISO string,
+      'startTime': 'HH:mm',
+      'selectedDays': ['Mon','Fre',...],   # for week
+      'end': {'type':'never'|'date'|'count','date': ISO|null, 'count': int|null}
+    }
+    Returns list[datetime.datetime] (aware, LOCAL TZ).
+    """
+    interval = int(schedule.get('interval', 1))
+    unit = schedule.get('unit', 'week')
+    selected_days = schedule.get('selectedDays') or []
+    start_iso = schedule.get('startDate')
+    start_time = (schedule.get('startTime') or '08:00').strip()
+    end_cfg = schedule.get('end') or {'type': 'never', 'date': None, 'count': None}
+
+    base_start = _parse_iso(start_iso) if start_iso else _as_aware_local(timezone.now())
+    hh, mm = (int(x) for x in (start_time or '08:00').split(':'))
+    base_start = base_start.replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+    effective_from = _as_aware_local(effective_from)
+    plan_end = _as_aware_local(plan_end)
+
+    cursor = max(base_start, effective_from)
+
+    hard_stop = plan_end
+    if (end_cfg.get('type') == 'date') and end_cfg.get('date'):
+        hard_stop = min(hard_stop, _parse_iso(str(end_cfg['date'])))
+
+    out = []
+
+    if unit == 'day':
+        while cursor <= hard_stop:
+            out.append(cursor)
+            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                break
+            cursor = cursor + datetime.timedelta(days=interval)
+
+    elif unit == 'week':
+        cursor_day = _ceil_to_day(cursor)
+        count = 0
+        while cursor_day <= hard_stop and count < max_count:
+            for label in selected_days:
+                wd = WEEKDAY_MAP.get(label, None)
+                if wd is None:
+                    continue
+                candidate = cursor_day + datetime.timedelta(days=(wd - cursor_day.weekday()) % 7)
+                candidate = candidate.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                if candidate >= cursor and candidate <= hard_stop:
+                    out.append(candidate)
+                    if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                        return out
+            cursor_day = cursor_day + datetime.timedelta(weeks=interval)
+            count += 1
+
+    elif unit == 'month':
+        cur = cursor
+        while cur <= hard_stop:
+            out.append(cur)
+            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                break
+            cur = _advance_month(cur, interval).replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+    return out
+
+
+# -----------------------------
+# Modify endpoint
+# -----------------------------
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def modify_intervention_from_date(request):
+    """
+    POST /api/interventions/modify-patient/
+    Body:
+    {
+      therapistId, patientId, interventionId,
+      effectiveFrom: 'YYYY-MM-DD' | ISO,
+      require_video_feedback: bool,
+      keep_current: bool?,                 # if true, only update flags
+      schedule: { ... }                    # required if keep_current is not true
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        body = json.loads(request.body or "{}")
+        patient_id = body.get("patientId")
+        intervention_id = body.get("interventionId")
+        effective_from_raw = body.get("effectiveFrom")
+        keep_current = bool(body.get("keep_current", False))
+        require_video = bool(body.get("require_video_feedback", False))
+        schedule = body.get("schedule")
+
+        if not (patient_id and intervention_id and effective_from_raw):
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        # Patient / Plan
+        if isinstance(patient_id, str) and len(patient_id) == 24:
+            patient = Patient.objects.get(pk=ObjectId(patient_id))
+        else:
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
+
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        if not plan:
+            return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
+
+        # Find assignment
+        target = next((a for a in plan.interventions
+                       if str(a.interventionId.id) == str(intervention_id)), None)
+        if not target:
+            return JsonResponse({"error": "Intervention assignment not found."}, status=404)
+
+        # Always update flags
+        target.require_video_feedback = require_video
+
+        # Normalize effectiveFrom
+        eff_dt_local = _parse_iso(str(effective_from_raw))                 # aware local
+        eff_dt_utc = eff_dt_local.astimezone(datetime.timezone.utc)        # aware UTC
+
+        # Plan end fallback
+        plan_end = plan.endDate or (timezone.now() + datetime.timedelta(days=365))
+        plan_end_local = _as_aware_local(plan_end)
+
+        # Split existing using UTC
+        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+        past_utc = [d for d in existing_utc if d < eff_dt_utc]
+        future_utc = [d for d in existing_utc if d >= eff_dt_utc]  # kept when keep_current=True
+
+        if not keep_current:
+            if not schedule:
+                return JsonResponse({"error": "schedule required when keep_current is false"}, status=400)
+
+            # Generate from local, store as UTC
+            new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
+            new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
+
+            target.dates = past_utc + new_utc
+        else:
+            target.dates = past_utc + future_utc
+
+        plan.updatedAt = timezone.now()
+        plan.save()
+
+        return JsonResponse({"message": "Updated", "updatedCount": len(target.dates)}, status=200)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found."}, status=404)
+    except Exception as e:
+        import logging
+        logging.exception("modify_intervention_from_date failed")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
