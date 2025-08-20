@@ -11,6 +11,7 @@ import {
   OverlayTrigger,
   Tooltip,
 } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { Document, Page } from 'react-pdf';
 import Microlink from '@microlink/react';
 import ReactPlayer from 'react-player';
@@ -35,7 +36,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
   const [selectedIntervention, setSelectedIntervention] = useState('');
   const [newRows, setNewRows] = useState([{ specialisation: '', diagnosis: '', frequency: '', saved: false }]);
   const [error, setError] = useState('');
-
+  const { t } = useTranslation();
   const specialisations = authStore.specialisation?.split(',').map((s) => s.trim()) || [];
   const diagnoses = specialisations.flatMap(spec => config?.patientInfo?.function?.[spec]?.diagnosis || []);
 
@@ -69,7 +70,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
               <Page pageNumber={1} width={300} />
             </Document>
             <a href={item.media_file} className="btn btn-outline-primary mt-2" target="_blank" rel="noreferrer">
-              Open PDF
+              {t("Open PDF")}
             </a>
           </div>
         );
@@ -80,7 +81,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
       default:
         return (
           <a href={item.media_file || item.link} className="btn btn-secondary" target="_blank" rel="noreferrer">
-            Open Resource
+            {t("Open Resource")}
           </a>
         );
     }
@@ -111,7 +112,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
         return copy;
       });
     } catch (e) {
-      setError('Failed to save row. Please try again.');
+      setError(t('Failed to save row. Please try again.'));
     }
   };
 
@@ -153,7 +154,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
           <Container fluid>
             <Row className="mb-3">
               <Col xs={12} md={6}>
-                <h5>Description</h5>
+                <h5>{t("Description")}</h5>
                 <p className="text-muted">
                   {detectedLang ? (
                     <OverlayTrigger overlay={<Tooltip>{item.description}</Tooltip>}>
@@ -166,14 +167,14 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
               </Col>
 
               <Col xs={12} md={6}>
-                <h5>Media</h5>
+                <h5>{t("Media")}</h5>
                 {renderMediaContent()}
               </Col>
             </Row>
 
             <Row className="mb-3">
               <Col>
-                <h5>Tags & Benefits</h5>
+                <h5>{t("Tags & Benefits")}</h5>
                 {item.tags?.map((tag) => (
                   <Badge
                     key={tag}
@@ -181,7 +182,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
                     style={{ backgroundColor: tagColors[tag] || '#888', color: '#fff' }}
                     role="status"
                   >
-                    {tag}
+                    {t(tag)}
                   </Badge>
                 ))}
                 {item.benefitFor?.map((b) => (
@@ -192,11 +193,11 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
 
             <Row className="mb-3">
               <Col>
-                <h5>Assign to Diagnoses</h5>
+                <h5>{t("Add to template for patient types")}</h5>
                 <div style={{ maxHeight: 200, overflowY: 'auto' }} aria-label="Diagnoses list">
                   <Form.Check
                     type="checkbox"
-                    label="All"
+                    label={t("All")}
                     checked={selectedAll}
                     onChange={() => setSelectedAll(!selectedAll)}
                     aria-checked={selectedAll}
@@ -216,73 +217,7 @@ const ProductPopup = ({ show, item, handleClose, tagColors }) => {
               </Col>
             </Row>
 
-            <Row className="mb-3">
-              <Col>
-                <h5>Assign to Additional</h5>
-                {newRows.map((row, idx) => {
-                  const diagOptions = row.specialisation
-                    ? config?.patientInfo?.function?.[row.specialisation]?.diagnosis || []
-                    : [];
-
-                  return (
-                    <Row key={idx} className="g-2 align-items-center mb-2">
-                      <Col xs={12} md={4}>
-                        <Form.Select
-                          value={row.specialisation}
-                          onChange={(e) => updateRow(idx, 'specialisation', e.target.value)}
-                          disabled={row.saved}
-                          aria-label="Specialisation select"
-                        >
-                          <option value="">Select Specialisation</option>
-                          {specialisations.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col xs={12} md={4}>
-                        <Form.Select
-                          value={row.diagnosis}
-                          onChange={(e) => updateRow(idx, 'diagnosis', e.target.value)}
-                          disabled={row.saved}
-                          aria-label="Diagnosis select"
-                        >
-                          <option value="">Select Diagnosis</option>
-                          {diagOptions.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col xs={12} md={3}>
-                        <Form.Select
-                          value={row.frequency}
-                          onChange={(e) => updateRow(idx, 'frequency', e.target.value)}
-                          disabled={row.saved}
-                          aria-label="Frequency select"
-                        >
-                          <option value="">Select Frequency</option>
-                          {config?.RecomendationInfo?.frequency.map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col xs={12} md={1} className="d-flex justify-content-end">
-                        {!row.saved && (
-                          <Button variant="success" onClick={() => saveRow(idx)} aria-label="Save assignment">
-                            ✓
-                          </Button>
-                        )}
-                      </Col>
-                    </Row>
-                  );
-                })}
-              </Col>
-            </Row>
+            
           </Container>
         </Modal.Body>
       </Modal>
