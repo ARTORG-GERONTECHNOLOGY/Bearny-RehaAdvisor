@@ -18,8 +18,8 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     authStore.checkAuthentication();
-    if (authStore.isAuthenticated || authStore.userType === 'Therapist') {
-      navigate('/therapist');
+    if (authStore.isAuthenticated && authStore.userType) {
+      navigate(`/${authStore.userType.toLowerCase()}`);
     }
   }, [navigate]);
 
@@ -37,7 +37,9 @@ const Home: React.FC = () => {
         <Row className="justify-content-center align-items-center text-center flex-grow-1">
           <Col xs={12} sm={10} md={8} lg={6}>
             <h1 className="mb-3 fs-2 fs-md-1 fw-bold">Tele-rehabilitation</h1>
-            <p className="fs-6 fs-md-5 mb-4">{t('WelcometotheTherapistLoginPage')}</p>
+            <p className="fs-6 fs-md-5 mb-4">
+              {t('Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.')}
+            </p>
 
             <img
               src="/home.jpg"
@@ -55,13 +57,15 @@ const Home: React.FC = () => {
             </Button>
           </Col>
           <Col xs={10} sm={8} md={4}>
+            {/* Registration is still Therapist-only */}
             <Button className="w-100 py-3 fs-5" onClick={toggleRegisterModal}>
-              {t('Register')}
+              {t('Register (Only for Therapists)')}
             </Button>
           </Col>
         </Row>
 
-        <LoginForm show={showLoginModal} handleClose={toggleLoginModal} pageType="regular" />
+        {/* One modal for both roles. Default to Therapist tab, but users can switch inside. */}
+        <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
         <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
       </Container>
 
