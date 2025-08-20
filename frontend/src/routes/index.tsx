@@ -6,7 +6,6 @@ const Therapist = lazy(() => import('../pages/Therapist'));
 const UnauthorizedAccess = lazy(() => import('../pages/UnauthorizedAccess'));
 const ForgottenPassword = lazy(() => import('../pages/ForgottenPassword'));
 const UserProfile = lazy(() => import('../pages/UserProfile'));
-const PatientHome = lazy(() => import('../pages/PatientHome'));
 const PatientView = lazy(() => import('../pages/Patient'));
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard'));
 // const ResearcherView = lazy(() => import('../pages/ResearcherView'));
@@ -77,14 +76,6 @@ export const router = createBrowserRouter([
       Suspense,
       { fallback: createElement(LoadingFallback) },
       createElement(RootLayout, { children: createElement(UserProfile) })
-    ),
-  },
-  {
-    path: '/patient_home',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(PatientHome) })
     ),
   },
   {
