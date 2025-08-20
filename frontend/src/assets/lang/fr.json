@@ -1,4 +1,8 @@
 {
+  "Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.": "Connectez-vous en tant que thérapeute ou patient. Les thérapeutes seront invités à entrer un code à 2 facteurs.",
+  "Email or Patient ID": "Email ou ID du patient",
+  "Use your registered email (therapist) or patient ID.": "Utilisez votre e-mail enregistré (thérapeute) ou l'ID du patient.",
+  "Register (Only for Therapists)": "Inscription (Uniquement pour les thérapeutes)",
       "No transcription.": "Pas de transcription.",
   "Original audio (no translation)": "Audio original (sans traduction)",
       "Content type is required.": "Le type de contenu est requis.",
