@@ -200,7 +200,7 @@ const Therapist: React.FC = () => {
                       handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
                     }
                   >
-                    {t('Go to Rehab Table')}
+                    {t('Rehabilitation Plan')}
                   </Button>
                 </Col>
                 <Col xs={12} sm={12} md={4}>
@@ -211,7 +211,7 @@ const Therapist: React.FC = () => {
                       handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
                     }
                   >
-                    {t('Go to Progress Page')}
+                    {t('Outcomes Dashboard')}
                   </Button>
                 </Col>
               </Row>
