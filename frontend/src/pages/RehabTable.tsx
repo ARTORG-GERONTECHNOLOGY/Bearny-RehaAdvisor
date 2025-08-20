@@ -19,7 +19,7 @@ import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
 import { translateText } from '../utils/translate';
 import { ButtonGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { FaPlus, FaMinus, FaChartBar } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaChartBar, FaEdit } from 'react-icons/fa';
 
 
 const RehabTable: React.FC = () => {
@@ -44,6 +44,8 @@ const RehabTable: React.FC = () => {
   const [translatedInterventions, setTranslatedInterventions] = useState<
     Record<string, { title: string; content_type: string; detectedLang?: string }>
   >({});
+  const [repeatMode, setRepeatMode] = useState<'create'|'modify'>('create');
+  const [modifyDefaults, setModifyDefaults] = useState<any>(null);
 
   //const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   //const [allInterventions, setAllInterventions] = useState<Intervention[]>([]);
@@ -176,6 +178,20 @@ const RehabTable: React.FC = () => {
     setshowRepeatModal(true);
     setSelectedExercise(intervention);
   };
+  const handleModifyIntervention = (intervention: any) => {
+    setRepeatMode('modify');
+    setSelectedExercise(intervention);
+    // prefill defaults from the current assignment
+    const assigned = patientData?.interventions?.find((i) => i._id === intervention._id);
+    const next = assigned?.dates?.map(d => new Date(d.datetime)).find(d => d > new Date());
+    setModifyDefaults({
+      effectiveFrom: (next ? next : new Date(Date.now()+86400000)).toISOString().slice(0,10),
+      frequency: assigned?.frequency || '',
+      notes: assigned?.notes || '',
+      require_video_feedback: !!assigned?.require_video_feedback,
+    });
+    setshowRepeatModal(true);
+    };
 
   const handleDeleteExercise = async (intervention) => {
     try {
@@ -404,6 +420,15 @@ const RehabTable: React.FC = () => {
                               <FaChartBar />
                             </Button>
                           </OverlayTrigger>
+                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
+                                <Button
+                                  variant="outline-secondary"
+                                  onClick={() => handleModifyIntervention(intervention)}
+                                  aria-label={t('Modify')}
+                                >
+                                  <FaEdit />
+                                </Button>
+                                </OverlayTrigger>
 
                           {selectedTab === 'all' ? (
                             hasFutureDates ? (
@@ -430,6 +455,7 @@ const RehabTable: React.FC = () => {
                           ) : (
                             // patient tab
                             hasFutureDates && (
+                              
                               <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                                 <Button
                                   variant="outline-danger"
@@ -483,11 +509,14 @@ const RehabTable: React.FC = () => {
 
         {showRepeatModal && (
           <InterventionRepeatModal
-            show={true}
+            show
+            mode={repeatMode}
             onHide={() => setshowRepeatModal(false)}
-            onSuccess={fetchAll}
+            onSuccess={async () => { await fetchAll(); await fetchInts(); }}
             patient={localStorage.getItem('selectedPatient') || patientUsername}
+            therapistId={authStore.id}
             intervention={selectedExercise}
+            defaults={modifyDefaults || undefined}
           />
         )}
 
