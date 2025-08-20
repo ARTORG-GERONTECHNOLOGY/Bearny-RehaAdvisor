@@ -1,12 +1,12 @@
 // components/RehaTablePage/InterventionRepeatModal.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import authStore from '../../stores/authStore';
 import apiClient from '../../api/client';
-import { t } from 'i18next';
+import authStore from '../../stores/authStore';
 import config from '../../config/config.json';
+import { t } from 'i18next';
 
 type Mode = 'create' | 'modify';
 
@@ -16,26 +16,22 @@ interface Props {
   show: boolean;
   onHide: () => void;
   onSuccess?: () => void;
-  patient: string;
-  /** Can be an id string or an object with _id */
-  intervention: string | { _id: string; title?: string } | null;
 
-  /** Optional: open the modal directly in modify mode */
-  mode?: Mode;
+  patient: string;                       // patient id (or key)
+  intervention: string | { _id: string };// intervention id or {_id}
 
-  /** Prefill when opening in modify mode */
+  // NEW (optional)
+  mode?: Mode;                           // 'create' (default) | 'modify'
+  therapistId?: string;
   defaults?: {
-    effectiveFrom?: string; // yyyy-mm-dd
-    require_video_feedback?: boolean;
-    // If you want to prefill schedule as well:
+    effectiveFrom?: string;              // YYYY-MM-DD
+    startTime?: string;                  // HH:mm
     interval?: number;
     unit?: 'day' | 'week' | 'month';
     selectedDays?: string[];
-    startDateISO?: string; // ISO start datetime
-    startTime?: string; // 'HH:mm'
-    endOption?: 'never' | 'date' | 'count';
-    endDateISO?: string; // ISO date
-    occurrenceCount?: number;
+    end?: { type: 'never' | 'date' | 'count'; date?: string | null; count?: number | null };
+    require_video_feedback?: boolean;
+    keep_current?: boolean;
   };
 }
 
@@ -46,118 +42,122 @@ const InterventionRepeatModal: React.FC<Props> = ({
   patient,
   intervention,
   mode = 'create',
+  therapistId,
   defaults,
 }) => {
-  // ---------- Helpers ----------
-  const interventionId = useMemo(
-    () => (typeof intervention === 'string' ? intervention : intervention?._id || ''),
-    [intervention]
-  );
+  const isModify = mode === 'modify';
 
-  const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
-  const diagnoses = Array.isArray(specialisations)
-    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
-    : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
-  const isDiagnosis = diagnoses.includes(patient) || patient === 'all';
-
-  const tomorrowStr = useMemo(() => {
-    const dt = new Date();
-    dt.setDate(dt.getDate() + 1);
-    return dt.toISOString().slice(0, 10);
-  }, []);
-
-  // ---------- Form state (frequency UI stays like before) ----------
+  // Core schedule state (same choices as before)
   const [interval, setInterval] = useState<number>(defaults?.interval ?? 1);
   const [unit, setUnit] = useState<'day' | 'week' | 'month'>(defaults?.unit ?? 'week');
   const [selectedDays, setSelectedDays] = useState<string[]>(defaults?.selectedDays ?? []);
-  const [endOption, setEndOption] = useState<'never' | 'date' | 'count'>(defaults?.endOption ?? 'never');
-
+  const [endOption, setEndOption] = useState<'never' | 'date' | 'count'>(defaults?.end?.type ?? 'never');
   const [endDate, setEndDate] = useState<Date | null>(
-    defaults?.endDateISO ? new Date(defaults.endDateISO) : null
+    defaults?.end?.date ? new Date(defaults.end.date) : null
   );
-  const [startDate, setStartDate] = useState<Date | null>(
-    defaults?.startDateISO ? new Date(defaults.startDateISO) : null
-  );
-  const [occurrenceCount, setOccurrenceCount] = useState<number>(defaults?.occurrenceCount ?? 10);
+  const [occurrenceCount, setOccurrenceCount] = useState<number>(defaults?.end?.count ?? 10);
   const [startTime, setStartTime] = useState<string>(defaults?.startTime ?? '08:00');
   const [requireVideoFeedback, setRequireVideoFeedback] = useState<boolean>(
     !!defaults?.require_video_feedback
   );
 
-  // Modify mode pieces
-  const isModify = mode === 'modify';
-  const [effectiveFrom, setEffectiveFrom] = useState<string>(defaults?.effectiveFrom || '');
-  const [keepCurrentSchedule, setKeepCurrentSchedule] = useState<boolean>(false);
+  // The single date field (depends on mode)
+  // create  -> Start Date
+  // modify  -> Effective from
+  const [startDateCreate, setStartDateCreate] = useState<Date | null>(null);
+  const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
+    defaults?.effectiveFrom ? new Date(defaults.effectiveFrom) : new Date()
+  );
 
-  const [saving, setSaving] = useState(false);
+  // Modify-only: keep schedule unchanged (only update flags)
+  const [keepCurrent, setKeepCurrent] = useState<boolean>(!!defaults?.keep_current);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
-  const [err, setErr] = useState<string>('');
+
+  // Diagnosis routing (unchanged from your original)
+  const specialisations = (authStore.specialisation || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const diagnoses = Array.isArray(specialisations)
+    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+    : [];
+  const isDiagnosis = diagnoses.includes(patient) || patient === 'all';
+
+  // Keep defaults in sync when modal opens
+  useEffect(() => {
+    if (!show) return;
+    setInterval(defaults?.interval ?? 1);
+    setUnit((defaults?.unit as any) ?? 'week');
+    setSelectedDays(defaults?.selectedDays ?? []);
+    setEndOption(defaults?.end?.type ?? 'never');
+    setEndDate(defaults?.end?.date ? new Date(defaults.end.date) : null);
+    setOccurrenceCount(defaults?.end?.count ?? 10);
+    setStartTime(defaults?.startTime ?? '08:00');
+    setRequireVideoFeedback(!!defaults?.require_video_feedback);
+    setKeepCurrent(!!defaults?.keep_current);
+    setEffectiveFrom(defaults?.effectiveFrom ? new Date(defaults.effectiveFrom) : new Date());
+    setStartDateCreate(null);
+    setError('');
+    setSuccess(false);
+  }, [show, defaults]);
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
   };
 
-  const getCombinedStartDateISO = (): string => {
-    // If startDate missing, fall back to "now" at provided time
-    const base = startDate ? new Date(startDate) : new Date();
-    const [h, m] = (startTime || '08:00').split(':').map(Number);
-    base.setHours(h || 8, m || 0, 0, 0);
-    return base.toISOString();
+  // Build ISO datetime from the single date field + time
+  const getCombinedStartISO = (): string | null => {
+    const baseDate = isModify ? effectiveFrom : startDateCreate;
+    if (!baseDate) return null;
+    const [hh, mm] = (startTime || '08:00').split(':').map((n) => parseInt(n, 10));
+    const dt = new Date(baseDate);
+    dt.setHours(hh, mm, 0, 0);
+    return dt.toISOString();
   };
 
-  const canSave = useMemo(() => {
-    if (!interventionId || !patient) return false;
-
+  const canSubmit = useMemo(() => {
+    if (!patient || !intervention) return false;
     if (isModify) {
-      // Need effectiveFrom; if not keeping schedule, schedule must be valid
       if (!effectiveFrom) return false;
-      if (keepCurrentSchedule) return true;
-      // Frequency UI validation (same as create)
+      // if they keep current, we don't need the rest
+      if (keepCurrent) return true;
+      // otherwise we still need the scheduling inputs to be valid
+      if (unit === 'week' && selectedDays.length === 0) return false;
+      return true;
+    } else {
+      // create
+      if (!startDateCreate) return false;
+      if (unit === 'week' && selectedDays.length === 0) return false;
+      return true;
     }
-    // Create validation
-    if (!isDiagnosis && !startDate) return false; // patient-specific needs a start date
-    if (unit === 'week' && selectedDays.length === 0) return false;
-    if (endOption === 'date' && !endDate) return false;
-    if (endOption === 'count' && (!occurrenceCount || occurrenceCount < 1)) return false;
+  }, [patient, intervention, isModify, effectiveFrom, keepCurrent, startDateCreate, unit, selectedDays.length]);
 
-    return interval >= 1;
-  }, [
-    isModify,
-    effectiveFrom,
-    keepCurrentSchedule,
-    isDiagnosis,
-    startDate,
-    unit,
-    selectedDays,
-    endOption,
-    endDate,
-    occurrenceCount,
-    interval,
-    interventionId,
-    patient,
-  ]);
-
-  // ---------- Submit ----------
   const handleSubmit = async () => {
-    if (!canSave) return;
-    setSaving(true);
-    setErr('');
-
     try {
+      setSubmitting(true);
+      setError('');
+
+      const intId = typeof intervention === 'string' ? intervention : intervention._id;
+
       if (isModify) {
+        // One date input only: Effective from
         const payload: any = {
-          therapistId: authStore.id,
+          therapistId: therapistId || authStore.id,
           patientId: patient,
-          interventionId,
-          effectiveFrom, // yyyy-mm-dd
+          interventionId: intId,
+          effectiveFrom: effectiveFrom?.toISOString().slice(0, 10), // YYYY-MM-DD
           require_video_feedback: requireVideoFeedback,
+          keep_current: keepCurrent || undefined,
         };
 
-        if (!keepCurrentSchedule) {
+        if (!keepCurrent) {
           payload.schedule = {
             interval,
             unit,
-            startDate: getCombinedStartDateISO(),
+            startDate: getCombinedStartISO(), // derived from Effective from + Start Time
             startTime,
             selectedDays,
             end: {
@@ -166,8 +166,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
               count: endOption === 'count' ? occurrenceCount : null,
             },
           };
-        } else {
-          payload.keep_current = true;
+           
         }
 
         const res = await apiClient.post('/interventions/modify-patient/', payload);
@@ -176,22 +175,18 @@ const InterventionRepeatModal: React.FC<Props> = ({
           onSuccess?.();
           return;
         }
-        setErr(t('Failed to modify schedule.'));
+        setError(t('Failed to modify schedule.'));
       } else {
-        // CREATE/ASSIGN
-        const path = isDiagnosis
-          ? 'interventions/assign-to-patient-types/'
-          : 'interventions/add-to-patient/';
-
+        // CREATE: one date input only: Start Date
         const payload = {
-          therapistId: authStore.id,
+          therapistId: therapistId || authStore.id,
           patientId: patient,
           interventions: [
             {
               interval,
-              interventionId,
+              interventionId: intId,
               unit,
-              startDate: getCombinedStartDateISO(),
+              startDate: getCombinedStartISO(),
               selectedDays,
               end: {
                 type: endOption,
@@ -203,85 +198,82 @@ const InterventionRepeatModal: React.FC<Props> = ({
           ],
         };
 
+        const path = isDiagnosis
+          ? 'interventions/assign-to-patient-types/'
+          : 'interventions/add-to-patient/';
+
         const res = await apiClient.post(path, payload);
         if (res.status === 200 || res.status === 201) {
           setSuccess(true);
           onSuccess?.();
           return;
         }
-        setErr(t('Error assigning intervention'));
+        setError(t('Failed to add intervention.'));
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.error || e?.message || t('Something went wrong.');
-      setErr(msg);
+      setError(e?.response?.data?.error || e?.message || t('Something went wrong.'));
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  // ---------- Render ----------
   return (
-    <Modal show={show} onHide={onHide} centered aria-labelledby="repeat-modal-title" backdrop="static">
+    <Modal show={show} onHide={onHide} centered aria-labelledby="repeat-modal-title">
       <Modal.Header closeButton>
         <Modal.Title id="repeat-modal-title">
           {isModify ? t('Modify schedule') : t('Frequency')}
-          {typeof intervention === 'object' && intervention?.title ? (
-            <span className="text-muted ms-2">— {intervention.title}</span>
-          ) : null}
         </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {err && (
-          <Alert variant="danger" onClose={() => setErr('')} dismissible>
-            {err}
+        {error && (
+          <Alert variant="danger" onClose={() => setError('')} dismissible>
+            {error}
           </Alert>
         )}
 
-        {/* Modify-only controls */}
-        {isModify && (
-          <>
-            <Form.Group className="mb-3" controlId="effective-from">
+        <Form>
+          {/* SINGLE DATE FIELD */}
+          {isModify ? (
+            <Form.Group className="mb-3">
               <Form.Label>{t('Effective from')}</Form.Label>
-              <Form.Control
-                type="date"
-                value={effectiveFrom}
-                min={tomorrowStr}
-                onChange={(e) => setEffectiveFrom(e.target.value)}
-                required
+              <DatePicker
+                selected={effectiveFrom}
+                onChange={(d) => setEffectiveFrom(d as Date)}
+                className="form-control"
+                dateFormat="yyyy-MM-dd"
               />
               <Form.Text className="text-muted">
                 {t('Only sessions on or after this date will change. Past sessions stay as-is.')}
               </Form.Text>
             </Form.Group>
-
-            <Form.Group className="mb-3" controlId="keep-current">
-              <Form.Check
-                type="checkbox"
-                label={t('Keep current schedule (only update flags)')}
-                checked={keepCurrentSchedule}
-                onChange={(e) => setKeepCurrentSchedule(e.target.checked)}
-              />
-            </Form.Group>
-          </>
-        )}
-
-        {/* Start date & time (hidden for diagnosis-wide assign) */}
-        {!isDiagnosis && (
-          <>
+          ) : (
             <Form.Group className="mb-3">
-              <Form.Label htmlFor="start-date">{t('Start Date')}</Form.Label>
+              <Form.Label>{t('Start Date')}</Form.Label>
               <DatePicker
-                selected={startDate}
-                onChange={(date) => setStartDate(date)}
+                selected={startDateCreate}
+                onChange={(d) => setStartDateCreate(d as Date)}
                 className="form-control"
                 dateFormat="yyyy-MM-dd"
-                id="start-date"
-                aria-label={t('Start Date')}
-                disabled={isModify && keepCurrentSchedule}
               />
             </Form.Group>
+          )}
 
+          {/* Modify-only: Keep current schedule */}
+          {isModify && (
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                id="keep-current"
+                label={t('Keep current schedule (only update flags)')}
+                checked={keepCurrent}
+                onChange={(e) => setKeepCurrent(e.target.checked)}
+              />
+            </Form.Group>
+          )}
+
+          {/* Start time (needed for both; in modify shown only if not keeping current) */}
+          {(!isModify || (isModify && !keepCurrent)) && (
             <Form.Group as={Row} className="mb-3" controlId="start-time">
               <Form.Label column sm={4}>
                 {t('Start Time')}
@@ -291,136 +283,124 @@ const InterventionRepeatModal: React.FC<Props> = ({
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  aria-label={t('Start Time')}
-                  disabled={isModify && keepCurrentSchedule}
                 />
               </Col>
             </Form.Group>
-          </>
-        )}
+          )}
 
-        {/* Repeat every … */}
-        <Form.Group as={Row} className="mb-3" controlId="repeat-every">
-          <Form.Label column sm={4}>
-            {t('Repeat every')}
-          </Form.Label>
-          <Col sm={4}>
-            <Form.Control
-              type="number"
-              min="1"
-              value={interval}
-              onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
-              aria-label={t('Interval')}
-              disabled={isModify && keepCurrentSchedule}
+          {/* Schedule controls (hidden if keepCurrent in modify) */}
+          {(!isModify || (isModify && !keepCurrent)) && (
+            <>
+              <Form.Group as={Row} className="mb-3" controlId="repeat-every">
+                <Form.Label column sm={4}>
+                  {t('Repeat every')}
+                </Form.Label>
+                <Col sm={4}>
+                  <Form.Control
+                    type="number"
+                    min="1"
+                    value={interval}
+                    onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
+                  />
+                </Col>
+                <Col sm={4}>
+                  <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
+                    <option value="day">{t('Day')}</option>
+                    <option value="week">{t('Week')}</option>
+                    <option value="month">{t('Month')}</option>
+                  </Form.Select>
+                </Col>
+              </Form.Group>
+
+              {unit === 'week' && (
+                <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
+                  <div className="d-flex flex-wrap gap-2">
+                    {weekdays.map((day) => (
+                      <Button
+                        key={day}
+                        variant={selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
+                        onClick={() => toggleDay(day)}
+                        aria-pressed={selectedDays.includes(day)}
+                      >
+                        {day}
+                      </Button>
+                    ))}
+                  </div>
+                </Form.Group>
+              )}
+
+              {/* End options */}
+              <Form.Group className="mb-3" role="radiogroup" aria-label={t('End options')}>
+                <Form.Label>{t('Ends')}</Form.Label>
+                <div className="d-flex flex-column gap-2">
+                  <Form.Check
+                    type="radio"
+                    label={t('Never')}
+                    checked={endOption === 'never'}
+                    onChange={() => setEndOption('never')}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label={t('On date')}
+                    checked={endOption === 'date'}
+                    onChange={() => setEndOption('date')}
+                  />
+                  {endOption === 'date' && (
+                    <DatePicker
+                      selected={endDate}
+                      onChange={(date) => setEndDate(date as Date)}
+                      className="form-control"
+                      dateFormat="yyyy-MM-dd"
+                    />
+                  )}
+                  <Form.Check
+                    type="radio"
+                    label={t('After N times')}
+                    checked={endOption === 'count'}
+                    onChange={() => setEndOption('count')}
+                  />
+                  {endOption === 'count' && (
+                    <Form.Control
+                      type="number"
+                      value={occurrenceCount}
+                      onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '0', 10))}
+                    />
+                  )}
+                </div>
+              </Form.Group>
+            </>
+          )}
+
+          {/* Ask for video feedback */}
+          <Form.Group className="mb-1">
+            <Form.Check
+              type="checkbox"
+              id="require-video-feedback"
+              label={t('Ask video feedback from patient')}
+              checked={requireVideoFeedback}
+              onChange={() => setRequireVideoFeedback((prev) => !prev)}
             />
-          </Col>
-          <Col sm={4}>
-            <Form.Select
-              value={unit}
-              onChange={(e) => setUnit(e.target.value as 'day' | 'week' | 'month')}
-              disabled={isModify && keepCurrentSchedule}
-            >
-              <option value="day">{t('Day')}</option>
-              <option value="week">{t('Week')}</option>
-              <option value="month">{t('Month')}</option>
-            </Form.Select>
-          </Col>
-        </Form.Group>
-
-        {/* Weekday picker */}
-        {unit === 'week' && (
-          <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
-            <div className="d-flex flex-wrap gap-2">
-              {weekdays.map((day, idx) => (
-                <Button
-                  key={idx}
-                  variant={selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
-                  onClick={() => toggleDay(day)}
-                  aria-pressed={selectedDays.includes(day)}
-                  aria-label={t(`Day ${day}`)}
-                  disabled={isModify && keepCurrentSchedule}
-                >
-                  {day}
-                </Button>
-              ))}
-            </div>
+            <Form.Text muted>
+              {t('Patients will be prompted to upload or record a video of the exercise.')}
+            </Form.Text>
           </Form.Group>
-        )}
-
-        {/* End options */}
-        <Form.Group className="mb-3" role="radiogroup" aria-label={t('End options')}>
-          <Form.Label>{t('Ends')}</Form.Label>
-          <div className="d-flex flex-column gap-2">
-            <Form.Check
-              type="radio"
-              label={t('Never')}
-              checked={endOption === 'never'}
-              onChange={() => setEndOption('never')}
-              disabled={isModify && keepCurrentSchedule}
-            />
-            <Form.Check
-              type="radio"
-              label={t('On date')}
-              checked={endOption === 'date'}
-              onChange={() => setEndOption('date')}
-              disabled={isModify && keepCurrentSchedule}
-            />
-            {endOption === 'date' && (
-              <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                className="form-control"
-                dateFormat="yyyy-MM-dd"
-                aria-label={t('End date')}
-                disabled={isModify && keepCurrentSchedule}
-              />
-            )}
-            <Form.Check
-              type="radio"
-              label={t('After N times')}
-              checked={endOption === 'count'}
-              onChange={() => setEndOption('count')}
-              disabled={isModify && keepCurrentSchedule}
-            />
-            {endOption === 'count' && (
-              <Form.Control
-                type="number"
-                value={occurrenceCount}
-                onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '1', 10))}
-                aria-label={t('Number of occurrences')}
-                disabled={isModify && keepCurrentSchedule}
-              />
-            )}
-          </div>
-        </Form.Group>
-
-        {/* Flags */}
-        <Form.Group className="mb-1">
-          <Form.Check
-            type="checkbox"
-            id="require-video-feedback"
-            label={t('Ask video feedback from patient')}
-            checked={requireVideoFeedback}
-            onChange={() => setRequireVideoFeedback((prev) => !prev)}
-          />
-          <Form.Text muted>
-            {t('Patients will be prompted to upload or record a video of the exercise.')}
-          </Form.Text>
-        </Form.Group>
+        </Form>
       </Modal.Body>
 
       <Modal.Footer>
         {!success ? (
           <>
-            <Button variant="secondary" onClick={onHide} disabled={saving}>
+            <Button variant="secondary" onClick={onHide} disabled={submitting}>
               {t('Cancel')}
             </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={!canSave || saving}>
-              {saving ? t('Saving...') : t('Save')}
+            <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit || submitting}>
+              {submitting ? t('Saving...') : isModify ? t('Save changes') : t('Save')}
             </Button>
           </>
         ) : (
-          <div className="alert alert-success w-100 text-center m-0">{t('Success!')}</div>
+          <Alert variant="success" className="w-100 text-center m-0">
+            {t('Success!')}
+          </Alert>
         )}
       </Modal.Footer>
     </Modal>
