@@ -43,7 +43,7 @@ describe('PatientView', () => {
     jest.clearAllMocks();
   });
 
-  test('redirects to /patient_home if not authenticated', async () => {
+  test('redirects to / if not authenticated', async () => {
     mockIsAuthenticated = false;
     mockUserType = 'Patient';
 
@@ -54,11 +54,11 @@ describe('PatientView', () => {
     );
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/patient_home');
+      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
   });
 
-  test('redirects to /patient_home if user is not Patient', async () => {
+  test('redirects to / if user is not Patient', async () => {
     mockIsAuthenticated = true;
     mockUserType = 'Therapist';
 
@@ -69,7 +69,7 @@ describe('PatientView', () => {
     );
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/patient_home');
+      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
   });
 

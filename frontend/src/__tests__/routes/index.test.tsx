@@ -31,7 +31,7 @@ describe('Router', () => {
     { path: '/unauthorized', text: 'Mock Unauthorized Page' },
     { path: '/interventions', text: 'Mock Interventions Page' },
     { path: '/userprofile', text: 'Mock User Profile' },
-    { path: '/patient_home', text: 'Mock Patient Home' },
+    { path: '/', text: 'Mock Patient Home' },
     { path: '/admin', text: 'Mock Admin Dashboard' },
     { path: '/addpatient', text: 'Mock Add Patient' },
     { path: '/rehabtable', text: 'Mock Rehab Table' },
