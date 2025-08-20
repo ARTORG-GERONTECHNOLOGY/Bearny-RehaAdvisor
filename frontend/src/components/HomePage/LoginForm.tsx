@@ -1,3 +1,4 @@
+// components/HomePage/LoginForm.tsx
 import React, { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Modal, Button, Form } from 'react-bootstrap';
@@ -12,134 +13,123 @@ import ForgotPasswordLink from '../common/ForgotPasswordLink';
 import ErrorAlert from '../common/ErrorAlert';
 import InfoBubble from '../common/InfoBubble';
 
-interface LoginFormProps {
+interface Props {
   show: boolean;
   handleClose: () => void;
-  pageType: 'regular' | 'patient';
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) => {
-  const navigate = useNavigate();
+const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
   const [showPassword, setShowPassword] = useState(false);
   const [is2FARequired, setIs2FARequired] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleToggle = () => setShowPassword((s) => !s);
+  const reset = () => {
+    authStore.reset();
+    setShowPassword(false);
+    setIs2FARequired(false);
+    setVerificationCode('');
+    setError(null);
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const onClose = () => {
+    handleClose();
+    reset();
+  };
+
+  const submitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     try {
-      await authStore.loginWithHttp();
+      await authStore.loginWithHttp(); // calls /auth/login/, sets userType, id, tokens in store
 
       if (authStore.loginErrorMessage) {
         setError(authStore.loginErrorMessage);
         return;
       }
 
-      if (pageType !== 'patient') {
+      if (authStore.userType === 'Therapist') {
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
-        } catch (sendCodeErr) {
+        } catch (err) {
           setError(t('Login succeeded but failed to send verification code.'));
-          console.error('2FA code send failed:', sendCodeErr);
         }
-      } else {
+      } else if (authStore.userType === 'Patient') {
         authStore.setAuthenticated(true);
-        navigate(`/${authStore.userType.toLowerCase()}`);
+        navigate('/patient');
+      } else {
+        setError(t('Unsupported account type.'));
       }
     } catch (err: any) {
       handleApiError(err, authStore);
-      setError(err.message || t('Login failed. Please try again.'));
+      setError(err?.message || t('Login failed. Please try again.'));
     }
   };
 
-  const handle2FASubmit = async (e: React.FormEvent) => {
+  const submit2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     try {
-      const response = await apiClient.post('/auth/verify-code/', {
+      const res = await apiClient.post('/auth/verify-code/', {
         userId: authStore.id,
         verificationCode,
       });
-
-      if (response.status === 200) {
+      if (res.status === 200) {
         authStore.setAuthenticated(true);
-        navigate(`/${authStore.userType.toLowerCase()}`);
+        navigate('/therapist');
       } else {
-        authStore.setLoginError(t('Invalid verification code'));
+        setError(t('Invalid verification code'));
       }
     } catch (err: any) {
       handleApiError(err, authStore);
-      setError(err.message || t('Invalid verification code'));
+      setError(err?.message || t('Invalid verification code'));
     }
   };
 
-  const handleModalClose = () => {
-    handleClose();
-    authStore.reset();
-    setIs2FARequired(false);
-    setVerificationCode('');
-    setError(null);
-    setShowPassword(false);
-  };
-
   return (
-    <Modal
-      show={show}
-      onHide={handleModalClose}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard={false}
-    >
+    <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
         <Modal.Title>{t('Login')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {!is2FARequired ? (
-          <Form onSubmit={handleSubmit}>
+          <Form onSubmit={submitCredentials}>
             {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
-            {/* Login identifier */}
             <InputField
               id="email"
               label={
                 <>
-                  {pageType === 'patient' ? t('Patient Id') : t('Email')}
-                  <InfoBubble tooltip={t('This is your registered email or patient ID.')} />
+                  {t('Email or Patient ID')}
+                  <InfoBubble tooltip={t('Use your registered email (therapist) or patient ID.')} />
                 </>
               }
-              type={pageType === 'patient' ? 'text' : 'email'}
+              type="text"
               value={authStore.email}
               onChange={(e) => authStore.setEmail(e.target.value)}
-              placeholder={pageType === 'patient' ? t('Enter Patient Id') : t('Enter your email')}
+              placeholder={t('Enter email or patient ID')}
               required
             />
 
-            {/* Password with eye toggle */}
             <PasswordField
               id="password"
               value={authStore.password}
               onChange={(e) => authStore.setPassword(e.target.value)}
               showPassword={showPassword}
-              onToggle={handleToggle}
-              pagetype={pageType}
+              onToggle={() => setShowPassword((s) => !s)}
+              pagetype="regular"
               required
             />
 
-            {/* Forgot password link (only for non-patients) */}
-            {pageType !== 'patient' && (
-              <ForgotPasswordLink
-                onClick={() => navigate('/forgottenpwd')}
-                text={t('Need help recovering your account?')}
-              />
-            )}
+            {/* You can always show this; it only applies to therapists */}
+            <ForgotPasswordLink
+              onClick={() => navigate('/forgottenpwd')}
+              text={t('Need help recovering your account?')}
+            />
 
             {authStore.loginError && (
               <div className="alert alert-danger mt-3">{authStore.loginError}</div>
@@ -150,18 +140,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ show, handleClose, pageType }) =>
             </Button>
           </Form>
         ) : (
-          <Form onSubmit={handle2FASubmit}>
+          <Form onSubmit={submit2FA}>
             {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
             <h5 className="mb-3">{t('Entertheverificationcodesenttoyourphone')}</h5>
             <InputField
               id="verificationCode"
-              label={
-                <>
-                  {t('VerificationCode')}
-                  <InfoBubble tooltip={t('This 6-digit code was sent to your registered phone.')} />
-                </>
-              }
+              label={t('VerificationCode')}
               type="text"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}

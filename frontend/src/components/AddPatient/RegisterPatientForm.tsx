@@ -197,7 +197,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
           <p>{t('The patient has been registered. Account information has been sent to the given email.')}</p>
           <p><strong>{t('Patient ID:')}</strong> {patientId}</p>
           <p><strong>{t('Access Word:')}</strong> {formData.password}</p>
-          <Link to="/patient_home">{t('Click here to log in')}</Link>
+          <Link to="/">{t('Click here to log in')}</Link>
         </div>
       ) : (
         <div className="d-flex justify-content-between mt-4">
