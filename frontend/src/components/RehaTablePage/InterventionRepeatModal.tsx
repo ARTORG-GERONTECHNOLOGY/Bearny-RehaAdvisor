@@ -9,8 +9,16 @@ import config from '../../config/config.json';
 import { t } from 'i18next';
 
 type Mode = 'create' | 'modify';
+// --- helpers (put them inside the component or above it) ---
+const toOrdinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]); // 1st, 2nd, 3rd, 4th...
+};
 
-const weekdays = ['Mon', 'Dien', 'Mitt', 'Don', 'Fre', 'Sam', 'Son'];
+const joinDays = (days: string[] = []) =>
+  days.length ? days.join(", ") : "…"; // or t('selected days')
+const weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
 interface Props {
   show: boolean;
@@ -34,6 +42,7 @@ interface Props {
     keep_current?: boolean;
   };
 }
+
 
 const InterventionRepeatModal: React.FC<Props> = ({
   show,
@@ -117,6 +126,25 @@ const InterventionRepeatModal: React.FC<Props> = ({
     dt.setHours(hh, mm, 0, 0);
     return dt.toISOString();
   };
+const summary = useMemo(() => {
+  if (unit === 'day') {
+    return interval === 1
+      ? t('Occurs every day.')
+      : t('Occurs every {{ord}} day.', { ord: toOrdinal(interval) }); // e.g., "every 2nd day"
+  }
+
+  if (unit === 'week') {
+    const days = joinDays(selectedDays);
+    return interval === 1
+      ? t('Occurs weekly on {{days}}.', { days })
+      : t('Occurs every {{ord}} week on {{days}}.', { ord: toOrdinal(interval), days });
+  }
+
+  // month
+  return interval === 1
+    ? t('Occurs monthly on the same date.')
+    : t('Occurs every {{ord}} month on the same date.', { ord: toOrdinal(interval) });
+}, [interval, unit, selectedDays, t]);
 
   const canSubmit = useMemo(() => {
     if (!patient || !intervention) return false;
@@ -292,25 +320,38 @@ const InterventionRepeatModal: React.FC<Props> = ({
           {(!isModify || (isModify && !keepCurrent)) && (
             <>
               <Form.Group as={Row} className="mb-3" controlId="repeat-every">
-                <Form.Label column sm={4}>
-                  {t('Repeat every')}
-                </Form.Label>
-                <Col sm={4}>
-                  <Form.Control
-                    type="number"
-                    min="1"
-                    value={interval}
-                    onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
-                  />
-                </Col>
-                <Col sm={4}>
-                  <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
-                    <option value="day">{t('Day')}</option>
-                    <option value="week">{t('Week')}</option>
-                    <option value="month">{t('Month')}</option>
-                  </Form.Select>
-                </Col>
-              </Form.Group>
+  <Form.Label column sm={4}>
+    {t('Repeat every')}
+  </Form.Label>
+
+  <Col sm={4}>
+    <Form.Control
+      type="number"
+      min="1"
+      value={interval}
+      onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
+      aria-describedby="repeat-help"
+    />
+  </Col>
+
+  <Col sm={4}>
+    <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
+      <option value="day">{t('Day')}</option>
+      <option value="week">{t('Week')}</option>
+      <option value="month">{t('Month')}</option>
+    </Form.Select>
+  </Col>
+
+  {/* dynamic helper text */}
+  <Col xs={12}>
+    <Form.Text id="repeat-help" className="text-muted">
+      {summary}
+      {/* Optional extra examples: */}
+      {/*  {t('Examples: 1 day = every day • 2 days = every 2nd day • 2 weeks on Fri = every other week on Fri.')} */}
+    </Form.Text>
+  </Col>
+</Form.Group>
+
 
               {unit === 'week' && (
                 <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
