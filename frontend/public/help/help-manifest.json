@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "extensions": ["jpg", "jpeg", "webp"],
+  "languages": ["de", "en", "fr", "it"],
+  "assets": {
+    "de": { "basePath": "de" },
+    "en": { "basePath": "en" },
+    "fr": { "basePath": "fr" },
+    "it": { "basePath": "it" }
+  },
+  "keys": [
+    "Instructions.home",
+    "Instructions.login",
+    "Instructions.register",
+
+    "Instructions.therapist.dashboard",
+    "Instructions.therapist.patients",
+    "Instructions.therapist.patients.info",
+    "Instructions.therapist.patients.register",
+    "Instructions.therapist.user_profile",
+
+    "Instructions.therapist.interventions",
+    "Instructions.therapist.interventions.info",
+    "Instructions.therapist.interventions.add",
+
+    "Instructions.therapist.rehatable",
+    "Instructions.therapist.rehatable.intervention.info",
+    "Instructions.therapist.rehatable.intervention.add",
+    "Instructions.therapist.rehatable.feedback",
+    "Instructions.therapist.rehatable.statistics",
+
+    "Instructions.patient.reha_calendar",
+    "Instructions.patient.reha_calendar.intervention.info",
+    "Instructions.patient.intervention.feedback",
+    "Instructions.patient.health_questionaire"
+  ],
+  "displayOrder": [
+    "Instructions.home",
+    "Instructions.login",
+    "Instructions.register",
+
+    "Instructions.therapist.patients",
+    "Instructions.therapist.patients.info",
+    "Instructions.therapist.patients.register",
+
+    "Instructions.therapist.dashboard",
+    "Instructions.therapist.rehatable",
+    "Instructions.therapist.rehatable.intervention.info",
+    "Instructions.therapist.rehatable.intervention.add",
+    "Instructions.therapist.rehatable.feedback",
+    "Instructions.therapist.rehatable.statistics",
+
+    "Instructions.therapist.interventions",
+    "Instructions.therapist.interventions.info",
+    "Instructions.therapist.interventions.add",
+
+    "Instructions.therapist.user_profile",
+
+    "Instructions.patient.reha_calendar",
+    "Instructions.patient.reha_calendar.intervention.info",
+    "Instructions.patient.intervention.feedback",
+    "Instructions.patient.health_questionaire"
+  ]
+}
