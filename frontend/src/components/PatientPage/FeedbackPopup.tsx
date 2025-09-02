@@ -31,16 +31,12 @@ const normalizeLang = (lang?: string) => (lang || 'en').split('-')[0];
 
 const pickText = (trs: Translation[] | undefined, lang: string, fallbackKey?: string) => {
   if (!trs || trs.length === 0) return fallbackKey || '';
-  // exact match (de)
   const exact = trs.find(t => t.language === lang)?.text;
   if (exact) return exact;
-  // base match (de from de-CH)
   const base = trs.find(t => t.language.split('-')[0] === lang)?.text;
   if (base) return base;
-  // english fallback
   const en = trs.find(t => t.language === 'en')?.text;
   if (en) return en;
-  // last resort
   return fallbackKey || trs[0].text || '';
 };
 
@@ -51,11 +47,17 @@ const toNormalized = (q: RawQuestion, lang: string): NormalizedQuestion => ({
   options: q.possibleAnswers || [],
 });
 
+/** NEW — Localized privacy note shown in audio/video sections */
+const PRIVACY_NOTE: Record<string, string> = {
+  de: 'Hinweis: Aufnahmen und Videos sind nur für Ihre Therapeutin/Ihren Therapeuten sichtbar und werden nach 14 Tagen gelöscht.',
+  fr: 'Remarque : les enregistrements et vidéos ne sont visibles que par votre thérapeute et seront supprimés après 14 jours.',
+  it: 'Nota: le registrazioni e i video sono visibili solo al/la terapeuta e verranno eliminati dopo 14 giorni.',
+  en: 'Note: Recordings and videos are only visible to your therapist and will be deleted after 14 days.',
+};
+
 const FeedbackPopup = ({
   show,
   interventionId,
-  // Accept either already-normalized questions or the raw JSON schema.
-  // We will normalize on-the-fly.
   questions,
   onClose,
 }: {
@@ -66,6 +68,7 @@ const FeedbackPopup = ({
 }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
+  const privacyNote = PRIVACY_NOTE[currentLang] || PRIVACY_NOTE.en;
 
   // Normalize questions to a single shape for rendering
   const normalizedQuestions: NormalizedQuestion[] = useMemo(
@@ -287,7 +290,6 @@ const FeedbackPopup = ({
               variant={active ? 'primary' : 'outline-primary'}
               onClick={() => {
                 handleOptionSelect(opt.key, currentQuestion.questionKey, multiple);
-                // auto-advance only for single choice
                 if (!multiple) setCurrentQuestionIndex(idx => idx + 1);
               }}
               aria-label={label}
@@ -368,6 +370,11 @@ const FeedbackPopup = ({
                         </Button>
                       </div>
                     )}
+
+                    {/* NEW — privacy note for audio */}
+                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
+                      {privacyNote}
+                    </p>
                   </div>
                 )}
               </>
@@ -381,6 +388,10 @@ const FeedbackPopup = ({
                     <Button variant="warning" onClick={deleteVideo} className="mt-2">
                       <FaTrash /> {t('Delete')}
                     </Button>
+                    {/* NEW — privacy note for video (preview state) */}
+                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
+                      {privacyNote}
+                    </p>
                   </>
                 ) : (
                   <>
@@ -403,6 +414,10 @@ const FeedbackPopup = ({
                         </Form.Label>
                       </div>
                     )}
+                    {/* NEW — privacy note for video (record/upload state) */}
+                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
+                      {privacyNote}
+                    </p>
                   </>
                 )}
               </div>
