@@ -43,7 +43,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
           const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
           updates[rec._id] = { title: translatedText, lang: detectedSourceLanguage };
         } catch {
-          updates[rec._id] = { title: rec.title, lang: null };
+          updates[rec._id] = {// src/pages/RehabTable.tsx
+
+ title: rec.title, lang: null };
         }
       }
       setLocalTitles(updates);

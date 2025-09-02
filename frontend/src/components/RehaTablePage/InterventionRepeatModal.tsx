@@ -18,7 +18,7 @@ const toOrdinal = (n: number) => {
 
 const joinDays = (days: string[] = []) =>
   days.length ? days.join(", ") : "…"; // or t('selected days')
-const weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface Props {
   show: boolean;
@@ -363,7 +363,7 @@ const summary = useMemo(() => {
                         onClick={() => toggleDay(day)}
                         aria-pressed={selectedDays.includes(day)}
                       >
-                        {day}
+                        {t(day)}
                       </Button>
                     ))}
                   </div>
