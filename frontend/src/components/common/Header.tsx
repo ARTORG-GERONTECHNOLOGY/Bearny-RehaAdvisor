@@ -1,8 +1,22 @@
 import React from 'react';
-import { ButtonGroup, Container, Dropdown, Nav, Navbar, ToggleButton } from 'react-bootstrap';
+import {
+  Button,
+  ButtonGroup,
+  Container,
+  Dropdown,
+  Nav,
+  Navbar,
+  OverlayTrigger,
+  ToggleButton,
+  Tooltip,
+} from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { BsQuestionCircle } from 'react-icons/bs';
 import authStore from '../../stores/authStore';
+
+// Help Center (the modal described previously)
+import HelpCenter from '../help/HelpCenter';
 
 // Flag imports
 import flagDe from '../../assets/flags/de.png';
@@ -13,6 +27,7 @@ import flagIt from '../../assets/flags/it.png';
 const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
   const { t, i18n } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = React.useState(i18n.language);
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -25,122 +40,159 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
   };
 
   const languages = ['de', 'fr', 'en', 'it'];
-  const languageOptions = {
+  const languageOptions: Record<string, string> = {
     en: flagEn,
     de: flagDe,
     fr: flagFr,
     it: flagIt,
   };
 
+  // If i18n gives "en-US", normalize to "en" for flag lookup
+  const normalizedLang = (currentLanguage || 'en').slice(0, 2);
+
   return (
-    <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
-      <Container fluid className="d-flex justify-content-between align-items-center">
-        {/* Brand */}
-        <Navbar.Brand>
-          <img
-            src="/inselspital-bern_logo.png"
-            alt="Logo"
-            style={{ width: '75px', height: '75px' }}
-          />
-        </Navbar.Brand>
+    <>
+      <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
+        <Container fluid className="d-flex justify-content-between align-items-center">
+          {/* Brand */}
+          <Navbar.Brand>
+            <img
+              src="/inselspital-bern_logo.png"
+              alt="Logo"
+              style={{ width: '75px', height: '75px' }}
+            />
+          </Navbar.Brand>
 
-        {/* Language selector: small screens (dropdown) */}
-        <div className="ms-auto d-lg-none">
-          <Dropdown align="end">
-            <Dropdown.Toggle
-              variant="light"
-              id="language-dropdown"
-              className="d-flex align-items-center p-1"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                boxShadow: 'none',
-              }}
+          {/* Small screens: Help + Language dropdown block */}
+          <div className="ms-auto d-lg-none d-flex align-items-center gap-2">
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip id="help-tooltip">{t('Help')}</Tooltip>}
             >
-              <img
-                src={languageOptions[currentLanguage]}
-                alt={currentLanguage}
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setHelpOpen(true)}
+                aria-label={t('Open help')}
+              >
+                <BsQuestionCircle />
+              </Button>
+            </OverlayTrigger>
+
+            <Dropdown align="end">
+              <Dropdown.Toggle
+                variant="light"
+                id="language-dropdown"
+                className="d-flex align-items-center p-1"
                 style={{
-                  width: '40px',
-                  height: '28px',
-                  objectFit: 'cover',
-                  borderRadius: '4px',
+                  background: 'transparent',
+                  border: 'none',
+                  boxShadow: 'none',
                 }}
-              />
-            </Dropdown.Toggle>
+              >
+                <img
+                  src={languageOptions[normalizedLang]}
+                  alt={normalizedLang}
+                  style={{
+                    width: '40px',
+                    height: '28px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                  }}
+                />
+              </Dropdown.Toggle>
 
-            <Dropdown.Menu>
-              {Object.entries(languageOptions).map(([lang, flag]) => (
-                <Dropdown.Item
-                  key={lang}
-                  onClick={() => handleLanguageChange(lang)}
-                  className="text-center"
-                >
-                  <img
-                    src={flag}
-                    alt={lang}
-                    style={{
-                      width: '40px',
-                      height: '28px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                    }}
-                  />
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-        </div>
-
-        {/* Toggle button: always available on small screens */}
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
-
-        <Navbar.Collapse id="basic-navbar-nav">
-          {isLoggedIn && (
-            <Nav className="me-auto">
-              {authStore.userType === 'Patient' && (
-                <Nav.Link as={Link} to="/patient">
-                  {t('Home')}
-                </Nav.Link>
-              )}
-              {(authStore.userType === 'Therapist' || authStore.userType === 'Researcher') && (
-                <>
-                  <Nav.Link as={Link} to={`/${authStore.userType.toLowerCase()}`}>
-                    {t('Patients')}
-                  </Nav.Link>
-                  <Nav.Link as={Link} to="/interventions">
-                    {t('Interventions')}
-                  </Nav.Link>
-                  <Nav.Link as={Link} to="/userprofile">
-                    {t('Profile')}
-                  </Nav.Link>
-                </>
-              )}
-              <Nav.Link onClick={handleLogout}>{t('Logout')}</Nav.Link>
-            </Nav>
-          )}
-
-          {/* Language selector: large screens (toggle buttons) */}
-          <div className="d-none d-lg-block ms-auto">
-            <ButtonGroup className="ms-3">
-              {languages.map((lang) => (
-                <ToggleButton
-                  key={lang}
-                  type="radio"
-                  variant={lang === currentLanguage ? 'dark' : 'light'}
-                  value={lang}
-                  checked={currentLanguage === lang}
-                  onChange={() => handleLanguageChange(lang)}
-                  id={lang}
-                >
-                  {lang.toUpperCase()}
-                </ToggleButton>
-              ))}
-            </ButtonGroup>
+              <Dropdown.Menu>
+                {Object.entries(languageOptions).map(([lang, flag]) => (
+                  <Dropdown.Item
+                    key={lang}
+                    onClick={() => handleLanguageChange(lang)}
+                    className="text-center"
+                  >
+                    <img
+                      src={flag}
+                      alt={lang}
+                      style={{
+                        width: '40px',
+                        height: '28px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                      }}
+                    />
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
           </div>
-        </Navbar.Collapse>
-      </Container>
-    </Navbar>
+
+          {/* Navbar toggle */}
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+
+          <Navbar.Collapse id="basic-navbar-nav">
+            {isLoggedIn && (
+              <Nav className="me-auto">
+                {authStore.userType === 'Patient' && (
+                  <Nav.Link as={Link} to="/patient">
+                    {t('Home')}
+                  </Nav.Link>
+                )}
+                {(authStore.userType === 'Therapist' || authStore.userType === 'Researcher') && (
+                  <>
+                    <Nav.Link as={Link} to={`/${authStore.userType.toLowerCase()}`}>
+                      {t('Patients')}
+                    </Nav.Link>
+                    <Nav.Link as={Link} to="/interventions">
+                      {t('Interventions')}
+                    </Nav.Link>
+                    <Nav.Link as={Link} to="/userprofile">
+                      {t('Profile')}
+                    </Nav.Link>
+                  </>
+                )}
+                <Nav.Link onClick={handleLogout}>{t('Logout')}</Nav.Link>
+              </Nav>
+            )}
+
+            {/* Large screens: Help button + language toggles on the far right */}
+            <div className="d-none d-lg-flex ms-auto align-items-center gap-2">
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip id="help-tooltip-lg">{t('Help')}</Tooltip>}
+              >
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => setHelpOpen(true)}
+                  aria-label={t('Open help')}
+                >
+                  <BsQuestionCircle className="me-1" />
+                  {t('Help')}
+                </Button>
+              </OverlayTrigger>
+
+              <ButtonGroup className="ms-2">
+                {languages.map((lang) => (
+                  <ToggleButton
+                    key={lang}
+                    type="radio"
+                    variant={lang === normalizedLang ? 'dark' : 'light'}
+                    value={lang}
+                    checked={normalizedLang === lang}
+                    onChange={() => handleLanguageChange(lang)}
+                    id={lang}
+                  >
+                    {lang.toUpperCase()}
+                  </ToggleButton>
+                ))}
+              </ButtonGroup>
+            </div>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+
+      {/* Help Center Modal */}
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </>
   );
 };
 
