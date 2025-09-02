@@ -20,6 +20,7 @@ const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
 const SuccessPage = lazy(() => import('../pages/SuccessPage'));
 const ErrorPage = lazy(() => import('../pages/ErrorPage'));
 const HealthPage = lazy(() => import('../pages/HealthPage'));
+const HelpPage = lazy(() => import('../pages/Help'));
 
 import RootLayout from '../RootLayout';
 
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
       createElement(RootLayout, { children: createElement(PatientView) })
     ),
   },
+  
   {
     path: '/admin',
     element: createElement(
@@ -170,6 +172,10 @@ export const router = createBrowserRouter([
   {
     path: '/health',
     element: createElement(HealthPage),
+  },
+  {
+    path: '/help',
+    element: createElement(HelpPage),
   },
 ]);
 
