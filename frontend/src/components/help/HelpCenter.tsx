@@ -2,6 +2,7 @@
 import React from 'react';
 import { Modal, Button, Nav } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import authStore from '../../stores/authStore'; // ⬅️ added
 
 type V1Manifest = {
   version: 1;
@@ -73,10 +74,9 @@ const labelWithoutGroup = (key: string, group: GroupName, subgroup: string) => {
   return pretty(remainder.join(' • ')) || pretty(subgroup);
 };
 
-// NEW: provide fallback key candidates — try therapist/patient key first, then the “common” key with same tail
+// Try therapist/patient key first, then the “common” key with same tail
 const fallbackKeyCandidates = (key: string): string[] => {
   const parts = key.split('.');
-  // Therapist/patient → strip that segment to make a common key
   const idxTher = parts.indexOf('therapist');
   const idxPat = parts.indexOf('patient');
 
@@ -96,6 +96,12 @@ const HelpCenter: React.FC<{
   const { i18n, t } = useTranslation();
   const lang = (i18n.language || 'en').slice(0, 2);
 
+  // 🔒 who is viewing?
+  const roleFromStore = authStore?.userType;
+  const roleFromStorage = (typeof window !== 'undefined' && localStorage.getItem('userType')) || '';
+  const userRole = roleFromStore || roleFromStorage || '';
+  const isTherapist = userRole === 'Therapist';
+
   const [manifest, setManifest] = React.useState<V1Manifest | null>(null);
   const [activeGroup, setActiveGroup] = React.useState<GroupName>('common');
   const [activeSubgroup, setActiveSubgroup] = React.useState<string>('general');
@@ -103,6 +109,16 @@ const HelpCenter: React.FC<{
 
   const [imgTryIndex, setImgTryIndex] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
+
+  // helper to check if a key is allowed for this viewer
+  const isKeyAllowed = React.useCallback(
+    (key: string) => {
+      const g = detectGroup(key);
+      if (g === 'therapist' && !isTherapist) return false;
+      return true;
+    },
+    [isTherapist]
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -112,10 +128,35 @@ const HelpCenter: React.FC<{
         setError(null);
         const m = await fetchManifest();
         if (cancelled) return;
-        setManifest(m);
 
-        const order = (Array.isArray(m.displayOrder) && m.displayOrder.length ? m.displayOrder : m.keys) ?? [];
-        const initialKey = defaultKey && order.includes(defaultKey) ? defaultKey : order[0];
+        // filter out therapist keys if not allowed
+        const allowedKeys = m.keys.filter(isKeyAllowed);
+        const allowedOrder =
+          (Array.isArray(m.displayOrder) && m.displayOrder.length
+            ? m.displayOrder.filter(isKeyAllowed)
+            : allowedKeys) ?? [];
+
+        const safeManifest: V1Manifest = {
+          ...m,
+          keys: allowedKeys,
+          displayOrder: allowedOrder
+        };
+
+        setManifest(safeManifest);
+
+        // choose a safe initial key
+        const order = allowedOrder.length ? allowedOrder : allowedKeys;
+        let initialKey =
+          defaultKey && isKeyAllowed(defaultKey) && order.includes(defaultKey)
+            ? defaultKey
+            : order[0];
+
+        // Guard if nothing allowed
+        if (!initialKey) {
+          setActiveKey(undefined);
+          return;
+        }
+
         const g = detectGroup(initialKey);
         const sg = detectSubgroup(initialKey, g);
         setActiveGroup(g);
@@ -129,7 +170,7 @@ const HelpCenter: React.FC<{
     return () => {
       cancelled = true;
     };
-  }, [open, defaultKey]);
+  }, [open, defaultKey, isKeyAllowed]);
 
   const order = React.useMemo<string[]>(() => {
     if (!manifest) return [];
@@ -141,6 +182,7 @@ const HelpCenter: React.FC<{
   const grouped = React.useMemo<Record<GroupName, string[]>>(() => {
     const g: Record<GroupName, string[]> = { common: [], therapist: [], patient: [] };
     for (const k of order) g[detectGroup(k)].push(k);
+    // if non-therapist, therapist list is already empty (filtered above)
     return g;
   }, [order]);
 
@@ -170,7 +212,7 @@ const HelpCenter: React.FC<{
     return subgroups[activeGroup]?.[activeSubgroup] ?? [];
   }, [subgroups, activeGroup, activeSubgroup]);
 
-  // Build image candidates (with new common-key fallback)
+  // Build image candidates (with common-key fallback)
   const imgCandidates = React.useMemo<string[]>(() => {
     if (!manifest || !activeKey) return [];
     const exts = (manifest.extensions?.length ? manifest.extensions : ['jpg', 'jpeg', 'webp'])!;
@@ -205,6 +247,8 @@ const HelpCenter: React.FC<{
   };
 
   const handleSelectGroup = (g: GroupName) => {
+    // prevent selecting therapist group if not allowed
+    if (g === 'therapist' && !isTherapist) return;
     setActiveGroup(g);
     const sgMap = subgroups[g] || {};
     const firstSG = Object.keys(sgMap)[0];
@@ -212,6 +256,10 @@ const HelpCenter: React.FC<{
       setActiveSubgroup(firstSG);
       const firstKey = sgMap[firstSG]?.[0];
       if (firstKey) setActiveKey(firstKey);
+    } else {
+      // no items in that group
+      setActiveSubgroup('general');
+      setActiveKey(undefined);
     }
   };
 
@@ -224,6 +272,7 @@ const HelpCenter: React.FC<{
 
   const handleSelectKey = (k?: string | null) => {
     if (!k) return;
+    if (!isKeyAllowed(k)) return; // extra guard
     setActiveKey(k);
   };
 
@@ -263,7 +312,7 @@ const HelpCenter: React.FC<{
         <Modal.Title>{t('Help')} — {resolvedTitle}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {/* Top groups */}
+        {/* Top groups — Therapist tab is hidden unless the viewer is a therapist */}
         <Nav
           variant="pills"
           activeKey={activeGroup}
@@ -271,7 +320,9 @@ const HelpCenter: React.FC<{
           className="mb-3"
         >
           <Nav.Item><Nav.Link eventKey="common">{t('Common')}</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="therapist">{t('Therapist')}</Nav.Link></Nav.Item>
+          {isTherapist && (
+            <Nav.Item><Nav.Link eventKey="therapist">{t('Therapist')}</Nav.Link></Nav.Item>
+          )}
           <Nav.Item><Nav.Link eventKey="patient">{t('Patient')}</Nav.Link></Nav.Item>
         </Nav>
 
@@ -313,6 +364,7 @@ const HelpCenter: React.FC<{
             )}
           </div>
 
+        {/* Pager (single-page for now) */}
           <div className="d-flex align-items-center gap-2 mt-2">
             <Button size="sm" variant="outline-secondary" disabled>{t('Previous')}</Button>
             <span className="text-muted">1 / 1</span>
