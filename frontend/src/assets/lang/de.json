@@ -1,4 +1,7 @@
 {
+  "Error: Email already exists.": "Fehler: E-Mail existiert bereits.",
+  "Registration failed. Please try again later.": "Registrierung fehlgeschlagen. Bitte versuchen Sie es später erneut.",
+  "Email already in use.": "E-Mail bereits in Verwendung.",
   "Completed today": "Heute abgeschlossen",
   "Undo": "Rückgängig",
   "Back": "Zurück",
