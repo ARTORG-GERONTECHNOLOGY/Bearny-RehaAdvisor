@@ -56,12 +56,24 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
         <Container fluid className="d-flex justify-content-between align-items-center">
           {/* Brand */}
           <Navbar.Brand>
-            <img
-              src="/inselspital-bern_logo.png"
+                        <img
+              src="/ARTORG_Logo.gif"
               alt="Logo"
               style={{ width: '75px', height: '75px' }}
             />
+            <img
+              src="/insel.webp"
+              alt="Logo"
+              style={{ width: '225px', height: '100px' }}
+            />
+
+            <img
+              src="/brz_logo.png"
+              alt="Logo"
+              style={{ width: '175px', height: '75px' }}
+            />
           </Navbar.Brand>
+                  
 
           {/* Small screens: Help + Language dropdown block */}
           <div className="ms-auto d-lg-none d-flex align-items-center gap-2">

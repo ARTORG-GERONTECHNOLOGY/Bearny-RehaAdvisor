@@ -96,50 +96,113 @@ def list_all_interventions(request, patient_id=None):
 
 
 
-@csrf_exempt
+ @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
     POST /api/interventions/add/
-    Create a new intervention, supporting private assignments and isolated media handling.
+    Create a new intervention (public or private).
+    Accepts multipart/form-data (with files) or application/json.
+    Robustly parses tags/benefitFor whether sent as JSON arrays or comma-separated strings.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
+    def parse_body():
+        # Support both multipart and JSON
+        if request.content_type and "application/json" in request.content_type:
+            try:
+                return json.loads(request.body.decode("utf-8")) if request.body else {}
+            except Exception:
+                return {}
+        # multipart/form-data
+        return request.POST.dict()
+
+    def parse_str_list(val):
+        """
+        Turn val into a list[str].
+        - If list already, sanitize each.
+        - If JSON array string, parse.
+        - Else split by comma.
+        """
+        if val is None:
+            return []
+        if isinstance(val, list):
+            return [sanitize_text(str(x)).strip() for x in val if str(x).strip()]
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return []
+            # Try JSON first
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [sanitize_text(str(x)).strip() for x in parsed if str(x).strip()]
+            except json.JSONDecodeError:
+                pass
+            # Fallback: comma-separated string
+            items = [p.strip().strip('"').strip("'") for p in s.split(",")]
+            return [sanitize_text(x) for x in items if x]
+        # Anything else → stringify and return as single element
+        return [sanitize_text(str(val)).strip()]
+
+    def parse_bool(val, default=False):
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            return val.lower() in {"1", "true", "yes", "y", "on"}
+        return bool(val) if val is not None else default
+
+    def parse_int(val, default=None):
+        if val in (None, ""):
+            return default
+        try:
+            return int(val)
+        except Exception:
+            return default
+
     try:
-        data = request.POST.dict()
+        data = parse_body()
 
-        if "patientTypes" in data:
-            data["patientTypes"] = json.loads(data["patientTypes"])
+        # Patient types may come as an array or JSON string or under either key
+        raw_patient_types = data.get("patientTypes") or data.get("patient_types") or []
+        if isinstance(raw_patient_types, str):
+            try:
+                raw_patient_types = json.loads(raw_patient_types)
+            except json.JSONDecodeError:
+                raw_patient_types = []
 
-        is_private = data.get("isPrivate", "false").lower() == "true"
-        patient_id = data.get("patientId")
+        # Build PatientType embeddeds
+        patient_types = []
+        for pt in raw_patient_types or []:
+            # Support includeOption/include_option; frequency/type/diagnosis names as provided
+            patient_types.append(
+                PatientType(
+                    type=pt.get("type", ""),
+                    diagnosis=pt.get("diagnosis", ""),
+                    frequency=pt.get("frequency", ""),
+                    include_option=bool(pt.get("includeOption", pt.get("include_option", False))),
+                )
+            )
 
-        if Intervention.objects.filter(title=data["title"]).first():
+        # Privacy flags / ids
+        is_private = parse_bool(data.get("isPrivate", data.get("is_private", False)))
+        patient_id = data.get("patientId") or data.get("patient_id")
+
+        # Duplicate title check
+        title_raw = data.get("title", "")
+        if Intervention.objects.filter(title=title_raw).first():
             return JsonResponse(
-                {
-                    "success": False,
-                    "error": "An intervention with this title already exists.",
-                },
+                {"success": False, "error": "An intervention with this title already exists."},
                 status=400,
             )
 
-        patient_types = [
-            PatientType(
-                type=pt["type"],
-                frequency=pt["frequency"],
-                include_option=pt["includeOption"],
-                diagnosis=pt["diagnosis"],
-            )
-            for pt in data.get("patientTypes", [])
-        ]
-
         timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
 
-        # Define patient path for private media
+        # Private path (if needed)
         private_path = os.path.join("private", str(patient_id)) if is_private and patient_id else ""
 
-        # Save media file
+        # --- Save media file (optional) ---
         media_path = ""
         if "media_file" in request.FILES:
             media_file = request.FILES["media_file"]
@@ -148,7 +211,7 @@ def add_new_intervention(request):
             filename = f"{timestamp}_{media_file.name}"
             media_path = default_storage.save(os.path.join(folder, filename), media_file)
 
-        # Save preview image
+        # --- Save preview image (optional) ---
         preview_path = ""
         if "img_file" in request.FILES:
             img = request.FILES["img_file"]
@@ -157,31 +220,39 @@ def add_new_intervention(request):
             filename = f"{timestamp}_{img.name}"
             preview_path = default_storage.save(os.path.join(folder, filename), img)
 
-        # Create the intervention
+        # --- Parse & normalize lists ---
+        # Accept either 'benefitFor' (preferred) or 'benefits'
+        raw_benefit_for = data.get("benefitFor", data.get("benefits"))
+        benefit_for_list = parse_str_list(raw_benefit_for)
+
+        # Accept either 'tagList' (preferred) or 'tags'
+        raw_tags = data.get("tagList", data.get("tags"))
+        tags_list = parse_str_list(raw_tags)
+
+        # Build intervention
         new_intervention = Intervention(
-            title=sanitize_text(data["title"]),
-            description=sanitize_text(data["description"]),
-            content_type=data["contentType"],
+            title=sanitize_text(title_raw),
+            description=sanitize_text(data.get("description", "")),
+            content_type=data.get("contentType") or data.get("content_type") or "",
             link=data.get("link", ""),
             media_file=media_path,
             preview_img=preview_path,
             patient_types=patient_types if not is_private else [],
-            duration=data.get("duration"),
-            benefitFor=data.get("benefitFor", "").split(","),
-            tags=data.get("tagList", "").split(","),
+            duration=parse_int(data.get("duration")),
+            benefitFor=benefit_for_list,
+            tags=tags_list,
             is_private=is_private,
             private_patient_id=ObjectId(patient_id) if is_private and patient_id else None,
         )
 
         new_intervention.save()
 
-        return JsonResponse(
-            {"success": True, "message": "Intervention added successfully!"}, status=201
-        )
+        return JsonResponse({"success": True, "message": "Intervention added successfully!"}, status=201)
 
     except Exception as e:
         logger.error("[add_new_intervention] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
 
 
 
