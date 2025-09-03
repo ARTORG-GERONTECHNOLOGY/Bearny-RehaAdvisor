@@ -319,7 +319,7 @@ def register_view(request):
                 sex=data.get("sex"),
                 diagnosis=data.get("diagnosis"),
                 function=data.get("function"),
-                medication_intake=sanitize_text(data.get("medicationIntake", "-")),
+                restrictions=sanitize_text(data.get("restrictions", "-")),
                 access_word=raw_password,
                 duration=(reha_end_date.date() - datetime.today().date()).days,
                 reha_end_date=reha_end_date,
