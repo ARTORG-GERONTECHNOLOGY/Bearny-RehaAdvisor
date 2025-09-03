@@ -55,23 +55,26 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
       <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
         <Container fluid className="d-flex justify-content-between align-items-center">
           {/* Brand */}
+          
           <Navbar.Brand>
                         <img
               src="/ARTORG_Logo.gif"
               alt="Logo"
               style={{ width: '75px', height: '75px' }}
             />
+            {!isLoggedIn && (
             <img
               src="/insel.webp"
               alt="Logo"
               style={{ width: '225px', height: '100px' }}
             />
-
+)}
+{!isLoggedIn && (
             <img
               src="/brz_logo.png"
               alt="Logo"
               style={{ width: '175px', height: '75px' }}
-            />
+            />)}
           </Navbar.Brand>
                   
 
