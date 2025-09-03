@@ -1,3 +1,4 @@
+// src/pages/Therapist.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Button,
@@ -5,7 +6,8 @@ import {
   Container,
   Form,
   Row,
-  Card
+  Card,
+  Table,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -21,7 +23,7 @@ import apiClient from '../api/client';
 import authStore from '../stores/authStore';
 import config from '../config/config.json';
 
-import { PatientType } from '../types/index';
+import { PatientType } from '../types';
 
 const Therapist: React.FC = () => {
   const [patients, setPatients] = useState<PatientType[]>([]);
@@ -33,6 +35,7 @@ const Therapist: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
+  const [birthdateFilter, setBirthdateFilter] = useState(''); // NEW
 
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -48,11 +51,19 @@ const Therapist: React.FC = () => {
     }
   }, [navigate]);
 
+  const sortByCreatedDesc = (list: PatientType[]) =>
+    [...list].sort((a, b) => {
+      const da = new Date((a as any).created_at ?? 0).getTime();
+      const db = new Date((b as any).created_at ?? 0).getTime();
+      return db - da; // newest first
+    });
+
   const fetchPatients = async () => {
     try {
       const res = await apiClient.get<PatientType[]>(`therapists/${authStore.id}/patients`);
-      setPatients(res.data);
-      setFilteredPatients(res.data);
+      const sorted = sortByCreatedDesc(res.data || []);
+      setPatients(sorted);
+      setFilteredPatients(sorted);
     } catch (err) {
       console.error('Error fetching patients:', err);
       setError(t('Failed to fetch patients. Please try again later.'));
@@ -88,6 +99,23 @@ const Therapist: React.FC = () => {
     setSelectedItem(null);
   };
 
+  // Reset filters — NEW
+  const resetFilters = useCallback(() => {
+    setSearchTerm('');
+    setGenderFilter('');
+    setDurationFilter('');
+    setBirthdateFilter('');
+    // filteredPatients will auto-update via useEffect below
+  }, []);
+
+  // helpers for display
+  const fmtDate = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso; // fallback to raw
+    return d.toLocaleDateString();
+  };
+
   useEffect(() => {
     let filtered = [...patients];
 
@@ -97,7 +125,7 @@ const Therapist: React.FC = () => {
 
     if (durationFilter) {
       filtered = filtered.filter((p) => {
-        const d = p.duration;
+        const d = (p as any).duration as number;
         if (durationFilter === '< 30 days') return d < 30;
         if (durationFilter === '30-60 days') return d >= 30 && d <= 60;
         if (durationFilter === '60-90 days') return d > 60 && d <= 90;
@@ -105,15 +133,34 @@ const Therapist: React.FC = () => {
       });
     }
 
-    if (searchTerm) {
+    // Name search (full name or any part, either order). Allow username/id too.
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter((p) => {
-        const fullName = `${p.name} ${p.first_name}`.toLowerCase();
-        return fullName.includes(searchTerm.toLowerCase());
+        const first = (p.first_name || '').toLowerCase();
+        const last = (p.name || '').toLowerCase();
+        const full1 = `${first} ${last}`.trim();
+        const full2 = `${last} ${first}`.trim();
+        const username = (p as any).username ? String((p as any).username).toLowerCase() : '';
+        const pid = String((p as any)._id || '').toLowerCase();
+        return (
+          first.includes(term) ||
+          last.includes(term) ||
+          full1.includes(term) ||
+          full2.includes(term) ||
+          username.includes(term) ||
+          pid.includes(term)
+        );
       });
     }
 
-    setFilteredPatients(filtered);
-  }, [searchTerm, genderFilter, durationFilter, patients]);
+    // Birth date filter — exact yyyy-mm-dd match
+    if (birthdateFilter) {
+      filtered = filtered.filter((p) => String((p as any).age).slice(0, 10) === birthdateFilter);
+    }
+
+    setFilteredPatients(sortByCreatedDesc(filtered));
+  }, [searchTerm, genderFilter, durationFilter, birthdateFilter, patients]);
 
   return (
     <div className="d-flex flex-column min-vh-100">
@@ -122,102 +169,135 @@ const Therapist: React.FC = () => {
         <WelcomeArea user="Therapist" />
         <Row>
           <Col>
-            {error && (
-              <ErrorAlert message={error} onClose={() => setError('')} />
-            )}
+            {error && <ErrorAlert message={error} onClose={() => setError('')} />}
           </Col>
         </Row>
+
         <Row className="mb-3">
           <Col>
             <Button onClick={handleOpen}>{t('Add a New Patient')}</Button>
           </Col>
         </Row>
 
-        <Row className="mb-3 g-3">
-          <Col xs={12} md={4}>
-            <Form.Control
-              type="text"
-              placeholder={t('Search Patients')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <Form.Select
-              value={genderFilter}
-              onChange={(e) => setGenderFilter(e.target.value)}
-            >
-              <option value="">{t('Filter by Gender')}</option>
-              {config.patientInfo.sex.map((gender: string) => (
-                <option key={gender} value={gender}>
-                  {t(gender)}
-                </option>
-              ))}
-            </Form.Select>
-          </Col>
-          <Col xs={12} md={4}>
-            <Form.Select
-              value={durationFilter}
-              onChange={(e) => setDurationFilter(e.target.value)}
-            >
-              <option value="">{t('Filter by Duration')}</option>
-              {durationOptions.map((duration: string) => (
-                <option key={duration} value={duration}>
-                  {t(duration)}
-                </option>
-              ))}
-            </Form.Select>
-          </Col>
-        </Row>
+        {/* Filters */}
+        <Card className="mb-3">
+          <Card.Body>
+            <Row className="g-3">
+              <Col xs={12} md={3}>
+                <Form.Control
+                  type="text"
+                  placeholder={t('Search by name, ID or username')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </Col>
+              <Col xs={12} md={3}>
+                <Form.Control
+                  type="date"
+                  value={birthdateFilter}
+                  onChange={(e) => setBirthdateFilter(e.target.value)}
+                  aria-label={t('Filter by Birth Date')}
+                />
+              </Col>
+              <Col xs={12} md={3}>
+                <Form.Select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                >
+                  <option value="">{t('Filter by Gender')}</option>
+                  {config.patientInfo.sex.map((gender: string) => (
+                    <option key={gender} value={gender}>
+                      {t(gender)}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col xs={12} md={3}>
+                <Form.Select
+                  value={durationFilter}
+                  onChange={(e) => setDurationFilter(e.target.value)}
+                >
+                  <option value="">{t('Filter by Duration')}</option>
+                  {durationOptions.map((duration: string) => (
+                    <option key={duration} value={duration}>
+                      {t(duration)}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            </Row>
 
-        {filteredPatients.map((patient) => (
-          <Card key={patient._id} className="mb-4 shadow-sm">
-            <Card.Body>
-              <Card.Title>
-                {patient.first_name} {patient.name}
-              </Card.Title>
-              <Card.Text>
-                <strong>{t('Birth Year')}:</strong> {new Date(patient.age).getFullYear()} <br />
-                <strong>{t('Type')}:</strong> {t(patient.diagnosis)} <br />
-                <strong>{t('Gender')}:</strong> {t(patient.sex)}
-              </Card.Text>
+            {/* NEW: reset button row */}
+            <Row className="mt-3">
+              <Col className="d-flex justify-content-end">
+                <Button variant="outline-secondary" onClick={resetFilters}>
+                  {t('Reset filters')}
+                </Button>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-              <Row className="g-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Button
-                    variant="success"
-                    className="w-100"
-                    onClick={() => handleItemClick(patient)}
-                  >
-                    {t('Info')}
-                  </Button>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Button
-                    variant="primary"
-                    className="w-100"
-                    onClick={() =>
-                      handleRehabButton(patient._id, `${patient.first_name} ${patient.name}`)
-                    }
-                  >
-                    {t('Rehabilitation Plan')}
-                  </Button>
-                </Col>
-                <Col xs={12} sm={12} md={4}>
-                  <Button
-                    variant="primary"
-                    className="w-100"
-                    onClick={() =>
-                      handleProgressButton(patient._id, `${patient.first_name} ${patient.name}`)
-                    }
-                  >
-                    {t('Outcomes Dashboard')}
-                  </Button>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        ))}
+        {/* Patients Table */}
+        <Table responsive hover className="align-middle">
+          <thead>
+            <tr>
+              <th>{t('Full Name')}</th>
+              <th>{t('Birth Date')}</th>
+              <th>{t('Gender')}</th>
+              <th>{t('Diagnosis')}</th>
+              <th className="text-end">{t('Actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredPatients.map((p) => {
+              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+              const diagnosis = Array.isArray(p.diagnosis)
+                ? p.diagnosis.join(', ')
+                : String(p.diagnosis || '');
+              return (
+                <tr key={(p as any)._id}>
+                  <td>{fullName}</td>
+                  <td>{fmtDate(String((p as any).age))}</td>
+                  <td>{t(p.sex)}</td>
+                  <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                  <td className="text-end">
+                    <div className="d-flex justify-content-end gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={() => handleItemClick(p)}
+                      >
+                        {t('Info')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleRehabButton((p as any)._id as any, fullName)}
+                      >
+                        {t('Rehabilitation Plan')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        onClick={() => handleProgressButton((p as any)._id as any, fullName)}
+                      >
+                        {t('Outcomes Dashboard')}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {filteredPatients.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center text-muted py-4">
+                  {t('No patients found')}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
       </Container>
 
       {selectedItem && (
