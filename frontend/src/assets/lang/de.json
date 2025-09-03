@@ -250,7 +250,7 @@
   "close": "Schließen",
   "hour": "Stunde",
   "minute": "Minuten",
-  "medicationText": "Wann haben Sie Ihre letzte Medikation eingenommen?",
+  "restrictionsText": "Wann haben Sie Ihre letzte Medikation eingenommen?",
   "userTypes": {
     "patient": "Patient",
     "therapist": "Therapeut",
@@ -525,7 +525,7 @@
   "Professional Status": "Beruflicher Status",
   "Medical Information": "Medizinische Informationen",
   "Diagnosis": "Diagnose",
-  "Medication (Optional)": "Medikation (Optional)",
+  "Restrictions (Optional)": "Medikation (Optional)",
   "Rehabilitations End Date (Modifiable afterwords)": "Rehabilitations Enddatum (nachträglich änderbar)",
   "Additional Details": "Zusätzliche Details",
   "Sex": "Geschlecht",
