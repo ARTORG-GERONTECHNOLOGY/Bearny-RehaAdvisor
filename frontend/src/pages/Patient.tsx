@@ -32,8 +32,9 @@ const PatientView: React.FC = observer(() => {
   if (loading) return null;
 
   return (
+    <div className="d-flex flex-column min-vh-100">
+      <Header isLoggedIn={authStore.isAuthenticated} />
     <Container fluid className="d-flex flex-column min-vh-100 px-3 px-sm-4 px-md-5">
-      <Header isLoggedIn={!!authStore.isAuthenticated} />
 
       {/* Welcome Section */}
       <Row className="my-4 justify-content-center">
@@ -70,6 +71,7 @@ const PatientView: React.FC = observer(() => {
 
       <Footer />
     </Container>
+    </div>
   );
 });
 
