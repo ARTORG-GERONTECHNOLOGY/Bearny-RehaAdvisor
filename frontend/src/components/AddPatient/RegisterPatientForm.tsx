@@ -30,7 +30,7 @@ const initialFormData = (therapist: string): FormData => ({
   lifestyle: [],
   lifeGoals: [],
   phone: '',
-  medicationIntake: '',
+  restrictions: '',
   professionalStatus: '',
   levelOfEducation: '',
   civilStatus: '',
