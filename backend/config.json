@@ -488,11 +488,11 @@
           "be_name": "diagnosis"
         },
         {
-          "name": "medicationIntake",
-          "label": "Medication (Optional)",
+          "name": "restrictions",
+          "label": "Restrictions (Optional)",
           "type": "text",
           "required": false,
-          "be_name": "medication_intake"
+          "be_name": "restrictions"
         },
         {
           "name": "rehaEndDate",
