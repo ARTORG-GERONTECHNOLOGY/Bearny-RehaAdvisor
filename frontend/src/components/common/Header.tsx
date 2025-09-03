@@ -15,16 +15,22 @@ import { Link } from 'react-router-dom';
 import { BsQuestionCircle } from 'react-icons/bs';
 import authStore from '../../stores/authStore';
 
-// Help Center (the modal described previously)
 import HelpCenter from '../help/HelpCenter';
 
-// Flag imports
 import flagDe from '../../assets/flags/de.png';
 import flagFr from '../../assets/flags/fr.png';
 import flagEn from '../../assets/flags/gb.png';
 import flagIt from '../../assets/flags/it.png';
 
-const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
+type HeaderProps = {
+  isLoggedIn: boolean;
+  /** Show a Register action (used on home when logged out) */
+  showRegisterAction?: boolean;
+  /** Callback to open the Register modal */
+  onRegister?: () => void;
+};
+
+const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegister }) => {
   const { t, i18n } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = React.useState(i18n.language);
   const [helpOpen, setHelpOpen] = React.useState(false);
@@ -39,7 +45,7 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
     window.location.href = '/';
   };
 
-  const languages = ['de', 'fr', 'en', 'it'];
+  const languages = ['de', 'fr', 'en', 'it'] as const;
   const languageOptions: Record<string, string> = {
     en: flagEn,
     de: flagDe,
@@ -47,7 +53,6 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
     it: flagIt,
   };
 
-  // If i18n gives "en-US", normalize to "en" for flag lookup
   const normalizedLang = (currentLanguage || 'en').slice(0, 2);
 
   return (
@@ -55,35 +60,25 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
       <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
         <Container fluid className="d-flex justify-content-between align-items-center">
           {/* Brand */}
-          
           <Navbar.Brand>
-                        <img
-              src="/ARTORG_Logo.gif"
-              alt="Logo"
-              style={{ width: '75px', height: '75px' }}
-            />
+            <img src="/ARTORG_Logo.gif" alt="Logo" style={{ width: '75px', height: '75px' }} />
             {!isLoggedIn && (
-            <img
-              src="/insel.webp"
-              alt="Logo"
-              style={{ width: '225px', height: '100px' }}
-            />
-)}
-{!isLoggedIn && (
-            <img
-              src="/brz_logo.png"
-              alt="Logo"
-              style={{ width: '175px', height: '75px' }}
-            />)}
+              <>
+                <img src="/insel.webp" alt="Logo" style={{ width: '225px', height: '100px' }} />
+                <img src="/brz_logo.png" alt="Logo" style={{ width: '175px', height: '75px' }} />
+              </>
+            )}
           </Navbar.Brand>
-                  
 
-          {/* Small screens: Help + Language dropdown block */}
+          {/* Small screens (left of toggler): Help, Language, and optional Register */}
           <div className="ms-auto d-lg-none d-flex align-items-center gap-2">
-            <OverlayTrigger
-              placement="bottom"
-              overlay={<Tooltip id="help-tooltip">{t('Help')}</Tooltip>}
-            >
+            {showRegisterAction && !isLoggedIn && (
+              <Button size="sm" onClick={onRegister}>
+                {t('Register (Only for Therapists)')}
+              </Button>
+            )}
+
+            <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tooltip">{t('Help')}</Tooltip>}>
               <Button
                 variant="outline-secondary"
                 size="sm"
@@ -99,40 +94,22 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
                 variant="light"
                 id="language-dropdown"
                 className="d-flex align-items-center p-1"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  boxShadow: 'none',
-                }}
+                style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
               >
                 <img
                   src={languageOptions[normalizedLang]}
                   alt={normalizedLang}
-                  style={{
-                    width: '40px',
-                    height: '28px',
-                    objectFit: 'cover',
-                    borderRadius: '4px',
-                  }}
+                  style={{ width: '40px', height: '28px', objectFit: 'cover', borderRadius: '4px' }}
                 />
               </Dropdown.Toggle>
 
               <Dropdown.Menu>
-                {Object.entries(languageOptions).map(([lang, flag]) => (
-                  <Dropdown.Item
-                    key={lang}
-                    onClick={() => handleLanguageChange(lang)}
-                    className="text-center"
-                  >
+                {languages.map((lang) => (
+                  <Dropdown.Item key={lang} onClick={() => handleLanguageChange(lang)} className="text-center">
                     <img
-                      src={flag}
+                      src={languageOptions[lang]}
                       alt={lang}
-                      style={{
-                        width: '40px',
-                        height: '28px',
-                        objectFit: 'cover',
-                        borderRadius: '4px',
-                      }}
+                      style={{ width: '40px', height: '28px', objectFit: 'cover', borderRadius: '4px' }}
                     />
                   </Dropdown.Item>
                 ))}
@@ -140,7 +117,6 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
             </Dropdown>
           </div>
 
-          {/* Navbar toggle */}
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
 
           <Navbar.Collapse id="basic-navbar-nav">
@@ -168,12 +144,13 @@ const Header: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
               </Nav>
             )}
 
-            {/* Large screens: Help button + language toggles on the far right */}
+            {/* Large screens: optional Register, Help, Language */}
             <div className="d-none d-lg-flex ms-auto align-items-center gap-2">
-              <OverlayTrigger
-                placement="bottom"
-                overlay={<Tooltip id="help-tooltip-lg">{t('Help')}</Tooltip>}
-              >
+              {showRegisterAction && !isLoggedIn && (
+                <Button size="sm" onClick={onRegister}>{t('Register (Only for Therapists)')}</Button>
+              )}
+
+              <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tooltip-lg">{t('Help')}</Tooltip>}>
                 <Button
                   variant="outline-secondary"
                   size="sm"
