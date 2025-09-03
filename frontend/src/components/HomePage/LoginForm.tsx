@@ -43,24 +43,37 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   const submitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
     try {
-      await authStore.loginWithHttp(); // calls /auth/login/, sets userType, id, tokens in store
+      // This should set id, userType, tokens, and loginErrorMessage on the store
+      await authStore.loginWithHttp();
 
       if (authStore.loginErrorMessage) {
         setError(authStore.loginErrorMessage);
         return;
       }
 
-      if (authStore.userType === 'Therapist') {
+      const utype = (authStore.userType || '').toLowerCase();
+
+      if (utype === 'therapist') {
+        // Therapists require 2FA
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
         } catch (err) {
           setError(t('Login succeeded but failed to send verification code.'));
         }
-      } else if (authStore.userType === 'Patient') {
+      } else if (utype === 'patient') {
         authStore.setAuthenticated(true);
         navigate('/patient');
+      } else if (utype === 'admin') {
+        // ✅ NEW: Admins go straight to /admin
+        authStore.setAuthenticated(true);
+        navigate('/admin');
+      } else if (utype === 'researcher') {
+        // (Optional) If you have a researcher area
+        authStore.setAuthenticated(true);
+        navigate('/researcher');
       } else {
         setError(t('Unsupported account type.'));
       }
@@ -73,11 +86,13 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   const submit2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
     try {
       const res = await apiClient.post('/auth/verify-code/', {
         userId: authStore.id,
         verificationCode,
       });
+
       if (res.status === 200) {
         authStore.setAuthenticated(true);
         navigate('/therapist');
@@ -95,6 +110,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
       <Modal.Header closeButton>
         <Modal.Title>{t('Login')}</Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
         {!is2FARequired ? (
           <Form onSubmit={submitCredentials}>
@@ -105,7 +121,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
               label={
                 <>
                   {t('Email or Patient ID')}
-                  <InfoBubble tooltip={t('Use your registered email (therapist) or patient ID.')} />
+                  <InfoBubble tooltip={t('Use your registered email (therapist/admin/researcher) or patient ID.')} />
                 </>
               }
               type="text"
@@ -125,7 +141,6 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
               required
             />
 
-            {/* You can always show this; it only applies to therapists */}
             <ForgotPasswordLink
               onClick={() => navigate('/forgottenpwd')}
               text={t('Need help recovering your account?')}
@@ -144,6 +159,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
             {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
             <h5 className="mb-3">{t('Entertheverificationcodesenttoyourphone')}</h5>
+
             <InputField
               id="verificationCode"
               label={t('VerificationCode')}
