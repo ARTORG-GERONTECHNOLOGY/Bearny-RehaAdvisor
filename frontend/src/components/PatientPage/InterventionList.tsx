@@ -1,3 +1,4 @@
+// src/components/patient/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
@@ -21,17 +22,17 @@ type Rec = {
   intervention_id: string;
   intervention_title: string;
   description?: string;
-  dates: string[];                 // ISO strings
+  dates: string[];
   duration?: number;
   preview_img?: string;
-  completion_dates?: string[];     // ISO strings when completed
+  completion_dates?: string[];
   translated_title?: string;
   translated_description?: string;
   titleLang?: string;
   descLang?: string;
 };
 
-const InterventionList = () => {
+const InterventionList: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [recommendations, setRecommendations] = useState<Rec[]>([]);
   const [selectedItem, setSelectedItem] = useState<Rec | null>(null);
@@ -43,9 +44,9 @@ const InterventionList = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
-  const localeMap: Record<string, Locale> = { en: enUS, de, fr, it };
+  const localeMap: Record<string, any> = { en: enUS, de, fr, it };
   const currentLocale = useMemo(
-    () => localeMap[(i18n.language || 'en').slice(0,2)] || enUS,
+    () => localeMap[(i18n.language || 'en').slice(0, 2)] || enUS,
     [i18n.language]
   );
 
@@ -62,10 +63,13 @@ const InterventionList = () => {
       );
       if (!res.questions?.length) return;
 
-      const lang = (i18n.language || 'en').slice(0,2);
+      const lang = (i18n.language || 'en').slice(0, 2);
       const formatted = res.questions.map((q: any) => ({
         questionKey: q.questionKey,
-        label: q.translations.find((t: any) => t.language === lang)?.text || q.translations[0]?.text || '',
+        label:
+          q.translations.find((t: any) => t.language === lang)?.text ||
+          q.translations[0]?.text ||
+          '',
         options: q.possibleAnswers || [],
         type: q.answerType,
       }));
@@ -92,7 +96,7 @@ const InterventionList = () => {
       const { data } = await apiClient.get(
         `/patients/rehabilitation-plan/patient/${localStorage.getItem('id')}/`
       );
-      const lang = (i18n.language || 'en').slice(0,2);
+      const lang = (i18n.language || 'en').slice(0, 2);
 
       const translated: Rec[] = await Promise.all(
         (data || []).map(async (rec: Rec) => {
@@ -118,7 +122,6 @@ const InterventionList = () => {
     return (rec.completion_dates || []).some((d) => d.startsWith(dateStr));
   };
 
-  /** NEW: toggle completion (mark done / unmark) for a specific date */
   const handleToggleCompleted = async (rec: Rec, date: Date) => {
     const patientId = localStorage.getItem('id');
     if (!patientId) return;
@@ -128,33 +131,39 @@ const InterventionList = () => {
 
     try {
       if (!already) {
-        // mark done
         await apiClient.post('interventions/complete/', {
           patient_id: patientId,
           intervention_id: rec.intervention_id,
-          date: dateKey, // optional (BE can default to today)
+          date: dateKey,
         });
 
-        // optimistic UI update
         setRecommendations((prev) =>
           prev.map((r) =>
             r.intervention_id === rec.intervention_id
-              ? { ...r, completion_dates: [...(r.completion_dates || []), new Date().toISOString()] }
+              ? {
+                  ...r,
+                  completion_dates: [
+                    ...(r.completion_dates || []),
+                    new Date().toISOString(),
+                  ],
+                }
               : r
           )
         );
 
-        // only ask feedback when marking TODAY (keep your prior behavior)
         if (isToday(date)) {
           setFeedbackItem(rec.intervention_id);
           const { data: res } = await apiClient.get(
             `/patients/get-questions/Intervention/${patientId}/${rec.intervention_id}/`
           );
 
-          const lang = (i18n.language || 'en').slice(0,2);
+          const lang = (i18n.language || 'en').slice(0, 2);
           const formatted = res.questions.map((q: any) => ({
             questionKey: q.questionKey,
-            label: q.translations.find((t: any) => t.language === lang)?.text || q.translations[0]?.text || '',
+            label:
+              q.translations.find((t: any) => t.language === lang)?.text ||
+              q.translations[0]?.text ||
+              '',
             options: q.possibleAnswers || [],
             type: q.answerType,
           }));
@@ -163,14 +172,12 @@ const InterventionList = () => {
           setShowFeedbackPopup(true);
         }
       } else {
-        // unmark (NEW)
         await apiClient.post('interventions/uncomplete/', {
           patient_id: patientId,
           intervention_id: rec.intervention_id,
           date: dateKey,
         });
 
-        // optimistic UI update: remove any completion entry for that calendar day
         setRecommendations((prev) =>
           prev.map((r) =>
             r.intervention_id === rec.intervention_id
@@ -194,10 +201,9 @@ const InterventionList = () => {
 
     if (isToday(date)) {
       return completed ? (
-        <div className="d-flex justify-content-center gap-2">
-          <Badge bg="success">{t('Done')}</Badge>
+        <div className="d-flex justify-content-center">
           <Button
-            size="sm"
+            className="action-btn"
             variant="outline-secondary"
             onClick={(e) => {
               e.stopPropagation();
@@ -210,7 +216,7 @@ const InterventionList = () => {
         </div>
       ) : (
         <Button
-          size="sm"
+          className="action-btn"
           onClick={(e) => {
             e.stopPropagation();
             handleToggleCompleted(rec, date);
@@ -223,32 +229,30 @@ const InterventionList = () => {
     }
 
     if (isPast(date)) {
-      return completed ? (
+      return isCompletedOn(rec, date) ? (
         <Badge bg="success">{t('Done')}</Badge>
       ) : (
         <Badge bg="secondary">{t('Missed')}</Badge>
       );
     }
 
-    return completed ? (
+    return isCompletedOn(rec, date) ? (
       <Badge bg="success">{t('Done')}</Badge>
     ) : (
       <Badge bg="info">{t('Upcoming')}</Badge>
     );
   };
 
-  /** Sort within a day: not-done first, then done at the bottom. */
   const sortDayItems = (items: Rec[], date: Date) => {
     return [...items].sort((a, b) => {
       const aDone = isCompletedOn(a, date);
       const bDone = isCompletedOn(b, date);
       if (aDone === bDone) {
-        // stable-ish secondary by title
         const at = a.translated_title || a.intervention_title || '';
         const bt = b.translated_title || b.intervention_title || '';
         return at.localeCompare(bt);
       }
-      return aDone ? 1 : -1; // done → after not-done
+      return aDone ? 1 : -1;
     });
   };
 
@@ -261,52 +265,95 @@ const InterventionList = () => {
 
     return (
       <div key={dateKey} className="day-col">
-        <h6 className="text-center mb-2">{format(date, 'EEE dd.MM', { locale: currentLocale })}</h6>
+        <h6 className="text-center mb-2">
+          {format(date, 'EEE dd.MM', { locale: currentLocale })}
+        </h6>
+
         {sorted.map((rec) => {
           const completed = isCompletedOn(rec, date);
+          const title = rec.translated_title || rec.intervention_title;
+
+          if (isWeekView) {
+            return (
+              <Card
+                key={`${rec.intervention_id}-${dateKey}-compact`}
+                className={`mb-2 day-card compact ${completed ? 'is-completed' : ''}`}
+                onClick={() => setSelectedItem(rec)}
+                title={title}
+              >
+                {completed && (
+                  <div className="done-strip">
+                    <span className="check">✓</span> {t('Completed')}
+                  </div>
+                )}
+                <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
+                  <Card.Body className="py-2 px-2">
+                    <div className="text-truncate fw-semibold small">
+                      {title}
+                    </div>
+                  </Card.Body>
+                </div>
+              </Card>
+            );
+          }
+
           return (
             <Card
               key={`${rec.intervention_id}-${dateKey}`}
               className="mb-3 day-card"
               onClick={() => setSelectedItem(rec)}
-              style={{
-                cursor: 'pointer',
-                minHeight: 300,
-                filter: completed ? 'grayscale(1)' : undefined,
-                opacity: completed ? 0.6 : 1,
-              }}
+              style={{ cursor: 'pointer', minHeight: 300 }}
             >
-              {rec.preview_img && (
-                <img
-                  src={rec.preview_img}
-                  alt="preview"
-                  style={{ width: '100%', height: 160, objectFit: 'cover' }}
-                />
+              {completed && (
+                <div className="done-strip" aria-live="polite">
+                  <span className="check">✓</span>{' '}
+                  {isToday(date) ? t('Completed today') : t('Completed')}
+                </div>
               )}
-              <Card.Body>
-                <Card.Title style={{ fontSize: '1rem' }}>
-                  {rec.translated_title || rec.intervention_title}{' '}
-                  {rec.titleLang && (
-                    <small className="text-muted">
-                      ({t('Original language:')} {rec.titleLang})
-                    </small>
+
+              <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
+                {/* FIXED-SIZE PREVIEW SLOT (always present) */}
+                <div className="preview-slot">
+                  {rec.preview_img ? (
+                    <img
+                      src={rec.preview_img}
+                      alt={t('Preview') || 'Preview'}
+                      className="preview-img"
+                    />
+                  ) : (
+                    <div className="preview-placeholder">{t('preview')}</div>
                   )}
-                </Card.Title>
-                <Card.Text style={{ fontSize: '0.9rem' }}>
-                  {(rec.translated_description || '').slice(0, 80)}{(rec.translated_description || '').length > 80 ? '…' : ''}
-                  {rec.descLang && (
-                    <span className="text-muted ms-2">
-                      ({t('Original language:')} {rec.descLang})
-                    </span>
-                  )}
-                  {typeof rec.duration === 'number' && (
-                    <div className="mt-1">
-                      {t('Duration')}: {rec.duration} {t('minutes')}
-                    </div>
-                  )}
-                </Card.Text>
-              </Card.Body>
-              <Card.Footer className="text-center">{renderStatus(rec, date)}</Card.Footer>
+                </div>
+
+                <Card.Body>
+                  <Card.Title style={{ fontSize: '1rem' }}>
+                    {title}{' '}
+                    {rec.titleLang && (
+                      <small className="text-muted">
+                        ({t('Original language:')} {rec.titleLang})
+                      </small>
+                    )}
+                  </Card.Title>
+                  <Card.Text style={{ fontSize: '0.9rem' }}>
+                    {(rec.translated_description || '').slice(0, 80)}
+                    {(rec.translated_description || '').length > 80 ? '…' : ''}
+                    {rec.descLang && (
+                      <span className="text-muted ms-2">
+                        ({t('Original language:')} {rec.descLang})
+                      </span>
+                    )}
+                    {typeof rec.duration === 'number' && (
+                      <div className="mt-1">
+                        {t('Duration')}: {rec.duration} {t('minutes')}
+                      </div>
+                    )}
+                  </Card.Text>
+                </Card.Body>
+
+                <Card.Footer className="text-center">
+                  {renderStatus(rec, date)}
+                </Card.Footer>
+              </div>
             </Card>
           );
         })}
@@ -314,7 +361,6 @@ const InterventionList = () => {
     );
   };
 
-  /** NEW: Week view as a 7-column grid (no horizontal scroll) */
   const renderWeekView = () => {
     const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekDates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -353,7 +399,12 @@ const InterventionList = () => {
         <Button onClick={() => handleNavigate('prev')} title={t('Go back')}>
           {t('Previous')}
         </Button>
-        <ToggleButtonGroup type="radio" name="viewMode" value={viewMode} onChange={setViewMode}>
+        <ToggleButtonGroup
+          type="radio"
+          name="viewMode"
+          value={viewMode}
+          onChange={setViewMode}
+        >
           <ToggleButton id="day" value="day" variant="outline-primary">
             {t('Day')}
           </ToggleButton>
@@ -402,35 +453,70 @@ const InterventionList = () => {
         />
       )}
 
-      {/* Inline styles to keep this self-contained */}
       <style>{`
-        /* Week view: always 7 equal columns, no horizontal scrolling */
+        /* Week view: 7 equal columns */
         .week-grid {
           display: grid;
           grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 12px;
         }
+        .day-col { min-width: 0; }
 
-        .day-col {
-          min-width: 0; /* important for grid children */
+        .day-card { position: relative; overflow: hidden; }
+        .card-inner.is-completed { filter: grayscale(1); opacity: .72; }
+
+        /* Green completion banner */
+        .done-strip {
+          position: absolute;
+          top: 8px; left: 8px; right: 8px;
+          z-index: 3;
+          background: #e8f5e9;
+          color: #1b5e20;
+          border: 1px solid #c8e6c9;
+          border-radius: 12px;
+          padding: 6px 10px;
+          text-align: center;
+          font-weight: 600;
+          box-shadow: 0 1px 2px rgba(0,0,0,.06);
+          pointer-events: none;
         }
+        .done-strip .check { font-weight: 800; margin-right: .35rem; }
 
-        /* Make cards compact enough for 7 columns */
-        .day-card img {
+        /* Fixed-height preview slot (always present) */
+        .preview-slot {
+          width: 100%;
+          height: 160px;
+          background: #f1f3f4;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           border-top-left-radius: .375rem;
           border-top-right-radius: .375rem;
+          overflow: hidden;
+        }
+        .preview-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .preview-placeholder {
+          color: #9aa0a6;
+          font-size: .9rem;
+        }
+
+        /* Compact cards for week view */
+        .day-card.compact .card-body { padding: 8px 10px; }
+        .day-card.compact { min-height: auto; cursor: pointer; }
+
+        /* Bigger buttons for day view */
+        .action-btn {
+          font-size: 1.1rem;
+          padding: .65rem 1.25rem;
+          border-radius: .75rem;
         }
 
         @media (max-width: 992px) {
-          .week-grid {
-            gap: 8px;
-          }
-          .day-card {
-            min-height: 260px;
-          }
-          .day-card img {
-            height: 120px !important;
-          }
+          .week-grid { gap: 8px; }
         }
       `}</style>
     </div>
