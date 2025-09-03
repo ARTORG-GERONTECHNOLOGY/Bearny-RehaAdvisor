@@ -96,7 +96,7 @@ def list_all_interventions(request, patient_id=None):
 
 
 
- @csrf_exempt
+@csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
