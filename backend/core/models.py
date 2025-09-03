@@ -321,7 +321,7 @@ class Patient(Document):
         for category in config["patientInfo"]["function"].values()
         for diagnosis in category["diagnosis"]
     ]
-    medication_intake = StringField(max_length=30)
+    restrictions = StringField(max_length=30)
     social_support = ListField(StringField(max_length=30))
     duration = IntField()
     care_giver = StringField(max_length=20, default="")
