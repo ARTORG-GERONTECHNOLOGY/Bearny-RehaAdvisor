@@ -73,11 +73,9 @@ urlpatterns = [
         name="del_rehabilitation_plan_intervention",
     ),
     # Feedback
-    path(
-        "api/interventions/complete/",
-        patient_views.mark_intervention_completed,
-        name="mark_intervention_done_by_patient",
-    ),
+    path("api/interventions/complete/", patient_views.mark_intervention_completed, name="mark_intervention_done_by_patient"),
+    path("api/interventions/uncomplete/", patient_views.unmark_intervention_completed, name="unmark_intervention_done_by_patient"),
+
     path(
         "api/patients/feedback/questionaire/",
         patient_views.submit_patient_feedback,

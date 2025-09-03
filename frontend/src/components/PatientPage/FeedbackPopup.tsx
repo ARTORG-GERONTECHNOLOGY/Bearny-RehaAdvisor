@@ -47,7 +47,7 @@ const toNormalized = (q: RawQuestion, lang: string): NormalizedQuestion => ({
   options: q.possibleAnswers || [],
 });
 
-/** NEW — Localized privacy note shown in audio/video sections */
+/** Localized privacy note shown in audio/video sections (kept from your last version) */
 const PRIVACY_NOTE: Record<string, string> = {
   de: 'Hinweis: Aufnahmen und Videos sind nur für Ihre Therapeutin/Ihren Therapeuten sichtbar und werden nach 14 Tagen gelöscht.',
   fr: 'Remarque : les enregistrements et vidéos ne sont visibles que par votre thérapeute et seront supprimés après 14 jours.',
@@ -280,7 +280,7 @@ const FeedbackPopup = ({
   const renderOptions = (multiple = false) => {
     const selected: string[] = answers[currentQuestion.questionKey] || [];
     return (
-      <div className="d-flex flex-wrap gap-2 justify-content-center">
+      <div className="feedback-box overflow-auto d-flex flex-wrap gap-2 justify-content-center p-2">
         {currentQuestion.options.map((opt, i) => {
           const label = pickText(opt.translations, currentLang, opt.key);
           const active = selected.includes(opt.key);
@@ -308,124 +308,132 @@ const FeedbackPopup = ({
       <Modal.Header closeButton>
         <Modal.Title>{t('Feedback')}</Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
         <ProgressBar
           now={((currentQuestionIndex + 1) / normalizedQuestions.length) * 100}
           label={`${currentQuestionIndex + 1}/${normalizedQuestions.length}`}
         />
-        {micPermissionDenied && <Alert variant="danger">{t('Microphone access denied.')}</Alert>}
+
+        {micPermissionDenied && <Alert variant="danger" className="mt-2">{t('Microphone access denied.')}</Alert>}
+
         <h5 className="text-center my-3">{currentQuestion.label}</h5>
 
-        <Row className="justify-content-center">
-          <Col md={10}>
-            {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
-              renderOptions(currentQuestion.type === 'multi-select')}
+        {/* STABLE HEIGHT STAGE */}
+        <div className="feedback-stage d-flex justify-content-center">
+          <Row className="w-100 justify-content-center">
+            <Col md={10}>
+              {/* dropdown & multi-select */}
+              {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
+                renderOptions(currentQuestion.type === 'multi-select')}
 
-            {currentQuestion.type === 'text' && (
-              <>
-                <div className="d-flex justify-content-center gap-2 mb-3">
-                  <OverlayTrigger overlay={<Tooltip>{t('Text mode')}</Tooltip>}>
-                    <Button
-                      variant={inputMode === 'text' ? 'primary' : 'outline-primary'}
-                      onClick={() => setInputMode('text')}
-                    >
-                      <FaKeyboard /> {t('Type')}
-                    </Button>
-                  </OverlayTrigger>
-                  <OverlayTrigger overlay={<Tooltip>{t('Audio mode')}</Tooltip>}>
-                    <Button
-                      variant={inputMode === 'audio' ? 'primary' : 'outline-primary'}
-                      onClick={() => setInputMode('audio')}
-                    >
-                      <FaMicrophone /> {t('Record')}
-                    </Button>
-                  </OverlayTrigger>
-                </div>
-
-                {inputMode === 'text' ? (
-                  <Form.Control
-                    as="textarea"
-                    rows={4}
-                    aria-label="Text Feedback"
-                    value={answers[currentQuestion.questionKey] || ''}
-                    onChange={handleChangeText}
-                  />
-                ) : (
-                  <div className="d-flex flex-column align-items-center">
-                    {recording ? (
-                      <Button variant="danger" onClick={stopRecording}>
-                        <FaStop /> {t('Stop')} ({recordingTime}s)
+              {/* text vs audio (same fixed-height box) */}
+              {currentQuestion.type === 'text' && (
+                <>
+                  <div className="d-flex justify-content-center gap-2 mb-3">
+                    <OverlayTrigger overlay={<Tooltip>{t('Text mode')}</Tooltip>}>
+                      <Button
+                        variant={inputMode === 'text' ? 'primary' : 'outline-primary'}
+                        onClick={() => setInputMode('text')}
+                      >
+                        <FaKeyboard /> {t('Type')}
                       </Button>
-                    ) : (
-                      <Button onClick={startRecording}>
-                        <FaMicrophone /> {t('Start Recording')}
+                    </OverlayTrigger>
+                    <OverlayTrigger overlay={<Tooltip>{t('Audio mode')}</Tooltip>}>
+                      <Button
+                        variant={inputMode === 'audio' ? 'primary' : 'outline-primary'}
+                        onClick={() => setInputMode('audio')}
+                      >
+                        <FaMicrophone /> {t('Record')}
                       </Button>
-                    )}
-
-                    {audioURL && (
-                      <div className="mt-3">
-                        <audio controls src={audioURL} />
-                        <Button variant="warning" onClick={deleteAudio} className="ms-2">
-                          <FaTrash /> {t('Delete')}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* NEW — privacy note for audio */}
-                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
-                      {privacyNote}
-                    </p>
+                    </OverlayTrigger>
                   </div>
-                )}
-              </>
-            )}
 
-            {currentQuestion.type === 'video' && (
-              <div className="d-flex flex-column align-items-center">
-                {videoURL ? (
-                  <>
-                    <ReactPlayer url={videoURL} controls width="100%" height="240px" />
-                    <Button variant="warning" onClick={deleteVideo} className="mt-2">
-                      <FaTrash /> {t('Delete')}
-                    </Button>
-                    {/* NEW — privacy note for video (preview state) */}
-                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
-                      {privacyNote}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <video
-                      ref={previewRef}
-                      autoPlay
-                      muted
-                      style={{ width: '100%', height: 200, backgroundColor: '#000' }}
-                    />
-                    {countdown !== null ? (
-                      <div className="my-2 text-center fs-5">
-                        {t('Starting in')} {countdown}s...
-                      </div>
-                    ) : (
-                      <div className="d-flex gap-2 mt-2">
-                        <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
-                        <Form.Label className="btn btn-outline-secondary mb-0">
-                          <FaUpload className="me-1" /> {t('Upload')}
-                          <Form.Control type="file" accept="video/*" hidden onChange={handleUpload} />
-                        </Form.Label>
-                      </div>
-                    )}
-                    {/* NEW — privacy note for video (record/upload state) */}
-                    <p className="text-muted small mt-3" style={{ textAlign: 'center' }}>
-                      {privacyNote}
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-          </Col>
-        </Row>
+                  {inputMode === 'text' ? (
+                    <div className="feedback-box">
+                      <Form.Control
+                        as="textarea"
+                        aria-label="Text Feedback"
+                        value={answers[currentQuestion.questionKey] || ''}
+                        onChange={handleChangeText}
+                        style={{ height: '100%', resize: 'none' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="feedback-box d-flex flex-column align-items-center justify-content-start p-3">
+                      {recording ? (
+                        <Button variant="danger" onClick={stopRecording} className="mb-2">
+                          <FaStop /> {t('Stop')} ({recordingTime}s)
+                        </Button>
+                      ) : (
+                        <Button onClick={startRecording} className="mb-2">
+                          <FaMicrophone /> {t('Start Recording')}
+                        </Button>
+                      )}
 
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+                      {audioURL && (
+                        <div className="mt-2">
+                          <audio controls src={audioURL} />
+                          <Button variant="warning" onClick={deleteAudio} className="ms-2">
+                            <FaTrash /> {t('Delete')}
+                          </Button>
+                        </div>
+                      )}
+
+                      <p className="text-muted small mt-auto mb-0 text-center">
+                        {privacyNote}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* video (same fixed-height box) */}
+              {currentQuestion.type === 'video' && (
+                <div className="feedback-box d-flex flex-column align-items-center justify-content-start p-3">
+                  {videoURL ? (
+                    <>
+                      <ReactPlayer url={videoURL} controls width="100%" height="100%" />
+                      <Button variant="warning" onClick={deleteVideo} className="mt-2">
+                        <FaTrash /> {t('Delete')}
+                      </Button>
+                      <p className="text-muted small mt-auto mb-0 text-center">
+                        {privacyNote}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <video
+                        ref={previewRef}
+                        autoPlay
+                        muted
+                        style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                      />
+                      {countdown !== null ? (
+                        <div className="my-2 text-center fs-5">
+                          {t('Starting in')} {countdown}s...
+                        </div>
+                      ) : (
+                        <div className="d-flex gap-2 mt-2">
+                          <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
+                          <Form.Label className="btn btn-outline-secondary mb-0">
+                            <FaUpload className="me-1" /> {t('Upload')}
+                            <Form.Control type="file" accept="video/*" hidden onChange={handleUpload} />
+                          </Form.Label>
+                        </div>
+                      )}
+                      <p className="text-muted small mt-auto mb-0 text-center">
+                        {privacyNote}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </Col>
+          </Row>
+        </div>
+
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />}
       </Modal.Body>
 
       <Modal.Footer>
@@ -444,6 +452,34 @@ const FeedbackPopup = ({
           </Button>
         )}
       </Modal.Footer>
+
+      {/* Inline styles to keep the stage/box sizes consistent across question types */}
+      <style>{`
+        :root{
+          --feedback-stage-min-h: 420px;   /* overall area that should stay stable */
+          --feedback-box-h: 260px;         /* the visible interaction box */
+        }
+
+        @media (max-width: 576px){
+          :root{
+            --feedback-stage-min-h: 360px;
+            --feedback-box-h: 220px;
+          }
+        }
+
+        .feedback-stage{
+          min-height: var(--feedback-stage-min-h);
+          /* Let the stage reserve space and prevent jumps */
+        }
+
+        .feedback-box{
+          width: 100%;
+          height: var(--feedback-box-h);
+          border: 1px solid rgba(0,0,0,0.08);
+          border-radius: 8px;
+          background: #fff;
+        }
+      `}</style>
     </Modal>
   );
 };
