@@ -1,4 +1,7 @@
 {
+  "Error: Email already exists.": "Error: Email already exists.",
+  "Registration failed. Please try again later.": "Registration failed. Please try again later.",
+  "Email already in use.": "Email already in use.",
   "Completed today": "Completed today",
   "Undo": "Undo",
   "Back": "Back",

@@ -28,7 +28,12 @@ const Home: React.FC = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100">
-      <Header isLoggedIn={authStore.isAuthenticated} />
+      {/* Show Register action in header when logged out and on home */}
+      <Header
+        isLoggedIn={authStore.isAuthenticated}
+        showRegisterAction={!authStore.isAuthenticated}
+        onRegister={toggleRegisterModal}
+      />
 
       <Container
         fluid
@@ -50,21 +55,15 @@ const Home: React.FC = () => {
           </Col>
         </Row>
 
+        {/* Keep only the Login button on the page; Register moved to header */}
         <Row className="justify-content-center mb-5 text-center">
           <Col xs={10} sm={8} md={4} className="mb-3 mb-md-0">
             <Button className="w-100 py-3 fs-5" onClick={toggleLoginModal}>
               {t('Login')}
             </Button>
           </Col>
-          <Col xs={10} sm={8} md={4}>
-            {/* Registration is still Therapist-only */}
-            <Button className="w-100 py-3 fs-5" onClick={toggleRegisterModal}>
-              {t('Register (Only for Therapists)')}
-            </Button>
-          </Col>
         </Row>
 
-        {/* One modal for both roles. Default to Therapist tab, but users can switch inside. */}
         <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
         <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
       </Container>
