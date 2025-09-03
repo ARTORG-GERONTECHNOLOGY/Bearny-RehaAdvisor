@@ -398,9 +398,8 @@ def add_intervention_to_patient_1(request):
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
     """
-    POST /api/interventions/mark-done/
-    Marks an intervention as completed for the current day.
-    Logs action and handles rapid duplicate marking.
+    POST /api/interventions/complete/
+    Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # 'date' optional; defaults to today
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -409,79 +408,145 @@ def mark_intervention_completed(request):
         data = json.loads(request.body)
         patient_id = data.get("patient_id")
         intervention_id = data.get("intervention_id")
+        target_date_str = data.get("date")  # optional
 
         if not patient_id or not intervention_id:
-            return JsonResponse(
-                {"error": "Missing patient_id or intervention_id"}, status=400
-            )
+          return JsonResponse({"error": "Missing patient_id or intervention_id"}, status=400)
 
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
-
         if not rehab_plan:
-            return JsonResponse(
-                {"error": "Rehabilitation plan not found for this patient"}, status=404
-            )
+          return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
 
-        now = timezone.now()
-        today_start = datetime.datetime.combine(now.date(), datetime.datetime.min.time())
-        today_end = datetime.datetime.combine(now.date(), datetime.datetime.max.time())
+        # Determine target day (timezone-aware start/end of day)
+        tz_now = timezone.localtime(timezone.now())
+        if target_date_str:
+            # YYYY-MM-DD
+            y, m, d = [int(x) for x in target_date_str.split('-')]
+            target = timezone.make_aware(datetime.datetime(y, m, d, 0, 0, 0), tz_now.tzinfo)
+        else:
+            target = tz_now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        day_start = target
+        day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         log = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
-            date__gte=today_start,
-            date__lte=today_end,
+            date__gte=day_start,
+            date__lte=day_end,
         ).first()
 
         if log:
             if "completed" in log.status:
-                return JsonResponse(
-                    {"message": "Already marked as completed"}, status=200
-                )
+                return JsonResponse({"message": "Already marked as completed"}, status=200)
             else:
                 log.status.append("completed")
-                log.updatedAt = now
+                log.updatedAt = timezone.now()
                 log.save()
         else:
             log = PatientInterventionLogs(
                 userId=patient,
                 interventionId=intervention,
-                rehabilitationPlanId=rehab_plan,  # ✅ ADD THIS
+                rehabilitationPlanId=rehab_plan,
                 date=timezone.now(),
                 status=["completed"],
                 feedback=[],
                 comments="",
             )
-
             log.save()
 
         Logs(
             userId=patient.userId,
             action="OTHER",
             userAgent="Patient",
-            details=f"Marked intervention {intervention.title} as done on {dj_now().isoformat()}",
+            details=f"Marked intervention {intervention.title} as done on {timezone.now().isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[mark_intervention_completed] Entity not found")
         return JsonResponse({"error": "Patient not found"}, status=404)
-
     except Intervention.DoesNotExist:
-        logger.warning(f"[mark_intervention_completed] Entity not found")
         return JsonResponse({"error": "Intervention not found"}, status=404)
-
     except Exception as e:
-        logger.error(
-            f"[mark_intervention_completed] Unexpected error: {str(e)}", exc_info=True
-        )
-        return JsonResponse(
-            {"error": "Internal Server Error", "details": str(e)}, status=500
-        )
+        logger.error("[mark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def unmark_intervention_completed(request):
+    """
+    POST /api/interventions/uncomplete/
+    Body: { patient_id, intervention_id, date: 'YYYY-MM-DD' }  # date required for safety
+    Removes 'completed' status for the specified calendar day.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        patient_id = data.get("patient_id")
+        intervention_id = data.get("intervention_id")
+        target_date_str = data.get("date")
+
+        if not patient_id or not intervention_id or not target_date_str:
+            return JsonResponse({"error": "Missing required fields (patient_id, intervention_id, date)"}, status=400)
+
+        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
+        rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+        if not rehab_plan:
+            return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
+
+        tz_now = timezone.localtime(timezone.now())
+        y, m, d = [int(x) for x in target_date_str.split('-')]
+        target = timezone.make_aware(datetime.datetime(y, m, d, 0, 0, 0), tz_now.tzinfo)
+        day_start = target
+        day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        log = PatientInterventionLogs.objects(
+            userId=patient,
+            rehabilitationPlanId=rehab_plan,
+            interventionId=intervention,
+            date__gte=day_start,
+            date__lte=day_end,
+        ).first()
+
+        if not log:
+            # idempotent “ok”
+            return JsonResponse({"message": "No completion log for this day"}, status=200)
+
+        if "completed" in log.status:
+            log.status = [s for s in log.status if s != "completed"]
+            log.updatedAt = timezone.now()
+
+            # If there’s nothing meaningful left, you may choose to delete the log
+            if not log.status and not log.feedback:
+                log.delete()
+            else:
+                log.save()
+
+        Logs(
+            userId=patient.userId,
+            action="OTHER",
+            userAgent="Patient",
+            details=f"Unmarked intervention {intervention.title} as done on {timezone.now().isoformat()}",
+        ).save()
+
+        return JsonResponse({"message": "Unmarked successfully"}, status=200)
+
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    except Intervention.DoesNotExist:
+        return JsonResponse({"error": "Intervention not found"}, status=404)
+    except Exception as e:
+        logger.error("[unmark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
 
 
 @csrf_exempt
