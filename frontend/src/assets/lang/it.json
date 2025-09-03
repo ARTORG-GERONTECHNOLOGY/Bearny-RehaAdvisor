@@ -257,7 +257,7 @@
   "hour": "ora",
   "Email Address": "Email",
   "minute": "minuti",
-  "medicationText": "Quando hai preso l'ultimo farmaco?",
+  "restrictionsText": "Quando hai preso l'ultimo farmaco?",
   "userTypes": {
     "patient": "Paziente",
     "therapist": "Terapeuta",
@@ -531,7 +531,7 @@
   "Professional Status": "Stato professionale",
   "Medical Information": "Informazioni mediche",
   "Diagnosis": "Diagnosi",
-  "Medication (Optional)": "Farmaci (Opzionale)",
+  "Restrictions (Optional)": "Farmaci (Opzionale)",
   "Rehabilitations End Date (Modifiable afterwords)": "Data di fine riabilitazione (modificabile in seguito)",
   "Additional Details": "Dettagli aggiuntivi",
   "Sex": "Genere",

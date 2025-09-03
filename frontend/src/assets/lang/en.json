@@ -262,7 +262,7 @@
   "close": "close",
   "hour": "hour",
   "minute": "minutes",
-  "medicationText": "When did you take your last medication?",
+  "restrictionsText": "When did you take your last restrictions?",
   "userTypes": {
     "patient": "Patient",
     "therapist": "Therapist",
@@ -533,7 +533,7 @@
   "Professional Status": "Professional Status",
   "Medical Information": "Medical Information",
   "Diagnosis": "Diagnosis",
-  "Medication (Optional)": "Medication (Optional)",
+  "Restrictions (Optional)": "Restrictions (Optional)",
   "Rehabilitations End Date (Modifiable afterwords)": "Rehabilitation End Date (Modifiable afterwords)",
   "Additional Details": "Additional Details",
   "Sex": "Sex",
