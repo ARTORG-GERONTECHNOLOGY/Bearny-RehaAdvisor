@@ -327,7 +327,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("personal_goals", models.CharField(max_length=30)),
-                ("medication_intake", models.CharField(max_length=30)),
+                ("restrictions", models.CharField(max_length=30)),
                 ("social_support", models.CharField(max_length=30)),
                 ("access_word", models.CharField(max_length=10)),
                 (
