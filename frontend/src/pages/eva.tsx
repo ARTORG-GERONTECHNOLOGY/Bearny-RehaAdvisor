@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 /** ====== DATA ====== */
 const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
 const REAL_QUESTIONS = [
+  'Wie fuhlen sie sich im Moment?',
   'Allgemeine Gesundheit',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
@@ -35,7 +36,6 @@ const VERSION = 'Version 7.1, 03.04.2025';
 
 /** ====== COMPONENT ====== */
 export default function HealthSlider() {
-  // slider state (0–100)
   const [sliderPosition, setSliderPosition] = useState(50);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -58,13 +58,12 @@ export default function HealthSlider() {
     const rect = el.getBoundingClientRect();
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
-    // 0 at top -> 100 at bottom, but we use "bottom" positioning
     let pct = Math.round(100 - (y / rect.height) * 100);
     pct = Math.min(97, Math.max(3, pct)); // keep knob within caps
     setSliderPosition(pct);
   }, []);
 
-  /** global event listeners for dragging */
+  /** global event listeners for dragging + get patient ID */
   useEffect(() => {
     const storedId = localStorage.getItem('patient_id');
     if (storedId) setPatientId(storedId);
@@ -137,6 +136,19 @@ export default function HealthSlider() {
     }
   };
 
+  /** go back (not prominent) */
+  const goBack = () => {
+    if (testMode || questionIndex === 0) return;
+
+    setAnswers((prev) => {
+      const lastVal = prev[prev.length - 1]?.[1];
+      // restore previous slider value if available and not NA (-1)
+      setSliderPosition(typeof lastVal === 'number' && lastVal >= 0 ? lastVal : 50);
+      return prev.slice(0, -1);
+    });
+    setQuestionIndex((i) => Math.max(0, i - 1));
+  };
+
   /** confirm export */
   const confirmAndExport = () => {
     exportResults(answers);
@@ -167,10 +179,10 @@ export default function HealthSlider() {
 
       {/* center column with vertical slider */}
       <section style={styles.centerArea}>
-        {/* top label tight to bar */}
-        <div style={styles.endLabelTop} aria-hidden>Sehr gut</div>
+        <div style={styles.endLabelTop} aria-hidden>
+          Sehr gut
+        </div>
 
-        {/* track container */}
         <div
           ref={spectrumRef}
           style={styles.trackBox}
@@ -178,14 +190,10 @@ export default function HealthSlider() {
           aria-label="Schieberegler vertikal"
           role="group"
         >
-          {/* gradient bar (visible again) */}
           <div style={styles.gradientBar} />
-
-          {/* wider caps, touching the bar */}
           <div style={{ ...styles.cap, ...styles.capTop }} />
           <div style={{ ...styles.cap, ...styles.capBottom }} />
 
-          {/* big horizontal knob */}
           <div
             role="slider"
             aria-valuemin={0}
@@ -205,27 +213,49 @@ export default function HealthSlider() {
           />
         </div>
 
-        {/* bottom label tight to bar */}
-        <div style={styles.endLabelBottom} aria-hidden>Sehr schlecht</div>
+        <div style={styles.endLabelBottom} aria-hidden>
+          Sehr schlecht
+        </div>
       </section>
 
-      {/* buttons row — large hit targets, spaced */}
+      {/* main buttons row */}
       {!showSummary ? (
-        <div style={styles.buttonsRow}>
-          <button
-            style={{ ...styles.btn, ...styles.btnNeutral }}
-            onClick={() => goNext('NA')}
-          >
-            Kann ich nicht beantworten
-          </button>
+        <>
+          <div style={styles.buttonsRow}>
+            <button
+              style={{ ...styles.btn, ...styles.btnNeutral }}
+              onClick={() => goNext('NA')}
+            >
+              Kann ich nicht beantworten
+            </button>
 
-          <button
-            style={{ ...styles.btn, ...styles.btnPrimary }}
-            onClick={() => goNext(sliderPosition)}
-          >
-            {testMode ? 'Interview starten' : 'Weiter'}
-          </button>
-        </div>
+            <button
+              style={{ ...styles.btn, ...styles.btnPrimary }}
+              onClick={() => goNext(sliderPosition)}
+            >
+              {testMode ? 'Interview starten' : 'Weiter'}
+            </button>
+          </div>
+
+          {/* spacer to force scroll, then subtle back button */}
+          <div style={styles.backSpacer} />
+
+          <div style={styles.backRow}>
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={testMode || questionIndex === 0}
+              style={{
+                ...styles.btnBack,
+                ...(testMode || questionIndex === 0 ? styles.btnBackDisabled : {}),
+              }}
+              aria-label="Zurück zur vorherigen Frage"
+              title="Zurück"
+            >
+              Zurück
+            </button>
+          </div>
+        </>
       ) : (
         <div style={styles.buttonsRow}>
           <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={confirmAndExport}>
@@ -234,7 +264,7 @@ export default function HealthSlider() {
         </div>
       )}
 
-      {/* footer with ID / version — compact to avoid scrolling */}
+      {/* footer */}
       <footer style={styles.footer}>
         <button
           onClick={() => {
@@ -254,38 +284,25 @@ export default function HealthSlider() {
   );
 }
 
-/** ====== STYLES (inline for single-file drop-in) ====== */
+/** ====== STYLES ====== */
 const styles: Record<string, React.CSSProperties> = {
   app: {
-    height: '100dvh', // iPad Safari safe viewport
+    minHeight: '100dvh',
     background: '#f6f4f0',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    overflow: 'hidden', // no scrolling
-    padding: '0 16px',
+    overflowY: 'auto', // allow vertical scroll so Back sits "below"
+    padding: '0 16px 24px',
     fontFamily: '"Atkinson Hyperlegible", system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
     color: '#1f1f1f',
   },
 
-  /* progress (top-left, small) */
-  progressRow: {
-    width: '100%',
-    maxWidth: 980,
-    marginTop: 8,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#4a4a4a',
-    marginBottom: 6,
-  },
-  progressTrack: {
-    width: '100%',
-    height: 8,
-    background: '#e2e2e2',
-    borderRadius: 8,
-  },
+  /* progress */
+  progressRow: { width: '100%', maxWidth: 980, marginTop: 8 },
+  progressText: { fontSize: 14, color: '#4a4a4a', marginBottom: 6 },
+  progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
   progressFill: {
     height: '100%',
     background: '#2fb463',
@@ -293,16 +310,16 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'width .2s ease',
   },
 
-  /* big keyword */
+  /* title */
   title: {
     margin: '8px 0 0',
-    fontSize: '36px', // larger, per request
+    fontSize: 36,
     lineHeight: 1.2,
     textAlign: 'center',
     maxWidth: 980,
   },
 
-  /* center column with bar — sized to avoid scroll on iPad */
+  /* center area */
   centerArea: {
     flex: 1,
     maxWidth: 980,
@@ -312,23 +329,19 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    // reserve room so buttons/footer fit without scroll
     paddingBottom: 12,
   },
 
-  /* labels right above/below the bar */
   endLabelTop: { fontSize: 20, color: '#222', marginBottom: 6 },
   endLabelBottom: { fontSize: 20, color: '#222', marginTop: 6 },
 
-  /* vertical track container */
   trackBox: {
     position: 'relative',
-    width: 140,                 // bar width baseline
-    height: 'min(60vh, calc(100dvh - 260px))',             // tuned for iPad to fit buttons
+    width: 140,
+    height: 'min(60vh, calc(100dvh - 260px))',
     touchAction: 'none',
   },
 
-  /* visible gradient bar (z-index 0 so it never disappears) */
   gradientBar: {
     position: 'absolute',
     left: '50%',
@@ -342,32 +355,24 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 0,
   },
 
-  /* end caps: slightly wider than the bar, touching it */
   cap: {
     position: 'absolute',
     left: '50%',
     transform: 'translateX(-50%)',
-    width: '140%',          // wider than the bar
+    width: '140%',
     height: 15,
     borderRadius: 6,
     zIndex: 1,
   },
-  capTop: {
-    top: -5,               // touches the bar visually
-    background: '#67d7be',
-  },
-  capBottom: {
-    bottom: -5,            // touches the bar visually
-    background: '#c47993',
-  },
+  capTop: { top: -5, background: '#67d7be' },
+  capBottom: { bottom: -5, background: '#c47993' },
 
-  /* big horizontal knob for easy touch */
   knob: {
     position: 'absolute',
     left: '50%',
     transform: 'translate(-50%, 50%)',
-    width: '130%',            // extends a bit beyond the bar
-    height: 28,               // >= 44px in at least one dimension (horizontal)
+    width: '130%',
+    height: 28,
     background: '#1f1f1f',
     borderRadius: 16,
     opacity: 0.9,
@@ -376,18 +381,18 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 2px 8px rgba(0,0,0,.25)',
   },
 
-  /* buttons */
+  /* main buttons */
   buttonsRow: {
     width: '100%',
     maxWidth: 980,
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 16,                 // big separation to reduce accidental taps
+    gap: 16,
     padding: '4px 0 4px',
   },
   btn: {
     flex: 1,
-    minHeight: 56,           // big hit target
+    minHeight: 56,
     fontSize: 20,
     borderRadius: 14,
     border: 'none',
@@ -396,7 +401,31 @@ const styles: Record<string, React.CSSProperties> = {
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
   btnPrimary: { background: '#9d8d71', color: '#fff' },
 
-  /* footer compact */
+  /* Spacer + subtle back */
+  backSpacer: {
+    height: 'min(22vh, 260px)', // enough space to force a scroll on most screens
+  },
+  backRow: {
+    width: '100%',
+    maxWidth: 980,
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  btnBack: {
+    padding: '10px 16px',
+    fontSize: 16,
+    borderRadius: 10,
+    background: '#efefef',
+    color: '#4a4a4a',
+    border: '1px solid #ddd',
+    opacity: 0.9, // less prominent
+  },
+  btnBackDisabled: {
+    opacity: 0.45,
+    cursor: 'not-allowed',
+  },
+
+  /* footer */
   footer: {
     width: '100%',
     maxWidth: 980,
