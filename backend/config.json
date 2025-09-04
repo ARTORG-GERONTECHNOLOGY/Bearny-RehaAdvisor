@@ -453,7 +453,7 @@
         },
         {
           "name": "sex",
-          "label": "Gender",
+          "label": "Sex",
           "type": "dropdown",
           "required": true,
           "options": ["Male", "Female"],
