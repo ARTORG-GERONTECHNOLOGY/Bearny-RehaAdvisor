@@ -202,7 +202,7 @@ describe('Therapist Page', () => {
     expect(screen.getByText('Mock Footer')).toBeInTheDocument();
   });
 
-  test('filters patients by gender', async () => {
+  test('filters patients by sex', async () => {
     render(
       <MemoryRouter>
         <Therapist />
@@ -211,7 +211,7 @@ describe('Therapist Page', () => {
 
     await screen.findByText('Mark Ruffalo');
 
-    fireEvent.change(screen.getByRole('combobox', { name: /filter by gender/i }), {
+    fireEvent.change(screen.getByRole('combobox', { name: /filter by sex/i }), {
       target: { value: 'Female' },
     });
 
