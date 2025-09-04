@@ -44,7 +44,7 @@ const PrivacyPolicy: React.FC = () => {
             <h4>1. Data Collection</h4>
             <p>We collect only the information necessary for research, such as:</p>
             <ul>
-              <li>Basic demographic data (e.g., age, gender, education)</li>
+              <li>Basic demographic data (e.g., age, sex, education)</li>
               <li>Your responses to research-related questionnaires or activities</li>
               <li>Technical logs to maintain system integrity (e.g., IP address, device type)</li>
             </ul>
