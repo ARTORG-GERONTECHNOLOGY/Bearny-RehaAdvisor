@@ -1,3 +1,4 @@
+// src/components/TherapistPatientPage/PatientPopup.tsx
 import React, { useEffect, useState } from 'react';
 import {
   Button,
@@ -6,14 +7,15 @@ import {
   Modal,
   Row,
   Spinner,
-  Alert,
+  Tabs,
+  Tab,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
 import config from '../../config/config.json';
-import { PatientType } from '../../types/index';
+import { PatientType } from '../../types';
 import ErrorAlert from '../common/ErrorAlert';
 
 interface PatientPopupProps {
@@ -34,8 +36,9 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [error, setError] = useState('');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'characteristics'>('profile');
 
-  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
+  const specialityDiagnosisMap: Record<string, string[]> = (config as any).patientInfo.functionPat || {};
 
   useEffect(() => {
     if (authStore.isAuthenticated && authStore.userType === 'Therapist' && patient_id) {
@@ -50,15 +53,30 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
       const fetchedData = response.data || {};
       const normalizedData: Record<string, any> = {};
 
-      config.PatientForm.forEach((section) =>
-        section.fields.forEach((field) => {
+      // Build defaults based on config sections
+      (config as any).PatientForm.forEach((section: any) =>
+        section.fields.forEach((field: any) => {
           const key = field.be_name;
           const defaultValue = field.type === 'multi-select' ? [] : '';
           normalizedData[key] = fetchedData[key] !== undefined ? fetchedData[key] : defaultValue;
         })
       );
 
-      setFormData({ ...normalizedData, ...fetchedData });
+      // Ensure our new fields exist
+      const withExtras = {
+        ...normalizedData,
+        ...fetchedData,
+        last_online_contact: fetchedData.last_online_contact || '',
+        last_clinic_visit: fetchedData.last_clinic_visit || '',
+        level_of_education: fetchedData.level_of_education || '',
+        professional_status: fetchedData.professional_status || '',
+        marital_status: fetchedData.marital_status || '',
+        lifestyle: Array.isArray(fetchedData.lifestyle) ? fetchedData.lifestyle : [],
+        personal_goals: Array.isArray(fetchedData.personal_goals) ? fetchedData.personal_goals : [],
+        social_support: Array.isArray(fetchedData.social_support) ? fetchedData.social_support : [],
+      };
+
+      setFormData(withExtras);
     } catch (err) {
       console.error('Error fetching patient data:', err);
       setError(t('Failed to fetch patient data. Please try again later.'));
@@ -116,37 +134,32 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     }
   };
 
+  /** Render a config-driven field (Profile tab) */
   const renderField = (field: any) => {
-    const fieldValue = formData[field.be_name];
-    const isDisabled = !isEditing || field.be_name === 'access_word';
-    const fieldId = `field-${field.be_name}`;
+    const key = field.be_name;
+    const fieldValue = formData[key];
+    const isDisabled = !isEditing || key === 'access_word'; // keep original access_word protection
 
     if (field.type === 'multi-select') {
       const options =
-        field.be_name === 'diagnosis' && formData.function?.length
+        key === 'diagnosis' && formData.function?.length
           ? formData.function.flatMap(
               (spec: string) =>
-                specialityDiagnosisMap[spec]?.map((diag) => ({
+                (specialityDiagnosisMap[spec] || []).map((diag) => ({
                   value: diag,
                   label: t(diag),
-                })) || []
+                }))
             )
-          : field.options?.map((opt: string) => ({
-              value: opt,
-              label: t(opt),
-            })) || [];
+          : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }));
 
       return (
         <Select
-          inputId={fieldId}
+          inputId={key}                               // IMPORTANT: id === key for handleChange consistency elsewhere
           isMulti
           isDisabled={isDisabled}
           options={options}
-          value={(fieldValue || []).map((val: string) => ({
-            value: val,
-            label: t(val),
-          }))}
-          onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
+          value={(fieldValue || []).map((val: string) => ({ value: val, label: t(val) }))}
+          onChange={(selected) => handleMultiSelectChange(selected, key)}
           aria-label={t(field.label)}
         />
       );
@@ -155,14 +168,14 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     if (field.type === 'dropdown') {
       return (
         <Form.Select
-          id={fieldId}
+          id={key}
           value={fieldValue || ''}
           onChange={handleChange}
           disabled={isDisabled}
           aria-label={t(field.label)}
         >
           <option value="">{t('Select an option')}</option>
-          {field.options.map((opt: string) => (
+          {(field.options || []).map((opt: string) => (
             <option key={opt} value={opt}>
               {t(opt)}
             </option>
@@ -174,7 +187,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     if (field.type === 'date') {
       return (
         <Form.Control
-          id={fieldId}
+          id={key}
           type="date"
           value={fieldValue ? new Date(fieldValue).toISOString().split('T')[0] : ''}
           onChange={handleChange}
@@ -186,7 +199,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
 
     return (
       <Form.Control
-        id={fieldId}
+        id={key}
         type={field.type}
         value={fieldValue || ''}
         onChange={handleChange}
@@ -205,32 +218,196 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     );
   }
 
+  // Helpers to show array fields as comma-separated in the Characteristics tab
+  const arrayToDisplay = (arr: any) => (Array.isArray(arr) ? arr.join(', ') : '');
+  const handleCommaSeparatedChange = (id: string, value: string) => {
+    const list = value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setFormData((prev) => ({ ...prev, [id]: list }));
+  };
+
   return (
     <>
       <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
         <Modal.Header closeButton>
-          <Modal.Title>{formData.name || t('Patient')}</Modal.Title>
+          <Modal.Title>
+            {formData.first_name || ''} {formData.name || t('Patient')}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && <ErrorAlert message={error} onClose={() => setError('')} />}
-          {config.PatientForm.map((section, idx) => (
-            <div key={idx} className="mb-4">
-              <h5 className="mb-3">{t(section.title)}</h5>
+
+          <Tabs
+            id="patient-details-tabs"
+            activeKey={activeTab}
+            onSelect={(k) => setActiveTab((k as any) || 'profile')}
+            className="mb-3"
+          >
+            {/* ===== Profile (config-driven) ===== */}
+            <Tab eventKey="profile" title={t('Profile')}>
+              {/* Extra profile fields requested */}
+              <div className="mb-4">
+                <h5 className="mb-3">{t('Contacts')}</h5>
+                <Row className="g-3">
+                  <Col xs={12} md={6}>
+                    <Form.Group controlId="last_online_contact">
+                      <Form.Label>{t('Last online contact')}</Form.Label>
+                      <Form.Control
+                        id="last_online_contact"
+                        type="date"
+                        value={
+                          formData.last_online_contact
+                            ? new Date(formData.last_online_contact).toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Group controlId="last_clinic_visit">
+                      <Form.Label>{t('Last clinic visit')}</Form.Label>
+                      <Form.Control
+                        id="last_clinic_visit"
+                        type="date"
+                        value={
+                          formData.last_clinic_visit
+                            ? new Date(formData.last_clinic_visit).toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+              </div>
+              {(config as any).PatientForm.map((section: any, idx: number) => (
+                <div key={idx} className="mb-4">
+                  <h5 className="mb-3">{t(section.title)}</h5>
+                  <Row className="g-3">
+                    {section.fields
+                      .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))
+                      .map((field: any, index: number) => (
+                        <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
+                          <Form.Group controlId={field.be_name}>
+                            <Form.Label>{t(field.label)}</Form.Label>
+                            {renderField(field)}
+                          </Form.Group>
+                        </Col>
+                      ))}
+                  </Row>
+                </div>
+              ))}
+
+              
+            </Tab>
+
+            {/* ===== Characteristics (new) ===== */}
+            <Tab eventKey="characteristics" title={t('Characteristics')}>
               <Row className="g-3">
-                {section.fields
-                  .filter((f) => !['password', 'repeatPassword'].includes(f.type))
-                  .map((field, index) => (
-                    <Col xs={12} md={6} key={index}>
-                      <Form.Group controlId={`field-${field.be_name}`}>
-                        <Form.Label>{t(field.label)}</Form.Label>
-                        {renderField(field)}
-                      </Form.Group>
-                    </Col>
-                  ))}
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="level_of_education">
+                    <Form.Label>{t('Level of education')}</Form.Label>
+                    <Form.Control
+                      id="level_of_education"
+                      type="text"
+                      value={formData.level_of_education || ''}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="professional_status">
+                    <Form.Label>{t('Professional status')}</Form.Label>
+                    <Form.Control
+                      id="professional_status"
+                      type="text"
+                      value={formData.professional_status || ''}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="marital_status">
+                    <Form.Label>{t('Marital status')}</Form.Label>
+                    <Form.Control
+                      id="marital_status"
+                      type="text"
+                      value={formData.marital_status || ''}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="lifestyle">
+                    <Form.Label>{t('Lifestyle (comma separated)')}</Form.Label>
+                    <Form.Control
+                      id="lifestyle"
+                      type="text"
+                      value={arrayToDisplay(formData.lifestyle)}
+                      onChange={(e) => handleCommaSeparatedChange('lifestyle', e.target.value)}
+                      disabled={!isEditing}
+                      placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="personal_goals">
+                    <Form.Label>{t('Personal goals (comma separated)')}</Form.Label>
+                    <Form.Control
+                      id="personal_goals"
+                      type="text"
+                      value={arrayToDisplay(formData.personal_goals)}
+                      onChange={(e) => handleCommaSeparatedChange('personal_goals', e.target.value)}
+                      disabled={!isEditing}
+                      placeholder={t('e.g. Walk 30 min daily, Return to work')}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group controlId="social_support">
+                    <Form.Label>{t('Social support (comma separated)')}</Form.Label>
+                    <Form.Control
+                      id="social_support"
+                      type="text"
+                      value={arrayToDisplay(formData.social_support)}
+                      onChange={(e) => handleCommaSeparatedChange('social_support', e.target.value)}
+                      disabled={!isEditing}
+                      placeholder={t('e.g. Family, Friends, Community group')}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12}>
+                  <Form.Group controlId="restrictions">
+                    <Form.Label>{t('Restrictions')}</Form.Label>
+                    <Form.Control
+                      id="restrictions"
+                      as="textarea"
+                      rows={3}
+                      value={formData.restrictions || ''}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                    />
+                  </Form.Group>
+                </Col>
               </Row>
-            </div>
-          ))}
+            </Tab>
+          </Tabs>
         </Modal.Body>
+
         <Modal.Footer>
           {isEditing ? (
             <>
