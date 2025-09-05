@@ -1,4 +1,5 @@
 {
+  "required": "requis",
   "Error: Email already exists.": "Erreur : L'e-mail existe déjà.",
   "Registration failed. Please try again later.": "Échec de l'inscription. Veuillez réessayer plus tard.",
   "Email already in use.": "E-mail déjà utilisé.",
@@ -290,7 +291,7 @@
   "AddAnotherPatientType": "Ajouter un autre type de patient",
   "PatientType": "Type de patient",
   "RecomendationFrequency": "Fréquence des recommandations",
-  "SelectDiagnosis": "Sélectionner un diagnostic",
+  "SelectDiagnosis": "Sélectionner un diagnostic primaire",
   "SelectFrequency": "Sélectionner une fréquence",
   "DeletePatient": "Supprimer le patient",
   "UploadFile(Optional)": "Téléverser un fichier (Optionnel)",
@@ -532,7 +533,7 @@
   "Level of Education": "Niveau d'éducation",
   "Professional Status": "Statut professionnel",
   "Medical Information": "Informations médicales",
-  "Diagnosis": "Diagnostic",
+  "Diagnosis": "Diagnostic primaire",
   "Restrictions (Optional)": "Médication (Optionnel)",
   "Rehabilitations End Date (Modifiable afterwords)": "Date de fin de réhabilitation (modifiable par la suite)",
   "Additional Details": "Détails supplémentaires",
