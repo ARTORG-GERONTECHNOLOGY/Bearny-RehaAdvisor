@@ -275,57 +275,35 @@ class Therapist(Document):
 
 
 class Patient(Document):
-    meta = {"collection": "Patients"}  # MongoDB collection
+    meta = {"collection": "Patients"}
     userId = ReferenceField(User, required=True)
     name = StringField(max_length=20, required=True)
     pwdhash = StringField()
     access_word = StringField(max_length=100, required=True)
     first_name = StringField(max_length=20, required=True)
-    age = StringField(max_length=20, required=True)
+    age = StringField(max_length=20, required=True)  # birth date (string form)
     therapist = ReferenceField(Therapist, required=True)
 
-    # Fields with choices
-    sex = StringField(
-        max_length=10, choices=config["patientInfo"]["sex"], required=True
-    )
-    diagnosis = ListField(
-        StringField(max_length=30), choices=all_diagnoses, required=True
-    )
+    sex = StringField(max_length=10, choices=config["patientInfo"]["sex"], required=True)
+    diagnosis = ListField(StringField(max_length=30), choices=all_diagnoses, required=True)
     function = ListField(
         StringField(max_length=200, choices=config["therapistInfo"]["specializations"]),
         required=True,
     )
-    level_of_education = StringField(
-        max_length=30,
-        choices=config["patientInfo"]["level_of_education"],
-        required=False,
-    )
-    professional_status = StringField(
-        max_length=30,
-        choices=config["patientInfo"]["professional_status"],
-        required=False,
-    )
-    marital_status = StringField(
-        max_length=30, choices=config["patientInfo"]["marital_status"], required=False
-    )
-    lifestyle = ListField(
-        StringField(max_length=200, choices=config["patientInfo"]["lifestyle"]),
-        required=False,
-    )
-    personal_goals = ListField(
-        StringField(max_length=200, choices=config["patientInfo"]["personal_goals"]),
-        required=False,
-    )
-    all_diagnoses = [
-        diagnosis
-        for category in config["patientInfo"]["function"].values()
-        for diagnosis in category["diagnosis"]
-    ]
+    level_of_education = StringField(max_length=30, choices=config["patientInfo"]["level_of_education"])
+    professional_status = StringField(max_length=30, choices=config["patientInfo"]["professional_status"])
+    marital_status = StringField(max_length=30, choices=config["patientInfo"]["marital_status"])
+    lifestyle = ListField(StringField(max_length=200, choices=config["patientInfo"]["lifestyle"]))
+    personal_goals = ListField(StringField(max_length=200, choices=config["patientInfo"]["personal_goals"]))
     restrictions = StringField(max_length=30)
     social_support = ListField(StringField(max_length=30))
     duration = IntField()
     care_giver = StringField(max_length=20, default="")
     reha_end_date = DateTimeField(required=True)
+
+    # NEW FIELDS
+    clinic = StringField(max_length=120, default="")                  # e.g., "Inselspital Bern"
+    last_clinic_visit = DateTimeField(required=False, null=True)      # last in-person visit
 
     def __str__(self):
         return f"{self.username} (Patient)"
