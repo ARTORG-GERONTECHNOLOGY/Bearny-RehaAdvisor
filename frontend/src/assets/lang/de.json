@@ -1,4 +1,10 @@
 {
+    "Reset Fileters": "Filter zurücksetzen",
+  "Show completed": "Abgeschlossene anzeigen",
+  "Clinics": "Kliniken",
+"Last clinic visit": "Letzter Klinikbesuch",
+  "Last online visit": "Letzter Online-Besuch",
+
   "required": "erforderlich",
   "Error: Email already exists.": "Fehler: E-Mail existiert bereits.",
   "Registration failed. Please try again later.": "Registrierung fehlgeschlagen. Bitte versuchen Sie es später erneut.",
