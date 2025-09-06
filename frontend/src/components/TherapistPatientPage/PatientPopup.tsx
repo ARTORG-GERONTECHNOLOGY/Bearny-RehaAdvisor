@@ -29,6 +29,26 @@ interface SelectOption {
   label: string;
 }
 
+/* ---- date helpers ---- */
+const toDateInput = (v: any) => {
+  if (!v) return '';
+  const s = String(v);
+  // already yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  // strip timezone shift for date-only inputs
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
+const toDisplayDate = (v: any) => {
+  if (!v) return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString(); // e.g. 05.09.2025
+};
+
 const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClose }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -38,7 +58,8 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'characteristics'>('profile');
 
-  const specialityDiagnosisMap: Record<string, string[]> = (config as any).patientInfo.functionPat || {};
+  const specialityDiagnosisMap: Record<string, string[]> =
+    (config as any).patientInfo.functionPat || {};
 
   useEffect(() => {
     if (authStore.isAuthenticated && authStore.userType === 'Therapist' && patient_id) {
@@ -62,15 +83,16 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
         })
       );
 
-      // Ensure our new fields exist
+      // Ensure our extra fields exist, map last_online -> last_online_contact
       const withExtras = {
         ...normalizedData,
         ...fetchedData,
-        last_online_contact: fetchedData.last_online_contact || '',
-        last_clinic_visit: fetchedData.last_clinic_visit || '',
-        level_of_education: fetchedData.level_of_education || '',
-        professional_status: fetchedData.professional_status || '',
-        marital_status: fetchedData.marital_status || '',
+        clinic: fetchedData.clinic ?? '',
+        last_clinic_visit: fetchedData.last_clinic_visit ?? '',
+        last_online_contact: fetchedData.last_online ?? '', // <-- map API field
+        level_of_education: fetchedData.level_of_education ?? '',
+        professional_status: fetchedData.professional_status ?? '',
+        marital_status: fetchedData.marital_status ?? '',
         lifestyle: Array.isArray(fetchedData.lifestyle) ? fetchedData.lifestyle : [],
         personal_goals: Array.isArray(fetchedData.personal_goals) ? fetchedData.personal_goals : [],
         social_support: Array.isArray(fetchedData.social_support) ? fetchedData.social_support : [],
@@ -116,8 +138,12 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
   const handleSave = async () => {
     if (!validateInputs()) return;
     try {
-      await apiClient.put(`users/${patient_id._id}/profile/`, formData);
+      // Do not send computed last_online_contact to the API
+      const { last_online_contact, ...payload } = formData;
+      await apiClient.put(`users/${patient_id._id}/profile/`, payload);
       setIsEditing(false);
+      // refresh to show normalized values after save
+      fetchPatientData();
     } catch (err) {
       console.error('Error updating patient data:', err);
       setError(t('Failed to update patient data. Please try again.'));
@@ -154,7 +180,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
 
       return (
         <Select
-          inputId={key}                               // IMPORTANT: id === key for handleChange consistency elsewhere
+          inputId={key}
           isMulti
           isDisabled={isDisabled}
           options={options}
@@ -189,7 +215,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
         <Form.Control
           id={key}
           type="date"
-          value={fieldValue ? new Date(fieldValue).toISOString().split('T')[0] : ''}
+          value={toDateInput(fieldValue)}
           onChange={handleChange}
           disabled={isDisabled}
           aria-label={t(field.label)}
@@ -218,7 +244,7 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
     );
   }
 
-  // Helpers to show array fields as comma-separated in the Characteristics tab
+  // Helpers for Characteristics tab (comma-separated editing)
   const arrayToDisplay = (arr: any) => (Array.isArray(arr) ? arr.join(', ') : '');
   const handleCommaSeparatedChange = (id: string, value: string) => {
     const list = value
@@ -245,46 +271,60 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
             onSelect={(k) => setActiveTab((k as any) || 'profile')}
             className="mb-3"
           >
-            {/* ===== Profile (config-driven) ===== */}
+            {/* ===== Profile ===== */}
             <Tab eventKey="profile" title={t('Profile')}>
-              {/* Extra profile fields requested */}
+              {/* Contacts section */}
               <div className="mb-4">
                 <h5 className="mb-3">{t('Contacts')}</h5>
                 <Row className="g-3">
                   <Col xs={12} md={6}>
                     <Form.Group controlId="last_online_contact">
-                      <Form.Label>{t('Last online contact')}</Form.Label>
+                      <Form.Label>{t('Last online visit')}</Form.Label>
+                      {/* Always read-only (computed) but visible */}
                       <Form.Control
-                        id="last_online_contact"
-                        type="date"
-                        value={
-                          formData.last_online_contact
-                            ? new Date(formData.last_online_contact).toISOString().slice(0, 10)
-                            : ''
-                        }
-                        onChange={handleChange}
-                        disabled={!isEditing}
+                        plaintext
+                        readOnly
+                        value={toDisplayDate(formData.last_online_contact) || '—'}
                       />
                     </Form.Group>
                   </Col>
+
                   <Col xs={12} md={6}>
                     <Form.Group controlId="last_clinic_visit">
                       <Form.Label>{t('Last clinic visit')}</Form.Label>
+                      {isEditing ? (
+                        <Form.Control
+                          id="last_clinic_visit"
+                          type="date"
+                          value={toDateInput(formData.last_clinic_visit)}
+                          onChange={handleChange}
+                        />
+                      ) : (
+                        <Form.Control
+                          plaintext
+                          readOnly
+                          value={toDisplayDate(formData.last_clinic_visit) || '—'}
+                        />
+                      )}
+                    </Form.Group>
+                  </Col>
+
+                  <Col xs={12}>
+                    <Form.Group controlId="clinic">
+                      <Form.Label>{t('Clinics')}</Form.Label>
                       <Form.Control
-                        id="last_clinic_visit"
-                        type="date"
-                        value={
-                          formData.last_clinic_visit
-                            ? new Date(formData.last_clinic_visit).toISOString().slice(0, 10)
-                            : ''
-                        }
+                        id="clinic"
+                        type="text"
+                        value={formData.clinic || ''}
                         onChange={handleChange}
                         disabled={!isEditing}
+                        placeholder={t('e.g. Inselspital Bern')}
                       />
                     </Form.Group>
                   </Col>
                 </Row>
               </div>
+
               {(config as any).PatientForm.map((section: any, idx: number) => (
                 <div key={idx} className="mb-4">
                   <h5 className="mb-3">{t(section.title)}</h5>
@@ -302,11 +342,9 @@ const PatientPopup: React.FC<PatientPopupProps> = ({ patient_id, show, handleClo
                   </Row>
                 </div>
               ))}
-
-              
             </Tab>
 
-            {/* ===== Characteristics (new) ===== */}
+            {/* ===== Characteristics ===== */}
             <Tab eventKey="characteristics" title={t('Characteristics')}>
               <Row className="g-3">
                 <Col xs={12} md={6}>

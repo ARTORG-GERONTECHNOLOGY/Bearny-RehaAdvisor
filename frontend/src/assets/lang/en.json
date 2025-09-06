@@ -1,4 +1,10 @@
 {
+    "Reset Fileters": "Reset Filters",
+  "Show completed": "Show completed",
+  "Clinics": "Clinics",
+  "Last clinic visit": "Last clinic visit",
+  "Last online visit": "Last online visit",
+
   "required": "required",
   "Error: Email already exists.": "Error: Email already exists.",
   "Registration failed. Please try again later.": "Registration failed. Please try again later.",
