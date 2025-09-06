@@ -25,9 +25,12 @@ from mongoengine.queryset.visitor import Q
 def user_profile_view(request, user_id):
     """
     GET / PUT / DELETE user profile logic.
+    - Adds clinic + last_clinic_visit for Patients
+    - Adds last_online (computed from Logs LOGIN) for Patients
     """
     logger.info(f"Hit user_profile_view with user_id={user_id}")
 
+    # Resolve "user" by id or by patient->user relationship
     try:
         user = User.objects.get(pk=ObjectId(user_id))
     except User.DoesNotExist:
@@ -54,7 +57,9 @@ def user_profile_view(request, user_id):
                     "clinics": therapist.clinics,
                 }
             else:
+                # Patient profile
                 patient = Patient.objects.get(userId=user.id)
+
                 excluded_user_fields = ["id", "pwdhash", "createdAt", "updatedAt"]
                 excluded_patient_fields = [
                     "id",
@@ -75,6 +80,7 @@ def user_profile_view(request, user_id):
                     if field.name not in excluded_patient_fields
                 ]
 
+                # Merge user & patient fields
                 data = {
                     field: (
                         getattr(user, field, None)
@@ -84,7 +90,32 @@ def user_profile_view(request, user_id):
                     for field in (user_fields + patient_fields)
                 }
 
+                # Normalize date fields to string where helpful
+                if data.get("reha_end_date"):
+                    try:
+                        data["reha_end_date"] = data["reha_end_date"].date().isoformat()
+                    except Exception:
+                        pass
+
+                # Ensure last_clinic_visit is ISO date if set
+                if data.get("last_clinic_visit"):
+                    try:
+                        data["last_clinic_visit"] = data["last_clinic_visit"].date().isoformat()
+                    except Exception:
+                        pass
+
+                # Add computed "last_online" (last LOGIN from Logs), date only
+                last_login = (
+                    Logs.objects(userId=user, action="LOGIN")
+                    .order_by("-timestamp")
+                    .first()
+                )
+                data["last_online"] = (
+                    last_login.timestamp.date().isoformat() if last_login else None
+                )
+
             return JsonResponse(data, safe=False)
+
         except (Therapist.DoesNotExist, Patient.DoesNotExist):
             return JsonResponse({"error": f"{role} profile not found."}, status=404)
 
@@ -100,9 +131,7 @@ def user_profile_view(request, user_id):
                 if check_password(old_password, user.pwdhash):
                     user.pwdhash = make_password(new_password)
                 else:
-                    return JsonResponse(
-                        {"error": "Old password incorrect."}, status=403
-                    )
+                    return JsonResponse({"error": "Old password incorrect."}, status=403)
 
             updated_fields = []
             old_data = {}
@@ -112,36 +141,63 @@ def user_profile_view(request, user_id):
                 for key in [
                     "username", "email", "phone", "name", "first_name", "specializations", "clinics"
                 ]:
-                    val = data.get(key)
-                    if val:
+                    if key in data:
+                        val = data.get(key)
                         target = user if hasattr(user, key) else therapist
                         old_val = getattr(target, key, None)
                         old_data[key] = str(old_val)
-                        setattr(target, key, sanitize_text(val))
+                        setattr(target, key, sanitize_text(val) if isinstance(val, str) else val)
                         updated_fields.append(key)
 
                 user.save()
                 therapist.save()
 
             elif role == "Patient":
-                patient = Patient.objects.get(pk=user_id)
+                # IMPORTANT: resolve the patient by user relation (not pk=user_id)
+                patient = Patient.objects.get(userId=user.id)
 
+                # Parse dates explicitly (reha_end_date, last_clinic_visit)
                 if data.get("reha_end_date"):
                     try:
-                        data["reha_end_date"] = datetime.strptime(
-                            data.get("reha_end_date").split("T")[0], "%Y-%m-%d"
-                        )
+                        # Accept both "YYYY-MM-DD" and ISO with time
+                        reha_str = data.get("reha_end_date")
+                        reha_clean = reha_str.split("T")[0]
+                        data["reha_end_date"] = datetime.strptime(reha_clean, "%Y-%m-%d")
                     except ValueError:
                         return JsonResponse(
-                            {"error": "Invalid date format for reha_end_date"}, status=400
+                            {"error": "Invalid date format for reha_end_date"},
+                            status=400,
                         )
 
+                if data.get("last_clinic_visit"):
+                    try:
+                        visit_str = data.get("last_clinic_visit")
+                        visit_clean = visit_str.split("T")[0]
+                        data["last_clinic_visit"] = datetime.strptime(visit_clean, "%Y-%m-%d")
+                    except ValueError:
+                        return JsonResponse(
+                            {"error": "Invalid date format for last_clinic_visit"},
+                            status=400,
+                        )
+
+                # Update selected user & patient fields
+                # Don't allow writing last_online (computed)
                 for model, allowed_fields in [(user, User._fields), (patient, Patient._fields)]:
                     for key in allowed_fields:
                         if key in data:
+                            val = data[key]
                             old_val = getattr(model, key, None)
                             old_data[key] = str(old_val)
-                            setattr(model, key, sanitize_text(data[key]))
+
+                            # Pass through parsed datetime for date fields, otherwise sanitize strings
+                            if key in ("reha_end_date", "last_clinic_visit"):
+                                setattr(model, key, val)
+                            else:
+                                setattr(
+                                    model,
+                                    key,
+                                    sanitize_text(val) if isinstance(val, str) else val,
+                                )
                             updated_fields.append(key)
 
                 user.save()
@@ -151,14 +207,15 @@ def user_profile_view(request, user_id):
                 userId=user,
                 action="UPDATE_PROFILE",
                 userAgent=role,
-                details=f"Previous values: {old_data}"
+                details=f"Previous values: {old_data}",
             )
-            return JsonResponse({"message": "Profile updated", "updated": updated_fields}, status=200)
+            return JsonResponse(
+                {"message": "Profile updated", "updated": updated_fields}, status=200
+            )
 
         except Exception as e:
             logger.exception("Error updating profile for user %s", user_id)
             return JsonResponse({"error": str(e)}, status=500)
-
 
     elif request.method == "DELETE":
         try:
