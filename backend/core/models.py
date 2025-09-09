@@ -308,6 +308,20 @@ class Patient(Document):
     def __str__(self):
         return f"{self.username} (Patient)"
 
+class HealthQuestionnaire(Document):
+    meta = {"collection": "HealthQuestionnaires"}
+    key = StringField(required=True, unique=True)         # e.g., "PHQ-9"
+    title = StringField(required=True)                    # human title
+    description = StringField()
+    questions = ListField(ReferenceField("FeedbackQuestion"))
+    tags = ListField(StringField())
+    createdAt = DateTimeField(default=timezone.now)
+
+class QuestionnaireAssignment(EmbeddedDocument):
+    questionnaireId = ReferenceField(HealthQuestionnaire, required=True)
+    frequency = StringField()               # e.g., "Daily", "2 times / week", etc.
+    dates = ListField(DateTimeField())      # next scheduled dates (optional bootstrap)
+    notes = StringField()
 
 class RehabilitationPlan(Document):
     meta = {"collection": "RehabilitationPlans"}
@@ -328,7 +342,7 @@ class RehabilitationPlan(Document):
     interventions = ListField(
         EmbeddedDocumentField(InterventionAssignment)
     )  # List of assigned interventions
-
+    questionnaires = ListField(EmbeddedDocumentField(QuestionnaireAssignment))
     createdAt = DateTimeField(default=timezone.now)  # Timestamp for creation
     updatedAt = DateTimeField(default=timezone.now)  # Timestamp for last update
 
