@@ -1,4 +1,12 @@
 {
+  "Feedback items": "Feedback items",
+  "Status": "Status",
+  "Select a date to view details.": "Select a date to view details.",
+  "No entries found.": "No entries found.",
+  "Only with video": "Only with video",
+  "Only with feedback": "Only with feedback",
+"all": "all",
+  "With feedback": "With feedback",
   "No questionnaires assigned.": "No questionnaires assigned.",
   "Assigned questionnaires": "Assigned questionnaires",
   "No questionnaires found.": "No questionnaires found.",
