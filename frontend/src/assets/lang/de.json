@@ -1,4 +1,11 @@
 {
+  "No questionnaires assigned.": "Keine Fragebögen zugewiesen.",
+  "Assigned questionnaires": "Zugewiesene Fragebögen",
+  "No questionnaires found.": "Keine Fragebögen gefunden.",
+  "Failed to delete the intervention. Try again now or later.": "Fehler beim Löschen der Intervention. Versuchen Sie es jetzt oder später erneut.",
+  "Error loading all interventions": "Fehler beim Laden aller Interventionen. Laden Sie die Seite neu oder versuchen Sie es später erneut.",
+  "Error loading interventions. Reload the page or try again later.": "Fehler beim Laden der Interventionen. Laden Sie die Seite neu oder versuchen Sie es später erneut.",
+  "Failed to save questionnaire schedule.": "Fehler beim Speichern des Fragebogenplans.",
     "Reset Fileters": "Filter zurücksetzen",
   "Show completed": "Abgeschlossene anzeigen",
   "Clinics": "Kliniken",

@@ -10,6 +10,13 @@ import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
 import core.views.fitbit_view as fitbit_views
+from core.views.questionaires_view import (
+    list_health_questionnaires,
+    list_patient_questionnaires,
+    assign_questionnaire,
+    remove_questionnaire,
+    list_dynamic_questionnaires
+)
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -72,6 +79,12 @@ urlpatterns = [
         patient_views.remove_intervention_from_patient,
         name="del_rehabilitation_plan_intervention",
     ),
+    # Questionnaires
+    path('api/questionnaires/health/', list_health_questionnaires),
+    path('api/questionnaires/patient/<str:patient_id>/', list_patient_questionnaires),
+    path('api/questionnaires/assign/', assign_questionnaire),
+    path('api/questionnaires/remove/', remove_questionnaire),
+    path('api/questionnaires/dynamic/',list_dynamic_questionnaires, name='get_dynamic_questionnaires'),
     # Feedback
     path("api/interventions/complete/", patient_views.mark_intervention_completed, name="mark_intervention_done_by_patient"),
     path("api/interventions/uncomplete/", patient_views.unmark_intervention_completed, name="unmark_intervention_done_by_patient"),
