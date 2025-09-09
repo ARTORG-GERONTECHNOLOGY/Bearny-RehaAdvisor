@@ -1,4 +1,12 @@
 {
+  "Feedback items": "Feedback-Einträge",
+  "Status": "Status",
+  "Select a date to view details.": "Wählen Sie ein Datum, um Details anzuzeigen.",
+  "No entries found.": "Keine Einträge gefunden.",
+  "Only with video": "Nur mit Video",
+  "Only with feedback": "Nur mit Rückmeldung",
+  "all": "all",
+  "With feedback": "Mit Rückmeldung",
   "No questionnaires assigned.": "Keine Fragebögen zugewiesen.",
   "Assigned questionnaires": "Zugewiesene Fragebögen",
   "No questionnaires found.": "Keine Fragebögen gefunden.",
