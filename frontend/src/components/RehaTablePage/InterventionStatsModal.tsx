@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Modal } from 'react-bootstrap';
 import { Intervention } from '../../types';
 import { translateText } from '../../utils/translate';
@@ -11,6 +11,15 @@ interface Props {
   t: (key: string) => string;
 }
 
+const colorDot = (bg: string) => ({
+  display: 'inline-block',
+  width: 12,
+  height: 12,
+  borderRadius: 2,
+  marginRight: 8,
+  background: bg,
+});
+
 const InterventionStatsModal: React.FC<Props> = ({
   show,
   onClose,
@@ -22,27 +31,47 @@ const InterventionStatsModal: React.FC<Props> = ({
   const [detectedSourceLanguage, setDetectedSourceLanguage] = useState('');
 
   const totalCount = interventionData?.dates?.length || 0;
-  const completedCount = interventionData?.dates?.filter((d) => d.status === 'completed')?.length || 0;
-  const feedbackCount = interventionData?.dates?.filter((d) => d.feedback?.length > 0)?.length || 0;
-  const currentTotalCount = interventionData?.currentTotalCount || 0;
+  const completedCount =
+    interventionData?.dates?.filter((d: any) => d.status === 'completed')?.length || 0;
+  const feedbackCount =
+    interventionData?.dates?.filter((d: any) => (d.feedback?.length || 0) > 0)?.length || 0;
+
+  // If your BE doesn’t send this, consider computing it from dates <= today.
+  const currentTotalCount = interventionData?.currentTotalCount ?? totalCount;
+
+  const remainingCurrent = Math.max(currentTotalCount - completedCount, 0);
+  const notStarted = Math.max(totalCount - currentTotalCount, 0);
+  const feedbackMissing = Math.max(currentTotalCount - feedbackCount, 0);
 
   useEffect(() => {
     const translateTitle = async () => {
       try {
         const { translatedText, detectedSourceLanguage } = await translateText(exercise?.title || '');
-        setTranslatedTitle(translatedText);
-        setDetectedSourceLanguage(detectedSourceLanguage);
+        setTranslatedTitle(translatedText || exercise?.title || '');
+        setDetectedSourceLanguage(detectedSourceLanguage || '');
       } catch {
         setTranslatedTitle(exercise?.title || '');
         setDetectedSourceLanguage('');
       }
     };
-
     if (show) translateTitle();
   }, [exercise?.title, show]);
 
-  const calcPercentage = (value: number, base: number): number =>
-    base > 0 ? Math.round((value / base) * 100) : 0;
+  const pct = (value: number, base: number) => (base > 0 ? Math.round((value / base) * 100) : 0);
+
+  // Pre-compute percentages for clarity
+  const p = useMemo(
+    () => ({
+      completedOfTotal: pct(completedCount, totalCount),
+      remainingOfTotal: pct(remainingCurrent, totalCount),
+      notStartedOfTotal: pct(notStarted, totalCount),
+      completedOfCurrent: pct(completedCount, currentTotalCount),
+      remainingOfCurrent: pct(remainingCurrent, currentTotalCount),
+      answeredOfCurrent: pct(feedbackCount, currentTotalCount),
+      missingOfCurrent: pct(feedbackMissing, currentTotalCount),
+    }),
+    [completedCount, remainingCurrent, notStarted, totalCount, currentTotalCount, feedbackCount, feedbackMissing]
+  );
 
   return (
     <Modal show={show} onHide={onClose} centered aria-labelledby="intervention-stats-modal-title">
@@ -59,97 +88,147 @@ const InterventionStatsModal: React.FC<Props> = ({
       </Modal.Header>
 
       <Modal.Body>
-        <section aria-label={t('Overall Progress')}>
-          <strong>{t('Total Sessions')}:</strong> {totalCount}
-          <div className="progress mt-2 mb-4" style={{ height: '1.5rem' }}>
+        {/* ===== Legend ===== */}
+        <div className="mb-3" aria-label={t('Legend')}>
+          <div className="d-flex flex-wrap gap-3">
+            <span>
+              <span style={colorDot('#198754')} aria-hidden /> {t('Completed')} ({completedCount})
+            </span>
+            <span>
+              <span style={colorDot('#dc3545')} aria-hidden /> {t('Remaining')} ({remainingCurrent})
+            </span>
+            <span>
+              <span style={colorDot('#ffc107')} aria-hidden /> {t('Not started')} ({notStarted})
+            </span>
+            <span>
+              <span style={colorDot('#0d6efd')} aria-hidden /> {t('Total')} ({totalCount})
+            </span>
+          </div>
+        </div>
+
+        {/* ===== Overall Progress ===== */}
+        <section aria-label={t('Overall Progress')} className="mb-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <strong>{t('Total Sessions')}:</strong>
+            <span className="text-muted">
+              {t('Completed')}: {completedCount} ({p.completedOfTotal}%){' • '}
+              {t('Remaining')}: {remainingCurrent} ({p.remainingOfTotal}%){' • '}
+              {t('Not started')}: {notStarted} ({p.notStartedOfTotal}%)
+            </span>
+          </div>
+
+          <div className="progress mt-2" style={{ height: '1.75rem' }}>
             <div
               className="progress-bar bg-success"
               role="progressbar"
               aria-label={t('Completed')}
-              style={{ width: `${calcPercentage(completedCount, totalCount)}%` }}
+              style={{ width: `${p.completedOfTotal}%` }}
               aria-valuenow={completedCount}
               aria-valuemin={0}
               aria-valuemax={totalCount}
+              title={`${t('Completed')}: ${completedCount} (${p.completedOfTotal}%)`}
             >
-              {t('Completed')}
+              {completedCount} ({p.completedOfTotal}%)
             </div>
             <div
               className="progress-bar bg-danger"
               role="progressbar"
               aria-label={t('Remaining')}
-              style={{ width: `${calcPercentage(currentTotalCount - completedCount, totalCount)}%` }}
-              aria-valuenow={currentTotalCount - completedCount}
+              style={{ width: `${p.remainingOfTotal}%` }}
+              aria-valuenow={remainingCurrent}
               aria-valuemin={0}
               aria-valuemax={totalCount}
+              title={`${t('Remaining')}: ${remainingCurrent} (${p.remainingOfTotal}%)`}
             >
-              {t('Remaining')}
+              {remainingCurrent} ({p.remainingOfTotal}%)
             </div>
             <div
               className="progress-bar bg-warning"
               role="progressbar"
               aria-label={t('Not Yet Started')}
-              style={{ width: `${calcPercentage(totalCount - currentTotalCount, totalCount)}%` }}
-              aria-valuenow={totalCount - currentTotalCount}
+              style={{ width: `${p.notStartedOfTotal}%` }}
+              aria-valuenow={notStarted}
               aria-valuemin={0}
               aria-valuemax={totalCount}
+              title={`${t('Not started')}: ${notStarted} (${p.notStartedOfTotal}%)`}
             >
-              {t('Not started')}
+              {notStarted} ({p.notStartedOfTotal}%)
             </div>
           </div>
         </section>
 
-        <section aria-label={t('Current Sessions')}>
-          <strong>{t('Current Sessions')}:</strong>
-          <div className="progress mt-2 mb-4" style={{ height: '1.5rem' }}>
+        {/* ===== Current Sessions ===== */}
+        <section aria-label={t('Current Sessions')} className="mb-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <strong>{t('Current Sessions')}:</strong>
+            <span className="text-muted">
+              {t('Completed')}: {completedCount} ({p.completedOfCurrent}%){' • '}
+              {t('Remaining')}: {remainingCurrent} ({p.remainingOfCurrent}%)
+            </span>
+          </div>
+
+          <div className="progress mt-2" style={{ height: '1.75rem' }}>
             <div
               className="progress-bar bg-success"
               role="progressbar"
               aria-label={t('Completed')}
-              style={{ width: `${calcPercentage(completedCount, currentTotalCount)}%` }}
+              style={{ width: `${p.completedOfCurrent}%` }}
               aria-valuenow={completedCount}
               aria-valuemin={0}
               aria-valuemax={currentTotalCount}
+              title={`${t('Completed')}: ${completedCount} (${p.completedOfCurrent}%)`}
             >
-              {t('Completed')}
+              {completedCount} ({p.completedOfCurrent}%)
             </div>
             <div
               className="progress-bar bg-danger"
               role="progressbar"
               aria-label={t('Remaining')}
-              style={{ width: `${calcPercentage(currentTotalCount - completedCount, currentTotalCount)}%` }}
-              aria-valuenow={currentTotalCount - completedCount}
+              style={{ width: `${p.remainingOfCurrent}%` }}
+              aria-valuenow={remainingCurrent}
               aria-valuemin={0}
               aria-valuemax={currentTotalCount}
+              title={`${t('Remaining')}: ${remainingCurrent} (${p.remainingOfCurrent}%)`}
             >
-              {t('Remaining')}
+              {remainingCurrent} ({p.remainingOfCurrent}%)
             </div>
           </div>
         </section>
 
+        {/* ===== Feedback Progress ===== */}
         <section aria-label={t('Feedback Progress')}>
-          <strong>{t('Current Feedback Answered')}:</strong>
-          <div className="progress mt-2" style={{ height: '1.5rem' }}>
+          <div className="d-flex justify-content-between align-items-center">
+            <strong>{t('Current Feedback Answered')}:</strong>
+            <span className="text-muted">
+              {t('Answered')}: {feedbackCount} ({p.answeredOfCurrent}%){' • '}
+              {t('Missing')}: {feedbackMissing} ({p.missingOfCurrent}%)
+            </span>
+          </div>
+
+          <div className="progress mt-2" style={{ height: '1.75rem' }}>
             <div
               className="progress-bar bg-success"
               role="progressbar"
               aria-label={t('Feedback received')}
-              style={{ width: `${calcPercentage(feedbackCount, currentTotalCount)}%` }}
+              style={{ width: `${p.answeredOfCurrent}%` }}
               aria-valuenow={feedbackCount}
               aria-valuemin={0}
               aria-valuemax={currentTotalCount}
+              title={`${t('Answered')}: ${feedbackCount} (${p.answeredOfCurrent}%)`}
             >
-              {t('Answered')}
+              {feedbackCount} ({p.answeredOfCurrent}%)
             </div>
             <div
               className="progress-bar bg-danger"
               role="progressbar"
               aria-label={t('Feedback missing')}
-              style={{ width: `${calcPercentage(currentTotalCount - feedbackCount, currentTotalCount)}%` }}
-              aria-valuenow={currentTotalCount - feedbackCount}
+              style={{ width: `${p.missingOfCurrent}%` }}
+              aria-valuenow={feedbackMissing}
               aria-valuemin={0}
               aria-valuemax={currentTotalCount}
+              title={`${t('Missing')}: ${feedbackMissing} (${p.missingOfCurrent}%)`}
             >
-              {t('Missing')}
+              {feedbackMissing} ({p.missingOfCurrent}%)
             </div>
           </div>
         </section>

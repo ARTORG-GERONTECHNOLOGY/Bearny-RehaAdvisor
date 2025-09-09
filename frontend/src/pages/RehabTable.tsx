@@ -5,6 +5,8 @@ import {
   Button, Col, Container, Row, Nav, Card, Form, Badge,
   ButtonGroup, OverlayTrigger, Tooltip, Modal
 } from 'react-bootstrap';
+import InterventionFeedbackBrowserModal from '../components/RehaTablePage/InterventionFeedbackBrowserModal';
+
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
@@ -22,7 +24,7 @@ import ErrorAlert from '../components/common/ErrorAlert';
 import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
 import { translateText } from '../utils/translate';
-import { FaPlus, FaMinus, FaChartBar, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaChartBar, FaEdit, FaTrash, FaCommentDots } from 'react-icons/fa';
 import QuestionnaireScheduleModal from '../components/RehaTablePage/QuestionnaireScheduleModal';
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -49,6 +51,8 @@ const RehabTable: React.FC = () => {
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const { i18n, t } = useTranslation();
+const [showFeedbackBrowser, setShowFeedbackBrowser] = useState<boolean>(false);
+const [feedbackBrowserIntervention, setFeedbackBrowserIntervention] = useState<Intervention | null>(null);
 
 const [qDefaults, setQDefaults] = useState<any>(null);
   const [titleMap, setTitleMap] = useState<TitleMap>({});
@@ -110,6 +114,12 @@ const [qDefaults, setQDefaults] = useState<any>(null);
       return (ra || a.title).localeCompare(rb || b.title);
     });
   };
+const openFeedbackBrowser = (intervention: Intervention) => {
+  // ensure we pass the patient-bound version (with dates) if available
+  const withDates = patientData?.interventions?.find((i) => i._id === intervention._id) || intervention;
+  setFeedbackBrowserIntervention(withDates as any);
+  setShowFeedbackBrowser(true);
+};
 
   const fetchQuestionnaires = async () => {
     try {
@@ -490,6 +500,16 @@ const openModifyQ = (q: QItem) => {
                                           <FaChartBar />
                                         </Button>
                                       </OverlayTrigger>
+                                      <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
+  <Button
+    variant="outline-info"
+    onClick={() => openFeedbackBrowser(intervention)}
+    aria-label={t('Feedback')}
+  >
+    <FaCommentDots />
+  </Button>
+</OverlayTrigger>
+
                                       {assigned && (
                                         <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
                                           <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
@@ -676,6 +696,15 @@ const openModifyQ = (q: QItem) => {
   questionnaire={selectedQ}
   defaults={qDefaults}
 />
+{showFeedbackBrowser && feedbackBrowserIntervention && (
+  <InterventionFeedbackBrowserModal
+    show={showFeedbackBrowser}
+    onClose={() => setShowFeedbackBrowser(false)}
+    intervention={feedbackBrowserIntervention as any}
+    userLang={userLang}
+  />
+)}
+
 
         </div>
       </div>
