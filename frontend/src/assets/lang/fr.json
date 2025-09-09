@@ -1,4 +1,11 @@
 {
+  "No questionnaires assigned.": "Aucun questionnaire assigné.",
+  "Assigned questionnaires": "Questionnaires assignés",
+  "No questionnaires found.": "Aucun questionnaire trouvé.",
+  "Failed to delete the intervention. Try again now or later.": "Échec de la suppression de l'intervention. Réessayez maintenant ou plus tard.",
+  "Error loading all interventions": "Erreur de chargement de toutes les interventions. Rechargez la page ou réessayez plus tard.",
+  "Error loading interventions. Reload the page or try again later.": "Erreur de chargement des interventions. Rechargez la page ou réessayez plus tard.",
+  "Failed to save questionnaire schedule.": "Échec de l'enregistrement du calendrier du questionnaire.",
     "Reset Fileters": "Filter réinitialisés",
   "Show completed": "Afficher les terminés",
   "Clinics": "Cliniques",
