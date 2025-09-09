@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 /** ====== DATA ====== */
 const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
 const REAL_QUESTIONS = [
-  'Wie fuhlen sie sich im Moment?',
+  'Wie fühlen Sie sich im Moment?',
   'Allgemeine Gesundheit',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
