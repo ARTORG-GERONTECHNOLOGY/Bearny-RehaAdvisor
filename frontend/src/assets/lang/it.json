@@ -1,4 +1,12 @@
 {
+  "Feedback items": "Elementi di feedback",
+  "wStatus": "Stato",
+  "Select a date to view details.": "Seleziona una data per visualizzare i dettagli.",
+  "No entries found.": "Nessuna voce trovata.",
+  "Only with video": "Solo con video",
+  "Only with feedback": "Solo con feedback",
+  "all": "all",
+  "With feedback": "Con feedback",
   "No questionnaires assigned.": "Nessun questionario assegnato.",
   "Assigned questionnaires": "Questionari assegnati",
   "No questionnaires found.": "Nessun questionario trovato.",
