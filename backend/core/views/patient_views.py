@@ -5,7 +5,7 @@ import datetime
 import re, tempfile, os
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
-
+from datetime import timedelta
 
 import datetime, json
 from urllib.parse import urljoin
@@ -754,102 +754,81 @@ def create_patient_intervention_log(request):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
+    """
+    GET /api/patients/get-questions/<questionaire_type>/<patient_id>/
+        ?interventionId=<id>
 
+    Returns feedback questions. For "Intervention", if the assignment has
+    require_video_feedback=True, appends a video request question.
     """
-    GET /api/patients/get-questions/<questionaire_type>/<patient_id>/?interventionId=<id>
-    Returns feedback questions; if the matching intervention assignment
-    has require_video_feedback=True, appends a video‐request question.
-    """
+    logger = logging.getLogger(__name__)
+
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
+    # allow intervention id via query string too
+    intervention_id = intervention_id or request.GET.get("interventionId")
+
+    # Resolve patient by userId first, then by Patient._id
     try:
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        oid = ObjectId(patient_id)
+    except Exception:
+        return JsonResponse({"error": "Invalid patient id"}, status=400)
 
-        if questionaire_type == "Healthstatus":
-            today = timezone.now().date()
-            now = timezone.now()
-            seven_days_ago = now - datetime.timedelta(days=7)
-            two_weeks_ago = now - datetime.timedelta(days=14)
+    patient = None
+    try:
+        patient = Patient.objects.get(userId=oid)
+    except Patient.DoesNotExist:
+        try:
+            patient = Patient.objects.get(pk=oid)
+        except Patient.DoesNotExist:
+            logger.warning("[get_feedback_questions] Patient not found: %s", patient_id)
+            return JsonResponse({"error": "Patient not found."}, status=404)
 
-            # Avoid asking general Healthstatus if answered within the last 7 days
-            recent_feedback = PatientICFRating.objects.filter(
+    # -------------------- HEALTHSTATUS --------------------
+    if questionaire_type == "Healthstatus":
+        now = timezone.now()
+
+        # 1) Skip if there was any Healthstatus feedback in last 7 days
+        seven_days_ago = now - timedelta(days=7)
+        recent = (
+            PatientICFRating.objects(
                 patientId=patient,
                 date__gte=seven_days_ago,
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
             )
-            if recent_feedback:
-                return JsonResponse({"questions": []}, safe=False)
+            .only("id")
+            .first()
+        )
+        if recent:
+            return JsonResponse({"questions": []})
 
-            # Step 1: Get question IDs where questionKey starts with "16_profile_"
-            profile_question_ids = list(
-                FeedbackQuestion.objects(questionKey__startswith="16_profile_").only("id").scalar("id")
-            )
+        # 2) Every ~14 days ask the full "16_profile_*" block
+        fourteen_days_ago = now - timedelta(days=14)
 
-            # Step 2: Filter PatientICFRating for any feedback entry matching those question IDs
-            last_2_weeks = timezone.now() - datetime.timedelta(days=14)
-            profile_check = PatientICFRating.objects.filter(
+        profile_q_ids = [q.id for q in FeedbackQuestion.objects(
+            questionKey__startswith="16_profile_"
+        ).only("id")]
+
+        profile_recent = (
+            PatientICFRating.objects(
                 patientId=patient,
-                date__gte=last_2_weeks,
+                date__gte=fourteen_days_ago,
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
-                feedback_entries__elemMatch={"questionId__in": profile_question_ids}
+                # any entry whose inner questionId is one of the profile block:
+                **{"feedback_entries__questionId__in": profile_q_ids}
             )
+            .only("id")
+            .first()
+        )
 
-            if not profile_check:
-                # Return full 16_profile_ questionnaire every 2 weeks
-                questions_qs = FeedbackQuestion.objects.filter(
-                    questionSubject="Healthstatus",
-                    questionKey__startswith="16_profile_"
-                )
-                serialized = [
-                    {
-                        "questionKey": q.questionKey,
-                        "answerType": q.answer_type,
-                        "translations": [
-                            {"language": tr.language, "text": tr.text}
-                            for tr in q.translations
-                        ],
-                        "possibleAnswers": [
-                            {
-                                "key": opt.key,
-                                "translations": [
-                                    {"language": t2.language, "text": t2.text}
-                                    for t2 in opt.translations
-                                ],
-                            }
-                            for opt in (q.possibleAnswers or [])
-                        ],
-                    }
-                    for q in questions_qs
-                ]
-                return JsonResponse({"questions": serialized}, safe=False)
-
-            # Department-based logic (weekly)
-            department = (patient.function or [""])[0].strip().lower()
-
-            if department == "cardiology":
-                questions_qs = FeedbackQuestion.objects.filter(
-                    questionSubject="Healthstatus",
-                    questionKey__startswith="10_heart_failure"
-                )
-
-            elif department == "orthopaedics":
-                all_mobility = list(FeedbackQuestion.objects.filter(
-                    questionSubject="Healthstatus",
-                    questionKey__startswith="mobility_bank_"
-                ))
-                questions_qs = random.sample(all_mobility, min(6, len(all_mobility)))
-
-            else:
-                combined_pool = list(FeedbackQuestion.objects.filter(
-                    questionSubject="Healthstatus",
-                    questionKey__regex=r"^(fatigue|physical_function)_"
-                ))
-                questions_qs = random.sample(combined_pool, min(6, len(combined_pool)))
-
-            # Serialize selected questions
+        if not profile_recent:
+            questions_qs = FeedbackQuestion.objects(
+                questionSubject="Healthstatus",
+                questionKey__startswith="16_profile_",
+            )
             serialized = [
                 {
                     "questionKey": q.questionKey,
@@ -871,23 +850,35 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                 }
                 for q in questions_qs
             ]
-            return JsonResponse({"questions": serialized}, safe=False)
+            return JsonResponse({"questions": serialized})
 
+        # 3) Otherwise weekly department-specific selection
+        department = (patient.function or [""])[0].strip().lower()
 
-
-
-        elif questionaire_type == "Intervention":
-            questions_qs = FeedbackQuestion.objects.filter(
-                questionSubject="Intervention"
+        if department == "cardiology":
+            questions_qs = FeedbackQuestion.objects(
+                questionSubject="Healthstatus",
+                questionKey__startswith="10_heart_failure",
             )
-
+        elif department == "orthopaedics":
+            pool = list(
+                FeedbackQuestion.objects(
+                    questionSubject="Healthstatus",
+                    questionKey__startswith="mobility_bank_",
+                )
+            )
+            questions_qs = random.sample(pool, min(6, len(pool)))
         else:
-            return JsonResponse({"error": "Invalid questionnaire type."}, status=400)
+            pool = list(
+                FeedbackQuestion.objects(
+                    questionSubject="Healthstatus",
+                    questionKey__regex=r"^(fatigue|physical_function)_",
+                )
+            )
+            questions_qs = random.sample(pool, min(6, len(pool)))
 
-        # 2) Serialize base questions
-        serialized = []
-        for q in questions_qs:
-            serialized.append({
+        serialized = [
+            {
                 "questionKey": q.questionKey,
                 "answerType": q.answer_type,
                 "translations": [
@@ -904,55 +895,82 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                     }
                     for opt in (q.possibleAnswers or [])
                 ],
-            })
+            }
+            for q in questions_qs
+        ]
+        return JsonResponse({"questions": serialized})
 
-        # 3) If Intervention, check assignment flag
-        if questionaire_type == "Intervention":
-            if intervention_id:
-                plan = RehabilitationPlan.objects(patientId=patient).first()
-                print("DEBUG: Intervention ID from query:", intervention_id)
-                print("DEBUG: Available interventions in plan:", [str(a.interventionId) for a in plan.interventions])
-                print("DEBUG: Comparing intervention IDs:")
-                for a in plan.interventions:
-                    print(" -", str(getattr(a.interventionId, 'id', a.interventionId)), "==", intervention_id)
+    # -------------------- INTERVENTION --------------------
+    elif questionaire_type == "Intervention":
+        # Base intervention questions
+        questions_qs = FeedbackQuestion.objects(questionSubject="Intervention")
+        serialized = [
+            {
+                "questionKey": q.questionKey,
+                "answerType": q.answer_type,
+                "translations": [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in q.translations
+                ],
+                "possibleAnswers": [
+                    {
+                        "key": opt.key,
+                        "translations": [
+                            {"language": t2.language, "text": t2.text}
+                            for t2 in opt.translations
+                        ],
+                    }
+                    for opt in (q.possibleAnswers or [])
+                ],
+            }
+            for q in questions_qs
+        ]
 
-                if plan:
-
-                    assignment = next(
-                        (
-                            a for a in plan.interventions
-                            if str(getattr(a.interventionId, 'id', a.interventionId)) == intervention_id
-                        ),
-                        None,
-                    )
-
-                    if assignment and getattr(assignment, "require_video_feedback", False):
-                        # Append video question
-                        serialized.append({
+        # If we know which intervention this is for, check the plan flag
+        if intervention_id:
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+            if plan:
+                # interventionId is a ReferenceField; compare by its ObjectId
+                assignment = next(
+                    (
+                        a
+                        for a in (plan.interventions or [])
+                        if str(getattr(a.interventionId, "id", a.interventionId)) == str(intervention_id)
+                    ),
+                    None,
+                )
+                if assignment and getattr(assignment, "require_video_feedback", False):
+                    serialized.append(
+                        {
                             "questionKey": "video_example",
                             "answerType": "video",
                             "translations": [
-                                {"language": "en", "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera."},
-                                {"language": "it", "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s di attesa—posiziona la fotocamera."},
-                                {"language": "de", "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s Verzögerung—bitte richten Sie die Kamera aus."},
-                                {"language": "fr", "text": "Votre thérapeute a demandé une vidéo. L’enregistrement commencera après un délai de 10 s—veuillez placer votre caméra."},
+                                {
+                                    "language": "en",
+                                    "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera.",
+                                },
+                                {
+                                    "language": "it",
+                                    "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s di attesa—posiziona la fotocamera.",
+                                },
+                                {
+                                    "language": "de",
+                                    "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s Verzögerung—bitte richten Sie die Kamera aus.",
+                                },
+                                {
+                                    "language": "fr",
+                                    "text": "Votre thérapeute a demandé une vidéo. L’enregistrement commencera après un délai de 10 s—veuillez placer votre caméra.",
+                                },
                             ],
                             "possibleAnswers": [],
-                        })
+                        }
+                    )
 
+        return JsonResponse({"questions": serialized})
 
-        return JsonResponse({"questions": serialized}, safe=False)
+    else:
+        return JsonResponse({"error": "Invalid questionnaire type."}, status=400)
 
-    except Patient.DoesNotExist:
-        logger.warning(f"[fetch_feedback_questions] Patient not found.")
-        return JsonResponse({"error": "Patient not found."}, status=404)
-
-    except Exception as e:
-        logger.error(
-            f"[fetch_feedback_questions] Error for patient {patient_id}: {str(e)}",
-            exc_info=True,
-        )
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
 
