@@ -1,4 +1,13 @@
 {
+  "Please choose a valid start/end date for export.": "Please choose a valid start/end date for export.",
+  "Adjust the interval then export the patient’s scheduled sessions as CSV.": "Adjust the interval then export the patient’s scheduled sessions as CSV.",
+  "Export schedule (CSV)": "Export schedule (CSV)",
+  "Export end": "Export end",
+  "Export start": "Export start",
+  "Past interventions": "Past interventions",
+  "No active interventions.": "No active interventions.",
+  "Active interventions": "Active interventions",
+  "Failed to export the schedule.": "Failed to export the schedule.",
   "Feedback items": "Feedback items",
   "Status": "Status",
   "Select a date to view details.": "Select a date to view details.",

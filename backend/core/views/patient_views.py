@@ -1,12 +1,17 @@
 import json
 import logging
 import random
-import datetime
+import datetime as dt
 import re, tempfile, os
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
 from datetime import timedelta
-
+from utils.utils import (
+    generate_custom_id,
+    generate_repeat_dates,
+    get_labels,
+    sanitize_text,
+)
 import datetime, json
 from urllib.parse import urljoin
 
@@ -974,86 +979,307 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
 
 
+def _as_oid(val):
+    try:
+        return ObjectId(val) if isinstance(val, str) and len(val) == 24 else val
+    except Exception:
+        return val
+
+def _normalize_intervention_id(raw):
+    """
+    Accept "682ad3..." or {"_id":"682ad3..."} or {"id":"682ad3..."} -> hex string
+    """
+    if isinstance(raw, dict):
+        raw = raw.get("_id") or raw.get("id")
+    if not isinstance(raw, str) or len(raw) != 24:
+        return None
+    return raw
+
+# --- helpers (replace the previous versions) ---
+
+def _to_iso(dt_or_str):
+    """Return ISO string for datetime/str/None (keeps 'Z' if provided)."""
+    if isinstance(dt_or_str, dt.datetime):
+        return dt_or_str.isoformat()
+    if isinstance(dt_or_str, str):
+        return dt_or_str
+    return None
+
+def _parse_iso_maybe(iso):
+    """Parse ISO -> datetime (best-effort)."""
+    if not iso or not isinstance(iso, str):
+        return None
+    try:
+        s = iso.replace('Z', '+00:00') if iso.endswith('Z') else iso
+        return dt.datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+def _status_for(dt_iso):
+    """Guess status for a date (used only if none provided)."""
+    d = _parse_iso_maybe(dt_iso)
+    now = timezone.now()
+    try:
+        # align tz-awareness for comparison
+        if d is None:
+            return "upcoming"
+        if timezone.is_aware(now) and (d.tzinfo is None):
+            d = timezone.make_aware(d, timezone=timezone.utc)
+        if timezone.is_naive(now) and (d.tzinfo is not None):
+            now = now.astimezone(timezone.utc).replace(tzinfo=None)
+        return "upcoming" if d > now else "missed"
+    except Exception:
+        return "upcoming"
+
+def _normalize_dates_list(seq):
+    """
+    Normalize a sequence of dates into a list of dicts:
+    { "datetime": ISO, "status": "...", "feedback": [...] }
+    Handles:
+      - dict entries with 'datetime' as str or datetime
+      - bare datetime objects
+      - bare ISO strings
+    """
+    out = []
+    for x in (seq or []):
+        if isinstance(x, dict):
+            iso = _to_iso(x.get("datetime"))
+            if not iso:
+                continue
+            status = x.get("status") or _status_for(iso)
+            fb = x.get("feedback", [])
+            nx = {**x, "datetime": iso, "status": status, "feedback": fb}
+            out.append(nx)
+
+        elif isinstance(x, (dt.datetime, str)):
+            iso = _to_iso(x)
+            status = _status_for(iso)
+            out.append({"datetime": iso, "status": status, "feedback": []})
+
+        else:
+            # unknown type -> ignore
+            continue
+
+    # sort by datetime asc (robust to bad values)
+    try:
+        out.sort(key=lambda d: _to_iso(d.get("datetime")) or "")
+    except Exception:
+        pass
+    return out
+
+
+def _coerce_object_id(maybe):
+    """Accept string or dict {'_id'| 'id' | 'pk': '...'} and return ObjectId."""
+    if isinstance(maybe, dict):
+        maybe = maybe.get("_id") or maybe.get("id") or maybe.get("pk")
+    if not maybe:
+        return None
+    return ObjectId(str(maybe))
+
+def _strip_to_datetimes(seq):
+    """Map a list of mixed items to a list[datetime], dropping unparseable ones."""
+    out = []
+    for x in (seq or []):
+        d = _as_datetime(x)
+        if d:
+            out.append(d)
+    return out
+
+def _as_datetime(value):
+    """
+    Accepts datetime/date/ISO string/dict {'datetime': ...}
+    Returns tz-aware UTC datetime (seconds precision).
+    """
+    # unwrap dicts like {'datetime': '...'}
+    if isinstance(value, dict):
+        value = value.get("datetime") or value.get("date") or value.get("dt") or value
+
+    # parse strings
+    if isinstance(value, str):
+        s = value.strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"          # make fromisoformat() accept Zulu
+        try:
+            dtobj = dt.datetime.fromisoformat(s)
+        except ValueError:
+            # try date-only
+            try:
+                d = dt.datetime.strptime(s, "%Y-%m-%d").date()
+                dtobj = dt.datetime(d.year, d.month, d.day)
+            except Exception as ex:
+                raise ValueError(f"Unsupported datetime format: {value!r}") from ex
+
+    elif isinstance(value, dt.datetime):
+        dtobj = value
+
+    elif isinstance(value, dt.date):
+        dtobj = dt.datetime(value.year, value.month, value.day)
+
+    else:
+        raise TypeError(f"Unsupported datetime value: {type(value).__name__}")
+
+    # force aware-UTC
+    if dtobj.tzinfo is None:
+        dtobj = timezone.make_aware(dtobj, dt.timezone.utc)
+    else:
+        dtobj = dtobj.astimezone(dt.timezone.utc)
+
+    return dtobj.replace(microsecond=0, tzinfo=dt.timezone.utc)
+
+
+def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
+    """
+    Merge two date lists. Deduplicate by exact UTC second.
+    Sort chronologically.
+    Returns (merged_list, added_count).
+
+    existing/incoming may contain datetime/date/str/dict{'datetime':...}.
+    """
+    # normalize both sides to aware UTC
+    ex = [_as_datetime(d) for d in (existing or [])]
+    inc = [_as_datetime(d) for d in (incoming or [])]
+
+    # dedupe while preserving all unique values
+    seen = set(ex)
+    merged = list(ex)
+    added = 0
+    for n in inc:
+        if n not in seen:
+            merged.append(n)
+            seen.add(n)
+            added += 1
+
+    merged.sort()  # safe: all are aware-UTC
+
+    # MongoEngine commonly stores naive UTC; strip tz if you need that
+    if return_naive_for_storage:
+        merged = [d.replace(tzinfo=None) for d in merged]
+
+    return merged, added
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient(request):
     """
     POST /api/interventions/add-to-patient/
-    Adds interventions to a patient's rehabilitation plan, optionally
-    marking them as requiring video feedback.
+    Adds an intervention schedule to a patient's plan.
+    - Accepts interventions[].dates in any of these shapes emitted by the FE/generator:
+        * list[datetime]
+        * list[iso-string]
+        * list[{'datetime': <iso|datetime>, 'status': ..., 'feedback': ...}]
+      but stores ONLY datetime values, matching the MongoEngine schema.
+    - If the intervention already exists on the plan, new (future) dates are merged in.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
+
         therapist = Therapist.objects.get(userId=data.get("therapistId"))
         patient   = Patient.objects.get(pk=data.get("patientId"))
-        interventions_data = data.get("interventions", [])
+        items     = data.get("interventions", []) or []
 
-        new_assignments = []
-        for item in interventions_data:
-            intervention = Intervention.objects.get(
-                id=ObjectId(item["interventionId"]["_id"])
-            )
-            scheduled_dates = generate_repeat_dates(patient.reha_end_date, item)
+        if not items:
+            return JsonResponse({"error": "No interventions provided."}, status=400)
 
-            # read the new flag (default False)
-            require_video = bool(item.get("require_video_feedback", False))
+        # Load or create the patient's plan
+        plan = RehabilitationPlan.objects(patientId=patient).first()
 
-            assignment = InterventionAssignment(
-                interventionId=intervention,
-                frequency=item.get("frequency", ""),
-                notes=item.get("notes", ""),
-                dates=scheduled_dates,
-                require_video_feedback=require_video,   # ← new field
-            )
-            new_assignments.append(assignment)
-
-        existing_plan = RehabilitationPlan.objects(patientId=patient).first()
-
-        if existing_plan:
-            # Avoid duplicate entries
-            current_ids = { str(a.interventionId.id) for a in existing_plan.interventions }
-            to_add = [
-                a for a in new_assignments
-                if str(a.interventionId.id) not in current_ids
-            ]
-
-            if to_add:
-                existing_plan.interventions.extend(to_add)
-                existing_plan.updatedAt = timezone.now()
-                existing_plan.save()
-                message = "Rehabilitation plan updated."
-            else:
-                message = "No new interventions added (already exist)."
-        else:
-            new_plan = RehabilitationPlan(
+        if not plan:
+            plan = RehabilitationPlan(
                 patientId=patient,
                 therapistId=therapist,
                 startDate=patient.userId.createdAt,
                 endDate=patient.reha_end_date,
                 status=data.get("status", "active"),
-                interventions=new_assignments,
+                interventions=[],
                 createdAt=timezone.now(),
                 updatedAt=timezone.now(),
             )
-            new_plan.save()
-            message = "Rehabilitation plan created successfully."
 
-        return JsonResponse({"message": message}, status=201)
+        total_added = 0
+        created_assignments = 0
+
+        for item in items:
+            # Accept interventionId as string or dict
+            int_oid = _coerce_object_id(item.get("interventionId"))
+            if not int_oid:
+                return JsonResponse({"error": "Invalid interventionId."}, status=400)
+
+            intervention = Intervention.objects.get(id=int_oid)
+
+            # The generator typically returns dates; if you compute here instead,
+            # replace the next line with your generator call.
+            # Example if you have a helper:
+            # generated = generate_repeat_dates(patient.reha_end_date, item)
+            generated = item.get("dates") or []  # allow direct dates (optional)
+            # In your current flow, you don't send "dates"; you send a schedule.
+            # generate on the server if needed:
+            if not generated:
+                generated = generate_repeat_dates(patient.reha_end_date, item)
+
+            new_dates = _strip_to_datetimes(generated)
+
+            # Require at least one date
+            if not new_dates:
+                logger.info("No valid dates generated for intervention %s", str(int_oid))
+                # Keep going; nothing to add for this one.
+                continue
+
+            # Merge into existing assignment if present
+            existing = None
+            for a in (plan.interventions or []):
+                if str(a.interventionId.id) == str(intervention.id):
+                    existing = a
+                    break
+
+            require_video = bool(item.get("require_video_feedback", False))
+
+            if existing:
+                merged, added = _merge_dates(existing.dates, new_dates)
+                if added > 0:
+                    existing.dates = merged
+                    existing.require_video_feedback = require_video
+                    total_added += added
+                # else nothing new for this intervention
+            else:
+                assignment = InterventionAssignment(
+                    interventionId=intervention,
+                    frequency=item.get("frequency", ""),
+                    notes=item.get("notes", ""),
+                    dates=new_dates,                       # <-- pure datetimes
+                    require_video_feedback=require_video,
+                )
+                plan.interventions.append(assignment)
+                created_assignments += 1
+                total_added += len(new_dates)
+
+        if created_assignments == 0 and total_added == 0:
+            # Nothing changed at all
+            return JsonResponse(
+                {"message": "No new sessions to add for the selected intervention(s)."},
+                status=200,
+            )
+
+        plan.updatedAt = timezone.now()
+        plan.save()
+
+        msg_parts = []
+        if created_assignments:
+            msg_parts.append(f"created {created_assignments} assignment(s)")
+        if total_added:
+            msg_parts.append(f"added {total_added} session(s)")
+        return JsonResponse({"message": "Successfully " + " and ".join(msg_parts) + "."}, status=201)
 
     except (Therapist.DoesNotExist, Patient.DoesNotExist, Intervention.DoesNotExist) as e:
         logger.warning(f"[add_intervention_to_patient] Missing entity: {e}")
         return JsonResponse({"error": str(e)}, status=404)
 
     except Exception as e:
-        logger.error(
-            f"[add_intervention_to_patient] Unexpected error: {str(e)}", exc_info=True
-        )
+        logger.error("[add_intervention_to_patient] Unexpected error", exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
-
-# views/interventions.py
 
 
 # Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
