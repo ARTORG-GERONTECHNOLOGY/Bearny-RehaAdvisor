@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, Col, Container, Row, Nav, Card, Form, Badge,
-  ButtonGroup, OverlayTrigger, Tooltip, Modal
+  ButtonGroup, OverlayTrigger, Tooltip
 } from 'react-bootstrap';
 import InterventionFeedbackBrowserModal from '../components/RehaTablePage/InterventionFeedbackBrowserModal';
 
@@ -24,7 +24,9 @@ import ErrorAlert from '../components/common/ErrorAlert';
 import { filterInterventions } from '../utils/filterUtils';
 import { getBadgeVariantFromUrl, getMediaTypeLabelFromUrl } from '../utils/interventions';
 import { translateText } from '../utils/translate';
-import { FaPlus, FaMinus, FaChartBar, FaEdit, FaTrash, FaCommentDots } from 'react-icons/fa';
+import {
+  FaPlus, FaMinus, FaChartBar, FaEdit, FaTrash, FaCommentDots, FaUndo, FaDownload
+} from 'react-icons/fa';
 import QuestionnaireScheduleModal from '../components/RehaTablePage/QuestionnaireScheduleModal';
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -51,10 +53,9 @@ const RehabTable: React.FC = () => {
   const [ShowInfoInterventionModal, setShowInfoInterventionModal] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const { i18n, t } = useTranslation();
-const [showFeedbackBrowser, setShowFeedbackBrowser] = useState<boolean>(false);
-const [feedbackBrowserIntervention, setFeedbackBrowserIntervention] = useState<Intervention | null>(null);
-
-const [qDefaults, setQDefaults] = useState<any>(null);
+  const [showFeedbackBrowser, setShowFeedbackBrowser] = useState<boolean>(false);
+  const [feedbackBrowserIntervention, setFeedbackBrowserIntervention] = useState<Intervention | null>(null);
+  const [qDefaults, setQDefaults] = useState<any>(null);
   const [titleMap, setTitleMap] = useState<TitleMap>({});
   const [typeMap, setTypeMap]   = useState<TypeMap>({});
   const [repeatMode, setRepeatMode] = useState<'create'|'modify'>('create');
@@ -66,11 +67,16 @@ const [qDefaults, setQDefaults] = useState<any>(null);
     ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
     : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];
 
+  // Filters (ALL tab)
   const [searchTerm, setSearchTerm] = useState('');
   const [patientTypeFilter, setPatientTypeFilter] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
+
+  // Export schedule (patient tab)
+  const [exportStart, setExportStart] = useState<string>(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
+  const [exportEnd, setExportEnd] = useState<string>(new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10));
 
   // ─────────────────────────────────────────────────────────────────────────────
   // QUESTIONNAIRES – state & helpers
@@ -103,7 +109,6 @@ const [qDefaults, setQDefaults] = useState<any>(null);
       if (!buckets[gid]) buckets[gid] = { _id: gid, key: gid, title: pretty(gid), question_count: 0 };
       buckets[gid].question_count = (buckets[gid].question_count || 0) + 1;
     });
-    // sort by numeric prefix desc, then title
     const arr = Object.values(buckets);
     return arr.sort((a, b) => {
       const [na, ra] = a.key.split('_');
@@ -114,96 +119,83 @@ const [qDefaults, setQDefaults] = useState<any>(null);
       return (ra || a.title).localeCompare(rb || b.title);
     });
   };
-const openFeedbackBrowser = (intervention: Intervention) => {
-  // ensure we pass the patient-bound version (with dates) if available
-  const withDates = patientData?.interventions?.find((i) => i._id === intervention._id) || intervention;
-  setFeedbackBrowserIntervention(withDates as any);
-  setShowFeedbackBrowser(true);
-};
+
+  const openFeedbackBrowser = (intervention: Intervention) => {
+    const withDates = patientData?.interventions?.find((i) => i._id === intervention._id) || intervention;
+    setFeedbackBrowserIntervention(withDates as any);
+    setShowFeedbackBrowser(true);
+  };
 
   const fetchQuestionnaires = async () => {
     try {
-      // 1) preferred: dynamic groups from BE (uses questionKey prefix)
       const res = await apiClient.get('/questionnaires/dynamic?subject=Healthstatus');
-      // map to QItem
       const items: QItem[] = (Array.isArray(res.data) ? res.data : []).map((g: any) => ({
-        _id: g.id,          // group key like "16_profile"
+        _id: g.id,
         key: g.id,
         title: g.title,
         question_count: g.count,
       }));
-      if (items.length) {
-        setQuestionnaires(items);
-        return;
-      }
-      // 2) fallback: fetch raw questions and group locally
+      if (items.length) { setQuestionnaires(items); return; }
       try {
         const raw = await apiClient.get('/feedback-questions?subject=Healthstatus');
         setQuestionnaires(groupByKeyPrefix(raw.data || []));
-      } catch {
-        setQuestionnaires([]);
-      }
+      } catch { setQuestionnaires([]); }
     } catch {
-      // if dynamic endpoint not found, fallback
       try {
         const raw = await apiClient.get('/feedback-questions?subject=Healthstatus');
         setQuestionnaires(groupByKeyPrefix(raw.data || []));
-      } catch {
-        setError(t('Failed to load questionnaires.'));
-      }
+      } catch { setError(t('Failed to load questionnaires.')); }
     }
   };
 
   const fetchAssignedQuestionnaires = async () => {
     try {
       const res = await apiClient.get(`/questionnaires/patient/${patientIdForCalls}/`);
-      const arr = Array.isArray(res.data)
+    const arr = Array.isArray(res.data)
         ? res.data
         : (Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []);
       setAssignedQuestionnaires(arr);
     } catch {
-      // don't hard-fail the page; just show none
       setAssignedQuestionnaires([]);
     }
   };
 
-// OPEN modals
-const openAddQ = (q: QItem) => {
-  setQMode('create');
-  setSelectedQ({ _id: q._id, key: q.key, title: q.title });
-  setQDefaults({
-    interval: 1,
-    unit: 'week',
-    selectedDays: ['Mon'],
-    end: { type: 'never' },
-    startTime: '08:00',
-  });
-  setQModalOpen(true);
-};
+  // OPEN modals for questionnaires
+  const openAddQ = (q: QItem) => {
+    setQMode('create');
+    setSelectedQ({ _id: q._id, key: q.key, title: q.title });
+    setQDefaults({
+      interval: 1,
+      unit: 'week',
+      selectedDays: ['Mon'],
+      end: { type: 'never' },
+      startTime: '08:00',
+    });
+    setQModalOpen(true);
+  };
 
-const openModifyQ = (q: QItem) => {
-  const assigned = assignedQuestionnaires.find(a => a._id === q._id);
-  setQMode('modify');
-  setSelectedQ({ _id: q._id, key: q.key, title: q.title });
-  setQDefaults({
-    effectiveFrom: new Date().toISOString().slice(0,10),
-    interval: (assigned as any)?.schedule?.interval ?? 1,
-    unit: (assigned as any)?.schedule?.unit ?? 'week',
-    selectedDays: (assigned as any)?.schedule?.selectedDays ?? ['Mon'],
-    startTime: (assigned as any)?.schedule?.startTime ?? '08:00',
-    end: (assigned as any)?.schedule?.end ?? { type: 'never' },
-  });
-  setQModalOpen(true);
-};
+  const openModifyQ = (q: QItem) => {
+    const assigned = assignedQuestionnaires.find(a => a._id === q._id);
+    setQMode('modify');
+    setSelectedQ({ _id: q._id, key: q.key, title: q.title });
+    setQDefaults({
+      effectiveFrom: new Date().toISOString().slice(0,10),
+      interval: (assigned as any)?.schedule?.interval ?? 1,
+      unit: (assigned as any)?.schedule?.unit ?? 'week',
+      selectedDays: (assigned as any)?.schedule?.selectedDays ?? ['Mon'],
+      startTime: (assigned as any)?.schedule?.startTime ?? '08:00',
+      end: (assigned as any)?.schedule?.end ?? { type: 'never' },
+    });
+    setQModalOpen(true);
+  };
 
   const saveQAssignment = async () => {
     if (!selectedQ) return;
     try {
       await apiClient.post('/questionnaires/assign/', {
         patientId: patientIdForCalls,
-        // Send both fields; BE can accept either
-        dynamicKey: selectedQ.key,            // e.g. "16_profile"
-        questionnaireId: selectedQ._id,       // same value when dynamic
+        dynamicKey: selectedQ.key,
+        questionnaireId: selectedQ._id,
         frequency: qForm.frequency,
         effectiveFrom: qForm.effectiveFrom,
         notes: qForm.notes,
@@ -229,7 +221,7 @@ const openModifyQ = (q: QItem) => {
   };
   // ─────────────────────────────────────────────────────────────────────────────
 
-  // ITEMS CURRENTLY VISIBLE IN THE LEFT LIST (interventions)
+  // Visible items for left column
   const visibleItems = useMemo(() => {
     return selectedTab === 'patient'
       ? allInterventions.filter((it) =>
@@ -275,7 +267,6 @@ const openModifyQ = (q: QItem) => {
       setPatientName(localStorage.getItem('selectedPatientName') as string);
       fetchAll();
       fetchInts();
-      // preload questionnaires area
       fetchQuestionnaires();
       fetchAssignedQuestionnaires();
     }
@@ -365,6 +356,8 @@ const openModifyQ = (q: QItem) => {
       setError('Failed to delete the intervention. Try again now or later.');
     }
   };
+
+  // Apply filters (ALL tab)
   useEffect(() => {
     const filtered = filterInterventions(recommendations, {
       patientTypeFilter,
@@ -377,6 +370,93 @@ const openModifyQ = (q: QItem) => {
   }, [recommendations, patientTypeFilter, contentTypeFilter, tagFilter, benefitForFilter, searchTerm]);
 
   const isAssigned = (id: string) => !!patientData?.interventions?.some((item) => item._id === id);
+
+  // Derived lists for Patient tab: Active vs Past (no future dates)
+  const patientAssignedItems = useMemo(() => {
+    return allInterventions.filter((it) =>
+      patientData?.interventions?.some((p) => p._id === it._id)
+    );
+  }, [allInterventions, patientData]);
+
+  const hasFutureDates = (interventionId: string) => {
+    const p = patientData?.interventions?.find((i) => i._id === interventionId);
+    return p?.dates?.some((d) => new Date(d.datetime) > new Date()) || false;
+  };
+
+  const activePatientItems = useMemo(
+    () => patientAssignedItems.filter((it) => hasFutureDates(it._id)),
+    [patientAssignedItems, patientData]
+  );
+
+  const pastPatientItems = useMemo(
+    () => patientAssignedItems.filter((it) => !hasFutureDates(it._id)),
+    [patientAssignedItems, patientData]
+  );
+
+  // Reset filters for ALL tab
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setPatientTypeFilter('');
+    setContentTypeFilter('');
+    setTagFilter([]);
+    setBenefitForFilter([]);
+  };
+
+  // Export schedule CSV (patient tab)
+  const exportScheduleCSV = () => {
+    try {
+      const start = new Date(`${exportStart}T00:00:00`);
+      const end = new Date(`${exportEnd}T23:59:59`);
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+        setError(t('Please choose a valid start/end date for export.'));
+        return;
+      }
+
+      const rows: Array<{date: string; time: string; title: string; status: string; feedbackCount: number}> = [];
+
+      (patientData?.interventions || []).forEach((it) => {
+        const title = titleMap[it._id]?.title || it.title;
+        (it.dates || []).forEach((d) => {
+          const dt = new Date(d.datetime);
+          if (dt >= start && dt <= end) {
+            rows.push({
+              date: dt.toLocaleDateString(),
+              time: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              title,
+              status: d.status || '',
+              feedbackCount: Array.isArray(d.feedback) ? d.feedback.length : 0,
+            });
+          }
+        });
+      });
+
+      const header = ['Date','Time','Title','Status','FeedbackCount'];
+      const lines = [header, ...rows.map(r => [
+        r.date, r.time, r.title, r.status, String(r.feedbackCount)
+      ])];
+
+      const csv = lines.map(line =>
+        line.map(field => {
+          const f = String(field ?? '');
+          const needsQuotes = /[",\n;]/.test(f);
+          const escaped = f.replace(/"/g, '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        }).join(',')
+      ).join('\n');
+
+      const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `schedule_${patientName.replace(/\s+/g,'_')}_${exportStart}_to_${exportEnd}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(t('Failed to export the schedule.'));
+    }
+  };
 
   return (
     <>
@@ -407,7 +487,6 @@ const openModifyQ = (q: QItem) => {
             </Row>
 
             {topTab === 'interventions' ? (
-              /* ================== your existing INTERVENTIONS layout ================== */
               <Row className="flex-grow-1 overflow-hidden">
                 {/* LEFT PANEL */}
                 <Col xs={12} md={3} className="mb-3 mb-md-0 d-flex flex-column" style={{ overflow: 'hidden', minHeight: 0 }}>
@@ -420,6 +499,7 @@ const openModifyQ = (q: QItem) => {
                         </Nav>
                       </Card.Header>
                     </Card>
+
                     {selectedTab === 'all' && (
                       <Card className="mb-3">
                         <Card.Body>
@@ -444,7 +524,7 @@ const openModifyQ = (q: QItem) => {
                               </Form.Select>
                             </Col>
                           </Row>
-                          <Row>
+                          <Row className="mb-3">
                             <Col>
                               <Select
                                 isMulti
@@ -464,95 +544,281 @@ const openModifyQ = (q: QItem) => {
                               />
                             </Col>
                           </Row>
+                          <Row>
+                            <Col>
+                              <Button variant="outline-secondary" size="sm" onClick={resetAllFilters}>
+                                <FaUndo className="me-2" /> {t('Reset filters')}
+                              </Button>
+                            </Col>
+                          </Row>
                         </Card.Body>
                       </Card>
                     )}
-                    <Card className="d-flex flex-column flex-1 min-h-0">
-                      <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
-                        <div className="flex-1 min-h-0 scroll-y">
-                          {visibleItems.map((intervention) => {
-                            const translated = titleMap[intervention._id];
-                            const title = translated?.title || intervention.title;
-                            const originalLang = translated?.lang;
-                            const isTranslated =
-                              originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
-                            const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
-                            const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
-                            const hasFutureDates = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date());
-                            const assigned = isAssigned(intervention._id);
-                            return (
-                              <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
-                                   style={{ cursor: 'pointer', backgroundColor: '#f8f9fa', gap: '0.5rem' }}
-                                   onClick={() => handleExerciseClick(intervention)}>
-                                <div className="flex-grow-1">
-                                  <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
-                                  {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
-                                  <div className="text-muted">{typeLabel}</div>
-                                  <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
-                                    {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
-                                  </Badge>
-                                </div>
-                                <div style={{ flex: '0 0 auto' }}>
-                                  <div onClick={(e) => e.stopPropagation()} className="ms-2">
-                                    <ButtonGroup size="sm" vertical>
-                                      <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
-                                        <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
-                                          <FaChartBar />
-                                        </Button>
-                                      </OverlayTrigger>
-                                      <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
-  <Button
-    variant="outline-info"
-    onClick={() => openFeedbackBrowser(intervention)}
-    aria-label={t('Feedback')}
-  >
-    <FaCommentDots />
-  </Button>
-</OverlayTrigger>
 
-                                      {assigned && (
-                                        <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                          <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
-                                            <FaEdit />
-                                          </Button>
-                                        </OverlayTrigger>
-                                      )}
-                                      {selectedTab === 'all'
-                                        ? (patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date())
-                                          ? (
+                    {/* Patient view: Active vs Past */}
+                    {selectedTab === 'patient' ? (
+                      <Card className="d-flex flex-column flex-1 min-h-0">
+                        <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
+                          <div className="flex-1 min-h-0 scroll-y">
+                            {/* Active */}
+                            <div className="mb-2">
+                              <div className="fw-bold mb-2">{t('Active interventions')}</div>
+                              {activePatientItems.length === 0 && (
+                                <div className="text-muted mb-3">{t('No active interventions.')}</div>
+                              )}
+                              {activePatientItems.map((intervention) => {
+                                const translated = titleMap[intervention._id];
+                                const title = translated?.title || intervention.title;
+                                const originalLang = translated?.lang;
+                                const isTranslated =
+                                  originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+                                const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
+                                const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
+                                const hasFuture = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date());
+                                const assigned = !!patientHasIntervention;
+
+                                return (
+                                  <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
+                                      style={{ cursor: 'pointer', backgroundColor: '#f8f9fa', gap: '0.5rem' }}
+                                      onClick={() => handleExerciseClick(intervention)}>
+                                    <div className="flex-grow-1">
+                                      <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
+                                      {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
+                                      <div className="text-muted">{typeLabel}</div>
+                                      <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
+                                        {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
+                                      </Badge>
+                                    </div>
+                                    <div style={{ flex: '0 0 auto' }}>
+                                      <div onClick={(e) => e.stopPropagation()} className="ms-2">
+                                        <ButtonGroup size="sm" vertical>
+                                          {/* Show stats/feedback ONLY if assigned */}
+                                          {assigned && (
+                                            <>
+                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
+                                                <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
+                                                  <FaChartBar />
+                                                </Button>
+                                              </OverlayTrigger>
+                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
+                                                <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
+                                                  <FaCommentDots />
+                                                </Button>
+                                              </OverlayTrigger>
+                                            </>
+                                          )}
+                                          {/* Modify ONLY if assigned AND has future dates */}
+                                          {assigned && hasFuture && (
+                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
+                                              <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
+                                                <FaEdit />
+                                              </Button>
+                                            </OverlayTrigger>
+                                          )}
+                                          {/* Remove only when future dates exist */}
+                                          {hasFuture && (
                                             <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                                               <Button variant="outline-danger" onClick={() => handleDeleteExercise(intervention._id)} aria-label={t('Remove')}>
                                                 <FaMinus />
                                               </Button>
                                             </OverlayTrigger>
-                                          ) : (
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
-                                              <Button variant="outline-success" onClick={() => handleAddIntervention(intervention)} aria-label={t('Add')}>
-                                                <FaPlus />
+                                          )}
+                                        </ButtonGroup>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Past */}
+                            <hr className="my-3" />
+                            <div className="mb-2">
+                              <div className="fw-bold mb-2">{t('Past interventions')}</div>
+                              {pastPatientItems.length === 0 && (
+                                <div className="text-muted">{t('No past interventions.')}</div>
+                              )}
+                              {pastPatientItems.map((intervention) => {
+                                const translated = titleMap[intervention._id];
+                                const title = translated?.title || intervention.title;
+                                const originalLang = translated?.lang;
+                                const isTranslated =
+                                  originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+                                const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
+                                const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
+                                const assigned = !!patientHasIntervention;
+
+                                return (
+                                  <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
+                                      style={{ cursor: 'pointer', backgroundColor: '#fcfcfd', gap: '0.5rem' }}
+                                      onClick={() => handleExerciseClick(intervention)}>
+                                    <div className="flex-grow-1">
+                                      <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
+                                      {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
+                                      <div className="text-muted">{typeLabel}</div>
+                                      <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
+                                        {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
+                                      </Badge>
+                                    </div>
+                                    <div style={{ flex: '0 0 auto' }}>
+                                      <div onClick={(e) => e.stopPropagation()} className="ms-2">
+                                        <ButtonGroup size="sm" vertical>
+                                          {/* Show stats/feedback ONLY if assigned (it is, since it's past) */}
+                                          {assigned && (
+                                            <>
+                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
+                                                <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
+                                                  <FaChartBar />
+                                                </Button>
+                                              </OverlayTrigger>
+                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
+                                                <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
+                                                  <FaCommentDots />
+                                                </Button>
+                                              </OverlayTrigger>
+                                            </>
+                                          )}
+                                          {/* No modify/remove on past; allow quick re-schedule */}
+                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Schedule again')}</Tooltip>}>
+                                            <Button variant="outline-success" onClick={() => handleAddIntervention(intervention)} aria-label={t('Schedule again')}>
+                                              <FaPlus />
+                                            </Button>
+                                          </OverlayTrigger>
+                                        </ButtonGroup>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    ) : (
+                      // ALL tab list
+                      <Card className="d-flex flex-column flex-1 min-h-0">
+                        <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
+                          <div className="flex-1 min-h-0 scroll-y">
+                            {visibleItems.map((intervention) => {
+                              const translated = titleMap[intervention._id];
+                              const title = translated?.title || intervention.title;
+                              const originalLang = translated?.lang;
+                              const isTranslated =
+                                originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+                              const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
+                              const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
+                              const hasFuture = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date()) || false;
+                              const assigned = !!patientHasIntervention;
+
+                              return (
+                                <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
+                                    style={{ cursor: 'pointer', backgroundColor: '#f8f9fa', gap: '0.5rem' }}
+                                    onClick={() => handleExerciseClick(intervention)}>
+                                  <div className="flex-grow-1">
+                                    <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
+                                    {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
+                                    <div className="text-muted">{typeLabel}</div>
+                                    <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
+                                      {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
+                                    </Badge>
+                                  </div>
+                                  <div style={{ flex: '0 0 auto' }}>
+                                    <div onClick={(e) => e.stopPropagation()} className="ms-2">
+                                      <ButtonGroup size="sm" vertical>
+                                        {/* Show stats/feedback ONLY if assigned */}
+                                        {assigned && (
+                                          <>
+                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
+                                              <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
+                                                <FaChartBar />
                                               </Button>
                                             </OverlayTrigger>
-                                          ))
-                                        : (patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date()) && (
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                              <Button variant="outline-danger" onClick={() => handleDeleteExercise(intervention._id)} aria-label={t('Remove')}>
-                                                <FaMinus />
+                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
+                                              <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
+                                                <FaCommentDots />
                                               </Button>
                                             </OverlayTrigger>
-                                          ))
-                                      }
-                                    </ButtonGroup>
+                                          </>
+                                        )}
+                                        {/* Modify ONLY if assigned AND has future dates */}
+                                        {assigned && hasFuture && (
+                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
+                                            <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
+                                              <FaEdit />
+                                            </Button>
+                                          </OverlayTrigger>
+                                        )}
+                                        {/* Add vs Remove */}
+                                        {!assigned || !hasFuture ? (
+                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
+                                            <Button variant="outline-success" onClick={() => handleAddIntervention(intervention)} aria-label={t('Add')}>
+                                              <FaPlus />
+                                            </Button>
+                                          </OverlayTrigger>
+                                        ) : (
+                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
+                                            <Button variant="outline-danger" onClick={() => handleDeleteExercise(intervention._id)} aria-label={t('Remove')}>
+                                              <FaMinus />
+                                            </Button>
+                                          </OverlayTrigger>
+                                        )}
+                                      </ButtonGroup>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </Card.Body>
-                    </Card>
+                              );
+                            })}
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    )}
                   </div>
                 </Col>
-                {/* RIGHT – calendar */}
+
+                {/* RIGHT – calendar + export controls */}
                 <Col xs={12} md={9} className="d-flex flex-column" style={{ overflow: 'hidden', minHeight: 0 }}>
+                  {/* Export toolbar */}
+                  <Card className="mb-3">
+                    <Card.Body>
+                      <Row className="g-2 align-items-end">
+                        <Col xs={12} md={3}>
+                          <Form.Label className="mb-1">{t('Export start')}</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={exportStart}
+                            max={exportEnd || undefined}
+                            onChange={(e) => setExportStart(e.target.value)}
+                          />
+                        </Col>
+                        <Col xs={12} md={3}>
+                          <Form.Label className="mb-1">{t('Export end')}</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={exportEnd}
+                            min={exportStart || undefined}
+                            onChange={(e) => setExportEnd(e.target.value)}
+                          />
+                        </Col>
+                        <Col xs={12} md="auto" className="mt-2 mt-md-0">
+                          <div className="d-flex gap-2">
+                            <Button variant="outline-secondary" size="sm" onClick={() => {
+                              setExportStart(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
+                              setExportEnd(new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10));
+                            }}>
+                              {t('±30 days')}
+                            </Button>
+                            <Button variant="primary" onClick={exportScheduleCSV}>
+                              <FaDownload className="me-2" /> {t('Export schedule (CSV)')}
+                            </Button>
+                          </div>
+                        </Col>
+                        <Col className="text-muted small mt-2">
+                          {t('Adjust the interval then export the patient’s scheduled sessions as CSV.')}
+                        </Col>
+                      </Row>
+                    </Card.Body>
+                  </Card>
+
                   <div className="flex-1 min-h-0" style={{ overflow: 'auto' }}>
                     <InterventionCalendar
                       interventions={patientData.interventions || []}
@@ -640,7 +906,7 @@ const openModifyQ = (q: QItem) => {
 
           <Footer />
 
-          {/* existing modals (unchanged) */}
+          {/* existing modals */}
           {selectedExercise && ShowInfoInterventionModal && (
             <PatientInterventionPopUp show item={selectedExercise} handleClose={() => setShowInfoInterventionModal(false)} />
           )}
@@ -686,26 +952,24 @@ const openModifyQ = (q: QItem) => {
             t={t}
           />
 
-          {/* ───────────── QUESTIONNAIRE frequency modal (same UX as interventions) ───────────── */}
           <QuestionnaireScheduleModal
-  show={qModalOpen}
-  mode={qMode}
-  onHide={() => setQModalOpen(false)}
-  onSuccess={() => { setQModalOpen(false); fetchAssignedQuestionnaires(); }}
-  patientId={patientIdForCalls}
-  questionnaire={selectedQ}
-  defaults={qDefaults}
-/>
-{showFeedbackBrowser && feedbackBrowserIntervention && (
-  <InterventionFeedbackBrowserModal
-    show={showFeedbackBrowser}
-    onClose={() => setShowFeedbackBrowser(false)}
-    intervention={feedbackBrowserIntervention as any}
-    userLang={userLang}
-  />
-)}
+            show={qModalOpen}
+            mode={qMode}
+            onHide={() => setQModalOpen(false)}
+            onSuccess={() => { setQModalOpen(false); fetchAssignedQuestionnaires(); }}
+            patientId={patientIdForCalls}
+            questionnaire={selectedQ}
+            defaults={qDefaults}
+          />
 
-
+          {showFeedbackBrowser && feedbackBrowserIntervention && (
+            <InterventionFeedbackBrowserModal
+              show={showFeedbackBrowser}
+              onClose={() => setShowFeedbackBrowser(false)}
+              intervention={feedbackBrowserIntervention as any}
+              userLang={userLang}
+            />
+          )}
         </div>
       </div>
     </>
