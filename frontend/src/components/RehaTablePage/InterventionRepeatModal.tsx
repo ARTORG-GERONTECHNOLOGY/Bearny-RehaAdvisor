@@ -9,15 +9,16 @@ import config from '../../config/config.json';
 import { t } from 'i18next';
 
 type Mode = 'create' | 'modify';
-// --- helpers (put them inside the component or above it) ---
+
+// --- helpers ---
 const toOrdinal = (n: number) => {
-  const s = ["th", "st", "nd", "rd"];
+  const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]); // 1st, 2nd, 3rd, 4th...
 };
 
-const joinDays = (days: string[] = []) =>
-  days.length ? days.join(", ") : "…"; // or t('selected days')
+const joinDays = (days: string[] = []) => (days.length ? days.join(', ') : '…');
+
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface Props {
@@ -28,7 +29,6 @@ interface Props {
   patient: string;                       // patient id (or key)
   intervention: string | { _id: string };// intervention id or {_id}
 
-  // NEW (optional)
   mode?: Mode;                           // 'create' (default) | 'modify'
   therapistId?: string;
   defaults?: {
@@ -43,7 +43,6 @@ interface Props {
   };
 }
 
-
 const InterventionRepeatModal: React.FC<Props> = ({
   show,
   onHide,
@@ -56,7 +55,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
 }) => {
   const isModify = mode === 'modify';
 
-  // Core schedule state (same choices as before)
+  // Core schedule state
   const [interval, setInterval] = useState<number>(defaults?.interval ?? 1);
   const [unit, setUnit] = useState<'day' | 'week' | 'month'>(defaults?.unit ?? 'week');
   const [selectedDays, setSelectedDays] = useState<string[]>(defaults?.selectedDays ?? []);
@@ -70,10 +69,12 @@ const InterventionRepeatModal: React.FC<Props> = ({
     !!defaults?.require_video_feedback
   );
 
-  // The single date field (depends on mode)
-  // create  -> Start Date
-  // modify  -> Effective from
-  const [startDateCreate, setStartDateCreate] = useState<Date | null>(null);
+  // Date field (single date input)
+  // create  -> Start Date (defaults to today)
+  // modify  -> Effective from (defaults to today or provided)
+  const [startDateCreate, setStartDateCreate] = useState<Date | null>(
+    mode === 'create' ? new Date() : null
+  );
   const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
     defaults?.effectiveFrom ? new Date(defaults.effectiveFrom) : new Date()
   );
@@ -85,7 +86,10 @@ const InterventionRepeatModal: React.FC<Props> = ({
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
 
-  // Diagnosis routing (unchanged from your original)
+  // Field-level errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Diagnosis routing (unchanged)
   const specialisations = (authStore.specialisation || '')
     .split(',')
     .map((s) => s.trim())
@@ -93,6 +97,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
   const diagnoses = Array.isArray(specialisations)
     ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
     : [];
+
   const isDiagnosis = diagnoses.includes(patient) || patient === 'all';
 
   // Keep defaults in sync when modal opens
@@ -108,10 +113,14 @@ const InterventionRepeatModal: React.FC<Props> = ({
     setRequireVideoFeedback(!!defaults?.require_video_feedback);
     setKeepCurrent(!!defaults?.keep_current);
     setEffectiveFrom(defaults?.effectiveFrom ? new Date(defaults.effectiveFrom) : new Date());
-    setStartDateCreate(null);
+
+    // 👉 default Start Date to today in CREATE mode
+    setStartDateCreate(mode === 'create' ? new Date() : null);
+
+    setFieldErrors({});
     setError('');
     setSuccess(false);
-  }, [show, defaults]);
+  }, [show, defaults, mode]);
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
@@ -126,52 +135,89 @@ const InterventionRepeatModal: React.FC<Props> = ({
     dt.setHours(hh, mm, 0, 0);
     return dt.toISOString();
   };
-const summary = useMemo(() => {
-  if (unit === 'day') {
-    return interval === 1
-      ? t('Occurs every day.')
-      : t('Occurs every {{ord}} day.', { ord: toOrdinal(interval) }); // e.g., "every 2nd day"
-  }
 
-  if (unit === 'week') {
-    const days = joinDays(selectedDays);
-    return interval === 1
-      ? t('Occurs weekly on {{days}}.', { days })
-      : t('Occurs every {{ord}} week on {{days}}.', { ord: toOrdinal(interval), days });
-  }
+  const summary = useMemo(() => {
+    if (unit === 'day') {
+      return interval === 1
+        ? t('Occurs every day.')
+        : t('Occurs every {{ord}} day.', { ord: toOrdinal(interval) });
+    }
 
-  // month
-  return interval === 1
-    ? t('Occurs monthly on the same date.')
-    : t('Occurs every {{ord}} month on the same date.', { ord: toOrdinal(interval) });
-}, [interval, unit, selectedDays, t]);
+    if (unit === 'week') {
+      const days = joinDays(selectedDays);
+      return interval === 1
+        ? t('Occurs weekly on {{days}}.', { days })
+        : t('Occurs every {{ord}} week on {{days}}.', { ord: toOrdinal(interval), days });
+    }
+
+    // month
+    return interval === 1
+      ? t('Occurs monthly on the same date.')
+      : t('Occurs every {{ord}} month on the same date.', { ord: toOrdinal(interval) });
+  }, [interval, unit, selectedDays, t]);
 
   const canSubmit = useMemo(() => {
     if (!patient || !intervention) return false;
     if (isModify) {
       if (!effectiveFrom) return false;
-      // if they keep current, we don't need the rest
       if (keepCurrent) return true;
-      // otherwise we still need the scheduling inputs to be valid
       if (unit === 'week' && selectedDays.length === 0) return false;
       return true;
     } else {
-      // create
       if (!startDateCreate) return false;
       if (unit === 'week' && selectedDays.length === 0) return false;
       return true;
     }
   }, [patient, intervention, isModify, effectiveFrom, keepCurrent, startDateCreate, unit, selectedDays.length]);
 
+  // Validate fields before submit
+  const validate = (): string[] => {
+    const errs: Record<string, string> = {};
+
+    if (!patient) errs.patient = t('Missing patient.');
+    if (!intervention) errs.intervention = t('Missing intervention.');
+    if (!startTime) errs.startTime = t('Please choose a start time.');
+
+    if (interval == null || Number.isNaN(interval) || interval < 1) {
+      errs.interval = t('Interval must be at least 1.');
+    }
+
+    if (!isModify) {
+      if (!startDateCreate) errs.startDateCreate = t('Please choose a start date.');
+    } else {
+      if (!effectiveFrom) errs.effectiveFrom = t('Please choose an effective date.');
+    }
+
+    if (!(isModify && keepCurrent)) {
+      if (unit === 'week' && selectedDays.length === 0) {
+        errs.selectedDays = t('Select at least one weekday.');
+      }
+      if (endOption === 'date' && !endDate) {
+        errs.endDate = t('Pick an end date or choose a different end option.');
+      }
+      if (endOption === 'count' && (!occurrenceCount || occurrenceCount < 1)) {
+        errs.occurrenceCount = t('Number of occurrences must be at least 1.');
+      }
+    }
+
+    setFieldErrors(errs);
+    return Object.values(errs);
+  };
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       setError('');
 
+      const problems = validate();
+      if (problems.length) {
+        // show inline + list; do not call API
+        return;
+      }
+
       const intId = typeof intervention === 'string' ? intervention : intervention._id;
 
       if (isModify) {
-        // One date input only: Effective from
         const payload: any = {
           therapistId: therapistId || authStore.id,
           patientId: patient,
@@ -185,7 +231,7 @@ const summary = useMemo(() => {
           payload.schedule = {
             interval,
             unit,
-            startDate: getCombinedStartISO(), // derived from Effective from + Start Time
+            startDate: getCombinedStartISO(),
             startTime,
             selectedDays,
             end: {
@@ -194,7 +240,6 @@ const summary = useMemo(() => {
               count: endOption === 'count' ? occurrenceCount : null,
             },
           };
-           
         }
 
         const res = await apiClient.post('/interventions/modify-patient/', payload);
@@ -205,7 +250,6 @@ const summary = useMemo(() => {
         }
         setError(t('Failed to modify schedule.'));
       } else {
-        // CREATE: one date input only: Start Date
         const payload = {
           therapistId: therapistId || authStore.id,
           patientId: patient,
@@ -218,7 +262,7 @@ const summary = useMemo(() => {
               selectedDays,
               end: {
                 type: endOption,
-                date: endOption === 'date' && endDate ? endDate : null,
+                date: endOption === 'date' && endDate ? endDate.toISOString() : null,
                 count: endOption === 'count' ? occurrenceCount : null,
               },
               require_video_feedback: requireVideoFeedback,
@@ -239,7 +283,16 @@ const summary = useMemo(() => {
         setError(t('Failed to add intervention.'));
       }
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Something went wrong.'));
+      // Friendlier API error surfacing
+      const api = e?.response?.data;
+      const apiMessages =
+        (Array.isArray(api?.errors) && api.errors) ||
+        (api?.details && Object.values(api.details).flat()) ||
+        (api?.message && [api.message]) ||
+        (api?.error && [api.error]) ||
+        [];
+
+      setError(apiMessages.length ? apiMessages.join(' ') : (e?.message || t('Something went wrong.')));
     } finally {
       setSubmitting(false);
     }
@@ -260,6 +313,16 @@ const summary = useMemo(() => {
           </Alert>
         )}
 
+        {Object.keys(fieldErrors).length > 0 && (
+          <Alert variant="danger">
+            <ul className="mb-0">
+              {Object.values(fieldErrors).map((msg, i) => (
+                <li key={i}>{msg}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
+
         <Form>
           {/* SINGLE DATE FIELD */}
           {isModify ? (
@@ -268,9 +331,12 @@ const summary = useMemo(() => {
               <DatePicker
                 selected={effectiveFrom}
                 onChange={(d) => setEffectiveFrom(d as Date)}
-                className="form-control"
+                className={`form-control ${fieldErrors.effectiveFrom ? 'is-invalid' : ''}`}
                 dateFormat="yyyy-MM-dd"
               />
+              {fieldErrors.effectiveFrom && (
+                <div className="invalid-feedback d-block">{fieldErrors.effectiveFrom}</div>
+              )}
               <Form.Text className="text-muted">
                 {t('Only sessions on or after this date will change. Past sessions stay as-is.')}
               </Form.Text>
@@ -281,9 +347,12 @@ const summary = useMemo(() => {
               <DatePicker
                 selected={startDateCreate}
                 onChange={(d) => setStartDateCreate(d as Date)}
-                className="form-control"
+                className={`form-control ${fieldErrors.startDateCreate ? 'is-invalid' : ''}`}
                 dateFormat="yyyy-MM-dd"
               />
+              {fieldErrors.startDateCreate && (
+                <div className="invalid-feedback d-block">{fieldErrors.startDateCreate}</div>
+              )}
             </Form.Group>
           )}
 
@@ -311,7 +380,11 @@ const summary = useMemo(() => {
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  isInvalid={!!fieldErrors.startTime}
                 />
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.startTime}
+                </Form.Control.Feedback>
               </Col>
             </Form.Group>
           )}
@@ -320,38 +393,39 @@ const summary = useMemo(() => {
           {(!isModify || (isModify && !keepCurrent)) && (
             <>
               <Form.Group as={Row} className="mb-3" controlId="repeat-every">
-  <Form.Label column sm={4}>
-    {t('Repeat every')}
-  </Form.Label>
+                <Form.Label column sm={4}>
+                  {t('Repeat every')}
+                </Form.Label>
 
-  <Col sm={4}>
-    <Form.Control
-      type="number"
-      min="1"
-      value={interval}
-      onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
-      aria-describedby="repeat-help"
-    />
-  </Col>
+                <Col sm={4}>
+                  <Form.Control
+                    type="number"
+                    min="1"
+                    value={interval}
+                    onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
+                    aria-describedby="repeat-help"
+                    isInvalid={!!fieldErrors.interval}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.interval}
+                  </Form.Control.Feedback>
+                </Col>
 
-  <Col sm={4}>
-    <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
-      <option value="day">{t('Day')}</option>
-      <option value="week">{t('Week')}</option>
-      <option value="month">{t('Month')}</option>
-    </Form.Select>
-  </Col>
+                <Col sm={4}>
+                  <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
+                    <option value="day">{t('Day')}</option>
+                    <option value="week">{t('Week')}</option>
+                    <option value="month">{t('Month')}</option>
+                  </Form.Select>
+                </Col>
 
-  {/* dynamic helper text */}
-  <Col xs={12}>
-    <Form.Text id="repeat-help" className="text-muted">
-      {summary}
-      {/* Optional extra examples: */}
-      {/*  {t('Examples: 1 day = every day • 2 days = every 2nd day • 2 weeks on Fri = every other week on Fri.')} */}
-    </Form.Text>
-  </Col>
-</Form.Group>
-
+                {/* dynamic helper text */}
+                <Col xs={12}>
+                  <Form.Text id="repeat-help" className="text-muted">
+                    {summary}
+                  </Form.Text>
+                </Col>
+              </Form.Group>
 
               {unit === 'week' && (
                 <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
@@ -367,6 +441,9 @@ const summary = useMemo(() => {
                       </Button>
                     ))}
                   </div>
+                  {fieldErrors.selectedDays && (
+                    <div className="text-danger small mt-1">{fieldErrors.selectedDays}</div>
+                  )}
                 </Form.Group>
               )}
 
@@ -387,12 +464,17 @@ const summary = useMemo(() => {
                     onChange={() => setEndOption('date')}
                   />
                   {endOption === 'date' && (
-                    <DatePicker
-                      selected={endDate}
-                      onChange={(date) => setEndDate(date as Date)}
-                      className="form-control"
-                      dateFormat="yyyy-MM-dd"
-                    />
+                    <>
+                      <DatePicker
+                        selected={endDate}
+                        onChange={(date) => setEndDate(date as Date)}
+                        className={`form-control ${fieldErrors.endDate ? 'is-invalid' : ''}`}
+                        dateFormat="yyyy-MM-dd"
+                      />
+                      {fieldErrors.endDate && (
+                        <div className="invalid-feedback d-block">{fieldErrors.endDate}</div>
+                      )}
+                    </>
                   )}
                   <Form.Check
                     type="radio"
@@ -401,11 +483,17 @@ const summary = useMemo(() => {
                     onChange={() => setEndOption('count')}
                   />
                   {endOption === 'count' && (
-                    <Form.Control
-                      type="number"
-                      value={occurrenceCount}
-                      onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '0', 10))}
-                    />
+                    <>
+                      <Form.Control
+                        type="number"
+                        value={occurrenceCount}
+                        onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '0', 10))}
+                        isInvalid={!!fieldErrors.occurrenceCount}
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        {fieldErrors.occurrenceCount}
+                      </Form.Control.Feedback>
+                    </>
                   )}
                 </div>
               </Form.Group>
