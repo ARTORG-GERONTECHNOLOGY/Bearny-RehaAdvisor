@@ -9,7 +9,7 @@ import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
 import InterventionList from '../components/PatientPage/InterventionList';
 import FitbitConnectButton from '../components/PatientPage/FitbitStatus';
-
+import ActivitySummary from '../components/PatientPage/ActivitySummary';
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -61,6 +61,12 @@ const PatientView: React.FC = observer(() => {
           </Col>
         </Row>
       )}
+      <Row className="mb-4 justify-content-center">
+  <Col xs={12} sm={11} md={10} lg={8}>
+    <ActivitySummary />
+  </Col>
+</Row>
+
 
       {/* Intervention List */}
       <Row className="flex-grow-1 justify-content-center">
