@@ -1,4 +1,13 @@
 {
+  "Please choose a valid start/end date for export.": "Bitte wählen Sie ein gültiges Start-/Enddatum für den Export.",
+  "Adjust the interval then export the patient’s scheduled sessions as CSV.": "Passen Sie das Intervall an und exportieren Sie die geplanten Sitzungen des Patienten als CSV.",
+  "Export schedule (CSV)": "Exporter le calendrier (CSV)",
+  "Export end": "Fin de l'exportation",
+  "Export start":"Début de l'exportation",
+  "Past interventions": "Interventions passées",
+  "No active interventions.": "Aucune intervention active.",
+  "Active interventions": "Interventions actives",
+  "Failed to export the schedule.": "Échec de l'exportation du calendrier.",
   "Feedback items": "Éléments de retour",
   "Status": "Statut",
   "Select a date to view details.": "Sélectionnez une date pour voir les détails.",
