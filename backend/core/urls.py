@@ -142,6 +142,8 @@ urlpatterns = [
     path("api/patients/healthstatus-history/<str:patient_id>/", patient_views.get_patient_healthstatus_history, name="get_patient_healthstatus_history"),
     path("api/patients/health-combined-history/<str:patient_id>/", patient_views.get_combined_health_data, name="get_combined_health_data"),
     path("api/analytics/log", therapist_views.create_log, name="create_log"),
+    path("api/fitbit/summary/", fitbit_views.fitbit_summary, name="fitbit-summary-me"),
+    path("api/fitbit/summary/<str:patient_id>/", fitbit_views.fitbit_summary, name="fitbit-summary"),
 ]
 
 # Only add this if DEBUG=True, which is typical in development
