@@ -15,6 +15,142 @@ logger = logging.getLogger(__name__)
 FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'
 
 
+def _sleep_minutes(entry: FitbitData) -> int:
+    try:
+        dur_ms = (entry.sleep.sleep_duration or 0) if entry.sleep else 0
+        return int(round(dur_ms / 60000))
+    except Exception:
+        return 0
+
+
+def _resolve_patient(request, patient_id: str | None):
+    """
+    Resolution order:
+      1) Path param patient_id (accepts Patient.id OR User.id)
+      2) Query param patientId / patient_id (accepts Patient.id OR User.id)
+      3) Current Django user -> Mongo User by email/username -> Patient(userId=User)
+    """
+    # 1) explicit path
+    candidate = patient_id or request.GET.get("patientId") or request.GET.get("patient_id")
+    if candidate:
+        # Try as Patient.id
+        try:
+            return Patient.objects.get(pk=candidate)
+        except Patient.DoesNotExist:
+            pass
+        # Try as User.id -> Patient(userId=that user)
+        try:
+            mu = User.objects.get(pk=candidate)
+            return Patient.objects.get(userId=mu)
+        except (User.DoesNotExist, Patient.DoesNotExist):
+            pass
+
+    # 3) infer from authenticated Django user
+    dj = getattr(request, "user", None)
+    if dj and getattr(dj, "is_authenticated", False):
+        # Try by email
+        keys = []
+        email = getattr(dj, "email", None)
+        username = getattr(dj, "username", None)
+        if email:
+            keys.append({"email": email})
+            keys.append({"username": email})
+        if username and username != email:
+            keys.append({"username": username})
+            keys.append({"email": username})
+
+        for filt in keys:
+            try:
+                mu = User.objects.get(**filt)
+                return Patient.objects.get(userId=mu)
+            except (User.DoesNotExist, Patient.DoesNotExist):
+                continue
+
+    return None
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def fitbit_summary(request, patient_id=None):
+    """
+    GET /api/fitbit/summary/?days=7
+    GET /api/fitbit/summary/<patient_id>/?days=7          # accepts Patient.id or User.id
+    """
+    try:
+        patient = _resolve_patient(request, patient_id)
+        if not patient:
+            return JsonResponse({"error": "Cannot resolve patient"}, status=400)
+
+        token = FitbitUserToken.objects(user=patient.userId).first()
+        connected = bool(token)
+
+        days = int(request.GET.get("days", 7))
+        days = max(1, min(days, 31))
+
+        end = timezone.now()
+        start = (end - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        qs = FitbitData.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
+
+        daily = []
+        steps_tot = act_tot = sleep_tot = 0
+        last_sync = None
+
+        for d in qs:
+            row = {
+                "date": d.date.isoformat(),
+                "steps": int(d.steps or 0),
+                "active_minutes": int(d.active_minutes or 0),
+                "sleep_minutes": _sleep_minutes(d),
+            }
+            daily.append(row)
+            steps_tot += row["steps"]
+            act_tot += row["active_minutes"]
+            sleep_tot += row["sleep_minutes"]
+            last_sync = d.date
+
+        n = max(1, len(qs))
+        today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        today = (
+            FitbitData.objects(user=patient.userId, date__gte=today_start).order_by("-date").first()
+            or (qs[-1] if qs else None)
+        )
+
+        today_payload = None
+        if today:
+            today_payload = {
+                "steps": int(today.steps or 0),
+                "active_minutes": int(today.active_minutes or 0),
+                "sleep_minutes": _sleep_minutes(today),
+                "resting_heart_rate": int(today.resting_heart_rate) if today.resting_heart_rate is not None else None,
+            }
+
+        return JsonResponse(
+            {
+                "connected": connected,
+                "last_sync": last_sync.isoformat() if last_sync else None,
+                "today": today_payload,
+                "period": {
+                    "days": days,
+                    "totals": {
+                        "steps": steps_tot,
+                        "active_minutes": act_tot,
+                        "sleep_minutes": sleep_tot,
+                    },
+                    "averages": {
+                        "steps": steps_tot // n,
+                        "active_minutes": act_tot // n,
+                        "sleep_minutes": sleep_tot // n,
+                    },
+                    "daily": daily,
+                },
+            },
+            status=200,
+        )
+    except Exception as e:
+        logger.error("[fitbit_summary] %s", e, exc_info=True)
+        return JsonResponse({"error": "Internal Server Error"}, status=500)
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def fitbit_status(request, patient_id):
