@@ -4,22 +4,22 @@ import { Card, Col, Row, Spinner, OverlayTrigger, Tooltip, Button } from 'react-
 import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
 import { useTranslation } from 'react-i18next';
+
 type Summary = {
   connected: boolean;
   last_sync: string | null;
-  today: { steps: number; active_minutes: number; sleep_minutes: number; resting_heart_rate?: number | null } | null;
+  today: {
+    steps: number;
+    active_minutes: number;
+    sleep_minutes: number;
+    resting_heart_rate?: number | null;
+  } | null;
   period: {
     days: number;
     totals: { steps: number; active_minutes: number; sleep_minutes: number };
     averages: { steps: number; active_minutes: number; sleep_minutes: number };
     daily: { date: string; steps: number; active_minutes: number; sleep_minutes: number }[];
   };
-};
-
-const mmToHhMm = (m: number) => {
-  const hh = Math.floor(m / 60);
-  const mm = m % 60;
-  return `${hh}h ${mm.toString().padStart(2, '0')}m`;
 };
 
 const StatCard: React.FC<{
@@ -68,49 +68,62 @@ const ActivitySummary: React.FC = () => {
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState('');
   const { i18n, t } = useTranslation();
-const fetchData = async (range: number) => {
-  try {
-    setLoading(true);
-    setError('');
-    // 1) Try to let the API infer from the logged-in patient
-    const r1 = await apiClient.get(`/fitbit/summary/?days=${range}`);
-    setData(r1.data);
-  } catch (e1: any) {
-    // 2) If inference fails, retry with an id we have locally
+
+  const nf = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
+
+  // duration helper using translations (e.g., "7 h 30 min" / "7 Std 30 Min")
+  const mmToHhMm = (m: number) => {
+    const h = Math.floor((m || 0) / 60);
+    const mm = Math.abs((m || 0) % 60);
+    return t('hmShort', { h, m: mm });
+  };
+
+  const fetchData = async (range: number) => {
     try {
-      // Use the auth store id (works if it's the Mongo User id) OR a cached patient id if you keep one
-      const anyId =
-        (authStore as any)?.patientId ||
-        (authStore as any)?.id ||
-        localStorage.getItem('patientId');
+      setLoading(true);
+      setError('');
+      // 1) Let API infer patient from auth
+      const r1 = await apiClient.get(`/fitbit/summary/?days=${range}`);
+      setData(r1.data);
+    } catch (e1: any) {
+      // 2) Retry with id (fallback)
+      try {
+        const anyId =
+          (authStore as any)?.patientId ||
+          (authStore as any)?.id ||
+          localStorage.getItem('patientId');
 
-      if (!anyId) throw e1;
+        if (!anyId) throw e1;
 
-      const r2 = await apiClient.get(`/fitbit/summary/${anyId}/?days=${range}`);
-      setData(r2.data);
-    } catch (e2: any) {
-      setError(t(e2?.response?.data?.error) || t('Failed to load Fitbit data.'));
-      setData(null);
+        const r2 = await apiClient.get(`/fitbit/summary/${anyId}/?days=${range}`);
+        setData(r2.data);
+      } catch (e2: any) {
+        const key = e2?.response?.data?.error;
+        setError(key ? t(key) : t('error_f'));
+        setData(null);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-
-  useEffect(() => { fetchData(days); }, [days]);
+  useEffect(() => { fetchData(days); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
 
   const avgLine = useMemo(() => {
     if (!data) return '';
     const a = data.period.averages;
-    return `Avg: ${a.steps.toLocaleString()} steps • ${a.active_minutes} min active • ${mmToHhMm(a.sleep_minutes)} sleep`;
-  }, [data]);
+    return t('avgLine', {
+      steps: nf.format(a.steps ?? 0),
+      active: t('minute', { count: a.active_minutes ?? 0 }),
+      sleep: mmToHhMm(a.sleep_minutes ?? 0)
+    });
+  }, [data, nf, t]);
 
   if (loading) {
     return (
       <Card className="mb-4">
         <Card.Body className="d-flex align-items-center gap-2">
-          <Spinner animation="border" size="sm" /> <span>{t('Loading Fitbit summary')}…</span>
+          <Spinner animation="border" size="sm" /> <span>{t('loading')}</span>
         </Card.Body>
       </Card>
     );
@@ -129,44 +142,45 @@ const fetchData = async (range: number) => {
   return (
     <Card className="mb-4">
       <Card.Header className="d-flex justify-content-between align-items-center">
-        <div>{('My Activity')}</div>
+        <div>{t('title_fitbit')}</div>
         <div className="d-flex align-items-center gap-3">
           <div className="small text-muted">
-            {data.last_sync ? `Last sync: ${new Date(data.last_sync).toLocaleString()}` : 'Not synced yet'}
+            {data.last_sync
+              ? t('lastSync', { date: new Date(data.last_sync).toLocaleString(i18n.language) })
+              : t('notConnected')}
           </div>
           <PeriodSwitch value={days} onChange={setDays} />
         </div>
       </Card.Header>
+
       <Card.Body>
         {!data.connected && (
-          <div className="mb-3 text-warning">
-            Your Fitbit is not connected yet. Connect to see real-time activity.
-          </div>
+          <div className="mb-3 text-warning">{t('notConnected')}</div>
         )}
 
         <Row xs={1} md={3} className="g-3">
           <Col>
             <StatCard
-              label="Steps (today)"
-              value={(data.today?.steps ?? 0).toLocaleString()}
-              sub={`Period avg: ${data.period.averages.steps.toLocaleString()}`}
-              tooltip="Total number of steps recorded."
+              label={`${t('steps')} (${t('today')})`}
+              value={nf.format(data.today?.steps ?? 0)}
+              sub={`${t('avg', { days })}: ${nf.format(data.period.averages.steps ?? 0)}`}
+              tooltip={t('stepsTip')}
             />
           </Col>
           <Col>
             <StatCard
-              label="Active minutes (today)"
-              value={`${data.today?.active_minutes ?? 0} min`}
-              sub={`Period avg: ${data.period.averages.active_minutes} min`}
-              tooltip="Minutes of activity above a light threshold."
+              label={`${t('activeMinutes')} (${t('today')})`}
+              value={t('minute', { count: data.today?.active_minutes ?? 0 })}
+              sub={`${t('avg', { days })}: ${t('minute', { count: data.period.averages.active_minutes ?? 0 })}`}
+              tooltip={t('activeMinutesTip')}
             />
           </Col>
           <Col>
             <StatCard
-              label="Sleep (last night)"
+              label={`${t('sleep')} (${t('today')})`}
               value={mmToHhMm(data.today?.sleep_minutes ?? 0)}
-              sub={`Period avg: ${mmToHhMm(data.period.averages.sleep_minutes)}`}
-              tooltip="Estimated total sleep duration."
+              sub={`${t('avg', { days })}: ${mmToHhMm(data.period.averages.sleep_minutes ?? 0)}`}
+              tooltip={t('sleepTip')}
             />
           </Col>
         </Row>
