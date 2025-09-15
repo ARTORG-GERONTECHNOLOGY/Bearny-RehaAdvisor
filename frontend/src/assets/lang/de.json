@@ -1,4 +1,5 @@
 {
+  "Spezialisation": "Spezialisation (Wählen Sie alle zutreffenden aus)",
   "Out of Range":" Ausserhalb des Bereichs", 
   "Fat Burn":"Fettverbrennung", 
   "Cardio":"Kardio", 
@@ -57,7 +58,7 @@
   "Failed to save questionnaire schedule.": "Fehler beim Speichern des Fragebogenplans.",
     "Reset Fileters": "Filter zurücksetzen",
   "Show completed": "Abgeschlossene anzeigen",
-  "Clinics": "Kliniken",
+  "Clinics": "Kliniken (Wählen Sie alle zutreffenden aus)",
 "Last clinic visit": "Letzter Klinikbesuch",
   "Last online visit": "Letzter Online-Besuch",
 
