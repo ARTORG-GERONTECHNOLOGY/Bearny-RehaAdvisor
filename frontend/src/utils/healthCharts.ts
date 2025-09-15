@@ -1,6 +1,6 @@
 // utils/healthCharts.ts
 import * as d3 from 'd3';
-
+import { useTranslation } from 'react-i18next';
 export const parseYMD = d3.timeParse('%Y-%m-%d');
 export const fmtYMD  = d3.timeFormat('%Y-%m-%d');
 export const fmtYM   = d3.timeFormat('%Y-%m');
@@ -8,7 +8,7 @@ export const fmtNice = d3.timeFormat('%b %d');
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
 
-
+const { t, i18n } = useTranslation();
 export function aggregateToPeriods<T>(
   data: T[],
   getDate: (d: T) => string,
@@ -93,12 +93,12 @@ export function drawRangeLineSeries(
   renderLegend(
     svg,
     [
-      { label: 'Personal range', color: '#1f77b4', symbol: 'area' },
-      { label: 'In range',       color: '#2b83ba', symbol: 'dot' },
-      { label: 'Out of range',   color: '#d88997', symbol: 'dot' },
+      { label: t('Personal range'), color: '#1f77b4', symbol: 'area' },
+      { label: t('In range'),       color: '#2b83ba', symbol: 'dot' },
+      { label: t('Out of range'),   color: '#d88997', symbol: 'dot' },
     ],
     40,
-    'In range = value within the personal band (P3–P97 over the last 30 days).'
+    t('In range = value within the personal band (P3–P97 over the last 30 days).')
   );
 
   const width  = w - m.left - m.right;
