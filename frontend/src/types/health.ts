@@ -1,0 +1,27 @@
+export interface HeartRateZone {
+  name: string;
+  minutes: number;
+}
+
+export interface FitbitEntry {
+  date: string;                 // YYYY-MM-DD
+  steps?: number;
+  distance?: number;
+  floors?: number;
+  resting_heart_rate?: number;
+  breathing_rate?: { breathingRate?: number };
+  hrv?: { dailyRmssd?: number };
+  sleep?: { sleep_duration?: number; sleep_start?: string; sleep_end?: string };
+  heart_rate_zones?: HeartRateZone[];
+  exercise?: { name: string; duration: number }[];
+}
+
+export interface QuestionnaireEntry {
+  date: string;  // ISO
+  questionKey: string;
+  answers: { key: string; translations?: { language: string; text: string }[] }[];
+  questionTranslations: { language: string; text: string }[];
+}
+
+export type ChartRes = 'daily' | 'weekly' | 'monthly';
+export type ViewMode = 'weekly' | 'monthly';
