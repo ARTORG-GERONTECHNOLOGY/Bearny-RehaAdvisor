@@ -481,7 +481,7 @@
         },
         {
           "name": "diagnosis",
-          "label": "Diagnosis",
+          "label": "Primary Diagnosis",
           "type": "multi-select",
           "required": false,
           "be_name": "diagnosis"
