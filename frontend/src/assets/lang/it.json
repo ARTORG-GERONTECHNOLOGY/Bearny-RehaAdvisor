@@ -1,4 +1,5 @@
 {
+  "Spezialisation": "Specializzazione (Selezionare tutte le opzioni applicabili)",
   "Out of Range":"Fuori dal raggio d'azione",
   "Fat Burn":"Zona di bruciatura dei grassi",
   "Cardio":"Cardio",
@@ -57,7 +58,7 @@
   "Failed to save questionnaire schedule.": "Impossibile salvare la pianificazione del questionario.",
     "Reset Fileters": "Reimposta filtri",
   "Show completed": "Mostra completati",
-  "Clinics": "Cliniche",
+  "Clinics": "Cliniche (Scegli tutte quelle che si applicano)",
   "Last clinic visit": "Ultima visita in clinica",
   "Last online visit": "Ultima visita online",
 
