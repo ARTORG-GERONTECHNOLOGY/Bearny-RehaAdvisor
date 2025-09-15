@@ -40,6 +40,7 @@ interface Props {
     end?: { type: 'never' | 'date' | 'count'; date?: string | null; count?: number | null };
     require_video_feedback?: boolean;
     keep_current?: boolean;
+     notes?: string;
   };
 }
 
@@ -81,7 +82,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
 
   // Modify-only: keep schedule unchanged (only update flags)
   const [keepCurrent, setKeepCurrent] = useState<boolean>(!!defaults?.keep_current);
-
+const [personalNote, setPersonalNote] = useState<string>(defaults?.notes ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
@@ -116,7 +117,8 @@ const InterventionRepeatModal: React.FC<Props> = ({
 
     // 👉 default Start Date to today in CREATE mode
     setStartDateCreate(mode === 'create' ? new Date() : null);
-
+// preload current note on open
+    setPersonalNote(defaults?.notes ?? '');
     setFieldErrors({});
     setError('');
     setSuccess(false);
@@ -225,6 +227,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
           effectiveFrom: effectiveFrom?.toISOString().slice(0, 10), // YYYY-MM-DD
           require_video_feedback: requireVideoFeedback,
           keep_current: keepCurrent || undefined,
+          notes: personalNote ?? '',
         };
 
         if (!keepCurrent) {
@@ -266,6 +269,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
                 count: endOption === 'count' ? occurrenceCount : null,
               },
               require_video_feedback: requireVideoFeedback,
+              notes: personalNote ?? '',
             },
           ],
         };
@@ -499,7 +503,20 @@ const InterventionRepeatModal: React.FC<Props> = ({
               </Form.Group>
             </>
           )}
-
+{/* Patient-visible personal note */}
+        <Form.Group className="mb-3">
+          <Form.Label>{t('Personal instructions for the patient')}</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={3}
+            value={personalNote}
+            onChange={(e) => setPersonalNote(e.target.value)}
+            placeholder={t('e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.')}
+          />
+          <Form.Text className="text-muted">
+            {t('This note is shown to the patient on the intervention page.')}
+          </Form.Text>
+        </Form.Group>
           {/* Ask for video feedback */}
           <Form.Group className="mb-1">
             <Form.Check
