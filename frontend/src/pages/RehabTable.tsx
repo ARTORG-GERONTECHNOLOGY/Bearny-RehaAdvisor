@@ -906,10 +906,18 @@ const RehabTable: React.FC = () => {
 
           <Footer />
 
-          {/* existing modals */}
-          {selectedExercise && ShowInfoInterventionModal && (
-            <PatientInterventionPopUp show item={selectedExercise} handleClose={() => setShowInfoInterventionModal(false)} />
-          )}
+          {selectedExercise && ShowInfoInterventionModal && (() => {
+  const assigned = patientData?.interventions?.find((i) => i._id === (selectedExercise as any)._id);
+  return (
+    <PatientInterventionPopUp
+      show
+      item={selectedExercise}
+      personalNote={assigned?.notes || ''}   // 👈 pass note
+      handleClose={() => setShowInfoInterventionModal(false)}
+    />
+  );
+})()}
+
           {showRepeatModal && (
             <InterventionRepeatModal
               show
