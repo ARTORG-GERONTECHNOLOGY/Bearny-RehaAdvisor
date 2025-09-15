@@ -1,4 +1,5 @@
 {
+  "Spezialisation": "Spezialisation (Choose all that apply)",
   "Out of Range":"Out of Range", 
   "Fat Burn":"Fat Burn", 
   "Cardio":"Cardio", 
@@ -56,7 +57,7 @@
   "Failed to save questionnaire schedule.": "Failed to save questionnaire schedule.",
     "Reset Fileters": "Reset Filters",
   "Show completed": "Show completed",
-  "Clinics": "Clinics",
+  "Clinics": "Clinics (Choose all that apply)",
   "Last clinic visit": "Last clinic visit",
   "Last online visit": "Last online visit",
   "required": "required",
@@ -589,7 +590,7 @@
   "Level of Education": "Level of Education",
   "Professional Status": "Professional Status",
   "Medical Information": "Medical Information",
-  "Diagnosis": "Primary Diagnosis",
+  "Diagnosis": "Primary Diagnosis (Choose all that apply)",
   "Restrictions (Optional)": "Restrictions (Optional)",
   "Rehabilitations End Date (Modifiable afterwords)": "Rehabilitation End Date (Modifiable afterwords)",
   "Additional Details": "Additional Details",
