@@ -1,4 +1,5 @@
 {
+  "Spezialisation": "Spécialisation (choisissez toutes les réponses qui s'appliquent)",
   "Out of Range":"Hors de la plage",
   "Fat Burn":"Brûlage de graisse",
   "Cardio":"Cardio",
@@ -56,7 +57,7 @@
   "Failed to save questionnaire schedule.": "Échec de l'enregistrement du calendrier du questionnaire.",
     "Reset Fileters": "Filter réinitialisés",
   "Show completed": "Afficher les terminés",
-  "Clinics": "Cliniques",
+  "Clinics": "Cliniques (Choisissez toutes celles qui s'appliquent)",
   "Last clinic visit": "Dernière visite en clinique",
   "Last online visit": "Dernière visite en ligne",
   "required": "requis",
