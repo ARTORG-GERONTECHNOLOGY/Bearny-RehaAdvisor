@@ -141,19 +141,6 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
                   </Form.Select>
                 </Form.Group>
               </Col>
-              <Col>
-                <Form.Group controlId="recommendationTypeFilter">
-                  <Form.Label>{t('Filter by Core/Supportive')}</Form.Label>
-                  <Form.Select
-                    value={recommendationTypeFilter}
-                    onChange={(e) => setRecommendationTypeFilter(e.target.value)}
-                  >
-                    <option value="">{t('All')}</option>
-                    <option value="Core">{t('Core')}</option>
-                    <option value="Supportive">{t('Supportive')}</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
             </Row>
 
             <ListGroup>
