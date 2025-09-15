@@ -630,19 +630,11 @@ def get_patient_plan(request, patient_id):
                     ]
 
                     answer_output = []
-                    answer_keys = (
-                        fb.answerKey
-                        if isinstance(fb.answerKey, list)
-                        else [fb.answerKey]
-                    )
+                    answer_keys = fb.answerKey if isinstance(fb.answerKey, list) else [fb.answerKey]
 
                     for key in answer_keys:
                         matched_option = next(
-                            (
-                                opt
-                                for opt in fb.questionId.possibleAnswers
-                                if opt.key == key
-                            ),
+                            (opt for opt in fb.questionId.possibleAnswers if opt.key == key),
                             None,
                         )
                         if matched_option:
@@ -673,6 +665,7 @@ def get_patient_plan(request, patient_id):
                 "intervention_title": intervention.title,
                 "description": intervention.description,
                 "frequency": assignment.frequency,
+                "notes": assignment.notes or "",  # ← NEW: therapist’s personal instruction for the patient
                 "dates": [d.isoformat() for d in assignment.dates],
                 "completion_dates": completion_dates,
                 "content_type": intervention.content_type,
@@ -709,6 +702,7 @@ def get_patient_plan(request, patient_id):
         return JsonResponse(
             {"error": "Internal Server Error", "details": str(e)}, status=500
         )
+
 
 
 
@@ -1236,20 +1230,23 @@ def add_intervention_to_patient(request):
                     break
 
             require_video = bool(item.get("require_video_feedback", False))
+            note_in = (item.get("notes") or "").strip()[:1000]  # simple length cap
 
             if existing:
                 merged, added = _merge_dates(existing.dates, new_dates)
                 if added > 0:
                     existing.dates = merged
                     existing.require_video_feedback = require_video
+                    if "notes" in item:
+                        existing.notes = note_in
                     total_added += added
                 # else nothing new for this intervention
             else:
                 assignment = InterventionAssignment(
                     interventionId=intervention,
                     frequency=item.get("frequency", ""),
-                    notes=item.get("notes", ""),
-                    dates=new_dates,                       # <-- pure datetimes
+                    dates=new_dates, 
+                    notes=note_in,                       # <-- pure datetimes
                     require_video_feedback=require_video,
                 )
                 plan.interventions.append(assignment)
@@ -1448,6 +1445,7 @@ def modify_intervention_from_date(request):
         keep_current = bool(body.get("keep_current", False))
         require_video = bool(body.get("require_video_feedback", False))
         schedule = body.get("schedule")
+        notes = body.get("notes", None)
 
         if not (patient_id and intervention_id and effective_from_raw):
             return JsonResponse({"error": "Missing required fields"}, status=400)
@@ -1470,6 +1468,8 @@ def modify_intervention_from_date(request):
 
         # Always update flags
         target.require_video_feedback = require_video
+        if notes is not None:
+            target.notes = (notes or "").strip()[:1000]
 
         # Normalize effectiveFrom
         eff_dt_local = _parse_iso(str(effective_from_raw))                 # aware local
