@@ -7,8 +7,6 @@ interface Props {
   setSearchTerm: (val: string) => void;
   patientTypeFilter: string;
   setPatientTypeFilter: (val: string) => void;
-  coreSupportFilter: string;
-  setCoreSupportFilter: (val: string) => void;
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
   tagFilter: string[];
@@ -27,8 +25,6 @@ const FilterBar: React.FC<Props> = ({
   setSearchTerm,
   patientTypeFilter,
   setPatientTypeFilter,
-  coreSupportFilter,
-  setCoreSupportFilter,
   contentTypeFilter,
   setContentTypeFilter,
   tagFilter,
@@ -66,23 +62,6 @@ const FilterBar: React.FC<Props> = ({
             {diagnoses.map((type) => (
               <option key={type} value={type}>
                 {t(type)}
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
-      </Col>
-
-      <Col sm={6} md={4} lg={3}>
-        <Form.Group controlId="filterCoreSupport">
-          <Form.Label visuallyHidden>{t('Filter by Core/Supportive')}</Form.Label>
-          <Form.Select
-            value={coreSupportFilter}
-            onChange={(e) => setCoreSupportFilter(e.target.value)}
-          >
-            <option value="">{t('Filter by Core/Supportive')}</option>
-            {config?.RecomendationInfo?.intensity?.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {t(opt)}
               </option>
             ))}
           </Form.Select>

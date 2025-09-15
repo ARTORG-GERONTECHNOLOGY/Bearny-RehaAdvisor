@@ -388,8 +388,7 @@
       "Mobility",
       "kardiorespiratorische Fitness",
       "Muskelkraft"
-    ],
-    "intensity": ["Core", "Supportive"]
+    ]
   },
   "RehaInfo": ["< 30 days", "30-60 days", "60-90 days", "> 90 days"],
   "PatientForm": [
