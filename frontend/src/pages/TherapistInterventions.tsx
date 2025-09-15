@@ -33,7 +33,6 @@ const norm = (s: string) =>
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [patientTypeFilter, setPatientTypeFilter] = useState('');
-  const [coreSupportFilter, setCoreSupportFilter] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [frequencyFilter, setFrequencyFilter] = useState('');
@@ -126,14 +125,6 @@ useEffect(() => {
       );
     }
 
-    if (coreSupportFilter) {
-      filtered = filtered.filter((rec) =>
-        rec.patient_types.some((pt) =>
-          coreSupportFilter === 'Core' ? pt.include_option : !pt.include_option
-        )
-      );
-    }
-
     if (contentTypeFilter) {
       filtered = filtered.filter((rec) => rec.content_type === contentTypeFilter);
     }
@@ -164,7 +155,6 @@ useEffect(() => {
   }, [
     searchTerm,
     patientTypeFilter,
-    coreSupportFilter,
     contentTypeFilter,
     tagFilter,
     benefitForFilter,
@@ -217,8 +207,6 @@ useEffect(() => {
               setSearchTerm={setSearchTerm}
               patientTypeFilter={patientTypeFilter}
               setPatientTypeFilter={setPatientTypeFilter}
-              coreSupportFilter={coreSupportFilter}
-              setCoreSupportFilter={setCoreSupportFilter}
               contentTypeFilter={contentTypeFilter}
               setContentTypeFilter={setContentTypeFilter}
               tagFilter={tagFilter}
