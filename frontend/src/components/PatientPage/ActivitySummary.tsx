@@ -235,10 +235,7 @@ const ActivitySummary: React.FC<Props> = ({ selectedDate }) => {
   const steps = focusRow?.steps ?? 0;
   const active = focusRow?.active_minutes ?? 0;
   const sleep = focusRow?.sleep_minutes ?? 0;
-  const inactivity =
-    typeof focusRow?.inactivity_minutes === 'number'
-      ? (focusRow!.inactivity_minutes as number)
-      : Math.max(0, 1440 - (active + sleep));
+  const inactivity = focusRow?.inactivity_minutes ?? 0;
 
   return (
     <Card className="mb-4">

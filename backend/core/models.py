@@ -97,7 +97,7 @@ class FitbitData(Document):
 
     # Exercise logs
     exercise = DictField()          # Exercise session metadata (duration, type, etc.)
-
+    inactivity_minutes = IntField()  # Minutes of inactivity
     meta = {
         'indexes': ['user', 'date'],
         'ordering': ['-date']
