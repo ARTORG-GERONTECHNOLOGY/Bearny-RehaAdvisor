@@ -38,7 +38,7 @@ const Therapist: React.FC = () => {
   const [sexFilter, setSexFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
   const [birthdateFilter, setBirthdateFilter] = useState('');
-  const [showCompleted, setShowCompleted] = useState(false);        // NEW — toggle for completed section
+  const [showCompleted, setShowCompleted] = useState(false); // toggle for completed section
 
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -118,6 +118,13 @@ const Therapist: React.FC = () => {
     return d.toLocaleDateString();
   };
 
+  const fmtDateTime = (iso?: string) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString();
+  };
+
   // Decide if a patient is completed: backend can send rehab_status = 'completed' and/or rehab_end_date
   const isCompletedPatient = (p: PatientType) => {
     const status = (p as any).rehab_status;
@@ -142,7 +149,7 @@ const Therapist: React.FC = () => {
       });
     }
 
-    // Name search (full name or any part, either order). Allow username/id too.
+    // Name/ID search. Allow username, patient_code, or _id too.
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((p) => {
@@ -152,12 +159,14 @@ const Therapist: React.FC = () => {
         const full2 = `${last} ${first}`.trim();
         const username = (p as any).username ? String((p as any).username).toLowerCase() : '';
         const pid = String((p as any)._id || '').toLowerCase();
+        const pcode = (p as any).patient_code ? String((p as any).patient_code).toLowerCase() : '';
         return (
           first.includes(term) ||
           last.includes(term) ||
           full1.includes(term) ||
           full2.includes(term) ||
           username.includes(term) ||
+          pcode.includes(term) ||
           pid.includes(term)
         );
       });
@@ -265,17 +274,19 @@ const Therapist: React.FC = () => {
           </Card.Body>
         </Card>
 
-        {/* Active Patients (default, counts unaffected by completed) */}
+        {/* Active Patients */}
         <h5 className="mb-2">
           {t('Active patients')} ({activePatients.length})
         </h5>
         <Table responsive hover className="align-middle">
           <thead>
             <tr>
+              <th>{t('Patient ID')}</th>
               <th>{t('Full Name')}</th>
               <th>{t('Birth Date')}</th>
               <th>{t('Sex')}</th>
               <th>{t('Diagnosis')}</th>
+              <th>{t('Last login')}</th>
               <th className="text-end">{t('Actions')}</th>
             </tr>
           </thead>
@@ -285,12 +296,28 @@ const Therapist: React.FC = () => {
               const diagnosis = Array.isArray(p.diagnosis)
                 ? p.diagnosis.join(', ')
                 : String(p.diagnosis || '');
+
+              // Prefer patient_code; fall back to username or Mongo _id (last 8 chars)
+              const patientId =
+                (p as any).patient_code ||
+                (p as any).username ||
+                (String((p as any)._id || '').slice(-8) || '—');
+
+              // last login/online (depending on what the API exposes)
+              const lastLogin =
+                (p as any).last_online ||
+                (p as any).user_last_login ||
+                (p as any).last_login ||
+                '';
+
               return (
                 <tr key={(p as any)._id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
                   <td>{fullName}</td>
                   <td>{fmtDate(String((p as any).age))}</td>
                   <td>{t(p.sex)}</td>
                   <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                  <td>{fmtDateTime(lastLogin)}</td>
                   <td className="text-end">
                     <div className="d-flex justify-content-end gap-2 flex-wrap">
                       <Button
@@ -321,7 +348,7 @@ const Therapist: React.FC = () => {
             })}
             {activePatients.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-center text-muted py-4">
+                <td colSpan={7} className="text-center text-muted py-4">
                   {t('No active patients')}
                 </td>
               </tr>
@@ -329,7 +356,7 @@ const Therapist: React.FC = () => {
           </tbody>
         </Table>
 
-        {/* Completed Patients (collapsible, below the active list) */}
+        {/* Completed Patients (collapsible) */}
         <Collapse in={showCompleted}>
           <div>
             <h5 className="mt-4 mb-2">
@@ -338,10 +365,12 @@ const Therapist: React.FC = () => {
             <Table responsive hover className="align-middle">
               <thead>
                 <tr>
+                  <th>{t('Patient ID')}</th>
                   <th>{t('Full Name')}</th>
                   <th>{t('Birth Date')}</th>
                   <th>{t('Sex')}</th>
                   <th>{t('Diagnosis')}</th>
+                  <th>{t('Last login')}</th>
                   <th className="text-end">{t('Actions')}</th>
                 </tr>
               </thead>
@@ -352,8 +381,21 @@ const Therapist: React.FC = () => {
                     ? p.diagnosis.join(', ')
                     : String(p.diagnosis || '');
                   const endDate = (p as any).rehab_end_date;
+
+                  const patientId =
+                    (p as any).patient_code ||
+                    (p as any).username ||
+                    (String((p as any)._id || '').slice(-8) || '—');
+
+                  const lastLogin =
+                    (p as any).last_online ||
+                    (p as any).user_last_login ||
+                    (p as any).last_login ||
+                    '';
+
                   return (
                     <tr key={(p as any)._id} className="completed-row">
+                      <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
                       <td>
                         {fullName}{' '}
                         <Badge bg="success" className="ms-2">
@@ -361,13 +403,14 @@ const Therapist: React.FC = () => {
                         </Badge>
                         {endDate && (
                           <small className="text-muted ms-2">
-                            {t('Discharged')}: {fmtDate(endDate)}
+                            {t('Discharged')}: {fmtDate(endDate as any)}
                           </small>
                         )}
                       </td>
                       <td>{fmtDate(String((p as any).age))}</td>
                       <td>{t(p.sex)}</td>
                       <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                      <td>{fmtDateTime(lastLogin)}</td>
                       <td className="text-end">
                         <div className="d-flex justify-content-end gap-2 flex-wrap">
                           <Button
@@ -384,10 +427,6 @@ const Therapist: React.FC = () => {
                           >
                             {t('Outcomes Dashboard')}
                           </Button>
-                          {/* Optional: Reactivate button could start a new episode */}
-                          {/* <Button size="sm" variant="outline-success" onClick={() => startNewEpisodeFor((p as any)._id)}>
-                            {t('Reactivate')}
-                          </Button> */}
                         </div>
                       </td>
                     </tr>
@@ -395,7 +434,7 @@ const Therapist: React.FC = () => {
                 })}
                 {completedPatients.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center text-muted py-4">
+                    <td colSpan={7} className="text-center text-muted py-4">
                       {t('No completed patients')}
                     </td>
                   </tr>

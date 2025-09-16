@@ -312,6 +312,7 @@ def register_view(request):
             reha_end_date = datetime.strptime(data.get("rehaEndDate"), "%Y-%m-%d")
             patient = Patient(
                 userId=user,
+                patient_code=user.username,                 # <-- NEW: persist
                 name=sanitize_text(data.get("lastName"), True),
                 first_name=sanitize_text(data.get("firstName"), True),
                 age=data.get("age", ""),
