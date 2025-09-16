@@ -395,6 +395,9 @@ def _resolve_therapist(tid: Optional[str], patient: Optional[Patient]) -> Option
         return patient.therapist
     return None
 
+
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def assign_questionnaire(request):
