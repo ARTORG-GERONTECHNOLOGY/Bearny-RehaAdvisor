@@ -1,3 +1,4 @@
+// src/pages/PatientView.tsx
 import React, { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -10,11 +11,15 @@ import WelcomeArea from '../components/common/WelcomeArea';
 import InterventionList from '../components/PatientPage/InterventionList';
 import FitbitConnectButton from '../components/PatientPage/FitbitStatus';
 import ActivitySummary from '../components/PatientPage/ActivitySummary';
+
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchParams] = useSearchParams();
+
+  // LIFTED STATE
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     authStore.checkAuthentication();
@@ -34,49 +39,54 @@ const PatientView: React.FC = observer(() => {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header isLoggedIn={authStore.isAuthenticated} />
-    <Container fluid className="d-flex flex-column min-vh-100 px-3 px-sm-4 px-md-5">
+      <Container fluid className="d-flex flex-column min-vh-100 px-3 px-sm-4 px-md-5">
 
-      {/* Welcome Section */}
-      <Row className="my-4 justify-content-center">
-        <Col xs={12}>
-          <WelcomeArea user="patient" />
-        </Col>
-      </Row>
+        {/* Welcome Section */}
+        <Row className="my-4 justify-content-center">
+          <Col xs={12}>
+            <WelcomeArea user="patient" />
+          </Col>
+        </Row>
 
-      {/* Fitbit Status */}
-      <Row className="mb-4 justify-content-center">
-        <Col xs={12} className="text-center">
-          <FitbitConnectButton />
-        </Col>
-      </Row>
-
-      {/* Error Alert */}
-      {error && (
+        {/* Fitbit Status */}
         <Row className="mb-4 justify-content-center">
-          <Col xs={11} sm={10} md={8} lg={6}>
-            <ErrorAlert
-              message={error}
-              onClose={() => setError('')}
+          <Col xs={12} className="text-center">
+            <FitbitConnectButton />
+          </Col>
+        </Row>
+
+        {/* Error Alert */}
+        {error && (
+          <Row className="mb-4 justify-content-center">
+            <Col xs={11} sm={10} md={8} lg={6}>
+              <ErrorAlert
+                message={error}
+                onClose={() => setError('')}
+              />
+            </Col>
+          </Row>
+        )}
+
+        <Row className="mb-4 justify-content-center">
+          <Col xs={12} sm={11} md={10} lg={8}>
+            {/* Pass selectedDate */}
+            <ActivitySummary selectedDate={selectedDate} />
+          </Col>
+        </Row>
+
+        {/* Intervention List */}
+        <Row className="flex-grow-1 justify-content-center">
+          <Col xs={12} sm={11} md={10} lg={8}>
+            {/* Control selectedDate from here */}
+            <InterventionList
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
             />
           </Col>
         </Row>
-      )}
-      <Row className="mb-4 justify-content-center">
-  <Col xs={12} sm={11} md={10} lg={8}>
-    <ActivitySummary />
-  </Col>
-</Row>
 
-
-      {/* Intervention List */}
-      <Row className="flex-grow-1 justify-content-center">
-        <Col xs={12} sm={11} md={10} lg={8}>
-          <InterventionList />
-        </Col>
-      </Row>
-
-      <Footer />
-    </Container>
+        <Footer />
+      </Container>
     </div>
   );
 });
