@@ -1,4 +1,4 @@
-// src/components/patient/InterventionList.tsx
+// src/components/PatientPage/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
@@ -30,9 +30,15 @@ type Rec = {
   translated_description?: string;
   titleLang?: string;
   descLang?: string;
+  notes?: string; // <- ensure this exists so the popup can show it
 };
 
-const InterventionList: React.FC = () => {
+type Props = {
+  selectedDate: Date;
+  onDateChange: (d: Date) => void;
+};
+
+const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
   const { t, i18n } = useTranslation();
   const [recommendations, setRecommendations] = useState<Rec[]>([]);
   const [selectedItem, setSelectedItem] = useState<Rec | null>(null);
@@ -41,7 +47,6 @@ const InterventionList: React.FC = () => {
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [showHealthPopup, setShowHealthPopup] = useState(false);
   const [showPatientPopup, setShowPatientPopup] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
   const localeMap: Record<string, any> = { en: enUS, de, fr, it };
@@ -312,7 +317,6 @@ const InterventionList: React.FC = () => {
               )}
 
               <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
-                {/* FIXED-SIZE PREVIEW SLOT (always present) */}
                 <div className="preview-slot">
                   {rec.preview_img ? (
                     <img
@@ -390,7 +394,7 @@ const InterventionList: React.FC = () => {
 
   const handleNavigate = (dir: 'prev' | 'next') => {
     const delta = viewMode === 'day' ? 1 : 7;
-    setSelectedDate((prev) => addDays(prev, dir === 'next' ? delta : -delta));
+    onDateChange(addDays(selectedDate, dir === 'next' ? delta : -delta));
   };
 
   return (
@@ -454,18 +458,14 @@ const InterventionList: React.FC = () => {
       )}
 
       <style>{`
-        /* Week view: 7 equal columns */
         .week-grid {
           display: grid;
           grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 12px;
         }
         .day-col { min-width: 0; }
-
         .day-card { position: relative; overflow: hidden; }
         .card-inner.is-completed { filter: grayscale(1); opacity: .72; }
-
-        /* Green completion banner */
         .done-strip {
           position: absolute;
           top: 8px; left: 8px; right: 8px;
@@ -481,8 +481,6 @@ const InterventionList: React.FC = () => {
           pointer-events: none;
         }
         .done-strip .check { font-weight: 800; margin-right: .35rem; }
-
-        /* Fixed-height preview slot (always present) */
         .preview-slot {
           width: 100%;
           height: 160px;
@@ -494,30 +492,16 @@ const InterventionList: React.FC = () => {
           border-top-right-radius: .375rem;
           overflow: hidden;
         }
-        .preview-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .preview-placeholder {
-          color: #9aa0a6;
-          font-size: .9rem;
-        }
-
-        /* Compact cards for week view */
+        .preview-img { width: 100%; height: 100%; object-fit: cover; }
+        .preview-placeholder { color: #9aa0a6; font-size: .9rem; }
         .day-card.compact .card-body { padding: 8px 10px; }
         .day-card.compact { min-height: auto; cursor: pointer; }
-
-        /* Bigger buttons for day view */
         .action-btn {
           font-size: 1.1rem;
           padding: .65rem 1.25rem;
           border-radius: .75rem;
         }
-
-        @media (max-width: 992px) {
-          .week-grid { gap: 8px; }
-        }
+        @media (max-width: 992px) { .week-grid { gap: 8px; } }
       `}</style>
     </div>
   );
