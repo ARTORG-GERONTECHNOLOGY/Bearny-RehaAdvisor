@@ -1,4 +1,8 @@
 {
+  "stepsTip": "Pas",
+  "activeMinutesTip": "Minutes actives",
+  "sleepTip": "Minutes de sommeil",
+  "inactivityTip":" Minutes d'inactivité (sédentaire)",
   "This note is shown to the patient on the intervention page.": "Cette note est affichée au patient sur la page d'intervention.",
   "e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.":" Par ex., Gardez les épaules détendues ; effectuez lentement et arrêtez si la douleur > 4/10.",
   "Personal instructions for the patient": "Instructions personnelles pour le patient",
