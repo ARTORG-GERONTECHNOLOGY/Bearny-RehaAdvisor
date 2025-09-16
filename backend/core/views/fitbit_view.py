@@ -72,10 +72,6 @@ def _resolve_patient(request, patient_id: str | None):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def fitbit_summary(request, patient_id=None):
-    """
-    GET /api/fitbit/summary/?days=7
-    GET /api/fitbit/summary/<patient_id>/?days=7          # accepts Patient.id or User.id
-    """
     try:
         patient = _resolve_patient(request, patient_id)
         if not patient:
@@ -90,10 +86,12 @@ def fitbit_summary(request, patient_id=None):
         end = timezone.now()
         start = (end - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        qs = FitbitData.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
+        qs = FitbitData.objects(
+            user=patient.userId, date__gte=start, date__lte=end
+        ).order_by("date")
 
         daily = []
-        steps_tot = act_tot = sleep_tot = 0
+        steps_tot = act_tot = sleep_tot = inact_tot = 0
         last_sync = None
 
         for d in qs:
@@ -103,25 +101,39 @@ def fitbit_summary(request, patient_id=None):
                 "active_minutes": int(d.active_minutes or 0),
                 "sleep_minutes": _sleep_minutes(d),
             }
+            # derive inactivity if not stored
+            inactivity = getattr(d, "inactivity_minutes", None)
+            if inactivity is None:
+                inactivity = max(0, 1440 - ((row["active_minutes"] or 0) + (row["sleep_minutes"] or 0)))
+            row["inactivity_minutes"] = int(inactivity)
+
             daily.append(row)
             steps_tot += row["steps"]
             act_tot += row["active_minutes"]
             sleep_tot += row["sleep_minutes"]
+            inact_tot += row["inactivity_minutes"]
             last_sync = d.date
 
-        n = max(1, len(qs))
+        n = max(1, qs.count())  # avoid negative-indexing; count is safe
+
+        # pick today's record or most recent safely (no negative indexing)
         today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
-        today = (
-            FitbitData.objects(user=patient.userId, date__gte=today_start).order_by("-date").first()
-            or (qs[-1] if qs else None)
-        )
+        today_qs = FitbitData.objects(user=patient.userId, date__gte=today_start).order_by("-date")
+        today = today_qs.first() or qs.order_by("-date").first()
 
         today_payload = None
         if today:
+            sm = _sleep_minutes(today)
+            am = int(today.active_minutes or 0)
+            im = getattr(today, "inactivity_minutes", None)
+            if im is None:
+                im = max(0, 1440 - (am + sm))
+
             today_payload = {
                 "steps": int(today.steps or 0),
-                "active_minutes": int(today.active_minutes or 0),
-                "sleep_minutes": _sleep_minutes(today),
+                "active_minutes": am,
+                "sleep_minutes": sm,
+                "inactivity_minutes": int(im),
                 "resting_heart_rate": int(today.resting_heart_rate) if today.resting_heart_rate is not None else None,
             }
 
@@ -136,11 +148,13 @@ def fitbit_summary(request, patient_id=None):
                         "steps": steps_tot,
                         "active_minutes": act_tot,
                         "sleep_minutes": sleep_tot,
+                        "inactivity_minutes": inact_tot,
                     },
                     "averages": {
                         "steps": steps_tot // n,
                         "active_minutes": act_tot // n,
                         "sleep_minutes": sleep_tot // n,
+                        "inactivity_minutes": inact_tot // n,
                     },
                     "daily": daily,
                 },
@@ -150,6 +164,9 @@ def fitbit_summary(request, patient_id=None):
     except Exception as e:
         logger.error("[fitbit_summary] %s", e, exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
