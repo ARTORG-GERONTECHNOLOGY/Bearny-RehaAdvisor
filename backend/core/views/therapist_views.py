@@ -35,9 +35,20 @@ def list_therapist_patients(request, therapist_id):
     try:
         therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         patients = Patient.objects.filter(therapist=therapist)
+        
 
         patient_list = []
         for patient in patients:
+            p_user = patient.userId
+            # Add computed "last_online" (last LOGIN from Logs), date only
+            last_login = (
+                Logs.objects(userId=p_user, action="LOGIN")
+                .order_by("-timestamp")
+                .first()
+            )
+            last_online = (
+                last_login.timestamp.date().isoformat() if last_login else None
+            )
             patient_list.append(
                 {
                     "_id": str(patient.pk),
@@ -50,6 +61,9 @@ def list_therapist_patients(request, therapist_id):
                     "name": patient.name,
                     "diagnosis": patient.diagnosis,
                     "duration": patient.duration,
+                    "patient_code": patient.patient_code or '-',              # <- expose Patient ID
+                  # (fallback the UI already handles)
+                    "last_online": last_online,
                 }
             )
 
