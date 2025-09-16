@@ -157,6 +157,7 @@ class FeedbackQuestion(Document):
     answer_type = StringField(required=True, choices=["multi-select", "text", "select"])
     icfCode = StringField(default="")
     createdAt = DateTimeField(default=timezone.now)
+    applicable_types = ListField(StringField())   # e.g., ["Exercises", "Video", "Apps"]
 
 
 # Simplified PatientType (per intervention)

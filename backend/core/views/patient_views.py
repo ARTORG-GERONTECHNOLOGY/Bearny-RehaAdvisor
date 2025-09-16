@@ -346,59 +346,6 @@ def submit_patient_feedback(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-
-
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def add_intervention_to_patient_1(request):
-    """
-    POST /api/interventions/add-to-patient/
-    Assigns an intervention to a single patient.
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    try:
-        data = json.loads(request.body)
-        patient_id = data.get("patient_id")
-        intervention_id = data.get("intervention_id")
-
-        if not patient_id or not intervention_id:
-            return JsonResponse(
-                {"error": "Missing patient_id or intervention_id"}, status=400
-            )
-
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
-        intervention = Intervention.objects.get(pk=intervention_id)
-
-        # Create the relation if it doesn't exist already
-        patient_intervention, created = PatientInterventionLogs.get_or_create(
-            patient, intervention
-        )
-
-        if created:
-            return JsonResponse(
-                {"message": "Intervention successfully assigned"}, status=201
-            )
-        else:
-            return JsonResponse(
-                {"error": "Intervention is already assigned to the patient"}, status=400
-            )
-
-    except Patient.DoesNotExist:
-        logger.warning(f"[add_intervention_to_patient] Entity not found")
-        return JsonResponse({"error": "Patient not found"}, status=404)
-    except Intervention.DoesNotExist:
-        logger.warning(f"[add_intervention_to_patient] Entity not found")
-        return JsonResponse({"error": "Intervention not found"}, status=404)
-    except Exception as e:
-        logger.error(
-            f"[add_intervention_to_patient] Unexpected error: {str(e)}", exc_info=True
-        )
-        return JsonResponse({"error": str(e)}, status=500)
-
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
@@ -749,7 +696,35 @@ def create_patient_intervention_log(request):
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+TYPE_PREFIX_MAP = {
+    "articles": "articles_",
+    "educational material": "edu_",
+    "exercises": "exercises_",
+    "audio": "audio_",
+    "video": "video_",
+    "pdfs": "pdf_",
+    "websites": "web_",
+    "manuals": "manual_",
+    "apps": "app_",
+    "games": "game_",
+}
 
+def _serialize_questions(qs):
+    return [
+        {
+            "questionKey": q.questionKey,
+            "answerType": q.answer_type,
+            "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
+            "possibleAnswers": [
+                {
+                    "key": opt.key,
+                    "translations": [{"language": t2.language, "text": t2.text} for t2 in opt.translations],
+                }
+                for opt in (q.possibleAnswers or [])
+            ],
+        }
+        for q in qs
+    ]
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
@@ -901,71 +876,94 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
     # -------------------- INTERVENTION --------------------
     elif questionaire_type == "Intervention":
-        # Base intervention questions
-        questions_qs = FeedbackQuestion.objects(questionSubject="Intervention")
-        serialized = [
-            {
-                "questionKey": q.questionKey,
-                "answerType": q.answer_type,
-                "translations": [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in q.translations
-                ],
-                "possibleAnswers": [
-                    {
-                        "key": opt.key,
-                        "translations": [
-                            {"language": t2.language, "text": t2.text}
-                            for t2 in opt.translations
-                        ],
-                    }
-                    for opt in (q.possibleAnswers or [])
-                ],
-            }
-            for q in questions_qs
-        ]
+        # Try to resolve the assignment + intervention type
+        assignment = None
+        intervention_type = None
 
-        # If we know which intervention this is for, check the plan flag
         if intervention_id:
             plan = RehabilitationPlan.objects(patientId=patient).first()
             if plan:
-                # interventionId is a ReferenceField; compare by its ObjectId
                 assignment = next(
                     (
-                        a
-                        for a in (plan.interventions or [])
+                        a for a in (plan.interventions or [])
                         if str(getattr(a.interventionId, "id", a.interventionId)) == str(intervention_id)
                     ),
                     None,
                 )
-                if assignment and getattr(assignment, "require_video_feedback", False):
-                    serialized.append(
-                        {
-                            "questionKey": "video_example",
-                            "answerType": "video",
-                            "translations": [
-                                {
-                                    "language": "en",
-                                    "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera.",
-                                },
-                                {
-                                    "language": "it",
-                                    "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s di attesa—posiziona la fotocamera.",
-                                },
-                                {
-                                    "language": "de",
-                                    "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s Verzögerung—bitte richten Sie die Kamera aus.",
-                                },
-                                {
-                                    "language": "fr",
-                                    "text": "Votre thérapeute a demandé une vidéo. L’enregistrement commencera après un délai de 10 s—veuillez placer votre caméra.",
-                                },
-                            ],
-                            "possibleAnswers": [],
-                        }
-                    )
+                if assignment and getattr(assignment, "interventionId", None):
+                    # normalize to lower for matching
+                    raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
+                    intervention_type = raw_type.strip().lower() or None
 
-        return JsonResponse({"questions": serialized})
+        # 1) Core questions (apply to all interventions).
+        #    We accept two ways to mark "core":
+        #       - No applicable_types field
+        #       - OR applicable_types explicitly contains "All"
+        core_q = FeedbackQuestion.objects(
+            questionSubject="Intervention"
+        ).filter(
+            Q(applicable_types__exists=False) | Q(applicable_types__size=0) | Q(applicable_types__icontains="all")
+        )
+
+        # 2) Type-specific questions:
+        type_q = []
+        if intervention_type:
+            # Prefer explicit tagging via applicable_types
+            tagged = FeedbackQuestion.objects(
+                questionSubject="Intervention",
+                applicable_types__icontains=intervention_type
+            )
+
+            # Fallback: prefix convention on questionKey if your DB doesn’t use applicable_types yet
+            prefix = TYPE_PREFIX_MAP.get(intervention_type, "")
+            prefixed = []
+            if prefix:
+                prefixed = FeedbackQuestion.objects(
+                    questionSubject="Intervention",
+                    questionKey__istartswith=prefix
+                )
+
+            # Merge (avoid duplicates by key)
+            seen = set()
+            merged = []
+            for q in list(tagged) + list(prefixed):
+                if q.questionKey not in seen:
+                    merged.append(q)
+                    seen.add(q.questionKey)
+            type_q = merged
+
+        # 3) Build final list
+        result = _serialize_questions(core_q) + _serialize_questions(type_q)
+
+        # 4) Optional: require video feedback per assignment flag
+        if assignment and getattr(assignment, "require_video_feedback", False):
+            result.append(
+                {
+                    "questionKey": "video_example",
+                    "answerType": "video",
+                    "translations": [
+                        {
+                            "language": "en",
+                            "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera.",
+                        },
+                        {
+                            "language": "it",
+                            "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s—posiziona la fotocamera.",
+                        },
+                        {
+                            "language": "de",
+                            "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s—bitte richten Sie die Kamera aus.",
+                        },
+                        {
+                            "language": "fr",
+                            "text": "Votre thérapeute a demandé une vidéo. L’enregistrement commencera après 10 s—veuillez placer votre caméra.",
+                        },
+                    ],
+                    "possibleAnswers": [],
+                }
+            )
+
+        return JsonResponse({"questions": result})
 
     else:
         return JsonResponse({"error": "Invalid questionnaire type."}, status=400)

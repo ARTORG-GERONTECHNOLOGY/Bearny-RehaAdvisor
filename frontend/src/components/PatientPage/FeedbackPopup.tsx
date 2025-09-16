@@ -55,6 +55,8 @@ const PRIVACY_NOTE: Record<string, string> = {
   en: 'Note: Recordings and videos are only visible to your therapist and will be deleted after 14 days.',
 };
 
+const GAP_PX = 12; // keep in sync with CSS .answer-grid gap
+
 const FeedbackPopup = ({
   show,
   interventionId,
@@ -93,7 +95,6 @@ const FeedbackPopup = ({
   const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cols, setCols] = useState<number>(typeof window !== 'undefined' && window.innerWidth < 576 ? 2 : 3);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<BlobPart[]>([]);
@@ -107,13 +108,6 @@ const FeedbackPopup = ({
   useEffect(() => {
     if (!show) resetAll();
   }, [show]);
-
-  // Update grid columns on resize (2 cols on narrow viewports, 3 on larger)
-  useEffect(() => {
-    const onResize = () => setCols(window.innerWidth < 576 ? 2 : 3);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   const resetAll = () => {
     setCurrentQuestionIndex(0);
@@ -256,6 +250,13 @@ const FeedbackPopup = ({
     setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: file }));
   };
 
+  /** Layout helper for options: 2x2 (≤4) or 2x3 (5–6). */
+  const getGridLayout = (count: number) => {
+    const cols = count <= 4 ? 2 : 3;
+    const rows = Math.min(2, Math.ceil(count / cols)); // cap to two rows
+    return { cols, rows };
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -295,26 +296,30 @@ const FeedbackPopup = ({
     onClose();
   };
 
-  /** Answers (bottom sticky) */
+  /** Answers area (no scrolling; auto-fit grid) */
   const renderOptions = (multiple = false) => {
     const selected: string[] = answers[currentQuestion.questionKey] || [];
     const options = currentQuestion.options || [];
-    const fillers = (cols - (options.length % cols)) % cols;
+    const { cols, rows } = getGridLayout(options.length);
 
     return (
       <div className="bottom-answers">
-        <div className="feedback-box answers p-3">
+        <div
+          className="feedback-box answers p-3"
+          style={
+            {
+              // expose rows to CSS for button height calculation
+              ['--rows' as any]: rows,
+              ['--cols' as any]: cols,
+            } as React.CSSProperties
+          }
+        >
           <div
             className="answer-grid"
             style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
             role="group"
             aria-label={t('Answer options')}
           >
-            {/* grid spacers to keep last row aligned */}
-            {Array.from({ length: Math.floor((cols - 1) / 2) }).map((_, i) => (
-              <div className="grid-spacer" key={`spacer-top-${i}`} />
-            ))}
-
             {options.map((opt, i) => {
               const label = pickText(opt.translations, currentLang, opt.key);
               const active = selected.includes(opt.key);
@@ -332,10 +337,10 @@ const FeedbackPopup = ({
                 </Button>
               );
             })}
-
-            {/* bottom spacers to complete the grid row */}
-            {Array.from({ length: fillers }).map((_, i) => (
-              <div className="grid-spacer" key={`spacer-bot-${i}`} />
+            {/* If fewer items than grid cells, we add invisible fillers to keep
+                consistent sizing (so each row has exactly `cols` items). */}
+            {Array.from({ length: Math.max(0, rows * cols - options.length) }).map((_, i) => (
+              <div className="answer-filler" key={`f-${i}`} />
             ))}
           </div>
         </div>
@@ -344,7 +349,7 @@ const FeedbackPopup = ({
   };
 
   return (
-    <Modal show={show} onHide={confirmClose} centered>
+    <Modal show={show} onHide={confirmClose} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>{t('Feedback')}</Modal.Title>
       </Modal.Header>
@@ -498,20 +503,20 @@ const FeedbackPopup = ({
         )}
       </Modal.Footer>
 
-      {/* Inline styles: stable layout + bottom-sticky answers with internal scroll */}
+      {/* Inline styles: stable layout + NON-scrolling answers area that fits in window */}
       <style>{`
         :root{
           --footer-safe: 84px;            /* keeps sticky area clear of footer */
           --feedback-min-h: 56vh;         /* stable content height */
           --feedback-box-h: 236px;        /* text/audio/video box height */
-          --answer-min: 110px;            /* min size of a square answer */
+          --answers-area-h: clamp(180px, 36vh, 360px); /* height reserved for answers grid */
         }
         @media (max-width: 576px){
           :root{
             --footer-safe: 84px;
             --feedback-min-h: 52vh;
             --feedback-box-h: 210px;
-            --answer-min: 96px;
+            --answers-area-h: clamp(160px, 34vh, 320px);
           }
         }
 
@@ -527,11 +532,12 @@ const FeedbackPopup = ({
           background:#fff;
         }
 
-        /* Answers version — gets internal scrolling and sits above footer */
+        /* Answers version — fixed height, NO scrolling, fits 2 rows */
         .feedback-box.answers{
-          height:auto;
-          max-height: clamp(200px, 40vh, 360px);
-          overflow:auto;
+          height: var(--answers-area-h);
+          overflow: hidden;               /* no scrollbars */
+          display: flex;
+          align-items: stretch;
         }
         .bottom-answers{
           position: sticky;
@@ -542,17 +548,24 @@ const FeedbackPopup = ({
           z-index: 1;
         }
 
-        .answer-grid{ display:grid; gap:12px; }
-        .grid-spacer{ visibility:hidden; }
+        .answer-grid{ 
+          display:grid; 
+          gap:${GAP_PX}px; 
+          width: 100%;
+        }
+        .answer-filler{ visibility: hidden; }
 
+        /* Buttons fill exactly the available rows height */
         .answer-btn{
-          aspect-ratio: 1 / 1;
-          min-height: var(--answer-min);
+          height: calc(
+            (var(--answers-area-h) - ( (var(--rows, 2) - 1) * ${GAP_PX}px ) - 2px) / var(--rows, 2)
+          );
+          /* the -2px compensates the container border so last row doesn't clip */
           width: 100%;
           display:flex; align-items:center; justify-content:center;
           border-radius: 12px;
           padding: .75rem;
-          line-height: 1.2;
+          line-height: 1.25;
           white-space: normal;
           word-break: break-word;
         }
