@@ -17,6 +17,7 @@ from mongoengine import (
     ReferenceField,
     StringField,
     FloatField,
+    DynamicField,
 )
 
 from utils.config import config
@@ -238,41 +239,44 @@ class InterventionAssignment(EmbeddedDocument):
     require_video_feedback = BooleanField(default=False)  # Whether video feedback is required
 
 
+# core/models.py
+
 class DiagnosisAssignmentSettings(EmbeddedDocument):
-    active = BooleanField(default=False)
-    interval = IntField()
-    unit = StringField()
+    # existing
+    active = BooleanField(default=True)
+    interval = IntField(default=1)
+    unit = StringField(choices=['day','week','month'], default='week')
     selected_days = ListField(StringField())
-    end_type = StringField()
-    count_limit = IntField()
+    end_type = StringField(default='count')  # legacy
+    count_limit = IntField()                 # legacy 'count'
+
+    # NEW
+    start_day = IntField(default=1)              # Day S (1-based)
+    end_day = IntField()                         # Day N (optional, else derive)
+    suggested_execution_time = IntField()        # minutes (optional)
 
 
 class DefaultInterventions(EmbeddedDocument):
     recommendation = ReferenceField(Intervention, required=True)
-    # Example: {"Heart Attack": {...}, "Stroke": {...}, "all": {...}}
+    #allow **list of blocks** per diagnosis: { "Stroke": [block1, block2, ...] }
     diagnosis_assignments = DictField(
-        EmbeddedDocumentField(DiagnosisAssignmentSettings)
+        ListField(EmbeddedDocumentField(DiagnosisAssignmentSettings))
     )
 
 
 class Therapist(Document):
-    meta = {"collection": "Therapist"}  # MongoDB collection
+    meta = {"collection": "Therapist"}
     userId = ReferenceField(User, required=True)
     name = StringField(max_length=20)
     first_name = StringField(max_length=20)
     created_at = DateTimeField(default=timezone.now)
-    specializations = ListField(
-        StringField(max_length=200), choices=config["therapistInfo"]["specializations"]
-    )
-    clinics = ListField(
-        StringField(max_length=200), choices=config["therapistInfo"]["clinics"]
-    )
-    default_recommendations = ListField(
-        EmbeddedDocumentField(DefaultInterventions)
-    )  # TODO needed?
+    specializations = ListField(StringField(max_length=200),
+                                choices=config["therapistInfo"]["specializations"])
+    clinics = ListField(StringField(max_length=200),
+                        choices=config["therapistInfo"]["clinics"])
 
-    def __str__(self):
-        return f"{self.username} (Therapist)"
+    # Templates are **therapist-specific** here:
+    default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions))
 
 
 # models.py
