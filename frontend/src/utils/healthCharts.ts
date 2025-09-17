@@ -8,7 +8,7 @@ export const fmtNice = d3.timeFormat('%b %d');
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
 
-const { t, i18n } = useTranslation();
+
 export function aggregateToPeriods<T>(
   data: T[],
   getDate: (d: T) => string,
@@ -78,6 +78,7 @@ export function drawRangeLineSeries(
   title: string,
   band: { lo: number | null; hi: number | null; mean: number | null }
 ) {
+  const { t, i18n } = useTranslation();
   if (!svgRef.current || !document.body.contains(svgRef.current)) return;
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();

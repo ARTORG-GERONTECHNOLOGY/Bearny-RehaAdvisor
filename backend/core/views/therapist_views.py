@@ -356,12 +356,6 @@ def _feedback_computing(patient):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def list_therapist_patients(request, therapist_id):
-    """
-    Returns a list of patients for a given therapist ID.
-    Includes: patient_code, last_online, last_feedback_at,
-              7-day averages for sleep/activity/steps from FitbitData,
-              and adherence (completed / (completed + skipped)) from PatientInterventionLogs.
-    """
     try:
         therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
     except Therapist.DoesNotExist:
@@ -371,42 +365,42 @@ def list_therapist_patients(request, therapist_id):
     since = datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)
     out = []
 
-    # one pass over patients
-    for patient in Patient.objects(therapist=therapist):
-        u = patient.userId
+    # Avoid automatic deref (prevents exceptions on broken refs)
+    patients_qs = (
+        Patient.objects(therapist=therapist)
+        .only("first_name", "name", "sex", "diagnosis", "age",
+              "patient_code", "userId", "reha_end_date")
+        .no_dereference()
+    )
 
-        # ---- last login / online ----
+    for patient in patients_qs:
+        # ---- resolve user safely ----
+        uid_ref = getattr(patient, "userId", None)  # DBRef or ObjectId or None
+        uid = getattr(uid_ref, "id", uid_ref) if uid_ref else None  # extract ObjectId
+        u = User.objects(id=uid).first() if uid else None  # may be None
+
+        # ---- last online / login ----
         last_online_dt = None
-        last_login_log = (
-            Logs.objects(userId=u, action="LOGIN").order_by("-timestamp").first()
-        )
-        if last_login_log:
-            last_online_dt = last_login_log.timestamp
-        if last_online_dt is None:
-            # optional fallbacks depending on your user schema
-            last_online_dt = getattr(u, "last_online", None) or getattr(u, "last_login", None)
+        if u:
+            last_login_log = Logs.objects(userId=u, action="LOGIN").order_by("-timestamp").first()
+            if last_login_log:
+                last_online_dt = last_login_log.timestamp
+            if last_online_dt is None:
+                last_online_dt = getattr(u, "last_online", None) or getattr(u, "last_login", None)
 
-        # ---- latest feedback (from PatientICFRating) ----
+        # ---- latest feedback summary ----
         summary, last_feedback_at_dt = _feedback_computing(patient)
 
-        # ---- FitbitData 7-day averages ----
-        # Your FitbitData schema: user, date, steps, active_minutes, sleep (embedded SleepData with sleep_duration ms)
-        fitbit_qs = FitbitData.objects(user=u, date__gte=since).only(
-            "steps", "active_minutes", "sleep"
-        )
-
-        steps_vals = [doc.steps for doc in fitbit_qs if doc.steps is not None]
-        activity_vals = [doc.active_minutes for doc in fitbit_qs if doc.active_minutes is not None]
-
-        # sleep_duration is milliseconds; convert to hours
-        sleep_hours = []
-        for doc in fitbit_qs:
-            try:
+        # ---- Fitbit 7-day averages ----
+        steps_vals, activity_vals, sleep_hours = [], [], []
+        if u:
+            fitbit_qs = FitbitData.objects(user=u, date__gte=since).only("steps", "active_minutes", "sleep")
+            steps_vals = [doc.steps for doc in fitbit_qs if doc.steps is not None]
+            activity_vals = [doc.active_minutes for doc in fitbit_qs if doc.active_minutes is not None]
+            for doc in fitbit_qs:
                 dur_ms = getattr(getattr(doc, "sleep", None), "sleep_duration", None)
                 if isinstance(dur_ms, (int, float)):
                     sleep_hours.append(dur_ms / 3600000.0)
-            except Exception:
-                pass
 
         biomarker = {
             "sleep_avg_h": _avg(sleep_hours),
@@ -414,36 +408,25 @@ def list_therapist_patients(request, therapist_id):
             "steps_avg": _avg(steps_vals),
         }
 
-        # ---- rehabilitation adherence over last 7 days ----
-        # Use PatientInterventionLogs; status is a ListField of strings.
         adh_7, adh_total = _adherence(patient)
 
-        # ---- patient code/id ----
-        patient_code = (
-            getattr(patient, "patient_code", None)
-            or '-'
-        )
-
-        out.append(
-            {
-                "_id": str(patient.id),
-                "first_name": patient.first_name,
-                "name": patient.name,
-                "sex": patient.sex,
-                "diagnosis": patient.diagnosis,
-                "age": patient.age,
-                "created_at": (u.createdAt.isoformat() if getattr(u, "createdAt", None) else None),
-                "patient_code": patient_code,
-                "last_online": (last_online_dt.isoformat() if isinstance(last_online_dt, datetime) else None),
-                "last_feedback_at": (last_feedback_at_dt.isoformat() if last_feedback_at_dt else None),
-                "questionnaires": summary,  # detailed per-questionnaire info for FE
-                "feedback_low": any(it.get("low_score") for it in summary),  # quick flag for the ampel
-                "biomarker": biomarker,
-                "adherence_rate": adh_7,          # used by the Ampel for last 7 days
-                "adherence_total": adh_total,  
-                # keep any other fields you already return (rehab_end_date, rehab_status, etc.)
-            }
-        )
+        out.append({
+            "_id": str(patient.pk),
+            "first_name": patient.first_name,
+            "name": patient.name,
+            "sex": patient.sex,
+            "diagnosis": patient.diagnosis,
+            "age": patient.age,
+            "created_at": (u.createdAt.isoformat() if (u and getattr(u, "createdAt", None)) else None),
+            "patient_code": getattr(patient, "patient_code", "-"),
+            "last_online": (last_online_dt.isoformat() if isinstance(last_online_dt, datetime) else None),
+            "last_feedback_at": (last_feedback_at_dt.isoformat() if last_feedback_at_dt else None),
+            "questionnaires": summary,
+            "feedback_low": any(it.get("low_score") for it in summary),
+            "biomarker": biomarker,
+            "adherence_rate": adh_7,
+            "adherence_total": adh_total,
+        })
 
     return JsonResponse(out, safe=False, status=200)
 

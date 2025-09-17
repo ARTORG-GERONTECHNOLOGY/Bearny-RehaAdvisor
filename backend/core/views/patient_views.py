@@ -102,6 +102,29 @@ FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
+def resolve_patient(identifier: str):
+    """
+    Accepts any of:
+      - Patient._id (ObjectId string)
+      - User._id (ObjectId string)
+      - username (User.username, your patient_code)
+      - Patient.patient_code
+    Returns Patient or None.
+    """
+    if not identifier:
+        return None
+
+    # Username/patient_code path
+    try:
+        u = User.objects.get(pk=identifier)
+        return Patient.objects.get(userId=u)
+    except (User.DoesNotExist, Patient.DoesNotExist):
+        pass
+
+    try:
+        return Patient.objects.get(pk=identifier)
+    except Patient.DoesNotExist:
+        return None
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -526,6 +549,7 @@ def get_patient_recommendations(request, patient_id):
         )
 
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_patient_plan(request, patient_id):
@@ -649,8 +673,6 @@ def get_patient_plan(request, patient_id):
         return JsonResponse(
             {"error": "Internal Server Error", "details": str(e)}, status=500
         )
-
-
 
 
 
@@ -1520,8 +1542,9 @@ def get_patient_plan_for_therapist(request, patient_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        patient = Patient.objects.get(id=ObjectId(patient_id))
+        patient = resolve_patient(patient_id)
         plan = RehabilitationPlan.objects.get(patientId=patient)
+        print(plan.interventions)
 
         today = timezone.now().date()
         plan_data = {
