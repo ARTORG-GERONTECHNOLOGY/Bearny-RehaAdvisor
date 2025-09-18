@@ -25,3 +25,9 @@ export interface QuestionnaireEntry {
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
 export type ViewMode = 'weekly' | 'monthly';
+export type AdherenceEntry = {
+  date: string;         // YYYY-MM-DD
+  scheduled: number;    // occurrences scheduled that day
+  completed: number;    // completed logs that day
+  pct: number | null;   // 0..100 or null if no schedule that day
+};
