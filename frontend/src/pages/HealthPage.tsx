@@ -11,14 +11,14 @@ import { Card,  Form} from 'react-bootstrap';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import authStore from '../stores/authStore';
-
-import Filters from '../components/Health/controls/Filters';
 import MetricBarOrBox from '../components/Health/charts/MetricBarOrBox';
 import SleepChart from '../components/Health/charts/SleepChart';
 import HRZonesStacked from '../components/Health/charts/HRZonesStacked';
 import QuestionnaireTotal from '../components/Health/charts/QuestionnaireTotal';
 import QuestionnaireLines from '../components/Health/charts/QuestionnaireLines';
 import ExportModal from '../components/Health/ExportModal';
+import AdherenceLine from '../components/Health/charts/AdherenceLine';
+import type { AdherenceEntry } from '../types/health';
 
 import { FitbitEntry, QuestionnaireEntry, ChartRes, ViewMode } from '../types/health';
 import { isInRange, svgToImageDataUrl } from '../utils/healthCharts';
@@ -32,6 +32,7 @@ const HealthPage: React.FC = () => {
   const [chartRes, setChartRes] = useState<ChartRes>('daily');
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const [patientName, setPatientName] = useState<string | null>(null);
+const [adherenceData, setAdherenceData] = useState<AdherenceEntry[]>([]);
 
   // derived view window
   const [startDate, endDate] = useMemo(() => {
@@ -99,6 +100,7 @@ const HealthPage: React.FC = () => {
         const res = await axios.get(`/api/patients/health-combined-history/${userId}/`, { params });
         setFitbitData(res.data.fitbit || []);
         setQuestionnaireData(res.data.questionnaire || []);
+        setAdherenceData(res.data.adherence || []);
       } catch {
         setError(t('Failed to load health data.'));
       }
@@ -130,6 +132,7 @@ const HealthPage: React.FC = () => {
 
   // chart refs for PDF
   const svgRefs = {
+    adherence: useRef<SVGSVGElement>(null),
     totalScore: useRef<SVGSVGElement>(null),
     questionnaire: useRef<SVGSVGElement>(null),
     restingHR: useRef<SVGSVGElement>(null),
@@ -145,79 +148,215 @@ const HealthPage: React.FC = () => {
   // ── Export modal state ───────────────────────────────────────────────────────
   const [showExport, setShowExport] = useState(false);
   const defaultSelections: Record<string, boolean> = {
-    totalScore: true, questionnaire: true, restingHR: true, sleep: true, hrZones: true,
+    adherence: true,totalScore: true, questionnaire: true, restingHR: true, sleep: true, hrZones: true,
     floors: true, steps: true, distance: true, breathing: true, hrv: true,
   };
 
   // CSV export using values coming from the modal
-  const handleExportCSV = (from: Date, to: Date, selections: Record<string, boolean>) => {
-    const delim = ';';
-    let csv = '';
+const handleExportCSV = (
+  from: Date,
+  to: Date,
+  selections: Record<string, boolean>
+) => {
+  const delim = ';';
 
-    const fitIn = fitbitData.filter((d) => isInRange(d.date, from, to));
-    const qIn = questionnaireData.filter((d) => isInRange(d.date, from, to));
-
-    if (selections.totalScore && qIn.length) {
-      csv += 'Date;Total Score\n';
-      const grouped = d3.groups(qIn, (d) => d.date.slice(0, 10));
-      for (const [date, entries] of grouped) {
-        const score = d3.sum(entries, (e) => parseInt(e.answers?.[0]?.key || '0'));
-        csv += `${date}${delim}${score}\n`;
-      }
-      csv += '\n';
-    }
-    if (selections.questionnaire) {
-      csv += 'Date;Question Key;Answer Key;Answer Text\n';
-      for (const e of qIn) {
-        if (!visibleQuestions[e.questionKey]) continue;
-        const key = e.answers?.[0]?.key ?? '';
-        const text =
-          e.answers?.[0]?.translations?.find((x) => x.language === i18n.language)?.text ||
-          e.answers?.[0]?.translations?.find((x) => x.language === 'en')?.text ||
-          key;
-        csv += `${e.date}${delim}${e.questionKey}${delim}${key}${delim}${text}\n`;
-      }
-      csv += '\n';
-    }
-    const emit = (label: string, rows: { date: string; val?: number }[]) => {
-      if (!rows.length) return '';
-      let s = `Date;${label}\n`;
-      rows.forEach((r) => { if (r.val != null) s += `${r.date}${delim}${r.val}\n`; });
-      return s + '\n';
-    };
-    if (selections.restingHR) csv += emit('Resting Heart Rate', fitIn.map((d) => ({ date: d.date, val: d.resting_heart_rate })));
-    if (selections.steps)     csv += emit('Steps',              fitIn.map((d) => ({ date: d.date, val: d.steps })));
-    if (selections.distance)  csv += emit('Distance',           fitIn.map((d) => ({ date: d.date, val: d.distance })));
-    if (selections.floors)    csv += emit('Floors',             fitIn.map((d) => ({ date: d.date, val: d.floors })));
-    if (selections.breathing) csv += emit('Breathing Rate',     fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate })));
-    if (selections.hrv)       csv += emit('HRV (dailyRmssd)',   fitIn.map((d: any) => ({ date: d.date, val: d.hrv?.dailyRmssd })));
-    if (selections.sleep) {
-      csv += 'Date;Sleep Start;Sleep End;Duration (h)\n';
-      fitIn.forEach((d: any) => {
-        if (d.sleep?.sleep_duration != null) {
-          const h = (d.sleep.sleep_duration / 3600000).toFixed(2);
-          csv += `${d.date}${delim}${d.sleep.sleep_start}${delim}${d.sleep.sleep_end}${delim}${h}\n`;
-        }
-      });
-      csv += '\n';
-    }
-    if (selections.hrZones) {
-      csv += 'Date;Zone;Minutes\n';
-      fitIn.forEach((d) => (d.heart_rate_zones || []).forEach((z) => {
-        csv += `${d.date}${delim}${z.name}${delim}${z.minutes}\n`;
-      }));
-      csv += '\n';
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `HealthData_${from.toISOString().slice(0,10)}_to_${to.toISOString().slice(0,10)}.csv`);
-    setShowExport(false);
+  const csvEscape = (v: unknown) => {
+    const s = String(v ?? '');
+    const needsQuotes = /[",\n;]/.test(s);
+    const escaped = s.replace(/"/g, '""');
+    return needsQuotes ? `"${escaped}"` : escaped;
   };
+
+  const emitRows = (header: string[], rows: (string | number | null | undefined)[][]) =>
+    [header, ...rows]
+      .map((line) => line.map(csvEscape).join(delim))
+      .join('\n') + '\n\n';
+
+  let csv = '';
+
+  // Filter by selected window once
+  const fitIn = fitbitData.filter((d) => isInRange(d.date, from, to));
+  const qIn   = questionnaireData.filter((d) => isInRange(d.date, from, to));
+
+  // ----- Total questionnaire score per day -----
+  if (selections.totalScore && qIn.length) {
+    const grouped = d3.groups(qIn, (d) => d.date.slice(0, 10));
+    grouped.sort((a, b) => a[0].localeCompare(b[0]));
+    const rows = grouped.map(([date, entries]) => {
+      const score = d3.sum(entries, (e) => parseInt(e.answers?.[0]?.key || '0', 10));
+      return [date, score];
+    });
+    csv += emitRows(['Date', 'Total Score'], rows);
+  }
+
+  // ----- Adherence (uses current chartRes) -----
+  if (selections.adherence) {
+    // Helper: start-of-week (Mon)
+    const startOfWeek = (d: Date) => {
+      const x = new Date(d);
+      const day = x.getDay();
+      const diff = x.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(x.getFullYear(), x.getMonth(), diff);
+    };
+    const ymKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    const adIn = adherenceData.filter((d) => isInRange(d.date, from, to));
+
+    type Row = { label: string; sched: number; comp: number; pct: number | null; sort: Date };
+
+    let rows: Row[] = [];
+
+    if (chartRes === 'daily') {
+      rows = adIn
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((d) => {
+          const dt = new Date(d.date);
+          return {
+            label: d.date,
+            sched: d.scheduled ?? 0,
+            comp: d.completed ?? 0,
+            pct: d.pct ?? null,
+            sort: dt,
+          };
+        });
+    } else if (chartRes === 'weekly') {
+      const map = new Map<string, { sched: number; comp: number; d: Date }>();
+      adIn.forEach((d) => {
+        const dt = new Date(d.date);
+        const wk = startOfWeek(dt);
+        const key = wk.toISOString().slice(0, 10);
+        if (!map.has(key)) map.set(key, { sched: 0, comp: 0, d: wk });
+        const v = map.get(key)!;
+        v.sched += d.scheduled ?? 0;
+        v.comp += d.completed ?? 0;
+      });
+      rows = [...map.values()]
+        .sort((a, b) => a.d.getTime() - b.d.getTime())
+        .map((v) => ({
+          label: v.d.toISOString().slice(0, 10), // week start (Mon)
+          sched: v.sched,
+          comp: v.comp,
+          pct: v.sched > 0 ? Math.round((100 * v.comp) / v.sched) : null,
+          sort: v.d,
+        }));
+    } else {
+      // monthly
+      const map = new Map<string, { sched: number; comp: number; d: Date }>();
+      adIn.forEach((d) => {
+        const dt = new Date(d.date);
+        const key = ymKey(dt);
+        if (!map.has(key))
+          map.set(key, {
+            sched: 0,
+            comp: 0,
+            d: new Date(dt.getFullYear(), dt.getMonth(), 1),
+          });
+        const v = map.get(key)!;
+        v.sched += d.scheduled ?? 0;
+        v.comp += d.completed ?? 0;
+      });
+      rows = [...map.values()]
+        .sort((a, b) => a.d.getTime() - b.d.getTime())
+        .map((v) => ({
+          label: ymKey(v.d),
+          sched: v.sched,
+          comp: v.comp,
+          pct: v.sched > 0 ? Math.round((100 * v.comp) / v.sched) : null,
+          sort: v.d,
+        }));
+    }
+
+    const out = rows.map((r) => [
+      r.label,
+      r.sched,
+      r.comp,
+      r.pct != null ? r.pct : '',
+    ]);
+    csv += emitRows(['Date/Period', 'Scheduled', 'Completed', 'Adherence (%)'], out);
+  }
+
+  // ----- Questionnaire rows -----
+  if (selections.questionnaire) {
+    const rows: (string | number)[][] = [];
+    for (const e of qIn) {
+      if (!visibleQuestions[e.questionKey]) continue;
+      const key = e.answers?.[0]?.key ?? '';
+      const text =
+        e.answers?.[0]?.translations?.find((x) => x.language === i18n.language)?.text ||
+        e.answers?.[0]?.translations?.find((x) => x.language === 'en')?.text ||
+        key;
+      rows.push([e.date, e.questionKey, key, text]);
+    }
+    csv += emitRows(['Date', 'Question Key', 'Answer Key', 'Answer Text'], rows);
+  }
+
+  // Helper to emit scalar time series from Fitbit entries
+  const emit = (label: string, rows: { date: string; val?: number }[]) => {
+    const sorted = rows
+      .filter((r) => r.val != null)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((r) => [r.date, r.val as number]);
+    return sorted.length ? emitRows(['Date', label], sorted) : '';
+  };
+
+  if (selections.restingHR)
+    csv += emit(
+      'Resting Heart Rate',
+      fitIn.map((d) => ({ date: d.date, val: d.resting_heart_rate }))
+    );
+  if (selections.steps)
+    csv += emit('Steps', fitIn.map((d) => ({ date: d.date, val: d.steps })));
+  if (selections.distance)
+    csv += emit('Distance', fitIn.map((d) => ({ date: d.date, val: d.distance })));
+  if (selections.floors)
+    csv += emit('Floors', fitIn.map((d) => ({ date: d.date, val: d.floors })));
+  if (selections.breathing)
+    csv += emit(
+      'Breathing Rate',
+      fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
+    );
+  if (selections.hrv)
+    csv += emit(
+      'HRV (dailyRmssd)',
+      fitIn.map((d: any) => ({ date: d.date, val: d.hrv?.dailyRmssd }))
+    );
+
+  if (selections.sleep) {
+    const rows = fitIn
+      .filter((d: any) => d.sleep?.sleep_duration != null)
+      .map((d: any) => {
+        const h = (d.sleep.sleep_duration / 3600000).toFixed(2);
+        return [d.date, d.sleep.sleep_start ?? '', d.sleep.sleep_end ?? '', h];
+      })
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    if (rows.length)
+      csv += emitRows(['Date', 'Sleep Start', 'Sleep End', 'Duration (h)'], rows);
+  }
+
+  if (selections.hrZones) {
+    const rows: (string | number)[][] = [];
+    fitIn.forEach((d) =>
+      (d.heart_rate_zones || []).forEach((z: any) => {
+        rows.push([d.date, z.name, z.minutes]);
+      })
+    );
+    rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    if (rows.length) csv += emitRows(['Date', 'Zone', 'Minutes'], rows);
+  }
+
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+  saveAs(blob, `HealthData_${from.toISOString().slice(0,10)}_to_${to.toISOString().slice(0,10)}.csv`);
+  setShowExport(false);
+};
+
 
   // PDF export using values coming from the modal
   const handleExportPDF = async (from: Date, to: Date, selections: Record<string, boolean>) => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'px', format: 'a4' });
     const charts = [
+      { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
       { ref: svgRefs.totalScore, key: 'totalScore', title: t('Total Questionnaire Score Per Day') },
       { ref: svgRefs.questionnaire, key: 'questionnaire', title: t('Questionnaire Answers Over Time') },
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
@@ -321,6 +460,19 @@ const HealthPage: React.FC = () => {
         <div className="mx-auto mb-4" style={{ width: '80%', minWidth: 320 }}>
           <Accordion defaultActiveKey={['0']} alwaysOpen>
             <Accordion.Item eventKey="0">
+  <Accordion.Header>{t('Adherence')}</Accordion.Header>
+  <Accordion.Body className="d-flex justify-content-center">
+    <AdherenceLine
+      ref={svgRefs.adherence}
+      data={adherenceData}
+      res={chartRes}
+      start={startDate}
+      end={endDate}
+    />
+  </Accordion.Body>
+</Accordion.Item>
+
+            <Accordion.Item eventKey="1">
               <Accordion.Header>{t('Summary of Questionaire Scores')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <QuestionnaireTotal
@@ -333,7 +485,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="1">
+            <Accordion.Item eventKey="2">
               <Accordion.Header>{t('Questions')}</Accordion.Header>
               <Accordion.Body>
                 <QuestionnaireLines
@@ -346,7 +498,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="2">
+            <Accordion.Item eventKey="3">
               <Accordion.Header>{t('Resting HR')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox
@@ -361,21 +513,21 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="3">
+            <Accordion.Item eventKey="4">
               <Accordion.Header>{t('Sleep')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <SleepChart ref={svgRefs.sleep} data={fitbitData} start={startDate} end={endDate} />
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="4">
+            <Accordion.Item eventKey="5">
               <Accordion.Header>{t('HR Zones')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <HRZonesStacked ref={svgRefs.hrZones} data={fitbitData} start={startDate} end={endDate} />
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="5">
+            <Accordion.Item eventKey="6">
               <Accordion.Header>{t('Floors')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox
@@ -390,7 +542,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="6">
+            <Accordion.Item eventKey="7">
               <Accordion.Header>{t('Steps')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox
@@ -405,7 +557,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="7">
+            <Accordion.Item eventKey="8">
               <Accordion.Header>{t('Distance')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox
@@ -420,7 +572,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="8">
+            <Accordion.Item eventKey="9">
               <Accordion.Header>{t('Breathing')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox
@@ -435,7 +587,7 @@ const HealthPage: React.FC = () => {
               </Accordion.Body>
             </Accordion.Item>
 
-            <Accordion.Item eventKey="9">
+            <Accordion.Item eventKey="10">
               <Accordion.Header>{t('HRV')}</Accordion.Header>
               <Accordion.Body className="d-flex justify-content-center">
                 <MetricBarOrBox

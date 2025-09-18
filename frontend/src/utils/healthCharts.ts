@@ -1,14 +1,27 @@
 // utils/healthCharts.ts
 import * as d3 from 'd3';
-import { useTranslation } from 'react-i18next';
+
 export const parseYMD = d3.timeParse('%Y-%m-%d');
 export const fmtYMD  = d3.timeFormat('%Y-%m-%d');
 export const fmtYM   = d3.timeFormat('%Y-%m');
 export const fmtNice = d3.timeFormat('%b %d');
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
+type RangeLineOptions = {
+  legend?: {
+    personalRange?: string;
+    inRange?: string;
+    outOfRange?: string;
+    note?: string;
+  };
+  colors?: {
+    band?: string;     // band/rect color
+    inDot?: string;    // in-range dot/line color
+    outDot?: string;   // out-of-range dot color
+    line?: string;     // line color
+  };
+};
 
-const { t, i18n } = useTranslation();
 export function aggregateToPeriods<T>(
   data: T[],
   getDate: (d: T) => string,
@@ -76,14 +89,30 @@ export function drawRangeLineSeries(
   rows: { key: string; mean: number | null }[],
   res: 'weekly' | 'monthly',
   title: string,
-  band: { lo: number | null; hi: number | null; mean: number | null }
+  band: { lo: number | null; hi: number | null; mean: number | null },
+  opts: RangeLineOptions = {}
 ) {
   if (!svgRef.current || !document.body.contains(svgRef.current)) return;
+
+  const legendLabels = {
+    personalRange: opts.legend?.personalRange ?? 'Personal range',
+    inRange:       opts.legend?.inRange ?? 'In range',
+    outOfRange:    opts.legend?.outOfRange ?? 'Out of range',
+    note:          opts.legend?.note ?? 'In range = value within the personal band (P3–P97 over the last 30 days).',
+  };
+
+  const colors = {
+    band:  opts.colors?.band ?? '#1f77b4',
+    inDot: opts.colors?.inDot ?? '#2b83ba',
+    outDot:opts.colors?.outDot ?? '#d88997',
+    line:  opts.colors?.line ?? '#2b83ba',
+  };
+
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();
 
   const w = 900, h = 300;
-  const m = { top: 86, right: 24, bottom: 60, left: 60 }; // extra top for legend+note
+  const m = { top: 86, right: 24, bottom: 60, left: 60 };
   initSvg(svg, w, h);
 
   svg.append('text')
@@ -93,12 +122,12 @@ export function drawRangeLineSeries(
   renderLegend(
     svg,
     [
-      { label: t('Personal range'), color: '#1f77b4', symbol: 'area' },
-      { label: t('In range'),       color: '#2b83ba', symbol: 'dot' },
-      { label: t('Out of range'),   color: '#d88997', symbol: 'dot' },
+      { label: legendLabels.personalRange, color: colors.band,  symbol: 'area' },
+      { label: legendLabels.inRange,       color: colors.inDot, symbol: 'dot' },
+      { label: legendLabels.outOfRange,    color: colors.outDot, symbol: 'dot' },
     ],
     40,
-    t('In range = value within the personal band (P3–P97 over the last 30 days).')
+    legendLabels.note
   );
 
   const width  = w - m.left - m.right;
@@ -106,6 +135,7 @@ export function drawRangeLineSeries(
   const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
   const x = d3.scaleBand().domain(rows.map((r) => r.key)).range([0, width]).padding(0.4);
+
   const vals = rows.map((r) => r.mean).filter((v): v is number => v != null);
   const yMin = Math.min(band.lo ?? d3.min(vals) ?? 0, ...vals);
   const yMax = Math.max(band.hi ?? d3.max(vals) ?? 1, ...vals);
@@ -124,33 +154,48 @@ export function drawRangeLineSeries(
       .attr('y', y(band.hi))
       .attr('width', width)
       .attr('height', Math.max(0, y(band.lo) - y(band.hi)))
-      .attr('fill', '#1f77b4')
+      .attr('fill', colors.band)
       .attr('opacity', 0.12)
-      .attr('stroke', '#1f77b4')
+      .attr('stroke', colors.band)
       .attr('stroke-width', 0.5);
   }
 
   const tt = getOrCreateTooltip();
 
   // dots + connecting line
-  const pts = rows.map((r) => ({ x: r.key, y: r.mean })).filter((p) => p.y != null) as { x: string; y: number }[];
+  const pts = rows
+    .map((r) => ({ x: r.key, y: r.mean }))
+    .filter((p): p is { x: string; y: number } => p.y != null);
+
   const line = d3.line<{ x: string; y: number }>()
     .x((d) => x(d.x)! + x.bandwidth() / 2)
     .y((d) => y(d.y));
 
-  g.append('path').datum(pts).attr('fill', 'none').attr('stroke', '#2b83ba').attr('stroke-width', 2).attr('d', line as any);
+  g.append('path')
+    .datum(pts)
+    .attr('fill', 'none')
+    .attr('stroke', colors.line)
+    .attr('stroke-width', 2)
+    .attr('d', line as any);
 
   g.selectAll('circle.dot')
     .data(pts).enter().append('circle')
     .attr('cx', (d) => x(d.x)! + x.bandwidth() / 2)
     .attr('cy', (d) => y(d.y))
     .attr('r', 4)
-    .attr('fill', (d) => (band.lo != null && band.hi != null && d.y >= band.lo && d.y <= band.hi ? '#2b83ba' : '#d88997'))
-    .on('mouseover', (ev, d) => tt.style('opacity', 1).html(`<strong>${d.x}</strong><br/>${Math.round(d.y * 100) / 100}`))
-    .on('mousemove', (ev) => tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px'))
+    .attr('fill', (d) =>
+      band.lo != null && band.hi != null && d.y >= band.lo && d.y <= band.hi
+        ? colors.inDot
+        : colors.outDot
+    )
+    .on('mouseover', (ev, d) =>
+      tt.style('opacity', 1).html(`<strong>${d.x}</strong><br/>${Math.round(d.y * 100) / 100}`)
+    )
+    .on('mousemove', (ev) =>
+      tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px')
+    )
     .on('mouseout', () => tt.style('opacity', 0));
 }
-// src/utils/healthCharts.ts
 
 export const isInRange = (iso: string, start?: Date | null, end?: Date | null) => {
   const d = new Date(iso);
