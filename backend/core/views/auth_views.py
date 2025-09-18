@@ -40,75 +40,201 @@ from utils.utils import (
 logger = logging.getLogger(__name__)
 
 
+from utils.scheduling import _expand_dates  # already in your project
+
+def _as_list_of_blocks(maybe_blocks):
+    """
+    Normalise diagnosis_assignments[...] into a list of settings-like objects.
+    Accepts:
+      - list[DiagnosisAssignmentSettings]
+      - single DiagnosisAssignmentSettings
+      - dict-like (legacy)
+      - None
+    """
+    if maybe_blocks is None:
+        return []
+    # Already a list?
+    try:
+        # MongoEngine BaseList behaves like list
+        if isinstance(maybe_blocks, list) or hasattr(maybe_blocks, "__iter__") and not hasattr(maybe_blocks, "to_mongo"):
+            # If it's an iterable of embedded docs / dicts
+            return list(maybe_blocks)
+    except Exception:
+        pass
+
+    # Single embedded document object
+    return [maybe_blocks]
+
+def _safe_get(obj, key, default=None):
+    """Read attribute or dict key safely."""
+    if hasattr(obj, key):
+        return getattr(obj, key)
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return default
+
+def _make_count(unit, interval, selected_days, start_day, end_day, fallback=50):
+    """
+    Convert (start_day..end_day, interval) into a count when possible.
+    If end_day not provided, fall back to a reasonable default.
+    """
+    interval = max(int(interval or 1), 1)
+    if end_day and start_day:
+        span = max(0, int(end_day) - int(start_day))
+        if unit == "day":
+            return (span // interval) + 1
+        elif unit == "week":
+            # rough count: weeks in span * selected-days-per-week (or 1)
+            per_week = max(len(selected_days or []) or 1, 1)
+            weeks = max(1, (span // 7) // interval + 1)
+            return weeks * per_week
+        elif unit == "month":
+            # very rough: ~30 days/month
+            months = max(1, (span // 30) // interval + 1)
+            return months
+    return fallback
+
 def create_rehab_plan(patient, therapist):
     try:
-        new_interventions = []
-        patient_diagnoses = patient.diagnosis  # Assuming it's a list
-        interventions_data = therapist.default_recommendations
+        # 1) Anchor "Day 1" for initial schedule
+        plan_start_date = (patient.userId.createdAt or timezone.now()).date()
+        default_start_time = "08:00"
 
-        for item in interventions_data:
-            for diagnosis in patient_diagnoses:
-                # Skip if the intervention is not assigned to this diagnosis
-                if diagnosis not in item.diagnosis_assignments:
+        # 2) Collect dates per intervention (so multiple blocks merge into one assignment)
+        dates_by_intervention: dict[str, list[datetime]] = {}
+
+        patient_diagnoses = patient.diagnosis or []
+        for rec in (therapist.default_recommendations or []):
+            intervention = rec.recommendation
+            if not intervention:
+                continue
+
+            for dx in patient_diagnoses:
+                if dx not in (rec.diagnosis_assignments or {}):
                     continue
 
-                assignment_data = item.diagnosis_assignments[diagnosis]
-
-                if not assignment_data.active:
+                blocks = _as_list_of_blocks(rec.diagnosis_assignments.get(dx))
+                if not blocks:
                     continue
 
-                # Construct intervention schedule config
-                intervention_dates = {
-                    "interval": int(assignment_data.interval) or 1,
-                    "unit": assignment_data.unit or "week",
-                    "selectedDays": assignment_data.selected_days or [],
-                    "end": {
-                        "type": assignment_data.end_type or "never",
-                        "count": assignment_data.count_limit,
-                    },
-                }
-                scheduled_dates = generate_repeat_dates(
-                    patient.reha_end_date, intervention_dates
-                )
-                assignment = InterventionAssignment(
-                    interventionId=item.recommendation,
-                    frequency="",  # Adjust if needed
-                    notes="",
-                    dates=scheduled_dates,
-                )
-                new_interventions.append(assignment)
-        # Avoid duplicates by checking existing plan
-        existing_plan = RehabilitationPlan.objects(patientId=patient).first()
-        if existing_plan:
-            existing_ids = {
-                str(i.interventionId.id) for i in existing_plan.interventions
-            }
-            interventions_to_add = [
-                ni
-                for ni in new_interventions
-                if str(ni.interventionId.id) not in existing_ids
-            ]
-            if interventions_to_add:
-                existing_plan.interventions.extend(interventions_to_add)
-                existing_plan.updatedAt = timezone.now()
-                existing_plan.save()
-        else:
-            rehab_plan = RehabilitationPlan(
+                for block in blocks:
+                    active = bool(_safe_get(block, "active", True))
+                    if not active:
+                        continue
+
+                    unit = _safe_get(block, "unit", "week") or "week"
+                    interval = int(_safe_get(block, "interval", 1) or 1)
+                    selected_days = _safe_get(block, "selected_days", []) or []
+
+                    start_day = int(_safe_get(block, "start_day", 1) or 1)
+                    end_day = _safe_get(block, "end_day", None)
+                    end_day = int(end_day) if end_day is not None else None
+
+                    # optional time per block, otherwise default
+                    start_time = _safe_get(block, "start_time", default_start_time) or default_start_time
+
+                    # legacy 'count_limit' still respected; else derive from start/end days
+                    count_limit = _safe_get(block, "count_limit", None)
+                    if count_limit is None:
+                        count_limit = _make_count(unit, interval, selected_days, start_day, end_day, fallback=50)
+                    else:
+                        count_limit = int(count_limit or 1)
+
+                    # Compute the actual start date for this block
+                    block_start_date = (plan_start_date + timedelta(days=max(0, start_day - 1))).isoformat()
+
+                    # Expand to concrete datetimes
+                    occ = _expand_dates(
+                        start_date=block_start_date,       # 'YYYY-MM-DD'
+                        start_time=start_time,             # 'HH:MM'
+                        unit=unit,
+                        interval=interval,
+                        selected_days=selected_days,
+                        end={"type": "count", "count": count_limit},
+                        max_occurrences=count_limit,
+                    ) or []
+
+                    # TZ-aware & collect
+                    aware_dates = [
+                        (d if timezone.is_aware(d) else timezone.make_aware(d))
+                        for d in occ
+                        if isinstance(d, datetime)
+                    ]
+                    key = str(intervention.id)
+                    dates_by_intervention.setdefault(key, []).extend(aware_dates)
+
+        # 3) Upsert into the patient’s plan
+        if not dates_by_intervention:
+            return True
+
+        # dedupe + sort each list
+        for k, lst in dates_by_intervention.items():
+            # dedupe to second precision
+            seen = set()
+            uniq = []
+            for d in sorted(lst):
+                dt = d.replace(microsecond=0)
+                if dt not in seen:
+                    seen.add(dt)
+                    uniq.append(dt)
+            dates_by_intervention[k] = uniq
+
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        if not plan:
+            plan = RehabilitationPlan(
                 patientId=patient,
                 therapistId=therapist,
-                startDate=patient.userId.createdAt,
+                startDate=datetime.combine(plan_start_date, datetime.min.time(), tzinfo=timezone.get_current_timezone()),
                 endDate=patient.reha_end_date,
                 status="active",
-                interventions=new_interventions,
+                interventions=[],
+                questionnaires=[],
                 createdAt=timezone.now(),
                 updatedAt=timezone.now(),
             )
-            rehab_plan.save()
 
+        # merge each intervention’s dates
+        for rec in (therapist.default_recommendations or []):
+            intervention = rec.recommendation
+            if not intervention:
+                continue
+            key = str(intervention.id)
+            if key not in dates_by_intervention:
+                continue
+            new_dates = dates_by_intervention[key]
+
+            existing = None
+            for ia in (plan.interventions or []):
+                if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
+                    existing = ia
+                    break
+
+            if existing:
+                # keep all past; merge future without dupes
+                have = {d.replace(microsecond=0) for d in (existing.dates or [])}
+                for d in new_dates:
+                    if d.replace(microsecond=0) not in have:
+                        existing.dates.append(d)
+            else:
+                plan.interventions.append(
+                    InterventionAssignment(
+                        interventionId=intervention,
+                        frequency="",  # optional label
+                        dates=new_dates,
+                        notes="",
+                        require_video_feedback=False,
+                    )
+                )
+
+        plan.updatedAt = timezone.now()
+        plan.save()
         return True
 
     except Exception as e:
+        # Keep your logging
         print(f"Error creating rehab plan: {e}")
+        return False
+
 
 
 @csrf_exempt  # Disabled for JWT; ensure HTTPS + token usage in frontend
@@ -312,6 +438,7 @@ def register_view(request):
             reha_end_date = datetime.strptime(data.get("rehaEndDate"), "%Y-%m-%d")
             patient = Patient(
                 userId=user,
+                patient_code=data.get('patient_code', ''),                 # <-- NEW: persist
                 name=sanitize_text(data.get("lastName"), True),
                 first_name=sanitize_text(data.get("firstName"), True),
                 age=data.get("age", ""),

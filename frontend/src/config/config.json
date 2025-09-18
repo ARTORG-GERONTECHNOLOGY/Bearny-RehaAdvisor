@@ -458,6 +458,13 @@
           "required": true,
           "options": ["Male", "Female"],
           "be_name": "sex"
+        },
+        {
+          "name": "patient_code",
+          "label": "Patient Code (Provided by Therapist)",
+          "type": "text",
+          "required": true,
+          "be_name": "patient_code"
         }
       ]
     },
