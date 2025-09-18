@@ -17,6 +17,7 @@ from mongoengine import (
     ReferenceField,
     StringField,
     FloatField,
+    DynamicField,
 )
 
 from utils.config import config
@@ -238,59 +239,63 @@ class InterventionAssignment(EmbeddedDocument):
     require_video_feedback = BooleanField(default=False)  # Whether video feedback is required
 
 
+# core/models.py
+
 class DiagnosisAssignmentSettings(EmbeddedDocument):
-    active = BooleanField(default=False)
-    interval = IntField()
-    unit = StringField()
+    # existing
+    active = BooleanField(default=True)
+    interval = IntField(default=1)
+    unit = StringField(choices=['day','week','month'], default='week')
     selected_days = ListField(StringField())
-    end_type = StringField()
-    count_limit = IntField()
+    end_type = StringField(default='count')  # legacy
+    count_limit = IntField()                 # legacy 'count'
+
+    # NEW
+    start_day = IntField(default=1)              # Day S (1-based)
+    end_day = IntField()                         # Day N (optional, else derive)
+    suggested_execution_time = IntField()        # minutes (optional)
 
 
 class DefaultInterventions(EmbeddedDocument):
     recommendation = ReferenceField(Intervention, required=True)
-    # Example: {"Heart Attack": {...}, "Stroke": {...}, "all": {...}}
+    #allow **list of blocks** per diagnosis: { "Stroke": [block1, block2, ...] }
     diagnosis_assignments = DictField(
-        EmbeddedDocumentField(DiagnosisAssignmentSettings)
+        ListField(EmbeddedDocumentField(DiagnosisAssignmentSettings))
     )
 
 
 class Therapist(Document):
-    meta = {"collection": "Therapist"}  # MongoDB collection
+    meta = {"collection": "Therapist"}
     userId = ReferenceField(User, required=True)
     name = StringField(max_length=20)
     first_name = StringField(max_length=20)
     created_at = DateTimeField(default=timezone.now)
-    specializations = ListField(
-        StringField(max_length=200), choices=config["therapistInfo"]["specializations"]
-    )
-    clinics = ListField(
-        StringField(max_length=200), choices=config["therapistInfo"]["clinics"]
-    )
-    default_recommendations = ListField(
-        EmbeddedDocumentField(DefaultInterventions)
-    )  # TODO needed?
+    specializations = ListField(StringField(max_length=200),
+                                choices=config["therapistInfo"]["specializations"])
+    clinics = ListField(StringField(max_length=200),
+                        choices=config["therapistInfo"]["clinics"])
 
-    def __str__(self):
-        return f"{self.username} (Therapist)"
+    # Templates are **therapist-specific** here:
+    default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions))
 
 
+# models.py
 class Patient(Document):
     meta = {"collection": "Patients"}
+
     userId = ReferenceField(User, required=True)
+    # NEW: stable human-readable patient ID (copy of user.username at creation)
+    patient_code = StringField(max_length=30, required=True)
+
     name = StringField(max_length=20, required=True)
     pwdhash = StringField()
     access_word = StringField(max_length=100, required=True)
     first_name = StringField(max_length=20, required=True)
-    age = StringField(max_length=20, required=True)  # birth date (string form)
+    age = StringField(max_length=20, required=True)
     therapist = ReferenceField(Therapist, required=True)
-
     sex = StringField(max_length=10, choices=config["patientInfo"]["sex"], required=True)
     diagnosis = ListField(StringField(max_length=30), choices=all_diagnoses, required=True)
-    function = ListField(
-        StringField(max_length=200, choices=config["therapistInfo"]["specializations"]),
-        required=True,
-    )
+    function = ListField(StringField(max_length=200, choices=config["therapistInfo"]["specializations"]), required=True)
     level_of_education = StringField(max_length=30, choices=config["patientInfo"]["level_of_education"])
     professional_status = StringField(max_length=30, choices=config["patientInfo"]["professional_status"])
     marital_status = StringField(max_length=30, choices=config["patientInfo"]["marital_status"])
@@ -302,12 +307,11 @@ class Patient(Document):
     care_giver = StringField(max_length=20, default="")
     reha_end_date = DateTimeField(required=True)
 
-    # NEW FIELDS
-    clinic = StringField(max_length=120, default="")                  # e.g., "Inselspital Bern"
-    last_clinic_visit = DateTimeField(required=False, null=True)      # last in-person visit
+    clinic = StringField(max_length=120, default="")
+    last_clinic_visit = DateTimeField(required=False, null=True)
 
     def __str__(self):
-        return f"{self.username} (Patient)"
+        return f"{self.patient_code} (Patient)"   # optional
 
 class HealthQuestionnaire(Document):
     meta = {"collection": "HealthQuestionnaires"}
