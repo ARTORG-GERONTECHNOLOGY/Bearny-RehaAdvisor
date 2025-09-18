@@ -79,6 +79,8 @@ urlpatterns = [
         patient_views.remove_intervention_from_patient,
         name="del_rehabilitation_plan_intervention",
     ),
+    path("api/therapists/<str:therapist_id>/template-plan", recomendation_views.template_plan_preview),
+    path("api/therapists/<str:therapist_id>/templates/apply", recomendation_views.apply_template_to_patient),
     # Questionnaires
     path('api/questionnaires/health/', list_health_questionnaires),
     path('api/questionnaires/patient/<str:patient_id>/', list_patient_questionnaires),
@@ -109,12 +111,12 @@ urlpatterns = [
     ),
     # For assigning interventions to multiple types
     path(
-        "api/interventions/assign-to-patient-types/",
+        "api/therapists/<str:therapist_id>/interventions/assign-to-patient-types/",
         recomendation_views.assign_intervention_to_types,
         name="assign_intervention_to_patient_types",
     ),
     path(
-        "api/interventions/remove-from-patient-types/",
+        "/api/therapists/<str:therapist_id>/interventions/remove-from-patient-types/",
         recomendation_views.remove_intervention_from_types,
         name="delete_intervention_from_patient_types",
     ),

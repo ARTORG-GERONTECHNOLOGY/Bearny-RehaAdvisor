@@ -42,7 +42,7 @@ from core.models import (
     Therapist,
     Translation,
     User,
-    FitbitData
+    FitbitData,
 )
 from utils.utils import (
     convert_to_serializable,
@@ -51,6 +51,8 @@ from utils.utils import (
     sanitize_text,
     serialize_datetime,
     transcribe_file,
+    resolve_patient,
+    _adherence
 )
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
@@ -101,7 +103,6 @@ FILE_TYPE_FOLDERS = {
 FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
-
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -526,6 +527,7 @@ def get_patient_recommendations(request, patient_id):
         )
 
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_patient_plan(request, patient_id):
@@ -649,8 +651,6 @@ def get_patient_plan(request, patient_id):
         return JsonResponse(
             {"error": "Internal Server Error", "details": str(e)}, status=500
         )
-
-
 
 
 
@@ -1520,8 +1520,11 @@ def get_patient_plan_for_therapist(request, patient_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        patient = Patient.objects.get(id=ObjectId(patient_id))
+        patient = resolve_patient(patient_id)
         plan = RehabilitationPlan.objects.get(patientId=patient)
+
+        # ── NEW: compute adherence (7d & overall) ─────────────────────────────
+        adh_7, adh_total = _adherence(patient)
 
         today = timezone.now().date()
         plan_data = {
@@ -1530,6 +1533,9 @@ def get_patient_plan_for_therapist(request, patient_id):
             "status": plan.status,
             "createdAt": plan.createdAt.isoformat(),
             "updatedAt": plan.updatedAt.isoformat(),
+            # ── NEW: return adherence in payload ───────────────────────────────
+            "adherence_rate": adh_7,       # last 7 days, 0–100 or null
+            "adherence_total": adh_total,  # overall, 0–100 or null
             "interventions": [],
         }
 
@@ -1539,9 +1545,11 @@ def get_patient_plan_for_therapist(request, patient_id):
                 userId=patient, interventionId=intervention
             )
 
+            # set() of completed dates (not strictly needed for below, but kept)
             completed_dates = {
-                log.date.date() for log in logs if "completed" in log.status
+                log.date.date() for log in logs if "completed" in (log.status or [])
             }
+
             intervention_dates = []
             completed_count = 0
             current_total_count = 0
@@ -1551,7 +1559,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             for date in assignment.dates:
                 log = next((l for l in logs if l.date.date() == date.date()), None)
 
-                if log and "completed" in log.status:
+                if log and "completed" in (log.status or []):
                     status = "completed"
                     completed_count += 1
                     current_total_count += 1
@@ -1564,7 +1572,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                     status = "upcoming"
 
                 feedback_entries = []
-                if log and log.feedback:
+                if log and getattr(log, "feedback", None):
                     for fb in log.feedback:
                         if not fb.questionId:
                             continue
@@ -1585,32 +1593,32 @@ def get_patient_plan_for_therapist(request, patient_id):
                                     for tr in opt.translations
                                 ],
                             }
-                            for opt in fb.answerKey
+                            for opt in (fb.answerKey or [])
                         ]
 
                         feedback_entries.append(
                             {
                                 "question": question_data,
                                 "comment": fb.comment,
-                                'audio_url': fb.audio_url,
+                                "audio_url": getattr(fb, "audio_url", None),
                                 "answer": answer_data,
                             }
                         )
 
                         try:
-                            rating_sum += int(fb.answerKey[0].key)
+                            rating_sum += int((fb.answerKey or [])[0].key)
                             rating_count += 1
-                        except (ValueError, TypeError, IndexError):
+                        except (ValueError, TypeError, IndexError, AttributeError):
                             pass
 
-                # Add video feedback if present on the log
+                # Video feedback if present
                 video_feedback = None
-                if log and log.video_url:
+                if log and getattr(log, "video_url", None):
                     normalized_url = urljoin(settings.MEDIA_HOST, log.video_url)
                     video_feedback = {
                         "video_url": normalized_url,
-                        "video_expired": log.video_expired,
-                        "comment": log.comments or "",
+                        "video_expired": getattr(log, "video_expired", False),
+                        "comment": getattr(log, "comments", "") or "",
                     }
 
                 intervention_dates.append(
@@ -1659,6 +1667,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             exc_info=True,
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
 
 
 
@@ -1980,11 +1989,60 @@ def get_combined_health_data(request, patient_id):
                 })
 
 
+        # ───────────────── 3. Adherence time series (daily) ─────────────────
+        # % completed per day = completed_count / scheduled_count * 100
+        adherence = []
+        try:
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+        except Exception:
+            plan = None
 
+        from_dt = from_datetime  # already normalized above
+        to_dt   = to_datetime
+
+        # Build day buckets
+        day = from_dt.date()
+        end_day = to_dt.date()
+
+        # count scheduled from plan
+        scheduled_by_day = {}
+        if plan:
+            for ia in (getattr(plan, "interventions", []) or []):
+                for d in (getattr(ia, "dates", []) or []):
+                    try:
+                        dt = d if isinstance(d, datetime.datetime) else datetime.datetime.fromisoformat(str(d))
+                    except Exception:
+                        continue
+                    if from_dt <= dt <= to_dt:
+                        scheduled_by_day.setdefault(dt.date(), 0)
+                        scheduled_by_day[dt.date()] += 1
+
+        # count completions from logs
+        completed_by_day = {}
+        for lg in PatientInterventionLogs.objects(userId=patient, date__gte=from_dt, date__lte=to_dt).only("date", "status"):
+            if not isinstance(getattr(lg, "date", None), datetime.datetime):
+                continue
+            statuses = {str(s).lower() for s in (lg.status or [])}
+            if "completed" in statuses:
+                dkey = lg.date.date()
+                completed_by_day[dkey] = completed_by_day.get(dkey, 0) + 1
+
+        while day <= end_day:
+            s = scheduled_by_day.get(day, 0)
+            c = completed_by_day.get(day, 0)
+            pct = round(100 * c / s) if s > 0 else None  # None when nothing was scheduled that day
+            adherence.append({
+                "date": day.strftime("%Y-%m-%d"),
+                "scheduled": s,
+                "completed": c,
+                "pct": pct,
+            })
+            day += datetime.timedelta(days=1)
 
         return JsonResponse({
             "fitbit": fitbit_data,
             "questionnaire": feedback_result,
+            "adherence": adherence,
         }, safe=False)
 
     except Patient.DoesNotExist:
