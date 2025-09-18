@@ -55,7 +55,6 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
           <Form.Group className="mb-3">
             <Form.Label>{t('Patient ID or username')}</Form.Label>
             <Form.Control
-              placeholder="e.g., 6822f... or john.smith"
               value={patientId}
               onChange={(e) => setPatientId(e.target.value)}
             />
@@ -65,7 +64,7 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
           <Row className="mb-3">
             <Col md={7}>
               <Form.Group>
-                <Form.Label>{t('Diagnosis')}</Form.Label>
+                <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
                 <Form.Select value={diagnosis} onChange={(e)=>setDiagnosis(e.target.value)}>
                   <option value="">{t('Choose...')}</option>
                   {diagnoses.map((d)=> <option key={d} value={d}>{d}</option>)}

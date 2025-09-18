@@ -249,7 +249,7 @@ const fetchAll = async () => {
   } catch (e) {
     console.error('Error loading patient interventions', e);
     setPatientData(EMPTY_PLAN); // keep UI stable
-    setError('Error loading patients interventions. Reload the page or try again later.');
+    setError(t('Error loading patients interventions. Reload the page or try again later.'));
   }
 };
 

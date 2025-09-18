@@ -124,7 +124,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
         <Form>
           <Form.Group className="mb-3">
-            <Form.Label>{t('Diagnosis')}</Form.Label>
+            <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
             <Form.Select value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)}>
               <option value="">{t('Choose...')}</option>
               {diagnoses.map((d) => (
