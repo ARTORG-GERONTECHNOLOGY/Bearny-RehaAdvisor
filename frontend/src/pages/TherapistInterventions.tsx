@@ -29,6 +29,8 @@ import { TemplateItem, TemplatePayload } from '../types/templates';
 import { InterventionTypeTh } from '../types';
 
 const TherapistRecomendations: React.FC = () => {
+  const navigate = useNavigate();
+  const { i18n, t } = useTranslation();
   // ─────────────────────────── Library (catalog) ───────────────────────────
   const [recommendations, setRecommendations] = useState<InterventionTypeTh[]>([]);
   const [filteredInterventions, setFilteredInterventions] = useState<InterventionTypeTh[]>([]);
@@ -87,9 +89,9 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
     Array.isArray(seg.selectedDays) && seg.selectedDays.length
       ? ` • ${seg.selectedDays.join(', ')}`
       : '';
-  const rangeStr = ` ${t('from day')} ${seg.start_day}${seg.end_day ? ` → ${t('day')} ${seg.end_day}` : ''}`;
+  const rangeStr = ` ${t("from day")} ${seg.start_day}${seg.end_day ? ` → ${t("day")} ${seg.end_day}` : ''}`;
   const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
-  return `• ${seg.unit}/${seg.interval}${daysStr}${rangeStr} • ${t('Occurrences')}: ${occCount}`;
+  return `• ${t(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${t("Occurrences")} ${occCount}`;
 };
 
   const openAssignToTemplate = (id: string, mode: 'create' | 'modify' = 'create') => {
@@ -143,8 +145,7 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
   type TitleMap = Record<string, { title: string; lang: string | null }>;
   const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
 
-  const navigate = useNavigate();
-  const { i18n, t } = useTranslation();
+  
 
   const tagColors = generateTagColors(config.RecomendationInfo.tags);
 
@@ -300,6 +301,38 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
     }
     return templateItems.find((it) => it.intervention._id === intId);
   };
+  // TherapistRecomendations.tsx (add below the existing “Translate titles (for search/display)” effect)
+
+useEffect(() => {
+  // collect template intervention IDs that aren't translated yet
+  const missing = (templateItems || [])
+    .map(it => it?.intervention?._id)
+    .filter(Boolean)
+    .filter(id => !translatedTitles[id as string]) as string[];
+
+  if (!missing.length) return;
+
+  let cancelled = false;
+  (async () => {
+    const pairs = await Promise.all(
+      missing.map(async (id) => {
+        const it = templateItems.find(x => x.intervention._id === id)!;
+        try {
+          const { translatedText, detectedSourceLanguage } =
+            await translateText(it.intervention.title, (i18n.language || 'en').slice(0,2));
+          return [id, { title: translatedText, lang: detectedSourceLanguage }] as const;
+        } catch {
+          return [id, { title: it.intervention.title, lang: null }] as const;
+        }
+      })
+    );
+    if (!cancelled) {
+      setTranslatedTitles(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    }
+  })();
+  return () => { cancelled = true; };
+}, [templateItems, i18n.language, translatedTitles]);
+
 
   // 🔧 NEW: open template item using the full catalog record
   const handleTemplateItemClick = (it: TemplateItem) => {
@@ -503,18 +536,27 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
                           onClick={() => handleTemplateItemClick(it)}  // ← use full catalog record
                           title={t('Click to view details')}
                         >
-                          <div>
-                            <div className="fw-semibold">{it.intervention.title}</div>
-                            <div className="small text-muted">{t('For')}: {it.diagnosis}</div>
 
-<div className="small text-muted mt-1">
-  {getSegments(it).map((seg, i) => (
-    <div key={i}>
-      {segmentSummary(seg, it, t)}
-    </div>
-  ))}
+<div>
+  <div className="fw-semibold">
+    {translatedTitles[it.intervention._id]?.title || it.intervention.title}
+    {translatedTitles[it.intervention._id]?.lang && (
+      <span className="text-muted ms-2 small">
+        ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
+      </span>
+    )}
+  </div>
+  <div className="small text-muted">{t('For')}: {it.diagnosis}</div>
+
+  <div className="small text-muted mt-1">
+    {getSegments(it).map((seg, i) => (
+      <div key={i}>
+        {segmentSummary(seg, it, t)}
+      </div>
+    ))}
+  </div>
 </div>
-                          </div>
+
 
                           <div onClick={(e) => e.stopPropagation()}>
                             <ButtonGroup size="sm" vertical>
@@ -705,12 +747,15 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
 
             {/* RIGHT: timeline */}
             <Col xs={12} md={8}>
-              <Card className="h-100">
-                <Card.Header>{t('Template timeline (Day 1 → Day N)')}</Card.Header>
-                <Card.Body className="min-vh-50" style={{ overflow: 'auto' }}>
-                  <TemplateTimeline items={templateItems} horizonDays={templateHorizon} />
-                </Card.Body>
-              </Card>
+              // RIGHT: timeline
+<Card.Body className="min-vh-50" style={{ overflow: 'auto' }}>
+  <TemplateTimeline
+    items={templateItems}
+    horizonDays={templateHorizon}
+    translatedTitles={translatedTitles}   // 👈 NEW
+  />
+</Card.Body>
+
             </Col>
           </Row>
         )}
