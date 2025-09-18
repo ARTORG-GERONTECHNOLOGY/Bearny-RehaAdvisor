@@ -72,6 +72,8 @@ const RehabTable: React.FC = () => {
   const [contentTypeFilter, setContentTypeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
+// near the other helpers at the top of the component
+const fmtPct = (v?: number | null) => (v == null ? '—' : `${v}%`);
 
   // Export schedule (patient tab)
   const [exportStart, setExportStart] = useState<string>(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
@@ -484,6 +486,18 @@ const fetchAll = async () => {
           <Container fluid className="mt-4 d-flex flex-column flex-grow-1 overflow-hidden">
 
             <Row><Col><h2 className="text-center mb-4">{patientName}</h2></Col></Row>
+            {/* Adherence (7 days & overall) */}
+<Row className="mb-3 justify-content-center">
+  <Col md="auto" className="text-center">
+    <div className="text-muted">
+      <strong>{t('Adherence')}</strong>:&nbsp;
+      {t('last 7 days')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_rate)}</span>
+      &nbsp;·&nbsp;
+      {t('overall')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_total)}</span>
+    </div>
+  </Col>
+</Row>
+
             <Row><Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col></Row>
 
             {/* ───────────────── Top-level tab (Interventions | Questionnaires) ─────────────── */}

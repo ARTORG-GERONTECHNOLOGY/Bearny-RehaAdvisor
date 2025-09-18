@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 from pymongo import MongoClient
 
-from core.models import Patient, Therapist, User
+from core.models import Patient, Therapist, User, RehabilitationPlan, PatientInterventionLogs
 
 logger = logging.getLogger(__name__)
 import re
@@ -17,6 +17,30 @@ from django.utils.timezone import is_naive, make_aware
 import tempfile
 from pydub import AudioSegment
 import speech_recognition as sr
+
+def resolve_patient(identifier: str):
+    """
+    Accepts any of:
+      - Patient._id (ObjectId string)
+      - User._id (ObjectId string)
+      - username (User.username, your patient_code)
+      - Patient.patient_code
+    Returns Patient or None.
+    """
+    if not identifier:
+        return None
+
+    # Username/patient_code path
+    try:
+        u = User.objects.get(pk=identifier)
+        return Patient.objects.get(userId=u)
+    except (User.DoesNotExist, Patient.DoesNotExist):
+        pass
+
+    try:
+        return Patient.objects.get(pk=identifier)
+    except Patient.DoesNotExist:
+        return None
 
 def transcribe_file(input_path):
     # convert ANYTHING into a proper WAV
@@ -208,3 +232,86 @@ def generate_custom_id(user_type):
         return "unknown0"
 
     return f"{prefix}{count}"
+
+def _adherence(patient, lookback_days: int = 7):
+    """
+    Returns (adherence_7d, adherence_total_until_now) for the patient.
+
+    - Denominator uses scheduled occurrences from RehabilitationPlan.interventions[].dates
+      that fall inside the window (7d) or up to 'now'.
+    - Numerator uses PatientInterventionLogs with status containing 'completed'.
+    - All datetimes (schedule + logs) are normalized to timezone-aware before comparison.
+    - Falls back to completed/(completed+skipped) if no schedule was created for the window.
+    """
+    now = timezone.now()                       # aware
+    since = now - timedelta(days=lookback_days)
+
+    # ---- helpers ------------------------------------------------------------
+    def _to_dt(v):
+        """Accept datetime or ISO string -> datetime (may be naive)."""
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            try:
+                s = v.strip()
+                if s.endswith("Z"):
+                    s = s[:-1] + "+00:00"
+                return datetime.fromisoformat(s)
+            except Exception:
+                return None
+        return None
+
+    def _aware(dt: datetime | None) -> datetime | None:
+        """Make a datetime timezone-aware (current TZ; fallback UTC)."""
+        if not isinstance(dt, datetime):
+            return None
+        if timezone.is_naive(dt):
+            try:
+                return timezone.make_aware(dt, timezone.get_current_timezone())
+            except Exception:
+                return timezone.make_aware(dt, timezone.utc)
+        return dt
+
+    # ---- scheduled dates from the plan -------------------------------------
+    denom_total = 0
+    denom_7 = 0
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if plan:
+        for ia in (getattr(plan, "interventions", []) or []):
+            for d in (getattr(ia, "dates", []) or []):
+                dt = _aware(_to_dt(d))
+                if not dt:
+                    continue
+                if dt <= now:
+                    denom_total += 1
+                if since <= dt <= now:
+                    denom_7 += 1
+
+    # ---- logs (don’t date-filter in query; normalize per-row) --------------
+    comp_total = comp_7 = 0
+    skip_total = skip_7 = 0
+    for lg in PatientInterventionLogs.objects(userId=patient).only("date", "status"):
+        dt = _aware(getattr(lg, "date", None))
+        if not dt:
+            continue
+        statuses = {s.lower() for s in (lg.status or [])}
+        is_completed = "completed" in statuses
+        is_skipped = "skipped" in statuses
+
+        if dt <= now:
+            if is_completed: comp_total += 1
+            if is_skipped:   skip_total += 1
+        if since <= dt <= now:
+            if is_completed: comp_7 += 1
+            if is_skipped:   skip_7 += 1
+
+    # ---- adherence (fallback to completed/(completed+skipped) when no schedule)
+    adh_total = round(100 * comp_total / denom_total) if denom_total else (
+        round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None
+    )
+    adh_7 = round(100 * comp_7 / denom_7) if denom_7 else (
+        round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None
+    )
+
+    return adh_7, adh_total
+
