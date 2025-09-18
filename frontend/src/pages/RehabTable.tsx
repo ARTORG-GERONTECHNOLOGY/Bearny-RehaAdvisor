@@ -37,7 +37,6 @@ type QItem = { _id: string; key: string; title: string; description?: string; ta
 type QAssigned = { _id: string; title: string; description?: string; frequency?: string; dates?: string[] };
 
 const RehabTable: React.FC = () => {
-  const [patientData, setPatientData] = useState<{ interventions: Intervention[] }>({ interventions: [] });
   const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
   const [showExerciseStats, setShowExerciseStats] = useState<boolean>(false);
   const [error, setError] = useState('');
@@ -73,6 +72,8 @@ const RehabTable: React.FC = () => {
   const [contentTypeFilter, setContentTypeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
+// near the other helpers at the top of the component
+const fmtPct = (v?: number | null) => (v == null ? '—' : `${v}%`);
 
   // Export schedule (patient tab)
   const [exportStart, setExportStart] = useState<string>(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
@@ -92,6 +93,11 @@ const RehabTable: React.FC = () => {
     notes: ''
   });
   const freqOptions = config.RecomendationInfo.frequency as string[];
+// near the top of RehabTable.tsx
+type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
+
+const EMPTY_PLAN: PatientPlan = { interventions: [] };
+const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
 
   const patientIdForCalls = localStorage.getItem('selectedPatient') || patientUsername;
 
@@ -230,17 +236,23 @@ const RehabTable: React.FC = () => {
       : filteredRecommendations;
   }, [selectedTab, allInterventions, filteredRecommendations, patientData]);
 
-  const fetchAll = async () => {
-    try {
-      const res = await apiClient.get(
-        `patients/rehabilitation-plan/therapist/${localStorage.getItem('selectedPatient') || patientUsername}/`
-      );
-      setPatientData(res.data);
-    } catch (e) {
-      console.error('Error loading patient interventions', e);
-      setError('Error loading patients interventions. Reload the page or try again later.');
-    }
-  };
+const fetchAll = async () => {
+  try {
+    const res = await apiClient.get(
+      `patients/rehabilitation-plan/therapist/${localStorage.getItem('selectedPatient') || patientUsername}/`
+    );
+
+    // Force a safe shape even if BE returns {} or something else
+    const raw = (res.data ?? {}) as Record<string, any>;
+    const interventions = Array.isArray(raw.interventions) ? raw.interventions : [];
+    setPatientData({ ...raw, interventions });
+  } catch (e) {
+    console.error('Error loading patient interventions', e);
+    setPatientData(EMPTY_PLAN); // keep UI stable
+    setError(t('Error loading patients interventions. Reload the page or try again later.'));
+  }
+};
+
 
   const fetchInts = async () => {
     try {
@@ -474,6 +486,18 @@ const RehabTable: React.FC = () => {
           <Container fluid className="mt-4 d-flex flex-column flex-grow-1 overflow-hidden">
 
             <Row><Col><h2 className="text-center mb-4">{patientName}</h2></Col></Row>
+            {/* Adherence (7 days & overall) */}
+<Row className="mb-3 justify-content-center">
+  <Col md="auto" className="text-center">
+    <div className="text-muted">
+      <strong>{t('Adherence')}</strong>:&nbsp;
+      {t('last 7 days')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_rate)}</span>
+      &nbsp;·&nbsp;
+      {t('overall')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_total)}</span>
+    </div>
+  </Col>
+</Row>
+
             <Row><Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col></Row>
 
             {/* ───────────────── Top-level tab (Interventions | Questionnaires) ─────────────── */}
@@ -950,15 +974,16 @@ const RehabTable: React.FC = () => {
             );
           })()}
 
-          <InterventionStatsModal
-            show={showExerciseStats}
-            onClose={() => setShowExerciseStats(false)}
-            exercise={selectedExercise as any}
-            interventionData={patientData.interventions.find(
-              (item) => item._id === (selectedExercise as any)?._id
-            )}
-            t={t}
-          />
+<InterventionStatsModal
+  show={showExerciseStats}
+  onClose={() => setShowExerciseStats(false)}
+  exercise={selectedExercise as any}
+  interventionData={(patientData?.interventions ?? []).find(
+    (item) => item._id === (selectedExercise as any)?._id
+  )}
+  t={t}
+/>
+
 
           <QuestionnaireScheduleModal
             show={qModalOpen}

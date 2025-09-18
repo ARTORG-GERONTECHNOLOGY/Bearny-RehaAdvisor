@@ -21,6 +21,7 @@ const initialFormData = (therapist: string): FormData => ({
   password: '',
   repeatPassword: '',
   userType: 'Patient',
+  patient_code: '',
   therapist,
   firstName: '',
   lastName: '',

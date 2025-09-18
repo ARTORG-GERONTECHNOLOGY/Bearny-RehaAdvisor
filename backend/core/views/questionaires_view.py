@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-
+from utils.scheduling import _parse_yyyy_mm_dd, _expand_dates, _merge_date_and_time, _to_aware
 from core.models import (
     HealthQuestionnaire,
     Patient,
@@ -183,24 +183,8 @@ def _get_therapist_by_any(therapist_like) -> Therapist:
 
 _WEEKDAY_IDX = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
 
-def _to_aware(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return timezone.make_aware(dt, timezone.get_current_timezone())
-    return dt
 
-def _parse_yyyy_mm_dd(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    s = str(s).strip()
-    try:
-        return datetime.fromisoformat(s[:10])
-    except Exception:
-        return None
 
-def _merge_date_and_time(date_dt: datetime, hhmm: Optional[str]) -> datetime:
-    hh, mm = (hhmm or "08:00").split(":")[:2]
-    merged = datetime(date_dt.year, date_dt.month, date_dt.day, int(hh), int(mm), 0, 0)
-    return _to_aware(merged)
 
 def _last_day_of_month(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
@@ -394,6 +378,9 @@ def _resolve_therapist(tid: Optional[str], patient: Optional[Patient]) -> Option
     if patient and patient.therapist:
         return patient.therapist
     return None
+
+
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])

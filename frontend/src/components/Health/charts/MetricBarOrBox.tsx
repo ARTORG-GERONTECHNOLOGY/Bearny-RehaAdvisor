@@ -20,7 +20,7 @@ type Props = {
   end?: Date | null;
   res: ChartRes;
 
-  /** Weekly/Monthly: draw Fitbit-style band + line (default) */
+  /** Weekly/Monthly: draw Fitbit-style band  line (default) */
   useFitbitRange?: boolean;
   /** Personal range window (days), lower/upper percentiles */
   rangeWindowDays?: number;                // default 30
@@ -83,11 +83,21 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
       );
 
       drawRangeLineSeries(
-        svgRef,
-        rows,
-        res as 'weekly' | 'monthly',
-        t(titleKey),
-        band
+svgRef,
+   rows,
+   res as 'weekly' | 'monthly',
+   t(titleKey),
+   band,
+   {
+     legend: {
+       personalRange: t('Personal range'),
+       inRange: t('In range'),
+       outOfRange: t('Out of range'),
+       note: t('In range = value within the personal band (P3–P97 over the last 30 days).'),
+     },
+     // optional theming:
+     // colors: { band: '#1f77b4', inDot: '#2b83ba', outDot: '#d88997', line: '#2b83ba' }
+   }
       );
     } else {
       // Optional fallback to distribution box-plots
