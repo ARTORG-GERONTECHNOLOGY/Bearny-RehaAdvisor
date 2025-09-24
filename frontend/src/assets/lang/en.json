@@ -1,4 +1,11 @@
 {
+  "Save for today": "Save for today",
+  "You can provide either weight, blood pressure, or both.": "You can provide either weight, blood pressure, or both.",
+  "Diastolic (mmHg)": "Diastolic (mmHg)",
+  "Systolic (mmHg)": "Systolic (mmHg)",
+  "Weight (kg)": "Weight (kg)",
+  "Please enter your weight and blood pressure for today.": "Please enter your weight and blood pressure for today.",
+  "Failed to save today’s vitals. Please try again.": "Failed to save today’s vitals. Please try again.",
   "Content": "Content",
   "Template timeline (Day 1 → Day N)":"Template timeline (Day 1 → Day N)",
   "No items on this day.":"No items on this day.",
