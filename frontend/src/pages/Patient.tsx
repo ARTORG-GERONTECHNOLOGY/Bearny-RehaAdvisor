@@ -11,7 +11,7 @@ import WelcomeArea from '../components/common/WelcomeArea';
 import InterventionList from '../components/PatientPage/InterventionList';
 import FitbitConnectButton from '../components/PatientPage/FitbitStatus';
 import ActivitySummary from '../components/PatientPage/ActivitySummary';
-
+import DailyVitalsPrompt from '../components/PatientPage/DailyVitalsPrompt';
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,12 @@ const PatientView: React.FC = observer(() => {
             <FitbitConnectButton />
           </Col>
         </Row>
+        {/* Daily vitals prompt (only shows if not filled today) */}
+<Row className="mb-3 justify-content-center">
+  <Col xs={12} sm={11} md={10} lg={8}>
+    <DailyVitalsPrompt />
+  </Col>
+</Row>
 
         {/* Error Alert */}
         {error && (
