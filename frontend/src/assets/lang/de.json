@@ -1,4 +1,11 @@
 {
+  "Save for today": "Für heute speichern",
+  "You can provide either weight, blood pressure, or both.": "Sie können entweder Gewicht, Blutdruck oder beides angeben.",
+  "Diastolic (mmHg)": "Diastolisch (mmHg)",
+  "Systolic (mmHg)": "Systolisch (mmHg)",
+  "Weight (kg)": "Gewicht (kg)",
+  "Please enter your weight and blood pressure for today.": "Bitte geben Sie Ihr Gewicht und Ihren Blutdruck für heute ein.",
+  "Failed to save today’s vitals. Please try again.": "Fehler beim Speichern der heutigen Vitalwerte. Bitte versuchen Sie es erneut.",
   "Occurences:": "Vorkommnisse:",
   "Content": "Inhalt",
   "Template timeline (Day 1 → Day N)":"Vorlage Zeitplan (Tag 1 → Tag N)",

@@ -365,3 +365,22 @@ class PatientICFRating(Document):
     rating = IntField()  # Score level (e.g., 0-4 or 0-10 scale)
     feedback_entries = ListField(EmbeddedDocumentField(FeedbackEntry))
     notes = StringField()  # Additional notes or observations
+
+# core/models.py
+class PatientVitals(Document):
+    user       = ReferenceField(User, required=True)   # same as FitbitData.user
+    patientId  = ReferenceField(Patient, required=True)
+    date       = DateTimeField(required=True)          # store full dt; you can normalize to local midnight when aggregating
+    weight_kg  = FloatField(null=True)
+    bp_sys     = IntField(null=True)
+    bp_dia     = IntField(null=True)
+    source     = StringField(choices=["manual","device","provider"], default="manual")
+    origin     = StringField(default="patient_page")   # optional—for where it came from
+    note       = StringField()
+    createdAt  = DateTimeField(default=timezone.now)
+    createdBy  = ReferenceField(User)                  # therapist who entered, if applicable
+    meta = {
+        "indexes": [
+            ("patientId", "date"),   # fast range queries
+        ]
+    }
