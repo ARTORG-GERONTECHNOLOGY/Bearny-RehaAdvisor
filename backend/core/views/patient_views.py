@@ -43,6 +43,7 @@ from core.models import (
     Translation,
     User,
     FitbitData,
+    PatientVitals
 )
 from utils.utils import (
     convert_to_serializable,
@@ -1859,6 +1860,17 @@ def get_patient_healthstatus_history(request, patient_id):
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
+def _iso(dt):
+    """Return ISO 8601 string for dt or None."""
+    if dt is None:
+        return None
+    # support both date and datetime
+    if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
+        return datetime.datetime(dt.year, dt.month, dt.day, tzinfo=datetime.timezone.utc).isoformat()
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, datetime.timezone.utc)
+    return dt.isoformat()
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_combined_health_data(request, patient_id):
@@ -1866,79 +1878,145 @@ def get_combined_health_data(request, patient_id):
         if not patient_id or patient_id == "null":
             return JsonResponse({"error": "Invalid patient ID"}, status=400)
 
+        # resolve patient by pk or userId
         try:
             patient = Patient.objects.get(pk=patient_id)
         except Exception:
             patient = Patient.objects.get(userId=ObjectId(patient_id))
 
+        # ---------- date window ----------
         from_str = request.GET.get("from")
-        to_str = request.GET.get("to")
+        to_str   = request.GET.get("to")
 
         if from_str and to_str:
-            from_date = datetime.datetime.strptime(from_str, '%Y-%m-%d')
-            to_date = datetime.datetime.strptime(to_str, '%Y-%m-%d')
+            from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d")
+            to_date   = datetime.datetime.strptime(to_str, "%Y-%m-%d")
         else:
-            to_date = timezone.now()
+            to_date   = timezone.now()
             from_date = to_date - datetime.timedelta(days=30)
 
-        # Normalize to start and end of day
-        from_datetime = datetime.datetime.combine(from_date.date(), datetime.time.min)
-        to_datetime = datetime.datetime.combine(to_date.date(), datetime.time.max)
+        # normalize to full days (aware)
+        from_datetime = timezone.make_aware(
+            datetime.datetime.combine(from_date.date(), datetime.time.min), datetime.timezone.utc
+        ) if timezone.is_naive(from_date) else datetime.datetime.combine(from_date.date(), datetime.time.min).replace(tzinfo=from_date.tzinfo)
 
+        to_datetime = timezone.make_aware(
+            datetime.datetime.combine(to_date.date(), datetime.time.max), datetime.timezone.utc
+        ) if timezone.is_naive(to_date) else datetime.datetime.combine(to_date.date(), datetime.time.max).replace(tzinfo=to_date.tzinfo)
 
-        # 1. Fitbit Data
+        # ---------- 1) Fitbit + Manual vitals merge ----------
         fitbit_entries = FitbitData.objects(
-            user=patient.userId,
-            date__gte=from_date,
-            date__lte=to_date
+            user=patient.userId, date__gte=from_date, date__lte=to_date
         ).order_by("date")
 
+        # manual vitals in the same window (keep latest per day)
+        vitals = PatientVitals.objects(
+            patientId=patient, date__gte=from_datetime, date__lte=to_datetime
+        ).order_by("date")
+
+        manual_by_day: dict[datetime.date, PatientVitals] = {}
+        for v in vitals:
+            day = v.date.date()
+            if day not in manual_by_day or v.date > manual_by_day[day].date:
+                manual_by_day[day] = v
+
         fitbit_data = []
+        # existing Fitbit days
         for entry in fitbit_entries:
+            day = entry.date.date()
+            man = manual_by_day.get(day)
+
+            weight_val = man.weight_kg if (man and man.weight_kg is not None) else getattr(entry, "weight", None)
+
+            bp_obj = None
+            if man and (man.bp_sys is not None or man.bp_dia is not None):
+                bp_obj = {"systolic": man.bp_sys, "diastolic": man.bp_dia, "source": "manual"}
+            else:
+                fb_bp = getattr(entry, "blood_pressure", None)
+                if fb_bp:
+                    bp_obj = {
+                        "systolic": getattr(fb_bp, "systolic", None),
+                        "diastolic": getattr(fb_bp, "diastolic", None),
+                        "source": "fitbit",
+                    }
+
+            # map HR zones and sleep to plain dicts
+            zones = [
+                {
+                    "name": z.name,
+                    "minutes": z.minutes,
+                    "caloriesOut": z.caloriesOut,
+                    "min": z.min,
+                    "max": z.max,
+                }
+                for z in (entry.heart_rate_zones or [])
+            ]
+
+            if entry.sleep:
+                # if sleep start/end are datetimes, convert to strings
+                sleep_start = getattr(entry.sleep, "sleep_start", None)
+                sleep_end   = getattr(entry.sleep, "sleep_end", None)
+                sleep_obj = {
+                    "sleep_duration": getattr(entry.sleep, "sleep_duration", None),
+                    "sleep_start": _iso(sleep_start) if isinstance(sleep_start, (datetime.datetime, datetime.date)) else sleep_start,
+                    "sleep_end": _iso(sleep_end) if isinstance(sleep_end, (datetime.datetime, datetime.date)) else sleep_end,
+                    "awakenings": getattr(entry.sleep, "awakenings", None),
+                }
+            else:
+                sleep_obj = None
+
+            fitbit_data.append(
+                {
+                    "date": entry.date.strftime("%Y-%m-%d"),
+                    "steps": entry.steps,
+                    "resting_heart_rate": entry.resting_heart_rate,
+                    "floors": entry.floors,
+                    "distance": entry.distance,
+                    "calories": entry.calories,
+                    "active_minutes": entry.active_minutes,
+                    "heart_rate_zones": zones,
+                    "sleep": sleep_obj,
+                    "breathing_rate": entry.breathing_rate,
+                    "hrv": entry.hrv,
+                    "exercise": entry.exercise,
+                    # unified vitals
+                    "weight": weight_val,
+                    "blood_pressure": bp_obj,
+                }
+            )
+
+        fitbit_days = {datetime.datetime.strptime(r["date"], "%Y-%m-%d").date() for r in fitbit_data}
+
+        # add manual-only days (no Fitbit row that day)
+        for day, man in manual_by_day.items():
+            if day in fitbit_days:
+                continue
             fitbit_data.append({
-                "date": entry.date.strftime('%Y-%m-%d'),
-                "steps": entry.steps,
-                "resting_heart_rate": entry.resting_heart_rate,
-                "floors": entry.floors,
-                "distance": entry.distance,
-                "calories": entry.calories,
-                "active_minutes": entry.active_minutes,
-                "heart_rate_zones": [
-                    {
-                        "name": zone.name,
-                        "minutes": zone.minutes,
-                        "caloriesOut": zone.caloriesOut,
-                        "min": zone.min,
-                        "max": zone.max
-                    } for zone in (entry.heart_rate_zones or [])
-                ],
-                "sleep": {
-                    "sleep_duration": entry.sleep.sleep_duration if entry.sleep else None,
-                    "sleep_start": entry.sleep.sleep_start if entry.sleep else None,
-                    "sleep_end": entry.sleep.sleep_end if entry.sleep else None,
-                    "awakenings": entry.sleep.awakenings if entry.sleep else None
-                },
-                "breathing_rate": entry.breathing_rate,
-                "hrv": entry.hrv,
-                "exercise": entry.exercise
+                "date": day.strftime("%Y-%m-%d"),
+                "steps": None, "resting_heart_rate": None, "floors": None, "distance": None,
+                "calories": None, "active_minutes": None, "heart_rate_zones": [],
+                "sleep": None, "breathing_rate": None, "hrv": None, "exercise": None,
+                "weight": man.weight_kg,
+                "blood_pressure": (
+                    {"systolic": man.bp_sys, "diastolic": man.bp_dia, "source": "manual"}
+                    if (man.bp_sys is not None or man.bp_dia is not None)
+                    else None
+                ),
             })
 
-        # 2. Healthstatus Feedback Data
+
+        fitbit_data.sort(key=lambda r: r["date"])
+
+        # ---------- 2) Questionnaire ----------
         questions = FeedbackQuestion.objects(questionSubject="Healthstatus")
         question_map = {
             str(q.id): {
                 "questionKey": q.questionKey,
                 "icfCode": q.icfCode,
                 "answerType": q.answer_type,
-                "translations": [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in q.translations
-                ],
+                "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
                 "answerMap": {
-                    opt.key: [
-                        {"language": tr.language, "text": tr.text}
-                        for tr in opt.translations
-                    ]
+                    opt.key: [{"language": tr.language, "text": tr.text} for tr in opt.translations]
                     for opt in (q.possibleAnswers or [])
                 },
             }
@@ -1946,109 +2024,341 @@ def get_combined_health_data(request, patient_id):
         }
 
         feedback_result = []
-        print(f"Querying ratings for patient {patient.userId} from {from_date} to {to_date}")
-        print("Available dates: %s", [r.date for r in PatientICFRating.objects(patientId=patient)])
-
         ratings = PatientICFRating.objects(
-            patientId=patient,
-            date__gte=from_date,
-            date__lte=to_date
+            patientId=patient, date__gte=from_date, date__lte=to_date
         ).order_by("date")
-        print(f"DEBUG: Found {ratings.count()} ratings for patient {patient_id} from {from_date} to {to_date}")
 
         for rating in ratings:
-            for entry in rating.feedback_entries:
-                if not hasattr(entry, "questionId") or not entry.questionId:
+            for ent in rating.feedback_entries:
+                if not getattr(ent, "questionId", None):
                     continue
                 try:
-                    qid = str(entry.questionId.id)
+                    qid = str(ent.questionId.id)
                 except Exception:
                     continue
                 if qid not in question_map:
                     continue
 
-                qmeta = question_map[qid]
-                parsed_answers = []
-                for ans in entry.answerKey:
-                    parsed_answers.append({
+                parsed_answers = [
+                    {
                         "key": ans.key,
-                        "translations": [
-                            {"language": t.language, "text": t.text}
-                            for t in ans.translations
-                        ]
-                    })
+                        "translations": [{"language": t.language, "text": t.text} for t in ans.translations],
+                    }
+                    for ans in (ent.answerKey or [])
+                ]
 
-                feedback_result.append({
-                    "questionKey": qmeta["questionKey"],
-                    "icfCode": qmeta["icfCode"],
-                    "date": rating.date.isoformat(),
-                    "answers": parsed_answers,
-                    "comment": entry.comment,
-                    "questionTranslations": qmeta["translations"],
-                    "answerType": qmeta["answerType"],
-                })
+                qmeta = question_map[qid]
+                feedback_result.append(
+                    {
+                        "questionKey": qmeta["questionKey"],
+                        "icfCode": qmeta["icfCode"],
+                        "date": _iso(rating.date),
+                        "answers": parsed_answers,
+                        "comment": ent.comment,
+                        "questionTranslations": qmeta["translations"],
+                        "answerType": qmeta["answerType"],
+                    }
+                )
 
-
-        # ───────────────── 3. Adherence time series (daily) ─────────────────
-        # % completed per day = completed_count / scheduled_count * 100
+        # ---------- 3) Adherence (daily) ----------
         adherence = []
         try:
             plan = RehabilitationPlan.objects(patientId=patient).first()
         except Exception:
             plan = None
 
-        from_dt = from_datetime  # already normalized above
-        to_dt   = to_datetime
-
-        # Build day buckets
-        day = from_dt.date()
-        end_day = to_dt.date()
-
-        # count scheduled from plan
-        scheduled_by_day = {}
+        # buckets for scheduled/completed
+        scheduled_by_day: dict[datetime.date, int] = {}
         if plan:
             for ia in (getattr(plan, "interventions", []) or []):
                 for d in (getattr(ia, "dates", []) or []):
-                    try:
-                        dt = d if isinstance(d, datetime.datetime) else datetime.datetime.fromisoformat(str(d))
-                    except Exception:
-                        continue
-                    if from_dt <= dt <= to_dt:
-                        scheduled_by_day.setdefault(dt.date(), 0)
-                        scheduled_by_day[dt.date()] += 1
+                    # convert each date to a timezone-aware datetime if possible
+                    dt = None
+                    if isinstance(d, datetime.datetime):
+                        dt = d
+                    else:
+                        # robust parse for mongo Date/str
+                        try:
+                            dt = datetime.datetime.fromisoformat(str(d))
+                        except Exception:
+                            # last resort: treat as date
+                            try:
+                                dt = datetime.datetime.combine(d, datetime.time.min)
+                            except Exception:
+                                continue
+                    if timezone.is_naive(dt):
+                        dt = timezone.make_aware(dt, datetime.timezone.utc)
+                    if from_datetime <= dt <= to_datetime:
+                        day = dt.date()
+                        scheduled_by_day[day] = scheduled_by_day.get(day, 0) + 1
 
-        # count completions from logs
-        completed_by_day = {}
-        for lg in PatientInterventionLogs.objects(userId=patient, date__gte=from_dt, date__lte=to_dt).only("date", "status"):
-            if not isinstance(getattr(lg, "date", None), datetime.datetime):
+        completed_by_day: dict[datetime.date, int] = {}
+        logs = PatientInterventionLogs.objects(
+            userId=patient, date__gte=from_datetime, date__lte=to_datetime
+        )
+        for lg in logs:
+            dt = getattr(lg, "date", None)
+            if not isinstance(dt, datetime.datetime):
                 continue
-            statuses = {str(s).lower() for s in (lg.status or [])}
-            if "completed" in statuses:
-                dkey = lg.date.date()
-                completed_by_day[dkey] = completed_by_day.get(dkey, 0) + 1
+            status = getattr(lg, "status", "")
+            is_completed = False
+            if isinstance(status, str):
+                is_completed = "completed" in status.lower()
+            elif isinstance(status, (list, tuple)):
+                is_completed = any("completed" in str(s).lower() for s in status)
+            if is_completed:
+                day = dt.date()
+                completed_by_day[day] = completed_by_day.get(day, 0) + 1
 
+        day = from_datetime.date()
+        end_day = to_datetime.date()
         while day <= end_day:
             s = scheduled_by_day.get(day, 0)
             c = completed_by_day.get(day, 0)
-            pct = round(100 * c / s) if s > 0 else None  # None when nothing was scheduled that day
-            adherence.append({
-                "date": day.strftime("%Y-%m-%d"),
-                "scheduled": s,
-                "completed": c,
-                "pct": pct,
-            })
+            pct = round(100 * c / s) if s > 0 else None
+            adherence.append(
+                {
+                    "date": day.strftime("%Y-%m-%d"),
+                    "scheduled": int(s),
+                    "completed": int(c),
+                    "pct": pct,
+                }
+            )
             day += datetime.timedelta(days=1)
 
-        return JsonResponse({
-            "fitbit": fitbit_data,
-            "questionnaire": feedback_result,
-            "adherence": adherence,
-        }, safe=False)
+        # ---------- response ----------
+        return JsonResponse(
+            {
+                "fitbit": fitbit_data,
+                "questionnaire": feedback_result,
+                "adherence": adherence,
+            },
+            safe=False,
+        )
 
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
-
     except Exception as e:
+        # ensure you have `logger` defined; otherwise replace with print
         logger.error(f"[get_combined_health_data] {str(e)}", exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def add_manual_vitals(request, patient_id: str):
+    """
+    POST /api/patients/vitals/manual/<patient_id>/
+    Body JSON: { "date": ISO8601, "weight_kg": number, "bp_sys": number, "bp_dia": number }
+    - If "date" missing, uses now()
+    - Upserts (per patient, per calendar day)
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    # Resolve patient by pk or userId
+    try:
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Exception:
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+
+    # Parse JSON
+    try:
+        body = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    # Parse/normalize the datetime
+    when_str = body.get("date")
+    if when_str:
+        try:
+            # accept Z by converting to +00:00
+            dt = datetime.datetime.fromisoformat(when_str.replace("Z", "+00:00"))
+        except Exception:
+            return JsonResponse({"error": "Invalid 'date' (use ISO 8601)."}, status=400)
+    else:
+        dt = timezone.now()
+
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.utc)
+
+    # Validate numeric inputs
+    def as_float(x):
+        try:
+            return float(x) if x is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    weight_kg = as_float(body.get("weight_kg"))
+    bp_sys    = as_float(body.get("bp_sys"))
+    bp_dia    = as_float(body.get("bp_dia"))
+
+    if weight_kg is None and bp_sys is None and bp_dia is None:
+        return JsonResponse({"error": "No vitals provided"}, status=400)
+
+    # Upsert one record per calendar day (UTC)
+    day_start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end   = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    rec = PatientVitals.objects(
+        patientId=patient,
+        date__gte=day_start,
+        date__lte=day_end
+    ).first()
+
+    if not rec:
+        rec = PatientVitals(
+            user=patient.userId,
+            patientId=patient,
+            date=dt
+        )
+
+    if weight_kg is not None:
+        rec.weight_kg = weight_kg
+    if bp_sys is not None or bp_dia is not None:
+        # adjust to your field structure if it’s an EmbeddedDocument
+        # e.g., rec.blood_pressure.systolic = bp_sys ; rec.blood_pressure.diastolic = bp_dia
+        rec.blood_pressure = {
+            "systolic": bp_sys,
+            "diastolic": bp_dia,
+        }
+
+    rec.save()
+    return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
+
+
+def _resolve_patient(patient_id: str) -> Patient:
+    """
+    Try to resolve Patient by primary key first; if that fails, by userId (ObjectId).
+    """
+    try:
+        return Patient.objects.get(pk=patient_id)
+    except Exception:
+        try:
+            return Patient.objects.get(userId=ObjectId(patient_id))
+        except Exception:
+            raise Patient.DoesNotExist()
+
+def _parse_day(date_str: str) -> tuple[datetime, datetime, datetime]:
+    """
+    YYYY-MM-DD -> (date_only, day_start_aware, day_end_aware)
+    """
+    d = datetime.strptime(date_str, "%Y-%m-%d")
+    tz = timezone.get_current_timezone()
+    start = timezone.make_aware(datetime.combine(d.date(), time.min), tz)
+    end   = timezone.make_aware(datetime.combine(d.date(), time.max), tz)
+    return d, start, end
+
+def _has_weight(row) -> bool:
+    # Support several shapes/names
+    for attr in ("weight_kg", "weightKg", "weight", "body_weight"):
+        if hasattr(row, attr) and getattr(row, attr) is not None:
+            return True
+    w = getattr(row, "weight", None)
+    if isinstance(w, dict) and (w.get("kg") is not None or w.get("value") is not None):
+        return True
+    return False
+
+def _has_bp(row) -> bool:
+    # Nested document or dict on row.blood_pressure
+    bp = getattr(row, "blood_pressure", None)
+    if bp is not None:
+        try:
+            s = getattr(bp, "systolic", None)
+            d = getattr(bp, "diastolic", None)
+        except Exception:
+            s = bp.get("systolic") if isinstance(bp, dict) else None
+            d = bp.get("diastolic") if isinstance(bp, dict) else None
+        if s is not None or d is not None:
+            return True
+    # Flat fields as fallback
+    if getattr(row, "bp_sys", None) is not None or getattr(row, "bp_dia", None) is not None:
+        return True
+    return False
+
+def _parse_date_forgiving(s: str | None) -> datetime.date | None:
+    """Accept 'YYYY-MM-DD', 'YYYY-MM-DDTHH:MM[:SS][Z]', or 'YYYY/MM/DD' (with spaces)."""
+    if not s:
+        return None
+    s = s.strip()
+    # Fast path: ISO date at the start of the string
+    head10 = s[:10]
+    try:
+        return datetime.date.fromisoformat(head10)
+    except Exception:
+        pass
+    # Try with slashes or single-digit month/day
+    m = re.match(r"^\s*(\d{4})[-/](\d{1,2})[-/](\d{1,2})", s)
+    if m:
+        y, mo, d = map(int, m.groups())
+        try:
+            return datetime.date(y, mo, d)
+        except ValueError:
+            return None
+    return None
+
+
+def _resolve_patient(patient_id: str):
+    """Try Patient.pk first; then Patient.userId."""
+    try:
+        return Patient.objects.get(pk=patient_id)
+    except Exception:
+        try:
+            return Patient.objects.get(userId=ObjectId(patient_id))
+        except Exception:
+            return None
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def vitals_exists_for_day(request, patient_id: str):
+    """
+    GET /api/patients/vitals/exists/<patient_id>/?date=YYYY-MM-DD
+    Returns {"exists": true|false}
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    day = _parse_date_forgiving(request.GET.get("date"))
+    if not isinstance(day, datetime.date):
+        return JsonResponse({"error": "Invalid 'date'. Expected YYYY-MM-DD."}, status=400)
+
+    patient = _resolve_patient(patient_id)
+    if not patient:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+
+    # Day window (naive datetimes, consistent with your MongoEngine usage)
+    start_dt = datetime.datetime.combine(day, datetime.time.min)
+    end_dt   = datetime.datetime.combine(day, datetime.time.max)
+
+    exists = False
+
+    # 1) If you have a dedicated PatientVitals model, prefer that
+    try:
+        from core.models import PatientVitals  # optional
+        pv = PatientVitals.objects(
+            patientId=patient,
+            date__gte=start_dt,
+            date__lte=end_dt
+        ).only("id").first()
+        if pv:
+            exists = True
+    except Exception:
+        # 2) Fallback: store/check inside FitbitData for the same day
+        fb = FitbitData.objects(
+            user=patient.userId,
+            date__gte=start_dt,
+            date__lte=end_dt
+        ).first()
+        if fb:
+            # Adjust these field names to match your save_vitals implementation
+            weight_present = getattr(fb, "weight_kg", None) is not None
+            bp = getattr(fb, "blood_pressure", None)
+            systolic_present = getattr(bp, "systolic", None) is not None if bp else False
+            diastolic_present = getattr(bp, "diastolic", None) is not None if bp else False
+            exists = weight_present or systolic_present or diastolic_present
+
+    return JsonResponse({"exists": bool(exists)}, status=200)
