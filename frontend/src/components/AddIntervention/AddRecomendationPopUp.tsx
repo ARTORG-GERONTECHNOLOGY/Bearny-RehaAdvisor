@@ -1,3 +1,4 @@
+// src/components/HomePage/AddInterventionPopup.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Button, Col, Form, Modal, Row } from 'react-bootstrap';
 import { FaPlus } from 'react-icons/fa';
@@ -56,6 +57,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<ErrorMap>({});
   const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [therapistPatients, setTherapistPatients] = useState<{ id: string; name: string }[]>([]);
 
   const tagOptions = useMemo(
@@ -64,7 +66,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         value: tag,
         label: t(tag.charAt(0).toUpperCase() + tag.slice(1)),
       })),
-    [t]
+    []
   );
 
   const benefitOptions = useMemo(
@@ -73,7 +75,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         value: benefit,
         label: t(benefit.charAt(0).toUpperCase() + benefit.slice(1)),
       })),
-    [t]
+    []
   );
 
   const specializationKeys = Object.keys(config.patientInfo.function);
@@ -107,6 +109,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     setError('');
     setErrors({});
     setSuccess(false);
+    setSubmitting(false);
   };
 
   const handlePatientTypeChange = (index: number, field: keyof PatientType, value: string | boolean) => {
@@ -144,7 +147,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
   const handleFileChange = (field: 'mediaFile' | 'previewImage') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    // simple client-side type checks for preview image
     if (field === 'previewImage' && file && !file.type.startsWith('image/')) {
       setErrors((prev) => ({ ...prev, previewImage: t('Preview image must be an image file') }));
       return;
@@ -183,7 +185,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     const e: ErrorMap = {};
     const f = formData;
 
-    // Basic fields
     if (!f.title.trim()) e.title = t('Title is required');
     if (!f.description.trim()) e.description = t('Description is required');
     if (f.duration === null || f.duration === undefined || Number.isNaN(Number(f.duration))) {
@@ -193,10 +194,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
     if (!f.contentType) e.contentType = t('Content type is required');
     if (!f.previewImage) {
-  e.previewImage = t('Preview image is required');
-}
+      e.previewImage = t('Preview image is required');
+    }
 
-    // Private vs Non-private rules
     if (f.isPrivate) {
       if (!f.patientId) e.patientId = t('Please select a patient for a private intervention');
     } else {
@@ -211,11 +211,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
       }
     }
 
-    // Optional but logical checks
-    // if both link and media file are empty, you may require at least one. Uncomment if needed:
-    // if (!f.link && !f.mediaFile) e['link'] = t('Provide a link or upload a file');
-
-    // File sanity (size examples – tweak limits as needed)
     const MAX_FILE_MB = 500;
     const MAX_IMG_MB = 20;
     if (f.mediaFile && f.mediaFile.size > MAX_FILE_MB * 1024 * 1024) {
@@ -229,7 +224,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   };
 
   const humanizeField = (key: string) => {
-    // Make nested keys readable in the summary alert
     if (key.startsWith('patientTypes.')) {
       const [, idx, field] = key.split('.');
       const labelMap: Record<string, string> = {
@@ -253,8 +247,36 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     return map[key] || key;
   };
 
+  const applyBackendErrors = (data: any) => {
+    // Expect shape from backend: { message?, error?, field_errors?, non_field_errors? }
+    const fieldErrors: ErrorMap = {};
+    if (data?.field_errors && typeof data.field_errors === 'object') {
+      Object.entries(data.field_errors).forEach(([k, v]) => {
+        const first = Array.isArray(v) ? v[0] : v;
+        fieldErrors[String(k)] = String(first);
+      });
+    }
+    setErrors(fieldErrors);
+
+    const nf = (data?.non_field_errors || []) as string[];
+    const msg = data?.message || data?.error;
+    if (nf.length || msg) {
+      const summary =
+        (nf && nf.join(' ')) ||
+        (typeof msg === 'string' ? msg : t('Error adding recommendation'));
+      setError(summary);
+    } else if (Object.keys(fieldErrors).length) {
+      const summary = Object.keys(fieldErrors)
+        .map((k) => humanizeField(k))
+        .join(', ');
+      setError(t('Please correct the following fields before submitting: ') + summary);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+
     setError('');
     setSuccess(false);
     setErrors({});
@@ -262,7 +284,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     const { valid, errors: found } = validateForm();
     if (!valid) {
       setErrors(found);
-      // Build a concise summary
       const summary = Object.keys(found)
         .map((k) => humanizeField(k))
         .join(', ');
@@ -271,6 +292,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
 
     try {
+      setSubmitting(true);
+
       const payload = new FormData();
       payload.append('title', formData.title);
       payload.append('description', formData.description);
@@ -292,13 +315,18 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
       });
 
       if (res.status === 201) {
-        setSuccess(true);
-        resetForm();
-        onSuccess();
+        setSuccess(true);              // show success alert
+        setSubmitting(false);          // just in case
+        onSuccess();                   // refresh list
+        // DO NOT reset form here; keep success visible and submit hidden
+      } else {
+        applyBackendErrors(res.data);
+        setSubmitting(false);
       }
     } catch (err) {
+      setSubmitting(false);
       if (axios.isAxiosError(err) && err.response) {
-        setError(err.response.data.error || t('Error adding recommendation'));
+        applyBackendErrors(err.response.data);
       } else {
         setError(t('An unexpected error occurred'));
       }
@@ -306,6 +334,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   };
 
   const handleModalClose = () => {
+    // Now clear everything when user dismisses the dialog
     resetForm();
     handleClose();
   };
@@ -319,230 +348,240 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         <Modal.Title>{t('Add New Intervention')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
+        {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+        {success && <Alert variant="success" className="mb-3">{t('Intervention successfully added')}</Alert>}
 
         <Form onSubmit={handleSubmit} noValidate>
-          {/* Title */}
-          <Form.Group controlId="title">
-            <Form.Label>{t('InterventionTitle')}</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder={t('Enterrecommendationtitle')}
-              value={formData.title}
-              onChange={handleChange}
-              isInvalid={!!fe('title')}
-              required
-            />
-            <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
-          </Form.Group>
+          {/* Disable the whole form after success */}
+          <fieldset disabled={success || submitting}>
+            {/* Title */}
+            <Form.Group controlId="title">
+              <Form.Label>{t('InterventionTitle')}</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder={t('Enterrecommendationtitle')}
+                value={formData.title}
+                onChange={handleChange}
+                isInvalid={!!fe('title')}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
+            </Form.Group>
 
-          {/* Description */}
-          <Form.Group controlId="description" className="mt-3">
-            <Form.Label>{t('Description')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              placeholder={t('Enterdescription')}
-              value={formData.description}
-              onChange={handleChange}
-              isInvalid={!!fe('description')}
-              required
-            />
-            <Form.Control.Feedback type="invalid">{fe('description')}</Form.Control.Feedback>
-          </Form.Group>
+            {/* Description */}
+            <Form.Group controlId="description" className="mt-3">
+              <Form.Label>{t('Description')}</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder={t('Enterdescription')}
+                value={formData.description}
+                onChange={handleChange}
+                isInvalid={!!fe('description')}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{fe('description')}</Form.Control.Feedback>
+            </Form.Group>
 
-          {/* Duration */}
-          <Form.Group controlId="duration" className="mt-3">
-            <Form.Label>{t('RecomendationDuration(min)')}</Form.Label>
-            <InfoBubble tooltip={t('Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes')} />
-            <Form.Control
-              type="number"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder={t('Enterrecommendationduartioninminutes')}
-              isInvalid={!!fe('duration')}
-              required
-            />
-            <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
-          </Form.Group>
+            {/* Duration */}
+            <Form.Group controlId="duration" className="mt-3">
+              <Form.Label>{t('RecomendationDuration(min)')}</Form.Label>
+              <InfoBubble tooltip={t('Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes')} />
+              <Form.Control
+                type="number"
+                value={formData.duration}
+                onChange={handleChange}
+                placeholder={t('Enterrecommendationduartioninminutes')}
+                isInvalid={!!fe('duration')}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
+            </Form.Group>
 
-          {/* Tags */}
-          <Form.Group controlId="tagList" className="mt-3">
-            <Form.Label>{t('TagList')}</Form.Label>
-            <InfoBubble tooltip={t('Selectmultipletagstocategorizetherecommendation')} />
-            <Select
-              isMulti
-              options={tagOptions}
-              value={tagOptions.filter((opt) => formData.tagList.includes(opt.value))}
-              onChange={(opts) => handleMultiChange('tagList', opts as any)}
-            />
-          </Form.Group>
+            {/* Tags */}
+            <Form.Group controlId="tagList" className="mt-3">
+              <Form.Label>{t('TagList')}</Form.Label>
+              <InfoBubble tooltip={t('Selectmultipletagstocategorizetherecommendation')} />
+              <Select
+                isMulti
+                options={tagOptions}
+                value={tagOptions.filter((opt) => formData.tagList.includes(opt.value))}
+                onChange={(opts) => handleMultiChange('tagList', opts as any)}
+              />
+            </Form.Group>
 
-          {/* Benefit For */}
-          <Form.Group controlId="benefitFor" className="mt-3">
-            <Form.Label>{t('BenefitFor')}</Form.Label>
-            <Select
-              isMulti
-              options={benefitOptions}
-              value={benefitOptions.filter((opt) => formData.benefitFor.includes(opt.value))}
-              onChange={(opts) => handleMultiChange('benefitFor', opts as any)}
-            />
-          </Form.Group>
+            {/* Benefit For */}
+            <Form.Group controlId="benefitFor" className="mt-3">
+              <Form.Label>{t('BenefitFor')}</Form.Label>
+              <Select
+                isMulti
+                options={benefitOptions}
+                value={benefitOptions.filter((opt) => formData.benefitFor.includes(opt.value))}
+                onChange={(opts) => handleMultiChange('benefitFor', opts as any)}
+              />
+            </Form.Group>
 
-          {/* Content Type */}
-          <Form.Group controlId="contentType" className="mt-3">
-            <Form.Label>{t('ContentType')}</Form.Label>
-            <Form.Control
-              as="select"
-              value={formData.contentType}
-              onChange={handleChange}
-              isInvalid={!!fe('contentType')}
-              required
-            >
-              <option value="">{t('SelectContentType')}</option>
-              {config.RecomendationInfo.types.map((type: string) => (
-                <option key={type} value={type}>
-                  {t(type.charAt(0).toUpperCase() + type.slice(1))}
-                </option>
-              ))}
-            </Form.Control>
-            <Form.Control.Feedback type="invalid">{fe('contentType')}</Form.Control.Feedback>
-          </Form.Group>
-
-          {/* Link */}
-          <Form.Group controlId="link" className="mt-3">
-            <Form.Label>{t('Link(Optional)')}</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder={t('Enterlink')}
-              value={formData.link}
-              onChange={handleChange}
-              isInvalid={!!fe('link')}
-            />
-            <Form.Control.Feedback type="invalid">{fe('link')}</Form.Control.Feedback>
-          </Form.Group>
-
-          {/* Media File */}
-          <Form.Group controlId="mediaFile" className="mt-3">
-            <Form.Label>{t('UploadFile(Optional)')}</Form.Label>
-            <Form.Control type="file" accept="image/*,video/*,audio/*,application/pdf" onChange={handleFileChange('mediaFile')} isInvalid={!!fe('mediaFile')} />
-          </Form.Group>
-
-          {/* Preview Image */}
-          <Form.Group controlId="previewImage" className="mt-3">
-            <Form.Label>{t('UploadaPreviewImage')}</Form.Label>
-            <Form.Control
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange('previewImage')}
-              isInvalid={!!fe('previewImage')}
-              required
-            />
-            <Form.Control.Feedback type="invalid">{fe('previewImage')}</Form.Control.Feedback>
-          </Form.Group>
-
-          {/* Is Private */}
-          <Form.Group controlId="isPrivate" className="mt-3">
-            <Form.Check
-              type="checkbox"
-              label={t('Make this a private intervention (only visible to the assigned patient)')}
-              checked={formData.isPrivate}
-              onChange={handleChange}
-            />
-            <small className="text-muted">
-              {t('Private interventions can include patient videos and will not be accessible or assignable to others.')}
-            </small>
-          </Form.Group>
-
-          {/* Assign Patient (if private) */}
-          {formData.isPrivate && (
-            <Form.Group controlId="patientId" className="mt-3">
-              <Form.Label>{t('Assign to Patient')}</Form.Label>
+            {/* Content Type */}
+            <Form.Group controlId="contentType" className="mt-3">
+              <Form.Label>{t('ContentType')}</Form.Label>
               <Form.Control
                 as="select"
-                value={formData.patientId}
+                value={formData.contentType}
                 onChange={handleChange}
-                isInvalid={!!fe('patientId')}
+                isInvalid={!!fe('contentType')}
                 required
               >
-                <option value="">{t('Select a patient')}</option>
-                {therapistPatients.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                <option value="">{t('SelectContentType')}</option>
+                {config.RecomendationInfo.types.map((type: string) => (
+                  <option key={type} value={type}>
+                    {t(type.charAt(0).toUpperCase() + type.slice(1))}
+                  </option>
                 ))}
               </Form.Control>
-              <Form.Control.Feedback type="invalid">{fe('patientId')}</Form.Control.Feedback>
+              <Form.Control.Feedback type="invalid">{fe('contentType')}</Form.Control.Feedback>
             </Form.Group>
-          )}
 
-          {/* Patient Type Assignments (only if not private) */}
-          {!formData.isPrivate && (
-            <>
-              <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
-              {!!fe('patientTypes') && <Alert variant="danger" className="py-2">{fe('patientTypes')}</Alert>}
-              {formData.patientTypes.map((pt, idx) => (
-                <Row key={idx} className="mb-3">
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>{t('PatientType')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={pt.type}
-                        onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}
-                        isInvalid={!!fe(`patientTypes.${idx}.type`)}
-                      >
-                        <option value="">{t('SelectType')}</option>
-                        {specializationKeys.map((spec) => (
-                          <option key={spec} value={spec}>{t(spec)}</option>
-                        ))}
-                      </Form.Control>
-                      <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.type`)}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>{t('Diagnosis')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={pt.diagnosis}
-                        onChange={(e) => handlePatientTypeChange(idx, 'diagnosis', e.target.value)}
-                        isInvalid={!!fe(`patientTypes.${idx}.diagnosis`)}
-                      >
-                        <option value="">{t('SelectDiagnosis')}</option>
-                        {(pt.diagnosesOptions || []).map((d) => (
-                          <option key={d} value={d}>{t(d)}</option>
-                        ))}
-                        <option value="All">{t('All')}</option>
-                      </Form.Control>
-                      <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.diagnosis`)}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>{t('RecomendationFrequency')}</Form.Label>
-                      <Form.Control
-                        as="select"
-                        value={pt.frequency}
-                        onChange={(e) => handlePatientTypeChange(idx, 'frequency', e.target.value)}
-                        isInvalid={!!fe(`patientTypes.${idx}.frequency`)}
-                      >
-                        <option value="">{t('SelectFrequency')}</option>
-                        {config.RecomendationInfo.frequency.map((f: string) => (
-                          <option key={f} value={f}>{t(f)}</option>
-                        ))}
-                      </Form.Control>
-                      <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.frequency`)}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                </Row>
-              ))}
-              <Button variant="link" onClick={addPatientType}><FaPlus /> {t('AddAnotherPatientType')}</Button>
-            </>
-          )}
+            {/* Link */}
+            <Form.Group controlId="link" className="mt-3">
+              <Form.Label>{t('Link(Optional)')}</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder={t('Enterlink')}
+                value={formData.link}
+                onChange={handleChange}
+                isInvalid={!!fe('link')}
+              />
+              <Form.Control.Feedback type="invalid">{fe('link')}</Form.Control.Feedback>
+            </Form.Group>
 
+            {/* Media File */}
+            <Form.Group controlId="mediaFile" className="mt-3">
+              <Form.Label>{t('UploadFile(Optional)')}</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*,video/*,audio/*,application/pdf"
+                onChange={handleFileChange('mediaFile')}
+                isInvalid={!!fe('mediaFile')}
+              />
+              <Form.Control.Feedback type="invalid">{fe('mediaFile')}</Form.Control.Feedback>
+            </Form.Group>
+
+            {/* Preview Image */}
+            <Form.Group controlId="previewImage" className="mt-3">
+              <Form.Label>{t('UploadaPreviewImage')}</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange('previewImage')}
+                isInvalid={!!fe('previewImage')}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{fe('previewImage')}</Form.Control.Feedback>
+            </Form.Group>
+
+            {/* Is Private */}
+            <Form.Group controlId="isPrivate" className="mt-3">
+              <Form.Check
+                type="checkbox"
+                label={t('Make this a private intervention (only visible to the assigned patient)')}
+                checked={formData.isPrivate}
+                onChange={handleChange}
+              />
+              <small className="text-muted">
+                {t('Private interventions can include patient videos and will not be accessible or assignable to others.')}
+              </small>
+            </Form.Group>
+
+            {/* Assign Patient (if private) */}
+            {formData.isPrivate && (
+              <Form.Group controlId="patientId" className="mt-3">
+                <Form.Label>{t('Assign to Patient')}</Form.Label>
+                <Form.Control
+                  as="select"
+                  value={formData.patientId}
+                  onChange={handleChange}
+                  isInvalid={!!fe('patientId')}
+                  required
+                >
+                  <option value="">{t('Select a patient')}</option>
+                  {therapistPatients.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </Form.Control>
+                <Form.Control.Feedback type="invalid">{fe('patientId')}</Form.Control.Feedback>
+              </Form.Group>
+            )}
+
+            {/* Patient Type Assignments (only if not private) */}
+            {!formData.isPrivate && (
+              <>
+                <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
+                {!!fe('patientTypes') && <Alert variant="danger" className="py-2">{fe('patientTypes')}</Alert>}
+                {formData.patientTypes.map((pt, idx) => (
+                  <Row key={idx} className="mb-3">
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>{t('PatientType')}</Form.Label>
+                        <Form.Control
+                          as="select"
+                          value={pt.type}
+                          onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}
+                          isInvalid={!!fe(`patientTypes.${idx}.type`)}
+                        >
+                          <option value="">{t('SelectType')}</option>
+                          {specializationKeys.map((spec) => (
+                            <option key={spec} value={spec}>{t(spec)}</option>
+                          ))}
+                        </Form.Control>
+                        <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.type`)}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>{t('Diagnosis')}</Form.Label>
+                        <Form.Control
+                          as="select"
+                          value={pt.diagnosis}
+                          onChange={(e) => handlePatientTypeChange(idx, 'diagnosis', e.target.value)}
+                          isInvalid={!!fe(`patientTypes.${idx}.diagnosis`)}
+                        >
+                          <option value="">{t('SelectDiagnosis')}</option>
+                          {(pt.diagnosesOptions || []).map((d) => (
+                            <option key={d} value={d}>{t(d)}</option>
+                          ))}
+                          <option value="All">{t('All')}</option>
+                        </Form.Control>
+                        <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.diagnosis`)}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>{t('RecomendationFrequency')}</Form.Label>
+                        <Form.Control
+                          as="select"
+                          value={pt.frequency}
+                          onChange={(e) => handlePatientTypeChange(idx, 'frequency', e.target.value)}
+                          isInvalid={!!fe(`patientTypes.${idx}.frequency`)}
+                        >
+                          <option value="">{t('SelectFrequency')}</option>
+                          {config.RecomendationInfo.frequency.map((f: string) => (
+                            <option key={f} value={f}>{t(f)}</option>
+                          ))}
+                        </Form.Control>
+                        <Form.Control.Feedback type="invalid">{fe(`patientTypes.${idx}.frequency`)}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                ))}
+                <Button variant="link" onClick={addPatientType}><FaPlus /> {t('AddAnotherPatientType')}</Button>
+              </>
+            )}
+          </fieldset>
+
+          {/* Submit is hidden once success is true */}
           {!success && (
-            <Button variant="primary" type="submit" className="mt-4 w-100">
-              {t('Submit')}
+            <Button variant="primary" type="submit" className="mt-4 w-100" disabled={submitting}>
+              {submitting ? t('Submitting...') : t('Submit')}
             </Button>
           )}
         </Form>

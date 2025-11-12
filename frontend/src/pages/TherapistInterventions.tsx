@@ -103,7 +103,7 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
   // Delete from template (fixed endpoint string)
   const removeTemplateItem = async (diag: string, intId: string) => {
     try {
-      await apiClient.post('interventions/remove-from-patient-types/', {
+      await apiClient.post(`therapists/${authStore.id}/interventions/remove-from-patient-types/`, {
         diagnosis: diag,
         intervention_id: intId,
         therapist: authStore.id,

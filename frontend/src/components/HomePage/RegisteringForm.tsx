@@ -6,7 +6,6 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
-import ErrorAlert from '../common/ErrorAlert';
 
 interface FormDataShape {
   [key: string]: any; // string | string[]
@@ -20,7 +19,7 @@ interface RegisterFormProps {
 const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const { t } = useTranslation();
 
-  // Expecting these to exist in your config (kept as any to avoid over-typing)
+  // Config-driven steps & maps
   const formSteps = (config as any).TherapistForm;
   const specialityDiagnosisMap: Record<string, string[]> =
     (config as any).patientInfo?.functionPat || {};
@@ -50,6 +49,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const [serverDetail, setServerDetail] = useState<{ status?: number; message?: string } | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,6 +76,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     setErrors({});
     setFormError(null);
     setSuccessMsg(null);
+    setServerDetail(null);
+    setShowDetails(false);
     setShowPassword(false);
     setShowRepeatPassword(false);
   };
@@ -90,7 +94,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     setErrors((prev) => {
       const next = { ...prev };
 
-      // Show complexity error ONLY after user started typing
       if (pwd.length > 0 && !pwdRegex.test(pwd)) {
         next.password = t(
           'Password must include 8+ characters, an uppercase, lowercase, number and special character.'
@@ -99,7 +102,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         delete next.password;
       }
 
-      // Show mismatch error ONLY after user started typing the repeat field
       if (rep.length > 0 && rep !== pwd) {
         next.repeatPassword = t('Passwords do not match.');
       } else {
@@ -118,19 +120,15 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     setFormData((prev) => {
       const updated = { ...prev, [id]: value };
 
-      // Clear top-level error when user edits anything
       if (formError) setFormError(null);
+      setServerDetail(null);
+      setShowDetails(false);
 
-      // Live validate as user types passwords
       if (id === 'password' || id === 'repeatPassword') {
         const pwd = id === 'password' ? value : String(updated.password || '');
-        const rep =
-          id === 'repeatPassword'
-            ? value
-            : String(updated.repeatPassword || '');
+        const rep = id === 'repeatPassword' ? value : String(updated.repeatPassword || '');
         liveValidatePassword(pwd, rep);
       } else {
-        // Clear field-specific error when user edits non-password fields
         setErrors((prevErr) => ({ ...prevErr, [id]: '' }));
       }
 
@@ -154,12 +152,12 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     selectedOptions: readonly { value: string; label: string }[] | null,
     fieldName: string
   ) => {
-    const selectedValues = selectedOptions
-      ? selectedOptions.map((opt) => opt.value)
-      : [];
+    const selectedValues = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
     setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
     if (formError) setFormError(null);
+    setServerDetail(null);
+    setShowDetails(false);
   };
 
   const togglePassword = (which: 'main' | 'repeat') => {
@@ -233,26 +231,40 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     e.preventDefault();
     setFormError(null);
     setSuccessMsg(null);
+    setServerDetail(null);
+    setShowDetails(false);
 
     if (!validateStep()) return;
 
     try {
       setLoading(true);
-      const { data: response } = await apiClient.post('/auth/register/', formData);
+      const res = await apiClient.post('/auth/register/', formData);
 
-      if (response.status === 200 || response.status === 201) {
+      if (res.status >= 200 && res.status < 300) {
+        setErrors({});
         setSuccessMsg(
           t('You have been registered. Account info will be emailed after approval.')
         );
-        setErrors({});
+      } else {
+        const message = extractServerMessage(res.data, t('Registration failed.'));
+        setFormError(message);
       }
     } catch (err: any) {
-     
-        // For non-400 errors, keep a safe generic message
-        
-        setFormError(t(t(err) || t('Registration failed. Please try again later.')));
-        setSuccessMsg(null);
+      const status = err?.response?.status;
+      const message = extractServerMessage(
+        err?.response?.data,
+        t('Registration failed. Please try again later.')
+      );
 
+      if (status >= 500) {
+        setFormError(
+          `${t('The server is busy or temporarily unavailable. Please try again.')}\n${t('Error')}: ${status}`
+        );
+      } else {
+        setFormError(message);
+      }
+      setServerDetail({ status, message });
+      setSuccessMsg(null);
     } finally {
       setLoading(false);
     }
@@ -276,14 +288,38 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       <Modal.Body>
         {/* Top banners */}
         {formError && (
-          <div className="alert alert-danger d-flex justify-content-between align-items-center">
-            <span>{formError}</span>
-            <button
-              type="button"
-              className="btn-close"
-              aria-label={t('Close')}
-              onClick={() => setFormError(null)}
-            />
+          <div className="alert alert-danger">
+            <div className="d-flex justify-content-between align-items-center">
+              <span style={{ whiteSpace: 'pre-line' }}>{formError}</span>
+              <button
+                type="button"
+                className="btn-close"
+                aria-label={t('Close')}
+                onClick={() => {
+                  setFormError(null);
+                  setServerDetail(null);
+                  setShowDetails(false);
+                }}
+              />
+            </div>
+
+            {serverDetail && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="btn btn-link p-0"
+                  onClick={() => setShowDetails((v) => !v)}
+                >
+                  {t('Additional information')}
+                </button>
+                {showDetails && (
+                  <pre className="small bg-light p-2 border rounded mt-1 mb-0">
+                    {t('Status')}: {serverDetail.status ?? '-'}{'\n'}
+                    {serverDetail.message}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -300,162 +336,150 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         )}
 
         <form onSubmit={handleSubmit}>
-          <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
+          {/* Disable the fieldset while loading or after success */}
+          <fieldset disabled={loading || !!successMsg}>
+            <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
 
-          {currentFields.map((field: any) => {
-            const isRequired = !!field.required;
-            const labelText = (
-              <>
-                {t(field.label)}{' '}
-                {isRequired && <span className="text-danger">*</span>}
-              </>
-            );
+            {currentFields.map((field: any) => {
+              const isRequired = !!field.required;
+              const labelText = (
+                <>
+                  {t(field.label)} {isRequired && <span className="text-danger">*</span>}
+                </>
+              );
 
-            return (
-              <div key={field.name} className="mb-3">
-                <label htmlFor={field.name} className="form-label">
-                  {labelText}
-                </label>
+              return (
+                <div key={field.name} className="mb-3">
+                  <label htmlFor={field.name} className="form-label">
+                    {labelText}
+                  </label>
 
-                {field.type === 'multi-select' ? (
-                  <Select
-                    id={field.name}
-                    isMulti
-                    value={(formData[field.name] as string[]).map((val: string) => ({
-                      value: val,
-                      label: t(val),
-                    }))}
-                    options={
-                      field.name === 'diagnosis' &&
-                      (formData.function || []).length > 0
-                        ? (formData.function as string[]).flatMap((spec: string) =>
-                            (specialityDiagnosisMap[spec] || []).map((diag) => ({
-                              value: diag,
-                              label: t(diag),
+                  {field.type === 'multi-select' ? (
+                    <Select
+                      id={field.name}
+                      isMulti
+                      value={(formData[field.name] as string[]).map((val: string) => ({
+                        value: val,
+                        label: t(val),
+                      }))}
+                      options={
+                        field.name === 'diagnosis' && (formData.function || []).length > 0
+                          ? (formData.function as string[]).flatMap((spec: string) =>
+                              (specialityDiagnosisMap[spec] || []).map((diag) => ({
+                                value: diag,
+                                label: t(diag),
+                              }))
+                            )
+                          : (field.options || []).map((opt: string) => ({
+                              value: opt,
+                              label: t(opt),
                             }))
-                          )
-                        : (field.options || []).map((opt: string) => ({
-                            value: opt,
-                            label: t(opt),
-                          }))
-                    }
-                    onChange={(options) =>
-                      handleMultiSelectChange(options, field.name)
-                    }
-                  />
-                ) : field.type === 'dropdown' ? (
-                  <select
-                    id={field.name}
-                    className={`form-control ${
-                      errors[field.name] ? 'is-invalid' : ''
-                    }`}
-                    value={String(formData[field.name] || '')}
-                    onChange={handleChange}
-                  >
-                    <option value="">
-                      {t('Select')} {t(field.label)}
-                    </option>
-                    {(field.options || []).map((opt: string) => (
-                      <option key={opt} value={opt}>
-                        {t(opt)}
-                      </option>
-                    ))}
-                  </select>
-                ) : field.type === 'password' ? (
-                  <div className="position-relative">
-                    <input
-                      type={
-                        field.name === 'password'
-                          ? showPassword
-                            ? 'text'
-                            : 'password'
-                          : showRepeatPassword
-                          ? 'text'
-                          : 'password'
                       }
-                      className={`form-control ${
-                        errors[field.name] ? 'is-invalid' : ''
-                      }`}
+                      onChange={(options) => handleMultiSelectChange(options, field.name)}
+                    />
+                  ) : field.type === 'dropdown' ? (
+                    <select
+                      id={field.name}
+                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                      value={String(formData[field.name] || '')}
+                      onChange={handleChange}
+                    >
+                      <option value="">
+                        {t('Select')} {t(field.label)}
+                      </option>
+                      {(field.options || []).map((opt: string) => (
+                        <option key={opt} value={opt}>
+                          {t(opt)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : field.type === 'password' ? (
+                    <div className="position-relative">
+                      <input
+                        type={
+                          field.name === 'password'
+                            ? (showPassword ? 'text' : 'password')
+                            : (showRepeatPassword ? 'text' : 'password')
+                        }
+                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                        id={field.name}
+                        value={String(formData[field.name] || '')}
+                        onChange={handleChange}
+                        aria-describedby={`${field.name}-help`}
+                        autoComplete="new-password"
+                      />
+                      <span
+                        className="position-absolute end-0 top-50 translate-middle-y me-3"
+                        role="button"
+                        onClick={() => togglePassword(field.name === 'password' ? 'main' : 'repeat')}
+                        aria-label={t('Toggle password visibility')}
+                      >
+                        {field.name === 'password'
+                          ? (showPassword ? <FaEye /> : <FaEyeSlash />)
+                          : (showRepeatPassword ? <FaEye /> : <FaEyeSlash />)}
+                      </span>
+
+                      {errors[field.name] && (
+                        <div
+                          id={`${field.name}-help`}
+                          className="mt-1 small text-danger"
+                          aria-live="polite"
+                        >
+                          {errors[field.name]}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <input
+                      type={field.type}
+                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                       id={field.name}
                       value={String(formData[field.name] || '')}
                       onChange={handleChange}
-                      aria-describedby={`${field.name}-help`}
-                      autoComplete={
-                        field.name === 'password' ? 'new-password' : 'new-password'
-                      }
                     />
-                    <span
-                      className="position-absolute end-0 top-50 translate-middle-y me-3"
-                      role="button"
-                      onClick={() =>
-                        togglePassword(field.name === 'password' ? 'main' : 'repeat')
-                      }
-                      aria-label={t('Toggle password visibility')}
-                    >
-                      {field.name === 'password' ? (
-                        showPassword ? <FaEye /> : <FaEyeSlash />
-                      ) : showRepeatPassword ? (
-                        <FaEye />
-                      ) : (
-                        <FaEyeSlash />
-                      )}
-                    </span>
+                  )}
 
-                    {/* Show the same validation text immediately while typing */}
-                    {errors[field.name] && (
-                      <div
-                        id={`${field.name}-help`}
-                        className="mt-1 small text-danger"
-                        aria-live="polite"
-                      >
-                        {errors[field.name]}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <input
-                    type={field.type}
-                    className={`form-control ${
-                      errors[field.name] ? 'is-invalid' : ''
-                    }`}
-                    id={field.name}
-                    value={String(formData[field.name] || '')}
-                    onChange={handleChange}
-                  />
-                )}
+                  {/* Non-password field errors */}
+                  {field.type !== 'password' && errors[field.name] && (
+                    <div className="text-danger mt-1" aria-live="polite">
+                      {errors[field.name]}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </fieldset>
 
-                {/* Non-password field errors */}
-                {field.type !== 'password' && errors[field.name] && (
-                  <div className="text-danger mt-1" aria-live="polite">
-                    {errors[field.name]}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
+          {/* Footer buttons */}
           <div className="d-flex justify-content-between mt-4">
-            {step > 0 && (
-              <Button
-                variant="secondary"
-                onClick={prevStep}
-                disabled={!!successMsg || loading}
-              >
-                {t('Back')}
-              </Button>
-            )}
-            {step < formSteps.length - 1 ? (
-              <Button
-                variant="primary"
-                onClick={nextStep}
-                disabled={!!successMsg || loading}
-              >
-                {t('Next')}
-              </Button>
+            {successMsg ? (
+              <div className="ms-auto">
+                <Button variant="primary" onClick={handleCloseForm}>
+                  {t('Close')}
+                </Button>
+              </div>
+            ) : step > 0 ? (
+              <>
+                <Button variant="secondary" onClick={prevStep} disabled={loading}>
+                  {t('Back')}
+                </Button>
+                {step < formSteps.length - 1 ? (
+                  <Button variant="primary" onClick={nextStep} disabled={loading}>
+                    {t('Next')}
+                  </Button>
+                ) : (
+                  <Button type="submit" variant="success" disabled={loading}>
+                    {loading ? <Spinner size="sm" /> : t('Submit')}
+                  </Button>
+                )}
+              </>
             ) : (
-              <Button type="submit" variant="success" disabled={loading}>
-                {loading ? <Spinner size="sm" /> : t('Submit')}
-              </Button>
+              <>
+                <span /> {/* spacer */}
+                <Button variant="primary" onClick={nextStep} disabled={loading}>
+                  {t('Next')}
+                </Button>
+              </>
             )}
           </div>
         </form>

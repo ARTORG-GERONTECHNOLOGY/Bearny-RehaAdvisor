@@ -1,23 +1,31 @@
-import os
-import django
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings.base")
-django.setup()
-
+# core/tasks.py
+import logging
 from celery import shared_task
-from django.core import management
+from django.core.management import call_command
 
-@shared_task
+logger = logging.getLogger(__name__)
+
+# If your PeriodicTask points to "core.tasks.run_delete_expired_videos"
+@shared_task(name="core.tasks.run_delete_expired_videos",
+             autoretry_for=(Exception,), retry_backoff=60, max_retries=5)
 def run_delete_expired_videos():
-    subprocess.call(['python', 'manage.py', 'delete_expired_videos'])
-    print("✅ Celery is working! Expired videos deleted successfully.")
+    """
+    Runs the Django management command 'delete_expired_videos'.
+    Prefer direct function calls if you have a service function.
+    """
+    call_command("delete_expired_videos")
+    logger.info("✅ delete_expired_videos finished")
+    return "ok"
 
-@shared_task
-def run_delete_expired_videos():
-    subprocess.call(['python', 'manage.py', 'fetch_fitbit_data'])
-    print("✅ Celery is working! Fitbit data fetched successfully.")
-
-#@shared_task
-#def test_celery():
-#    print("✅ Celery is working!")
-#    return "Task ran successfully"
+# If your PeriodicTask points to "core.tasks.run_fetch_fitbit_data"
+@shared_task(name="core.tasks.run_fetch_fitbit_data",
+             autoretry_for=(Exception,), retry_backoff=60, max_retries=3)
+def run_fetch_fitbit_data():
+    """
+    Runs the Django management command that fetches Fitbit data.
+    If your command is named 'fetch_fitbit_data' or 'fetch_fitbit_extended',
+    match that name here.
+    """
+    call_command("fetch_fitbit_extended")  # or "fetch_fitbit_data" if that's your command name
+    logger.info("✅ fetch_fitbit_extended finished")
+    return "ok"

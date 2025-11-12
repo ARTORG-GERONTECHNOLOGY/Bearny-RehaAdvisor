@@ -1,0 +1,55 @@
+/* Fluid, accessible, cross-browser layout helpers for the Home page */
+
+.home-root {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.home-main {
+  /* keep hero centered without causing jumps on small screens */
+  padding-block: clamp(1rem, 2.5vh, 2rem);
+}
+
+/* Fluid type scales that won’t explode on tiny phones or ultrawides */
+.home-title {
+  font-size: clamp(1.6rem, 1.1rem + 2.2vw, 2.6rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.home-lead {
+  font-size: clamp(0.98rem, 0.9rem + 0.4vw, 1.15rem);
+  line-height: 1.5;
+  max-width: 60ch;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .home-lead { margin-inline: 0; }
+}
+
+/* Image container uses Bootstrap ratio; just ensure cover/contain works */
+.home-art img {
+  object-fit: cover;  /* fills the card nicely */
+}
+
+/* On very small devices, prefer contain to avoid cropping faces/illustrations */
+@media (max-width: 380px) {
+  .home-art img { object-fit: contain; background: #f8f9fa; }
+}
+
+/* Button tuned for touch targets */
+.home-cta {
+  min-width: 11rem;
+  padding-inline: 1.25rem;
+}
+
+/* Respect reduced motion users */
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
+
+/* Optional: dark-mode friendly image surface */
+@media (prefers-color-scheme: dark) {
+  .home-art { box-shadow: none; background: #111; }
+}

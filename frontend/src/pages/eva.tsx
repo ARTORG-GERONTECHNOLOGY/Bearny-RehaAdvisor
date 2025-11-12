@@ -3,11 +3,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 /** ====== DATA ====== */
 const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
 const REAL_QUESTIONS = [
-  'Wie fühlen Sie sich im Moment?',
-  'Allgemeine Gesundheit',
+  'Allgemeine Gesundheit und wie geht es Ihnen heute und in den letzten Tagen und warum?',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
-  'Die Toilette benutzen, das Blasenmanagement, die Urinausscheidung, die Verdauung und das Management vom Stuhlganges',
+  'Die Toilette benutzen, das Blasenmanagement und die Urinausscheidung',
+  'Die Verdauung und das Management des Stuhlgangs',
   'Muskelfunktion und Muskelkraft',
   'Beweglichkeit, Gelenke und Knochen',
   'Liegen, sitzen, aufstehen, gehen, die Position wechseln und sich fortbewegen',
@@ -18,7 +18,8 @@ const REAL_QUESTIONS = [
   'Sexual Leben und sexuelle Funktionen',
   'Schlaf',
   'Problemlösen und Wissen anwenden',
-  'Gedächtnis und Denken',
+  'Gedächtnis',
+  'Denken',
   'Umgang mit Emotionen und Gefühlen',
   'Psychische Energie und Antrieb',
   'Schmerz',
@@ -32,7 +33,7 @@ const REAL_QUESTIONS = [
   'Umwelteinflüsse und Klima',
   'Auf Gesundheit achten',
 ];
-const VERSION = 'Version 7.1, 03.04.2025';
+const VERSION = 'Version 3.1, 07.11.2025';
 
 /** ====== COMPONENT ====== */
 export default function HealthSlider() {

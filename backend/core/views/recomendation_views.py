@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from datetime import datetime, timedelta
 from rest_framework.permissions import IsAuthenticated
-
+from typing import Any, Dict, List
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from core.models import (
     DefaultInterventions,
@@ -541,162 +541,262 @@ def list_all_interventions(request, patient_id=None):
 
 
 
-@csrf_exempt
+# Map extensions to storage folders (fallback to "others")
+FILE_TYPE_FOLDERS = {
+    "mp4": "videos",
+    "mov": "videos",
+    "avi": "videos",
+    "mkv": "videos",
+    "mp3": "audios",
+    "wav": "audios",
+    "m4a": "audios",
+    "pdf": "pdfs",
+    "png": "images",
+    "jpg": "images",
+    "jpeg": "images",
+    "gif": "images",
+    "webp": "images",
+}
+
+# Hard limits / constraints
+MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024        # 200 MB
+MAX_LIST_ITEMS      = 30
+MAX_ITEM_LEN        = 80
+ALLOWED_CONTENT_TYPES = {"video", "audio", "pdf", "image", "link", "text"}
+
+def _bad_request(message: str, field_errors: Dict[str, List[str]] | None = None,
+                 non_field_errors: List[str] | None = None, extra: Dict[str, Any] | None = None):
+    payload: Dict[str, Any] = {
+        "success": False,
+        "message": message,
+        "field_errors": field_errors or {},
+        "non_field_errors": non_field_errors or [],
+    }
+    if extra:
+        payload.update(extra)
+    return JsonResponse(payload, status=400)
+
+def _parse_body(request):
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            return json.loads(request.body.decode("utf-8")) if request.body else {}
+        except Exception:
+            return {}
+    return request.POST.dict()
+
+def _parse_str_list(val) -> List[str]:
+    if val is None:
+        return []
+    if isinstance(val, list):
+        items = [sanitize_text(str(x)).strip() for x in val if str(x).strip()]
+    elif isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return []
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                items = [sanitize_text(str(x)).strip() for x in parsed if str(x).strip()]
+            else:
+                items = [sanitize_text(s)]
+        except json.JSONDecodeError:
+            pieces = [p.strip().strip('"').strip("'") for p in s.split(",")]
+            items = [sanitize_text(x) for x in pieces if x]
+    else:
+        items = [sanitize_text(str(val)).strip()]
+
+    # Enforce limits
+    items = items[:MAX_LIST_ITEMS]
+    return [x[:MAX_ITEM_LEN] for x in items]
+
+def _parse_bool(val, default=False) -> bool:
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in {"1", "true", "yes", "y", "on"}
+    return bool(val) if val is not None else default
+
+def _parse_int(val, default=None):
+    if val in (None, ""):
+        return default
+    try:
+        return int(val)
+    except Exception:
+        return default
+
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
     POST /api/interventions/add/
     Create a new intervention (public or private).
-    Accepts multipart/form-data (with files) or application/json.
-    Robustly parses tags/benefitFor whether sent as JSON arrays or comma-separated strings.
+    Supports multipart/form-data (with files) or application/json.
+    Returns detailed validation errors on 400 instead of generic 500s.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    def parse_body():
-        # Support both multipart and JSON
-        if request.content_type and "application/json" in request.content_type:
-            try:
-                return json.loads(request.body.decode("utf-8")) if request.body else {}
-            except Exception:
-                return {}
-        # multipart/form-data
-        return request.POST.dict()
+    data = _parse_body(request)
+    field_errors: Dict[str, List[str]] = {}
+    non_field_errors: List[str] = []
 
-    def parse_str_list(val):
-        """
-        Turn val into a list[str].
-        - If list already, sanitize each.
-        - If JSON array string, parse.
-        - Else split by comma.
-        """
-        if val is None:
-            return []
-        if isinstance(val, list):
-            return [sanitize_text(str(x)).strip() for x in val if str(x).strip()]
-        if isinstance(val, str):
-            s = val.strip()
-            if not s:
-                return []
-            # Try JSON first
-            try:
-                parsed = json.loads(s)
-                if isinstance(parsed, list):
-                    return [sanitize_text(str(x)).strip() for x in parsed if str(x).strip()]
-            except json.JSONDecodeError:
-                pass
-            # Fallback: comma-separated string
-            items = [p.strip().strip('"').strip("'") for p in s.split(",")]
-            return [sanitize_text(x) for x in items if x]
-        # Anything else → stringify and return as single element
-        return [sanitize_text(str(val)).strip()]
+    # --- Normalize incoming lists ---
+    raw_benefit_for = data.get("benefitFor", data.get("benefits"))
+    benefit_for_list = _parse_str_list(raw_benefit_for)
 
-    def parse_bool(val, default=False):
-        if isinstance(val, bool):
-            return val
-        if isinstance(val, str):
-            return val.lower() in {"1", "true", "yes", "y", "on"}
-        return bool(val) if val is not None else default
+    raw_tags = data.get("tagList", data.get("tags"))
+    tags_list = _parse_str_list(raw_tags)
 
-    def parse_int(val, default=None):
-        if val in (None, ""):
-            return default
+    # patientTypes can be list or JSON string
+    raw_patient_types = data.get("patientTypes") or data.get("patient_types") or []
+    if isinstance(raw_patient_types, str):
         try:
-            return int(val)
-        except Exception:
-            return default
+            raw_patient_types = json.loads(raw_patient_types)
+        except json.JSONDecodeError:
+            raw_patient_types = []
 
-    try:
-        data = parse_body()
+    # --- Core fields ---
+    title_raw = (data.get("title") or "").strip()
+    description_raw = data.get("description", "")
+    content_type = (data.get("contentType") or data.get("content_type") or "").strip().lower()
+    is_private = _parse_bool(data.get("isPrivate", data.get("is_private", False)))
+    patient_id = data.get("patientId") or data.get("patient_id")
+    duration = _parse_int(data.get("duration"))
 
-        # Patient types may come as an array or JSON string or under either key
-        raw_patient_types = data.get("patientTypes") or data.get("patient_types") or []
-        if isinstance(raw_patient_types, str):
-            try:
-                raw_patient_types = json.loads(raw_patient_types)
-            except json.JSONDecodeError:
-                raw_patient_types = []
+    # --- Validations ---
+    if not title_raw:
+        field_errors.setdefault("title", []).append("This field is required.")
 
-        # Build PatientType embeddeds
-        patient_types = []
-        for pt in raw_patient_types or []:
-            # Support includeOption/include_option; frequency/type/diagnosis names as provided
-            patient_types.append(
-                PatientType(
-                    type=pt.get("type", ""),
-                    diagnosis=pt.get("diagnosis", ""),
-                    frequency=pt.get("frequency", ""),
-                    include_option=bool(pt.get("includeOption", pt.get("include_option", False))),
-                )
-            )
+    # Duplicate title check (case-insensitive)
+    if title_raw and Intervention.objects.filter(title__iexact=title_raw).first():
+        field_errors.setdefault("title", []).append("An intervention with this title already exists.")
 
-        # Privacy flags / ids
-        is_private = parse_bool(data.get("isPrivate", data.get("is_private", False)))
-        patient_id = data.get("patientId") or data.get("patient_id")
-
-        # Duplicate title check
-        title_raw = data.get("title", "")
-        if Intervention.objects.filter(title=title_raw).first():
-            return JsonResponse(
-                {"success": False, "error": "An intervention with this title already exists."},
-                status=400,
-            )
-
-        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
-
-        # Private path (if needed)
-        private_path = os.path.join("private", str(patient_id)) if is_private and patient_id else ""
-
-        # --- Save media file (optional) ---
-        media_path = ""
-        if "media_file" in request.FILES:
-            media_file = request.FILES["media_file"]
-            ext = media_file.name.split(".")[-1].lower()
-            folder = private_path if is_private else FILE_TYPE_FOLDERS.get(ext, "others")
-            filename = f"{timestamp}_{media_file.name}"
-            media_path = default_storage.save(os.path.join(folder, filename), media_file)
-
-        # --- Save preview image (optional) ---
-        preview_path = ""
-        if "img_file" in request.FILES:
-            img = request.FILES["img_file"]
-            ext = img.name.split(".")[-1].lower()
-            folder = private_path if is_private else FILE_TYPE_FOLDERS.get(ext, "others")
-            filename = f"{timestamp}_{img.name}"
-            preview_path = default_storage.save(os.path.join(folder, filename), img)
-
-        # --- Parse & normalize lists ---
-        # Accept either 'benefitFor' (preferred) or 'benefits'
-        raw_benefit_for = data.get("benefitFor", data.get("benefits"))
-        benefit_for_list = parse_str_list(raw_benefit_for)
-
-        # Accept either 'tagList' (preferred) or 'tags'
-        raw_tags = data.get("tagList", data.get("tags"))
-        tags_list = parse_str_list(raw_tags)
-
-        # Build intervention
-        new_intervention = Intervention(
-            title=sanitize_text(title_raw),
-            description=sanitize_text(data.get("description", "")),
-            content_type=data.get("contentType") or data.get("content_type") or "",
-            link=data.get("link", ""),
-            media_file=media_path,
-            preview_img=preview_path,
-            patient_types=patient_types if not is_private else [],
-            duration=parse_int(data.get("duration")),
-            benefitFor=benefit_for_list,
-            tags=tags_list,
-            is_private=is_private,
-            private_patient_id=ObjectId(patient_id) if is_private and patient_id else None,
+    if content_type and content_type not in ALLOWED_CONTENT_TYPES:
+        field_errors.setdefault("contentType", []).append(
+            f"Invalid content type. Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}."
         )
 
-        new_intervention.save()
+    # Private requires patient id, must exist
+    patient_obj = None
+    if is_private:
+        if not patient_id:
+            field_errors.setdefault("patientId", []).append("This field is required when isPrivate is true.")
+        else:
+            try:
+                pid = ObjectId(str(patient_id))
+                patient_obj = Patient.objects(pk=pid).first()
+                if not patient_obj:
+                    field_errors.setdefault("patientId", []).append("Patient not found.")
+            except (bson_errors.InvalidId, TypeError):
+                field_errors.setdefault("patientId", []).append("Invalid ObjectId for patientId.")
 
-        return JsonResponse({"success": True, "message": "Intervention added successfully!"}, status=201)
+    # patient_types construction + validation (only for public)
+    patient_types = []
+    if not is_private:
+        for idx, pt in enumerate(raw_patient_types or []):
+            type_v = (pt.get("type") or "").strip()
+            diag_v = (pt.get("diagnosis") or "").strip()
+            freq_v = (pt.get("frequency") or "").strip()
+            include_v = bool(pt.get("includeOption", pt.get("include_option", False)))
 
-    except Exception as e:
-        logger.error("[add_new_intervention] Unexpected error: %s", str(e), exc_info=True)
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+            # Minimal validation
+            item_errors = []
+            if not type_v:
+                item_errors.append("type is required.")
+            if not diag_v:
+                item_errors.append("diagnosis is required.")
+            if not freq_v:
+                item_errors.append("frequency is required.")
+
+            if item_errors:
+                field_errors.setdefault(f"patientTypes[{idx}]", []).extend(item_errors)
+            else:
+                patient_types.append(
+                    PatientType(
+                        type=type_v[:MAX_ITEM_LEN],
+                        diagnosis=diag_v[:MAX_ITEM_LEN],
+                        frequency=freq_v[:MAX_ITEM_LEN],
+                        include_option=include_v,
+                    )
+                )
+
+    # File validations (if present)
+    def _validate_file(file_obj, field_name):
+        if file_obj.size > MAX_FILE_SIZE_BYTES:
+            field_errors.setdefault(field_name, []).append(
+                f"File too large. Max {MAX_FILE_SIZE_BYTES // (1024*1024)}MB."
+            )
+        # rudimentary type check from name / mimetype
+        ext = (file_obj.name.split(".")[-1] or "").lower()
+        guessed, _ = mimetypes.guess_type(file_obj.name)
+        if not ext and not guessed:
+            field_errors.setdefault(field_name, []).append("Unknown file type.")
+
+    if "media_file" in request.FILES:
+        _validate_file(request.FILES["media_file"], "media_file")
+    if "img_file" in request.FILES:
+        _validate_file(request.FILES["img_file"], "img_file")
+
+    # If any errors so far, return 400
+    if field_errors:
+        return _bad_request("Validation error.", field_errors, non_field_errors)
+
+    # --- Persist files (safe paths) ---
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+    private_path = os.path.join("private", str(patient_id)) if is_private and patient_id else ""
+
+    def _store(file_obj, preferred_folder):
+        ext = (file_obj.name.split(".")[-1] or "").lower()
+        folder = private_path if is_private else FILE_TYPE_FOLDERS.get(ext, preferred_folder)
+        filename = f"{timestamp}_{file_obj.name}"
+        return default_storage.save(os.path.join(folder, filename), file_obj)
+
+    media_path = ""
+    preview_path = ""
+
+    try:
+        if "media_file" in request.FILES:
+            media_path = _store(request.FILES["media_file"], "others")
+        if "img_file" in request.FILES:
+            preview_path = _store(request.FILES["img_file"], "images")
+    except Exception as ex:
+        # storage/FS error → 500 but with context
+        return JsonResponse({
+            "success": False,
+            "message": "Failed to store uploaded file(s).",
+            "detail": str(ex)
+        }, status=500)
+
+    # --- Build and save Intervention ---
+    intervention = Intervention(
+        title=sanitize_text(title_raw),
+        description=sanitize_text(description_raw),
+        content_type=content_type,
+        link=data.get("link", ""),
+        media_file=media_path,
+        preview_img=preview_path,
+        patient_types=patient_types if not is_private else [],
+        duration=duration,
+        benefitFor=benefit_for_list,
+        tags=tags_list,
+        is_private=is_private,
+        private_patient_id=patient_obj.id if is_private and patient_obj else None,
+    )
+
+    try:
+        intervention.save()
+    except Exception as ex:
+        # Convert model errors into sane JSON
+        return JsonResponse({
+            "success": False,
+            "message": "Could not create intervention.",
+            "detail": str(ex)
+        }, status=500)
+
+    return JsonResponse({
+        "success": True,
+        "message": "Intervention added successfully!",
+        "id": str(intervention.id)
+    }, status=201)
 
 
 

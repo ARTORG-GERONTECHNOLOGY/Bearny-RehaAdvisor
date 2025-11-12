@@ -14,12 +14,10 @@ const PrivacyPolicy: React.FC = () => {
 
   const toggleLoginModal = () => setShowLoginModal((prev) => !prev);
 
-  useEffect(() => {
-    authStore.checkAuthentication();
-    if (authStore.isAuthenticated || authStore.userType === 'Patient') {
-      navigate('/patient');
-    }
-  }, [navigate]);
+useEffect(() => {
+  authStore.checkAuthentication();
+}, []);
+
 
   return (
     <div className="d-flex flex-column min-vh-100">
