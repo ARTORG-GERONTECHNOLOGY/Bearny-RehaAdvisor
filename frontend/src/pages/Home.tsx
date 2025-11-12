@@ -1,8 +1,9 @@
+// src/pages/Home.tsx
 import React, { useEffect, useState } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-
+import '../assets/styles/home.css';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import LoginForm from '../components/HomePage/LoginForm';
@@ -23,51 +24,65 @@ const Home: React.FC = () => {
     }
   }, [navigate]);
 
-  const toggleLoginModal = () => setShowLoginModal((prev) => !prev);
-  const toggleRegisterModal = () => setShowRegisterModal((prev) => !prev);
+  const toggleLoginModal = () => setShowLoginModal(p => !p);
+  const toggleRegisterModal = () => setShowRegisterModal(p => !p);
 
   return (
-    <div className="d-flex flex-column min-vh-100">
-      {/* Show Register action in header when logged out and on home */}
+    <div className="d-flex flex-column min-vh-100 home-root">
+      {/* Register action in header when logged out */}
       <Header
         isLoggedIn={authStore.isAuthenticated}
         showRegisterAction={!authStore.isAuthenticated}
         onRegister={toggleRegisterModal}
       />
 
-      <Container
-        fluid
-        className="flex-grow-1 d-flex flex-column justify-content-center px-3 px-sm-4 px-md-5"
-      >
-        <Row className="justify-content-center align-items-center text-center flex-grow-1">
-          <Col xs={12} sm={10} md={8} lg={6}>
-            <h1 className="mb-3 fs-2 fs-md-1 fw-bold">Tele-rehabilitation</h1>
-            <p className="fs-6 fs-md-5 mb-4">
-              {t('Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.')}
-            </p>
+      {/* HERO */}
+      <main className="flex-grow-1 d-flex align-items-center home-main">
+        <Container fluid="md" className="px-3 px-sm-4 px-md-5">
+          <Row className="g-4 g-lg-5 align-items-center">
+            {/* Text column */}
+            <Col xs={12} md={6} className="text-center text-md-start order-2 order-md-1">
+              <h1 className="home-title fw-bold mb-3">
+                {t('Tele-rehabilitation')}
+              </h1>
 
-            <img
-              src="/home.jpg"
-              alt="Tele-Rehabilitation"
-              className="img-fluid mb-4 w-100 d-none d-sm-block"
-              style={{ maxHeight: '250px', objectFit: 'contain' }}
-            />
-          </Col>
-        </Row>
+              <p className="home-lead text-muted mb-4">
+                {t('Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.')}
+              </p>
 
-        {/* Keep only the Login button on the page; Register moved to header */}
-        <Row className="justify-content-center mb-5 text-center">
-          <Col xs={10} sm={8} md={4} className="mb-3 mb-md-0">
-            <Button className="w-100 py-3 fs-5" onClick={toggleLoginModal}>
-              {t('Login')}
-            </Button>
-          </Col>
-        </Row>
+              <div className="d-grid d-sm-flex gap-3 justify-content-center justify-content-md-start">
+                <Button
+                  className="home-cta"
+                  size="lg"
+                  onClick={toggleLoginModal}
+                >
+                  {t('Login')}
+                </Button>
+              </div>
+            </Col>
 
-        <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
-        <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
-      </Container>
+            {/* Image column */}
+            <Col xs={12} md={6} className="order-1 order-md-2">
+              <div className=" home-art  rounded-4">
+                <picture>
+                  {/* modern formats first */}
+                  <img
+                    src="/home.jpg"
+                    alt={t('Tele-Rehabilitation') as string}
+                    className="w-100 h-100"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </picture>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </main>
 
+      {/* Modals */}
+      <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
+      <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
       <Footer />
     </div>
   );

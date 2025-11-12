@@ -21,9 +21,9 @@ const PatientView: React.FC = observer(() => {
   // LIFTED STATE
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  useEffect(() => {
-    authStore.checkAuthentication();
-
+useEffect(() => {
+  const check = async () => {
+    await authStore.checkAuthentication(); // ensure it's done first
     if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
       navigate('/');
     } else {
@@ -32,7 +32,11 @@ const PatientView: React.FC = observer(() => {
 
     const status = searchParams.get('fitbit_status');
     if (status === 'error') setError('Fitbit connection failed.');
-  }, [navigate]);
+  };
+
+  check();
+}, [navigate]);
+
 
   if (loading) return null;
 
@@ -91,8 +95,9 @@ const PatientView: React.FC = observer(() => {
           </Col>
         </Row>
 
-        <Footer />
+        
       </Container>
+      <Footer />
     </div>
   );
 });

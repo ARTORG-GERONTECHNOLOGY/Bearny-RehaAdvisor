@@ -7,14 +7,14 @@ DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE = True
 BASE_DIR = Path(__file__).resolve().parent.parent
 # settings.py
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'beat.db',  # or another file path
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
 CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, 'celery_worker.state')
-DATABASE_ROUTERS = ['core.routers.BeatRouter']
+#DATABASE_ROUTERS = ['core.routers.BeatRouter']
 
 # Redis broker
 CELERY_BROKER_URL = 'redis://redis:6379/0'

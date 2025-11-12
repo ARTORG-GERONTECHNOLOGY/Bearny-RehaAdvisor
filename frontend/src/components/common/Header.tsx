@@ -1,19 +1,17 @@
 import React from 'react';
 import {
   Button,
-  ButtonGroup,
   Container,
   Dropdown,
-  Nav,
-  Navbar,
   OverlayTrigger,
-  ToggleButton,
   Tooltip,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { BsQuestionCircle } from 'react-icons/bs';
 import authStore from '../../stores/authStore';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import '../../assets/styles/header.css';
 
 import HelpCenter from '../help/HelpCenter';
 
@@ -24,16 +22,19 @@ import flagIt from '../../assets/flags/it.png';
 
 type HeaderProps = {
   isLoggedIn: boolean;
-  /** Show a Register action (used on home when logged out) */
   showRegisterAction?: boolean;
-  /** Callback to open the Register modal */
   onRegister?: () => void;
 };
 
 const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegister }) => {
   const { t, i18n } = useTranslation();
-  const [currentLanguage, setCurrentLanguage] = React.useState(i18n.language);
   const [helpOpen, setHelpOpen] = React.useState(false);
+  const location = useLocation();
+
+  const getInitialLang = () =>
+    localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
+
+  const [currentLanguage, setCurrentLanguage] = React.useState(getInitialLang);
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -53,134 +54,112 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegis
     it: flagIt,
   };
 
-  const normalizedLang = (currentLanguage || 'en').slice(0, 2);
+  const normalizedLang = currentLanguage.slice(0, 2);
+  const userType = authStore.userType?.toLowerCase();
+
+  const navLinks = authStore.userType === 'Patient'
+    ? [
+        { path: '/patient', label: t('Home') },
+      ]
+    : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
+    ? [
+        { path: `/${userType}`, label: t('Patients') },
+        { path: '/interventions', label: t('Interventions') },
+        { path: '/userprofile', label: t('Profile') },
+      ]
+    : [];
 
   return (
     <>
-      <Navbar expand="lg" className="bg-body-tertiary px-2 px-sm-3 px-md-4">
-        <Container fluid className="d-flex justify-content-between align-items-center">
-          {/* Brand */}
-          <Navbar.Brand>
-            <img src="/ARTORG_Logo.gif" alt="Logo" style={{ width: '75px', height: '75px' }} />
-            {!isLoggedIn && (
-              <>
-                <img src="/insel.webp" alt="Logo" style={{ width: '225px', height: '100px' }} />
-                <img src="/brz_logo.png" alt="Logo" style={{ width: '175px', height: '75px' }} />
-              </>
-            )}
-          </Navbar.Brand>
+      {/* FIRST ROW */}
+      <nav
+        className="sticky-top header-root px-2 px-sm-3 px-md-4 bg-body-tertiary"
+        role="navigation"
+      >
+        <Container fluid className="px-2">
+          <div className="d-flex align-items-center w-100">
+            {/* --- Logos --- */}
+            <div className="d-flex align-items-center gap-2 gap-sm-3 flex-wrap brand-wrap">
+              <img src="/ARTORG_Logo.gif" alt="ARTORG Logo" className="brand-logo brand-logo--sm" />
+              <img src="/insel.webp" alt="Inselspital Bern Logo" className="brand-logo d-none d-sm-block" />
+              <img src="/brz_logo.png" alt="BRZ Logo" className="brand-logo d-none d-md-block" />
+            </div>
 
-          {/* Small screens (left of toggler): Help, Language, and optional Register */}
-          <div className="ms-auto d-lg-none d-flex align-items-center gap-2">
-            {showRegisterAction && !isLoggedIn && (
-              <Button size="sm" onClick={onRegister}>
-                {t('Register (Only for Therapists)')}
-              </Button>
-            )}
-
-            <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tooltip">{t('Help')}</Tooltip>}>
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() => setHelpOpen(true)}
-                aria-label={t('Open help')}
-              >
-                <BsQuestionCircle />
-              </Button>
-            </OverlayTrigger>
-
-            <Dropdown align="end">
-              <Dropdown.Toggle
-                variant="light"
-                id="language-dropdown"
-                className="d-flex align-items-center p-1"
-                style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
-              >
-                <img
-                  src={languageOptions[normalizedLang]}
-                  alt={normalizedLang}
-                  style={{ width: '40px', height: '28px', objectFit: 'cover', borderRadius: '4px' }}
-                />
-              </Dropdown.Toggle>
-
-              <Dropdown.Menu>
-                {languages.map((lang) => (
-                  <Dropdown.Item key={lang} onClick={() => handleLanguageChange(lang)} className="text-center">
-                    <img
-                      src={languageOptions[lang]}
-                      alt={lang}
-                      style={{ width: '40px', height: '28px', objectFit: 'cover', borderRadius: '4px' }}
-                    />
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
-
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-
-          <Navbar.Collapse id="basic-navbar-nav">
-            {isLoggedIn && (
-              <Nav className="me-auto">
-                {authStore.userType === 'Patient' && (
-                  <Nav.Link as={Link} to="/patient">
-                    {t('Home')}
-                  </Nav.Link>
-                )}
-                {(authStore.userType === 'Therapist' || authStore.userType === 'Researcher') && (
-                  <>
-                    <Nav.Link as={Link} to={`/${authStore.userType.toLowerCase()}`}>
-                      {t('Patients')}
-                    </Nav.Link>
-                    <Nav.Link as={Link} to="/interventions">
-                      {t('Interventions')}
-                    </Nav.Link>
-                    <Nav.Link as={Link} to="/userprofile">
-                      {t('Profile')}
-                    </Nav.Link>
-                  </>
-                )}
-                <Nav.Link onClick={handleLogout}>{t('Logout')}</Nav.Link>
-              </Nav>
-            )}
-
-            {/* Large screens: optional Register, Help, Language */}
-            <div className="d-none d-lg-flex ms-auto align-items-center gap-2">
+            {/* --- Right Actions --- */}
+            <div className="header-actions d-flex align-items-center gap-2 ms-auto">
               {showRegisterAction && !isLoggedIn && (
-                <Button size="sm" onClick={onRegister}>{t('Register (Only for Therapists)')}</Button>
+                <Button size="sm" onClick={onRegister}>
+                  {t('Register (Only for Therapists)')}
+                </Button>
               )}
 
-              <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tooltip-lg">{t('Help')}</Tooltip>}>
+              <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tip">{t('Help')}</Tooltip>}>
                 <Button
                   variant="outline-secondary"
                   size="sm"
                   onClick={() => setHelpOpen(true)}
-                  aria-label={t('Open help')}
+                  aria-label={t('Open help') as string}
                 >
                   <BsQuestionCircle className="me-1" />
-                  {t('Help')}
+                  <span className="d-none d-sm-inline">{t('Help')}</span>
                 </Button>
               </OverlayTrigger>
 
-              <ButtonGroup className="ms-2">
-                {languages.map((lang) => (
-                  <ToggleButton
-                    key={lang}
-                    type="radio"
-                    variant={lang === normalizedLang ? 'dark' : 'light'}
-                    value={lang}
-                    checked={normalizedLang === lang}
-                    onChange={() => handleLanguageChange(lang)}
-                    id={lang}
-                  >
-                    {lang.toUpperCase()}
-                  </ToggleButton>
-                ))}
-              </ButtonGroup>
+              {/* Language Switcher */}
+              <Dropdown align="end">
+                <Dropdown.Toggle id="lang" className="lang-toggle" variant="light">
+                  <img
+                    src={languageOptions[normalizedLang]}
+                    alt={`${normalizedLang} flag`}
+                    className="flag-icon"
+                  />
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  {languages.map((lang) => (
+                    <Dropdown.Item
+                      key={lang}
+                      onClick={() => handleLanguageChange(lang)}
+                      active={normalizedLang === lang}
+                      className="d-flex align-items-center gap-2"
+                    >
+                      <img
+                        src={languageOptions[lang]}
+                        alt={`${lang} flag`}
+                        className="flag-icon"
+                      />
+                      <span className="fw-medium">{lang.toUpperCase()}</span>
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown>
             </div>
-          </Navbar.Collapse>
+          </div>
+
+          {/* --- SECOND ROW: NAV LINKS + LOGOUT --- */}
+          {isLoggedIn && navLinks.length > 0 && (
+            <div className="nav-row">
+              <div className="nav-left">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={`nav-link ${
+                      location.pathname === link.path ? 'active' : ''
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="logout-button">
+                <Button variant="outline-dark" size="sm" onClick={handleLogout}>
+                  {t('Logout')}
+                </Button>
+              </div>
+            </div>
+          )}
         </Container>
-      </Navbar>
+      </nav>
 
       {/* Help Center Modal */}
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} />

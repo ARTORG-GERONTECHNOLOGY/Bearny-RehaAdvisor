@@ -131,7 +131,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   const removeFromTemplate = async (diag: string) => {
     try {
-      await apiClient.post('interventions/remove-from-patient-types/', {
+      await apiClient.post(`therapists/${authStore.id}/interventions/remove-from-patient-types/`, {
         diagnosis: diag,
         intervention_id: item._id,
         therapist: authStore.id,

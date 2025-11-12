@@ -14,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from django.conf import settings
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 email_user = settings.EMAIL_HOST_USER
@@ -283,6 +283,7 @@ def login_view(request):
                 patient = Patient.objects.get(userId=user)
                 profile_info["full_name"] = patient.first_name
                 profile_info["specialisation"] = patient.function
+                fetch_fitbit_today_for_user(user)  # Fetch Fitbit data on login
             else:
                 profile_info["full_name"] = user.username
                 profile_info["specialisation"] = ""
@@ -457,7 +458,7 @@ def register_view(request):
             if create_rehab_plan(patient, pat_therapist):
                 return JsonResponse(
                     {"message": "Patient registered successfully", "id": user.username},
-                    status=201,
+                    status=200,
                 )
             else:
                 return JsonResponse(
@@ -476,7 +477,7 @@ def register_view(request):
             therapist.save()
             return JsonResponse(
                 {"message": "Therapist registered successfully", "id": user.username},
-                status=201,
+                status=200,
             )
 
         return JsonResponse({"message": "Admin added"}, status=200)
