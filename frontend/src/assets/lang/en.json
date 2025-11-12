@@ -1,4 +1,5 @@
 {
+  "inactivity": "Low Activity",
   "Save for today": "Save for today",
   "You can provide either weight, blood pressure, or both.": "You can provide either weight, blood pressure, or both.",
   "Diastolic (mmHg)": "Diastolic (mmHg)",
@@ -92,7 +93,7 @@
   "stepsTip": "Steps",
   "activeMinutesTip": "Active minutes",
   "sleepTip": "Sleep minutes",
-  "inactivityTip": "Inactivity (sedentary) minutes",
+  "inactivityTip": "Low activity (sedentary) minutes",
   "This note is shown to the patient on the intervention page.":"This note is shown to the patient on the intervention page.",
   "e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.": "e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.",
   "Personal instructions for the patient": "Personal instructions for the patient",

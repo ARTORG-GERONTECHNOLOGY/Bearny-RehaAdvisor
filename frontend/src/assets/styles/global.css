@@ -1,37 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap');
-body {
-  margin: 0;
-  line-height: normal;
+/* Prefer balanced headings on supporting browsers */
+.home-balance {
+  text-wrap: balance;
 }
-:root {
-  /* fonts */
-  --single-line-body-base: Inter;
 
-  /* font sizes */
-  --single-line-body-base-size: 16px;
+/* Ensure the hero image scales nicely across devices */
+.home-hero img {
+  object-fit: contain;
+}
 
-  /* Colors */
-  --background-default-default: #fff;
-  --border-default-default: #d9d9d9;
-  --text-default-default: #1e1e1e;
+/* Better “safe” wrapping for long localized strings (older browsers fallback gracefully) */
+.lead {
+  overflow-wrap: anywhere;
+}
 
-  /* Spacing */
-  --space-600: 24px;
-  --space-800: 32px;
-  --device-width: 1200px;
-  --space-200: 8px;
-  --space-300: 12px;
-  --radius-200: 8px;
-  --icon-large: 40px;
-  --radius-full: 9999px;
-
-  /* Gaps */
-  --gap-5xs: 8px;
-
-  /* Paddings */
-  --padding-5xs: 8px;
-  --padding-xs: 12px;
-
-  /* Border radiuses */
-  --br-5xs: 8px;
+/* Adjust Bootstrap ratios responsively */
+@media (min-width: 768px) {
+  .ratio-md-4x3 { --bs-aspect-ratio: calc(3 / 4 * 100%); }
+}
+@media (min-width: 992px) {
+  .ratio-lg-16x9 { --bs-aspect-ratio: calc(9 / 16 * 100%); }
 }

@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-
+import { NavLink } from 'react-router-dom';
 const Footer: FunctionComponent = () => {
   const { t } = useTranslation();
 
@@ -14,12 +14,12 @@ const Footer: FunctionComponent = () => {
               &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('All rights reserved.')}
             </small>
             <div className="d-flex justify-content-center justify-content-md-start gap-3 mt-2 flex-wrap">
-              <Link to="/terms" className="text-decoration-underline small">
+              <NavLink to="/terms" className="text-decoration-underline small">
                 {t('Terms & Conditions')}
-              </Link>
-              <Link to="/privacypolicy" className="text-decoration-underline small">
+              </NavLink>
+              <NavLink to="/privacypolicy" className="text-decoration-underline small">
                 {t('Privacy Policy')}
-              </Link>
+              </NavLink>
             </div>
           </div>
         </div>

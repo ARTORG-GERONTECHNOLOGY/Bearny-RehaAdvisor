@@ -1,0 +1,206 @@
+/* --- GLOBAL --- */
+.header-root {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  border-bottom: 1px solid #dee2e6;
+  background-color: var(--bs-body-bg);
+}
+
+/* --- Top row: Brand Logos --- */
+.brand-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-logo {
+  height: clamp(40px, 6.5vw, 64px);
+  width: auto;
+  object-fit: contain;
+}
+.brand-logo--sm {
+  height: clamp(40px, 7.5vw, 72px);
+}
+
+/* --- Action area (Help, Lang, Register) --- */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.header-actions .btn,
+#lang.lang-toggle {
+  min-height: 36px;
+}
+
+/* --- Language switcher --- */
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.25rem;
+}
+.flag-icon {
+  width: 36px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
+/* --- Second row: Navigation links --- */
+.nav-row {
+  border-top: 1px solid #dee2e6;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* Nav left: links */
+.nav-left {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.nav-left a.nav-link {
+  color: var(--bs-body-color);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  transition: background-color 0.2s ease;
+}
+.nav-left a.nav-link:hover,
+.nav-left a.nav-link:focus {
+  background-color: rgba(0, 123, 255, 0.1);
+  border-radius: 4px;
+}
+.nav-left a.nav-link.active {
+  background-color: rgba(0, 123, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Nav right: Logout button */
+.logout-button {
+  margin-left: auto;
+}
+.logout-button .btn {
+  min-width: 100px;
+}
+
+/* --- Mobile layout tweaks --- */
+@media (max-width: 576px) {
+  .header-root .container-fluid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand-wrap {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+
+  .nav-row {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding-top: 0.75rem;
+  }
+
+  .nav-left {
+    justify-content: center;
+  }
+
+  .logout-button {
+    margin-left: 0;
+    text-align: center;
+    margin-top: 0.5rem;
+  }
+
+  .flag-icon {
+    width: 32px;
+    height: 22px;
+  }
+}
+/* --- Second row nav bar --- */
+.nav-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.5rem 0 0.25rem;
+  border-top: 1px solid #dee2e6;
+  margin-top: 0.5rem;
+}
+
+/* Navigation links (left side) */
+.nav-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.nav-left .nav-link {
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-weight: 500;
+  color: #0d6efd;
+  background-color: #f8f9fa;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.nav-left .nav-link:hover,
+.nav-left .nav-link:focus {
+  background-color: #e2e6ea;
+  text-decoration: none;
+}
+
+.nav-left .nav-link.active {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Logout button (right side) */
+.logout-button {
+  margin-left: auto;
+  margin-top: 0.5rem;
+}
+
+/* Stack logout below nav on small screens */
+@media (max-width: 576px) {
+  .nav-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nav-left {
+    justify-content: center;
+  }
+
+  .logout-button {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+}

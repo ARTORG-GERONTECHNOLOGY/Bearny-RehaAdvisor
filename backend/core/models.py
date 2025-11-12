@@ -294,7 +294,7 @@ class Patient(Document):
     age = StringField(max_length=20, required=True)
     therapist = ReferenceField(Therapist, required=True)
     sex = StringField(max_length=10, choices=config["patientInfo"]["sex"], required=True)
-    diagnosis = ListField(StringField(max_length=30), choices=all_diagnoses, required=True)
+    diagnosis = ListField(StringField(max_length=100), choices=all_diagnoses, required=True)
     function = ListField(StringField(max_length=200, choices=config["therapistInfo"]["specializations"]), required=True)
     level_of_education = StringField(max_length=30, choices=config["patientInfo"]["level_of_education"])
     professional_status = StringField(max_length=30, choices=config["patientInfo"]["professional_status"])
