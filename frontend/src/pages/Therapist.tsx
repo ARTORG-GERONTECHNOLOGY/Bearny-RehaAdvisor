@@ -44,6 +44,7 @@ const Therapist: React.FC = () => {
   const [birthdateFilter, setBirthdateFilter] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>('ampel'); // DEFAULT: Ampel (worst first)
+  const [diseaseFilter, setDiseaseFilter] = useState('');
 
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -101,6 +102,19 @@ const Therapist: React.FC = () => {
     setShowPopup(false);
     setSelectedItem(null);
   };
+const diseaseOptions = useMemo(() => {
+  const all: string[] = [];
+
+  patients.forEach((p) => {
+    if (Array.isArray(p.diagnosis)) {
+      p.diagnosis.forEach((d) => all.push(String(d)));
+    } else if (p.diagnosis) {
+      all.push(String(p.diagnosis));
+    }
+  });
+
+  return Array.from(new Set(all)).sort();
+}, [patients]);
 
   const resetFilters = useCallback(() => {
     setSearchTerm('');
@@ -417,6 +431,20 @@ const Therapist: React.FC = () => {
       });
     }
 
+    if (diseaseFilter) {
+  filtered = filtered.filter((p) => {
+    const diag = p.diagnosis;
+    if (!diag) return false;
+
+    // diagnosis can be an array or a single string
+    if (Array.isArray(diag)) {
+      return diag.map((x) => String(x)).includes(diseaseFilter);
+    }
+    return String(diag) === diseaseFilter;
+  });
+}
+
+
     // Name / Patient code / username / _id search
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
@@ -554,9 +582,23 @@ const Therapist: React.FC = () => {
                   ))}
                 </Form.Select>
               </Col>
+
             </Row>
 
             <Row className="mt-3 align-items-center">
+              <Col xs={12} md={3}>
+              <Form.Select
+                value={diseaseFilter}
+                onChange={(e) => setDiseaseFilter(e.target.value)}
+              >
+                <option value="">{t('Filter by Disease')}</option>
+                {diseaseOptions.map((d) => (
+                  <option key={d} value={d}>
+                    {t(d)}
+                  </option>
+                ))}
+              </Form.Select>
+            </Col>
               <Col xs={12} md={6}>
                 <Form.Label className="me-2">{t('Sort by')}</Form.Label>
                 <Form.Select
@@ -574,6 +616,11 @@ const Therapist: React.FC = () => {
                 </Form.Select>
               </Col>
               <Col className="d-flex flex-wrap gap-3 justify-content-end">
+                <Button variant="outline-secondary" onClick={resetFilters}>
+                  {t('Reset filters')}
+                </Button>
+              </Col>
+               <Col className="d-flex flex-wrap gap-3 justify-content-end">
                 <Form.Check
                   type="switch"
                   id="toggle-completed"
@@ -581,10 +628,8 @@ const Therapist: React.FC = () => {
                   checked={showCompleted}
                   onChange={(e) => setShowCompleted(e.currentTarget.checked)}
                 />
-                <Button variant="outline-secondary" onClick={resetFilters}>
-                  {t('Reset filters')}
-                </Button>
-              </Col>
+                 </Col>
+
             </Row>
           </Card.Body>
         </Card>

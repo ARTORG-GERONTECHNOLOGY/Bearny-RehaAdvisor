@@ -55,7 +55,7 @@ from utils.utils import (
     resolve_patient,
     _adherence
 )
-
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 FILE_TYPE_FOLDERS = {
@@ -2310,6 +2310,9 @@ def _resolve_patient(patient_id: str):
             return Patient.objects.get(userId=ObjectId(patient_id))
         except Exception:
             return None
+
+
+
 
 
 @csrf_exempt

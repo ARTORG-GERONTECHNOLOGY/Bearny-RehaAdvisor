@@ -4,11 +4,13 @@ import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import config from '../../config/config.json';
 import ErrorAlert from '../common/ErrorAlert';
+import apiClient from '../../api/client';
+import authStore from '../../stores/authStore';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface Props {
   userData: Record<string, any>;
-  onSave: (data: Record<string, any>) => void;
+  onSave: (data: Record<string, any>) => void; 
   onCancel: () => void;
 }
 
@@ -23,8 +25,8 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
   });
 
   const [error, setError] = useState<string>('');
+  const [saving, setSaving] = useState(false);
 
-  // Show/hide toggles for password fields
   const [showPassword, setShowPassword] = useState({
     old: false,
     new: false,
@@ -32,7 +34,10 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.ChangeEvent<HTMLSelectElement>
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -40,39 +45,120 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
 
   const handleMultiSelectChange = (
     selectedOptions: { value: string; label: string }[] | null,
-    fieldName: string
+    field: string
   ) => {
-    const values = selectedOptions?.map((opt) => opt.value) || [];
-    setFormData((prev) => ({ ...prev, [fieldName]: values }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: selectedOptions?.map((o) => o.value) || [],
+    }));
   };
 
+  /* ------------------------------------------
+     VALIDATION
+     ------------------------------------------ */
   const validateInputs = (): boolean => {
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    // Email
+    if (
+      formData.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    ) {
       setError(t('Invalid email format.'));
       return false;
     }
-    if (formData.phone && !/^\+?[0-9]{7,15}$/.test(formData.phone)) {
+
+    // Phone
+    if (
+      formData.phone &&
+      !/^\+?[0-9]{7,15}$/.test(formData.phone)
+    ) {
       setError(t('Invalid phone number format.'));
       return false;
     }
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setError(t('New passwords do not match!'));
-      return false;
+
+    const isChangingPassword =
+      formData.oldPassword || formData.newPassword || formData.confirmPassword;
+
+    if (isChangingPassword) {
+      // Old password required
+      if (!formData.oldPassword) {
+        setError(t('Please enter your old password.'));
+        return false;
+      }
+
+      // New password required
+      if (!formData.newPassword) {
+        setError(t('Please enter a new password.'));
+        return false;
+      }
+
+      // Length check
+      if (formData.newPassword.length < 8) {
+        setError(t('New password must be at least 8 characters.'));
+        return false;
+      }
+
+      // Confirmation match
+      if (formData.newPassword !== formData.confirmPassword) {
+        setError(t('New passwords do not match!'));
+        return false;
+      }
     }
+
     setError('');
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!validateInputs()) return;
-    onSave(formData);
-  };
+  /* ------------------------------------------
+     SUBMIT
+     ------------------------------------------ */
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateInputs()) return;
+
+  setSaving(true);
+  setError("");
+
+  const isChangingPassword =
+    formData.oldPassword && formData.newPassword;
+
+  // 1) Prepare payload without password fields
+  const payload = { ...formData };
+  delete payload.oldPassword;
+  delete payload.newPassword;
+  delete payload.confirmPassword;
+
+  // Clear password fields BEFORE sending put/profile
+  setFormData((prev) => ({
+    ...prev,
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  }));
+
+  try {
+    // First update profile
+    await onSave(payload);
+
+    // Then update password if needed
+    if (isChangingPassword) {
+      await apiClient.put(`/users/${authStore.id}/change-password/`, {
+        old_password: formData.oldPassword,
+        new_password: formData.newPassword,
+      });
+    }
+  } catch (err) {
+    setError(err?.response?.data?.error || t("Update failed"));
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   return (
     <Form onSubmit={handleSubmit} aria-label={t('Edit Profile Form')}>
       {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
+      {/* -------------------- USER FIELDS -------------------- */}
       {config.TherapistForm.flatMap((section) => section.fields)
         .filter((field) =>
           ![
@@ -87,7 +173,10 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
         )
         .map((field) => (
           <Form.Group className="mb-3" key={field.be_name}>
-            <Form.Label htmlFor={field.be_name}>{t(field.label)}</Form.Label>
+            <Form.Label htmlFor={field.be_name}>
+              {t(field.label)}
+            </Form.Label>
+
             {field.type === 'multi-select' ? (
               <Select
                 id={field.be_name}
@@ -97,16 +186,15 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
                   value: opt,
                   label: t(opt),
                 }))}
-                value={
-                  (formData[field.be_name] || []).map((val: string) => ({
+                value={(formData[field.be_name] || []).map(
+                  (val: string) => ({
                     value: val,
                     label: t(val),
-                  })) || []
+                  })
+                )}
+                onChange={(selected) =>
+                  handleMultiSelectChange(selected, field.be_name)
                 }
-                onChange={(selectedOptions) =>
-                  handleMultiSelectChange(selectedOptions, field.be_name)
-                }
-                classNamePrefix="react-select"
               />
             ) : (
               <Form.Control
@@ -120,6 +208,8 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
           </Form.Group>
         ))}
 
+      {/* -------------------- PASSWORD FIELDS -------------------- */}
+
       {/* Old Password */}
       <Form.Group className="mb-3" controlId="oldPassword">
         <Form.Label>{t('Old Password')}</Form.Label>
@@ -128,14 +218,13 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
             type={showPassword.old ? 'text' : 'password'}
             value={formData.oldPassword}
             onChange={handleChange}
-            aria-required="false"
           />
           <Button
             variant="outline-secondary"
             type="button"
-            onClick={() => setShowPassword((p) => ({ ...p, old: !p.old }))}
-            aria-label={showPassword.old ? t('Hide password') : t('Show password')}
-            title={showPassword.old ? t('Hide password') : t('Show password')}
+            onClick={() =>
+              setShowPassword((p) => ({ ...p, old: !p.old }))
+            }
           >
             {showPassword.old ? <FaEyeSlash /> : <FaEye />}
           </Button>
@@ -150,14 +239,13 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
             type={showPassword.new ? 'text' : 'password'}
             value={formData.newPassword}
             onChange={handleChange}
-            aria-required="false"
           />
           <Button
             variant="outline-secondary"
             type="button"
-            onClick={() => setShowPassword((p) => ({ ...p, new: !p.new }))}
-            aria-label={showPassword.new ? t('Hide password') : t('Show password')}
-            title={showPassword.new ? t('Hide password') : t('Show password')}
+            onClick={() =>
+              setShowPassword((p) => ({ ...p, new: !p.new }))
+            }
           >
             {showPassword.new ? <FaEyeSlash /> : <FaEye />}
           </Button>
@@ -172,26 +260,34 @@ const EditUserInfo: React.FC<Props> = ({ userData, onSave, onCancel }) => {
             type={showPassword.confirm ? 'text' : 'password'}
             value={formData.confirmPassword}
             onChange={handleChange}
-            aria-required="false"
           />
           <Button
             variant="outline-secondary"
             type="button"
-            onClick={() => setShowPassword((p) => ({ ...p, confirm: !p.confirm }))}
-            aria-label={showPassword.confirm ? t('Hide password') : t('Show password')}
-            title={showPassword.confirm ? t('Hide password') : t('Show password')}
+            onClick={() =>
+              setShowPassword((p) => ({
+                ...p,
+                confirm: !p.confirm,
+              }))
+            }
           >
             {showPassword.confirm ? <FaEyeSlash /> : <FaEye />}
           </Button>
         </InputGroup>
       </Form.Group>
 
-      <div className="d-flex justify-content-between">
-        <Button variant="secondary" type="button" onClick={onCancel} aria-label={t('Cancel')}>
+      {/* -------------------- ACTION BUTTONS -------------------- */}
+      <div className="d-flex justify-content-between mt-4">
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={onCancel}
+        >
           {t('Cancel')}
         </Button>
-        <Button type="submit" variant="primary" aria-label={t('Save Changes')}>
-          {t('Save Changes')}
+
+        <Button type="submit" variant="primary" disabled={saving}>
+          {saving ? t('Saving...') : t('Save Changes')}
         </Button>
       </div>
     </Form>

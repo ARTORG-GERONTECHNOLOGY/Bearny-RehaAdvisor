@@ -503,7 +503,7 @@
         },
         {
           "name": "rehaEndDate",
-          "label": "Rehabilitations End Date (Modifiable afterwords)",
+          "label": "Rehabilitations End Date (Modifiable afterwards)",
           "type": "date",
           "required": true,
           "be_name": "reha_end_date"

@@ -6,24 +6,34 @@ RUN apt-get update && \
     apt-get -y install build-essential wget curl bzip2 libpq-dev gcc && \
     apt-get clean
 
-# Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && bash /opt/miniconda-installer.sh -b -p /opt/conda
+# Download and install Miniconda
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && \
+    bash /opt/miniconda-installer.sh -b -p /opt/conda
 
-ENV PATH /opt/conda/bin:$PATH
+ENV PATH=/opt/conda/bin:$PATH
 
-
+# Copy environment file and accept Anaconda Terms of Service before creating env
 COPY ./environment.yml .
+
+# ✅ Accept ToS for Anaconda-hosted channels
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
 RUN conda env create -f environment.yml
+
+# Activate env
 RUN echo "source activate teleRehabApp" > ~/.bashrc
 
+# Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Install pip dependencies
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-ENV PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=api.settings.prod
+# Django settings for production
+ENV DJANGO_SETTINGS_MODULE=api.settings.prod
 
+# Start server
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--reload", "api.wsgi:application"]

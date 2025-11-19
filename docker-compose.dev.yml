@@ -51,6 +51,9 @@ services:
     command: celery -A api worker --loglevel=info --statedb=/app/celery_worker.state
     volumes:
       - ./backend:/app
+
+    env_file:
+      - ./.env.dev
     depends_on:
       - django-dev
       - redis
@@ -69,7 +72,8 @@ services:
     container_name: celery-beat
     restart: always
     command: sh -c "DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True celery -A api beat --loglevel=info"
-
+    env_file:
+      - ./.env.dev
     volumes:
       - ./backend:/app
     depends_on:

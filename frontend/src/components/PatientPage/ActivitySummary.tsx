@@ -1,37 +1,59 @@
-// src/components/PatientPage/ActivitySummary.tsx
+/* eslint-disable */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Col, Row, Spinner, OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
+import {
+  Card,
+  Col,
+  Row,
+  Spinner,
+  OverlayTrigger,
+  Tooltip,
+  Button,
+  Form,
+  Alert,
+} from 'react-bootstrap';
 import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
 import { useTranslation } from 'react-i18next';
-import { differenceInCalendarDays, isSameDay, format } from 'date-fns';
+import { isSameDay, format, subDays } from 'date-fns';
 
+/* ---------- Types ---------- */
 type DailyRow = {
   date: string;
   steps: number;
-  active_minutes: number;
-  sleep_minutes: number;
+  active_minutes?: number;
+  sleep_minutes?: number;
   inactivity_minutes?: number;
 };
 
 type Summary = {
   connected: boolean;
   last_sync: string | null;
-  today: {
-    steps: number;
-    active_minutes: number;
-    sleep_minutes: number;
+  today?: {
+    steps?: number;
+    active_minutes?: number;
+    sleep_minutes?: number;
     inactivity_minutes?: number;
     resting_heart_rate?: number | null;
   } | null;
   period: {
     days: number;
-    totals: { steps: number; active_minutes: number; sleep_minutes: number; inactivity_minutes?: number };
-    averages: { steps: number; active_minutes: number; sleep_minutes: number; inactivity_minutes?: number };
+    totals?: {
+      steps?: number;
+      active_minutes?: number;
+      sleep_minutes?: number;
+      inactivity_minutes?: number;
+    };
+    averages?: {
+      steps?: number;
+      active_minutes?: number;
+      sleep_minutes?: number;
+      inactivity_minutes?: number;
+    };
     daily: DailyRow[];
   };
 };
 
+/* ---------- Goals & color helpers ---------- */
 const GOALS = {
   steps: 10000,
   activeMinutesGreen: 30,
@@ -43,261 +65,555 @@ const GOALS = {
 };
 
 const colorForSteps = (v: number) =>
-  v >= GOALS.steps ? 'text-success' : v >= GOALS.steps * 0.6 ? 'text-warning' : 'text-danger';
-const colorForActive = (v: number) =>
-  v >= GOALS.activeMinutesGreen ? 'text-success' : v >= GOALS.activeMinutesYellow ? 'text-warning' : 'text-danger';
-const colorForSleep = (minutes: number) =>
-  minutes >= GOALS.sleepGreenMin ? 'text-success' : minutes >= GOALS.sleepYellowMin ? 'text-warning' : 'text-danger';
-const colorForInactivity = (minutes: number) =>
-  minutes <= GOALS.inactivityGreenMax ? 'text-success' : minutes <= GOALS.inactivityYellowMax ? 'text-warning' : 'text-danger';
+  v >= GOALS.steps
+    ? 'text-success'
+    : v >= GOALS.steps * 0.6
+    ? 'text-warning'
+    : 'text-danger';
 
+const colorForActive = (v: number) =>
+  v >= GOALS.activeMinutesGreen
+    ? 'text-success'
+    : v >= GOALS.activeMinutesYellow
+    ? 'text-warning'
+    : 'text-danger';
+
+const colorForSleep = (minutes: number) =>
+  minutes >= GOALS.sleepGreenMin
+    ? 'text-success'
+    : minutes >= GOALS.sleepYellowMin
+    ? 'text-warning'
+    : 'text-danger';
+
+const colorForInactivity = (minutes: number) =>
+  minutes <= GOALS.inactivityGreenMax
+    ? 'text-success'
+    : minutes <= GOALS.inactivityYellowMax
+    ? 'text-warning'
+    : 'text-danger';
+
+/* ---------- ENHANCED MiniTrend WITH AXES, LABELS, AND THRESHOLD LINES ---------- */
+const MiniTrend: React.FC<{
+  daily: number[];
+  color?: string;
+  threshold?: number | null;
+}> = ({ daily, color = '#007bff', threshold = null }) => {
+  if (!daily.length) return null;
+
+  const max = Math.max(...daily);
+  const min = Math.min(...daily);
+
+  const norm = daily.map((v) =>
+    max === min ? 0.5 : (v - min) / (max - min)
+  );
+
+  const thresholdY =
+    threshold !== null && max !== min
+      ? 40 - ((threshold - min) / (max - min)) * 35
+      : null;
+
+  return (
+    <div className="mini-chart-wrapper" style={{ position: 'relative' }}>
+      <svg viewBox="0 0 120 45" preserveAspectRatio="none" className="mini-chart-svg">
+        {/* Y-axis */}
+        <line x1="10" y1="0" x2="10" y2="40" stroke="#555" strokeWidth="0.8" />
+
+        {/* X-axis */}
+        <line x1="10" y1="40" x2="120" y2="40" stroke="#555" strokeWidth="0.8" />
+
+        {/* Y Max */}
+        <text x="0" y="6" fontSize="5" fill="#666">
+          {max}
+        </text>
+
+        {/* Y Min */}
+        <text x="0" y="40" fontSize="5" fill="#666">
+          {min}
+        </text>
+
+        {/* Threshold dashed line */}
+        {thresholdY !== null && (
+          <line
+            x1="10"
+            x2="120"
+            y1={thresholdY}
+            y2={thresholdY}
+            stroke="red"
+            strokeDasharray="4 2"
+            strokeWidth="0.8"
+          />
+        )}
+
+        {/* Trend polyline */}
+        <polyline
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          points={norm
+            .map((v, i) => `${10 + (i / (daily.length - 1)) * 110},${40 - v * 35}`)
+            .join(' ')}
+        />
+      </svg>
+    </div>
+  );
+};
+
+/* ---------- Trend Toggle Button ---------- */
+const TrendToggle: React.FC<{
+  open: boolean;
+  onToggle: () => void;
+  color: string;
+}> = ({ open, onToggle, color }) => {
+  const { t } = useTranslation();
+
+  return (
+    <Button
+      variant="light"
+      size="sm"
+      onClick={onToggle}
+      className="trend-toggle-btn"
+      style={{
+        color,
+        borderColor: color,
+      }}
+    >
+      {open ? '▲ ' : '▼ '}
+      {open ? t('Hide trend') : t('Show trend')}
+    </Button>
+  );
+};
+
+/* ---------- Stat Card ---------- */
 const StatCard: React.FC<{
   label: string;
   value: React.ReactNode;
   sub?: string;
   tooltip?: string;
   valueClassName?: string;
-}> = ({ label, value, sub, tooltip, valueClassName }) => (
+  children?: any;
+}> = ({ label, value, sub, tooltip, valueClassName, children }) => (
   <Card className="shadow-sm h-100">
     <Card.Body>
       <div className="d-flex justify-content-between align-items-start">
         <div className="text-muted">{label}</div>
         {tooltip && (
           <OverlayTrigger overlay={<Tooltip>{tooltip}</Tooltip>} placement="left">
-            <span className="text-muted" style={{ cursor: 'help' }}>ⓘ</span>
+            <span className="text-muted" style={{ cursor: 'help' }}>
+              ⓘ
+            </span>
           </OverlayTrigger>
         )}
       </div>
-      <div className={`display-6 fw-semibold mt-1 ${valueClassName || ''}`}>{value}</div>
-      {sub ? <div className="small text-muted mt-1">{sub}</div> : null}
+
+      <div className={`display-6 fw-semibold mt-1 ${valueClassName || ''}`}>
+        {value}
+      </div>
+
+      {sub && <div className="small text-muted mt-1">{sub}</div>}
+
+      {children}
     </Card.Body>
   </Card>
 );
 
-const PeriodSwitch: React.FC<{ value: number; onChange: (d: number) => void }> = ({ value, onChange }) => {
-  const options = [7, 14, 30];
-  return (
-    <div className="d-flex gap-2">
-      {options.map((d) => (
-        <Button
-          key={d}
-          size="sm"
-          variant={value === d ? 'primary' : 'outline-primary'}
-          onClick={() => onChange(d)}
-        >
-          {d}d
-        </Button>
-      ))}
-    </div>
-  );
-};
-
-type Props = {
-  selectedDate?: Date; // <- NEW: the day to display
-};
-
-const ActivitySummary: React.FC<Props> = ({ selectedDate }) => {
-  const [days, setDays] = useState(7);
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Summary | null>(null);
-  const [error, setError] = useState('');
+/* ---------- MAIN COMPONENT ---------- */
+const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) => {
   const { i18n, t } = useTranslation();
-
+  const id = useMemo(() => localStorage.getItem('id') || authStore.id, []);
   const nf = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
 
-  const mmToHhMm = (m: number) => {
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [data, setData] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  /* Trend states */
+  const [showStepsTrend, setShowStepsTrend] = useState(false);
+  const [showActiveTrend, setShowActiveTrend] = useState(false);
+  const [showSleepTrend, setShowSleepTrend] = useState(false);
+  const [showInactTrend, setShowInactTrend] = useState(false);
+
+  /* Manual steps */
+  const [manualSteps, setManualSteps] = useState('');
+  const [manualDate, setManualDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [manualMsg, setManualMsg] = useState('');
+  const [showManualError, setShowManualError] = useState(false);
+  const [showManualSuccess, setShowManualSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const mmToHhMm = (m = 0) => {
     const h = Math.floor((m || 0) / 60);
     const mm = Math.abs((m || 0) % 60);
-    return t('hmShort', { h, m: mm });
+    return t('{{hours}}h {{minutes}}m', { hours: h, minutes: mm });
   };
 
-  const ensureInactivity = (row: DailyRow) =>
-    typeof row.inactivity_minutes === 'number'
-      ? row.inactivity_minutes
-      : Math.max(0, 1440 - ((row.active_minutes || 0) + (row.sleep_minutes || 0)));
-
-  const fetchData = async (range: number) => {
-    try {
-      setLoading(true);
-      setError('');
-      const r1 = await apiClient.get(`/fitbit/summary/?days=${range}`);
-      setData(r1.data);
-    } catch (e1: any) {
+  /* ---------- Check Fitbit connection ---------- */
+  useEffect(() => {
+    (async () => {
       try {
-        const anyId =
-          (authStore as any)?.patientId ||
-          (authStore as any)?.id ||
-          localStorage.getItem('patientId');
-
-        if (!anyId) throw e1;
-
-        const r2 = await apiClient.get(`/fitbit/summary/${anyId}/?days=${days}`);
-        setData(r2.data);
-      } catch (e2: any) {
-        const key = e2?.response?.data?.error;
-        setError(key ? t(key) : t('error_f'));
-        setData(null);
+        const { data: res } = await apiClient.get(`/fitbit/status/${id}/`);
+        setConnected(!!res.connected);
+      } catch {
+        setConnected(false);
       }
+    })();
+  }, [id]);
+
+  /* ---------- Fetch data ---------- */
+  const fetchData = async () => {
+    try {
+      setError('');
+      const res = await apiClient.get(`/fitbit/summary/${id}/?days=7`);
+      setData(res.data);
+    } catch {
+      setError(t('error_f'));
+      setData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // If selectedDate is older than current window, expand window (max 31)
   useEffect(() => {
-    if (!selectedDate) return;
-    const now = new Date();
-    const diff = differenceInCalendarDays(now, selectedDate); // 0=today, 1=yesterday, ...
-    const needed = diff + 1;
-    if (needed > days && needed <= 31) {
-      setDays(needed);
+    if (connected !== null) fetchData();
+  }, [connected]);
+
+  /* ---------- Submit manual steps ---------- */
+  const submitManualSteps = async () => {
+    if (!manualSteps || isNaN(Number(manualSteps))) return;
+
+    setSubmitting(true);
+
+    try {
+      await apiClient.post(`/fitbit/manual_steps/${id}/`, {
+        date: manualDate,
+        steps: Number(manualSteps),
+      });
+
+      setManualMsg(t('Steps saved successfully.'));
+      setShowManualSuccess(true);
+      setManualSteps('');
+      fetchData();
+    } catch {
+      setManualMsg(t('Failed to save steps. Please try again.'));
+      setShowManualError(true);
+    } finally {
+      setSubmitting(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  };
 
-  useEffect(() => { fetchData(days); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
-
-  const safeAverages = useMemo(() => {
-    if (!data) return { steps: 0, active_minutes: 0, sleep_minutes: 0, inactivity_minutes: 0 };
-    const a = data.period.averages || ({} as Summary['period']['averages']);
-    if (typeof a.inactivity_minutes === 'number') return a;
-
-    const daily = data.period.daily || [];
-    if (!daily.length) return { steps: 0, active_minutes: 0, sleep_minutes: 0, inactivity_minutes: 0 };
-
-    const sums = daily.reduce(
-      (acc, r) => {
-        const inact = ensureInactivity(r);
-        acc.steps += r.steps || 0;
-        acc.active_minutes += r.active_minutes || 0;
-        acc.sleep_minutes += r.sleep_minutes || 0;
-        acc.inactivity_minutes += inact;
-        return acc;
-      },
-      { steps: 0, active_minutes: 0, sleep_minutes: 0, inactivity_minutes: 0 }
-    );
-
-    const n = Math.max(1, daily.length);
-    return {
-      steps: Math.floor(sums.steps / n),
-      active_minutes: Math.floor(sums.active_minutes / n),
-      sleep_minutes: Math.floor(sums.sleep_minutes / n),
-      inactivity_minutes: Math.floor(sums.inactivity_minutes / n),
-    };
-  }, [data]);
-
-  const focusRow: DailyRow | null = useMemo(() => {
-    if (!data) return null;
-    const day = selectedDate || new Date();
-    const hit = (data.period.daily || []).find((r) => {
-      const rd = new Date(r.date);
-      return isSameDay(rd, day);
-    });
-    return hit || null;
-  }, [data, selectedDate]);
-
-  const labelDay = useMemo(() => {
-    const day = selectedDate || new Date();
-    const today = new Date();
-    return isSameDay(day, today) ? t('today') : format(day, 'dd.MM.yyyy');
-  }, [selectedDate, t, i18n.language]);
-
-  const avgLine = useMemo(() => {
-    if (!data) return '';
-    return t('avgLine', {
-      steps: nf.format(safeAverages.steps ?? 0),
-      active: t('minute', { count: safeAverages.active_minutes ?? 0 }),
-      sleep: mmToHhMm(safeAverages.sleep_minutes ?? 0)
-    });
-  }, [data, nf, t, safeAverages]);
-
-  if (loading) {
+  /* ---------- Loading ---------- */
+  if (connected === null || loading) {
     return (
       <Card className="mb-4">
         <Card.Body className="d-flex align-items-center gap-2">
-          <Spinner animation="border" size="sm" /> <span>{t('loading')}</span>
+          <Spinner animation="border" size="sm" /> {t('loading')}
         </Card.Body>
       </Card>
     );
   }
 
-  if (error) {
+  /* ---------- MANUAL ENTRY MODE ---------- */
+  if (connected === false) {
+    const daily = data?.period?.daily || [];
+    const focusRow =
+      daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) ||
+      null;
+
+    const steps = focusRow?.steps ?? null;
+    const avgSteps = data?.period?.averages?.steps ?? null;
+
     return (
-      <Card className="mb-4">
-        <Card.Body className="text-danger">{error}</Card.Body>
+      <Card className="mb-4 border-warning">
+        <Card.Header>
+          <strong>{t('Manual Steps Entry')}</strong>
+        </Card.Header>
+
+        <Card.Body>
+          {showManualSuccess && (
+            <Alert
+              variant="success"
+              dismissible
+              onClose={() => setShowManualSuccess(false)}
+            >
+              {manualMsg}
+            </Alert>
+          )}
+          {showManualError && (
+            <Alert
+              variant="danger"
+              dismissible
+              onClose={() => setShowManualError(false)}
+            >
+              {manualMsg}
+            </Alert>
+          )}
+
+          <Alert variant="warning">
+            {t('Your Fitbit is not connected. Please enter your daily steps manually.')}
+          </Alert>
+
+          <Row className="g-2 mb-3 align-items-end">
+            <Col xs={6} md={4}>
+              <Form.Label>{t('Steps')}</Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                value={manualSteps}
+                onChange={(e) => setManualSteps(e.target.value)}
+                placeholder={t('e.g. 5000')}
+              />
+            </Col>
+
+            <Col xs={6} md={4}>
+              <Form.Label>{t('Date')}</Form.Label>
+              <Form.Control
+                type="date"
+                max={format(new Date(), 'yyyy-MM-dd')}
+                min={format(subDays(new Date(), 7), 'yyyy-MM-dd')}
+                value={manualDate}
+                onChange={(e) => setManualDate(e.target.value)}
+              />
+            </Col>
+
+            <Col xs="auto">
+              <Button onClick={submitManualSteps} disabled={submitting || !manualSteps}>
+                {submitting && (
+                  <Spinner size="sm" animation="border" className="me-2" />
+                )}
+                {t('Save')}
+              </Button>
+            </Col>
+          </Row>
+
+          <Row xs={1} md={3} className="g-3 mt-3">
+            <Col>
+              <StatCard
+                label={t('Steps')}
+                value={steps !== null ? nf.format(steps) : '-'}
+                valueClassName={steps ? colorForSteps(steps) : 'text-muted'}
+                sub={t('Today’s recorded steps')}
+              />
+            </Col>
+
+            <Col>
+              <StatCard
+                label={t('Average Steps')}
+                value={avgSteps ? nf.format(avgSteps) : '-'}
+                valueClassName={avgSteps ? colorForSteps(avgSteps) : 'text-muted'}
+                sub={t('Average of last 7 days')}
+              />
+            </Col>
+
+            <Col>
+              <StatCard
+                label={t('Step Score')}
+                value={
+                  steps === null
+                    ? '-'
+                    : steps >= GOALS.steps
+                    ? t('Excellent')
+                    : steps >= GOALS.steps * 0.75
+                    ? t('Good')
+                    : steps >= GOALS.steps * 0.5
+                    ? t('Fair')
+                    : t('Low')
+                }
+              />
+            </Col>
+          </Row>
+        </Card.Body>
       </Card>
     );
   }
 
-  if (!data) return null;
+  /* ---------- CONNECTED MODE ---------- */
+  if (!data) {
+    return (
+      <Card className="mb-4">
+        <Card.Body className="text-danger">{t('No data available')}</Card.Body>
+      </Card>
+    );
+  }
 
-  // Fall back to zeros if the focus day isn't in the fetched window
-  const steps = focusRow?.steps ?? 0;
-  const active = focusRow?.active_minutes ?? 0;
-  const sleep = focusRow?.sleep_minutes ?? 0;
-  const inactivity = focusRow?.inactivity_minutes ?? 0;
+  const daily = data.period.daily || [];
+
+  const focusRow =
+    daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) ||
+    null;
+
+  const stepsToday = focusRow?.steps ?? 0;
+  const activeToday = focusRow?.active_minutes ?? 0;
+  const sleepToday = focusRow?.sleep_minutes ?? 0;
+
+  const inactivityToday =
+    typeof focusRow?.inactivity_minutes === 'number'
+      ? focusRow.inactivity_minutes!
+      : Math.max(0, 1440 - ((activeToday || 0) + (sleepToday || 0)));
+
+  const averages = data.period.averages || {};
+
+  const avgSteps = averages.steps ?? 0;
+  const avgActive = averages.active_minutes ?? 0;
+  const avgSleep = averages.sleep_minutes ?? 0;
+  const avgInactivity = averages.inactivity_minutes ?? 0;
+
+  const daysCount = data.period.days || daily.length || 0;
 
   return (
     <Card className="mb-4">
       <Card.Header className="d-flex justify-content-between align-items-center">
-        <div>{t('title_fitbit')}</div>
-        <div className="d-flex align-items-center gap-3">
-          <div className="small text-muted">
-            {data.last_sync
-              ? t('lastSync', { date: new Date(data.last_sync).toLocaleString(i18n.language) })
-              : t('notConnected')}
-          </div>
-          <PeriodSwitch value={days} onChange={setDays} />
-        </div>
+        <strong>{t('Fitbit Activity Summary')}</strong>
+        <span className="small text-muted">
+          {data.last_sync
+            ? t('lastSync', {
+                date: new Date(data.last_sync).toLocaleString(i18n.language),
+              })
+            : t('notConnected')}
+        </span>
       </Card.Header>
 
       <Card.Body>
-        {!data.connected && (
-          <div className="mb-3 text-warning">{t('notConnected')}</div>
-        )}
-
         <Row xs={1} md={4} className="g-3">
+          {/* ---- Steps ---- */}
           <Col>
             <StatCard
-              label={`${t('steps')} (${labelDay})`}
-              value={nf.format(steps)}
-              valueClassName={colorForSteps(steps)}
-              sub={`${t('avg', { days })}: ${nf.format(safeAverages.steps ?? 0)}`}
+              label={t('Steps')}
+              value={nf.format(stepsToday)}
+              valueClassName={colorForSteps(stepsToday)}
+              sub={`${t('avg', { days: daysCount })} ${nf.format(avgSteps)}`}
               tooltip={t('stepsTip')}
-            />
+            >
+              <TrendToggle
+                open={showStepsTrend}
+                onToggle={() => setShowStepsTrend(!showStepsTrend)}
+                color="#0d6efd"
+              />
+              {showStepsTrend && (
+                <MiniTrend
+                  daily={daily.map((d) => d.steps)}
+                  color="#0d6efd"
+                  threshold={GOALS.steps}
+                />
+              )}
+            </StatCard>
           </Col>
+
+          {/* ---- Active Minutes ---- */}
           <Col>
             <StatCard
-              label={`${t('activeMinutes')} (${labelDay})`}
-              value={t('minute', { count: active })}
-              valueClassName={colorForActive(active)}
-              sub={`${t('avg', { days })}: ${t('minute', { count: safeAverages.active_minutes ?? 0 })}`}
-              tooltip={t('activeMinutesTip')}
-            />
+              label={t('Active Minutes')}
+              value={`${activeToday} ${t('min')}`}
+              valueClassName={colorForActive(activeToday)}
+              sub={`${t('avg', { days: daysCount })} ${avgActive} ${t('min')}`}
+            >
+              <TrendToggle
+                open={showActiveTrend}
+                onToggle={() => setShowActiveTrend(!showActiveTrend)}
+                color="#28a745"
+              />
+              {showActiveTrend && (
+                <MiniTrend
+                  daily={daily.map((d) => d.active_minutes || 0)}
+                  color="#28a745"
+                  threshold={GOALS.activeMinutesGreen}
+                />
+              )}
+            </StatCard>
           </Col>
+
+          {/* ---- Sleep ---- */}
           <Col>
             <StatCard
-              label={`${t('sleep')} (${labelDay})`}
-              value={mmToHhMm(sleep)}
-              valueClassName={colorForSleep(sleep)}
-              sub={`${t('avg', { days })}: ${mmToHhMm(safeAverages.sleep_minutes ?? 0)}`}
-              tooltip={t('sleepTip')}
-            />
+              label={t('Sleep')}
+              value={mmToHhMm(sleepToday)}
+              valueClassName={colorForSleep(sleepToday)}
+              sub={`${t('avg', { days: daysCount })} ${mmToHhMm(avgSleep)}`}
+            >
+              <TrendToggle
+                open={showSleepTrend}
+                onToggle={() => setShowSleepTrend(!showSleepTrend)}
+                color="#6f42c1"
+              />
+              {showSleepTrend && (
+                <MiniTrend
+                  daily={daily.map((d) => d.sleep_minutes || 0)}
+                  color="#6f42c1"
+                  threshold={GOALS.sleepGreenMin}
+                />
+              )}
+            </StatCard>
           </Col>
+
+          {/* ---- Inactivity ---- */}
           <Col>
             <StatCard
-              label={`${t('inactivity')} (${labelDay})`}
-              value={mmToHhMm(inactivity)}
-              valueClassName={colorForInactivity(inactivity)}
-              sub={`${t('avg', { days })}: ${mmToHhMm(safeAverages.inactivity_minutes ?? 0)}`}
-              tooltip={t('inactivityTip')}
-            />
+              label={t('Inactivity')}
+              value={mmToHhMm(inactivityToday)}
+              valueClassName={colorForInactivity(inactivityToday)}
+              sub={`${t('avg', { days: daysCount })} ${mmToHhMm(avgInactivity)}`}
+            >
+              <TrendToggle
+                open={showInactTrend}
+                onToggle={() => setShowInactTrend(!showInactTrend)}
+                color="#dc3545"
+              />
+              {showInactTrend && (
+                <MiniTrend
+                  daily={daily.map((d) =>
+                    typeof d.inactivity_minutes === 'number'
+                      ? d.inactivity_minutes
+                      : Math.max(
+                          0,
+                          1440 - ((d.active_minutes || 0) + (d.sleep_minutes || 0))
+                        )
+                  )}
+                  color="#dc3545"
+                  threshold={GOALS.inactivityGreenMax}
+                />
+              )}
+            </StatCard>
           </Col>
         </Row>
-
-        {avgLine && <div className="small text-muted mt-3">{avgLine}</div>}
       </Card.Body>
-    </Card>
+
+      <style>{`
+        .trend-toggle-btn {
+          width: 100%;
+          margin-top: 0.6rem;
+          font-size: 0.9rem;
+          padding: 0.4rem 0.6rem;
+          border-radius: 8px;
+        }
+
+        @media (min-width: 768px) {
+          .trend-toggle-btn {
+            width: auto;
+          }
+        }
+
+          .mini-chart-wrapper {
+            width: 100%;
+            height: 80px;
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 10px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-out;
+          }
+
+          .mini-chart-svg {
+            width: 100%;
+            height: 100%;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+      </Card>
   );
 };
 
