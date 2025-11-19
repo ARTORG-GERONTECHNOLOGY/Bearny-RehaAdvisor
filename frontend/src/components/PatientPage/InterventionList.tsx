@@ -18,6 +18,7 @@ import FeedbackPopup from './FeedbackPopup';
 import PatientQuestionaire from './PatientQuestionaire';
 import { translateText } from '../../utils/translate';
 
+
 type Rec = {
   intervention_id: string;
   intervention_title: string;
@@ -30,7 +31,7 @@ type Rec = {
   translated_description?: string;
   titleLang?: string;
   descLang?: string;
-  notes?: string; // <- ensure this exists so the popup can show it
+  notes?: string;
 };
 
 type Props = {
@@ -233,13 +234,37 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
       );
     }
 
-    if (isPast(date)) {
-      return isCompletedOn(rec, date) ? (
-        <Badge bg="success">{t('Done')}</Badge>
-      ) : (
-        <Badge bg="secondary">{t('Missed')}</Badge>
-      );
-    }
+// Allow marking past interventions as done
+if (isPast(date) && !isToday(date)) {
+  return completed ? (
+    <div className="d-flex justify-content-center">
+      <Button
+        className="action-btn"
+        variant="outline-secondary"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleToggleCompleted(rec, date);
+        }}
+        title={t('Uncheck / undo')}
+      >
+        {t('Undo')}
+      </Button>
+    </div>
+  ) : (
+    <Button
+      className="action-btn"
+      variant="outline-primary"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleToggleCompleted(rec, date);
+      }}
+      title={t('Mark as completed')}
+    >
+      {t('Ididit')}
+    </Button>
+  );
+}
+
 
     return isCompletedOn(rec, date) ? (
       <Badge bg="success">{t('Done')}</Badge>
@@ -278,6 +303,18 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
           const completed = isCompletedOn(rec, date);
           const title = rec.translated_title || rec.intervention_title;
 
+          // Derive time string (HH:mm) for this specific day
+          const matchingDateStr = (rec.dates || []).find((d) =>
+            d.startsWith(dateKey)
+          );
+          let timeStr = '';
+          if (matchingDateStr) {
+            const dt = new Date(matchingDateStr);
+            if (!isNaN(dt.getTime())) {
+              timeStr = format(dt, 'HH:mm');
+            }
+          }
+
           if (isWeekView) {
             return (
               <Card
@@ -296,12 +333,28 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                     <div className="text-truncate fw-semibold small">
                       {title}
                     </div>
+
+                    {/* Compact footer with time + duration */}
+                    <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
+                      <span className="d-flex align-items-center gap-1">
+                        <i className="bi bi-clock"></i>
+                        {timeStr || '-'}
+                      </span>
+
+                      {typeof rec.duration === 'number' && (
+                        <span className="d-flex align-items-center gap-1">
+                          <i className="bi bi-stopwatch"></i>
+                          {rec.duration} {t('min')}
+                        </span>
+                      )}
+                    </div>
                   </Card.Body>
                 </div>
               </Card>
             );
           }
 
+          // DAY VIEW CARD
           return (
             <Card
               key={`${rec.intervention_id}-${dateKey}`}
@@ -346,16 +399,30 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                         ({t('Original language:')} {rec.descLang})
                       </span>
                     )}
-                    {typeof rec.duration === 'number' && (
-                      <div className="mt-1">
-                        {t('Duration')}: {rec.duration} {t('minutes')}
-                      </div>
-                    )}
+                    {/* Duration moved to footer; keep body text clean */}
                   </Card.Text>
                 </Card.Body>
 
-                <Card.Footer className="text-center">
-                  {renderStatus(rec, date)}
+                {/* FOOTER with time + button + duration */}
+                <Card.Footer className="d-flex justify-content-between align-items-center px-2 py-2 footer-meta">
+                  {/* LEFT — Time */}
+                  <div className="d-flex align-items-center gap-1 text-muted small">
+                    <i className="bi bi-clock"></i>
+                    {timeStr || '-'}
+                  </div>
+
+                  {/* CENTER — Button / Status */}
+                  <div>{renderStatus(rec, date)}</div>
+
+                  {/* RIGHT — Duration */}
+                  {typeof rec.duration === 'number' ? (
+                    <div className="d-flex align-items-center gap-1 text-muted small">
+                      <i className="bi bi-stopwatch"></i>
+                      {rec.duration} {t('min')}
+                    </div>
+                  ) : (
+                    <div style={{ width: '40px' }}></div>
+                  )}
                 </Card.Footer>
               </div>
             </Card>
@@ -372,7 +439,8 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
     return (
       <>
         <h5 className="text-center mb-3">
-          {format(weekDates[0], 'dd.MM')} – {format(weekDates[6], 'dd.MM')} ({t('Week')} {weekNumber})
+          {format(weekDates[0], 'dd.MM')} – {format(weekDates[6], 'dd.MM')} ({t('Week')}{' '}
+          {weekNumber})
         </h5>
         <div className="week-grid">
           {weekDates.map((date) => renderDayColumn(date, true))}
@@ -501,7 +569,20 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
           padding: .65rem 1.25rem;
           border-radius: .75rem;
         }
-        @media (max-width: 992px) { .week-grid { gap: 8px; } }
+
+        /* Footer meta row (time + duration + button) */
+        .footer-meta {
+          background: #f8f9fa;
+          border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        .footer-meta i {
+          font-size: 1rem;
+          opacity: 0.8;
+        }
+
+        @media (max-width: 992px) {
+          .week-grid { gap: 8px; }
+        }
       `}</style>
     </div>
   );

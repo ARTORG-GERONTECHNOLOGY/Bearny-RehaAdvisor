@@ -3,7 +3,7 @@ import logging
 import requests
 from django.core.management.base import BaseCommand
 from core.models import FitbitUserToken, FitbitData
-from core.views.fitbit_view import get_valid_access_token
+from core.views.fitbit_sync import get_valid_access_token
 
 logger = logging.getLogger(__name__)
 FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'

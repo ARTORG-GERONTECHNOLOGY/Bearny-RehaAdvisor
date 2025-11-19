@@ -5,13 +5,13 @@ import {
   Dropdown,
   OverlayTrigger,
   Tooltip,
+  Navbar,
+  Nav,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { BsQuestionCircle } from 'react-icons/bs';
 import authStore from '../../stores/authStore';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import '../../assets/styles/header.css';
 
 import HelpCenter from '../help/HelpCenter';
 
@@ -20,25 +20,47 @@ import flagFr from '../../assets/flags/fr.png';
 import flagEn from '../../assets/flags/gb.png';
 import flagIt from '../../assets/flags/it.png';
 
+import '../../assets/styles/header.css';
+
 type HeaderProps = {
   isLoggedIn: boolean;
   showRegisterAction?: boolean;
   onRegister?: () => void;
 };
 
-const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegister }) => {
+const Header: React.FC<HeaderProps> = ({
+  isLoggedIn,
+  showRegisterAction,
+  onRegister,
+}) => {
   const { t, i18n } = useTranslation();
-  const [helpOpen, setHelpOpen] = React.useState(false);
   const location = useLocation();
 
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+
   const getInitialLang = () =>
-    localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
+    localStorage.getItem('i18nextLng')?.slice(0, 2) ||
+    i18n.language?.slice(0, 2) ||
+    'en';
 
-  const [currentLanguage, setCurrentLanguage] = React.useState(getInitialLang);
+  const [currentLanguage, setCurrentLanguage] =
+    React.useState(getInitialLang);
 
-  const handleLanguageChange = (lang: string) => {
-    i18n.changeLanguage(lang);
-    setCurrentLanguage(lang);
+  const languages = ['de', 'fr', 'en', 'it'] as const;
+
+  const flagMap: Record<string, string> = {
+    en: flagEn,
+    de: flagDe,
+    fr: flagFr,
+    it: flagIt,
+  };
+
+  const lang = currentLanguage.slice(0, 2);
+
+  const handleLanguageChange = (l: string) => {
+    i18n.changeLanguage(l);
+    setCurrentLanguage(l);
   };
 
   const handleLogout = async () => {
@@ -46,122 +68,241 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegis
     window.location.href = '/';
   };
 
-  const languages = ['de', 'fr', 'en', 'it'] as const;
-  const languageOptions: Record<string, string> = {
-    en: flagEn,
-    de: flagDe,
-    fr: flagFr,
-    it: flagIt,
-  };
-
-  const normalizedLang = currentLanguage.slice(0, 2);
   const userType = authStore.userType?.toLowerCase();
 
-  const navLinks = authStore.userType === 'Patient'
-    ? [
-        { path: '/patient', label: t('Home') },
-      ]
-    : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
-    ? [
-        { path: `/${userType}`, label: t('Patients') },
-        { path: '/interventions', label: t('Interventions') },
-        { path: '/userprofile', label: t('Profile') },
-      ]
-    : [];
+  // NAV LINKS
+  const navLinks =
+    authStore.userType === 'Patient'
+      ? [{ path: '/patient', label: t('Home') }]
+      : authStore.userType === 'Therapist' ||
+        authStore.userType === 'Researcher'
+      ? [
+          { path: '/', label: t('Home') },
+          { path: `/${userType}`, label: t('Patients') },
+          { path: '/interventions', label: t('Interventions') },
+          { path: '/userprofile', label: t('Profile') },
+        ]
+      : [];
+
+  const hasNav = isLoggedIn && navLinks.length > 0;
 
   return (
     <>
-      {/* FIRST ROW */}
-      <nav
-        className="sticky-top header-root px-2 px-sm-3 px-md-4 bg-body-tertiary"
-        role="navigation"
+      <Navbar
+        // IMPORTANT: disable Bootstrap auto-expand so mobile collapse
+        // is not shown on tablet/desktop.
+        expand={false}
+        expanded={expanded}
+        collapseOnSelect
+        bg="light"
+        className="shadow-sm"
+        sticky="top"
       >
-        <Container fluid className="px-2">
-          <div className="d-flex align-items-center w-100">
-            {/* --- Logos --- */}
-            <div className="d-flex align-items-center gap-2 gap-sm-3 flex-wrap brand-wrap">
-              <img src="/ARTORG_Logo.gif" alt="ARTORG Logo" className="brand-logo brand-logo--sm" />
-              <img src="/insel.webp" alt="Inselspital Bern Logo" className="brand-logo d-none d-sm-block" />
-              <img src="/brz_logo.png" alt="BRZ Logo" className="brand-logo d-none d-md-block" />
-            </div>
+        <Container fluid className="header-container d-flex flex-column">
+          {/* ===================== ROW 1: LOGOS + TOP ACTIONS ===================== */}
+          <div className="header-top-row d-flex align-items-center justify-content-between w-100">
+            {/* LOGOS LEFT */}
+            <Navbar.Brand className="brand-zone d-flex align-items-center">
+              <img src="/ARTORG_Logo.gif" className="brand-logo" />
+              <img
+                src="/insel.webp"
+                className="brand-logo d-none d-sm-inline"
+              />
+              <img
+                src="/brz_logo.png"
+                className="brand-logo d-none d-md-inline"
+              />
+            </Navbar.Brand>
 
-            {/* --- Right Actions --- */}
-            <div className="header-actions d-flex align-items-center gap-2 ms-auto">
-              {showRegisterAction && !isLoggedIn && (
-                <Button size="sm" onClick={onRegister}>
+            {/* ACTIONS RIGHT (Help, Lang, Register on md+) */}
+            <div className="action-zone d-flex align-items-center gap-2 ms-auto justify-content-end">
+
+              {/* REGISTER (tablet + desktop, logged out) */}
+              {!isLoggedIn && showRegisterAction && (
+                <Button
+                  size="sm"
+                  onClick={onRegister}
+                  className="d-none d-md-inline-block"
+                >
                   {t('Register (Only for Therapists)')}
                 </Button>
               )}
-
-              <OverlayTrigger placement="bottom" overlay={<Tooltip id="help-tip">{t('Help')}</Tooltip>}>
+              {/* HELP (tablet + desktop) */}
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip>{t('Help')}</Tooltip>}
+              >
                 <Button
                   variant="outline-secondary"
                   size="sm"
                   onClick={() => setHelpOpen(true)}
-                  aria-label={t('Open help') as string}
+                  className="help-btn d-none d-md-inline-flex"
                 >
-                  <BsQuestionCircle className="me-1" />
-                  <span className="d-none d-sm-inline">{t('Help')}</span>
+                  <BsQuestionCircle size={18} />
                 </Button>
               </OverlayTrigger>
 
-              {/* Language Switcher */}
-              <Dropdown align="end">
-                <Dropdown.Toggle id="lang" className="lang-toggle" variant="light">
-                  <img
-                    src={languageOptions[normalizedLang]}
-                    alt={`${normalizedLang} flag`}
-                    className="flag-icon"
-                  />
+              {/* LANGUAGE (tablet + desktop) */}
+              <Dropdown align="end" className="d-none d-md-inline">
+                <Dropdown.Toggle
+                  id="lang-tgl"
+                  className="lang-btn"
+                  variant="light"
+                  size="sm"
+                >
+                  <img src={flagMap[lang]} className="flag-icon" />
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
-                  {languages.map((lang) => (
+                  {languages.map((l) => (
                     <Dropdown.Item
-                      key={lang}
-                      onClick={() => handleLanguageChange(lang)}
-                      active={normalizedLang === lang}
-                      className="d-flex align-items-center gap-2"
+                      key={l}
+                      onClick={() => handleLanguageChange(l)}
                     >
-                      <img
-                        src={languageOptions[lang]}
-                        alt={`${lang} flag`}
-                        className="flag-icon"
-                      />
-                      <span className="fw-medium">{lang.toUpperCase()}</span>
+                      <img src={flagMap[l]} className="flag-icon me-2" />
+                      {l.toUpperCase()}
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Menu>
               </Dropdown>
+
+
+              {/* BURGER (mobile only) */}
+              <Navbar.Toggle
+                aria-controls="main-nav"
+                className="d-md-none ms-2"
+                onClick={() => setExpanded(!expanded)}
+              />
             </div>
           </div>
 
-          {/* --- SECOND ROW: NAV LINKS + LOGOUT --- */}
-          {isLoggedIn && navLinks.length > 0 && (
-            <div className="nav-row">
-              <div className="nav-left">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    className={`nav-link ${
-                      location.pathname === link.path ? 'active' : ''
-                    }`}
+          {/* ===================== ROW 2: NAV LINKS + LOGOUT (TABLET/DESKTOP) ===================== */}
+          {hasNav && (
+            <div className="nav-second-row d-none d-md-flex w-100 mt-2 justify-content-between align-items-center">
+              {/* LEFT: PAGE LINKS */}
+              <Nav className="flex-row gap-2 nav-links">
+                {navLinks.map((lnk) => (
+                  <Nav.Link
+                    key={lnk.path}
+                    as={Link}
+                    to={lnk.path}
+                    className={
+                      location.pathname === lnk.path ? 'active fw-bold' : ''
+                    }
                   >
-                    {link.label}
-                  </Link>
+                    {lnk.label}
+                  </Nav.Link>
                 ))}
-              </div>
-              <div className="logout-button">
-                <Button variant="outline-dark" size="sm" onClick={handleLogout}>
-                  {t('Logout')}
-                </Button>
-              </div>
+              </Nav>
+
+              {/* RIGHT: LOGOUT */}
+              <Button
+                variant="outline-dark"
+                size="sm"
+                onClick={handleLogout}
+              >
+                {t('Logout')}
+              </Button>
             </div>
           )}
-        </Container>
-      </nav>
 
-      {/* Help Center Modal */}
+          {/* ===================== MOBILE COLLAPSE ===================== */}
+          <Navbar.Collapse
+            id="main-nav"
+            className="w-100 d-md-none"
+          >
+            <div className="w-100 mt-2 d-flex flex-column">
+              <div className="ms-auto text-end d-flex flex-column gap-2 align-items-end">
+                {/* NAV LINKS (mobile, if any) */}
+                {hasNav &&
+                  navLinks.map((lnk) => (
+                    <Button
+                      key={lnk.path}
+                      variant="link"
+                      className={
+                        location.pathname === lnk.path
+                          ? 'p-0 fw-bold text-decoration-none'
+                          : 'p-0 text-decoration-none'
+                      }
+                      as={Link}
+                      to={lnk.path}
+                      onClick={() => setExpanded(false)}
+                    >
+                      {lnk.label}
+                    </Button>
+                  ))}
+
+                {/* LOGOUT (mobile, when logged in) */}
+                {isLoggedIn && (
+                  <Button
+                    variant="outline-dark"
+                    size="sm"
+                    onClick={() => {
+                      setExpanded(false);
+                      handleLogout();
+                    }}
+                  >
+                    {t('Logout')}
+                  </Button>
+                )}
+
+                {/* HELP (mobile) */}
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => {
+                    setExpanded(false);
+                    setHelpOpen(true);
+                  }}
+                  className="help-btn"
+                >
+                  <BsQuestionCircle size={18} /> {t('Help')}
+                </Button>
+
+                {/* LANGUAGE (mobile) */}
+                <Dropdown align="end">
+                  <Dropdown.Toggle
+                    id="lang-tgl-mobile"
+                    className="lang-btn"
+                    variant="light"
+                    size="sm"
+                  >
+                    <img src={flagMap[lang]} className="flag-icon" />{' '}
+                    {lang.toUpperCase()}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    {languages.map((l) => (
+                      <Dropdown.Item
+                        key={l}
+                        onClick={() => handleLanguageChange(l)}
+                      >
+                        <img
+                          src={flagMap[l]}
+                          className="flag-icon me-2"
+                        />
+                        {l.toUpperCase()}
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
+
+                {/* REGISTER (mobile, logged out) */}
+                {!isLoggedIn && showRegisterAction && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setExpanded(false);
+                      onRegister && onRegister();
+                    }}
+                  >
+                    {t('Register (Only for Therapists)')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
