@@ -148,6 +148,8 @@ urlpatterns = [
     path("api/fitbit/summary/<str:patient_id>/", fitbit_views.fitbit_summary, name="fitbit-summary"),
     path("api/patients/vitals/manual/<str:patient_id>/", patient_views.add_manual_vitals, name="add_manual_vitals"),
     path("api/patients/vitals/exists/<str:patient_id>/", patient_views.vitals_exists_for_day, name="vitals_exists_for_day"),
+    path("api/fitbit/manual_steps/<str:patient_id>/", fitbit_views.manual_steps, name="manual-steps"),
+    path("api/users/<str:therapist_id>/change-password/", user_views.change_password, name="change_password"),
 ]
 
 # Only add this if DEBUG=True, which is typical in development

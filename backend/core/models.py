@@ -1,7 +1,6 @@
 import os
 import random
-from datetime import timedelta
-
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
 from mongoengine import (
@@ -83,6 +82,9 @@ class FitbitData(Document):
     resting_heart_rate = IntField()
     heart_rate_zones = ListField(EmbeddedDocumentField(HeartRateZone))
 
+    # NEW: maximum heart rate reached that day (from intraday series)
+    max_heart_rate = IntField()   # <--- ADD THIS
+
     # Physical activity
     floors = IntField()
     distance = FloatField()  # in km or miles depending on user setting
@@ -97,8 +99,23 @@ class FitbitData(Document):
     hrv = DictField()               # Heart rate variability metrics
 
     # Exercise logs
-    exercise = DictField()          # Exercise session metadata (duration, type, etc.)
+    # For convenience we will store a *list* of sessions for that day:
+    # [
+    #   {
+    #       "logId": 123456,
+    #       "name": "Walk",
+    #       "startTime": "2025-11-19T10:01:00.000Z",
+    #       "duration": 1800000,   # ms
+    #       "calories": 210,
+    #       "averageHeartRate": 105,
+    #       "maxHeartRate": 132,
+    #       "heartRateZones": [...]
+    #   }, ...
+    # ]
+    exercise = DictField()          # we’ll store {"sessions": [..]} for the day
+
     inactivity_minutes = IntField()  # Minutes of inactivity
+
     meta = {
         'indexes': ['user', 'date'],
         'ordering': ['-date']
@@ -384,3 +401,10 @@ class PatientVitals(Document):
             ("patientId", "date"),   # fast range queries
         ]
     }
+
+class PasswordAttempt(Document):
+    user = ReferenceField(User)
+    count = IntField(default=0)
+    last_attempt = DateTimeField(default=timezone.now)  # instead of datetime.utcnow
+
+    meta = {"collection": "password_attempts"}

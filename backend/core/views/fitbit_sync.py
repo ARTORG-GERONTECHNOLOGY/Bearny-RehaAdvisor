@@ -1,19 +1,62 @@
+
 # core/services/fitbit_sync.py
 import datetime
 import logging
 import requests
+from django.utils import timezone
 from core.models import FitbitUserToken, FitbitData
-from core.views.fitbit_view import get_valid_access_token
+from django.utils.timezone import is_naive, make_aware, now
+from django.conf import settings
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'
+def get_valid_access_token(user):
+    token = FitbitUserToken.objects.get(user=user)
 
+    if is_naive(token.expires_at):
+        token.expires_at = make_aware(token.expires_at)
+
+    if token.expires_at <= timezone.now():
+        refresh_url = 'https://api.fitbit.com/oauth2/token'
+        client_id = settings.FITBIT_CLIENT_ID
+        client_secret = settings.FITBIT_CLIENT_SECRET
+        basic_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
+
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': token.refresh_token,
+        }
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+
+        try:
+            response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers)
+            logger.debug(f"[get_valid_access_token] Refresh token response status: {response.status_code}")
+            logger.debug(f"[get_valid_access_token] Response text: {response.text}")
+
+            if response.status_code == 200:
+                token_data = response.json()
+                token.access_token = token_data['access_token']
+                token.refresh_token = token_data.get('refresh_token', token.refresh_token)
+                token.expires_at = timezone.now() + timedelta(seconds=token_data['expires_in'])
+                token.save()
+                logger.info(f"[get_valid_access_token] Token refreshed for user {user.id}")
+            else:
+                logger.error(f"[get_valid_access_token] Failed to refresh token. Status: {response.status_code}, Body: {response.text}")
+                raise Exception('Failed to refresh Fitbit token')
+        except Exception as e:
+            logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")
+            raise
+
+    return token.access_token
 def fetch_fitbit_today_for_user(user) -> int:
+
     """Fetch **today only** for a single user; returns upserted day-count (0|1)."""
     today = datetime.date.today()
     token = FitbitUserToken.objects(user=user).first()
     if not token:
         logger.info(f"[fitbit] no token for user={user}. skip")
+        print(f"[fitbit] no token for user={user}. skip")
         return 0
 
     access_token = get_valid_access_token(user)
@@ -34,6 +77,7 @@ def fetch_fitbit_today_for_user(user) -> int:
         resp = requests.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
             logger.warning(f"[fitbit] {series_key} fetch failed user={user}: {resp.text}")
+            print(f"[fitbit] {series_key} fetch failed user={user}: {resp.text}")
             return
         payload_key = f"activities-{series_key}"
         for item in resp.json().get(payload_key, []):
@@ -163,4 +207,6 @@ def fetch_fitbit_today_for_user(user) -> int:
         upserted += 1
 
     logger.info(f"[fitbit] stored {upserted} row for user={user} on {date_str}")
+    print(f"[fitbit] stored {upserted} row for user={user} on {date_str}")
     return upserted
+

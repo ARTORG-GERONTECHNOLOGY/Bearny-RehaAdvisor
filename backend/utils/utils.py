@@ -17,6 +17,63 @@ from django.utils.timezone import is_naive, make_aware
 import tempfile
 from pydub import AudioSegment
 import speech_recognition as sr
+import re
+
+def validate_password_strength(password: str):
+    """
+    Validate password strength with:
+    - Min 8 chars
+    - Uppercase, lowercase, digit, special char
+    - No spaces
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+
+    if " " in password:
+        return False, "Password may not contain spaces."
+
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter."
+
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter."
+
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one digit."
+
+    if not re.search(r"[^\w\s]", password):
+        return False, "Password must contain at least one symbol (e.g. !@#$%)."
+
+    return True, None
+
+def check_rate_limit(user):
+    record = PasswordAttempt.objects(user=user).first()
+
+    if not record:
+        record = PasswordAttempt(user=user, count=0)
+        record.save()
+        return False, record
+
+    now = datetime.utcnow()
+
+    # Reset counter after 1 hour
+    if now - record.last_attempt > timedelta(hours=1):
+        record.count = 0
+        record.last_attempt = now
+        record.save()
+        return False, record
+
+    # Lockout after 5 failed attempts
+    if record.count >= 5:
+        return True, record
+
+    return False, record
+
+
+def increment_attempt(record):
+    record.count += 1
+    record.last_attempt = datetime.utcnow()
+    record.save()
 
 def resolve_patient(identifier: str):
     """

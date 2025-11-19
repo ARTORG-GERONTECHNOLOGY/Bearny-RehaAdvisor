@@ -16,10 +16,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from django.conf import settings
+from core.tasks import fetch_fitbit_data_async
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 email_user = settings.EMAIL_HOST_USER
-
-
+from utils.utils import convert_to_serializable, sanitize_text, check_rate_limit, validate_password_strength
+from django.utils.html import strip_tags
+from django.core.mail import EmailMultiAlternatives
 from core.models import (
     InterventionAssignment,
     Logs,
@@ -29,6 +31,7 @@ from core.models import (
     SMSVerification,
     Therapist,
     User,
+    PasswordAttempt
 )
 from utils.utils import (
     generate_custom_id,
@@ -235,63 +238,127 @@ def create_rehab_plan(patient, therapist):
         print(f"Error creating rehab plan: {e}")
         return False
 
+def make_aware(dt):
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt)
+    return dt
 
+from datetime import datetime, timedelta
+from django.utils import timezone
 
-@csrf_exempt  # Disabled for JWT; ensure HTTPS + token usage in frontend
+MAX_ATTEMPTS = 5            # allowed failed attempts
+LOCKOUT_MINUTES = 15        # lockout duration
+
+@csrf_exempt
 def login_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        # Parse login data
         data = json.loads(request.body)
         identifier = data.get("email")
         raw_password = data.get("password")
 
         if not identifier or not raw_password:
             return JsonResponse(
-                {"error": "Email/username and password are required."}, status=400
+                {"error": "Email/username and password are required."},
+                status=400
             )
 
-        # Find user by email or username
+        # ----- Find user -----
         user = User.objects.filter(
             __raw__={"$or": [{"email": identifier}, {"username": identifier}]}
         ).first()
 
+        # Always hide whether the user exists
         if not user:
-            logger.warning(f"Login failed: User '{identifier}' not found.")
-            return JsonResponse({"error": "User not found."}, status=404)
+            return JsonResponse({"error": "Invalid credentials."}, status=401)
 
+        # Inactive users cannot log in
         if not user.isActive:
-            logger.warning(f"Login failed: Inactive user '{identifier}'.")
             return JsonResponse(
                 {"error": "User has not yet been accepted."}, status=403
             )
 
+        now = timezone.now()
+
+        # ----- Load attempt record -----
+        attempt = PasswordAttempt.objects(user=user).first()
+        if not attempt:
+            attempt = PasswordAttempt(user=user, count=0, last_attempt=now)
+            attempt.save()
+
+        # ----- Lockout rules -----
+        LOCKOUT_THRESHOLD = 5       # 5 failed attempts
+        LOCKOUT_MINUTES = 15        # lock for 15 minutes
+        RESET_WINDOW_MINUTES = 15   # reset failures if last attempt older
+
+        now = timezone.now()
+        last_attempt = make_aware(attempt.last_attempt)
+        time_since = now - last_attempt
+
+
+        # Reset counter if 15 minutes passed since last attempt
+        if time_since.total_seconds() > RESET_WINDOW_MINUTES * 60:
+            attempt.count = 0
+            attempt.last_attempt = now
+            attempt.save()
+
+        # If threshold reached => lockout is active
+        if attempt.count >= LOCKOUT_THRESHOLD:
+            minutes_passed = time_since.total_seconds() / 60
+
+            if minutes_passed < LOCKOUT_MINUTES:
+                minutes_remaining = int(LOCKOUT_MINUTES - minutes_passed)
+                return JsonResponse(
+                    {
+                        "error": "Too many failed attempts. Account temporarily locked.",
+                        "minutes_remaining": minutes_remaining,
+                    },
+                    status=403,
+                )
+            else:
+                # Lockout expired → reset it
+                attempt.count = 0
+                attempt.last_attempt = now
+                attempt.save()
+
+        # ----- Validate password -----
         if not check_password(raw_password, user.pwdhash):
-            logger.warning(f"Login failed: Invalid password for user '{identifier}'.")
+            attempt.count += 1
+            attempt.last_attempt = now
+            attempt.save()
+
             return JsonResponse({"error": "Invalid credentials."}, status=401)
 
-        # Retrieve user-specific info
+        # ----- SUCCESS LOGIN -----
+        attempt.count = 0
+        attempt.last_attempt = now
+        attempt.save()
+
+        # ----- Profile data -----
         profile_info = {}
+
         try:
             if user.role == "Therapist":
                 therapist = Therapist.objects.get(userId=user)
                 profile_info["full_name"] = therapist.first_name
                 profile_info["specialisation"] = therapist.specializations
+
             elif user.role == "Patient":
                 patient = Patient.objects.get(userId=user)
                 profile_info["full_name"] = patient.first_name
                 profile_info["specialisation"] = patient.function
-                fetch_fitbit_today_for_user(user)  # Fetch Fitbit data on login
+
             else:
                 profile_info["full_name"] = user.username
                 profile_info["specialisation"] = ""
-        except (Therapist.DoesNotExist, Patient.DoesNotExist) as e:
-            logger.warning(f"Profile data missing for user '{identifier}': {str(e)}")
+        except Exception:
+            pass
 
-        # Create auth tokens
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+
         Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
 
         return JsonResponse(
@@ -305,12 +372,10 @@ def login_view(request):
             status=200,
         )
 
-    except json.JSONDecodeError:
-        logger.exception("Login failed: Invalid JSON payload.")
-        return JsonResponse({"error": "Invalid input format."}, status=400)
     except Exception as e:
         logger.exception("Unexpected error during login.")
         return JsonResponse({"error": "Internal server error."}, status=500)
+
 
 
 @csrf_exempt
@@ -526,18 +591,59 @@ def send_verification_code(request):
         # Save to MongoDB
         SMSVerification(userId=user_id, code=code, expires_at=expires_at).save()
 
-        # Example: send via email (replace with SMS sending logic)
-        send_mail(
-            subject="Your Verification Code",
-            message=(
-                f"Hello {user.username},\n\n"
-                f"Your verification code is: {code}\n\n"
-                "It will expire in 5 minutes."
-            ),
+        # Localized subjects
+        subject = "RehaAdvisor Verification Code"
+
+        # ----- HTML Email (Multilingual Version) -----
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>🔐 Verification Code</h2>
+
+            <!-- GERMAN -->
+            <h3>🇩🇪 Deutsch</h3>
+            <p>Hallo {user.username},</p>
+            <p>Ihr Verifizierungscode lautet: <b>{code}</b></p>
+            <p>Er ist für <b>5 Minuten</b> gültig.</p>
+
+            <!-- FRENCH -->
+            <h3>🇫🇷 Français</h3>
+            <p>Bonjour {user.username},</p>
+            <p>Votre code de vérification est : <b>{code}</b></p>
+            <p>Il est valable pendant <b>5 minutes</b>.</p>
+
+            <!-- ITALIAN -->
+            <h3>🇮🇹 Italiano</h3>
+            <p>Ciao {user.username},</p>
+            <p>Il tuo codice di verifica è: <b>{code}</b></p>
+            <p>È valido per <b>5 minuti</b>.</p>
+
+            <!-- ENGLISH -->
+            <h3>🇬🇧 English</h3>
+            <p>Hello {user.username},</p>
+            <p>Your verification code is: <b>{code}</b></p>
+            <p>It will expire in <b>5 minutes</b>.</p>
+
+            <br>
+            <p style="font-size: 12px; color: #999;">
+                If you did not request this code, you can safely ignore this message.
+            </p>
+        </body>
+        </html>
+        """
+
+        # Plain text fallback (auto-generated)
+        text_content = strip_tags(html_content)
+
+        # Build and send email
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
+            to=[user.email],
         )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send(fail_silently=False)
 
         return JsonResponse(
             {"message": "Verification code sent successfully"}, status=200
