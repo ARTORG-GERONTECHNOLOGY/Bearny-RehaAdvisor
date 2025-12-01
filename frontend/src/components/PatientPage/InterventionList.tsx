@@ -18,7 +18,6 @@ import FeedbackPopup from './FeedbackPopup';
 import PatientQuestionaire from './PatientQuestionaire';
 import { translateText } from '../../utils/translate';
 
-
 type Rec = {
   intervention_id: string;
   intervention_title: string;
@@ -49,6 +48,11 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
   const [showHealthPopup, setShowHealthPopup] = useState(false);
   const [showPatientPopup, setShowPatientPopup] = useState(false);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+
+  // ⬅️ NEW — Error handling
+  const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const localeMap: Record<string, any> = { en: enUS, de, fr, it };
   const currentLocale = useMemo(
@@ -102,6 +106,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
       const { data } = await apiClient.get(
         `/patients/rehabilitation-plan/patient/${localStorage.getItem('id')}/`
       );
+
       const lang = (i18n.language || 'en').slice(0, 2);
 
       const translated: Rec[] = await Promise.all(
@@ -118,8 +123,20 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
         })
       );
       setRecommendations(translated);
-    } catch (err) {
+
+    } catch (err: any) {
       console.error('Failed to load interventions:', err);
+
+      // ⬅️ NEW — display backend error + details
+      const backend = err?.response?.data;
+
+      setError(
+        backend?.error ||
+        err?.message ||
+        t('An unexpected error occurred.')
+      );
+
+      setErrorDetails(backend?.details || null);
     }
   };
 
@@ -234,37 +251,35 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
       );
     }
 
-// Allow marking past interventions as done
-if (isPast(date) && !isToday(date)) {
-  return completed ? (
-    <div className="d-flex justify-content-center">
-      <Button
-        className="action-btn"
-        variant="outline-secondary"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleToggleCompleted(rec, date);
-        }}
-        title={t('Uncheck / undo')}
-      >
-        {t('Undo')}
-      </Button>
-    </div>
-  ) : (
-    <Button
-      className="action-btn"
-      variant="outline-primary"
-      onClick={(e) => {
-        e.stopPropagation();
-        handleToggleCompleted(rec, date);
-      }}
-      title={t('Mark as completed')}
-    >
-      {t('Ididit')}
-    </Button>
-  );
-}
-
+    if (isPast(date) && !isToday(date)) {
+      return completed ? (
+        <div className="d-flex justify-content-center">
+          <Button
+            className="action-btn"
+            variant="outline-secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleCompleted(rec, date);
+            }}
+            title={t('Uncheck / undo')}
+          >
+            {t('Undo')}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          className="action-btn"
+          variant="outline-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleCompleted(rec, date);
+          }}
+          title={t('Mark as completed')}
+        >
+          {t('Ididit')}
+        </Button>
+      );
+    }
 
     return isCompletedOn(rec, date) ? (
       <Badge bg="success">{t('Done')}</Badge>
@@ -303,7 +318,6 @@ if (isPast(date) && !isToday(date)) {
           const completed = isCompletedOn(rec, date);
           const title = rec.translated_title || rec.intervention_title;
 
-          // Derive time string (HH:mm) for this specific day
           const matchingDateStr = (rec.dates || []).find((d) =>
             d.startsWith(dateKey)
           );
@@ -334,7 +348,6 @@ if (isPast(date) && !isToday(date)) {
                       {title}
                     </div>
 
-                    {/* Compact footer with time + duration */}
                     <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
                       <span className="d-flex align-items-center gap-1">
                         <i className="bi bi-clock"></i>
@@ -354,7 +367,6 @@ if (isPast(date) && !isToday(date)) {
             );
           }
 
-          // DAY VIEW CARD
           return (
             <Card
               key={`${rec.intervention_id}-${dateKey}`}
@@ -399,22 +411,17 @@ if (isPast(date) && !isToday(date)) {
                         ({t('Original language:')} {rec.descLang})
                       </span>
                     )}
-                    {/* Duration moved to footer; keep body text clean */}
                   </Card.Text>
                 </Card.Body>
 
-                {/* FOOTER with time + button + duration */}
                 <Card.Footer className="d-flex justify-content-between align-items-center px-2 py-2 footer-meta">
-                  {/* LEFT — Time */}
                   <div className="d-flex align-items-center gap-1 text-muted small">
                     <i className="bi bi-clock"></i>
                     {timeStr || '-'}
                   </div>
 
-                  {/* CENTER — Button / Status */}
                   <div>{renderStatus(rec, date)}</div>
 
-                  {/* RIGHT — Duration */}
                   {typeof rec.duration === 'number' ? (
                     <div className="d-flex align-items-center gap-1 text-muted small">
                       <i className="bi bi-stopwatch"></i>
@@ -467,10 +474,36 @@ if (isPast(date) && !isToday(date)) {
 
   return (
     <div className="p-3">
+
+      {/* ⬅️ NEW — ERROR BANNER */}
+      {error && (
+        <div className="alert alert-danger mb-3">
+          <div className="d-flex justify-content-between align-items-center">
+            <span>{error}</span>
+            {errorDetails && (
+              <button
+                className="btn btn-sm btn-outline-light"
+                onClick={() => setShowErrorDetails((prev) => !prev)}
+              >
+                {showErrorDetails ? t('Hide details') : t('Show details')}
+              </button>
+            )}
+          </div>
+
+          {/* Inline details */}
+          {showErrorDetails && errorDetails && (
+            <pre className="bg-light p-2 mt-2 border rounded small" style={{ whiteSpace: 'pre-wrap' }}>
+              {errorDetails}
+            </pre>
+          )}
+        </div>
+      )}
+
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <Button onClick={() => handleNavigate('prev')} title={t('Go back')}>
           {t('Previous')}
         </Button>
+
         <ToggleButtonGroup
           type="radio"
           name="viewMode"
@@ -484,6 +517,7 @@ if (isPast(date) && !isToday(date)) {
             {t('Week')}
           </ToggleButton>
         </ToggleButtonGroup>
+
         <Button onClick={() => handleNavigate('next')} title={t('Go forward')}>
           {t('Next')}
         </Button>
@@ -569,8 +603,6 @@ if (isPast(date) && !isToday(date)) {
           padding: .65rem 1.25rem;
           border-radius: .75rem;
         }
-
-        /* Footer meta row (time + duration + button) */
         .footer-meta {
           background: #f8f9fa;
           border-top: 1px solid rgba(0,0,0,0.05);
@@ -578,10 +610,6 @@ if (isPast(date) && !isToday(date)) {
         .footer-meta i {
           font-size: 1rem;
           opacity: 0.8;
-        }
-
-        @media (max-width: 992px) {
-          .week-grid { gap: 8px; }
         }
       `}</style>
     </div>

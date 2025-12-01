@@ -29,12 +29,68 @@ import {
 } from 'react-icons/fa';
 import QuestionnaireScheduleModal from '../components/RehaTablePage/QuestionnaireScheduleModal';
 
+// NEW COMPONENTS
+import InterventionHeader from '../components/RehaTablePage/InterventionHeader';
+import InterventionLeftPanel from '../components/RehaTablePage/InterventionLeftPanel';
+import InterventionRightPanel from '../components/RehaTablePage/InterventionRightPanel';
+import QuestionnairePanel from '../components/RehaTablePage/QuestionnairePanel';
+
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap  = Record<string, string>;
 
 type QItem = { _id: string; key: string; title: string; description?: string; tags?: string[]; question_count?: number };
 type QAssigned = { _id: string; title: string; description?: string; frequency?: string; dates?: string[] };
+
+type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
+const EMPTY_PLAN: PatientPlan = { interventions: [] };
+
+const fmtPct = (v?: number | null) => (v == null ? '—' : `${v}%`);
+
+/**
+ * Extract a detailed, user-friendly error message from an axios error
+ * that may contain:
+ *  - message
+ *  - error
+ *  - details
+ *  - field_errors: {field: [msg]}
+ *  - non_field_errors: [msg]
+ */
+const extractApiError = (e: any, fallback: string): string => {
+  const api = e?.response?.data;
+  if (!api) return fallback;
+
+  const pieces: string[] = [];
+
+  if (typeof api.message === 'string' && api.message.trim()) {
+    pieces.push(api.message.trim());
+  }
+
+  if (Array.isArray(api.non_field_errors)) {
+    pieces.push(...api.non_field_errors.map((x: any) => String(x)));
+  }
+
+  if (api.field_errors && typeof api.field_errors === 'object') {
+    Object.entries(api.field_errors).forEach(([field, msgs]) => {
+      if (Array.isArray(msgs)) {
+        msgs.forEach((m) => pieces.push(`${field}: ${m}`));
+      } else if (msgs) {
+        pieces.push(`${field}: ${msgs}`);
+      }
+    });
+  }
+
+  if (typeof api.error === 'string' && api.error.trim()) {
+    pieces.push(api.error.trim());
+  }
+
+  if (typeof api.details === 'string' && api.details.trim()) {
+    pieces.push(api.details.trim());
+  }
+
+  const text = pieces.join(' ');
+  return text || fallback;
+};
 
 const RehabTable: React.FC = () => {
   const [selectedExercise, setSelectedExercise] = useState<Intervention | null>(null);
@@ -59,6 +115,7 @@ const RehabTable: React.FC = () => {
   const [typeMap, setTypeMap]   = useState<TypeMap>({});
   const [repeatMode, setRepeatMode] = useState<'create'|'modify'>('create');
   const [modifyDefaults, setModifyDefaults] = useState<any>(null);
+  const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
 
   const userLang = (i18n.language || 'en').slice(0, 2);
   const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
@@ -72,14 +129,15 @@ const RehabTable: React.FC = () => {
   const [contentTypeFilter, setContentTypeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
-// near the other helpers at the top of the component
-const fmtPct = (v?: number | null) => (v == null ? '—' : `${v}%`);
 
   // Export schedule (patient tab)
-  const [exportStart, setExportStart] = useState<string>(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
-  const [exportEnd, setExportEnd] = useState<string>(new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10));
+  const [exportStart, setExportStart] = useState<string>(
+    new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10)
+  );
+  const [exportEnd, setExportEnd] = useState<string>(
+    new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10)
+  );
 
-  // ─────────────────────────────────────────────────────────────────────────────
   // QUESTIONNAIRES – state & helpers
   const [topTab, setTopTab] = useState<'interventions'|'questionnaires'>('interventions');
   const [questionnaires, setQuestionnaires] = useState<QItem[]>([]);
@@ -93,11 +151,6 @@ const fmtPct = (v?: number | null) => (v == null ? '—' : `${v}%`);
     notes: ''
   });
   const freqOptions = config.RecomendationInfo.frequency as string[];
-// near the top of RehabTable.tsx
-type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
-
-const EMPTY_PLAN: PatientPlan = { interventions: [] };
-const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
 
   const patientIdForCalls = localStorage.getItem('selectedPatient') || patientUsername;
 
@@ -106,7 +159,9 @@ const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
     const re = /^([A-Za-z0-9]+_[A-Za-z]+)/;
     const pretty = (k: string) => {
       const [num, rest] = k.split('_');
-      return /^\d+$/.test(num) ? `${rest[0].toUpperCase()}${rest.slice(1)} (${num})` : k.replace('_',' ');
+      return /^\d+$/.test(num)
+        ? `${rest[0].toUpperCase()}${rest.slice(1)} (${num})`
+        : k.replace('_',' ');
     };
     const buckets: Record<string, QItem> = {};
     rawQs.forEach((q: any) => {
@@ -145,23 +200,34 @@ const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
       try {
         const raw = await apiClient.get('/feedback-questions?subject=Healthstatus');
         setQuestionnaires(groupByKeyPrefix(raw.data || []));
-      } catch { setQuestionnaires([]); }
-    } catch {
+      } catch (err: any) {
+        const msg = extractApiError(err, t('Failed to load questionnaires.'));
+        setError(msg);
+        setQuestionnaires([]);
+      }
+    } catch (err: any) {
+      // fallback to legacy endpoint
       try {
         const raw = await apiClient.get('/feedback-questions?subject=Healthstatus');
         setQuestionnaires(groupByKeyPrefix(raw.data || []));
-      } catch { setError(t('Failed to load questionnaires.')); }
+      } catch (err2: any) {
+        const msg = extractApiError(err2, t('Failed to load questionnaires.'));
+        setError(msg);
+        setQuestionnaires([]);
+      }
     }
   };
 
   const fetchAssignedQuestionnaires = async () => {
     try {
       const res = await apiClient.get(`/questionnaires/patient/${patientIdForCalls}/`);
-    const arr = Array.isArray(res.data)
+      const arr = Array.isArray(res.data)
         ? res.data
         : (Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []);
       setAssignedQuestionnaires(arr);
-    } catch {
+    } catch (err: any) {
+      const msg = extractApiError(err, t('Failed to load patient questionnaires.'));
+      setError(msg);
       setAssignedQuestionnaires([]);
     }
   };
@@ -208,8 +274,9 @@ const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
       });
       setQModalOpen(false);
       fetchAssignedQuestionnaires();
-    } catch {
-      setError(t('Failed to assign questionnaire.'));
+    } catch (err: any) {
+      const msg = extractApiError(err, t('Failed to assign questionnaire.'));
+      setError(msg);
     }
   };
 
@@ -221,11 +288,11 @@ const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
         questionnaireId: qid,
       });
       fetchAssignedQuestionnaires();
-    } catch {
-      setError(t('Failed to remove questionnaire.'));
+    } catch (err: any) {
+      const msg = extractApiError(err, t('Failed to remove questionnaire.'));
+      setError(msg);
     }
   };
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // Visible items for left column
   const visibleItems = useMemo(() => {
@@ -236,23 +303,33 @@ const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
       : filteredRecommendations;
   }, [selectedTab, allInterventions, filteredRecommendations, patientData]);
 
-const fetchAll = async () => {
-  try {
-    const res = await apiClient.get(
-      `patients/rehabilitation-plan/therapist/${localStorage.getItem('selectedPatient') || patientUsername}/`
-    );
+  const fetchAll = async () => {
+    try {
+      const res = await apiClient.get(
+        `patients/rehabilitation-plan/therapist/${localStorage.getItem('selectedPatient') || patientUsername}/`
+      );
+      const raw = (res.data ?? {}) as Record<string, any>;
 
-    // Force a safe shape even if BE returns {} or something else
-    const raw = (res.data ?? {}) as Record<string, any>;
-    const interventions = Array.isArray(raw.interventions) ? raw.interventions : [];
-    setPatientData({ ...raw, interventions });
-  } catch (e) {
-    console.error('Error loading patient interventions', e);
-    setPatientData(EMPTY_PLAN); // keep UI stable
-    setError(t('Error loading patients interventions. Reload the page or try again later.'));
-  }
-};
+      // Support both success:true plan and "no plan" message
+      if (raw.success === false && raw.message && !raw.interventions) {
+        setPatientData(EMPTY_PLAN);
+        // Show info text but not catastrophic error
+        setError(raw.message);
+        return;
+      }
 
+      const interventions = Array.isArray(raw.interventions) ? raw.interventions : [];
+      setPatientData({ ...raw, interventions });
+    } catch (e: any) {
+      console.error('Error loading patient interventions', e);
+      const msg = extractApiError(
+        e,
+        t('Error loading patients interventions. Reload the page or try again later.')
+      );
+      setPatientData(EMPTY_PLAN);
+      setError(msg);
+    }
+  };
 
   const fetchInts = async () => {
     try {
@@ -262,9 +339,13 @@ const fetchAll = async () => {
       setAllInterventions(res.data);
       setRecommendations(res.data);
       setFilteredRecommendations(res.data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error loading all interventions', e);
-      setError('Error loading interventions. Reload the page or try again later.');
+      const msg = extractApiError(
+        e,
+        t('Error loading interventions. Reload the page or try again later.')
+      );
+      setError(msg);
     }
   };
 
@@ -321,7 +402,9 @@ const fetchAll = async () => {
           try {
             const { translatedText, detectedSourceLanguage } = await translateText(rec.title, userLang);
             newTitles[rec._id] = { title: translatedText || rec.title, lang: detectedSourceLanguage || null };
-          } catch { newTitles[rec._id] = { title: rec.title, lang: null }; }
+          } catch {
+            newTitles[rec._id] = { title: rec.title, lang: null };
+          }
         })
       );
       const newTypes: TypeMap = {};
@@ -331,7 +414,9 @@ const fetchAll = async () => {
           try {
             const { translatedText } = await translateText(label, userLang);
             newTypes[rec._id] = translatedText || label;
-          } catch { newTypes[rec._id] = label; }
+          } catch {
+            newTypes[rec._id] = label;
+          }
         })
       );
       if (!cancelled) { setTitleMap(newTitles); setTypeMap(newTypes); }
@@ -342,8 +427,15 @@ const fetchAll = async () => {
   const handleExerciseClick = (intervention: Intervention) => {
     if (intervention) { setSelectedExercise(intervention); setShowInfoInterventionModal(true); }
   };
-  const showStats = (intervention: Intervention) => { setSelectedExercise(intervention); setShowExerciseStats(true); };
-  const handleAddIntervention = (intervention: any) => { setRepeatMode('create'); setSelectedExercise(intervention); setshowRepeatModal(true); };
+  const showStats = (intervention: Intervention) => {
+    setSelectedExercise(intervention);
+    setShowExerciseStats(true);
+  };
+  const handleAddIntervention = (intervention: any) => {
+    setRepeatMode('create');
+    setSelectedExercise(intervention);
+    setshowRepeatModal(true);
+  };
   const handleModifyIntervention = (intervention: any) => {
     setRepeatMode('modify');
     setSelectedExercise(intervention);
@@ -364,8 +456,12 @@ const fetchAll = async () => {
         intervention: interventionId,
       });
       if (res.status === 200 || res.status === 201) { fetchAll(); fetchInts(); }
-    } catch {
-      setError('Failed to delete the intervention. Try again now or later.');
+    } catch (err: any) {
+      const msg = extractApiError(
+        err,
+        t('Failed to delete the intervention. Try again now or later.')
+      );
+      setError(msg);
     }
   };
 
@@ -381,14 +477,13 @@ const fetchAll = async () => {
     setFilteredRecommendations(filtered);
   }, [recommendations, patientTypeFilter, contentTypeFilter, tagFilter, benefitForFilter, searchTerm]);
 
-  const isAssigned = (id: string) => !!patientData?.interventions?.some((item) => item._id === id);
-
   // Derived lists for Patient tab: Active vs Past (no future dates)
-  const patientAssignedItems = useMemo(() => {
-    return allInterventions.filter((it) =>
+  const patientAssignedItems = useMemo(
+    () => allInterventions.filter((it) =>
       patientData?.interventions?.some((p) => p._id === it._id)
-    );
-  }, [allInterventions, patientData]);
+    ),
+    [allInterventions, patientData]
+  );
 
   const hasFutureDates = (interventionId: string) => {
     const p = patientData?.interventions?.find((i) => i._id === interventionId);
@@ -465,482 +560,210 @@ const fetchAll = async () => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      setError(t('Failed to export the schedule.'));
+    } catch (err: any) {
+      const msg = extractApiError(err, t('Failed to export the schedule.'));
+      setError(msg);
     }
   };
 
   return (
     <>
       <style>{`
-        .min-h-0 { min-height: 0 !important; }
-        .flex-1 { flex: 1 1 auto !important; }
-        .scroll-y { overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
-        .panel-viewport { height: 80vh; min-height: 0; display: flex; flex-direction: column; }
-      `}</style>
+/* --- MAIN LAYOUT FIXES --- */
+
+/* Main container */
+.rehab-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Two-column area */
+.rehab-panels {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Force Bootstrap columns to allow children to scroll */
+.rehab-panels > .col,
+.rehab-panels > [class*="col-"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+/* Left panel top (tabs & filters) */
+.left-top {
+  flex: 0 0 auto;
+}
+
+/* Left side scroll area */
+.left-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Calendar scroll area */
+.calendar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* react-big-calendar forcing fix */
+.rbc-calendar,
+.rbc-time-view,
+.rbc-time-content {
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+/* Patient interventions scroll area */
+.scroll-y {
+  max-height: 650px;
+  overflow-y: auto !important;
+  padding-right: 4px;
+}
+
+/* ALL INTERVENTIONS LIST: max height = viewport - 440px */
+.all-scroll-y {
+  max-height: calc(100vh - 440px);
+  overflow-y: auto !important;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+/* Ensure left panel bottom aligns with calendar */
+.left-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+`}</style>
 
       <div className="d-flex flex-column min-vh-100">
         <Header isLoggedIn={authStore.isAuthenticated} />
 
-        <div className="flex-grow-1 d-flex flex-column overflow-hidden">
-          <Container fluid className="mt-4 d-flex flex-column flex-grow-1 overflow-hidden">
+        <div className="rehab-main overflow-hidden">
+          <Container fluid className="mt-4 mb-3 d-flex flex-column flex-grow-1 overflow-hidden">
 
-            <Row><Col><h2 className="text-center mb-4">{patientName}</h2></Col></Row>
-            {/* Adherence (7 days & overall) */}
-<Row className="mb-3 justify-content-center">
-  <Col md="auto" className="text-center">
-    <div className="text-muted">
-      <strong>{t('Adherence')}</strong>:&nbsp;
-      {t('last 7 days')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_rate)}</span>
-      &nbsp;·&nbsp;
-      {t('overall')}: <span className="fw-semibold">{fmtPct(patientData?.adherence_total)}</span>
-    </div>
-  </Col>
-</Row>
-
-            <Row><Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col></Row>
-
-            {/* ───────────────── Top-level tab (Interventions | Questionnaires) ─────────────── */}
-            <Row className="mb-3">
-              <Col>
-                <Nav variant="tabs" activeKey={topTab} onSelect={(k) => setTopTab((k as any) || 'interventions')}>
-                  <Nav.Item><Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link></Nav.Item>
-                  <Nav.Item><Nav.Link eventKey="questionnaires">{t('Questionnaires')}</Nav.Link></Nav.Item>
-                </Nav>
-              </Col>
-            </Row>
+            <InterventionHeader
+              patientName={patientName}
+              adherence={{
+                last7: fmtPct(patientData?.adherence_rate),
+                overall: fmtPct(patientData?.adherence_total),
+              }}
+              error={error}
+              onClearError={() => setError('')}
+              topTab={topTab}
+              setTopTab={setTopTab}
+              t={t}
+            />
 
             {topTab === 'interventions' ? (
-              <Row className="flex-grow-1 overflow-hidden">
+              <Row className="flex-grow-1 overflow-hidden align-items-stretch">
+
                 {/* LEFT PANEL */}
-                <Col xs={12} md={3} className="mb-3 mb-md-0 d-flex flex-column" style={{ overflow: 'hidden', minHeight: 0 }}>
-                  <div className="panel-viewport">
-                    <Card className="mb-3">
-                      <Card.Header>
-                        <Nav variant="tabs" activeKey={selectedTab} onSelect={(k) => setSelectedTab((k as 'patient'|'all') || 'patient')}>
-                          <Nav.Item><Nav.Link eventKey="patient">{t("Patient's Interventions")}</Nav.Link></Nav.Item>
-                          <Nav.Item><Nav.Link eventKey="all">{t('All Interventions')}</Nav.Link></Nav.Item>
-                        </Nav>
-                      </Card.Header>
-                    </Card>
-
-                    {selectedTab === 'all' && (
-                      <Card className="mb-3">
-                        <Card.Body>
-                          <Row className="mb-3">
-                            <Col>
-                              <Form.Group controlId="searchInput">
-                                <Form.Control type="text" placeholder={t('Search Interventions')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                              </Form.Group>
-                            </Col>
-                          </Row>
-                          <Row className="mb-3">
-                            <Col>
-                              <Form.Select value={patientTypeFilter} onChange={(e) => setPatientTypeFilter(e.target.value)}>
-                                <option value="">{t('Filter by Patient Type')}</option>
-                                {diagnoses.map((type: string) => (<option key={type} value={type}>{t(type)}</option>))}
-                              </Form.Select>
-                            </Col>
-                            <Col>
-                              <Form.Select value={contentTypeFilter} onChange={(e) => setContentTypeFilter(e.target.value)}>
-                                <option value="">{t('Filter by Content Type')}</option>
-                                {config.RecomendationInfo.types.map((type) => (<option key={type} value={type}>{t(type)}</option>))}
-                              </Form.Select>
-                            </Col>
-                          </Row>
-                          <Row className="mb-3">
-                            <Col>
-                              <Select
-                                isMulti
-                                options={config.RecomendationInfo.tags.map((tag) => ({ value: tag, label: t(tag) }))}
-                                value={tagFilter.map((tag) => ({ value: tag, label: tag }))}
-                                onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
-                                placeholder={t('Filter by Tags')}
-                              />
-                            </Col>
-                            <Col>
-                              <Select
-                                isMulti
-                                options={config.RecomendationInfo.benefits.map((b) => ({ value: b, label: t(b) }))}
-                                value={benefitForFilter.map((b) => ({ value: b, label: b }))}
-                                onChange={(opts) => setBenefitForFilter(opts.map((opt) => opt.value))}
-                                placeholder={t('Filter by Benefit')}
-                              />
-                            </Col>
-                          </Row>
-                          <Row>
-                            <Col>
-                              <Button variant="outline-secondary" size="sm" onClick={resetAllFilters}>
-                                <FaUndo className="me-2" /> {t('Reset filters')}
-                              </Button>
-                            </Col>
-                          </Row>
-                        </Card.Body>
-                      </Card>
-                    )}
-
-                    {/* Patient view: Active vs Past */}
-                    {selectedTab === 'patient' ? (
-                      <Card className="d-flex flex-column flex-1 min-h-0">
-                        <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
-                          <div className="flex-1 min-h-0 scroll-y">
-                            {/* Active */}
-                            <div className="mb-2">
-                              <div className="fw-bold mb-2">{t('Active interventions')}</div>
-                              {activePatientItems.length === 0 && (
-                                <div className="text-muted mb-3">{t('No active interventions.')}</div>
-                              )}
-                              {activePatientItems.map((intervention) => {
-                                const translated = titleMap[intervention._id];
-                                const title = translated?.title || intervention.title;
-                                const originalLang = translated?.lang;
-                                const isTranslated =
-                                  originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
-                                const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
-                                const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
-                                const hasFuture = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date());
-                                const assigned = !!patientHasIntervention;
-
-                                return (
-                                  <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
-                                      style={{ cursor: 'pointer', backgroundColor: '#f8f9fa', gap: '0.5rem' }}
-                                      onClick={() => handleExerciseClick(intervention)}>
-                                    <div className="flex-grow-1">
-                                      <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
-                                      {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
-                                      <div className="text-muted">{typeLabel}</div>
-                                      <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
-                                        {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
-                                      </Badge>
-                                    </div>
-                                    <div style={{ flex: '0 0 auto' }}>
-                                      <div onClick={(e) => e.stopPropagation()} className="ms-2">
-                                        <ButtonGroup size="sm" vertical>
-                                          {/* Show stats/feedback ONLY if assigned */}
-                                          {assigned && (
-                                            <>
-                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
-                                                <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
-                                                  <FaChartBar />
-                                                </Button>
-                                              </OverlayTrigger>
-                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
-                                                <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
-                                                  <FaCommentDots />
-                                                </Button>
-                                              </OverlayTrigger>
-                                            </>
-                                          )}
-                                          {/* Modify ONLY if assigned AND has future dates */}
-                                          {assigned && hasFuture && (
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                              <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
-                                                <FaEdit />
-                                              </Button>
-                                            </OverlayTrigger>
-                                          )}
-                                          {/* Remove only when future dates exist */}
-                                          {hasFuture && (
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                              <Button variant="outline-danger" onClick={() => handleDeleteExercise(intervention._id)} aria-label={t('Remove')}>
-                                                <FaMinus />
-                                              </Button>
-                                            </OverlayTrigger>
-                                          )}
-                                        </ButtonGroup>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Past */}
-                            <hr className="my-3" />
-                            <div className="mb-2">
-                              <div className="fw-bold mb-2">{t('Past interventions')}</div>
-                              {pastPatientItems.length === 0 && (
-                                <div className="text-muted">{t('No past interventions.')}</div>
-                              )}
-                              {pastPatientItems.map((intervention) => {
-                                const translated = titleMap[intervention._id];
-                                const title = translated?.title || intervention.title;
-                                const originalLang = translated?.lang;
-                                const isTranslated =
-                                  originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
-                                const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
-                                const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
-                                const assigned = !!patientHasIntervention;
-
-                                return (
-                                  <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
-                                      style={{ cursor: 'pointer', backgroundColor: '#fcfcfd', gap: '0.5rem' }}
-                                      onClick={() => handleExerciseClick(intervention)}>
-                                    <div className="flex-grow-1">
-                                      <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
-                                      {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
-                                      <div className="text-muted">{typeLabel}</div>
-                                      <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
-                                        {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
-                                      </Badge>
-                                    </div>
-                                    <div style={{ flex: '0 0 auto' }}>
-                                      <div onClick={(e) => e.stopPropagation()} className="ms-2">
-                                        <ButtonGroup size="sm" vertical>
-                                          {/* Show stats/feedback ONLY if assigned (it is, since it's past) */}
-                                          {assigned && (
-                                            <>
-                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
-                                                <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
-                                                  <FaChartBar />
-                                                </Button>
-                                              </OverlayTrigger>
-                                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
-                                                <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
-                                                  <FaCommentDots />
-                                                </Button>
-                                              </OverlayTrigger>
-                                            </>
-                                          )}
-                                          {/* No modify/remove on past; allow quick re-schedule */}
-                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Schedule again')}</Tooltip>}>
-                                            <Button variant="outline-success" onClick={() => handleAddIntervention(intervention)} aria-label={t('Schedule again')}>
-                                              <FaPlus />
-                                            </Button>
-                                          </OverlayTrigger>
-                                        </ButtonGroup>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    ) : (
-                      // ALL tab list
-                      <Card className="d-flex flex-column flex-1 min-h-0">
-                        <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
-                          <div className="flex-1 min-h-0 scroll-y">
-                            {visibleItems.map((intervention) => {
-                              const translated = titleMap[intervention._id];
-                              const title = translated?.title || intervention.title;
-                              const originalLang = translated?.lang;
-                              const isTranslated =
-                                originalLang && title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
-                              const typeLabel = typeMap[intervention._id] || capitalize(intervention.content_type || '');
-                              const patientHasIntervention = patientData?.interventions?.find((item) => item._id === intervention._id);
-                              const hasFuture = patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date()) || false;
-                              const assigned = !!patientHasIntervention;
-
-                              return (
-                                <div key={intervention._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded shadow-sm"
-                                    style={{ cursor: 'pointer', backgroundColor: '#f8f9fa', gap: '0.5rem' }}
-                                    onClick={() => handleExerciseClick(intervention)}>
-                                  <div className="flex-grow-1">
-                                    <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>{title}</strong>
-                                    {isTranslated && <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>({t('Translated from')}: {originalLang})</div>}
-                                    <div className="text-muted">{typeLabel}</div>
-                                    <Badge bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}>
-                                      {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
-                                    </Badge>
-                                  </div>
-                                  <div style={{ flex: '0 0 auto' }}>
-                                    <div onClick={(e) => e.stopPropagation()} className="ms-2">
-                                      <ButtonGroup size="sm" vertical>
-                                        {/* Show stats/feedback ONLY if assigned */}
-                                        {assigned && (
-                                          <>
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
-                                              <Button variant="outline-primary" onClick={() => showStats(intervention)} aria-label={t('Statistics')}>
-                                                <FaChartBar />
-                                              </Button>
-                                            </OverlayTrigger>
-                                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
-                                              <Button variant="outline-info" onClick={() => openFeedbackBrowser(intervention)} aria-label={t('Feedback')}>
-                                                <FaCommentDots />
-                                              </Button>
-                                            </OverlayTrigger>
-                                          </>
-                                        )}
-                                        {/* Modify ONLY if assigned AND has future dates */}
-                                        {assigned && hasFuture && (
-                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                            <Button variant="outline-secondary" onClick={() => handleModifyIntervention(intervention)} aria-label={t('Modify')}>
-                                              <FaEdit />
-                                            </Button>
-                                          </OverlayTrigger>
-                                        )}
-                                        {/* Add vs Remove */}
-                                        {!assigned || !hasFuture ? (
-                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
-                                            <Button variant="outline-success" onClick={() => handleAddIntervention(intervention)} aria-label={t('Add')}>
-                                              <FaPlus />
-                                            </Button>
-                                          </OverlayTrigger>
-                                        ) : (
-                                          <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                            <Button variant="outline-danger" onClick={() => handleDeleteExercise(intervention._id)} aria-label={t('Remove')}>
-                                              <FaMinus />
-                                            </Button>
-                                          </OverlayTrigger>
-                                        )}
-                                      </ButtonGroup>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    )}
-                  </div>
+                <Col
+                  xs={12}
+                  md={3}
+                  className="d-flex flex-column h-100"
+                  style={{ overflow: 'hidden' }}
+                >
+                  <InterventionLeftPanel
+                    selectedTab={selectedTab}
+                    setSelectedTab={setSelectedTab}
+                    data={{
+                      activeItems: activePatientItems,
+                      pastItems: pastPatientItems,
+                      visibleItems,
+                      titleMap,
+                      typeMap,
+                      diagnoses,
+                    }}
+                    filters={{
+                      searchTerm,
+                      setSearchTerm,
+                      patientTypeFilter,
+                      setPatientTypeFilter,
+                      contentTypeFilter,
+                      setContentTypeFilter,
+                      tagFilter,
+                      setTagFilter,
+                      benefitForFilter,
+                      setBenefitForFilter,
+                      resetAllFilters,
+                    }}
+                    actions={{
+                      handleExerciseClick,
+                      showStats,
+                      openFeedbackBrowser,
+                      handleModifyIntervention,
+                      handleDeleteExercise,
+                      handleAddIntervention,
+                    }}
+                    patientData={patientData}
+                    t={t}
+                  />
                 </Col>
 
                 {/* RIGHT – calendar + export controls */}
-                <Col xs={12} md={9} className="d-flex flex-column" style={{ overflow: 'hidden', minHeight: 0 }}>
-                  {/* Export toolbar */}
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <Row className="g-2 align-items-end">
-                        <Col xs={12} md={3}>
-                          <Form.Label className="mb-1">{t('Export start')}</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={exportStart}
-                            max={exportEnd || undefined}
-                            onChange={(e) => setExportStart(e.target.value)}
-                          />
-                        </Col>
-                        <Col xs={12} md={3}>
-                          <Form.Label className="mb-1">{t('Export end')}</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={exportEnd}
-                            min={exportStart || undefined}
-                            onChange={(e) => setExportEnd(e.target.value)}
-                          />
-                        </Col>
-                        <Col xs={12} md="auto" className="mt-2 mt-md-0">
-                          <div className="d-flex gap-2">
-                            <Button variant="outline-secondary" size="sm" onClick={() => {
-                              setExportStart(new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10));
-                              setExportEnd(new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10));
-                            }}>
-                              {t('±30 days')}
-                            </Button>
-                            <Button variant="primary" onClick={exportScheduleCSV}>
-                              <FaDownload className="me-2" /> {t('Export schedule (CSV)')}
-                            </Button>
-                          </div>
-                        </Col>
-                        <Col className="text-muted small mt-2">
-                          {t('Adjust the interval then export the patient’s scheduled sessions as CSV.')}
-                        </Col>
-                      </Row>
-                    </Card.Body>
-                  </Card>
-
-                  <div className="flex-1 min-h-0" style={{ overflow: 'auto' }}>
-                    <InterventionCalendar
-                      interventions={patientData.interventions || []}
-                      onSelectEvent={(event: any) => {
+                <Col
+                  xs={12}
+                  md={9}
+                  className="d-flex flex-column h-100"
+                  style={{ overflow: 'hidden' }}
+                >
+                  <InterventionRightPanel
+                    data={{ interventions: patientData.interventions || [] }}
+                    exportState={{
+                      exportStart,
+                      exportEnd,
+                      setExportStart,
+                      setExportEnd,
+                      exportScheduleCSV,
+                    }}
+                    actions={{
+                      onSelectEvent: (event: any) => {
                         setSelectedExercise(event);
                         setSelectedDate(event.start.toISOString().split('T')[0]);
                         setShowInterFeedbackModal(true);
-                      }}
-                    />
-                  </div>
+                      },
+                    }}
+                    t={t}
+                  />
                 </Col>
               </Row>
             ) : (
-              /* ================== QUESTIONNAIRES layout ================== */
-              <Row className="flex-grow-1 overflow-hidden">
-                <Col xs={12} md={5} className="d-flex flex-column" style={{ minHeight: 0 }}>
-                  <Card className="flex-1 min-h-0 d-flex flex-column">
-                    <Card.Header>{t('Available questionnaires')}</Card.Header>
-                    <Card.Body className="p-2 flex-1 min-h-0">
-                      <div className="scroll-y">
-                        {questionnaires.length === 0 && (
-                          <div className="text-muted">{t('No questionnaires found')}</div>
-                        )}
-                        {questionnaires.map((q) => {
-                          const isAlready = !!assignedQuestionnaires.find(a => a._id === q._id);
-                          return (
-                            <div key={q._id} className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border">
-                              <div>
-                                <div className="fw-semibold">{q.title}</div>
-                                {q.question_count != null && <div className="small text-muted">{t('Questions')}: {q.question_count}</div>}
-                              </div>
-                              <div>
-                                <ButtonGroup size="sm" vertical>
-                                  {isAlready ? (
-                                    <>
-                                      <Button variant="outline-secondary" onClick={() => openModifyQ(q)}><FaEdit /></Button>
-                                      <Button variant="outline-danger" onClick={() => removeQ(q._id)}><FaTrash /></Button>
-                                    </>
-                                  ) : (
-                                    <Button variant="outline-success" onClick={() => openAddQ(q)}><FaPlus /></Button>
-                                  )}
-                                </ButtonGroup>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                <Col xs={12} md={7} className="d-flex flex-column" style={{ minHeight: 0 }}>
-                  <Card className="flex-1 min-h-0 d-flex flex-column">
-                    <Card.Header>{t('Assigned questionnaires')}</Card.Header>
-                    <Card.Body className="p-2 flex-1 min-h-0">
-                      <div className="scroll-y">
-                        {assignedQuestionnaires.length === 0 && (
-                          <div className="text-muted">{t('No questionnaires assigned')}</div>
-                        )}
-                        {assignedQuestionnaires.map((a) => (
-                          <div key={a._id} className="d-flex justify-content-between align-items-center p-2 mb-2 border rounded">
-                            <div>
-                              <div className="fw-semibold">{a.title}</div>
-                              <div className="small text-muted">{t('Frequency')}: {a.frequency || '—'}</div>
-                              {a.dates?.length ? (
-                                <div className="small text-muted">{t('Next on')}: {new Date(a.dates[0]).toLocaleDateString()}</div>
-                              ) : null}
-                            </div>
-                            <div>
-                              <ButtonGroup size="sm">
-                                <Button variant="outline-secondary" onClick={() => openModifyQ({ _id: a._id, key: a._id, title: a.title })}><FaEdit /></Button>
-                                <Button variant="outline-danger" onClick={() => removeQ(a._id)}><FaTrash /></Button>
-                              </ButtonGroup>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
+              <QuestionnairePanel
+                data={{ questionnaires, assignedQuestionnaires }}
+                actions={{ openAddQ, openModifyQ, removeQ }}
+                t={t}
+              />
             )}
-
           </Container>
 
           <Footer />
 
           {selectedExercise && ShowInfoInterventionModal && (() => {
-  const assigned = patientData?.interventions?.find((i) => i._id === (selectedExercise as any)._id);
-  return (
-    <PatientInterventionPopUp
-      show
-      item={selectedExercise}
-      personalNote={assigned?.notes || ''}   // 👈 pass note
-      handleClose={() => setShowInfoInterventionModal(false)}
-    />
-  );
-})()}
+            const assigned = patientData?.interventions?.find(
+              (i) => i._id === (selectedExercise as any)._id
+            );
+            return (
+              <PatientInterventionPopUp
+                show
+                item={selectedExercise}
+                personalNote={assigned?.notes || ''}
+                handleClose={() => setShowInfoInterventionModal(false)}
+              />
+            );
+          })()}
 
           {showRepeatModal && (
             <InterventionRepeatModal
@@ -954,9 +777,14 @@ const fetchAll = async () => {
               defaults={modifyDefaults || undefined}
             />
           )}
+
           {showInterFeedbackModal && selectedExercise && (() => {
-            const selectedIntervention = patientData?.interventions?.find((int) => int._id === (selectedExercise as any)._id);
-            const selectedLog = selectedIntervention?.dates?.find((d) => d.datetime.split('T')[0] === selectedDate);
+            const selectedIntervention = patientData?.interventions?.find(
+              (int) => int._id === (selectedExercise as any)._id
+            );
+            const selectedLog = selectedIntervention?.dates?.find(
+              (d) => d.datetime.split('T')[0] === selectedDate
+            );
             return (
               <InterventionFeedbackModal
                 show={showInterFeedbackModal}
@@ -974,16 +802,15 @@ const fetchAll = async () => {
             );
           })()}
 
-<InterventionStatsModal
-  show={showExerciseStats}
-  onClose={() => setShowExerciseStats(false)}
-  exercise={selectedExercise as any}
-  interventionData={(patientData?.interventions ?? []).find(
-    (item) => item._id === (selectedExercise as any)?._id
-  )}
-  t={t}
-/>
-
+          <InterventionStatsModal
+            show={showExerciseStats}
+            onClose={() => setShowExerciseStats(false)}
+            exercise={selectedExercise as any}
+            interventionData={(patientData?.interventions ?? []).find(
+              (item) => item._id === (selectedExercise as any)?._id
+            )}
+            t={t}
+          />
 
           <QuestionnaireScheduleModal
             show={qModalOpen}

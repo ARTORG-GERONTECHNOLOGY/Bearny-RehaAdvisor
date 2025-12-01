@@ -163,65 +163,121 @@ def parse_start_date(start_date):
 
 def generate_repeat_dates(patient_end_date, repeat_data):
     """
-    Generate a list of repeat dates for an intervention based on interval, unit, and end rules.
+    Generate repeat dates using the *new flattened* schedule structure.
+
+    Accepts both:
+      - new fields: end_type, end_date, count_limit, selected_days
+      - legacy fields: end: {type, date, count}, selectedDays
     """
+
+    # -----------------------------
+    # Extract fields (with fallback)
+    # -----------------------------
     interval = repeat_data.get("interval", 1)
     unit = repeat_data.get("unit")
-    selected_days = repeat_data.get("selectedDays", [])
-    end_type = repeat_data["end"]["type"]
+
+    selected_days = (
+        repeat_data.get("selected_days")
+        or repeat_data.get("selectedDays")
+        or []
+    )
+
+    # ---- NEW FORMAT ----
+    end_type = repeat_data.get("end_type")
+    end_date_raw = repeat_data.get("end_date")
+    count_limit = repeat_data.get("count_limit")
+
+    # ---- BACKWARD COMPATIBILITY ----
+    if "end" in repeat_data and isinstance(repeat_data["end"], dict):
+        end_type = repeat_data["end"].get("type") or end_type
+        end_date_raw = repeat_data["end"].get("date") or end_date_raw
+        count_limit = repeat_data["end"].get("count") or count_limit
+
+    # -----------------------------
+    # Parse end_date if exists
+    # -----------------------------
     end_date_limit = None
+    if end_date_raw:
+        try:
+            end_date_limit = datetime.fromisoformat(end_date_raw.replace("Z", "+00:00"))
+            if is_naive(end_date_limit):
+                end_date_limit = make_aware(end_date_limit)
+        except Exception:
+            logger.warning("Failed to parse end_date")
 
-    try:
-        raw_date = repeat_data["end"].get("date")
-        if raw_date:
-            end_date_limit = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-    except Exception as e:
-        logger.warning(f"Failed to parse end date: {e}")
+    # -----------------------------
+    # Parse start_date
+    # -----------------------------
+    raw_start = repeat_data.get("start_date") or repeat_data.get("startDate")
+    current_date = parse_start_date(raw_start)  # your existing helper
 
-    count_limit = repeat_data["end"].get("count", 0)
-
-    current_date = parse_start_date(repeat_data.get("startDate", timezone.now()))
-
-    day_map = {"Mon": 0, "Dien": 1, "Mitt": 2, "Don": 3, "Fre": 4, "Sam": 5, "Son": 6}
-    selected_day_indices = [day_map[day] for day in selected_days if day in day_map]
-
-    # Ensure all dates are aware
-    if end_date_limit and is_naive(end_date_limit):
-        end_date_limit = make_aware(end_date_limit)
-    if is_naive(patient_end_date):
-        patient_end_date = make_aware(patient_end_date)
     if is_naive(current_date):
         current_date = make_aware(current_date)
 
+    # -----------------------------
+    # Boundaries
+    # -----------------------------
+    if is_naive(patient_end_date):
+        patient_end_date = make_aware(patient_end_date)
+
     final_end_date = (
-        min(end_date_limit, patient_end_date) if end_date_limit else patient_end_date
+        min(end_date_limit, patient_end_date)
+        if end_date_limit else patient_end_date
     )
+
+    # -----------------------------
+    # Prepare weekday map
+    # -----------------------------
+    day_map = {
+        "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3,
+        "Fri": 4, "Sat": 5, "Sun": 6,
+        "Dien": 1, "Mitt": 2, "Don": 3, "Fre": 4,  # German fallback
+        "Sam": 5, "Son": 6,
+    }
+
+    selected_day_indices = [
+        day_map[d] for d in selected_days if d in day_map
+    ]
+
     generated_dates = []
     occurrence = 0
 
+    # -----------------------------
+    # Core generator loop
+    # -----------------------------
     while current_date <= final_end_date:
+
         if unit == "day":
             generated_dates.append(current_date)
             occurrence += 1
             current_date += timedelta(days=interval)
+
         elif unit == "week":
             for i in range(7):
                 day = current_date + timedelta(days=i)
-                if day.weekday() in selected_day_indices and day <= final_end_date:
+                if (
+                    day.weekday() in selected_day_indices
+                    and day <= final_end_date
+                ):
                     generated_dates.append(day)
                     occurrence += 1
-                    if end_type == "count" and occurrence >= count_limit:
+
+                    if end_type == "count" and count_limit and occurrence >= count_limit:
                         return generated_dates
+
             current_date += timedelta(weeks=interval)
+
         elif unit == "month":
             generated_dates.append(current_date)
             occurrence += 1
             current_date += relativedelta(months=interval)
 
-        if end_type == "count" and occurrence >= count_limit:
+        # End via count
+        if end_type == "count" and count_limit and occurrence >= count_limit:
             break
 
     return generated_dates
+
 
 
 def get_db_handle(db_name, host, port, username, password):

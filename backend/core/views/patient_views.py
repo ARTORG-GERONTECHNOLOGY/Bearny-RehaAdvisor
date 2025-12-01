@@ -1156,126 +1156,292 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
 def add_intervention_to_patient(request):
     """
     POST /api/interventions/add-to-patient/
-    Adds an intervention schedule to a patient's plan.
-    - Accepts interventions[].dates in any of these shapes emitted by the FE/generator:
-        * list[datetime]
-        * list[iso-string]
-        * list[{'datetime': <iso|datetime>, 'status': ..., 'feedback': ...}]
-      but stores ONLY datetime values, matching the MongoEngine schema.
-    - If the intervention already exists on the plan, new (future) dates are merged in.
+
+    Adds or updates intervention assignments for a patient.
+    Includes:
+      - Input normalization (camelCase → snake_case)
+      - end{} flattening into end_type, end_date, count_limit
+      - Strict validation with detailed errors
+      - Graceful skipping of empty date schedules
+      - Full structured error output
     """
+
+    # Reject non-POST
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Method not allowed",
+                "field_errors": {},
+                "non_field_errors": ["Only POST requests allowed."]
+            },
+            status=405,
+        )
+
+    field_errors = {}
+    non_field_errors = []
+
+    # ---------------------------------------------------
+    # Helper: Add field-specific or global errors
+    # ---------------------------------------------------
+    def add_ferr(field, msg):
+        field_errors.setdefault(field, []).append(msg)
+
+    def add_nerr(msg):
+        non_field_errors.append(msg)
+
+    # ---------------------------------------------------
+    # Helper: Normalize schedule fields safely
+    # ---------------------------------------------------
+    def normalize_schedule(item: dict):
+        """
+        Converts React schedule into backend shape:
+          selectedDays → selected_days
+          startDate → start_date
+          end = { type, date, count } → flattened
+        """
+        out = dict(item)
+
+        # camelCase → snake_case
+        if "selectedDays" in out:
+            out["selected_days"] = out.pop("selectedDays") or []
+
+        if "startDate" in out:
+            out["start_date"] = out.pop("startDate")
+
+        # Flatten "end" structure
+        end = out.pop("end", None)
+        if isinstance(end, dict):
+            out["end_type"] = end.get("type") or "never"
+            out["end_date"] = end.get("date")
+            out["count_limit"] = end.get("count")
+        else:
+            out["end_type"] = "never"
+            out["end_date"] = None
+            out["count_limit"] = None
+
+        return out
+
+    # ---------------------------------------------------
+    # Helper: ISO → aware datetime
+    # ---------------------------------------------------
+    def to_dt(v):
+        if not v:
+            return None
+        try:
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            if timezone.is_naive(dt):
+                dt = make_aware(dt)
+            return dt
+        except Exception:
+            return None
+
+    # ---------------------------------------------------
+    # Helper: Coerce ObjectId
+    # ---------------------------------------------------
+    def coerce_oid(v):
+        try:
+            return ObjectId(str(v))
+        except Exception:
+            return None
+
+    # ---------------------------------------------------
+    # Parse JSON safely
+    # ---------------------------------------------------
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {},
+                "non_field_errors": ["The request body is not valid JSON."]
+            },
+            status=400
+        )
+
+    therapistId = payload.get("therapistId")
+    patientId = payload.get("patientId")
+    items = payload.get("interventions") or []
+
+    # Validate base fields
+    if not therapistId:
+        add_ferr("therapistId", "Therapist ID is required.")
+    if not patientId:
+        add_ferr("patientId", "Patient ID is required.")
+    if not items:
+        add_ferr("interventions", "At least one intervention entry must be provided.")
+
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
+
+    # ---------------------------------------------------
+    # Resolve therapist/patient
+    # ---------------------------------------------------
+    try:
+        therapist = Therapist.objects.get(userId=therapistId)
+    except Therapist.DoesNotExist:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Therapist not found",
+                "field_errors": {"therapistId": ["Therapist does not exist."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
 
     try:
-        data = json.loads(request.body or "{}")
+        patient = Patient.objects.get(pk=patientId)
+    except Patient.DoesNotExist:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Patient not found",
+                "field_errors": {"patientId": ["Patient does not exist."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
 
-        therapist = Therapist.objects.get(userId=data.get("therapistId"))
-        patient   = Patient.objects.get(pk=data.get("patientId"))
-        items     = data.get("interventions", []) or []
+    # ---------------------------------------------------
+    # Load or create plan
+    # ---------------------------------------------------
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if not plan:
+        plan = RehabilitationPlan(
+            patientId=patient,
+            therapistId=therapist,
+            startDate=patient.userId.createdAt,
+            endDate=patient.reha_end_date,
+            status=payload.get("status", "active"),
+            interventions=[],
+            createdAt=timezone.now(),
+            updatedAt=timezone.now(),
+        )
 
-        if not items:
-            return JsonResponse({"error": "No interventions provided."}, status=400)
+    total_added = 0
+    created_assignments = 0
 
-        # Load or create the patient's plan
-        plan = RehabilitationPlan.objects(patientId=patient).first()
+    # ---------------------------------------------------
+    # Process each intervention item
+    # ---------------------------------------------------
+    for raw in items:
+        item = normalize_schedule(raw)
 
-        if not plan:
-            plan = RehabilitationPlan(
-                patientId=patient,
-                therapistId=therapist,
-                startDate=patient.userId.createdAt,
-                endDate=patient.reha_end_date,
-                status=data.get("status", "active"),
-                interventions=[],
-                createdAt=timezone.now(),
-                updatedAt=timezone.now(),
-            )
+        # Validate intervention OID
+        int_oid = coerce_oid(item.get("interventionId"))
+        if not int_oid:
+            add_ferr("interventionId", "Invalid interventionId.")
+            continue
 
-        total_added = 0
-        created_assignments = 0
-
-        for item in items:
-            # Accept interventionId as string or dict
-            int_oid = _coerce_object_id(item.get("interventionId"))
-            if not int_oid:
-                return JsonResponse({"error": "Invalid interventionId."}, status=400)
-
+        try:
             intervention = Intervention.objects.get(id=int_oid)
+        except Intervention.DoesNotExist:
+            add_ferr("interventionId", f"Intervention {int_oid} not found.")
+            continue
 
-            # The generator typically returns dates; if you compute here instead,
-            # replace the next line with your generator call.
-            # Example if you have a helper:
-            # generated = generate_repeat_dates(patient.reha_end_date, item)
-            generated = item.get("dates") or []  # allow direct dates (optional)
-            # In your current flow, you don't send "dates"; you send a schedule.
-            # generate on the server if needed:
-            if not generated:
-                generated = generate_repeat_dates(patient.reha_end_date, item)
+        # Build schedule input for generator
+        schedule_input = {
+            "interval": item.get("interval", 1),
+            "unit": item.get("unit"),
+            "selected_days": item.get("selected_days") or [],
+            "end_type": item.get("end_type") or "never",
+            "count_limit": item.get("count_limit"),
+            "start_date": to_dt(item.get("start_date")),
+            "end_date": to_dt(item.get("end_date")),
+        }
 
-            new_dates = _strip_to_datetimes(generated)
+        # Date generation (safe; generate_repeat_dates expects this shape)
+        try:
+            generated = generate_repeat_dates(patient.reha_end_date, schedule_input)
+        except Exception as e:
+            logger.error(f"[add_intervention_to_patient] Date generation failed for {int_oid}: {e}")
+            add_ferr("interventionId", f"Could not generate dates for {int_oid}.")
+            continue
 
-            # Require at least one date
-            if not new_dates:
-                logger.info("No valid dates generated for intervention %s", str(int_oid))
-                # Keep going; nothing to add for this one.
-                continue
+        dates = _strip_to_datetimes(generated)
 
-            # Merge into existing assignment if present
-            existing = None
-            for a in (plan.interventions or []):
-                if str(a.interventionId.id) == str(intervention.id):
-                    existing = a
-                    break
+        # No valid dates
+        if not dates:
+            logger.info(f"No valid dates generated for {intervention.id}")
+            continue
 
-            require_video = bool(item.get("require_video_feedback", False))
-            note_in = (item.get("notes") or "").strip()[:1000]  # simple length cap
+        require_video = bool(item.get("require_video_feedback"))
+        note_txt = (item.get("notes") or "").strip()[:1000]
 
-            if existing:
-                merged, added = _merge_dates(existing.dates, new_dates)
-                if added > 0:
-                    existing.dates = merged
-                    existing.require_video_feedback = require_video
-                    if "notes" in item:
-                        existing.notes = note_in
-                    total_added += added
-                # else nothing new for this intervention
-            else:
-                assignment = InterventionAssignment(
-                    interventionId=intervention,
-                    frequency=item.get("frequency", ""),
-                    dates=new_dates, 
-                    notes=note_in,                       # <-- pure datetimes
-                    require_video_feedback=require_video,
-                )
-                plan.interventions.append(assignment)
-                created_assignments += 1
-                total_added += len(new_dates)
+        # Check if intervention already exists in plan
+        existing = next(
+            (a for a in (plan.interventions or []) if str(a.interventionId.id) == str(intervention.id)),
+            None
+        )
 
-        if created_assignments == 0 and total_added == 0:
-            # Nothing changed at all
-            return JsonResponse(
-                {"message": "No new sessions to add for the selected intervention(s)."},
-                status=200,
+        if existing:
+            merged, added_cnt = _merge_dates(existing.dates, dates)
+            if added_cnt > 0:
+                existing.dates = merged
+                existing.require_video_feedback = require_video
+                if "notes" in item:
+                    existing.notes = note_txt
+                total_added += added_cnt
+        else:
+            assignment = InterventionAssignment(
+                interventionId=intervention,
+                frequency=item.get("frequency", ""),
+                dates=dates,
+                notes=note_txt,
+                require_video_feedback=require_video,
             )
+            plan.interventions.append(assignment)
+            created_assignments += 1
+            total_added += len(dates)
 
-        plan.updatedAt = timezone.now()
-        plan.save()
+    # ---------------------------------------------------
+    # Nothing new added
+    # ---------------------------------------------------
+    if created_assignments == 0 and total_added == 0:
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "No new sessions to add for the selected intervention(s).",
+                "field_errors": {},
+                "non_field_errors": []
+            },
+            status=200
+        )
 
-        msg_parts = []
-        if created_assignments:
-            msg_parts.append(f"created {created_assignments} assignment(s)")
-        if total_added:
-            msg_parts.append(f"added {total_added} session(s)")
-        return JsonResponse({"message": "Successfully " + " and ".join(msg_parts) + "."}, status=201)
+    # ---------------------------------------------------
+    # Save & respond
+    # ---------------------------------------------------
+    plan.updatedAt = timezone.now()
+    plan.save()
 
-    except (Therapist.DoesNotExist, Patient.DoesNotExist, Intervention.DoesNotExist) as e:
-        logger.warning(f"[add_intervention_to_patient] Missing entity: {e}")
-        return JsonResponse({"error": str(e)}, status=404)
+    msg = []
+    if created_assignments:
+        msg.append(f"created {created_assignments} assignment(s)")
+    if total_added:
+        msg.append(f"added {total_added} session(s)")
 
-    except Exception as e:
-        logger.error("[add_intervention_to_patient] Unexpected error", exc_info=True)
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Successfully " + " and ".join(msg) + ".",
+            "field_errors": {},
+            "non_field_errors": []
+        },
+        status=201
+    )
+
+
 
 
 # Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
@@ -1424,88 +1590,248 @@ def _generate_dates_from(
 def modify_intervention_from_date(request):
     """
     POST /api/interventions/modify-patient/
-    Body:
+
+    Safe, structured, detailed error handling.
+    Always returns:
     {
-      therapistId, patientId, interventionId,
-      effectiveFrom: 'YYYY-MM-DD' | ISO,
-      require_video_feedback: bool,
-      keep_current: bool?,                 # if true, only update flags
-      schedule: { ... }                    # required if keep_current is not true
+        "success": false/true,
+        "message": "...",
+        "field_errors": {...},
+        "non_field_errors": [...]
     }
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Method not allowed",
+                "field_errors": {},
+                "non_field_errors": ["Only POST allowed."]
+            },
+            status=405,
+        )
 
+    field_errors = {}
+    non_field_errors = []
+
+    def ferr(field, msg):
+        field_errors.setdefault(field, []).append(msg)
+
+    def nerr(msg):
+        non_field_errors.append(msg)
+
+    # ----------------------
+    # Parse JSON safely
+    # ----------------------
     try:
         body = json.loads(request.body or "{}")
-        patient_id = body.get("patientId")
-        intervention_id = body.get("interventionId")
-        effective_from_raw = body.get("effectiveFrom")
-        keep_current = bool(body.get("keep_current", False))
-        require_video = bool(body.get("require_video_feedback", False))
-        schedule = body.get("schedule")
-        notes = body.get("notes", None)
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {},
+                "non_field_errors": ["Request body is not valid JSON."],
+            },
+            status=400,
+        )
 
-        if not (patient_id and intervention_id and effective_from_raw):
-            return JsonResponse({"error": "Missing required fields"}, status=400)
+    patient_id = body.get("patientId")
+    intervention_id = body.get("interventionId")
+    effective_from_raw = body.get("effectiveFrom")
+    keep_current = bool(body.get("keep_current", False))
+    require_video = bool(body.get("require_video_feedback", False))
+    schedule = body.get("schedule")
+    notes = body.get("notes")
 
-        # Patient / Plan
+    # ----------------------
+    # Validate required fields
+    # ----------------------
+    if not patient_id:
+        ferr("patientId", "Patient ID is required.")
+    if not intervention_id:
+        ferr("interventionId", "Intervention ID is required.")
+    if not effective_from_raw:
+        ferr("effectiveFrom", "Effective-from date is required.")
+
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Resolve Patient
+    # ----------------------
+    try:
         if isinstance(patient_id, str) and len(patient_id) == 24:
             patient = Patient.objects.get(pk=ObjectId(patient_id))
         else:
             patient = Patient.objects.get(userId=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Patient not found.",
+                "field_errors": {"patientId": ["No patient exists with this ID."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
 
-        plan = RehabilitationPlan.objects(patientId=patient).first()
-        if not plan:
-            return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
+    # ----------------------
+    # Resolve plan
+    # ----------------------
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if not plan:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Rehabilitation plan not found.",
+                "field_errors": {},
+                "non_field_errors": ["No rehabilitation plan exists for this patient."],
+            },
+            status=404,
+        )
 
-        # Find assignment
-        target = next((a for a in plan.interventions
-                       if str(a.interventionId.id) == str(intervention_id)), None)
-        if not target:
-            return JsonResponse({"error": "Intervention assignment not found."}, status=404)
+    # ----------------------
+    # Find intervention assignment
+    # ----------------------
+    target = next(
+        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
+        None
+    )
 
-        # Always update flags
-        target.require_video_feedback = require_video
-        if notes is not None:
-            target.notes = (notes or "").strip()[:1000]
+    if not target:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Intervention assignment not found.",
+                "field_errors": {"interventionId": ["This intervention is not assigned to the patient."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
 
-        # Normalize effectiveFrom
-        eff_dt_local = _parse_iso(str(effective_from_raw))                 # aware local
-        eff_dt_utc = eff_dt_local.astimezone(datetime.timezone.utc)        # aware UTC
+    # ----------------------
+    # Parse effectiveFrom
+    # ----------------------
+    try:
+        eff_dt_local = _parse_iso(str(effective_from_raw))
+        eff_dt_utc = eff_dt_local.astimezone(datetime.timezone.utc)
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid effectiveFrom date.",
+                "field_errors": {"effectiveFrom": ["Must be ISO format: YYYY-MM-DD or ISO string."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
 
-        # Plan end fallback
-        plan_end = plan.endDate or (timezone.now() + datetime.timedelta(days=365))
-        plan_end_local = _as_aware_local(plan_end)
+    # ----------------------
+    # Update flags always
+    # ----------------------
+    target.require_video_feedback = require_video
+    if notes is not None:
+        target.notes = (notes or "").strip()[:1000]
 
-        # Split existing using UTC
+    # ----------------------
+    # Split past/future dates
+    # ----------------------
+    try:
         existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
-        past_utc = [d for d in existing_utc if d < eff_dt_utc]
-        future_utc = [d for d in existing_utc if d >= eff_dt_utc]  # kept when keep_current=True
+    except Exception as e:
+        logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Internal date conversion error.",
+                "field_errors": {},
+                "non_field_errors": [str(e)],
+            },
+            status=500,
+        )
 
-        if not keep_current:
-            if not schedule:
-                return JsonResponse({"error": "schedule required when keep_current is false"}, status=400)
+    past_utc = [d for d in existing_utc if d < eff_dt_utc]
+    future_utc = [d for d in existing_utc if d >= eff_dt_utc]
 
-            # Generate from local, store as UTC
-            new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
-            new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
-
-            target.dates = past_utc + new_utc
-        else:
-            target.dates = past_utc + future_utc
-
+    # ----------------------
+    # If keep_current → only update flags
+    # ----------------------
+    if keep_current:
+        target.dates = past_utc + future_utc
         plan.updatedAt = timezone.now()
         plan.save()
 
-        return JsonResponse({"message": "Updated", "updatedCount": len(target.dates)}, status=200)
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Updated schedule flags.",
+                "updatedCount": len(target.dates),
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=200,
+        )
 
-    except Patient.DoesNotExist:
-        return JsonResponse({"error": "Patient not found."}, status=404)
+    # ----------------------
+    # Else: schedule is required
+    # ----------------------
+    if not schedule:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "schedule is required when keep_current is false",
+                "field_errors": {"schedule": ["Must provide a schedule block."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Generate NEW sessions
+    # ----------------------
+    try:
+        plan_end = plan.endDate or (timezone.now() + datetime.timedelta(days=365))
+        plan_end_local = _as_aware_local(plan_end)
+
+        new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
+        new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
     except Exception as e:
-        import logging
-        logging.exception("modify_intervention_from_date failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        logger.exception("[modify_intervention_from_date] Schedule generation failed")
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Failed to generate new schedule.",
+                "field_errors": {"schedule": ["Schedule generation failed."]},
+                "non_field_errors": [str(e)],
+            },
+            status=400,
+        )
+
+    target.dates = past_utc + new_utc
+
+    plan.updatedAt = timezone.now()
+    plan.save()
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Updated schedule.",
+            "updatedCount": len(target.dates),
+            "field_errors": {},
+            "non_field_errors": []
+        },
+        status=200,
+    )
+
 
 
 
@@ -1516,27 +1842,85 @@ def get_patient_plan_for_therapist(request, patient_id):
     """
     GET /api/patients/rehabilitation-plan/therapist/<patient_id>/
     Retrieves a structured rehabilitation plan for therapist overview.
+
+    Success (200):
+    {
+        "success": true,
+        "startDate": "...",
+        "endDate": "...",
+        ...
+        "interventions": [...]
+    }
+
+    No plan (200):
+    {
+        "success": false,
+        "message": "No rehabilitation plan found",
+        "rehab_plan": []
+    }
+
+    Errors:
+    {
+        "success": false,
+        "error": "...",
+        "details": "..."   # only for 5xx / debugging
+    }
     """
     if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Method not allowed",
+                "message": "This endpoint only supports GET.",
+            },
+            status=405,
+        )
 
     try:
         patient = resolve_patient(patient_id)
-        plan = RehabilitationPlan.objects.get(patientId=patient)
+        if not patient:
+            logger.warning(
+                "[get_patient_plan_for_therapist] Could not resolve patient: %s",
+                patient_id,
+            )
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Patient not found",
+                    "message": "No patient could be found for the given identifier.",
+                },
+                status=404,
+            )
 
-        # ── NEW: compute adherence (7d & overall) ─────────────────────────────
+        try:
+            plan = RehabilitationPlan.objects.get(patientId=patient)
+        except RehabilitationPlan.DoesNotExist:
+            logger.info(
+                "[get_patient_plan_for_therapist] No rehab plan for patient: %s",
+                patient_id,
+            )
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "No rehabilitation plan found",
+                    "rehab_plan": [],
+                },
+                status=200,
+            )
+
+        # ── Adherence (7d & overall) ─────────────────────────────
         adh_7, adh_total = _adherence(patient)
 
         today = timezone.now().date()
         plan_data = {
-            "startDate": plan.startDate.isoformat(),
-            "endDate": plan.endDate.isoformat(),
+            "success": True,
+            "startDate": plan.startDate.isoformat() if plan.startDate else None,
+            "endDate": plan.endDate.isoformat() if plan.endDate else None,
             "status": plan.status,
-            "createdAt": plan.createdAt.isoformat(),
-            "updatedAt": plan.updatedAt.isoformat(),
-            # ── NEW: return adherence in payload ───────────────────────────────
-            "adherence_rate": adh_7,       # last 7 days, 0–100 or null
-            "adherence_total": adh_total,  # overall, 0–100 or null
+            "createdAt": plan.createdAt.isoformat() if plan.createdAt else None,
+            "updatedAt": plan.updatedAt.isoformat() if plan.updatedAt else None,
+            "adherence_rate": adh_7,
+            "adherence_total": adh_total,
             "interventions": [],
         }
 
@@ -1546,7 +1930,6 @@ def get_patient_plan_for_therapist(request, patient_id):
                 userId=patient, interventionId=intervention
             )
 
-            # set() of completed dates (not strictly needed for below, but kept)
             completed_dates = {
                 log.date.date() for log in logs if "completed" in (log.status or [])
             }
@@ -1581,8 +1964,8 @@ def get_patient_plan_for_therapist(request, patient_id):
                         question_data = {
                             "id": str(fb.questionId.id),
                             "translations": [
-                                {"language": t.language, "text": t.text}
-                                for t in fb.questionId.translations
+                                {"language": tr.language, "text": tr.text}
+                                for tr in fb.questionId.translations
                             ],
                         }
 
@@ -1606,6 +1989,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                             }
                         )
 
+                        # naive numeric rating from first answer key
                         try:
                             rating_sum += int((fb.answerKey or [])[0].key)
                             rating_count += 1
@@ -1648,26 +2032,34 @@ def get_patient_plan_for_therapist(request, patient_id):
                 }
             )
 
-        return JsonResponse(plan_data, safe=False)
+        return JsonResponse(plan_data, safe=False, status=200)
 
     except Patient.DoesNotExist:
         logger.warning(
-            f"[get_patient_plan_for_therapist] Patient not found: {patient_id}"
-        )
-        return JsonResponse({"error": "Patient not found"}, status=404)
-    except RehabilitationPlan.DoesNotExist:
-        logger.info(
-            f"[get_patient_plan_for_therapist] No rehab plan for patient: {patient_id}"
+            "[get_patient_plan_for_therapist] Patient.DoesNotExist for id: %s",
+            patient_id,
         )
         return JsonResponse(
-            {"message": "No rehabilitation plan found", "rehab_plan": []}, status=200
+            {
+                "success": False,
+                "error": "Patient not found",
+                "message": "No patient could be found for the given identifier.",
+            },
+            status=404,
         )
     except Exception as e:
         logger.error(
-            f"[get_patient_plan_for_therapist] Unexpected error: {str(e)}",
-            exc_info=True,
+            "[get_patient_plan_for_therapist] Unexpected error: %s", str(e), exc_info=True
         )
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred while loading the rehabilitation plan.",
+                "details": str(e),
+            },
+            status=500,
+        )
 
 
 
@@ -1677,109 +2069,267 @@ def get_patient_plan_for_therapist(request, patient_id):
 def remove_intervention_from_patient(request):
     """
     POST /api/interventions/remove-from-patient/
-    Removes all future dates for a specific intervention from the patient's plan.
+
+    Removes all *future* scheduled dates for a specific intervention from a patient's plan.
+
+    Success:
+    {
+        "success": true,
+        "message": "Intervention dates removed successfully."
+    }
+
+    Validation / input error:
+    {
+        "success": false,
+        "message": "Missing required parameters",
+        "field_errors": { "intervention": "...", "patientId": "..." }
+    }
+
+    Server error:
+    {
+        "success": false,
+        "error": "Internal Server Error",
+        "message": "An unexpected error occurred.",
+        "details": "Exception text"
+    }
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Method not allowed",
+                "message": "This endpoint only supports POST.",
+            },
+            status=405,
+        )
 
     try:
-        data = json.loads(request.body)
-        intervention_id = data.get("intervention")
-        patient_id = data.get("patientId")
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON payload.",
+                "non_field_errors": ["Could not parse request body."],
+            },
+            status=400,
+        )
 
-        if not intervention_id or not patient_id:
-            return JsonResponse({"error": "Missing required parameters"}, status=400)
+    # Extract fields
+    intervention_id = data.get("intervention")
+    patient_id = data.get("patientId")
 
+    # Validate required parameters
+    field_errors = {}
+
+    if not patient_id:
+        field_errors["patientId"] = ["This field is required."]
+
+    if not intervention_id:
+        field_errors["intervention"] = ["This field is required."]
+
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Missing required parameters.",
+                "field_errors": field_errors,
+            },
+            status=400,
+        )
+
+    # Try processing
+    try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        logger.warning(
+            "[remove_intervention_from_patient] Patient not found: %s", patient_id
+        )
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Patient not found.",
+                "error": "PatientNotFound",
+            },
+            status=404,
+        )
+
+    try:
         plan = RehabilitationPlan.objects.get(patientId=patient)
+    except RehabilitationPlan.DoesNotExist:
+        logger.warning(
+            "[remove_intervention_from_patient] Plan not found for patient: %s",
+            patient_id,
+        )
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Rehabilitation plan not found.",
+                "error": "PlanNotFound",
+            },
+            status=404,
+        )
+
+    try:
         now = timezone.now()
+        intervention_found = False
 
         for assignment in plan.interventions:
             if str(assignment.interventionId.pk) == str(intervention_id):
-                # Keep only past or current dates
+                intervention_found = True
+                # Keep only past or today's dates
                 assignment.dates = [
                     d for d in assignment.dates if ensure_aware(d) <= now
                 ]
 
-        # Remove interventions that no longer have any dates
+        if not intervention_found:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Intervention not assigned to this patient.",
+                    "error": "InterventionNotFound",
+                },
+                status=404,
+            )
+
+        # Remove empty assignments
         plan.interventions = [a for a in plan.interventions if a.dates]
         plan.updatedAt = timezone.now()
         plan.save()
 
         return JsonResponse(
-            {"message": "Intervention dates removed successfully."}, status=200
+            {
+                "success": True,
+                "message": "Intervention dates removed successfully.",
+            },
+            status=200,
         )
 
-    except Patient.DoesNotExist:
-        logger.warning(
-            f"[remove_intervention_from_patient] Patient not found: {patient_id}"
-        )
-        return JsonResponse({"error": "Patient not found"}, status=404)
-    except RehabilitationPlan.DoesNotExist:
-        logger.warning(
-            f"[remove_intervention_from_patient] Plan not found for patient: {patient_id}"
-        )
-        return JsonResponse({"error": "Rehabilitation plan not found"}, status=404)
     except Exception as e:
         logger.error(
-            f"[remove_intervention_from_patient] Error removing intervention {intervention_id} from {patient_id}: {str(e)}",
+            "[remove_intervention_from_patient] Unexpected error while removing "
+            "intervention %s from patient %s: %s",
+            intervention_id,
+            patient_id,
+            str(e),
             exc_info=True,
         )
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred.",
+                "details": str(e),
+            },
+            status=500,
+        )
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def initial_patient_questionaire(request, patient_id):
     """
     GET /users/<patient_id>/initial-questionaire/
-    Returns the initial questionnaire for a patient.
+        → {"success": true, "requires_questionnaire": true|false}
 
     POST /users/<patient_id>/initial-questionaire/
-    Submits the initial questionnaire for a patient.
+        → Saves questionnaire
+        → Returns success or field_errors
     """
+    def error_response(message, status=400, field_errors=None, non_field=None, details=None):
+        resp = {
+            "success": False,
+            "message": message,
+        }
+        if field_errors:
+            resp["field_errors"] = field_errors
+        if non_field:
+            resp["non_field_errors"] = non_field
+        if details:
+            resp["details"] = details
+        return JsonResponse(resp, status=status)
 
+    # ----------------------------
+    # Load patient
+    # ----------------------------
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
-        if request.method == "GET":
-            
-            if not all([
-                patient.level_of_education,
-                patient.professional_status,
-                patient.marital_status,
-                patient.lifestyle,
-                patient.personal_goals
-            ]):
-                return JsonResponse({"data": True}, status=200)
-            else:
-                return JsonResponse({"data": False}, status=200)
-        
-        elif request.method == "POST":
-            data = json.loads(request.body)
-            level_of_education = data.get("level_of_education")
-            professional_status = data.get("professional_status")
-            marital_status = data.get("marital_status")
-            lifestyle = data.get("lifestyle")
-            personal_goals = data.get("personal_goals")
-
-            if not all([level_of_education, professional_status, marital_status, lifestyle, personal_goals]):
-                return JsonResponse({"error": "All fields are required."}, status=400)
-
-            patient.level_of_education = level_of_education
-            patient.professional_status = professional_status
-            patient.marital_status = marital_status
-            patient.lifestyle = lifestyle
-            patient.personal_goals = personal_goals
-            patient.save()
-
-            return JsonResponse({"message": "Initial questionnaire submitted successfully."}, status=201)
-        else:
-            return JsonResponse({"error": "Method not allowed"}, status=405)
     except Patient.DoesNotExist:
-        logger.warning(f"[initial_patient_questionaire] Patient not found: {patient_id}")
-        return JsonResponse({"error": "Patient not found"}, status=404)
-    except Exception as e:
-        logger.error(f"[initial_patient_questionaire] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
+        logger.warning("[initial_patient_questionaire] Patient not found: %s", patient_id)
+        return error_response("Patient not found.", status=404)
+
+    # ----------------------------
+    # GET → check if questionnaire is needed
+    # ----------------------------
+    if request.method == "GET":
+        missing = not all([
+            patient.level_of_education,
+            patient.professional_status,
+            patient.marital_status,
+            patient.lifestyle,
+            patient.personal_goals,
+        ])
+
+        return JsonResponse({
+            "success": True,
+            "requires_questionnaire": missing
+        }, status=200)
+
+    # ----------------------------
+    # POST → submit questionnaire
+    # ----------------------------
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body or "{}")
+        except Exception as e:
+            return error_response(
+                "Invalid JSON payload.",
+                field_errors=None,
+                non_field=["Could not parse JSON."],
+                details=str(e),
+                status=400
+            )
+
+        required_fields = [
+            "level_of_education",
+            "professional_status",
+            "marital_status",
+            "lifestyle",
+            "personal_goals",
+        ]
+
+        field_errors = {}
+        for f in required_fields:
+            if not data.get(f):
+                field_errors[f] = ["This field is required."]
+
+        if field_errors:
+            return error_response(
+                "Some required fields are missing.",
+                field_errors=field_errors,
+                status=400
+            )
+
+        # Save values
+        for key in required_fields:
+            setattr(patient, key, data.get(key))
+
+        patient.save()
+
+        return JsonResponse({
+            "success": True,
+            "message": "Initial questionnaire submitted successfully."
+        }, status=201)
+
+    # ----------------------------
+    # Invalid Method
+    # ----------------------------
+    return JsonResponse({
+        "success": False,
+        "error": "Method not allowed",
+        "message": "This endpoint only supports GET and POST."
+    }, status=405)
+
 
 
 @csrf_exempt
