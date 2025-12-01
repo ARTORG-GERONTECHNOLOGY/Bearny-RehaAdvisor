@@ -101,18 +101,50 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
   };
 
   // Delete from template (fixed endpoint string)
-  const removeTemplateItem = async (diag: string, intId: string) => {
-    try {
-      await apiClient.post(`therapists/${authStore.id}/interventions/remove-from-patient-types/`, {
-        diagnosis: diag,
-        intervention_id: intId,
-        therapist: authStore.id,
-      });
-      fetchTemplates(templateDiag, templateHorizon);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to delete from template.'));
+// Delete from template (corrected to match backend)
+const removeTemplateItem = async (
+  diagnosis: string,
+  interventionId: string,
+  startDay?: number
+) => {
+  try {
+    const payload: any = {
+      intervention_id: interventionId,
+      diagnosis,
+    };
+
+    // optional block-level removal
+    if (typeof startDay === "number") {
+      payload.start_day = startDay;
     }
-  };
+
+    const res = await apiClient.post(
+      `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
+      payload
+    );
+
+    // refresh UI
+    fetchTemplates(templateDiag, templateHorizon);
+  } catch (e: any) {
+    const data = e?.response?.data || {};
+    const base =
+      (Array.isArray(data.non_field_errors) &&
+        data.non_field_errors.join(" ")) ||
+      data.message ||
+      data.error ||
+      t("Failed to delete from template.");
+
+    if (data.field_errors) {
+      const extra = Object.entries(data.field_errors)
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
+        .join("\n");
+      setError(`${base}\n${extra}`);
+    } else {
+      setError(base);
+    }
+  }
+};
+
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
   const [searchTerm, setSearchTerm] = useState('');
@@ -570,13 +602,14 @@ useEffect(() => {
                                 </Button>
                               </OverlayTrigger>
                               <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                <Button
-                                  variant="outline-danger"
-                                  onClick={() => removeTemplateItem(it.diagnosis, it.intervention._id)}
-                                  title={t('Remove this intervention from the template')}
-                                >
-                                  <FaMinus />
-                                </Button>
+<Button
+  variant="outline-danger"
+  onClick={() => removeTemplateItem(it.diagnosis, it.intervention._id)}
+>
+  <FaMinus />
+</Button>
+
+
                               </OverlayTrigger>
                             </ButtonGroup>
                           </div>
@@ -725,13 +758,13 @@ useEffect(() => {
                                     </Button>
                                   </OverlayTrigger>
                                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                    <Button
-                                      variant="outline-danger"
-                                      onClick={() => removeTemplateItem(entry.diagnosis, intervention._id)}
-                                      title={t('Remove this intervention from the template')}
-                                    >
-                                      <FaMinus />
-                                    </Button>
+<Button
+  variant="outline-danger"
+  onClick={() => removeTemplateItem(entry.diagnosis, intervention._id)}
+>
+  <FaMinus />
+</Button>
+
                                   </OverlayTrigger>
                                 </ButtonGroup>
                               )}

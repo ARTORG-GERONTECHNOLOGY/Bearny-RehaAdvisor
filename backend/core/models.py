@@ -73,6 +73,35 @@ class SleepData(EmbeddedDocument):
     sleep_end = StringField()    # ISO datetime string
     awakenings = IntField()
 
+class ActivityLevel(EmbeddedDocument):
+    sedentary = IntField()
+    lightly = IntField()
+    fairly = IntField()
+    very = IntField()
+
+class ActivityHeartRateZone(EmbeddedDocument):
+    name = StringField()
+    min = IntField()
+    max = IntField()
+    minutes = IntField()
+
+class ExerciseSession(EmbeddedDocument):
+    logId = IntField()
+    name = StringField()
+    startTime = StringField()
+    duration = IntField()  # ms
+    calories = IntField()
+    averageHeartRate = IntField()
+    maxHeartRate = IntField()
+    steps = IntField()
+    distance = FloatField()
+    elevationGain = FloatField()
+    speed = FloatField()
+    activeZoneMinutes = IntField()
+
+    heartRateZones = ListField(EmbeddedDocumentField(ActivityHeartRateZone))
+    activityLevel = EmbeddedDocumentField(ActivityLevel)
+
 class FitbitData(Document):
     user = ReferenceField(User, required=True)
     date = DateTimeField(required=True, unique_with="user")
@@ -82,12 +111,12 @@ class FitbitData(Document):
     resting_heart_rate = IntField()
     heart_rate_zones = ListField(EmbeddedDocumentField(HeartRateZone))
 
-    # NEW: maximum heart rate reached that day (from intraday series)
-    max_heart_rate = IntField()   # <--- ADD THIS
+    # highest HR reached during the day (from intraday or activities)
+    max_heart_rate = IntField()
 
     # Physical activity
     floors = IntField()
-    distance = FloatField()  # in km or miles depending on user setting
+    distance = FloatField()        # km
     calories = FloatField()
     active_minutes = IntField()
 
@@ -95,31 +124,29 @@ class FitbitData(Document):
     sleep = EmbeddedDocumentField(SleepData)
 
     # Detailed physiological signals
-    breathing_rate = DictField()    # Breaths per minute
-    hrv = DictField()               # Heart rate variability metrics
+    breathing_rate = DictField()   # e.g., {"breathingRate": 14}
+    hrv = DictField()              # e.g., {"dailyRmssd": 33}
 
-    # Exercise logs
-    # For convenience we will store a *list* of sessions for that day:
-    # [
-    #   {
-    #       "logId": 123456,
-    #       "name": "Walk",
-    #       "startTime": "2025-11-19T10:01:00.000Z",
-    #       "duration": 1800000,   # ms
-    #       "calories": 210,
-    #       "averageHeartRate": 105,
-    #       "maxHeartRate": 132,
-    #       "heartRateZones": [...]
-    #   }, ...
-    # ]
-    exercise = DictField()          # we’ll store {"sessions": [..]} for the day
+    # 🚩 CHANGE THIS FIELD
+    # Old:
+    # exercise = DictField()
+    # New: allow both legacy list and new {"sessions": [...]} dict
+    exercise = DynamicField()
 
-    inactivity_minutes = IntField()  # Minutes of inactivity
+    # Inactivity
+    inactivity_minutes = IntField()
+
+    # Imported from PatientVitals (OPTION B)
+    weight_kg = FloatField()
+    bp_sys = IntField()
+    bp_dia = IntField()
 
     meta = {
-        'indexes': ['user', 'date'],
-        'ordering': ['-date']
+        "indexes": ["user", "date"],
+        "ordering": ["-date"],
     }
+
+
 
 
 class Logs(Document):

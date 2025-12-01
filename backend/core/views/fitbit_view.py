@@ -386,63 +386,130 @@ def get_fitbit_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
 
-        # Parse optional time range
-        from_str = request.GET.get('from')
-        to_str = request.GET.get('to')
+        # Convert to european DD.MM.YYYY
+        def eu_date(d):
+            return d.strftime("%d.%m.%Y")
+
+        # ---- Parse date range ----
+        from_str = request.GET.get("from")
+        to_str = request.GET.get("to")
 
         if from_str and to_str:
-            from_date = datetime.datetime.strptime(from_str, '%Y-%m-%d').date()
-            to_date = datetime.datetime.strptime(to_str, '%Y-%m-%d').date()
+            from_date = datetime.strptime(from_str, "%Y-%m-%d").date()
+            to_date = datetime.strptime(to_str, "%Y-%m-%d").date()
         else:
-            # Default: last 30 days
             to_date = timezone.now().date()
-            from_date = to_date - datetime.timedelta(days=30)
+            from_date = to_date - timedelta(days=30)
 
-        # Filter by date range and sort
-        entries = FitbitData.objects(
+        # ---- Query FitbitData ----
+        fitbit_entries = FitbitData.objects(
             user=patient.userId,
             date__gte=from_date,
             date__lte=to_date
-        ).order_by('date')
+        ).order_by("date")
 
-        data = []
-        for entry in entries:
-            data.append({
-                "date": entry.date.strftime('%Y-%m-%d'),
+        # ---- Query Vitals ----
+        vitals_qs = PatientVitals.objects(
+            patientId=patient,
+            date__gte=from_date,
+            date__lte=to_date
+        ).order_by("date")
+
+        vitals_by_date = {
+            eu_date(v.date): {
+                "weight_kg": v.weight_kg,
+                "bp_sys": v.bp_sys,
+                "bp_dia": v.bp_dia,
+            }
+            for v in vitals_qs
+        }
+
+        # ---- Merge output ----
+        out = []
+
+        for entry in fitbit_entries:
+            key = eu_date(entry.date)
+            vitals = vitals_by_date.get(key, {})
+
+            # Normalize exercise data
+            ex_raw = entry.exercise or {}
+            if isinstance(ex_raw, dict):
+                sessions = ex_raw.get("sessions", [])
+            elif isinstance(ex_raw, list):
+                sessions = ex_raw
+            else:
+                sessions = []
+
+            exercise_out = {
+                "sessions": [
+                    {
+                        "logId": s.get("logId"),
+                        "name": s.get("name"),
+                        "duration_min": (s.get("duration") or 0) / 60000,
+                        "duration_hr": round(((s.get("duration") or 0) / 60000) / 60, 2),
+                        "averageHeartRate": s.get("averageHeartRate"),
+                        "maxHeartRate": s.get("maxHeartRate"),
+                        "calories": s.get("calories"),
+                    }
+                    for s in sessions
+                ]
+            }
+
+            # Sleep normalization
+            sleep = None
+            if entry.sleep:
+                minutes = (entry.sleep.sleep_duration or 0) / 60000
+                hours = round(minutes / 60, 2)
+                sleep = {
+                    "sleep_minutes": minutes,
+                    "sleep_hours": hours,
+                    "sleep_start": entry.sleep.sleep_start,
+                    "sleep_end": entry.sleep.sleep_end,
+                    "awakenings": entry.sleep.awakenings,
+                }
+
+            # HR zones
+            zones = []
+            if entry.heart_rate_zones:
+                for z in entry.heart_rate_zones:
+                    zones.append({
+                        "name": z.name,
+                        "minutes": z.minutes,
+                        "min": z.min,
+                        "max": z.max,
+                        "range_str": f"{z.min}-{z.max} bpm" if z.min and z.max else None,
+                        "caloriesOut": getattr(z, "caloriesOut", None)
+                    })
+
+            out.append({
+                "date": key,
                 "steps": entry.steps,
                 "resting_heart_rate": entry.resting_heart_rate,
                 "floors": entry.floors,
                 "distance": entry.distance,
                 "calories": entry.calories,
                 "active_minutes": entry.active_minutes,
-                "heart_rate_zones": [
-                    {
-                        "name": zone.name,
-                        "minutes": zone.minutes,
-                        "caloriesOut": zone.caloriesOut,
-                        "min": zone.min,
-                        "max": zone.max
-                    } for zone in (entry.heart_rate_zones or [])
-                ],
-                "sleep": {
-                    "sleep_duration": entry.sleep.sleep_duration if entry.sleep else None,
-                    "sleep_start": entry.sleep.sleep_start if entry.sleep else None,
-                    "sleep_end": entry.sleep.sleep_end if entry.sleep else None,
-                    "awakenings": entry.sleep.awakenings if entry.sleep else None
-                },
-                "eda": entry.eda,
-                "skin_temperature": entry.skin_temperature,
-                "spo2": entry.spo2,
                 "breathing_rate": entry.breathing_rate,
-                "exercise": entry.exercise
+                "hrv": entry.hrv,
+                "sleep": sleep,
+                "heart_rate_zones": zones,
+                "exercise": exercise_out,
+
+                # Single-point vitals
+                "weight_kg": vitals.get("weight_kg"),
+                "bp_sys": vitals.get("bp_sys"),
+                "bp_dia": vitals.get("bp_dia"),
             })
 
-        return JsonResponse({"data": data}, safe=False)
+        return JsonResponse({"data": out}, status=200)
 
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
+        logger.exception("[get_fitbit_health_data] error")
         return JsonResponse({"error": str(e)}, status=500)
+
+
 
 
 @csrf_exempt
@@ -479,3 +546,206 @@ def manual_steps(request, patient_id):
 
     return JsonResponse({"success": True, "steps": steps, "date": date}, status=200)
 
+# --------------------------------------------
+# HEALTH-COMBINED-HISTORY ENDPOINT
+# --------------------------------------------
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
+from bson import ObjectId
+import datetime
+
+from core.models import (
+    Patient,
+    User,
+    FitbitData,
+    PatientVitals,
+    PatientInterventionLogs,
+    RehabilitationPlan,
+)
+
+# Helper
+def _date(d):
+    if isinstance(d, datetime.datetime):
+        return d.date().strftime("%Y-%m-%d")
+    if isinstance(d, datetime.date):
+        return d.strftime("%Y-%m-%d")
+    return None
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def health_combined_history(request, patient_id):
+    """
+    Returns:
+    {
+        "fitbit": [...],          # FitbitEntry[]
+        "questionnaire": [...],   # QuestionnaireEntry[]
+        "adherence": [...],       # Adherence entries
+    }
+
+    Includes:
+       - All FitbitData fields
+       - weight_kg, bp_sys, bp_dia (merged from PatientVitals)
+    """
+
+    try:
+        # -------------------------
+        # 1) Resolve Patient
+        # -------------------------
+        try:
+            patient = Patient.objects.get(id=ObjectId(patient_id))
+        except Patient.DoesNotExist:
+            return JsonResponse({"error": "Patient not found"}, status=404)
+
+        # -------------------------
+        # 2) Parse time range
+        # -------------------------
+        from_str = request.GET.get("from")
+        to_str = request.GET.get("to")
+
+        if from_str and to_str:
+            from_date = datetime.strptime(from_str, "%Y-%m-%d").date()
+            to_date = datetime.strptime(to_str, "%Y-%m-%d").date()
+        else:
+            to_date = timezone.now().date()
+            from_date = to_date - timedelta(days=30)
+
+        # -------------------------
+        # 3) Load FitbitData
+        # -------------------------
+        fitbit_qs = FitbitData.objects(
+            user=patient.userId,
+            date__gte=from_date,
+            date__lte=to_date,
+        ).order_by("date")
+
+        # Index by date for merging
+        fitbit_map = {}
+        for f in fitbit_qs:
+            dkey = f.date.strftime("%Y-%m-%d")
+            fitbit_map[dkey] = f
+
+        # -------------------------
+        # 4) Load PatientVitals
+        # -------------------------
+        vitals_qs = PatientVitals.objects(
+            patientId=patient,
+            date__gte=from_date,
+            date__lte=to_date,
+        ).order_by("date")
+
+        # Merge vitals into FitbitData objects
+        for v in vitals_qs:
+            dkey = v.date.strftime("%Y-%m-%d")
+            f = fitbit_map.get(dkey)
+
+            if f:
+                # Update existing FitbitData row
+                f.weight_kg = v.weight_kg
+                f.bp_sys = v.bp_sys
+                f.bp_dia = v.bp_dia
+                f.save()
+            else:
+                # If no FitbitData for that day, create a minimal entry
+                fd = FitbitData(
+                    user=patient.userId,
+                    date=datetime.combine(v.date, datetime.min.time()),
+                    weight_kg=v.weight_kg,
+                    bp_sys=v.bp_sys,
+                    bp_dia=v.bp_dia,
+                )
+                fd.save()
+                fitbit_map[dkey] = fd
+
+        # Now convert fitbit_map → sorted list
+        fitbit_list = []
+        for key in sorted(fitbit_map.keys()):
+            f = fitbit_map[key]
+            fitbit_list.append({
+                "date": key,
+                "steps": f.steps,
+                "resting_heart_rate": f.resting_heart_rate,
+                "max_heart_rate": f.max_heart_rate,
+                "floors": f.floors,
+                "distance": f.distance,
+                "calories": f.calories,
+                "active_minutes": f.active_minutes,
+
+                "sleep": {
+                    "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
+                    "sleep_start": f.sleep.sleep_start if f.sleep else None,
+                    "sleep_end": f.sleep.sleep_end if f.sleep else None,
+                    "awakenings": f.sleep.awakenings if f.sleep else None,
+                },
+
+                "heart_rate_zones": [
+                    {
+                        "name": z.name,
+                        "min": z.min,
+                        "max": z.max,
+                        "minutes": z.minutes,
+                    }
+                    for z in (f.heart_rate_zones or [])
+                ],
+
+                "breathing_rate": f.breathing_rate,
+                "hrv": f.hrv,
+                "exercise": f.exercise or {},
+
+                # NEW vitals injected into FitbitEntry[]
+                "weight_kg": f.weight_kg,
+                "bp_sys": f.bp_sys,
+                "bp_dia": f.bp_dia,
+            })
+
+        # -------------------------
+        # 5) Questionnaire history
+        # -------------------------
+        q_qs = PatientICFRating.objects(
+            patientId=patient,
+            date__gte=from_date,
+            date__lte=to_date,
+        ).order_by("date")
+
+        questionnaire_list = []
+        for q in q_qs:
+            questionnaire_list.append({
+                "date": q.date.date().isoformat(),
+                "questionKey": q.icfCode,
+                "answers": q.feedback_entries,
+                "questionTranslations": q.question_translations,
+            })
+
+        # -------------------------
+        # 6) Adherence data
+        # -------------------------
+        logs = PatientInterventionLogs.objects(
+            patientId=patient,
+            date__gte=from_date,
+            date__lte=to_date,
+        ).order_by("date")
+
+        adherence_list = []
+        for l in logs:
+            adherence_list.append({
+                "date": l.date.date().isoformat(),
+                "scheduled": l.scheduled_count,
+                "completed": l.completed_count,
+                "pct": l.adherence_percentage,
+            })
+
+        # -------------------------
+        # 7) Return everything
+        # -------------------------
+        return JsonResponse({
+            "fitbit": fitbit_list,
+            "questionnaire": questionnaire_list,
+            "adherence": adherence_list,
+        }, status=200)
+
+    except Exception as e:
+        logger.exception("[health_combined_history] error")
+        return JsonResponse({"error": str(e)}, status=500)

@@ -260,121 +260,40 @@ def login_view(request):
         raw_password = data.get("password")
 
         if not identifier or not raw_password:
-            return JsonResponse(
-                {"error": "Email/username and password are required."},
-                status=400
-            )
+            return JsonResponse({"error": "Email/username and password are required."}, status=400)
 
-        # ----- Find user -----
         user = User.objects.filter(
             __raw__={"$or": [{"email": identifier}, {"username": identifier}]}
         ).first()
 
-        # Always hide whether the user exists
-        if not user:
+        if not user or not check_password(raw_password, user.pwdhash):
             return JsonResponse({"error": "Invalid credentials."}, status=401)
 
-        # Inactive users cannot log in
         if not user.isActive:
-            return JsonResponse(
-                {"error": "User has not yet been accepted."}, status=403
-            )
+            return JsonResponse({"error": "User is not yet accepted."}, status=403)
 
-        now = timezone.now()
+        # --- If therapist: do NOT issue tokens here ---
+        if user.role == "Therapist":
+            return JsonResponse({
+                "user_type": "Therapist",
+                "id": str(user.id),
+                "require_2fa": True
+            }, status=200)
 
-        # ----- Load attempt record -----
-        attempt = PasswordAttempt.objects(user=user).first()
-        if not attempt:
-            attempt = PasswordAttempt(user=user, count=0, last_attempt=now)
-            attempt.save()
-
-        # ----- Lockout rules -----
-        LOCKOUT_THRESHOLD = 5       # 5 failed attempts
-        LOCKOUT_MINUTES = 15        # lock for 15 minutes
-        RESET_WINDOW_MINUTES = 15   # reset failures if last attempt older
-
-        now = timezone.now()
-        last_attempt = make_aware(attempt.last_attempt)
-        time_since = now - last_attempt
-
-
-        # Reset counter if 15 minutes passed since last attempt
-        if time_since.total_seconds() > RESET_WINDOW_MINUTES * 60:
-            attempt.count = 0
-            attempt.last_attempt = now
-            attempt.save()
-
-        # If threshold reached => lockout is active
-        if attempt.count >= LOCKOUT_THRESHOLD:
-            minutes_passed = time_since.total_seconds() / 60
-
-            if minutes_passed < LOCKOUT_MINUTES:
-                minutes_remaining = int(LOCKOUT_MINUTES - minutes_passed)
-                return JsonResponse(
-                    {
-                        "error": "Too many failed attempts. Account temporarily locked.",
-                        "minutes_remaining": minutes_remaining,
-                    },
-                    status=403,
-                )
-            else:
-                # Lockout expired → reset it
-                attempt.count = 0
-                attempt.last_attempt = now
-                attempt.save()
-
-        # ----- Validate password -----
-        if not check_password(raw_password, user.pwdhash):
-            attempt.count += 1
-            attempt.last_attempt = now
-            attempt.save()
-
-            return JsonResponse({"error": "Invalid credentials."}, status=401)
-
-        # ----- SUCCESS LOGIN -----
-        attempt.count = 0
-        attempt.last_attempt = now
-        attempt.save()
-
-        # ----- Profile data -----
-        profile_info = {}
-
-        try:
-            if user.role == "Therapist":
-                therapist = Therapist.objects.get(userId=user)
-                profile_info["full_name"] = therapist.first_name
-                profile_info["specialisation"] = therapist.specializations
-
-            elif user.role == "Patient":
-                patient = Patient.objects.get(userId=user)
-                profile_info["full_name"] = patient.first_name
-                profile_info["specialisation"] = patient.function
-
-            else:
-                profile_info["full_name"] = user.username
-                profile_info["specialisation"] = ""
-        except Exception:
-            pass
-
-        # Generate JWT tokens
+        # --- Other roles: issue tokens immediately ---
         refresh = RefreshToken.for_user(user)
 
-        Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
+        return JsonResponse({
+            "user_type": user.role,
+            "id": str(user.id),
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh),
+            "require_2fa": False
+        }, status=200)
 
-        return JsonResponse(
-            {
-                "user_type": user.role,
-                "id": str(user.id),
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh),
-                **profile_info,
-            },
-            status=200,
-        )
+    except Exception:
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
-    except Exception as e:
-        logger.exception("Unexpected error during login.")
-        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 
@@ -674,19 +593,31 @@ def verify_code_view(request):
         if not verification:
             return JsonResponse({"error": "Invalid verification code"}, status=400)
 
-        # Ensure expires_at is timezone-aware
+        # ---- FIX: ensure expires_at is timezone-aware ----
         expires_at = verification.expires_at
         if timezone.is_naive(expires_at):
-            expires_at = timezone.make_aware(expires_at)
+            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
 
         if expires_at < timezone.now():
             verification.delete()
             return JsonResponse({"error": "Verification code expired"}, status=400)
 
-        # Success: delete the verification code
+        # Success
+        user = User.objects.get(pk=user_id)
         verification.delete()
 
-        return JsonResponse({"message": "Verification successful"}, status=200)
+        # Issue tokens only AFTER 2FA succeeded
+        refresh = RefreshToken.for_user(user)
+
+        return JsonResponse(
+            {
+                "message": "Verification successful",
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),
+            },
+            status=200,
+        )
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+

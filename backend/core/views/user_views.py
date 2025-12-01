@@ -379,7 +379,7 @@ def user_profile_view(request, user_id):
     # ================================ DELETE ====================================
     if request.method == "DELETE":
         try:
-            user.is_active = False
+            user.isActive = False
             user.save()
 
             Logs.objects.create(

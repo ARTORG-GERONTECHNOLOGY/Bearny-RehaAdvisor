@@ -1,0 +1,45 @@
+/* Main container that holds the two columns */
+.rehab-panels {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* OVERRIDE BOOTSTRAP COLUMN BEHAVIOR  
+   This is the REAL FIX that enables scrolling. */
+.rehab-panels > .col,
+.rehab-panels > [class*="col-"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0 !important;   /* 🔥 CRITICAL FIX */
+  overflow: hidden;
+}
+
+/* Left side scroll area */
+.left-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Top (tabs + filters) — auto height */
+.left-top {
+  flex: 0 0 auto;
+}
+
+/* Calendar scroll wrapper */
+.calendar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* react-big-calendar forcing fixes */
+.rbc-calendar,
+.rbc-time-view,
+.rbc-time-content {
+  min-height: 0 !important;
+  height: 100% !important;
+}
