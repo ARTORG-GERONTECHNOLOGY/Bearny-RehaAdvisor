@@ -176,7 +176,7 @@ const InterventionCalendar = ({ interventions, onSelectEvent }) => {
         }
       `}</style>
 
-      {/* Export Buttons */}
+      {/* Export Buttons 
       <div className="d-flex justify-content-end gap-2 mb-2">
         <Button size="sm" variant="outline-primary" onClick={exportToCSV}>
           📤 {t('Export CSV')}
@@ -184,7 +184,7 @@ const InterventionCalendar = ({ interventions, onSelectEvent }) => {
         <Button size="sm" variant="outline-danger" onClick={exportToPDF}>
           🧾 {t('Export PDF')}
         </Button>
-      </div>
+      </div>*/}
 
       {/* Main Calendar */}
       <Calendar

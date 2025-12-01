@@ -84,26 +84,21 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   };
 
   const submit2FA = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  e.preventDefault();
+  setError('');
 
-    try {
-      const res = await apiClient.post('/auth/verify-code/', {
-        userId: authStore.id,
-        verificationCode,
-      });
+  const res = await apiClient.post('/auth/verify-code/', {
+    userId: authStore.id,
+    verificationCode,
+  });
 
-      if (res.status === 200) {
-        authStore.setAuthenticated(true);
-        navigate('/therapist');
-      } else {
-        setError(t('Invalid verification code'));
-      }
-    } catch (err: any) {
-      handleApiError(err, authStore);
-      setError(err?.message || t('Invalid verification code'));
-    }
-  };
+  if (res.status === 200) {
+    authStore.setTokens(res.data.access_token, res.data.refresh_token);
+    authStore.setAuthenticated(true);
+    navigate('/therapist');
+  }
+};
+
 
   return (
     <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>

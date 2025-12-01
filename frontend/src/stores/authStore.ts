@@ -1,4 +1,3 @@
-// src/stores/authStore.ts
 import { makeAutoObservable } from 'mobx';
 import apiClient from '../api/client';
 import { AuthPayload } from '../types/index'; // keep your existing type
@@ -13,6 +12,9 @@ class AuthStore {
   id = '';
   fullName = '';
   specialisation = '';
+
+  // For therapists requiring 2FA:
+  partialLogin = false;   // <--- NEW FLAG
 
   // --- Session / inactivity ---
   sessionTimeout = 5 * 60 * 1000; // 5 minutes
@@ -59,52 +61,51 @@ class AuthStore {
   // ----------------------------
   async loginWithHttp() {
     try {
-      const response = await apiClient.post('/auth/login/', {
+      const res = await apiClient.post('/auth/login/', {
         email: this.email,
         password: this.password,
       });
 
-      if (response.status === 200 && response.data) {
-        const { access_token, refresh_token, user_type, id, full_name, specialisation } =
-          response.data;
+      const data = res.data;
 
-        // Set state
-        this.setLoginError('');
-        this.setUserType(user_type);
-        this.setId(id);
-        this.setFullName(full_name);
-        this.setSpecialisation(specialisation);
-        this.setAuthenticated(true); // IMPORTANT
+      this.userType  = data.user_type;
+      this.id        = data.id;
 
-        // Persist tokens & profile
-        this.persistAuthData({
-          access_token,
-          refresh_token,
-          user_type,
-          id,
-          full_name,
-          specialisation,
-        });
-
-        // Mark activity -> sets lastActivity & expiresAt
-        this._markActivity();
-
-        // Start inactivity timer & listeners
-        this.startInactivityTimer();
-      } else {
-        this.setLoginError('Invalid credentials, please try again.');
+      // ----------------------------
+      // THERAPIST = REQUIRE 2FA
+      // ----------------------------
+      if (data.require_2fa) {
+        this.partialLogin = true;           // <--- Activate 2FA UI
+        this.setAuthenticated(false);       // ensure NOT authenticated yet
+        return;
       }
-    } catch {
-      this.setLoginError('Login failed. Please check your credentials or try again later.');
+
+      // ----------------------------
+      // PATIENT / ADMIN = FULL LOGIN
+      // ----------------------------
+      this.setTokens(data.access_token, data.refresh_token);
+      this.setAuthenticated(true);
+      this.partialLogin = false;
+      this.startInactivityTimer();
+      
+    } catch (err: any) {
+      this.setLoginError(err.response?.data?.error || 'Login failed');
     }
   }
 
+  // Called from LoginForm after 2FA success
+  complete2FA(accessToken: string, refreshToken: string) {
+    this.partialLogin = false;
+    this.setTokens(accessToken, refreshToken);
+    this.setAuthenticated(true);
+    this.startInactivityTimer();
+  }
+
   logout = async () => {
-    // Capture userId before reset
     const userIdToSend = this.id;
 
     try {
-      await apiClient.post('auth/logout/', { userId: userIdToSend });
+      await apiClient.post('/auth/logout/', { userId: userIdToSend });
     } catch {
       this.setLoginError('Logout logging failed.');
     }
@@ -119,7 +120,6 @@ class AuthStore {
   };
 
   deleteUser() {
-    // Just a helper you already had
     this.reset();
     this.clearStorage();
   }
@@ -133,6 +133,7 @@ class AuthStore {
     this.id = '';
     this.fullName = '';
     this.specialisation = '';
+    this.partialLogin = false;
   }
 
   // ----------------------------
@@ -143,6 +144,7 @@ class AuthStore {
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
 
+    // Not authenticated
     if (!accessToken || !expiresAt) {
       this.reset();
       this.clearStorage();
@@ -150,61 +152,46 @@ class AuthStore {
       return;
     }
 
-    if (Date.now() < expiresAt) {
-      // Session still valid
-      this.restoreSession();
-      this.setAuthenticated(true);
-      this.startInactivityTimer();
-    } else {
-      // Expired
+    // Session expired
+    if (Date.now() >= expiresAt) {
       this.reset();
       this.clearStorage();
       this.removeInactivityListeners();
       callback?.();
+      return;
     }
+
+    // Valid session -> restore user data
+    this.restoreSession();
+    this.setAuthenticated(true);
+    this.startInactivityTimer();
   }
+
 
   startInactivityTimer() {
     this.removeInactivityListeners();
 
-    // One function we can attach to many events and remove later
     const resetTimer = () => {
-      this._markActivity();          // persist lastActivity + expiresAt
-      this._armTimeoutFromStorage(); // arm timeout using saved expiresAt
+      this._markActivity();
+      this._armTimeoutFromStorage();
     };
 
     this._resetTimer = resetTimer;
 
-    // Broad set of interactions that count as "activity"
     const events: (keyof WindowEventMap)[] = [
-      'mousemove',
-      'mousedown',
-      'keydown',
-      'scroll',
-      'touchstart',
-      'wheel',
-      'focus',
-      'visibilitychange',
-      'click',
+      'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart',
+      'wheel', 'focus', 'visibilitychange', 'click',
     ];
     events.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
 
-    // Kick it off immediately
-    resetTimer();
+    resetTimer(); // initial setup
   }
 
   removeInactivityListeners() {
     if (this._resetTimer) {
       const events: (keyof WindowEventMap)[] = [
-        'mousemove',
-        'mousedown',
-        'keydown',
-        'scroll',
-        'touchstart',
-        'wheel',
-        'focus',
-        'visibilitychange',
-        'click',
+        'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart',
+        'wheel', 'focus', 'visibilitychange', 'click',
       ];
       events.forEach((evt) => window.removeEventListener(evt, this._resetTimer!));
     }
@@ -214,56 +201,46 @@ class AuthStore {
     }
   }
 
-  /**
-   * Persist an activity tick and extend expiry.
-   * Stores both lastActivity and expiresAt in localStorage for cross-tab sync.
-   */
   private _markActivity() {
     const now = Date.now();
     const expiresAt = now + this.sessionTimeout;
+
     localStorage.setItem(this.LAST_ACTIVITY_KEY, String(now));
     localStorage.setItem(this.EXPIRES_AT_KEY, String(expiresAt));
   }
 
-  /**
-   * Arms a timeout to call logout when expiresAt is reached.
-   * Reads expiresAt from localStorage so all tabs share the same clock.
-   */
   private _armTimeoutFromStorage() {
     if (this._timeoutId) clearTimeout(this._timeoutId);
 
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
-    const msRemaining = Math.max(0, expiresAt - Date.now());
 
+    const msRemaining = Math.max(0, expiresAt - Date.now());
     this._timeoutId = setTimeout(() => this.logout(), msRemaining);
   }
 
   // ----------------------------
   // Storage helpers
   // ----------------------------
-  persistAuthData(data: AuthPayload) {
-    localStorage.setItem('authToken', data.access_token);
-    localStorage.setItem('refreshToken', data.refresh_token);
-    localStorage.setItem('userType', data.user_type);
-    localStorage.setItem('id', data.id);
-    localStorage.setItem('fullName', data.full_name);
-    localStorage.setItem('specialisation', data.specialisation);
+  setTokens(access: string, refresh: string) {
+    localStorage.setItem('authToken', access);
+    localStorage.setItem('refreshToken', refresh);
+    localStorage.setItem('userType', this.userType);
+    localStorage.setItem('id', this.id);
+    localStorage.setItem('fullName', this.fullName);
+    localStorage.setItem('specialisation', this.specialisation);
 
-    // Legacy key — no longer used, but we remove it in clearStorage
-    localStorage.setItem('sessionStart', Date.now().toString());
+    this._markActivity();
   }
 
   restoreSession() {
-    this.setAuthenticated(true);
-    this.setUserType(localStorage.getItem('userType') || '');
-    this.setId(localStorage.getItem('id') || '');
-    this.setFullName(localStorage.getItem('fullName') || '');
-    this.setSpecialisation(localStorage.getItem('specialisation') || '');
+    this.userType       = localStorage.getItem('userType') || '';
+    this.id             = localStorage.getItem('id') || '';
+    this.fullName       = localStorage.getItem('fullName') || '';
+    this.specialisation = localStorage.getItem('specialisation') || '';
   }
 
   clearStorage() {
-    // Only remove what we own; don't nuke unrelated app data
     const keys = [
       'authToken',
       'refreshToken',
@@ -273,7 +250,7 @@ class AuthStore {
       'specialisation',
       this.LAST_ACTIVITY_KEY,
       this.EXPIRES_AT_KEY,
-      'sessionStart', // legacy
+      'sessionStart',
     ];
     keys.forEach((k) => localStorage.removeItem(k));
   }

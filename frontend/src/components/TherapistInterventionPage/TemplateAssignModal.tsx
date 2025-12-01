@@ -14,8 +14,10 @@ type Props = {
   diagnoses: string[];
   defaultDiagnosis?: string;
   onSuccess?: () => void;
-  mode?: Mode; // create | modify
+  mode?: Mode;
 };
+
+type ErrorMap = Record<string, string>;
 
 const TemplateAssignModal: React.FC<Props> = ({
   show,
@@ -28,30 +30,32 @@ const TemplateAssignModal: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
 
-  // Day S..N, every K days (relative to program start)
   const [diagnosis, setDiagnosis] = useState(defaultDiagnosis || '');
-  const [startDay, setStartDay] = useState<number>(1);   // S
-  const [lastDay, setLastDay]   = useState<number>(10);  // N
-  const [everyK, setEveryK]     = useState<number>(1);   // K
+  const [startDay, setStartDay] = useState<number>(1);
+  const [lastDay, setLastDay] = useState<number>(10);
+  const [everyK, setEveryK] = useState<number>(1);
 
-  // NEW: suggested execution time (HH:mm)
   const [startTime, setStartTime] = useState<string>('08:00');
-
-  // Only relevant for modify mode: keep days < S unchanged
   const [keepPrevious, setKeepPrevious] = useState<boolean>(mode === 'modify');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<ErrorMap>({});
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   useEffect(() => {
     if (!show) return;
+
     setDiagnosis(defaultDiagnosis || '');
     setStartDay(1);
     setLastDay(10);
     setEveryK(1);
-    setStartTime('08:00');            // reset suggested time
-    setKeepPrevious(mode === 'modify'); // default ON in modify mode
+    setStartTime('08:00');
+    setKeepPrevious(mode === 'modify');
+
     setError('');
+    setFieldErrors({});
+    setShowErrorDetails(false);
     setSubmitting(false);
   }, [show, defaultDiagnosis, mode]);
 
@@ -63,22 +67,48 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const occurrencesCount = useMemo(() => {
     if (!validRange || everyK < 1) return 0;
-    return Math.floor((lastDay - startDay) / everyK) + 1; // S, S+K, ... ≤ N
+    return Math.floor((lastDay - startDay) / everyK) + 1;
   }, [startDay, lastDay, everyK, validRange]);
 
+  /* ---------------- ERROR HANDLER ---------------- */
+  const applyBackendErrors = (data: any) => {
+    const fe: ErrorMap = {};
+
+    if (data?.field_errors) {
+      Object.entries(data.field_errors).forEach(([k, v]) => {
+        fe[k] = Array.isArray(v) ? v.join(' ') : String(v);
+      });
+    }
+
+    setFieldErrors(fe);
+
+    const nf =
+      (data?.non_field_errors && data.non_field_errors.join(' ')) ||
+      data?.message ||
+      data?.error ||
+      t('Something went wrong.');
+
+    setError(nf);
+    setShowErrorDetails(Object.keys(fe).length > 0);
+  };
+
+  /* ---------------- SAVE ---------------- */
   const handleSave = async () => {
     try {
       if (!canSubmit || !interventionId) return;
+
       setSubmitting(true);
       setError('');
+      setFieldErrors({});
+      setShowErrorDetails(false);
 
-      const startOffsetDays = Math.max(0, startDay - 1);
+      // Convert HH:MM → minutes integer
+      const [h, m] = startTime.split(':').map(Number);
+      const suggestedExecution = h * 60 + m;
 
-      // Store/override template settings per diagnosis
-      // BE can read startTime (camel) or map to start_time (snake) as needed.
       const payload = {
         therapistId: authStore.id,
-        patientId: diagnosis, // diagnosis key
+        patientId: diagnosis,   // BE expects diagnosis here
         interventions: [
           {
             interventionId,
@@ -86,23 +116,26 @@ const TemplateAssignModal: React.FC<Props> = ({
             unit: 'day',
             selectedDays: [],
             start_day: startDay,
-            start_offset_days: startOffsetDays,
-            startTime,                         // ← suggested execution time (HH:mm)
-            keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
             end: { type: 'count', count: lastDay },
+            keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
+            suggested_execution_time: suggestedExecution, // ✔ matches BE
           },
         ],
       };
 
-      const res = await apiClient.post(`therapists/${authStore.id}/interventions/assign-to-patient-types/`, payload);
-      if (res.status === 200 || res.status === 201) {
+      const res = await apiClient.post(
+        `therapists/${authStore.id}/interventions/assign-to-patient-types/`,
+        payload
+      );
+
+      if (res.status === 201 || res.status === 200) {
         onSuccess?.();
         onHide();
       } else {
         setError(t('Failed to save template assignment.'));
       }
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Something went wrong.'));
+      applyBackendErrors(e?.response?.data || {});
     } finally {
       setSubmitting(false);
     }
@@ -112,20 +145,43 @@ const TemplateAssignModal: React.FC<Props> = ({
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          {mode === 'modify' ? t('Modify template (from day S)') : t('Add to template (Day S → N)')}
+          {mode === 'modify'
+            ? t('Modify template (from day S)')
+            : t('Add to template (Day S → N)')}
         </Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
+        {/* ERROR BANNER */}
         {error && (
-          <Alert variant="danger" onClose={() => setError('')} dismissible>
-            {error}
+          <Alert variant="danger" dismissible onClose={() => setError('')}>
+            <div className="d-flex justify-content-between">
+              <span>{error}</span>
+              <Button size="sm" onClick={() => setShowErrorDetails(!showErrorDetails)}>
+                {showErrorDetails ? t('Hide details') : t('Show details')}
+              </Button>
+            </div>
+
+            {showErrorDetails && Object.keys(fieldErrors).length > 0 && (
+              <ul className="mt-2 mb-0">
+                {Object.entries(fieldErrors).map(([k, v]) => (
+                  <li key={k}>
+                    <strong>{k}:</strong> {v}
+                  </li>
+                ))}
+              </ul>
+            )}
           </Alert>
         )}
 
         <Form>
           <Form.Group className="mb-3">
             <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-            <Form.Select value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)}>
+            <Form.Select
+              value={diagnosis}
+              onChange={(e) => setDiagnosis(e.target.value)}
+              isInvalid={!!fieldErrors['patientId']}
+            >
               <option value="">{t('Choose...')}</option>
               {diagnoses.map((d) => (
                 <option key={d} value={d}>
@@ -133,20 +189,24 @@ const TemplateAssignModal: React.FC<Props> = ({
                 </option>
               ))}
             </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              {fieldErrors['patientId']}
+            </Form.Control.Feedback>
           </Form.Group>
 
+          {/* Start / End / Interval */}
           <Row className="mb-3">
             <Col md={4}>
               <Form.Label>{t('Start day (S)')}</Form.Label>
               <Form.Control
                 type="number"
-                min={1}
                 value={startDay}
+                min={1}
                 onChange={(e) => setStartDay(parseInt(e.target.value || '1', 10))}
-                isInvalid={startDay < 1 || startDay > lastDay}
+                isInvalid={!!fieldErrors['interventions[0].start_day']}
               />
               <Form.Control.Feedback type="invalid">
-                {t('Start day must be ≥ 1 and ≤ last day.')}
+                {fieldErrors['interventions[0].start_day']}
               </Form.Control.Feedback>
             </Col>
 
@@ -154,38 +214,32 @@ const TemplateAssignModal: React.FC<Props> = ({
               <Form.Label>{t('Last day (N)')}</Form.Label>
               <Form.Control
                 type="number"
-                min={1}
                 value={lastDay}
+                min={startDay}
                 onChange={(e) => setLastDay(parseInt(e.target.value || '1', 10))}
-                isInvalid={lastDay < startDay}
+                isInvalid={!!fieldErrors['interventions[0].end.count']}
               />
               <Form.Control.Feedback type="invalid">
-                {t('Last day must be ≥ start day.')}
+                {fieldErrors['interventions[0].end.count']}
               </Form.Control.Feedback>
-              <Form.Text muted>
-                {t('Generates Day S, Day S+K, … until Day N.')}
-              </Form.Text>
             </Col>
 
             <Col md={4}>
               <Form.Label>{t('Every K days')}</Form.Label>
               <Form.Control
                 type="number"
-                min={1}
                 value={everyK}
+                min={1}
                 onChange={(e) => setEveryK(parseInt(e.target.value || '1', 10))}
-                isInvalid={everyK < 1}
+                isInvalid={!!fieldErrors['interventions[0].interval']}
               />
               <Form.Control.Feedback type="invalid">
-                {t('K must be at least 1.')}
+                {fieldErrors['interventions[0].interval']}
               </Form.Control.Feedback>
-              <Form.Text muted>
-                {t('e.g., K=1 daily; K=2 every second day')}
-              </Form.Text>
             </Col>
           </Row>
 
-          {/* NEW: Suggested execution time */}
+          {/* Suggested execution time */}
           <Form.Group className="mb-3">
             <Form.Label>{t('Suggested execution time')}</Form.Label>
             <Form.Control
@@ -193,16 +247,15 @@ const TemplateAssignModal: React.FC<Props> = ({
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
             />
-            <Form.Text muted>
-              {t('Shown when applying the template to a patient; can be overridden.')}
-            </Form.Text>
+            <small className="text-muted">
+              {t('Shown when applying the template to a patient')}
+            </small>
           </Form.Group>
 
           {mode === 'modify' && (
             <Form.Group className="mb-3">
               <Form.Check
                 type="checkbox"
-                id="keep-previous"
                 label={t('Modify from day S onward — keep earlier days unchanged')}
                 checked={keepPrevious}
                 onChange={(e) => setKeepPrevious(e.target.checked)}
@@ -210,25 +263,23 @@ const TemplateAssignModal: React.FC<Props> = ({
             </Form.Group>
           )}
 
-          <Alert variant="info" className="mb-2">
+          <Alert variant="info">
             {t(
-              'These are relative template days. Actual calendar dates are set when you apply the template to a patient.'
+              'These are relative template days. Actual calendar dates are set when applying to a patient.'
             )}
           </Alert>
 
           <div className="text-muted">
-            {validRange && everyK >= 1
-              ? t('Preview: {{count}} session(s): Day {{S}}, Day {{S}}+{{K}}, … ≤ Day {{N}} at ~{{time}}', {
-                  count: occurrencesCount,
-                  S: startDay,
-                  K: everyK,
-                  N: lastDay,
-                  time: startTime || '—',
-                })
-              : t('Please enter a valid range (S ≤ N) and K ≥ 1.')}
+            {validRange
+              ? t(
+                  '{{count}} session(s): Days S,S+K,…≤N at ~{{time}}',
+                  { count: occurrencesCount, time: startTime }
+                )
+              : t('Invalid range.')}
           </div>
         </Form>
       </Modal.Body>
+
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide} disabled={submitting}>
           {t('Cancel')}

@@ -16,7 +16,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import ErrorAlert from '../components/common/ErrorAlert';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
@@ -37,7 +36,16 @@ const Therapist: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<PatientType | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [showPopupAdd, setShowPopupAdd] = useState(false);
-  const [error, setError] = useState('');
+
+  // Error handling (banner + details)
+  const [error, setError] = useState<string>('');
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  // Loading state
+  const [loading, setLoading] = useState(false);
+
+  // Filters / sort
   const [searchTerm, setSearchTerm] = useState('');
   const [sexFilter, setSexFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
@@ -51,15 +59,6 @@ const Therapist: React.FC = () => {
 
   const durationOptions = config.RehaInfo;
 
-  useEffect(() => {
-    authStore.checkAuthentication();
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-    } else {
-      fetchPatients();
-    }
-  }, [navigate]);
-
   const sortByCreatedDesc = (list: PatientType[]) =>
     [...list].sort((a, b) => {
       const da = new Date((a as any).created_at ?? 0).getTime();
@@ -67,60 +66,161 @@ const Therapist: React.FC = () => {
       return db - da;
     });
 
-  const fetchPatients = async () => {
+  // Backend-aware patients loader
+  const fetchPatients = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setErrorDetails(null);
+    setShowErrorDetails(false);
+
     try {
-      const res = await apiClient.get<PatientType[]>(`therapists/${authStore.id}/patients`);
-      const sorted = sortByCreatedDesc(res.data || []);
+      const res = await apiClient.get<any>(`therapists/${authStore.id}/patients`);
+      const payload = res.data ?? {};
+
+      // New unified backend format: { success, data, message, error, field_errors, details }
+      if (payload && payload.success === false) {
+        const fieldErrors = payload.field_errors || {};
+        const nonField =
+          Array.isArray(payload.non_field_errors) && payload.non_field_errors.length
+            ? payload.non_field_errors.join(' ')
+            : '';
+
+        const fieldText = fieldErrors
+          ? Object.entries(fieldErrors)
+              .map(([k, v]) =>
+                `${k}: ${
+                  Array.isArray(v)
+                    ? v.join(' ')
+                    : typeof v === 'string'
+                    ? v
+                    : JSON.stringify(v)
+                }`
+              )
+              .join(' | ')
+          : '';
+
+        const message =
+          payload.message ||
+          payload.error ||
+          nonField ||
+          t('Failed to fetch patients. Please try again later.');
+
+        setError(message);
+        setErrorDetails(payload.details || fieldText || null);
+        setPatients([]);
+        setFilteredPatients([]);
+        return;
+      }
+
+      // Accept both old (array) and new ({ data: [...] }) shapes
+      const list: PatientType[] = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload.data)
+        ? payload.data
+        : [];
+
+      const sorted = sortByCreatedDesc(list);
       setPatients(sorted);
       setFilteredPatients(sorted);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching patients:', err);
-      setError(t('Failed to fetch patients. Please try again later.'));
+      const api = err?.response?.data;
+
+      const fieldErrors = api?.field_errors || {};
+      const nonField =
+        Array.isArray(api?.non_field_errors) && api.non_field_errors.length
+          ? api.non_field_errors.join(' ')
+          : '';
+
+      const fieldText = fieldErrors
+        ? Object.entries(fieldErrors)
+            .map(([k, v]) =>
+              `${k}: ${
+                Array.isArray(v)
+                  ? v.join(' ')
+                  : typeof v === 'string'
+                  ? v
+                  : JSON.stringify(v)
+              }`
+            )
+            .join(' | ')
+        : '';
+
+      const message =
+        api?.message ||
+        api?.error ||
+        nonField ||
+        err?.message ||
+        t('Failed to fetch patients. Please try again later.');
+
+      setError(message);
+      setErrorDetails(api?.details || fieldText || null);
+      setPatients([]);
+      setFilteredPatients([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    authStore.checkAuthentication();
+    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+      navigate('/');
+    } else {
+      fetchPatients();
+    }
+  }, [navigate, fetchPatients]);
 
   const handleOpen = () => setShowPopupAdd(true);
+
   const handleClose = useCallback(() => {
     fetchPatients();
     setShowPopupAdd(false);
-  }, []);
+  }, [fetchPatients]);
+
   const handleItemClick = (patient: PatientType) => {
     setSelectedItem(patient);
     setShowPopup(true);
   };
+
   const handleRehabButton = (id: string, name: string) => {
     localStorage.setItem('selectedPatient', id);
     localStorage.setItem('selectedPatientName', name);
     navigate('/rehabtable');
   };
+
   const handleProgressButton = (id: string, name: string) => {
     localStorage.setItem('selectedPatient', id);
     localStorage.setItem('selectedPatientName', name);
     navigate('/health');
   };
+
   const handleClosePopup = () => {
     setShowPopup(false);
     setSelectedItem(null);
   };
-const diseaseOptions = useMemo(() => {
-  const all: string[] = [];
 
-  patients.forEach((p) => {
-    if (Array.isArray(p.diagnosis)) {
-      p.diagnosis.forEach((d) => all.push(String(d)));
-    } else if (p.diagnosis) {
-      all.push(String(p.diagnosis));
-    }
-  });
+  const diseaseOptions = useMemo(() => {
+    const all: string[] = [];
 
-  return Array.from(new Set(all)).sort();
-}, [patients]);
+    patients.forEach((p) => {
+      if (Array.isArray(p.diagnosis)) {
+        p.diagnosis.forEach((d) => all.push(String(d)));
+      } else if (p.diagnosis) {
+        all.push(String(p.diagnosis));
+      }
+    });
+
+    return Array.from(new Set(all)).sort();
+  }, [patients]);
 
   const resetFilters = useCallback(() => {
     setSearchTerm('');
     setSexFilter('');
     setDurationFilter('');
     setBirthdateFilter('');
+    setDiseaseFilter('');
+    setShowCompleted(false);
     setSortBy('ampel'); // keep default
   }, []);
 
@@ -131,12 +231,14 @@ const diseaseOptions = useMemo(() => {
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleDateString();
   };
+
   const fmtDateTime = (iso?: string) => {
     if (!iso) return '—';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '—';
     return d.toLocaleString();
   };
+
   const daysSince = (iso?: string) => {
     if (!iso) return Number.POSITIVE_INFINITY;
     const d = new Date(iso);
@@ -165,8 +267,10 @@ const diseaseOptions = useMemo(() => {
         return 'bg-secondary';
     }
   };
-  const levelToNum = (lvl: Traffic) => (lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0);
-  const levelRankSmallBadFirst = (lvl: Traffic) => (lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5);
+  const levelToNum = (lvl: Traffic) =>
+    lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
+  const levelRankSmallBadFirst = (lvl: Traffic) =>
+    lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
 
   // Health (biomarker) scoring & tip
   const healthScore = (p: any) => {
@@ -208,23 +312,35 @@ const diseaseOptions = useMemo(() => {
     else if (score >= 0) level = 'bad';
 
     const parts: string[] = [];
-    if (typeof sleep === 'number') parts.push(`${t('Sleep')}: ${sleep.toFixed(1)}h ${t('avg (7d)')}`);
-    if (typeof steps === 'number') parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
-    if (typeof act === 'number') parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
+    if (typeof sleep === 'number')
+      parts.push(`${t('Sleep')}: ${sleep.toFixed(1)}h ${t('avg (7d)')}`);
+    if (typeof steps === 'number')
+      parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
+    if (typeof act === 'number')
+      parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
 
     return { level, tip: parts.length ? parts.join(' • ') : t('No recent health data') };
   };
 
   // Login chip
   const loginLevelAndTip = (p: any): { level: Traffic; tip: string } => {
-    const last = (p as any).last_online || (p as any).user_last_login || (p as any).last_login || '';
+    const last =
+      (p as any).last_online ||
+      (p as any).user_last_login ||
+      (p as any).last_login ||
+      '';
     const d = daysSince(last);
     let level: Traffic = 'unknown';
     if (d === Number.POSITIVE_INFINITY) level = 'unknown';
     else if (d <= 3) level = 'good';
     else if (d <= 7) level = 'warn';
     else level = 'bad';
-    return { level, tip: last ? `${t('Last login')}: ${fmtDateTime(last)} (${d} ${t('days ago')})` : t('Never logged in') };
+    return {
+      level,
+      tip: last
+        ? `${t('Last login')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
+        : t('Never logged in'),
+    };
   };
 
   // Adherence chip (rehab adherence over last 7d from backend summary)
@@ -238,14 +354,19 @@ const diseaseOptions = useMemo(() => {
     }
     return {
       level,
-      tip: typeof rate === 'number' ? `${t('Completed in last 7d')}: ${rate}%` : t('No adherence data'),
+      tip:
+        typeof rate === 'number'
+          ? `${t('Completed in last 7d')}: ${rate}%`
+          : t('No adherence data'),
     };
   };
 
   // Feedback chip — uses backend questionnaires[] summary.
   // Tooltip shows: Title • <last date> • Score: X • (↓/↑ Δ) • (optional adherence info)
   const feedbackLevelAndTip = (p: any): { level: Traffic; tip: string } => {
-    const qs: any[] = Array.isArray((p as any).questionnaires) ? (p as any).questionnaires : [];
+    const qs: any[] = Array.isArray((p as any).questionnaires)
+      ? (p as any).questionnaires
+      : [];
 
     // If no per-questionnaire summary, fall back to coarse recency
     if (qs.length === 0) {
@@ -256,13 +377,16 @@ const diseaseOptions = useMemo(() => {
       else if (d <= 14) level = 'good';
       else if (d <= 30) level = 'warn';
       else level = 'bad';
-      const tip = last ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})` : t('No recent feedback');
+      const tip = last
+        ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
+        : t('No recent feedback');
       return { level, tip };
     }
 
     // Determine worst level across questionnaires & build tooltip lines
     let worst: Traffic = 'good';
-    const ord = (lvl: Traffic) => (lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0);
+    const ord = (lvl: Traffic) =>
+      lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
     const lines: string[] = [];
 
     qs.forEach((q) => {
@@ -355,11 +479,23 @@ const diseaseOptions = useMemo(() => {
     const h = healthLevelAndTip(p);
     const f = feedbackLevelAndTip(p);
 
-    const base = levelToNum(l.level) + levelToNum(a.level) + levelToNum(h.level) + levelToNum(f.level);
+    const base =
+      levelToNum(l.level) +
+      levelToNum(a.level) +
+      levelToNum(h.level) +
+      levelToNum(f.level);
 
     // Tie-breakers
-    const dLogin = daysSince((p as any).last_online || (p as any).user_last_login || (p as any).last_login || '');
-    const adh = typeof (p as any).adherence_rate === 'number' ? (p as any).adherence_rate : -1; // lower worse
+    const dLogin = daysSince(
+      (p as any).last_online ||
+        (p as any).user_last_login ||
+        (p as any).last_login ||
+        ''
+    );
+    const adh =
+      typeof (p as any).adherence_rate === 'number'
+        ? (p as any).adherence_rate
+        : -1; // lower worse
     const hScore = healthScore(p); // lower worse (0..2)
     const lastFbISO =
       (Array.isArray((p as any).questionnaires) &&
@@ -388,7 +524,15 @@ const diseaseOptions = useMemo(() => {
     const health = healthLevelAndTip(p);
     const fb = feedbackLevelAndTip(p);
 
-    const Chip = ({ label, level, tip }: { label: string; level: Traffic; tip: string }) => (
+    const Chip = ({
+      label,
+      level,
+      tip,
+    }: {
+      label: string;
+      level: Traffic;
+      tip: string;
+    }) => (
       <OverlayTrigger
         placement="top"
         overlay={
@@ -397,7 +541,11 @@ const diseaseOptions = useMemo(() => {
           </Tooltip>
         }
       >
-        <span className={`status-chip ${chipClass(level)}`} role="img" aria-label={`${label} ${level}`}>
+        <span
+          className={`status-chip ${chipClass(level)}`}
+          role="img"
+          aria-label={`${label} ${level}`}
+        >
           {label}
         </span>
       </OverlayTrigger>
@@ -432,18 +580,17 @@ const diseaseOptions = useMemo(() => {
     }
 
     if (diseaseFilter) {
-  filtered = filtered.filter((p) => {
-    const diag = p.diagnosis;
-    if (!diag) return false;
+      filtered = filtered.filter((p) => {
+        const diag = p.diagnosis;
+        if (!diag) return false;
 
-    // diagnosis can be an array or a single string
-    if (Array.isArray(diag)) {
-      return diag.map((x) => String(x)).includes(diseaseFilter);
+        // diagnosis can be an array or a single string
+        if (Array.isArray(diag)) {
+          return diag.map((x) => String(x)).includes(diseaseFilter);
+        }
+        return String(diag) === diseaseFilter;
+      });
     }
-    return String(diag) === diseaseFilter;
-  });
-}
-
 
     // Name / Patient code / username / _id search
     if (searchTerm.trim()) {
@@ -453,9 +600,13 @@ const diseaseOptions = useMemo(() => {
         const last = (p.name || '').toLowerCase();
         const full1 = `${first} ${last}`.trim();
         const full2 = `${last} ${first}`.trim();
-        const username = (p as any).username ? String((p as any).username).toLowerCase() : '';
+        const username = (p as any).username
+          ? String((p as any).username).toLowerCase()
+          : '';
         const pid = String((p as any)._id || '').toLowerCase();
-        const pcode = (p as any).patient_code ? String((p as any).patient_code).toLowerCase() : '';
+        const pcode = (p as any).patient_code
+          ? String((p as any).patient_code).toLowerCase()
+          : '';
         return (
           first.includes(term) ||
           last.includes(term) ||
@@ -469,11 +620,13 @@ const diseaseOptions = useMemo(() => {
     }
 
     if (birthdateFilter) {
-      filtered = filtered.filter((p) => String((p as any).age).slice(0, 10) === birthdateFilter);
+      filtered = filtered.filter(
+        (p) => String((p as any).age).slice(0, 10) === birthdateFilter
+      );
     }
 
     setFilteredPatients(filtered);
-  }, [searchTerm, sexFilter, durationFilter, birthdateFilter, patients]);
+  }, [searchTerm, sexFilter, durationFilter, birthdateFilter, diseaseFilter, patients]);
 
   // ===== Sorting (worst first for Ampel) =====
   const sortedFiltered = useMemo(() => {
@@ -481,12 +634,20 @@ const diseaseOptions = useMemo(() => {
 
     const getHealth = (p: any) => healthScore(p);
     const getLogin = (p: any) =>
-      daysSince((p as any).last_online || (p as any).user_last_login || (p as any).last_login || '');
+      daysSince(
+        (p as any).last_online ||
+          (p as any).user_last_login ||
+          (p as any).last_login ||
+          ''
+      );
     const getAdh = (p: any) =>
-      typeof (p as any).adherence_rate === 'number' ? (p as any).adherence_rate : -1;
+      typeof (p as any).adherence_rate === 'number'
+        ? (p as any).adherence_rate
+        : -1;
 
     // For "feedback" sort, use questionnaire-driven level; smaller = worse
-    const getFb = (p: any) => levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
+    const getFb = (p: any) =>
+      levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
 
     arr.sort((a: any, b: any) => {
       switch (sortBy) {
@@ -507,8 +668,10 @@ const diseaseOptions = useMemo(() => {
         }
         case 'created':
         default: {
-          const da = new Date((a as any).created_at ?? 0).getTime();
-          const db = new Date((b as any).created_at ?? 0).getTime();
+          const da =
+            new Date((a as any).created_at ?? 0).getTime();
+          const db =
+            new Date((b as any).created_at ?? 0).getTime();
           return db - da;
         }
       }
@@ -522,8 +685,12 @@ const diseaseOptions = useMemo(() => {
   const completedPatients = sortedFiltered
     .filter((p) => isCompletedPatient(p))
     .sort((a, b) => {
-      const ea = new Date((a as any).rehab_end_date ?? (a as any).created_at ?? 0).getTime();
-      const eb = new Date((b as any).rehab_end_date ?? (b as any).created_at ?? 0).getTime();
+      const ea = new Date(
+        (a as any).rehab_end_date ?? (a as any).created_at ?? 0
+      ).getTime();
+      const eb = new Date(
+        (b as any).rehab_end_date ?? (b as any).created_at ?? 0
+      ).getTime();
       return eb - ea;
     });
 
@@ -532,13 +699,56 @@ const diseaseOptions = useMemo(() => {
       <Header isLoggedIn={authStore.isAuthenticated} />
       <Container className="main-content mt-4">
         <WelcomeArea user="Therapist" />
-        <Row>
-          <Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col>
-        </Row>
+
+        {/* Unified error banner with details + retry */}
+        {error && (
+          <Row className="mb-3">
+            <Col>
+              <div className="alert alert-danger d-flex justify-content-between align-items-start">
+                <div>
+                  <div>{error}</div>
+                  {showErrorDetails && errorDetails && (
+                    <pre
+                      className="bg-light p-2 mt-2 border rounded small"
+                      style={{ whiteSpace: 'pre-wrap' }}
+                    >
+                      {errorDetails}
+                    </pre>
+                  )}
+                </div>
+                <div className="ms-3 d-flex flex-column gap-2 align-items-end">
+                  {errorDetails && (
+                    <Button
+                      size="sm"
+                      variant="outline-light"
+                      onClick={() =>
+                        setShowErrorDetails((prev) => !prev)
+                      }
+                    >
+                      {showErrorDetails
+                        ? t('Hide details')
+                        : t('Show details')}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="light"
+                    onClick={fetchPatients}
+                    disabled={loading}
+                  >
+                    {loading ? t('Loading...') : t('Retry')}
+                  </Button>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        )}
 
         <Row className="mb-3">
           <Col>
-            <Button onClick={handleOpen}>{t('Add a New Patient')}</Button>
+            <Button onClick={handleOpen} disabled={loading}>
+              {t('Add a New Patient')}
+            </Button>
           </Col>
         </Row>
 
@@ -563,7 +773,10 @@ const diseaseOptions = useMemo(() => {
                 />
               </Col>
               <Col xs={12} md={3}>
-                <Form.Select value={sexFilter} onChange={(e) => setSexFilter(e.target.value)}>
+                <Form.Select
+                  value={sexFilter}
+                  onChange={(e) => setSexFilter(e.target.value)}
+                >
                   <option value="">{t('Filter by Sex')}</option>
                   {config.patientInfo.sex.map((sex: string) => (
                     <option key={sex} value={sex}>
@@ -573,7 +786,10 @@ const diseaseOptions = useMemo(() => {
                 </Form.Select>
               </Col>
               <Col xs={12} md={3}>
-                <Form.Select value={durationFilter} onChange={(e) => setDurationFilter(e.target.value)}>
+                <Form.Select
+                  value={durationFilter}
+                  onChange={(e) => setDurationFilter(e.target.value)}
+                >
                   <option value="">{t('Filter by Duration')}</option>
                   {durationOptions.map((duration: string) => (
                     <option key={duration} value={duration}>
@@ -582,54 +798,71 @@ const diseaseOptions = useMemo(() => {
                   ))}
                 </Form.Select>
               </Col>
-
             </Row>
 
             <Row className="mt-3 align-items-center">
               <Col xs={12} md={3}>
-              <Form.Select
-                value={diseaseFilter}
-                onChange={(e) => setDiseaseFilter(e.target.value)}
-              >
-                <option value="">{t('Filter by Disease')}</option>
-                {diseaseOptions.map((d) => (
-                  <option key={d} value={d}>
-                    {t(d)}
-                  </option>
-                ))}
-              </Form.Select>
-            </Col>
+                <Form.Select
+                  value={diseaseFilter}
+                  onChange={(e) => setDiseaseFilter(e.target.value)}
+                >
+                  <option value="">{t('Filter by Disease')}</option>
+                  {diseaseOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {t(d)}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
               <Col xs={12} md={6}>
-                <Form.Label className="me-2">{t('Sort by')}</Form.Label>
+                <Form.Label className="me-2">
+                  {t('Sort by')}
+                </Form.Label>
                 <Form.Select
                   aria-label="Sort by"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortKey)}
+                  onChange={(e) =>
+                    setSortBy(e.target.value as SortKey)
+                  }
                   style={{ maxWidth: 320, display: 'inline-block' }}
                 >
                   <option value="ampel">{t('Performance')}</option>
-                  <option value="created">{t('Newest created')}</option>
-                  <option value="last_login">{t('Last login (recent first)')}</option>
-                  <option value="adherence">{t('Adherence (high → low)')}</option>
-                  <option value="health">{t('Health (best → worst)')}</option>
-                  <option value="feedback">{t('Feedback (worst → best)')}</option>
+                  <option value="created">
+                    {t('Newest created')}
+                  </option>
+                  <option value="last_login">
+                    {t('Last login (recent first)')}
+                  </option>
+                  <option value="adherence">
+                    {t('Adherence (high → low)')}
+                  </option>
+                  <option value="health">
+                    {t('Health (best → worst)')}
+                  </option>
+                  <option value="feedback">
+                    {t('Feedback (worst → best)')}
+                  </option>
                 </Form.Select>
               </Col>
               <Col className="d-flex flex-wrap gap-3 justify-content-end">
-                <Button variant="outline-secondary" onClick={resetFilters}>
+                <Button
+                  variant="outline-secondary"
+                  onClick={resetFilters}
+                >
                   {t('Reset filters')}
                 </Button>
               </Col>
-               <Col className="d-flex flex-wrap gap-3 justify-content-end">
+              <Col className="d-flex flex-wrap gap-3 justify-content-end">
                 <Form.Check
                   type="switch"
                   id="toggle-completed"
                   label={t('Show completed')}
                   checked={showCompleted}
-                  onChange={(e) => setShowCompleted(e.currentTarget.checked)}
+                  onChange={(e) =>
+                    setShowCompleted(e.currentTarget.checked)
+                  }
                 />
-                 </Col>
-
+              </Col>
             </Row>
           </Card.Body>
         </Card>
@@ -652,10 +885,16 @@ const diseaseOptions = useMemo(() => {
           </thead>
           <tbody>
             {activePatients.map((p) => {
-              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-              const diagnosis = Array.isArray(p.diagnosis) ? p.diagnosis.join(', ') : String(p.diagnosis || '');
+              const fullName = `${p.first_name || ''} ${
+                p.name || ''
+              }`.trim();
+              const diagnosis = Array.isArray(p.diagnosis)
+                ? p.diagnosis.join(', ')
+                : String(p.diagnosis || '');
               const patientId =
-                (p as any).patient_code || (p as any).username || (String((p as any)._id || '').slice(-8) || '—');
+                (p as any).patient_code ||
+                (p as any).username ||
+                (String((p as any)._id || '').slice(-8) || '—');
 
               return (
                 <tr key={(p as any)._id}>
@@ -664,23 +903,39 @@ const diseaseOptions = useMemo(() => {
                   <td>{fmtDate(String((p as any).age))}</td>
                   <td>{t(p.sex)}</td>
                   <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                  <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
+                  <td style={{ minWidth: 220 }}>
+                    {renderStatusChips(p)}
+                  </td>
                   <td className="text-end">
                     <div className="d-flex justify-content-end gap-2 flex-wrap">
-                      <Button size="sm" variant="success" onClick={() => handleItemClick(p)}>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={() => handleItemClick(p)}
+                      >
                         {t('Info')}
                       </Button>
                       <Button
                         size="sm"
                         variant="primary"
-                        onClick={() => handleRehabButton((p as any)._id as any, fullName)}
+                        onClick={() =>
+                          handleRehabButton(
+                            (p as any)._id as any,
+                            fullName
+                          )
+                        }
                       >
                         {t('Rehabilitation Plan')}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-primary"
-                        onClick={() => handleProgressButton((p as any)._id as any, fullName)}
+                        onClick={() =>
+                          handleProgressButton(
+                            (p as any)._id as any,
+                            fullName
+                          )
+                        }
                       >
                         {t('Outcomes Dashboard')}
                       </Button>
@@ -691,8 +946,13 @@ const diseaseOptions = useMemo(() => {
             })}
             {activePatients.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4">
-                  {t('No active patients')}
+                <td
+                  colSpan={7}
+                  className="text-center text-muted py-4"
+                >
+                  {loading
+                    ? t('Loading patients...')
+                    : t('No active patients')}
                 </td>
               </tr>
             )}
@@ -719,39 +979,67 @@ const diseaseOptions = useMemo(() => {
               </thead>
               <tbody>
                 {completedPatients.map((p) => {
-                  const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                  const diagnosis = Array.isArray(p.diagnosis) ? p.diagnosis.join(', ') : String(p.diagnosis || '');
+                  const fullName = `${p.first_name || ''} ${
+                    p.name || ''
+                  }`.trim();
+                  const diagnosis = Array.isArray(p.diagnosis)
+                    ? p.diagnosis.join(', ')
+                    : String(p.diagnosis || '');
                   const endDate = (p as any).rehab_end_date;
                   const patientId =
-                    (p as any).patient_code || (p as any).username || (String((p as any)._id || '').slice(-8) || '—');
+                    (p as any).patient_code ||
+                    (p as any).username ||
+                    (String((p as any)._id || '').slice(-8) || '—');
 
                   return (
-                    <tr key={(p as any)._id} className="completed-row">
-                      <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
+                    <tr
+                      key={(p as any)._id}
+                      className="completed-row"
+                    >
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {patientId}
+                      </td>
                       <td>
                         {fullName}{' '}
-                        <Badge bg="success" className="ms-2">
+                        <Badge
+                          bg="success"
+                          className="ms-2"
+                        >
                           {t('Completed')}
                         </Badge>
                         {endDate && (
                           <small className="text-muted ms-2">
-                            {t('Discharged')}: {fmtDate(endDate as any)}
+                            {t('Discharged')}:{' '}
+                            {fmtDate(endDate as any)}
                           </small>
                         )}
                       </td>
                       <td>{fmtDate(String((p as any).age))}</td>
                       <td>{t(p.sex)}</td>
-                      <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                      <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
+                      <td style={{ minWidth: 200 }}>
+                        {diagnosis}
+                      </td>
+                      <td style={{ minWidth: 220 }}>
+                        {renderStatusChips(p)}
+                      </td>
                       <td className="text-end">
                         <div className="d-flex justify-content-end gap-2 flex-wrap">
-                          <Button size="sm" variant="outline-secondary" onClick={() => handleItemClick(p)}>
+                          <Button
+                            size="sm"
+                            variant="outline-secondary"
+                            onClick={() => handleItemClick(p)}
+                          >
                             {t('Info')}
                           </Button>
                           <Button
                             size="sm"
                             variant="outline-primary"
-                            onClick={() => handleProgressButton((p as any)._id as any, fullName)}
+                            onClick={() =>
+                              handleProgressButton(
+                                (p as any)._id as any,
+                                fullName
+                              )
+                            }
                           >
                             {t('Outcomes Dashboard')}
                           </Button>
@@ -762,7 +1050,10 @@ const diseaseOptions = useMemo(() => {
                 })}
                 {completedPatients.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-muted py-4">
+                    <td
+                      colSpan={7}
+                      className="text-center text-muted py-4"
+                    >
                       {t('No completed patients')}
                     </td>
                   </tr>
@@ -774,7 +1065,11 @@ const diseaseOptions = useMemo(() => {
       </Container>
 
       {selectedItem && (
-        <PatientPopup patient_id={selectedItem} show={showPopup} handleClose={handleClosePopup} />
+        <PatientPopup
+          patient_id={selectedItem}
+          show={showPopup}
+          handleClose={handleClosePopup}
+        />
       )}
 
       <AddPatientPopup show={showPopupAdd} handleClose={handleClose} />
