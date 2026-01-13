@@ -93,10 +93,10 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   });
 
   if (res.status === 200) {
-    authStore.setTokens(res.data.access_token, res.data.refresh_token);
-    authStore.setAuthenticated(true);
-    navigate('/therapist');
-  }
+  await authStore.complete2FA(res.data.access_token, res.data.refresh_token);
+  navigate('/therapist');
+}
+
 };
 
 

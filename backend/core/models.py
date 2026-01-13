@@ -17,6 +17,7 @@ from mongoengine import (
     StringField,
     FloatField,
     DynamicField,
+    FileField
 )
 
 from utils.config import config
@@ -435,3 +436,29 @@ class PasswordAttempt(Document):
     last_attempt = DateTimeField(default=timezone.now)  # instead of datetime.utcnow
 
     meta = {"collection": "password_attempts"}
+
+class HealthSliderEntry(Document):
+    """
+    One saved item (one question answer) for HealthSlider.
+    participant_id is user-entered (not DB user id).
+    """
+    participant_id = StringField(required=True)
+    session_id     = StringField(required=True)
+    question_index = IntField(required=True)              # 0-based
+    answer_value   = FloatField(null=True)                # or IntField, but float allows future scale
+    has_audio      = BooleanField(default=False)
+
+    # Storage path (MEDIA storage), e.g. "healthslider/SUBJ_001/20260112T093000/SUBJ_001_q01.webm"
+    audio_file     = StringField(default="")              # storage path
+    audio_name     = StringField(default="")              # user-friendly filename (for FE)
+    audio_mime     = StringField(default="audio/webm")    # "audio/webm", "audio/wav", ...
+
+    answered_at    = DateTimeField(default=timezone.now)
+
+    meta = {
+        "indexes": [
+            ("participant_id", "session_id"),
+            ("participant_id", "session_id", "question_index"),
+            ("answered_at",),
+        ]
+    }

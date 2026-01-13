@@ -118,7 +118,10 @@ const RehabTable: React.FC = () => {
   const [patientData, setPatientData] = useState<PatientPlan>(EMPTY_PLAN);
 
   const userLang = (i18n.language || 'en').slice(0, 2);
-  const specialisations = authStore.specialisation.split(',').map((s) => s.trim());
+  const specialisations = (authStore.specialisations || [])
+  .map((s) => s.trim())
+  .filter(Boolean);
+
   const diagnoses = Array.isArray(specialisations)
     ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
     : config?.patientInfo?.function?.[specialisations]?.diagnosis || [];

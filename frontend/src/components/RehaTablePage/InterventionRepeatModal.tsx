@@ -91,8 +91,7 @@ const InterventionRepeatModal: React.FC<Props> = ({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Determine diagnosis-based routing
-  const specialisations = (authStore.specialisation || '')
-    .split(',')
+  const specialisations = (authStore.specialisations || '')
     .map((s) => s.trim())
     .filter(Boolean);
 

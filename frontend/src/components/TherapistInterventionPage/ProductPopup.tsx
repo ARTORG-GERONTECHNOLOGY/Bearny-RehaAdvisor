@@ -53,9 +53,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   const [error, setError] = useState('');
 
-  const specialisations = authStore.specialisation?.split(',').map((s) => s.trim()) || [];
-  const allDiagnoses = useMemo(
-    () => specialisations.flatMap(spec => config?.patientInfo?.function?.[spec]?.diagnosis || []),
+  const specialisations = authStore.specialisations?.map((s) => s.trim()) || [];
+ const allDiagnoses = useMemo(
+    () =>
+      specialisations.flatMap(
+        (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
+      ),
     [specialisations]
   );
 

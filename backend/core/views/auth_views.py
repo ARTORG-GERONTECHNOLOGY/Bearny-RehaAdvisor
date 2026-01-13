@@ -43,6 +43,10 @@ from utils.utils import (
 logger = logging.getLogger(__name__)
 
 
+from django.db import transaction, IntegrityError
+
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from utils.scheduling import _expand_dates  # already in your project
 
 def _as_list_of_blocks(maybe_blocks):
@@ -377,6 +381,18 @@ def reset_password_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+def _norm_email(raw: str) -> str:
+    # Trim + collapse + lower
+    return (raw or "").strip().lower()
+
+def _err(message: str, status: int = 400, field_errors=None, non_field_errors=None):
+    payload = {"success": False, "message": message}
+    if field_errors:
+        payload["field_errors"] = field_errors
+    if non_field_errors:
+        payload["non_field_errors"] = non_field_errors
+    return JsonResponse(payload, status=status)
+
 @csrf_exempt
 def register_view(request):
     """
@@ -384,94 +400,201 @@ def register_view(request):
     Endpoint: POST /api/auth/register/
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _err("Method not allowed", status=405)
 
     try:
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON in register_view.")
+            return _err("Invalid input format.", status=400)
 
-        user_type = data.get("userType")
-        email = data.get("email")
+        field_errors = {}
+
+        user_type = (data.get("userType") or "").strip()
+        email_raw = data.get("email")
+        email = _norm_email(email_raw)
         raw_password = data.get("password")
 
-        if not user_type or not email or not raw_password:
-            return JsonResponse({"error": "Missing required fields."}, status=400)
+        # ---- basic required fields ----
+        if not user_type:
+            field_errors["userType"] = ["This field is required."]
+        if not email:
+            field_errors["email"] = ["This field is required."]
+        if not raw_password:
+            field_errors["password"] = ["This field is required."]
 
-        if User.objects.filter(email=email):
-            return JsonResponse({"error": "Email already exists"}, status=400)
+        if field_errors:
+            return _err("Validation error.", status=400, field_errors=field_errors)
 
-        user = User(
-            username=generate_custom_id(user_type),
-            role=user_type,
-            email=sanitize_text(email),
-            phone=sanitize_text(data.get("phone", "")),
-            pwdhash=make_password(raw_password),
-            createdAt=datetime.today(),
-            isActive=(user_type == "Patient"),
-        )
-        user.save()
+        # ---- validate email ----
+        try:
+            validate_email(email)
+        except ValidationError:
+            return _err(
+                "Validation error.",
+                status=400,
+                field_errors={"email": ["Enter a valid email address."]},
+            )
 
-        # --- Patient Registration ---
+        # (Optional) also reject any internal whitespace like "a b@c.com"
+        if any(ch.isspace() for ch in (email_raw or "")):
+            return _err(
+                "Validation error.",
+                status=400,
+                field_errors={"email": ["Email must not contain whitespace."]},
+            )
+
+        # ---- normalize user_type values if needed ----
+        # If your backend expects exactly "Patient"/"Therapist"/"Admin"
+        # keep as-is but trim; otherwise map here.
+
+        # ---- extra validation by role ----
         if user_type == "Patient":
-            try:
-                therapist_user = User.objects.get(pk=data.get("therapist"))
-                pat_therapist = Therapist.objects.get(userId=therapist_user)
-            except (User.DoesNotExist, Therapist.DoesNotExist):
-                return JsonResponse(
-                    {"error": "Assigned therapist not found."}, status=404
+            if not data.get("therapist"):
+                field_errors["therapist"] = ["Assigned therapist is required."]
+            if not data.get("rehaEndDate"):
+                field_errors["rehaEndDate"] = ["Rehabilitation end date is required."]
+        elif user_type == "Therapist":
+            # optional: validate any required fields for therapist
+            pass
+
+        if field_errors:
+            return _err("Validation error.", status=400, field_errors=field_errors)
+
+        # ---- atomic: prevents partial user creation ----
+        with transaction.atomic():
+            # check existence properly + using normalized email
+            if User.objects(email=email).first():
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"email": ["An account with this email already exists."]},
                 )
 
-            reha_end_date = datetime.strptime(data.get("rehaEndDate"), "%Y-%m-%d")
-            patient = Patient(
-                userId=user,
-                patient_code=data.get('patient_code', ''),                 # <-- NEW: persist
-                name=sanitize_text(data.get("lastName"), True),
-                first_name=sanitize_text(data.get("firstName"), True),
-                age=data.get("age", ""),
-                therapist=pat_therapist,
-                sex=data.get("sex"),
-                diagnosis=data.get("diagnosis"),
-                function=data.get("function"),
-                restrictions=sanitize_text(data.get("restrictions", "-")),
-                access_word=raw_password,
-                duration=(reha_end_date.date() - datetime.today().date()).days,
-                reha_end_date=reha_end_date,
-                care_giver=sanitize_text(data.get("carreGiver", ""), True),
+            # create user
+            user = User(
+                username=generate_custom_id(user_type),
+                role=user_type,
+                email=sanitize_text(email),
+                phone=sanitize_text((data.get("phone") or "").strip()),
+                pwdhash=make_password(raw_password),
+                createdAt=timezone.now(),
+                isActive=(user_type == "Patient"),
             )
-            patient.save()
 
-            if create_rehab_plan(patient, pat_therapist):
+            try:
+                user.save()
+            except IntegrityError:
+                # In case email has a DB-level unique constraint race condition
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"email": ["An account with this email already exists."]},
+                )
+
+            # --- Patient Registration ---
+            if user_type == "Patient":
+                try:
+                    therapist_user_id = data.get("therapist")
+                    therapist_user = User.objects.get(pk=therapist_user_id)
+                    pat_therapist = Therapist.objects.get(userId=therapist_user)
+                except (User.DoesNotExist, Therapist.DoesNotExist):
+                    # transaction.atomic will rollback user creation automatically
+                    return _err("Assigned therapist not found.", status=404)
+
+                # Parse dates safely
+                try:
+                    reha_end_date = datetime.strptime(
+                        (data.get("rehaEndDate") or "").strip(), "%Y-%m-%d"
+                    )
+                except Exception:
+                    return _err(
+                        "Validation error.",
+                        status=400,
+                        field_errors={"rehaEndDate": ["Invalid date format. Use YYYY-MM-DD."]},
+                    )
+
+                patient = Patient(
+                    userId=user,
+                    patient_code=(data.get("patient_code") or "").strip(),
+                    name=sanitize_text(data.get("lastName"), True),
+                    first_name=sanitize_text(data.get("firstName"), True),
+                    age=(data.get("age") or ""),
+                    therapist=pat_therapist,
+                    sex=(data.get("sex") or "").strip() if isinstance(data.get("sex"), str) else data.get("sex"),
+                    diagnosis=data.get("diagnosis"),
+                    function=data.get("function"),
+                    restrictions=sanitize_text(data.get("restrictions", "-")),
+                    access_word=raw_password,
+                    duration=(reha_end_date.date() - timezone.now().date()).days,
+                    reha_end_date=reha_end_date,
+                    care_giver=sanitize_text(data.get("carreGiver", ""), True),
+                )
+
+                try:
+                    patient.save()
+                except Exception as e:
+                    logger.exception("Patient save failed.")
+                    return _err(
+                        "Patient creation failed.",
+                        status=400,
+                        non_field_errors=[str(e)],
+                    )
+
+                try:
+                    ok = create_rehab_plan(patient, pat_therapist)
+                except Exception as e:
+                    logger.exception("create_rehab_plan crashed.")
+                    return _err(
+                        "Rehabilitation plan creation failed.",
+                        status=500,
+                        non_field_errors=[str(e)],
+                    )
+
+                if not ok:
+                    return _err("Rehabilitation plan creation failed.", status=500)
+
                 return JsonResponse(
-                    {"message": "Patient registered successfully", "id": user.username},
+                    {"success": True, "message": "Patient registered successfully", "id": user.username},
                     status=200,
                 )
-            else:
+
+            # --- Therapist Registration ---
+            elif user_type == "Therapist":
+                therapist = Therapist(
+                    userId=user,
+                    name=sanitize_text(data.get("lastName", ""), True),
+                    first_name=sanitize_text(data.get("firstName", ""), True),
+                    specializations=data.get("specialisation"),
+                    clinics=data.get("clinic"),
+                )
+                try:
+                    therapist.save()
+                except Exception as e:
+                    logger.exception("Therapist save failed.")
+                    return _err(
+                        "Therapist creation failed.",
+                        status=400,
+                        non_field_errors=[str(e)],
+                    )
+
                 return JsonResponse(
-                    {"error": "Rehabilitation plan creation failed."}, status=500
+                    {"success": True, "message": "Therapist registered successfully", "id": user.username},
+                    status=200,
                 )
 
-        # --- Therapist Registration ---
-        elif user_type == "Therapist":
-            therapist = Therapist(
-                userId=user,
-                name=sanitize_text(data.get("lastName", ""), True),
-                first_name=sanitize_text(data.get("firstName", ""), True),
-                specializations=data.get("specialisation"),
-                clinics=data.get("clinic"),
-            )
-            therapist.save()
-            return JsonResponse(
-                {"message": "Therapist registered successfully", "id": user.username},
-                status=200,
-            )
+            # --- Admin / other ---
+            return JsonResponse({"success": True, "message": "Admin added"}, status=200)
 
-        return JsonResponse({"message": "Admin added"}, status=200)
-
-    except json.JSONDecodeError:
-        logger.warning("Invalid JSON in register_view.")
-        return JsonResponse({"error": "Invalid input format."}, status=400)
     except Exception as e:
         logger.exception("Unexpected error during registration.")
-        return JsonResponse({"error": "Internal server error"}, status=500)
+        # return useful debug text without leaking too much
+        return _err(
+            "Internal server error",
+            status=500,
+            non_field_errors=[str(e)],
+        )
 
 
 def generate_code(length=6):
@@ -620,4 +743,46 @@ def verify_code_view(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def get_user_info(request, user_id):
+    try:
+        user = User.objects.filter(pk=ObjectId(user_id)).first()
+        if not user:
+            return JsonResponse({"error": "User not found"}, status=404)
 
+        first_name = ""
+        last_name = ""
+        specialisation = ""
+        function = ""
+
+        if user.role == "Therapist":
+            therapist = Therapist.objects.filter(userId=user).first()
+            if therapist:
+                first_name = therapist.first_name
+                last_name = therapist.name
+                specialisation = therapist.specializations
+
+        elif user.role == "Patient":
+            patient = Patient.objects.filter(userId=user).first()
+            if patient:
+                first_name = patient.first_name
+                last_name = patient.name
+                function = patient.function
+
+        else:  # Admin fallback
+            first_name = user.username
+
+        return JsonResponse(
+            {
+                "first_name": first_name,
+                "last_name": last_name,
+                "specialisation": specialisation,
+                "function": function,
+                "role": user.role,
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

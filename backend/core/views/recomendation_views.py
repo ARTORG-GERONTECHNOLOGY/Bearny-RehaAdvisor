@@ -730,7 +730,9 @@ def _parse_int(val, default=None):
     except Exception:
         return default
 
-# views/interventions.py
+# --------------------------------------------------------------------
+# MAIN VIEW: add_new_intervention
+# --------------------------------------------------------------------
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -738,201 +740,165 @@ def add_new_intervention(request):
     """
     POST /api/interventions/add/
     Create a new intervention (public or private).
-    Returns consistent:
-    {
-        "success": bool,
-        "message": str,
-        "field_errors": {field: [errors]},
-        "non_field_errors": [...]
-    }
+    Handles multipart/form-data:
+    - img_file (preview image REQUIRED)
+    - media_file (optional)
+    - all other fields in request.POST
     """
     if request.method != "POST":
-        return JsonResponse({
-            "success": False,
-            "message": "Method not allowed",
-        }, status=405)
+        return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    # ------------------------- PARSE BODY -------------------------
-    data = _parse_body(request)
-    field_errors = {}
-    non_field_errors = []
-
-    def add_err(field, msg):
-        field_errors.setdefault(field, []).append(msg)
-
-    # ------------------------- NORMALIZATION -------------------------
-    title_raw = (data.get("title") or "").strip()
-    description_raw = (data.get("description") or "").strip()
-    link_raw = (data.get("link") or "").strip()
-    content_type = (data.get("contentType") or "").strip()
-    duration = _parse_int(data.get("duration"))
-    is_private = _parse_bool(data.get("isPrivate"))
-
-    patient_id = data.get("patientId")
-
-    # benefitFor, tags, patientTypes could be encoded
-    benefit_for_list = _parse_str_list(data.get("benefitFor"))
-    tags_list = _parse_str_list(data.get("tagList"))
-
-    raw_ptypes = data.get("patientTypes")
-    if isinstance(raw_ptypes, str):
-        try:
-            raw_ptypes = json.loads(raw_ptypes)
-        except Exception:
-            raw_ptypes = []
-            add_err("patientTypes", "Invalid JSON")
-
-    if not isinstance(raw_ptypes, list):
-        raw_ptypes = []
-        add_err("patientTypes", "Must be a list")
-
-    # ------------------------- VALIDATION -------------------------
-
-    # Title
-    if not title_raw:
-        add_err("title", "This field is required.")
-    elif Intervention.objects.filter(title__iexact=title_raw).first():
-        add_err("title", "An intervention with this title already exists.")
-
-    # Description
-    if not description_raw:
-        add_err("description", "Description cannot be empty.")
-
-    # Content type
-    if not content_type:
-        add_err("contentType", "contentType is required.")
-    elif content_type not in ALLOWED_CONTENT_TYPES:
-        allowed = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
-        add_err("contentType", f"Invalid content type. Allowed: {allowed}")
-
-    # Duration
-    if duration is None:
-        add_err("duration", "Duration must be a number.")
-    elif duration <= 0:
-        add_err("duration", "Duration must be > 0.")
-
-    # Link
-    if link_raw:
-        if not (link_raw.startswith("http://") or link_raw.startswith("https://")):
-            add_err("link", "Link must be a valid http or https URL.")
-
-    # ------------------------- PRIVATE CHECK -------------------------
-    patient_obj = None
-    if is_private:
-        if not patient_id:
-            add_err("patientId", "Required for private intervention.")
-        else:
-            try:
-                patient_obj = Patient.objects(pk=ObjectId(patient_id)).first()
-                if not patient_obj:
-                    add_err("patientId", "Patient not found.")
-            except Exception:
-                add_err("patientId", "Invalid ID.")
-
-    # ------------------------- PUBLIC patientTypes -------------------------
-    patient_types = []
-    if not is_private:
-        if not raw_ptypes:
-            add_err("patientTypes", "At least one entry required.")
-
-        for idx, item in enumerate(raw_ptypes):
-            if not isinstance(item, dict):
-                add_err(f"patientTypes[{idx}]", "Must be object.")
-                continue
-
-            t = (item.get("type") or "").strip()
-            d = (item.get("diagnosis") or "").strip()
-            f = (item.get("frequency") or "").strip()
-            incl = bool(item.get("includeOption", False))
-
-            errs = []
-            if not t:
-                errs.append("type is required.")
-            if not d:
-                errs.append("diagnosis is required.")
-            if not f:
-                errs.append("frequency is required.")
-
-            if errs:
-                add_err(f"patientTypes[{idx}]", " ".join(errs))
-            else:
-                patient_types.append(PatientType(
-                    type=t,
-                    diagnosis=d,
-                    frequency=f,
-                    include_option=incl
-                ))
-
-    # ------------------------- FILE VALIDATION -------------------------
-    def validate_file(file, field):
-        if file.size > MAX_FILE_SIZE_BYTES:
-            add_err(field, "File too large.")
-        ext = file.name.lower().split(".")[-1]
-        if not ext:
-            add_err(field, "Missing file extension.")
-
-    if "media_file" in request.FILES:
-        validate_file(request.FILES["media_file"], "media_file")
-
-    if "img_file" in request.FILES:
-        validate_file(request.FILES["img_file"], "previewImage")
-
-    # STOP if errors
-    if field_errors:
-        return JsonResponse({
-            "success": False,
-            "message": "Validation error.",
-            "field_errors": field_errors,
-            "non_field_errors": non_field_errors,
-        }, status=400)
-
-    # ------------------------- FILE SAVE -------------------------
-    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
-
-    def save_file(f, folder):
-        name = f"{timestamp}_{f.name}"
-        path = os.path.join(folder, name)
-        return default_storage.save(path, f)
-
-    media_path = ""
-    preview_path = ""
-
-    if "media_file" in request.FILES:
-        media_path = save_file(request.FILES["media_file"], "others")
-
-    if "img_file" in request.FILES:
-        preview_path = save_file(request.FILES["img_file"], "images")
-
-    # ------------------------- CREATE INTERVENTION -------------------------
-    intervention = Intervention(
-        title=title_raw,
-        description=description_raw,
-        duration=duration,
-        content_type=content_type,
-        link=link_raw,
-        media_file=media_path,
-        preview_img=preview_path,
-        benefitFor=benefit_for_list,
-        tags=tags_list,
-        is_private=is_private,
-        private_patient_id=(patient_obj.id if is_private else None),
-        patient_types=(patient_types if not is_private else []),
-    )
+    def bad(message, field_errors=None, non_field_errors=None):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": message,
+                "field_errors": field_errors or {},
+                "non_field_errors": non_field_errors or [],
+            },
+            status=400,
+        )
 
     try:
-        intervention.save()
-    except Exception as e:
-        return JsonResponse({
-            "success": False,
-            "message": "Database error.",
-            "detail": str(e)
-        }, status=500)
+        # -------------------------
+        # Parse non-file fields
+        # -------------------------
+        title = request.POST.get("title", "").strip()
+        description = request.POST.get("description", "").strip()
+        content_type = request.POST.get("contentType", "").strip()
+        duration = request.POST.get("duration")
+        link = request.POST.get("link", "").strip()
+        is_private = request.POST.get("isPrivate", "").lower() in ("true", "1", "yes")
+        patient_id = request.POST.get("patientId")
+        benefit_for = json.loads(request.POST.get("benefitFor", "[]"))
+        tag_list = json.loads(request.POST.get("tagList", "[]"))
 
-    return JsonResponse({
-        "success": True,
-        "message": "Intervention created successfully.",
-        "id": str(intervention.id)
-    }, status=201)
+        try:
+            patient_types_raw = json.loads(request.POST.get("patientTypes", "[]"))
+        except Exception:
+            return bad("Invalid patientTypes JSON", {"patientTypes": ["Invalid JSON"]})
+
+        # -------------------------
+        # Validation
+        # -------------------------
+        field_errors = {}
+
+        if not title:
+            field_errors.setdefault("title", []).append("This field is required.")
+
+        if not description:
+            field_errors.setdefault("description", []).append("Description is required.")
+
+        if not duration or int(duration) <= 0:
+            field_errors.setdefault("duration", []).append("Duration must be greater than 0.")
+
+        if not content_type:
+            field_errors.setdefault("contentType", []).append("Content type is required.")
+
+        if link:
+            if not (link.startswith("http://") or link.startswith("https://")):
+                field_errors.setdefault("link", []).append("Link must be a valid URL.")
+
+        patient_obj = None
+        if is_private:
+            if not patient_id:
+                field_errors.setdefault("patientId", []).append("Required for private intervention.")
+            else:
+                try:
+                    patient_obj = Patient.objects.get(pk=ObjectId(patient_id))
+                except:
+                    field_errors.setdefault("patientId", []).append("Invalid patient id.")
+        else:
+            patient_types = []
+            if not patient_types_raw:
+                field_errors.setdefault("patientTypes", []).append("At least one entry is required.")
+            else:
+                for idx, pt in enumerate(patient_types_raw):
+                    t = pt.get("type", "").strip()
+                    d = pt.get("diagnosis", "").strip()
+                    f = pt.get("frequency", "").strip()
+                    incl = pt.get("includeOption", False)
+
+                    if not t or not d or not f:
+                        field_errors.setdefault(f"patientTypes[{idx}]", []).append(
+                            "type, diagnosis and frequency are required."
+                        )
+                    else:
+                        patient_types.append(
+                            PatientType(
+                                type=t,
+                                diagnosis=d,
+                                frequency=f,
+                                include_option=bool(incl),
+                            )
+                        )
+
+        preview_img = request.FILES.get("img_file")
+        media_file = request.FILES.get("media_file")
+
+        if not preview_img:
+            field_errors.setdefault("img_file", []).append("Preview image is required.")
+
+        if field_errors:
+            return bad("Validation error.", field_errors)
+
+        # -------------------------
+        # Filename-safe save helper
+        # -------------------------
+        def save_file(file, folder, intervention_title):
+            # sanitize title for filename
+            safe_title = "".join(
+                c for c in intervention_title.lower().replace(" ", "_")
+                if c.isalnum() or c in ("_", "-")
+            )
+            ts = timezone.now().strftime("%Y%m%d_%H%M%S")
+            ext = file.name.split(".")[-1].lower()
+            filename = f"{ts}_{safe_title}.{ext}"
+            return default_storage.save(f"{folder}/{filename}", file)
+
+        # -------------------------
+        # Save files with new naming scheme
+        # -------------------------
+        preview_path = save_file(preview_img, "images", title)
+
+        media_path = ""
+        if media_file:
+            ext = media_file.name.lower().split(".")[-1]
+            folder = FILE_TYPE_FOLDERS.get(ext, "others")
+            media_path = save_file(media_file, folder, title)
+
+        # -------------------------
+        # Create object
+        # -------------------------
+        intervention = Intervention(
+            title=title,
+            description=description,
+            duration=int(duration),
+            content_type=content_type,
+            link=link,
+            preview_img=preview_path,
+            media_file=media_path,
+            benefitFor=benefit_for,
+            tags=tag_list,
+            is_private=is_private,
+            private_patient_id=patient_obj.id if is_private else None,
+            patient_types=patient_types if not is_private else [],
+        )
+
+        intervention.save()
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Intervention created successfully",
+                "id": str(intervention.id),
+            },
+            status=201,
+        )
+
+    except Exception as e:
+        print("ERROR creating intervention:", e)
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
 

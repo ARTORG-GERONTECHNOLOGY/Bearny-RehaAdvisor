@@ -31,7 +31,7 @@ const AddInterventionView: React.FC = observer(() => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const alertRef = useRef<HTMLDivElement>(null);
 
-  const diagnoses = config?.patientInfo?.function?.[authStore.specialisation]?.diagnosis || [];
+  const diagnoses = config?.patientInfo?.function?.[authStore.specialisations]?.diagnosis || [];
 
   useEffect(() => {
     authStore.checkAuthentication();

@@ -2529,11 +2529,18 @@ def get_combined_health_data(request, patient_id):
                     "breathing_rate": entry.breathing_rate,
                     "hrv": entry.hrv,
                     "exercise": entry.exercise,
+
                     # unified vitals
                     "weight": weight_val,
                     "blood_pressure": bp_obj,
+
+                    # 🔥 ADD THESE FIELDS (frontend needs them)
+                    "weight_kg": weight_val,
+                    "bp_sys": bp_obj["systolic"] if bp_obj else None,
+                    "bp_dia": bp_obj["diastolic"] if bp_obj else None,
                 }
             )
+
 
         fitbit_days = {datetime.datetime.strptime(r["date"], "%Y-%m-%d").date() for r in fitbit_data}
 
@@ -2697,16 +2704,10 @@ def get_combined_health_data(request, patient_id):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_manual_vitals(request, patient_id: str):
-    """
-    POST /api/patients/vitals/manual/<patient_id>/
-    Body JSON: { "date": ISO8601, "weight_kg": number, "bp_sys": number, "bp_dia": number }
-    - If "date" missing, uses now()
-    - Upserts (per patient, per calendar day)
-    """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    # Resolve patient by pk or userId
+    # Resolve patient
     try:
         try:
             patient = Patient.objects.get(pk=patient_id)
@@ -2721,11 +2722,10 @@ def add_manual_vitals(request, patient_id: str):
     except Exception:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
-    # Parse/normalize the datetime
+    # Parse date
     when_str = body.get("date")
     if when_str:
         try:
-            # accept Z by converting to +00:00
             dt = datetime.datetime.fromisoformat(when_str.replace("Z", "+00:00"))
         except Exception:
             return JsonResponse({"error": "Invalid 'date' (use ISO 8601)."}, status=400)
@@ -2735,11 +2735,11 @@ def add_manual_vitals(request, patient_id: str):
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.utc)
 
-    # Validate numeric inputs
+    # Validate numeric input
     def as_float(x):
         try:
             return float(x) if x is not None else None
-        except (TypeError, ValueError):
+        except:
             return None
 
     weight_kg = as_float(body.get("weight_kg"))
@@ -2749,7 +2749,7 @@ def add_manual_vitals(request, patient_id: str):
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
 
-    # Upsert one record per calendar day (UTC)
+    # Upsert for same day
     day_start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end   = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -2761,23 +2761,28 @@ def add_manual_vitals(request, patient_id: str):
 
     if not rec:
         rec = PatientVitals(
-            user=patient.userId,
-            patientId=patient,
-            date=dt
+            user       = patient.userId,
+            patientId  = patient,
+            date       = dt
         )
 
+    # Save into actual fields
     if weight_kg is not None:
         rec.weight_kg = weight_kg
-    if bp_sys is not None or bp_dia is not None:
-        # adjust to your field structure if it’s an EmbeddedDocument
-        # e.g., rec.blood_pressure.systolic = bp_sys ; rec.blood_pressure.diastolic = bp_dia
-        rec.blood_pressure = {
-            "systolic": bp_sys,
-            "diastolic": bp_dia,
-        }
+
+    if bp_sys is not None:
+        rec.bp_sys = int(bp_sys)
+
+    if bp_dia is not None:
+        rec.bp_dia = int(bp_dia)
 
     rec.save()
-    return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
+
+    return JsonResponse(
+        {"ok": True, "id": str(rec.id), "date": dt.isoformat()},
+        status=200
+    )
+
 
 
 def _resolve_patient(patient_id: str) -> Patient:

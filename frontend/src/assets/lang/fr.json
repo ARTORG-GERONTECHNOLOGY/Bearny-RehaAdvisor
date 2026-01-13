@@ -1,4 +1,6 @@
+
 {
+  "Intervention successfully added": "Intervention ajoutée avec succès",
     "Filter by Disease": "Filtrer par maladie",
       "failedCheck": "Impossible de vérifier les constantes d’aujourd’hui.",
     "failedSave": "Échec de l’enregistrement des constantes d’aujourd’hui. Veuillez réessayer.",
