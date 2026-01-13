@@ -55,6 +55,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
   const [translatedDescription, setTranslatedDescription] = useState(baseDesc);
   const [detectedLangTitle, setDetectedLangTitle] = useState('');
   const [detectedLangDesc, setDetectedLangDesc] = useState('');
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!show) return;
@@ -94,7 +95,9 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
 
   const renderMediaContent = () => {
     const source = item.media_file || item.media_url || item.link;
-    if (!source) return <p className="text-muted m-0">{t('No media available')}</p>;
+    if (!source) {
+      return <p className="text-muted m-0">{t('No media available')}</p>;
+    }
 
     const type = getMediaTypeLabelFromUrl(item.media_file || item.media_url, item.link);
 
@@ -105,6 +108,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
             <ReactPlayer url={String(source)} width="100%" height="400px" controls />
           </div>
         );
+
       case 'Audio':
         return <ReactAudioPlayer src={String(source)} controls />;
       case 'PDF':
@@ -125,12 +129,30 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
           </div>
         );
       case 'Image':
-        return <img src={String(source)} alt={t('Intervention')} className="img-fluid rounded shadow" />;
+        return (
+          <img
+            src={String(source)}
+            alt={t('Intervention')}
+            className="img-fluid rounded shadow"
+          />
+        );
+
       case 'Link':
-        return <Microlink url={String(source)} style={{ width: '100%', borderRadius: 10, marginTop: 10 }} />;
+        return (
+          <Microlink
+            url={String(source)}
+            style={{ width: '100%', borderRadius: 10, marginTop: 10 }}
+          />
+        );
+
       default:
         return (
-          <a href={String(source)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+          <a
+            href={String(source)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+          >
             {t('Open Resource')}
           </a>
         );
@@ -146,9 +168,13 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
           <h2 className="mb-0">
             {translatedTitle || t('Intervention')}
             {detectedLangTitle && (
-              <small className="text-muted"> ({t('Original language:')} {detectedLangTitle})</small>
+              <small className="text-muted">
+                {' '}
+                ({t('Original language:')} {detectedLangTitle})
+              </small>
             )}
           </h2>
+
           {item.content_type && <h6 className="text-muted">{t(item.content_type)}</h6>}
 
           {!!item.benefitFor?.length && (
@@ -179,7 +205,6 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
       </Modal.Header>
 
       <Modal.Body>
-        {/* Personal instructions from therapist */}
         {personalNote && (
           <Alert variant="info" className="mb-3">
             <div className="fw-semibold mb-1">{t('Personal instructions')}</div>
@@ -208,7 +233,9 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
           <Col md={12}>
             <h5>{t('Media')}</h5>
             <ListGroup variant="flush">
-              <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
+              <ListGroup.Item className="text-center">
+                {renderMediaContent()}
+              </ListGroup.Item>
             </ListGroup>
           </Col>
         </Row>

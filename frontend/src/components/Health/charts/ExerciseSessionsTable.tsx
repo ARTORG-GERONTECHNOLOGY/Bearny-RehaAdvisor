@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useMemo } from 'react';
-import { Table } from 'react-bootstrap';
+import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { FitbitEntry } from '../../../types/health';
 import { isInRange } from '../../../utils/healthCharts';
 
@@ -10,14 +10,43 @@ type Props = {
   end: Date;
 };
 
+const formatDurationHM = (ms?: number | null): string => {
+  if (!ms || ms <= 0) return '-';
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+const getPeakZone = (
+  zones?: any[]
+): { range: string | null; minutes: number | null } => {
+  if (!Array.isArray(zones)) return { range: null, minutes: null };
+
+  const peak = zones.find((z) => z.name?.toLowerCase() === 'peak');
+  if (!peak) return { range: null, minutes: null };
+
+  const range =
+    typeof peak.min === 'number' && typeof peak.max === 'number'
+      ? `${peak.min}–${peak.max}`
+      : null;
+
+  return {
+    range,
+    minutes:
+      typeof peak.minutes === 'number' ? peak.minutes : null,
+  };
+};
+
 const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
   const rows = useMemo(() => {
     const result: {
       date: string;
       name: string;
-      durationMin: number | null;
+      duration: string;
       avgHR: number | null;
-      maxHR: number | null;
+      peakRange: string | null;
+      peakMinutes: number | null;
       calories: number | null;
     }[] = [];
 
@@ -26,23 +55,20 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
       .forEach((d) => {
         const dateStr = d.date.slice(0, 10);
         const sessions = d.exercise?.sessions || [];
+
         sessions.forEach((s: any) => {
-          const durMin =
-            typeof s.duration === 'number'
-              ? +(s.duration / 60000).toFixed(1)
-              : null;
+          const peak = getPeakZone(s.heartRateZones);
+
           result.push({
             date: dateStr,
-            name: s.name || '',
-            durationMin: durMin,
+            name: s.name || '-',
+            duration: formatDurationHM(s.duration),
             avgHR:
               typeof s.averageHeartRate === 'number'
                 ? s.averageHeartRate
                 : null,
-            maxHR:
-              typeof s.maxHeartRate === 'number'
-                ? s.maxHeartRate
-                : null,
+            peakRange: peak.range,
+            peakMinutes: peak.minutes,
             calories:
               typeof s.calories === 'number' ? s.calories : null,
           });
@@ -54,7 +80,11 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
   }, [data, start, end]);
 
   if (!rows.length) {
-    return <div className="text-muted small">No exercise sessions in this period.</div>;
+    return (
+      <div className="text-muted small">
+        No exercise sessions in this period.
+      </div>
+    );
   }
 
   return (
@@ -64,9 +94,25 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
           <tr>
             <th>Date</th>
             <th>Exercise</th>
-            <th>Duration (min)</th>
+            <th>Duration</th>
             <th>Avg HR</th>
-            <th>Max HR</th>
+
+            {/* HEADLINE shows peak zone range */}
+            <th>
+              <OverlayTrigger
+                overlay={
+                  <Tooltip>
+                    Fitbit Peak heart-rate zone range (bpm)
+                  </Tooltip>
+                }
+              >
+                <span>Peak zone (bpm)</span>
+              </OverlayTrigger>
+            </th>
+
+            {/* ROW shows minutes */}
+            <th>Peak minutes</th>
+
             <th>Calories</th>
           </tr>
         </thead>
@@ -74,10 +120,11 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
           {rows.map((r, idx) => (
             <tr key={`${r.date}-${idx}`}>
               <td>{r.date}</td>
-              <td>{r.name || '-'}</td>
-              <td>{r.durationMin ?? '-'}</td>
+              <td>{r.name}</td>
+              <td>{r.duration}</td>
               <td>{r.avgHR ?? '-'}</td>
-              <td>{r.maxHR ?? '-'}</td>
+              <td>{r.peakRange ?? '-'}</td>
+              <td>{r.peakMinutes ?? '-'}</td>
               <td>{r.calories ?? '-'}</td>
             </tr>
           ))}

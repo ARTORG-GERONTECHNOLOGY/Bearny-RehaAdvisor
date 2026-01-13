@@ -17,6 +17,11 @@ from core.views.questionaires_view import (
     remove_questionnaire,
     list_dynamic_questionnaires
 )
+from core.views.eva_view import (
+    list_healthslider_items,
+    download_healthslider_audio,
+    submit_healthslider_item,
+)
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -116,7 +121,7 @@ urlpatterns = [
         name="assign_intervention_to_patient_types",
     ),
     path(
-        "/api/therapists/<str:therapist_id>/interventions/remove-from-patient-types/",
+        "api/therapists/<str:therapist_id>/interventions/remove-from-patient-types/",
         recomendation_views.remove_intervention_from_types,
         name="delete_intervention_from_patient_types",
     ),
@@ -151,6 +156,11 @@ urlpatterns = [
     path("api/fitbit/manual_steps/<str:patient_id>/", fitbit_views.manual_steps, name="manual-steps"),
     path("api/users/<str:therapist_id>/change-password/", user_views.change_password, name="change_password"),
     path("api/patients/health-combined-history/<str:patient_id>/",fitbit_views.health_combined_history,name="health_combined_history"),
+    path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
+
+    path("api/healthslider/items/", list_healthslider_items),
+    path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
+    path("api/healthslider/submit-item/", submit_healthslider_item),
 
 ]
 

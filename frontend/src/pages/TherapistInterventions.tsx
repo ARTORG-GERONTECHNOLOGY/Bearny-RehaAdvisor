@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Container, Row, Col, Card, Button, ButtonGroup, Form, Nav,
   Badge, OverlayTrigger, Tooltip
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaMinus, FaEdit, FaUndo } from 'react-icons/fa';
 import Select from 'react-select';
+import { observer } from 'mobx-react-lite'; // ✅ NEW
 
 import { filterInterventions } from '../utils/filterUtils';
 import Header from '../components/common/Header';
@@ -28,9 +29,10 @@ import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTi
 import { TemplateItem, TemplatePayload } from '../types/templates';
 import { InterventionTypeTh } from '../types';
 
-const TherapistRecomendations: React.FC = () => {
+const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer wrapper
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
+
   // ─────────────────────────── Library (catalog) ───────────────────────────
   const [recommendations, setRecommendations] = useState<InterventionTypeTh[]>([]);
   const [filteredInterventions, setFilteredInterventions] = useState<InterventionTypeTh[]>([]);
@@ -40,7 +42,6 @@ const TherapistRecomendations: React.FC = () => {
   type MainTab = 'library' | 'templates';
   const [mainTab, setMainTab] = useState<MainTab>('library');
 
-  // sub-tab inside Templates view
   type TemplateLeftTab = 'my' | 'all';
   const [templateLeftTab, setTemplateLeftTab] = useState<TemplateLeftTab>('my');
 
@@ -53,46 +54,44 @@ const TherapistRecomendations: React.FC = () => {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignInterventionId, setAssignInterventionId] = useState<string | null>(null);
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
-// Normalize "segment" whether it's an object from `segments` or a single `schedule`
-const normalizeSegment = (segOrSchedule: any, item?: TemplateItem) => {
-  const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
-  const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
-  const end_day   = raw.end_day ?? segOrSchedule?.end_day;
-  const selectedDays = raw.selectedDays || raw.selected_days || [];
-  return {
-    unit: raw.unit || 'day',
-    interval: raw.interval ?? 1,
-    selectedDays,
-    start_day,
-    end_day,
-    start_time: raw.start_time || raw.startTime || '08:00',
+
+  // Normalize "segment" whether it's an object from `segments` or a single `schedule`
+  const normalizeSegment = (segOrSchedule: any) => {
+    const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
+    const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
+    const end_day = raw.end_day ?? segOrSchedule?.end_day;
+    const selectedDays = raw.selectedDays || raw.selected_days || [];
+    return {
+      unit: raw.unit || 'day',
+      interval: raw.interval ?? 1,
+      selectedDays,
+      start_day,
+      end_day,
+      start_time: raw.start_time || raw.startTime || '08:00',
+    };
   };
-};
 
-const getSegments = (it: TemplateItem) => {
-  const segs = (it as any).segments;
-  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
-  // Fallback to single schedule + range
-  const s = normalizeSegment(it.schedule, it);
-  return [s];
-};
+  const getSegments = (it: TemplateItem) => {
+    const segs = (it as any).segments;
+    if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
+    const s = normalizeSegment((it as any).schedule);
+    return [s];
+  };
 
-// Count occurrences in a segment’s day window
-const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
-  const occ = it.occurrences || [];
-  return occ.filter(o => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
-};
+  const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
+    const occ = it.occurrences || [];
+    return occ.filter(o => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
+  };
 
-// Human summary for a segment (used in My Template list and day modal)
-const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
-  const daysStr =
-    Array.isArray(seg.selectedDays) && seg.selectedDays.length
-      ? ` • ${seg.selectedDays.join(', ')}`
-      : '';
-  const rangeStr = ` ${t("from day")} ${seg.start_day}${seg.end_day ? ` → ${t("day")} ${seg.end_day}` : ''}`;
-  const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
-  return `• ${t(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${t("Occurrences")} ${occCount}`;
-};
+  const segmentSummary = (seg: any, it: TemplateItem, tfn: any) => {
+    const daysStr =
+      Array.isArray(seg.selectedDays) && seg.selectedDays.length
+        ? ` • ${seg.selectedDays.join(', ')}`
+        : '';
+    const rangeStr = ` ${tfn("from day")} ${seg.start_day}${seg.end_day ? ` → ${tfn("day")} ${seg.end_day}` : ''}`;
+    const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
+    return `• ${tfn(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${tfn("Occurrences")} ${occCount}`;
+  };
 
   const openAssignToTemplate = (id: string, mode: 'create' | 'modify' = 'create') => {
     setAssignMode(mode);
@@ -100,51 +99,38 @@ const segmentSummary = (seg: any, it: TemplateItem, t: any) => {
     setAssignOpen(true);
   };
 
-  // Delete from template (fixed endpoint string)
-// Delete from template (corrected to match backend)
-const removeTemplateItem = async (
-  diagnosis: string,
-  interventionId: string,
-  startDay?: number
-) => {
-  try {
-    const payload: any = {
-      intervention_id: interventionId,
-      diagnosis,
-    };
+  const [error, setError] = useState('');
 
-    // optional block-level removal
-    if (typeof startDay === "number") {
-      payload.start_day = startDay;
+  // Delete from template (corrected to match backend)
+  const removeTemplateItem = async (diagnosis: string, interventionId: string, startDay?: number) => {
+    try {
+      const payload: any = { intervention_id: interventionId, diagnosis };
+      if (typeof startDay === "number") payload.start_day = startDay;
+
+      await apiClient.post(
+        `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
+        payload
+      );
+
+      fetchTemplates(templateDiag, templateHorizon);
+    } catch (e: any) {
+      const data = e?.response?.data || {};
+      const base =
+        (Array.isArray(data.non_field_errors) && data.non_field_errors.join(" ")) ||
+        data.message ||
+        data.error ||
+        t("Failed to delete from template.");
+
+      if (data.field_errors) {
+        const extra = Object.entries(data.field_errors)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
+          .join("\n");
+        setError(`${base}\n${extra}`);
+      } else {
+        setError(base);
+      }
     }
-
-    const res = await apiClient.post(
-      `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
-      payload
-    );
-
-    // refresh UI
-    fetchTemplates(templateDiag, templateHorizon);
-  } catch (e: any) {
-    const data = e?.response?.data || {};
-    const base =
-      (Array.isArray(data.non_field_errors) &&
-        data.non_field_errors.join(" ")) ||
-      data.message ||
-      data.error ||
-      t("Failed to delete from template.");
-
-    if (data.field_errors) {
-      const extra = Object.entries(data.field_errors)
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
-        .join("\n");
-      setError(`${base}\n${extra}`);
-    } else {
-      setError(base);
-    }
-  }
-};
-
+  };
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,20 +158,18 @@ const removeTemplateItem = async (
     setTFrequencyFilter('');
   };
 
-  const [error, setError] = useState('');
-
   type TitleMap = Record<string, { title: string; lang: string | null }>;
   const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
 
-  
-
   const tagColors = generateTagColors(config.RecomendationInfo.tags);
 
-  // Therapist specialisations → diagnoses
-  const specialisations = authStore.specialisation?.split(',').map((s) => s.trim()) || [];
-  const diagnoses = Array.isArray(specialisations)
-    ? specialisations.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
-    : config?.patientInfo?.function?.[specialisations as string]?.diagnosis || [];
+  // ✅ IMPORTANT: now this will re-render because component is observer()
+const patientTypes = authStore.specialisations;
+
+
+  const diagnoses = authStore.specialisations.flatMap(
+    (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
+  );
 
   // Auth gate
   const [authChecked, setAuthChecked] = useState(false);
@@ -210,7 +194,6 @@ const removeTemplateItem = async (
     fetchLibrary();
   }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate]);
 
-  // Fetch all interventions (library)
   const fetchLibrary = async () => {
     try {
       const res = await apiClient.get<InterventionTypeTh[]>('interventions/all/');
@@ -225,7 +208,6 @@ const removeTemplateItem = async (
     }
   };
 
-  // Translate titles (for search/display)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -248,7 +230,6 @@ const removeTemplateItem = async (
     return () => { cancelled = true; };
   }, [recommendations, i18n.language]);
 
-  // Library filtering (using helper)
   useEffect(() => {
     const filtered = filterInterventions(recommendations, {
       patientTypeFilter,
@@ -260,7 +241,6 @@ const removeTemplateItem = async (
     setFilteredInterventions(filtered);
   }, [recommendations, patientTypeFilter, contentTypeFilter, tagFilter, benefitForFilter, searchTerm]);
 
-  // Templates: “Browse All” filtering (using the same helper)
   useEffect(() => {
     const filtered = filterInterventions(recommendations, {
       patientTypeFilter: tPatientTypeFilter,
@@ -272,7 +252,6 @@ const removeTemplateItem = async (
     setTemplateFilteredAll(filtered);
   }, [recommendations, tPatientTypeFilter, tContentTypeFilter, tTagFilter, tBenefitForFilter, tSearchTerm]);
 
-  // Fetch template plan (by diagnosis & horizon)
   const fetchTemplates = async (diag?: string, horizon?: number) => {
     try {
       setTLoading(true);
@@ -295,21 +274,18 @@ const removeTemplateItem = async (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab, templateDiag, templateHorizon]);
 
-  // Open modify modal prefilled for a template item
   const openModifyTemplate = (it: TemplateItem) => {
     setAssignMode('modify');
     setAssignInterventionId(it.intervention._id);
-    setTemplateDiag(it.diagnosis); // preselect diagnosis
+    setTemplateDiag(it.diagnosis);
     setAssignOpen(true);
   };
 
-  // Product popup state
   const [selectedItem, setSelectedItem] = useState<InterventionTypeTh | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const handleItemClick = (item: InterventionTypeTh) => { setSelectedItem(item); setShowPopup(true); };
   const handleClosePopup = () => { setSelectedItem(null); setShowPopup(false); };
 
-  // Add new intervention (catalog manage)
   const [showPopupAdd, setShowPopupAdd] = useState(false);
   const handleOpenAdd = () => setShowPopupAdd(true);
   const handleCloseAdd = () => setShowPopupAdd(false);
@@ -320,11 +296,9 @@ const removeTemplateItem = async (
     setContentTypeFilter('');
     setTagFilter([]);
     setBenefitForFilter([]);
+    setFrequencyFilter('');
   };
 
-  const fmtDays = (arr?: string[]) => (arr && arr.length ? arr.join(', ') : '');
-
-  // Find if an intervention is already in template (respect selected diagnosis if set)
   const findTemplateFor = (intId: string): TemplateItem | undefined => {
     if (templateDiag) {
       return templateItems.find(
@@ -333,48 +307,40 @@ const removeTemplateItem = async (
     }
     return templateItems.find((it) => it.intervention._id === intId);
   };
-  // TherapistRecomendations.tsx (add below the existing “Translate titles (for search/display)” effect)
 
-useEffect(() => {
-  // collect template intervention IDs that aren't translated yet
-  const missing = (templateItems || [])
-    .map(it => it?.intervention?._id)
-    .filter(Boolean)
-    .filter(id => !translatedTitles[id as string]) as string[];
+  useEffect(() => {
+    const missing = (templateItems || [])
+      .map(it => it?.intervention?._id)
+      .filter(Boolean)
+      .filter(id => !translatedTitles[id as string]) as string[];
 
-  if (!missing.length) return;
+    if (!missing.length) return;
 
-  let cancelled = false;
-  (async () => {
-    const pairs = await Promise.all(
-      missing.map(async (id) => {
-        const it = templateItems.find(x => x.intervention._id === id)!;
-        try {
-          const { translatedText, detectedSourceLanguage } =
-            await translateText(it.intervention.title, (i18n.language || 'en').slice(0,2));
-          return [id, { title: translatedText, lang: detectedSourceLanguage }] as const;
-        } catch {
-          return [id, { title: it.intervention.title, lang: null }] as const;
-        }
-      })
-    );
-    if (!cancelled) {
-      setTranslatedTitles(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
-    }
-  })();
-  return () => { cancelled = true; };
-}, [templateItems, i18n.language, translatedTitles]);
+    let cancelled = false;
+    (async () => {
+      const pairs = await Promise.all(
+        missing.map(async (id) => {
+          const it = templateItems.find(x => x.intervention._id === id)!;
+          try {
+            const { translatedText, detectedSourceLanguage } =
+              await translateText(it.intervention.title, (i18n.language || 'en').slice(0,2));
+            return [id, { title: translatedText, lang: detectedSourceLanguage }] as const;
+          } catch {
+            return [id, { title: it.intervention.title, lang: null }] as const;
+          }
+        })
+      );
+      if (!cancelled) {
+        setTranslatedTitles(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [templateItems, i18n.language, translatedTitles]);
 
-
-  // 🔧 NEW: open template item using the full catalog record
   const handleTemplateItemClick = (it: TemplateItem) => {
     const full = recommendations.find(r => r._id === it.intervention._id);
-    if (full) {
-      handleItemClick(full);
-    } else {
-      // Fallback: show a gentle error instead of crashing ProductPopup
-      setError(t('Full details for this intervention are not loaded yet. Please refresh the page.'));
-    }
+    if (full) handleItemClick(full);
+    else setError(t('Full details for this intervention are not loaded yet. Please refresh the page.'));
   };
 
   return (
@@ -384,9 +350,7 @@ useEffect(() => {
         <WelcomeArea user="TherapistPatients" />
 
         <Row>
-          <Col>
-            {error && <ErrorAlert message={error} onClose={() => setError('')} />}
-          </Col>
+          <Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col>
         </Row>
 
         <Row className="mb-3">
@@ -397,14 +361,9 @@ useEffect(() => {
           </Col>
         </Row>
 
-        {/* Top-level tabs */}
         <Row className="mb-3">
           <Col>
-            <Nav
-              variant="tabs"
-              activeKey={mainTab}
-              onSelect={(k) => setMainTab((k as MainTab) || 'library')}
-            >
+            <Nav variant="tabs" activeKey={mainTab} onSelect={(k) => setMainTab((k as MainTab) || 'library')}>
               <Nav.Item><Nav.Link eventKey="library">{t('Interventions')}</Nav.Link></Nav.Item>
               <Nav.Item><Nav.Link eventKey="templates">{t('Your Templates')}</Nav.Link></Nav.Item>
             </Nav>
@@ -413,7 +372,6 @@ useEffect(() => {
 
         {mainTab === 'library' ? (
           <>
-            {/* Filters */}
             <Row className="mb-4">
               <Col xs={12}>
                 <Card className="mb-3">
@@ -430,14 +388,15 @@ useEffect(() => {
                         </Form.Group>
                       </Col>
                     </Row>
+
                     <Row className="mb-3">
                       <Col>
                         <Form.Select
                           value={patientTypeFilter}
                           onChange={(e) => setPatientTypeFilter(e.target.value)}
                         >
-                          <option value="">{t('Filter by Patient Type')}</option>
-                          {diagnoses.map((type: string) => (
+                          <option value="">{t('All Patient Types')}</option>
+                          {patientTypes.map((type: string) => (
                             <option key={type} value={type}>{t(type)}</option>
                           ))}
                         </Form.Select>
@@ -454,12 +413,13 @@ useEffect(() => {
                         </Form.Select>
                       </Col>
                     </Row>
+
                     <Row className="mb-3">
                       <Col>
                         <Select
                           isMulti
                           options={config.RecomendationInfo.tags.map((tag) => ({ value: tag, label: t(tag) }))}
-                          value={tagFilter.map((tag) => ({ value: tag, label: tag }))}
+                          value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
                           onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
                           placeholder={t('Filter by Tags')}
                         />
@@ -468,12 +428,13 @@ useEffect(() => {
                         <Select
                           isMulti
                           options={config.RecomendationInfo.benefits.map((b) => ({ value: b, label: t(b) }))}
-                          value={benefitForFilter.map((b) => ({ value: b, label: b }))}
+                          value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
                           onChange={(opts) => setBenefitForFilter(opts.map((opt) => opt.value))}
                           placeholder={t('Filter by Benefit')}
                         />
                       </Col>
                     </Row>
+
                     <Row>
                       <Col>
                         <Button variant="outline-secondary" size="sm" onClick={resetAllFilters}>
@@ -484,9 +445,10 @@ useEffect(() => {
                   </Card.Body>
                 </Card>
               </Col>
+           
+
             </Row>
 
-            {/* List */}
             <Row>
               <Col xs={12}>
                 <InterventionList
@@ -500,25 +462,21 @@ useEffect(() => {
             </Row>
           </>
         ) : (
-          // ───────────────────────── Templates view ─────────────────────────
           <Row className="g-3">
-            {/* LEFT: filters + items */}
             <Col xs={12} md={4}>
               <Card className="mb-3">
                 <Card.Header>{t('Template filters')}</Card.Header>
                 <Card.Body>
                   <Form.Group className="mb-2">
                     <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-                    <Form.Select
-                      value={templateDiag}
-                      onChange={(e) => setTemplateDiag(e.target.value)}
-                    >
+                    <Form.Select value={templateDiag} onChange={(e) => setTemplateDiag(e.target.value)}>
                       <option value="">{t('All')}</option>
                       {diagnoses.map((d) => (
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
+
                   <Form.Group>
                     <Form.Label>{t('Horizon (days)')}</Form.Label>
                     <Form.Control
@@ -532,7 +490,6 @@ useEffect(() => {
                 </Card.Body>
               </Card>
 
-              {/* Sub-tab: My Template | Browse All */}
               <Card>
                 <Card.Header className="d-flex align-items-center justify-content-between">
                   <div>{t('Content')}</div>
@@ -546,7 +503,6 @@ useEffect(() => {
                   </Nav>
                 </Card.Header>
 
-                {/* My Template list */}
                 {templateLeftTab === 'my' && (
                   <Card.Body style={{ maxHeight: 480, overflowY: 'auto' }}>
                     {tLoading && <div className="text-muted">{t('Loading...')}</div>}
@@ -554,75 +510,61 @@ useEffect(() => {
                       <div className="text-muted">{t('No template items')}</div>
                     )}
 
-                    {templateItems.map((it, idx) => {
-                      const segments =
-                        (Array.isArray((it as any).segments) && (it as any).segments.length)
-                          ? (it as any).segments
-                          : [{ schedule: it.schedule, from_day: (it as any).from_day || 1, occurrences: it.occurrences }];
+                    {templateItems.map((it, idx) => (
+                      <div
+                        key={`${it.intervention._id}-${it.diagnosis}-${idx}`}
+                        className="d-flex justify-content-between align-items-start mb-2 p-2 border rounded"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleTemplateItemClick(it)}
+                        title={t('Click to view details')}
+                      >
+                        <div>
+                          <div className="fw-semibold">
+                            {translatedTitles[it.intervention._id]?.title || it.intervention.title}
+                            {translatedTitles[it.intervention._id]?.lang && (
+                              <span className="text-muted ms-2 small">
+                                ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
+                              </span>
+                            )}
+                          </div>
 
-                      return (
-                        <div
-                          key={`${it.intervention._id}-${it.diagnosis}-${idx}`}
-                          className="d-flex justify-content-between align-items-start mb-2 p-2 border rounded"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => handleTemplateItemClick(it)}  // ← use full catalog record
-                          title={t('Click to view details')}
-                        >
+                          <div className="small text-muted">{t('For')}: {it.diagnosis}</div>
 
-<div>
-  <div className="fw-semibold">
-    {translatedTitles[it.intervention._id]?.title || it.intervention.title}
-    {translatedTitles[it.intervention._id]?.lang && (
-      <span className="text-muted ms-2 small">
-        ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
-      </span>
-    )}
-  </div>
-  <div className="small text-muted">{t('For')}: {it.diagnosis}</div>
-
-  <div className="small text-muted mt-1">
-    {getSegments(it).map((seg, i) => (
-      <div key={i}>
-        {segmentSummary(seg, it, t)}
-      </div>
-    ))}
-  </div>
-</div>
-
-
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <ButtonGroup size="sm" vertical>
-                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                <Button
-                                  variant="outline-secondary"
-                                  onClick={() => openModifyTemplate(it)}
-                                  title={t('Modify from a specific day onward')}
-                                >
-                                  <FaEdit />
-                                </Button>
-                              </OverlayTrigger>
-                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-<Button
-  variant="outline-danger"
-  onClick={() => removeTemplateItem(it.diagnosis, it.intervention._id)}
->
-  <FaMinus />
-</Button>
-
-
-                              </OverlayTrigger>
-                            </ButtonGroup>
+                          <div className="small text-muted mt-1">
+                            {getSegments(it).map((seg, i) => (
+                              <div key={i}>{segmentSummary(seg, it, t)}</div>
+                            ))}
                           </div>
                         </div>
-                      );
-                    })}
+
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ButtonGroup size="sm" vertical>
+                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
+                              <Button
+                                variant="outline-secondary"
+                                onClick={() => openModifyTemplate(it)}
+                                title={t('Modify from a specific day onward')}
+                              >
+                                <FaEdit />
+                              </Button>
+                            </OverlayTrigger>
+                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
+                              <Button
+                                variant="outline-danger"
+                                onClick={() => removeTemplateItem(it.diagnosis, it.intervention._id)}
+                              >
+                                <FaMinus />
+                              </Button>
+                            </OverlayTrigger>
+                          </ButtonGroup>
+                        </div>
+                      </div>
+                    ))}
                   </Card.Body>
                 )}
 
-                {/* Browse All (with updated filters + conditional Add/Modify/Delete) */}
                 {templateLeftTab === 'all' && (
                   <Card.Body className="mb-3">
-                    {/* Filters */}
                     <Row className="mb-3">
                       <Col>
                         <Form.Group controlId="tSearchInput">
@@ -635,14 +577,15 @@ useEffect(() => {
                         </Form.Group>
                       </Col>
                     </Row>
+
                     <Row className="mb-3">
                       <Col>
                         <Form.Select
                           value={tPatientTypeFilter}
                           onChange={(e) => setTPatientTypeFilter(e.target.value)}
                         >
-                          <option value="">{t('Filter by Patient Type')}</option>
-                          {diagnoses.map((type: string) => (
+                          <option value="">{t('All Patient Types')}</option>
+                          {patientTypes.map((type: string) => (
                             <option key={type} value={type}>{t(type)}</option>
                           ))}
                         </Form.Select>
@@ -659,12 +602,13 @@ useEffect(() => {
                         </Form.Select>
                       </Col>
                     </Row>
+
                     <Row className="mb-3">
                       <Col>
                         <Select
                           isMulti
                           options={config.RecomendationInfo.tags.map((tag) => ({ value: tag, label: t(tag) }))}
-                          value={tTagFilter.map((tag) => ({ value: tag, label: tag }))}
+                          value={tTagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
                           onChange={(opts) => setTTagFilter(opts.map((opt) => opt.value))}
                           placeholder={t('Filter by Tags')}
                         />
@@ -673,12 +617,13 @@ useEffect(() => {
                         <Select
                           isMulti
                           options={config.RecomendationInfo.benefits.map((b) => ({ value: b, label: t(b) }))}
-                          value={tBenefitForFilter.map((b) => ({ value: b, label: b }))}
+                          value={tBenefitForFilter.map((b) => ({ value: b, label: t(b) }))}
                           onChange={(opts) => setTBenefitForFilter(opts.map((opt) => opt.value))}
                           placeholder={t('Filter by Benefit')}
                         />
                       </Col>
                     </Row>
+
                     <Row>
                       <Col>
                         <Button variant="outline-secondary" size="sm" onClick={resetTemplateFilters}>
@@ -687,16 +632,14 @@ useEffect(() => {
                       </Col>
                     </Row>
 
-                    {/* List */}
                     <div style={{ maxHeight: 420, overflowY: 'auto' }} className="p-2">
                       {templateFilteredAll.length === 0 && (
                         <div className="text-muted px-2">{t('No interventions match your filters.')}</div>
                       )}
 
                       {templateFilteredAll.map((intervention) => {
-                        const displayTitle =
-                          translatedTitles[intervention._id]?.title ?? intervention.title;
-                        const entry = findTemplateFor(intervention._id); // ← already in template?
+                        const displayTitle = translatedTitles[intervention._id]?.title ?? intervention.title;
+                        const entry = findTemplateFor(intervention._id);
                         const inTemplate = !!entry;
 
                         return (
@@ -704,18 +647,11 @@ useEffect(() => {
                             key={intervention._id}
                             className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
                             style={{ cursor: 'pointer' }}
-                            onClick={() => handleItemClick(intervention)}
+                            onClick={() => setSelectedItem(intervention) || setShowPopup(true)}
                             title={t('Click to view details')}
                           >
                             <div className="me-2">
-                              <div className="fw-semibold">
-                                {displayTitle}
-                                {translatedTitles[intervention._id]?.lang && (
-                                  <span className="text-muted ms-2 small">
-                                    ({t('Translated from')}: {translatedTitles[intervention._id]?.lang})
-                                  </span>
-                                )}
-                              </div>
+                              <div className="fw-semibold">{displayTitle}</div>
                               {intervention.tags?.length > 0 && (
                                 <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
                                   {intervention.tags.map((tag) => (
@@ -723,7 +659,7 @@ useEffect(() => {
                                       key={tag}
                                       bg=""
                                       className="me-1"
-                                      style={{ backgroundColor: tagColors[tag] || 'gray' }}
+                                      style={{ backgroundColor: (tagColors as any)[tag] || 'gray' }}
                                     >
                                       {t(tag)}
                                     </Badge>
@@ -734,37 +670,22 @@ useEffect(() => {
 
                             <div onClick={(e) => e.stopPropagation()}>
                               {!inTemplate ? (
-                                <OverlayTrigger
-                                  placement="left"
-                                  overlay={<Tooltip>{t('Add this intervention to your template')}</Tooltip>}
-                                >
-                                  <Button
-                                    size="sm"
-                                    variant="outline-success"
-                                    onClick={() => openAssignToTemplate(intervention._id, 'create')}
-                                  >
+                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add this intervention to your template')}</Tooltip>}>
+                                  <Button size="sm" variant="outline-success" onClick={() => openAssignToTemplate(intervention._id, 'create')}>
                                     <FaPlus className="me-1" />
                                   </Button>
                                 </OverlayTrigger>
                               ) : (
                                 <ButtonGroup size="sm" vertical>
                                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                    <Button
-                                      variant="outline-secondary"
-                                      onClick={() => openModifyTemplate(entry)}
-                                      title={t('Modify from a specific day onward')}
-                                    >
+                                    <Button variant="outline-secondary" onClick={() => openModifyTemplate(entry!)}>
                                       <FaEdit />
                                     </Button>
                                   </OverlayTrigger>
                                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-<Button
-  variant="outline-danger"
-  onClick={() => removeTemplateItem(entry.diagnosis, intervention._id)}
->
-  <FaMinus />
-</Button>
-
+                                    <Button variant="outline-danger" onClick={() => removeTemplateItem(entry!.diagnosis, intervention._id)}>
+                                      <FaMinus />
+                                    </Button>
                                   </OverlayTrigger>
                                 </ButtonGroup>
                               )}
@@ -778,23 +699,21 @@ useEffect(() => {
               </Card>
             </Col>
 
-            {/* RIGHT: timeline */}
             <Col xs={12} md={8}>
-              // RIGHT: timeline
-<Card.Body className="min-vh-50" style={{ overflow: 'auto' }}>
-  <TemplateTimeline
-    items={templateItems}
-    horizonDays={templateHorizon}
-    translatedTitles={translatedTitles}   // 👈 NEW
-  />
-</Card.Body>
-
+              <Card className="h-100">
+                <Card.Body className="min-vh-50" style={{ overflow: 'auto' }}>
+                  <TemplateTimeline
+                    items={templateItems}
+                    horizonDays={templateHorizon}
+                    translatedTitles={translatedTitles}
+                  />
+                </Card.Body>
+              </Card>
             </Col>
           </Row>
         )}
       </Container>
 
-      {/* Product details popup */}
       {selectedItem && (
         <ProductPopup
           item={selectedItem}
@@ -804,10 +723,8 @@ useEffect(() => {
         />
       )}
 
-      {/* Add new intervention to catalog */}
       <AddInterventionPopup show={showPopupAdd} handleClose={handleCloseAdd} onSuccess={fetchLibrary} />
 
-      {/* Template assign scheduler */}
       {assignOpen && (
         <TemplateAssignModal
           show
@@ -823,6 +740,6 @@ useEffect(() => {
       <Footer />
     </div>
   );
-};
+});
 
 export default TherapistRecomendations;
