@@ -21,7 +21,8 @@ const SuccessPage = lazy(() => import('../pages/SuccessPage'));
 const ErrorPage = lazy(() => import('../pages/ErrorPage'));
 const HealthPage = lazy(() => import('../pages/HealthPage'));
 const HelpPage = lazy(() => import('../pages/Help'));
-
+const Eva = lazy(() => import('../pages/eva2'));
+const HealthSliderDownloadsPage = lazy(() => import('../pages/HealthSliderDownloadsPage'));
 import RootLayout from '../RootLayout';
 
 // -------------------- Loading Fallback --------------------
@@ -177,6 +178,14 @@ export const router = createBrowserRouter([
     path: '/help',
     element: createElement(HelpPage),
   },
+  {
+    path: '/eva2',
+    element: createElement(Eva),
+  },
+  {
+    path: '/healthslider-downloads',
+    element: createElement(HealthSliderDownloadsPage),
+  }
 ]);
 
 export function Router() {

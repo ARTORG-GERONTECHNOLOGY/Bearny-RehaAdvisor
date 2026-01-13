@@ -132,7 +132,15 @@ const HealthPage: React.FC = () => {
         );
 
         // Fitbit data now lives in `data`
-        setFitbitData(res.data.fitbit || []);
+        const normalizedFitbit = (res.data.fitbit || []).map((d: any) => ({
+  ...d,
+  exercise: Array.isArray(d.exercise)
+    ? { sessions: d.exercise }
+    : d.exercise,
+}));
+
+setFitbitData(normalizedFitbit);
+
         setQuestionnaireData(res.data.questionnaire || []);
         setAdherenceData(res.data.adherence || []);
       } catch {

@@ -1,4 +1,5 @@
 // src/components/HomePage/AddInterventionPopup.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Button, Col, Form, Modal, Row } from 'react-bootstrap';
 import { FaPlus } from 'react-icons/fa';
@@ -35,7 +36,7 @@ const defaultFormData = {
   title: '',
   description: '',
   duration: 0,
-  contentType: 'Article',
+  contentType: '',
   link: '',
   benefitFor: [] as string[],
   isPrivate: false,
@@ -127,7 +128,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
     setFormData((prev) => ({ ...prev, patientTypes: updated }));
 
-    // Remove field-specific errors
     const key = `patientTypes.${index}.${field}`;
     setErrors((prev) => {
       const next = { ...prev };
@@ -213,7 +213,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     if (!f.contentType) e.contentType = t('Content type is required');
     if (!f.previewImage) e.previewImage = t('Preview image is required');
 
-    // Link validation
     if (f.link && f.link.trim()) {
       try {
         const url = new URL(f.link.trim());
@@ -226,11 +225,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
 
     if (f.isPrivate) {
-      if (!f.patientId) e.patientId = t('Please select a patient for a private intervention');
+      if (!f.patientId) e.patientId = t('Please select a patient');
     } else {
       f.patientTypes.forEach((pt, idx) => {
         if (!pt.type) e[`patientTypes.${idx}.type`] = t('Patient type is required');
-        if (!pt.diagnosis) e[`patientTypes.${idx}.diagnosis`] = t('Diagnosis (or All) is required');
+        if (!pt.diagnosis) e[`patientTypes.${idx}.diagnosis`] = t('Diagnosis is required');
         if (!pt.frequency) e[`patientTypes.${idx}.frequency`] = t('Frequency is required');
       });
     }
@@ -238,37 +237,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     return { valid: Object.keys(e).length === 0, errors: e };
   };
 
-  /* ---------------- HUMANIZE FIELD NAMES ---------------- */
-  const humanizeField = (key: string) => {
-    if (key.startsWith('patientTypes.')) {
-      const [, idx, field] = key.split('.');
-      const map: Record<string, string> = {
-        type: t('Patient Type'),
-        diagnosis: t('Diagnosis'),
-        frequency: t('Frequency'),
-      };
-      return `${t('Patient Type')} #${Number(idx) + 1} – ${map[field] || field}`;
-    }
-
-    const map: Record<string, string> = {
-      title: t('Title'),
-      description: t('Description'),
-      duration: t('Duration'),
-      contentType: t('Content Type'),
-      patientId: t('Patient'),
-      previewImage: t('Preview Image'),
-      link: t('Link'),
-      media_file: t('Uploaded File'),
-      img_file: t('Preview Image'),
-    };
-
-    return map[key] || key;
-  };
-
   /* ---------------- BACKEND ERROR HANDLER ---------------- */
   const applyBackendErrors = (data: any) => {
-    console.log("🔥 applyBackendErrors INPUT:", data);
-
     if (!data) return;
 
     const fieldErrors: ErrorMap = {};
@@ -316,27 +286,22 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
       const payload = new FormData();
 
-      // Basic fields
       payload.append('title', formData.title);
       payload.append('description', formData.description);
       payload.append('duration', String(formData.duration));
       payload.append('contentType', formData.contentType);
       payload.append('link', formData.link || '');
 
-      // Multi fields
       payload.append('tagList', JSON.stringify(formData.tagList));
       payload.append('benefitFor', JSON.stringify(formData.benefitFor));
 
-      // Private toggle
       payload.append('isPrivate', String(formData.isPrivate));
       if (formData.isPrivate) {
         payload.append('patientId', formData.patientId);
       }
 
-      // Patient types (JSON)
       payload.append('patientTypes', JSON.stringify(formData.patientTypes));
 
-      // Files (MUST MATCH BACKEND)
       if (formData.mediaFile) {
         payload.append('media_file', formData.mediaFile);
       }
@@ -344,7 +309,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         payload.append('img_file', formData.previewImage);
       }
 
-      const res = await apiClient.post('interventions/add/', payload);
+      const res = await apiClient.post('/interventions/add/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       if (res.status === 201) {
         setSuccess(true);
@@ -355,17 +322,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
         return;
       }
 
-      console.log('❗ Non-201 Response:', res.data);
       applyBackendErrors(res.data);
-
     } catch (err: any) {
       if (axios.isAxiosError(err)) {
-        console.log('❗ Caught Axios error:', err.response?.data);
         applyBackendErrors(err.response?.data);
         return;
       }
-
-      console.log('❗ Non-Axios error:', err);
       setError(t('An unexpected error occurred. Please try again.'));
     } finally {
       setSubmitting(false);
@@ -379,7 +341,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
   const fe = (key: string) => errors[key];
 
-  /* ---------------- UI ---------------- */
   return (
     <Modal show={show} onHide={handleModalClose} centered size="lg" backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
@@ -387,7 +348,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
       </Modal.Header>
 
       <Modal.Body>
-        {/* ERROR BANNER */}
         {error && (
           <Alert variant="danger" className="mb-3">
             <div className="d-flex justify-content-between align-items-center">
@@ -402,7 +362,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                 <ul className="mb-0">
                   {Object.entries(errors).map(([field, msg]) => (
                     <li key={field}>
-                      <strong>{humanizeField(field)}:</strong> {msg}
+                      <strong>{field}</strong>: {msg}
                     </li>
                   ))}
                 </ul>
@@ -411,7 +371,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
           </Alert>
         )}
 
-        {/* SUCCESS */}
         {success && (
           <Alert variant="success" className="mb-3">
             {t('Intervention successfully added')}
@@ -519,9 +478,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                 type="file"
                 accept="image/*,video/*,audio/*,application/pdf"
                 onChange={handleFileChange('mediaFile')}
-                isInvalid={!!fe('media_file')}
               />
-              <Form.Control.Feedback type="invalid">{fe('media_file')}</Form.Control.Feedback>
             </Form.Group>
 
             {/* Preview Image */}
@@ -531,27 +488,23 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange('previewImage')}
-                isInvalid={!!fe('img_file') || !!fe('previewImage')}
+                isInvalid={!!fe('previewImage')}
                 required
               />
-              <Form.Control.Feedback type="invalid">
-                {fe('img_file') || fe('previewImage')}
-              </Form.Control.Feedback>
+              <Form.Control.Feedback type="invalid">{fe('previewImage')}</Form.Control.Feedback>
             </Form.Group>
 
             {/* Private toggle */}
-            <Form.Group controlId="isPrivate" className="mt-3">
+            <Form.Group controlId="isPrivate" className="mt-4">
               <Form.Check
                 type="checkbox"
-                label={t(
-                  'Make this a private intervention (only visible to the assigned patient)'
-                )}
+                label={t('Make this a private intervention (only visible to the assigned patient)')}
                 checked={formData.isPrivate}
                 onChange={handleChange}
               />
             </Form.Group>
 
-            {/* Assign Patient (If private) */}
+            {/* Assign Patient (Private) */}
             {formData.isPrivate && (
               <Form.Group controlId="patientId" className="mt-3">
                 <Form.Label>{t('Assign to Patient')}</Form.Label>
@@ -572,13 +525,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
               </Form.Group>
             )}
 
-            {/* Patient Types */}
+            {/* Public Patient Types */}
             {!formData.isPrivate && (
               <>
                 <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
 
                 {formData.patientTypes.map((pt, idx) => (
                   <Row key={idx} className="mb-3">
+                    {/* Type */}
                     <Col md={4}>
                       <Form.Group>
                         <Form.Label>{t('PatientType')}</Form.Label>
@@ -603,6 +557,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                       </Form.Group>
                     </Col>
 
+                    {/* Diagnosis */}
                     <Col md={4}>
                       <Form.Group>
                         <Form.Label>{t('Diagnosis')}</Form.Label>
@@ -628,6 +583,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                       </Form.Group>
                     </Col>
 
+                    {/* Frequency */}
                     <Col md={4}>
                       <Form.Group>
                         <Form.Label>{t('RecomendationFrequency')}</Form.Label>
@@ -662,7 +618,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
           </fieldset>
 
           {!success && (
-            <Button variant="primary" type="submit" className="mt-4 w-100" disabled={submitting}>
+            <Button variant="primary" type="submit" className="mt-4 w-100">
               {submitting ? t('Submitting...') : t('Submit')}
             </Button>
           )}

@@ -1,30 +1,31 @@
 import { makeAutoObservable } from 'mobx';
 import apiClient from '../api/client';
-import { AuthPayload } from '../types/index'; // keep your existing type
 
 class AuthStore {
-  // --- User/Auth state ---
+  // ───────────────────────────
+  // Auth state
+  // ───────────────────────────
   email = '';
   password = '';
   isAuthenticated = false;
   loginErrorMessage = '';
   userType = '';
   id = '';
-  fullName = '';
-  specialisation = '';
 
-  // For therapists requiring 2FA:
-  partialLogin = false;   // <--- NEW FLAG
+  // User profile (display + logic)
+  firstName = '';
+  specialisations: string[] = [];
 
-  // --- Session / inactivity ---
+  // 2FA
+  partialLogin = false;
+
+  // Session handling
   sessionTimeout = 5 * 60 * 1000; // 5 minutes
-
   private _resetTimer?: () => void;
   private _timeoutId?: ReturnType<typeof setTimeout>;
 
-  // localStorage keys (scoped constants)
-  private readonly LAST_ACTIVITY_KEY = 'lastActivity'; // ms epoch
-  private readonly EXPIRES_AT_KEY   = 'expiresAt';     // ms epoch
+  private readonly LAST_ACTIVITY_KEY = 'lastActivity';
+  private readonly EXPIRES_AT_KEY = 'expiresAt';
 
   onLogoutCallback: (() => void) | null = null;
 
@@ -32,7 +33,7 @@ class AuthStore {
     makeAutoObservable(this);
     this.checkAuthentication();
 
-    // Keep multiple tabs in sync: when another tab extends expiration, re-arm here.
+    // Sync logout across tabs
     window.addEventListener('storage', (e) => {
       if (e.key === this.EXPIRES_AT_KEY) {
         this._armTimeoutFromStorage();
@@ -40,25 +41,86 @@ class AuthStore {
     });
   }
 
-  // ----------------------------
+  // ───────────────────────────
   // Setters
-  // ----------------------------
+  // ───────────────────────────
   setEmail = (email: string) => (this.email = email);
   setPassword = (password: string) => (this.password = password);
   setUserType = (userType: string) => (this.userType = userType);
   setId = (id: string) => (this.id = id);
-  setFullName = (name: string) => (this.fullName = name);
-  setSpecialisation = (spec: string) => (this.specialisation = spec);
   setAuthenticated = (val: boolean) => (this.isAuthenticated = val);
   setLoginError = (msg: string) => (this.loginErrorMessage = msg);
+
+  setFirstName = (name: string) => {
+    this.firstName = name;
+    localStorage.setItem('firstName', name);
+  };
+
+  setSpecialisations = (specs: string[]) => {
+    this.specialisations = specs;
+    localStorage.setItem('specialisations', specs.join(','));
+  };
 
   setOnLogoutCallback(callback: () => void) {
     this.onLogoutCallback = callback;
   }
 
-  // ----------------------------
-  // Auth methods
-  // ----------------------------
+  // ───────────────────────────
+  // 🔥 Fetch profile from backend
+  // ───────────────────────────
+  async fetchAndStoreUserInfo(userId?: string) {
+    const id = userId || this.id || localStorage.getItem('id');
+    if (!id) return;
+
+    try {
+      const res = await apiClient.get(`/auth/get-user-info/${id}/`);
+      const data = res.data || {};
+
+      // Name
+      if (data.first_name) {
+        this.setFirstName(data.first_name);
+      }
+
+      // ✅ CORRECT HANDLING of backend payload:
+      // "specialisation": ["Cardiology", "Neurology"]
+      if (Array.isArray(data.specialisation)) {
+        this.setSpecialisations(
+          data.specialisation.map((s: string) => s.trim()).filter(Boolean)
+        );
+        return;
+      }
+
+      // "specialisation": "Cardiology,Neurology"
+      if (typeof data.specialisation === 'string') {
+        this.setSpecialisations(
+          data.specialisation.map((s: string) => s.trim()).filter(Boolean)
+        );
+        return;
+      }
+
+      // Optional future-proofing
+      if (Array.isArray(data.specialisations)) {
+        this.setSpecialisations(
+          data.specialisations.map((s: string) => s.trim()).filter(Boolean)
+        );
+        return;
+      }
+
+      if (typeof data.specialisations === 'string') {
+        this.setSpecialisations(
+          data.specialisationsmap((s: string) => s.trim()).filter(Boolean)
+        );
+        return;
+      }
+
+    } catch (err) {
+      console.warn('Failed to fetch user info:', err);
+    }
+  }
+
+  // ───────────────────────────
+  // Login
+  // ───────────────────────────
   async loginWithHttp() {
     try {
       const res = await apiClient.post('/auth/login/', {
@@ -68,106 +130,101 @@ class AuthStore {
 
       const data = res.data;
 
-      this.userType  = data.user_type;
-      this.id        = data.id;
+      this.userType = data.user_type;
+      this.id = data.id;
 
-      // ----------------------------
-      // THERAPIST = REQUIRE 2FA
-      // ----------------------------
+      // Persist minimal data early
+      localStorage.setItem('userType', this.userType);
+      localStorage.setItem('id', this.id);
+
+      // 2FA path (therapists)
       if (data.require_2fa) {
-        this.partialLogin = true;           // <--- Activate 2FA UI
-        this.setAuthenticated(false);       // ensure NOT authenticated yet
+        this.partialLogin = true;
+        this.isAuthenticated = false;
         return;
       }
 
-      // ----------------------------
-      // PATIENT / ADMIN = FULL LOGIN
-      // ----------------------------
+      // Normal login
       this.setTokens(data.access_token, data.refresh_token);
-      this.setAuthenticated(true);
+      this.isAuthenticated = true;
       this.partialLogin = false;
       this.startInactivityTimer();
-      
+
+      // 🔥 Fetch profile AFTER tokens exist
+      await this.fetchAndStoreUserInfo(this.id);
+
     } catch (err: any) {
       this.setLoginError(err.response?.data?.error || 'Login failed');
     }
   }
 
-  // Called from LoginForm after 2FA success
-  complete2FA(accessToken: string, refreshToken: string) {
+  // Called after successful 2FA verification
+  async complete2FA(accessToken: string, refreshToken: string) {
     this.partialLogin = false;
     this.setTokens(accessToken, refreshToken);
-    this.setAuthenticated(true);
+    this.isAuthenticated = true;
     this.startInactivityTimer();
+
+    // 🔥 Fetch profile here too
+    await this.fetchAndStoreUserInfo(this.id);
   }
 
+  // ───────────────────────────
+  // Logout
+  // ───────────────────────────
   logout = async () => {
-    const userIdToSend = this.id;
+    const userId = localStorage.getItem('id') || this.id;
 
     try {
-      await apiClient.post('/auth/logout/', { userId: userIdToSend });
+      if (userId) {
+        await apiClient.post('/auth/logout/', { userId });
+      }
     } catch {
       this.setLoginError('Logout logging failed.');
     }
 
     this.reset();
-    this.clearStorage();
+
+    const lang = localStorage.getItem('i18nextLng');
+    localStorage.clear();
+    if (lang) localStorage.setItem('i18nextLng', lang);
+
     this.removeInactivityListeners();
 
-    if (this.onLogoutCallback) {
-      this.onLogoutCallback();
-    }
+    if (this.onLogoutCallback) this.onLogoutCallback();
   };
 
-  deleteUser() {
-    this.reset();
-    this.clearStorage();
-  }
-
-  reset() {
-    this.email = '';
-    this.password = '';
-    this.loginErrorMessage = '';
-    this.isAuthenticated = false;
-    this.userType = '';
-    this.id = '';
-    this.fullName = '';
-    this.specialisation = '';
-    this.partialLogin = false;
-  }
-
-  // ----------------------------
-  // Session / inactivity
-  // ----------------------------
+  // ───────────────────────────
+  // Session restore
+  // ───────────────────────────
   checkAuthentication(callback?: () => void) {
-    const accessToken = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken');
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
 
-    // Not authenticated
-    if (!accessToken || !expiresAt) {
+    if (!token || !expiresAt || Date.now() >= expiresAt) {
       this.reset();
       this.clearStorage();
       callback?.();
       return;
     }
 
-    // Session expired
-    if (Date.now() >= expiresAt) {
-      this.reset();
-      this.clearStorage();
-      this.removeInactivityListeners();
-      callback?.();
-      return;
-    }
+    this.isAuthenticated = true;
+    this.userType = localStorage.getItem('userType') || '';
+    this.id = localStorage.getItem('id') || '';
+    this.firstName = localStorage.getItem('firstName') || '';
 
-    // Valid session -> restore user data
-    this.restoreSession();
-    this.setAuthenticated(true);
+    const specs = localStorage.getItem('specialisations');
+    this.specialisations = specs
+      ? specs.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+
     this.startInactivityTimer();
   }
 
-
+  // ───────────────────────────
+  // Inactivity handling
+  // ───────────────────────────
   startInactivityTimer() {
     this.removeInactivityListeners();
 
@@ -178,23 +235,26 @@ class AuthStore {
 
     this._resetTimer = resetTimer;
 
-    const events: (keyof WindowEventMap)[] = [
+    [
       'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart',
       'wheel', 'focus', 'visibilitychange', 'click',
-    ];
-    events.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+    ].forEach((evt) =>
+      window.addEventListener(evt as any, resetTimer, { passive: true })
+    );
 
-    resetTimer(); // initial setup
+    resetTimer();
   }
 
   removeInactivityListeners() {
     if (this._resetTimer) {
-      const events: (keyof WindowEventMap)[] = [
+      [
         'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart',
         'wheel', 'focus', 'visibilitychange', 'click',
-      ];
-      events.forEach((evt) => window.removeEventListener(evt, this._resetTimer!));
+      ].forEach((evt) =>
+        window.removeEventListener(evt as any, this._resetTimer!)
+      );
     }
+
     if (this._timeoutId) {
       clearTimeout(this._timeoutId);
       this._timeoutId = undefined;
@@ -214,45 +274,38 @@ class AuthStore {
 
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
-
     const msRemaining = Math.max(0, expiresAt - Date.now());
+
     this._timeoutId = setTimeout(() => this.logout(), msRemaining);
   }
 
-  // ----------------------------
+  // ───────────────────────────
   // Storage helpers
-  // ----------------------------
+  // ───────────────────────────
   setTokens(access: string, refresh: string) {
     localStorage.setItem('authToken', access);
     localStorage.setItem('refreshToken', refresh);
     localStorage.setItem('userType', this.userType);
     localStorage.setItem('id', this.id);
-    localStorage.setItem('fullName', this.fullName);
-    localStorage.setItem('specialisation', this.specialisation);
-
     this._markActivity();
   }
 
-  restoreSession() {
-    this.userType       = localStorage.getItem('userType') || '';
-    this.id             = localStorage.getItem('id') || '';
-    this.fullName       = localStorage.getItem('fullName') || '';
-    this.specialisation = localStorage.getItem('specialisation') || '';
+  clearStorage() {
+    const lang = localStorage.getItem('i18nextLng');
+    localStorage.clear();
+    if (lang) localStorage.setItem('i18nextLng', lang);
   }
 
-  clearStorage() {
-    const keys = [
-      'authToken',
-      'refreshToken',
-      'userType',
-      'id',
-      'fullName',
-      'specialisation',
-      this.LAST_ACTIVITY_KEY,
-      this.EXPIRES_AT_KEY,
-      'sessionStart',
-    ];
-    keys.forEach((k) => localStorage.removeItem(k));
+  reset() {
+    this.email = '';
+    this.password = '';
+    this.loginErrorMessage = '';
+    this.isAuthenticated = false;
+    this.userType = '';
+    this.id = '';
+    this.firstName = '';
+    this.specialisations = [];
+    this.partialLogin = false;
   }
 }
 

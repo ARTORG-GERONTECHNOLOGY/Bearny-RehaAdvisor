@@ -24,16 +24,16 @@ const REAL_QUESTIONS = [
   'Psychische Energie und Antrieb',
   'Schmerzen',
   'Ausführen von Aufgaben in Haushalt und Beruf, Freizeit und Erholung',
-  'Unterstützung und Verhalten von professionellen Personen',
+  'Unterstützung durch private und professionelle Personen',
   'Anderen helfen',
-  'Verwendung von Medikamenten und anderen Produkten und Substanzen für Gesundheit',
-  'Verwendung von Technologien und Hilfsmittel',
-  'Versorgung durch das Gesundheitswesen',
+  'Verwendung von Produkten und Substanzen für die Gesundheit und individuellen Bedarf',
+  'Verwendung von Technologien, digitalen Produkten und Hilfsmittel',
+  'Versorgung durch das Gesundheitswesen und Verhalten von professionellen Personen und Fachkräften',
   'Zugang zu privaten oder öffentlichen Gebäuden',
-  'Einflüsse von Umwelt und Klima',
+  'Einflüsse von Umwelt und Klima auf körperliche und psychische Gesundheit',
   'Auf Gesundheit achten',
 ];
-const VERSION = 'Version 3.1, 07.11.2025';
+const VERSION = 'Version 7, 05.12.2025';
 
 /** ====== COMPONENT ====== */
 export default function HealthSlider() {
