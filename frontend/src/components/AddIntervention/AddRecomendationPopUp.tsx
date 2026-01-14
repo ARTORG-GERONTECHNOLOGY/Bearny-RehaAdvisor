@@ -7,7 +7,6 @@ import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import axios from 'axios';
 import Select from 'react-select';
-import InfoBubble from '../common/InfoBubble';
 import { t } from 'i18next';
 
 interface AddInterventionPopupProps {
@@ -49,6 +48,25 @@ const defaultFormData = {
 
 type ErrorMap = Record<string, string>;
 
+// -------------------- HELPERS --------------------
+const cleanStr = (v: any) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
+
+const isPatientTypeRowComplete = (pt: PatientType) =>
+  !!cleanStr(pt.type) && !!cleanStr(pt.diagnosis) && !!cleanStr(pt.frequency);
+
+const sanitizePatientTypes = (pts: PatientType[]) =>
+  (pts || [])
+    .map((pt) => ({
+      ...pt,
+      type: cleanStr(pt.type),
+      diagnosis: cleanStr(pt.diagnosis),
+      frequency: cleanStr(pt.frequency),
+    }))
+    .filter((pt) => isPatientTypeRowComplete(pt));
+
+// used to show per-row validation message
+const patientTypeRowKey = (idx: number, field: keyof PatientType) => `patientTypes.${idx}.${field}`;
+
 const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   show,
   handleClose,
@@ -59,8 +77,16 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   const [errors, setErrors] = useState<ErrorMap>({});
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
   const [therapistPatients, setTherapistPatients] = useState<{ id: string; name: string }[]>([]);
+  const [patientsLoaded, setPatientsLoaded] = useState(false);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientsLoadError, setPatientsLoadError] = useState<string>('');
+
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  // ✅ control fetching: only retrieve when checkbox is ON
+  const [privateCheckedOnce, setPrivateCheckedOnce] = useState(false);
 
   const tagOptions = useMemo(
     () =>
@@ -85,24 +111,57 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
   const getDiagnosesForSpecialization = (specialization: string) =>
     config?.patientInfo?.function?.[specialization]?.diagnosis || [];
 
-  useEffect(() => {
-    const fetchTherapistPatients = async () => {
-      try {
-        const therapistId = localStorage.getItem('id');
-        const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
-        const patientOptions = data.map((p: any) => ({
-          id: p._id,
-          name: `${p.first_name || ''} ${p.name || ''}`.trim(),
-        }));
-        setTherapistPatients(patientOptions);
-      } catch (err) {
-        console.error('Failed to fetch patients:', err);
-      }
-    };
+  // -------------------- FETCH PATIENTS (ONLY WHEN CHECKBOX ENABLED) --------------------
+  const fetchTherapistPatients = async () => {
+    if (patientsLoading) return;
+    setPatientsLoading(true);
+    setPatientsLoadError('');
 
-    if (formData.isPrivate) fetchTherapistPatients();
+    try {
+      const therapistId = localStorage.getItem('id');
+      if (!therapistId) {
+        setPatientsLoadError(t('Missing therapist id.'));
+        setTherapistPatients([]);
+        setPatientsLoaded(false);
+        return;
+      }
+
+      const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
+
+      // backend returns: { success: true, data: [...] }
+      const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+
+      const patientOptions = arr.map((p: any) => ({
+        id: p._id, // ✅ use _id, not patient_code
+        name: `${p.first_name || ''} ${p.name || ''}`.trim() || p._id,
+      }));
+
+      setTherapistPatients(patientOptions);
+      setPatientsLoaded(true);
+    } catch (err) {
+      console.error('Failed to fetch patients:', err);
+      setPatientsLoadError(t('Failed to fetch patients.'));
+      setTherapistPatients([]);
+      setPatientsLoaded(false);
+    } finally {
+      setPatientsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // ✅ Only retrieve when using the checkbox (when it becomes true)
+    if (!formData.isPrivate) return;
+
+    setPrivateCheckedOnce(true);
+
+    // fetch only once per open session, unless you want to force refresh
+    if (!patientsLoaded && !patientsLoading) {
+      fetchTherapistPatients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.isPrivate]);
 
+  // -------------------- RESET --------------------
   const resetForm = () => {
     setFormData(defaultFormData);
     setError('');
@@ -110,16 +169,25 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     setSuccess(false);
     setSubmitting(false);
     setShowErrorDetails(false);
+
+    // reset fetch state per opening
+    setTherapistPatients([]);
+    setPatientsLoaded(false);
+    setPatientsLoading(false);
+    setPatientsLoadError('');
+    setPrivateCheckedOnce(false);
   };
 
-  const handlePatientTypeChange = (
-    index: number,
-    field: keyof PatientType,
-    value: string | boolean
-  ) => {
+  const handleModalClose = () => {
+    resetForm();
+    handleClose();
+  };
+
+  // -------------------- FIELD HANDLERS --------------------
+  const handlePatientTypeChange = (index: number, field: keyof PatientType, value: string | boolean) => {
     const updated = [...formData.patientTypes];
     // @ts-ignore
-    updated[index][field] = value;
+    updated[index][field] = typeof value === 'string' ? value : value;
 
     if (field === 'type') {
       updated[index].diagnosesOptions = getDiagnosesForSpecialization(value as string);
@@ -128,7 +196,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
     setFormData((prev) => ({ ...prev, patientTypes: updated }));
 
-    const key = `patientTypes.${index}.${field}`;
+    const key = patientTypeRowKey(index, field);
     setErrors((prev) => {
       const next = { ...prev };
       delete next[key];
@@ -142,7 +210,16 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     const { id, value, type, checked } = e.target as HTMLInputElement;
     const val = type === 'checkbox' ? checked : value;
 
-    setFormData((prev) => ({ ...prev, [id]: val }));
+    setFormData((prev) => {
+      const next: any = { ...prev, [id]: type === 'text' || type === 'textarea' ? cleanStr(val) : val };
+
+      // if toggling from private -> public, clear patient selection
+      if (id === 'isPrivate' && !checked) {
+        next.patientId = '';
+      }
+      // if toggling from public -> private, reset patientTypes validation (optional)
+      return next;
+    });
 
     if (errors[id]) {
       setErrors((prev) => {
@@ -191,7 +268,39 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
   };
 
+  // ✅ limit to 5 rows & require previous row complete
   const addPatientType = () => {
+    setErrors((prev) => {
+      const next = { ...prev };
+
+      const pts = formData.patientTypes || [];
+      if (pts.length >= 5) {
+        next.patientTypes = t('You can add up to 5 patient type recommendations only.');
+        return next;
+      }
+
+      const last = pts[pts.length - 1];
+      if (last && !isPatientTypeRowComplete(last)) {
+        // mark missing fields on last row
+        if (!cleanStr(last.type)) next[patientTypeRowKey(pts.length - 1, 'type')] = t('Patient type is required');
+        if (!cleanStr(last.diagnosis)) next[patientTypeRowKey(pts.length - 1, 'diagnosis')] = t('Diagnosis is required');
+        if (!cleanStr(last.frequency)) next[patientTypeRowKey(pts.length - 1, 'frequency')] = t('Frequency is required');
+
+        next.patientTypes = t('Please complete the current row before adding a new one.');
+        return next;
+      }
+
+      // no error
+      delete next.patientTypes;
+      return next;
+    });
+
+    const pts = formData.patientTypes || [];
+    if (pts.length >= 5) return;
+
+    const last = pts[pts.length - 1];
+    if (last && !isPatientTypeRowComplete(last)) return;
+
     setFormData((prev) => ({
       ...prev,
       patientTypes: [...prev.patientTypes, { ...defaultPatientType }],
@@ -203,8 +312,13 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     const e: ErrorMap = {};
     const f = formData;
 
-    if (!f.title.trim()) e.title = t('Title is required');
-    if (!f.description.trim()) e.description = t('Description is required');
+    // clean main strings
+    const title = cleanStr(f.title);
+    const desc = cleanStr(f.description);
+    const link = cleanStr(f.link);
+
+    if (!title) e.title = t('Title is required');
+    if (!desc) e.description = t('Description is required');
 
     if (!f.duration || Number(f.duration) <= 0) {
       e.duration = t('Duration must be greater than 0');
@@ -213,9 +327,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     if (!f.contentType) e.contentType = t('Content type is required');
     if (!f.previewImage) e.previewImage = t('Preview image is required');
 
-    if (f.link && f.link.trim()) {
+    if (link) {
       try {
-        const url = new URL(f.link.trim());
+        const url = new URL(link);
         if (!['http:', 'https:'].includes(url.protocol)) {
           e.link = t('Link must start with http:// or https://');
         }
@@ -225,13 +339,31 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
 
     if (f.isPrivate) {
-      if (!f.patientId) e.patientId = t('Please select a patient');
+      if (!cleanStr(f.patientId)) e.patientId = t('Please select a patient');
     } else {
+      // ✅ only validate non-empty rows; don't send empty/partial rows later
+      const cleaned = sanitizePatientTypes(f.patientTypes);
+
+      if (cleaned.length === 0) {
+        e.patientTypes = t('Please add at least one complete patient type recommendation.');
+      }
+
+      // also highlight first incomplete row (if any) to guide user
       f.patientTypes.forEach((pt, idx) => {
-        if (!pt.type) e[`patientTypes.${idx}.type`] = t('Patient type is required');
-        if (!pt.diagnosis) e[`patientTypes.${idx}.diagnosis`] = t('Diagnosis is required');
-        if (!pt.frequency) e[`patientTypes.${idx}.frequency`] = t('Frequency is required');
+        const anyFilled = !!cleanStr(pt.type) || !!cleanStr(pt.diagnosis) || !!cleanStr(pt.frequency);
+        const complete = isPatientTypeRowComplete(pt);
+
+        if (anyFilled && !complete) {
+          if (!cleanStr(pt.type)) e[patientTypeRowKey(idx, 'type')] = t('Patient type is required');
+          if (!cleanStr(pt.diagnosis)) e[patientTypeRowKey(idx, 'diagnosis')] = t('Diagnosis is required');
+          if (!cleanStr(pt.frequency)) e[patientTypeRowKey(idx, 'frequency')] = t('Frequency is required');
+        }
       });
+
+      // limit check
+      if ((f.patientTypes || []).length > 5) {
+        e.patientTypes = t('You can add up to 5 patient type recommendations only.');
+      }
     }
 
     return { valid: Object.keys(e).length === 0, errors: e };
@@ -286,28 +418,27 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
       const payload = new FormData();
 
-      payload.append('title', formData.title);
-      payload.append('description', formData.description);
+      payload.append('title', cleanStr(formData.title));
+      payload.append('description', cleanStr(formData.description));
       payload.append('duration', String(formData.duration));
       payload.append('contentType', formData.contentType);
-      payload.append('link', formData.link || '');
+      payload.append('link', cleanStr(formData.link) || '');
 
       payload.append('tagList', JSON.stringify(formData.tagList));
       payload.append('benefitFor', JSON.stringify(formData.benefitFor));
 
       payload.append('isPrivate', String(formData.isPrivate));
+
       if (formData.isPrivate) {
-        payload.append('patientId', formData.patientId);
+        payload.append('patientId', cleanStr(formData.patientId));
+      } else {
+        // ✅ don't send empty/partial rows
+        const cleanedPatientTypes = sanitizePatientTypes(formData.patientTypes).slice(0, 5);
+        payload.append('patientTypes', JSON.stringify(cleanedPatientTypes));
       }
 
-      payload.append('patientTypes', JSON.stringify(formData.patientTypes));
-
-      if (formData.mediaFile) {
-        payload.append('media_file', formData.mediaFile);
-      }
-      if (formData.previewImage) {
-        payload.append('img_file', formData.previewImage);
-      }
+      if (formData.mediaFile) payload.append('media_file', formData.mediaFile);
+      if (formData.previewImage) payload.append('img_file', formData.previewImage);
 
       const res = await apiClient.post('/interventions/add/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -334,11 +465,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
     }
   };
 
-  const handleModalClose = () => {
-    resetForm();
-    handleClose();
-  };
-
   const fe = (key: string) => errors[key];
 
   return (
@@ -348,10 +474,10 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
       </Modal.Header>
 
       <Modal.Body>
-        {error && (
+        {(error || patientsLoadError) && (
           <Alert variant="danger" className="mb-3">
             <div className="d-flex justify-content-between align-items-center">
-              <span>{error}</span>
+              <span>{patientsLoadError || error}</span>
               <Button size="sm" onClick={() => setShowErrorDetails(!showErrorDetails)}>
                 {showErrorDetails ? t('Hide details') : t('Show details')}
               </Button>
@@ -379,7 +505,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
 
         <Form onSubmit={handleSubmit} noValidate>
           <fieldset disabled={success || submitting}>
-            
             {/* Title */}
             <Form.Group controlId="title">
               <Form.Label>{t('InterventionTitle')}</Form.Label>
@@ -508,11 +633,29 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
             {formData.isPrivate && (
               <Form.Group controlId="patientId" className="mt-3">
                 <Form.Label>{t('Assign to Patient')}</Form.Label>
+
+                {!patientsLoaded && privateCheckedOnce && (
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div className="text-muted small">
+                      {patientsLoading ? t('Loading patients...') : t('Patients not loaded yet')}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      disabled={patientsLoading}
+                      onClick={fetchTherapistPatients}
+                    >
+                      {t('Reload')}
+                    </Button>
+                  </div>
+                )}
+
                 <Form.Control
                   as="select"
                   value={formData.patientId}
                   onChange={handleChange}
                   isInvalid={!!fe('patientId')}
+                  disabled={patientsLoading || !patientsLoaded}
                 >
                   <option value="">{t('Select a patient')}</option>
                   {therapistPatients.map((p) => (
@@ -530,6 +673,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
               <>
                 <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
 
+                {fe('patientTypes') && (
+                  <Alert variant="warning" className="py-2">
+                    {fe('patientTypes')}
+                  </Alert>
+                )}
+
                 {formData.patientTypes.map((pt, idx) => (
                   <Row key={idx} className="mb-3">
                     {/* Type */}
@@ -539,10 +688,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                         <Form.Control
                           as="select"
                           value={pt.type}
-                          onChange={(e) =>
-                            handlePatientTypeChange(idx, 'type', e.target.value)
-                          }
-                          isInvalid={!!fe(`patientTypes.${idx}.type`)}
+                          onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}
+                          isInvalid={!!fe(patientTypeRowKey(idx, 'type'))}
                         >
                           <option value="">{t('SelectType')}</option>
                           {specializationKeys.map((spec) => (
@@ -552,7 +699,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                           ))}
                         </Form.Control>
                         <Form.Control.Feedback type="invalid">
-                          {fe(`patientTypes.${idx}.type`)}
+                          {fe(patientTypeRowKey(idx, 'type'))}
                         </Form.Control.Feedback>
                       </Form.Group>
                     </Col>
@@ -564,10 +711,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                         <Form.Control
                           as="select"
                           value={pt.diagnosis}
-                          onChange={(e) =>
-                            handlePatientTypeChange(idx, 'diagnosis', e.target.value)
-                          }
-                          isInvalid={!!fe(`patientTypes.${idx}.diagnosis`)}
+                          onChange={(e) => handlePatientTypeChange(idx, 'diagnosis', e.target.value)}
+                          isInvalid={!!fe(patientTypeRowKey(idx, 'diagnosis'))}
+                          disabled={!pt.type}
                         >
                           <option value="">{t('SelectDiagnosis')}</option>
                           {(pt.diagnosesOptions || []).map((d) => (
@@ -578,7 +724,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                           <option value="All">{t('All')}</option>
                         </Form.Control>
                         <Form.Control.Feedback type="invalid">
-                          {fe(`patientTypes.${idx}.diagnosis`)}
+                          {fe(patientTypeRowKey(idx, 'diagnosis'))}
                         </Form.Control.Feedback>
                       </Form.Group>
                     </Col>
@@ -590,10 +736,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                         <Form.Control
                           as="select"
                           value={pt.frequency}
-                          onChange={(e) =>
-                            handlePatientTypeChange(idx, 'frequency', e.target.value)
-                          }
-                          isInvalid={!!fe(`patientTypes.${idx}.frequency`)}
+                          onChange={(e) => handlePatientTypeChange(idx, 'frequency', e.target.value)}
+                          isInvalid={!!fe(patientTypeRowKey(idx, 'frequency'))}
                         >
                           <option value="">{t('SelectFrequency')}</option>
                           {config.RecomendationInfo.frequency.map((f: string) => (
@@ -603,16 +747,21 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = ({
                           ))}
                         </Form.Control>
                         <Form.Control.Feedback type="invalid">
-                          {fe(`patientTypes.${idx}.frequency`)}
+                          {fe(patientTypeRowKey(idx, 'frequency'))}
                         </Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                   </Row>
                 ))}
 
-                <Button variant="link" onClick={addPatientType}>
-                  <FaPlus /> {t('AddAnotherPatientType')}
-                </Button>
+                <div className="d-flex align-items-center justify-content-between">
+                  <Button variant="link" onClick={addPatientType} disabled={formData.patientTypes.length >= 5}>
+                    <FaPlus /> {t('AddAnotherPatientType')}
+                  </Button>
+                  <div className="text-muted small">
+                    {t('Max')}: 5
+                  </div>
+                </div>
               </>
             )}
           </fieldset>
