@@ -49,7 +49,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const [serverDetail, setServerDetail] = useState<{ status?: number; message?: string } | null>(null);
+  const [serverDetail, setServerDetail] = useState<{
+    status?: number;
+    message?: string;
+  } | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -90,6 +93,65 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   /** Password policy and live validation */
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
+  /** ---------- sanitizers / validators ---------- */
+
+  // collapse multiple spaces, trim
+  const cleanSpaces = (s: string) => String(s ?? '').replace(/\s+/g, ' ').trim();
+
+  // "soft" clean: keep internal spaces for names, but normalize
+  const cleanName = (s: string) => cleanSpaces(s);
+
+  // remove all spaces (useful for emails)
+  const cleanEmail = (s: string) =>
+    String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
+
+  // phone: remove spaces and common separators
+  const cleanPhone = (s: string) =>
+    String(s ?? '').replace(/[\s\-().]/g, '').trim();
+
+  // stricter email validation:
+  // - local part must start with alnum (so "-1@gmail.com" fails)
+  // - no consecutive dots
+  // - no leading/trailing dot in local
+  // - domain labels can't start/end with hyphen
+  const isValidEmailStrict = (emailRaw: string) => {
+    const email = cleanEmail(emailRaw);
+    if (!email || email.length > 254) return false;
+    if (email.includes('..')) return false;
+
+    const at = email.indexOf('@');
+    if (at <= 0 || at !== email.lastIndexOf('@')) return false;
+
+    const local = email.slice(0, at);
+    const domain = email.slice(at + 1);
+
+    // local: must start with letter/number; allowed: letters, numbers, ._%+-
+    if (!/^[a-z0-9][a-z0-9._%+-]*$/i.test(local)) return false;
+    if (local.endsWith('.')) return false;
+
+    // domain basic checks
+    if (domain.length < 3) return false;
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return false;
+
+    const labels = domain.split('.');
+    if (labels.some((l) => !l.length)) return false;
+    if (labels.some((l) => l.startsWith('-') || l.endsWith('-')))
+      return false;
+
+    return true;
+  };
+
+  // Name validation (supports accents): letters + spaces + apostrophe/hyphen
+  // examples ok: "Anne-Marie", "O'Connor", "Jean Claude"
+  const isValidHumanName = (nameRaw: string) => {
+    const name = cleanName(nameRaw);
+    if (!name) return false;
+    if (name.length < 2) return false;
+
+    const re = /^[\p{L}\p{M}]+(?:[ '\-][\p{L}\p{M}]+)*$/u;
+    return re.test(name);
+  };
+
   const liveValidatePassword = (pwd: string, rep: string) => {
     setErrors((prev) => {
       const next = { ...prev };
@@ -115,7 +177,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { id, value } = e.target;
+    const { id } = e.target;
+    let value = e.target.value;
+
+    // ---- normalize values immediately (prevents whitespace issues) ----
+    if (id === 'email') value = cleanEmail(value);
+    else if (id === 'phone') value = cleanPhone(value);
+    else if (id === 'firstName' || id === 'lastName') value = cleanName(value);
+    else value = cleanSpaces(value);
 
     setFormData((prev) => {
       const updated = { ...prev, [id]: value };
@@ -126,7 +195,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
       if (id === 'password' || id === 'repeatPassword') {
         const pwd = id === 'password' ? value : String(updated.password || '');
-        const rep = id === 'repeatPassword' ? value : String(updated.repeatPassword || '');
+        const rep =
+          id === 'repeatPassword'
+            ? value
+            : String(updated.repeatPassword || '');
         liveValidatePassword(pwd, rep);
       } else {
         setErrors((prevErr) => ({ ...prevErr, [id]: '' }));
@@ -149,10 +221,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   };
 
   const handleMultiSelectChange = (
-    selectedOptions: readonly { value: string; label: string }[] | null,
+    selectedOptions:
+      | readonly { value: string; label: string }[]
+      | null,
     fieldName: string
   ) => {
-    const selectedValues = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
+    const selectedValues = selectedOptions
+      ? selectedOptions.map((opt) => opt.value)
+      : [];
     setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
     if (formError) setFormError(null);
@@ -170,24 +246,48 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     const newErrors: Record<string, string> = {};
     const fields = formSteps[step]?.fields || [];
 
+    // required fields
     fields.forEach((field: any) => {
       const val = formData[field.name];
-      if (field.required && (!val || (Array.isArray(val) && val.length === 0))) {
+      if (
+        field.required &&
+        (!val || (Array.isArray(val) && val.length === 0))
+      ) {
         newErrors[field.name] = t('This field is required.');
       }
     });
 
-    if (formData.phone && !/^\d{8,15}$/.test(String(formData.phone))) {
-      newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
-    }
-
-    if (formData.email && fields.some((f: any) => f.name === 'email')) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(String(formData.email))) {
-        newErrors.email = t('Invalid email format.');
+    // phone (if visible in this step)
+    if (fields.some((f: any) => f.name === 'phone')) {
+      const phone = String(formData.phone || '');
+      if (phone && !/^\d{8,15}$/.test(phone)) {
+        newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
       }
     }
 
+    // email strict
+    if (fields.some((f: any) => f.name === 'email')) {
+      const email = String(formData.email || '');
+      if (email && !isValidEmailStrict(email)) {
+        newErrors.email = t('Invalid email address.');
+      }
+    }
+
+    // names
+    if (fields.some((f: any) => f.name === 'firstName')) {
+      const fn = String(formData.firstName || '');
+      if (fn && !isValidHumanName(fn)) {
+        newErrors.firstName = t('Please enter a valid first name.');
+      }
+    }
+    if (fields.some((f: any) => f.name === 'lastName')) {
+      const ln = String(formData.lastName || '');
+      if (ln && !isValidHumanName(ln)) {
+        newErrors.lastName = t('Please enter a valid last name.');
+      }
+    }
+
+    // password policy (if visible in this step)
     if (fields.some((f: any) => f.name === 'password')) {
       const pwd = String(formData.password || '');
       if (!pwdRegex.test(pwd)) {
@@ -216,7 +316,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       if (typeof data.error === 'string') return data.error;
       if (typeof data.message === 'string') return data.message;
       if (typeof data.detail === 'string') return data.detail;
-      if (Array.isArray(data.non_field_errors) && data.non_field_errors.length) {
+      if (
+        Array.isArray(data.non_field_errors) &&
+        data.non_field_errors.length
+      ) {
         return String(data.non_field_errors[0]);
       }
       for (const v of Object.values(data)) {
@@ -236,14 +339,27 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
     if (!validateStep()) return;
 
+    // final sanitize before submit (guarantees no hidden whitespace)
+    const cleanedPayload: FormDataShape = {
+      ...formData,
+      email: cleanEmail(String(formData.email || '')),
+      firstName: cleanName(String(formData.firstName || '')),
+      lastName: cleanName(String(formData.lastName || '')),
+      phone: cleanPhone(String(formData.phone || '')),
+      researcherInfo: cleanSpaces(String(formData.researcherInfo || '')),
+      adminInfo: cleanSpaces(String(formData.adminInfo || '')),
+    };
+
     try {
       setLoading(true);
-      const res = await apiClient.post('/auth/register/', formData);
+      const res = await apiClient.post('/auth/register/', cleanedPayload);
 
       if (res.status >= 200 && res.status < 300) {
         setErrors({});
         setSuccessMsg(
-          t('You have been registered. Account info will be emailed after approval.')
+          t(
+            'You have been registered. Account info will be emailed after approval.'
+          )
         );
       } else {
         const message = extractServerMessage(res.data, t('Registration failed.'));
@@ -258,7 +374,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
       if (status >= 500) {
         setFormError(
-          `${t('The server is busy or temporarily unavailable. Please try again.')}\n${t('Error')}: ${status}`
+          `${t(
+            'The server is busy or temporarily unavailable. Please try again.'
+          )}\n${t('Error')}: ${status}`
         );
       } else {
         setFormError(message);
@@ -314,7 +432,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                 </button>
                 {showDetails && (
                   <pre className="small bg-light p-2 border rounded mt-1 mb-0">
-                    {t('Status')}: {serverDetail.status ?? '-'}{'\n'}
+                    {t('Status')}: {serverDetail.status ?? '-'}
+                    {'\n'}
                     {serverDetail.message}
                   </pre>
                 )}
@@ -344,7 +463,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               const isRequired = !!field.required;
               const labelText = (
                 <>
-                  {t(field.label)} {isRequired && <span className="text-danger">*</span>}
+                  {t(field.label)}{' '}
+                  {isRequired && <span className="text-danger">*</span>}
                 </>
               );
 
@@ -358,31 +478,49 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     <Select
                       id={field.name}
                       isMulti
-                      value={(formData[field.name] as string[]).map((val: string) => ({
-                        value: val,
-                        label: t(val),
-                      }))}
+                      value={(formData[field.name] as string[]).map(
+                        (val: string) => ({
+                          value: val,
+                          label: t(val),
+                        })
+                      )}
                       options={
-                        field.name === 'diagnosis' && (formData.function || []).length > 0
-                          ? (formData.function as string[]).flatMap((spec: string) =>
-                              (specialityDiagnosisMap[spec] || []).map((diag) => ({
-                                value: diag,
-                                label: t(diag),
-                              }))
+                        field.name === 'diagnosis' &&
+                        (formData.function || []).length > 0
+                          ? (formData.function as string[]).flatMap(
+                              (spec: string) =>
+                                (specialityDiagnosisMap[spec] || []).map(
+                                  (diag) => ({
+                                    value: diag,
+                                    label: t(diag),
+                                  })
+                                )
                             )
                           : (field.options || []).map((opt: string) => ({
                               value: opt,
                               label: t(opt),
                             }))
                       }
-                      onChange={(options) => handleMultiSelectChange(options, field.name)}
+                      onChange={(options) =>
+                        handleMultiSelectChange(options, field.name)
+                      }
                     />
                   ) : field.type === 'dropdown' ? (
                     <select
                       id={field.name}
-                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                      className={`form-control ${
+                        errors[field.name] ? 'is-invalid' : ''
+                      }`}
                       value={String(formData[field.name] || '')}
                       onChange={handleChange}
+                      onBlur={() => {
+                        // normalize dropdown value is already stable; still clear errors
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          if (next[field.name]) delete next[field.name];
+                          return next;
+                        });
+                      }}
                     >
                       <option value="">
                         {t('Select')} {t(field.label)}
@@ -398,10 +536,16 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                       <input
                         type={
                           field.name === 'password'
-                            ? (showPassword ? 'text' : 'password')
-                            : (showRepeatPassword ? 'text' : 'password')
+                            ? showPassword
+                              ? 'text'
+                              : 'password'
+                            : showRepeatPassword
+                            ? 'text'
+                            : 'password'
                         }
-                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                        className={`form-control ${
+                          errors[field.name] ? 'is-invalid' : ''
+                        }`}
                         id={field.name}
                         value={String(formData[field.name] || '')}
                         onChange={handleChange}
@@ -411,12 +555,20 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                       <span
                         className="position-absolute end-0 top-50 translate-middle-y me-3"
                         role="button"
-                        onClick={() => togglePassword(field.name === 'password' ? 'main' : 'repeat')}
+                        onClick={() =>
+                          togglePassword(
+                            field.name === 'password' ? 'main' : 'repeat'
+                          )
+                        }
                         aria-label={t('Toggle password visibility')}
                       >
                         {field.name === 'password'
-                          ? (showPassword ? <FaEye /> : <FaEyeSlash />)
-                          : (showRepeatPassword ? <FaEye /> : <FaEyeSlash />)}
+                          ? showPassword
+                            ? <FaEye />
+                            : <FaEyeSlash />
+                          : showRepeatPassword
+                          ? <FaEye />
+                          : <FaEyeSlash />}
                       </span>
 
                       {errors[field.name] && (
@@ -432,10 +584,52 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                   ) : (
                     <input
                       type={field.type}
-                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                      className={`form-control ${
+                        errors[field.name] ? 'is-invalid' : ''
+                      }`}
                       id={field.name}
                       value={String(formData[field.name] || '')}
                       onChange={handleChange}
+                      onBlur={() => {
+                        // per-field blur validation (faster feedback)
+                        setErrors((prev) => {
+                          const next = { ...prev };
+
+                          if (field.name === 'email' && formData.email) {
+                            if (!isValidEmailStrict(formData.email)) {
+                              next.email = t('Invalid email address.');
+                            } else {
+                              delete next.email;
+                            }
+                          }
+
+                          if (
+                            (field.name === 'firstName' ||
+                              field.name === 'lastName') &&
+                            formData[field.name]
+                          ) {
+                            if (!isValidHumanName(String(formData[field.name]))) {
+                              next[field.name] = t(
+                                'Please enter a valid name (letters only).'
+                              );
+                            } else {
+                              delete next[field.name];
+                            }
+                          }
+
+                          if (field.name === 'phone' && formData.phone) {
+                            if (!/^\d{8,15}$/.test(String(formData.phone))) {
+                              next.phone = t(
+                                'Invalid phone number. Enter 8-15 digits only.'
+                              );
+                            } else {
+                              delete next.phone;
+                            }
+                          }
+
+                          return next;
+                        });
+                      }}
                     />
                   )}
 
@@ -460,11 +654,19 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               </div>
             ) : step > 0 ? (
               <>
-                <Button variant="secondary" onClick={prevStep} disabled={loading}>
+                <Button
+                  variant="secondary"
+                  onClick={prevStep}
+                  disabled={loading}
+                >
                   {t('Back')}
                 </Button>
                 {step < formSteps.length - 1 ? (
-                  <Button variant="primary" onClick={nextStep} disabled={loading}>
+                  <Button
+                    variant="primary"
+                    onClick={nextStep}
+                    disabled={loading}
+                  >
                     {t('Next')}
                   </Button>
                 ) : (
