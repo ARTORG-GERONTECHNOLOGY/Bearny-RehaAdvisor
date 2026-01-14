@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Col,
   Container,
-  OverlayTrigger,
   Row,
   Spinner,
-  Tooltip,
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -35,6 +32,7 @@ const UserProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorBanner, setErrorBanner] = useState("");
   const [successBanner, setSuccessBanner] = useState("");
+  const [deleting, setDeleting] = useState(false); // ✅ prevent double submit
 
   const therapistId = authStore?.id;
 
@@ -42,9 +40,10 @@ const UserProfile: React.FC = () => {
     authStore.checkAuthentication();
     if (!authStore.isAuthenticated) {
       navigate("/");
-    } else {
-      fetchUserProfile();
+      return;
     }
+    fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, therapistId]);
 
   const fetchUserProfile = async () => {
@@ -62,9 +61,7 @@ const UserProfile: React.FC = () => {
   const handleSave = async (updatedUserData: UserType) => {
     try {
       await apiClient.put(`/users/${therapistId}/profile/`, updatedUserData);
-      const refreshed = await apiClient.get(
-        `/users/${therapistId}/profile`
-      );
+      const refreshed = await apiClient.get(`/users/${therapistId}/profile`);
       setUserData(refreshed.data);
 
       setSuccessBanner(t("Profile updated successfully"));
@@ -77,19 +74,33 @@ const UserProfile: React.FC = () => {
     }
   };
 
+  // ✅ Delete -> on success: logout + go home
   const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setErrorBanner("");
+    setSuccessBanner("");
+
     try {
       await apiClient.delete(`/users/${therapistId}/profile/`);
-      setSuccessBanner(t("Account deleted successfully"));
-      setTimeout(() => setSuccessBanner(""), 2000);
 
-      authStore.deleteUser();
-      localStorage.clear();
-      navigate("/");
+      // optional banner (will likely not be seen long because we navigate)
+      setSuccessBanner(t("Account deleted successfully"));
+
+      // close modal immediately
+      setShowDeletePopup(false);
+
+      // ✅ Log out properly (clears tokens, timers, listeners, calls /auth/logout/)
+      await authStore.logout();
+
+      // ✅ Go home
+      navigate("/", { replace: true });
     } catch (err) {
       console.error("Delete failed:", err);
       setErrorBanner(t("Failed to delete account"));
       setTimeout(() => setErrorBanner(""), 3000);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -99,8 +110,12 @@ const UserProfile: React.FC = () => {
         {userData?.first_name} {userData?.name}
       </h4>
 
-      <p><strong>{t("Email")}:</strong> {userData?.email}</p>
-      <p><strong>{t("Phone")}:</strong> {userData?.phone}</p>
+      <p>
+        <strong>{t("Email")}:</strong> {userData?.email}
+      </p>
+      <p>
+        <strong>{t("Phone")}:</strong> {userData?.phone}
+      </p>
 
       {authStore.userType === "Therapist" && (
         <>
@@ -114,9 +129,7 @@ const UserProfile: React.FC = () => {
 
           <p>
             <strong>{t("Clinics")}:</strong>{" "}
-            {userData?.clinics?.length
-              ? userData.clinics.join(", ")
-              : t("None")}
+            {userData?.clinics?.length ? userData.clinics.join(", ") : t("None")}
             <InfoBubble tooltip={t("Affiliated institutions")} />
           </p>
         </>
@@ -126,7 +139,12 @@ const UserProfile: React.FC = () => {
         <Button variant="primary" onClick={() => setIsEditing(true)}>
           {t("Edit Info")}
         </Button>
-        <Button variant="danger" onClick={() => setShowDeletePopup(true)}>
+
+        <Button
+          variant="danger"
+          onClick={() => setShowDeletePopup(true)}
+          disabled={deleting}
+        >
           {t("Delete Account")}
         </Button>
       </div>
@@ -183,6 +201,7 @@ const UserProfile: React.FC = () => {
           show={showDeletePopup}
           handleClose={() => setShowDeletePopup(false)}
           handleConfirm={handleDelete}
+          isLoading={deleting}
         />
       )}
 

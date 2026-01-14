@@ -71,9 +71,13 @@ const Header: React.FC<HeaderProps> = ({
   const userType = authStore.userType?.toLowerCase();
 
   // NAV LINKS
+  // NAV LINKS
   const navLinks =
     authStore.userType === 'Patient'
-      ? [{ path: '/patient', label: t('Home') }]
+      ? [
+          { path: '/patient', label: t('Home') },
+          { path: '/patient-interventions', label: t('Interventions') }, // ✅ NEW
+        ]
       : authStore.userType === 'Therapist' ||
         authStore.userType === 'Researcher'
       ? [
@@ -83,6 +87,7 @@ const Header: React.FC<HeaderProps> = ({
           { path: '/userprofile', label: t('Profile') },
         ]
       : [];
+
 
   const hasNav = isLoggedIn && navLinks.length > 0;
 

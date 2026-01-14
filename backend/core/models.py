@@ -325,6 +325,25 @@ class Therapist(Document):
 
 
 # models.py
+class RedcapParticipant(Document):
+    meta = {"collection": "Participants"}
+
+    record_id = StringField(required=True, unique=True)   # REDCap record_id
+
+    gender = StringField(default="")                     # keep as string (REDCap codes vary)
+    primary_diagnosis = StringField(default="")
+    clinic = StringField(default="")
+
+    assigned_therapist = ListField(ReferenceField(Therapist))
+    imported_by_user = ReferenceField("User")            # who imported/linked
+    last_synced_at = DateTimeField()
+    created_at = DateTimeField(default=timezone.now)
+    updated_at = DateTimeField(default=timezone.now)
+
+    is_active = BooleanField(default=True)
+
+    meta = {"indexes": ["record_id", "assigned_therapist", "clinic"]}
+
 class Patient(Document):
     meta = {"collection": "Patients"}
 

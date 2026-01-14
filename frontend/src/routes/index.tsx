@@ -1,5 +1,5 @@
 import { createElement, lazy, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 const Home = lazy(() => import('../pages/Home'));
 const Therapist = lazy(() => import('../pages/Therapist'));
@@ -8,7 +8,6 @@ const ForgottenPassword = lazy(() => import('../pages/ForgottenPassword'));
 const UserProfile = lazy(() => import('../pages/UserProfile'));
 const PatientView = lazy(() => import('../pages/Patient'));
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard'));
-// const ResearcherView = lazy(() => import('../pages/ResearcherView'));
 const AddRecomendations = lazy(() => import('../pages/AddInterventionView'));
 const AddPatient = lazy(() => import('../pages/AddPatient'));
 const RehabTable = lazy(() => import('../pages/RehabTable'));
@@ -23,6 +22,7 @@ const HealthPage = lazy(() => import('../pages/HealthPage'));
 const HelpPage = lazy(() => import('../pages/Help'));
 const Eva = lazy(() => import('../pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('../pages/HealthSliderDownloadsPage'));
+const PatientInterventionsLibrary = lazy(() => import('../pages/PatientInterventionsLibrary'));
 import RootLayout from '../RootLayout';
 
 // -------------------- Loading Fallback --------------------
@@ -30,137 +30,71 @@ function LoadingFallback() {
   return createElement('div', null, 'Loading...');
 }
 
+// helper to wrap lazy pages consistently
+const withSuspense = (el: React.ReactElement) =>
+  createElement(Suspense, { fallback: createElement(LoadingFallback) }, el);
+
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(Home)
-    ),
+    element: withSuspense(createElement(Home)),
   },
   {
     path: '/error',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(ErrorPages) }) // ✅ FIXED here
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(ErrorPages) })),
   },
   {
     path: '/therapist',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(Therapist) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(Therapist) })),
   },
   {
     path: '/unauthorized',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(UnauthorizedAccess) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(UnauthorizedAccess) })),
   },
   {
     path: '/forgottenpwd',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(ForgottenPassword) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(ForgottenPassword) })),
   },
   {
     path: '/userprofile',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(UserProfile) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(UserProfile) })),
   },
   {
     path: '/patient',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(PatientView) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(PatientView) })),
   },
-  
   {
     path: '/admin',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(AdminDashboard) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(AdminDashboard) })),
   },
-  // Uncomment if you need this route:
-  // {
-  //   path: '/researcher',
-  //   element: createElement(
-  //     Suspense,
-  //     { fallback: createElement(LoadingFallback) },
-  //     createElement(RootLayout, { children: createElement(ResearcherView) })
-  //   ),
-  // },
   {
     path: '/addcontent',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(AddRecomendations) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(AddRecomendations) })),
   },
   {
     path: '/addpatient',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(AddPatient) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(AddPatient) })),
   },
   {
     path: '/rehabtable',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(RehabTable) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(RehabTable) })),
   },
   {
     path: '/interventions',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(TherapistRecomendations) })
-    ),
+    element: withSuspense(createElement(RootLayout, { children: createElement(TherapistRecomendations) })),
   },
   {
     path: '/eva',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(HealthSlider)
-    ),
+    element: withSuspense(createElement(HealthSlider)),
   },
   {
     path: '/terms',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(TermsAndConditions)
-    ),
+    element: withSuspense(createElement(TermsAndConditions)),
   },
   {
     path: '/privacypolicy',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(PrivacyPolicy)
-    ),
+    element: withSuspense(createElement(PrivacyPolicy)),
   },
   {
     path: '/fitbit-success',
@@ -172,20 +106,35 @@ export const router = createBrowserRouter([
   },
   {
     path: '/health',
-    element: createElement(HealthPage),
+    element: withSuspense(createElement(HealthPage)),
   },
   {
     path: '/help',
-    element: createElement(HelpPage),
+    element: withSuspense(createElement(HelpPage)),
   },
   {
     path: '/eva2',
-    element: createElement(Eva),
+    element: withSuspense(createElement(Eva)),
   },
   {
     path: '/healthslider-downloads',
-    element: createElement(HealthSliderDownloadsPage),
-  }
+    element: withSuspense(createElement(HealthSliderDownloadsPage)),
+  },
+  {
+  path: '/patient-interventions',
+  element: createElement(
+    Suspense,
+    { fallback: createElement(LoadingFallback) },
+    createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) })
+  ),
+},
+
+
+  // ✅ Catch-all (must be last)
+  {
+    path: '*',
+    element: createElement(Navigate, { to: '/', replace: true }),
+  },
 ]);
 
 export function Router() {
