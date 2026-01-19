@@ -1,5 +1,5 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
@@ -10,17 +10,25 @@ type Props = {
   onHide: () => void;
   diagnoses: string[];
   defaultDiagnosis?: string;
-  onApplied?: (res: {applied:number; sessions_created:number}) => void;
+  onApplied?: (res: { applied: number; sessions_created: number }) => void;
 };
 
 type ErrMap = Record<string, string>;
 
-const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultDiagnosis, onApplied }) => {
+const ApplyTemplateModal: React.FC<Props> = ({
+  show,
+  onHide,
+  diagnoses,
+  defaultDiagnosis,
+  onApplied,
+}) => {
   const { t } = useTranslation();
 
   const [patientId, setPatientId] = useState('');
   const [diagnosis, setDiagnosis] = useState(defaultDiagnosis || '');
-  const [effectiveFrom, setEffectiveFrom] = useState(new Date(Date.now()+86400000).toISOString().slice(0,10));
+  const [effectiveFrom, setEffectiveFrom] = useState(
+    new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  );
   const [startTime, setStartTime] = useState('08:00');
   const [overwrite, setOverwrite] = useState(false);
   const [forceVideo, setForceVideo] = useState(false);
@@ -31,10 +39,13 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
   const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = useMemo(() => patientId && diagnosis && effectiveFrom, [patientId, diagnosis, effectiveFrom]);
+  const canSubmit = useMemo(
+    () => patientId && diagnosis && effectiveFrom,
+    [patientId, diagnosis, effectiveFrom]
+  );
 
   const humanize = (key: string) => {
-    const map: Record<string,string> = {
+    const map: Record<string, string> = {
       patientId: t('Patient ID'),
       diagnosis: t('Diagnosis'),
       effectiveFrom: t('Effective from'),
@@ -43,12 +54,12 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
     return map[key] || key;
   };
 
-  const applyErrors = (data:any) => {
+  const applyErrors = (data: any) => {
     const fe: ErrMap = {};
 
-    if (data.field_errors) {
-      Object.entries(data.field_errors).forEach(([k,v]) => {
-        fe[k] = Array.isArray(v) ? v.join(" ") : String(v);
+    if (data?.field_errors) {
+      Object.entries(data.field_errors).forEach(([k, v]) => {
+        fe[k] = Array.isArray(v) ? v.join(' ') : String(v);
       });
     }
 
@@ -56,80 +67,135 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
     setShowErrors(Object.keys(fe).length > 0);
 
     const msg =
-      (data.non_field_errors && data.non_field_errors.join(" ")) ||
-      data.message ||
-      data.error ||
+      (Array.isArray(data?.non_field_errors) && data.non_field_errors.join(' ')) ||
+      data?.message ||
+      data?.error ||
       t('An error occurred.');
 
     setError(msg);
   };
+
+  const resetLocalErrors = () => {
+    setError('');
+    setFieldErrors({});
+    setShowErrors(false);
+  };
+
+  // ✅ detect unsaved changes (for confirm close)
+  const hasUnsavedChanges = useMemo(() => {
+    const baseEff = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const baseDiag = defaultDiagnosis || '';
+    return (
+      patientId.trim() !== '' ||
+      diagnosis !== baseDiag ||
+      effectiveFrom !== baseEff ||
+      startTime !== '08:00' ||
+      overwrite !== false ||
+      forceVideo !== false ||
+      notes.trim() !== ''
+    );
+  }, [
+    patientId,
+    diagnosis,
+    effectiveFrom,
+    startTime,
+    overwrite,
+    forceVideo,
+    notes,
+    defaultDiagnosis,
+  ]);
+
+  // ✅ confirm-close used by X, Esc, Cancel
+  const confirmClose = useCallback(() => {
+    // If submitting, ask before aborting UI (request will still finish server-side)
+    if (submitting) {
+      if (!window.confirm(t('A request is in progress. Do you want to close?'))) return;
+    } else if (hasUnsavedChanges) {
+      if (!window.confirm(t('Are you sure you want to close? Unsaved data will be lost.'))) return;
+    }
+
+    resetLocalErrors();
+    setSubmitting(false);
+    onHide();
+  }, [hasUnsavedChanges, onHide, submitting, t]);
+
+  // ✅ Esc key should trigger the same close logic (even if backdrop is static elsewhere)
+  useEffect(() => {
+    if (!show) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        confirmClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [show, confirmClose]);
 
   const handleApply = async () => {
     if (!canSubmit) return;
 
     try {
       setSubmitting(true);
-      setError('');
-      setFieldErrors({});
-      setShowErrors(false);
+      resetLocalErrors();
 
-      const res = await apiClient.post(
-        `therapists/${authStore.id}/templates/apply`,
-        {
-          patientId,
-          diagnosis,
-          effectiveFrom,
-          startTime,
-          overwrite,
-          require_video_feedback: forceVideo,
-          notes,
-        }
-      );
+      const res = await apiClient.post(`therapists/${authStore.id}/templates/apply`, {
+        patientId,
+        diagnosis,
+        effectiveFrom,
+        startTime,
+        overwrite,
+        require_video_feedback: forceVideo,
+        notes,
+      });
 
       onApplied?.(res.data);
+      // Close after success (no confirm)
+      resetLocalErrors();
+      setSubmitting(false);
       onHide();
     } catch (e: any) {
-      console.error("apply_template_to_patient error:", e?.response?.data || e);
+      console.error('apply_template_to_patient error:', e?.response?.data || e);
       applyErrors(e?.response?.data || {});
-    } finally {
       setSubmitting(false);
     }
   };
 
-  const close = () => {
-    setError('');
-    setFieldErrors({});
-    setShowErrors(false);
-    setSubmitting(false);
-    onHide();
-  };
-
   return (
-    <Modal show={show} onHide={close} centered>
+    <Modal
+      show={show}
+      onHide={confirmClose} // ✅ X button uses confirmClose
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        confirmClose();
+      }}
+      centered
+      backdrop="static"
+      keyboard // ✅ enable Esc to reach onHide
+    >
       <Modal.Header closeButton>
         <Modal.Title>{t('Apply template to patient')}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-
         {/* Error banner */}
         {error && (
           <Alert variant="danger" dismissible onClose={() => setError('')}>
-            <div className="d-flex justify-content-between">
+            <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
               <span>{error}</span>
-              <Button
-                size="sm"
-                variant="light"
-                onClick={() => setShowErrors(!showErrors)}
-              >
+              <Button size="sm" variant="light" onClick={() => setShowErrors(!showErrors)}>
                 {showErrors ? t('Hide details') : t('Show details')}
               </Button>
             </div>
 
             {showErrors && Object.keys(fieldErrors).length > 0 && (
               <ul className="mt-2 mb-0">
-                {Object.entries(fieldErrors).map(([key,msg]) => (
-                  <li key={key}><strong>{humanize(key)}:</strong> {msg}</li>
+                {Object.entries(fieldErrors).map(([key, msg]) => (
+                  <li key={key}>
+                    <strong>{humanize(key)}:</strong> {msg}
+                  </li>
                 ))}
               </ul>
             )}
@@ -141,12 +207,10 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
             <Form.Label>{t('Patient ID or username')}</Form.Label>
             <Form.Control
               value={patientId}
-              onChange={(e)=>setPatientId(e.target.value)}
+              onChange={(e) => setPatientId(e.target.value)}
               isInvalid={!!fieldErrors.patientId}
             />
-            <Form.Control.Feedback type="invalid">
-              {fieldErrors.patientId}
-            </Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">{fieldErrors.patientId}</Form.Control.Feedback>
           </Form.Group>
 
           <Row className="mb-3">
@@ -155,15 +219,17 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
                 <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
                 <Form.Select
                   value={diagnosis}
-                  onChange={(e)=>setDiagnosis(e.target.value)}
+                  onChange={(e) => setDiagnosis(e.target.value)}
                   isInvalid={!!fieldErrors.diagnosis}
                 >
                   <option value="">{t('Choose...')}</option>
-                  {diagnoses.map((d)=> <option key={d} value={d}>{d}</option>)}
+                  {diagnoses.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
                 </Form.Select>
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.diagnosis}
-                </Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">{fieldErrors.diagnosis}</Form.Control.Feedback>
               </Form.Group>
             </Col>
 
@@ -173,7 +239,7 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
                 <Form.Control
                   type="date"
                   value={effectiveFrom}
-                  onChange={(e)=>setEffectiveFrom(e.target.value)}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
                   isInvalid={!!fieldErrors.effectiveFrom}
                 />
                 <Form.Control.Feedback type="invalid">
@@ -190,12 +256,10 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
                 <Form.Control
                   type="time"
                   value={startTime}
-                  onChange={(e)=>setStartTime(e.target.value)}
+                  onChange={(e) => setStartTime(e.target.value)}
                   isInvalid={!!fieldErrors.startTime}
                 />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.startTime}
-                </Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">{fieldErrors.startTime}</Form.Control.Feedback>
               </Form.Group>
             </Col>
 
@@ -205,7 +269,7 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
                 id="overwrite"
                 label={t('Overwrite future sessions')}
                 checked={overwrite}
-                onChange={(e)=>setOverwrite(e.currentTarget.checked)}
+                onChange={(e) => setOverwrite(e.currentTarget.checked)}
               />
             </Col>
           </Row>
@@ -216,32 +280,22 @@ const ApplyTemplateModal: React.FC<Props> = ({ show, onHide, diagnoses, defaultD
               id="force-video"
               label={t('Ask video feedback for all')}
               checked={forceVideo}
-              onChange={(e)=>setForceVideo(e.currentTarget.checked)}
+              onChange={(e) => setForceVideo(e.currentTarget.checked)}
             />
           </Form.Group>
 
           <Form.Group>
             <Form.Label>{t('Notes (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={notes}
-              onChange={(e)=>setNotes(e.target.value)}
-            />
+            <Form.Control as="textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Form.Group>
         </Form>
-
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={close} disabled={submitting}>
+        <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
           {t('Cancel')}
         </Button>
-        <Button
-          variant="primary"
-          onClick={handleApply}
-          disabled={!canSubmit || submitting}
-        >
+        <Button variant="primary" onClick={handleApply} disabled={!canSubmit || submitting}>
           {submitting ? t('Applying...') : t('Apply')}
         </Button>
       </Modal.Footer>

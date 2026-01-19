@@ -285,6 +285,7 @@ def login_view(request):
             }, status=200)
 
         # --- Other roles: issue tokens immediately ---
+        Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
         refresh = RefreshToken.for_user(user)
 
         return JsonResponse({
@@ -731,6 +732,7 @@ def verify_code_view(request):
 
         # Issue tokens only AFTER 2FA succeeded
         refresh = RefreshToken.for_user(user)
+        Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
 
         return JsonResponse(
             {

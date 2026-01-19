@@ -92,7 +92,6 @@ def avg_excluding_zero(values):
     non_zero = [v for v in values if v > 0]
     return sum(non_zero) // len(non_zero) if non_zero else 0
 
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def fitbit_summary(request, patient_id=None):
@@ -106,7 +105,7 @@ def fitbit_summary(request, patient_id=None):
         user = User.objects(id=patient.userId.id).first()
         if not user:
             return JsonResponse({"error": "User not found for patient"}, status=404)
-
+        thresholds = _merge_thresholds(patient)
         # Fetch today's Fitbit data
         fetch_fitbit_today_for_user(user)
 
@@ -124,22 +123,43 @@ def fitbit_summary(request, patient_id=None):
             user=patient.userId, date__gte=start, date__lte=end
         ).order_by("date")
 
+        # -----------------------------
+        # Pull patient vitals (BP) for range
+        # Prefer latest entry per day (manual/device/provider)
+        # -----------------------------
+        vitals_qs = PatientVitals.objects(
+            patientId=patient,
+            date__gte=start,
+            date__lte=end
+        ).order_by("-date")
+
+        vitals_by_day = {}  # "YYYY-MM-DD" -> {"bp_sys":..., "bp_dia":..., "weight_kg":...}
+        for v in vitals_qs:
+            day_key = v.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            if day_key not in vitals_by_day:
+                vitals_by_day[day_key] = {
+                    "bp_sys": v.bp_sys,
+                    "bp_dia": v.bp_dia,
+                    "weight_kg": v.weight_kg,
+                    "source": getattr(v, "source", None),
+                }
+
         daily = []
 
-        # Totals
+        # Totals / averages inputs
         steps_tot = []
         act_tot = []
         sleep_tot = []
-        inact_tot = []
+
+        bp_sys_vals = []
+        bp_dia_vals = []
 
         valid_days = 0
         last_sync = None
 
         # Today midnight
         today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
-        minutes_since_midnight = int(
-            (end - today_start).total_seconds() // 60
-        )
+        minutes_since_midnight = int((end - today_start).total_seconds() // 60)
 
         # ---------- Helper to parse sleep_end ----------
         def _parse_sleep_end(sleep_end_raw, day_start_dt):
@@ -147,7 +167,6 @@ def fitbit_summary(request, patient_id=None):
             if not sleep_end_raw:
                 return None, 0
 
-            # Parse string -> datetime
             if isinstance(sleep_end_raw, str):
                 try:
                     sleep_end_raw = sleep_end_raw.replace("Z", "+00:00")
@@ -157,13 +176,11 @@ def fitbit_summary(request, patient_id=None):
             else:
                 sleep_end_dt = sleep_end_raw
 
-            # --- ensure sleep_end_dt is timezone aware ---
             if timezone.is_naive(sleep_end_dt):
                 sleep_end_dt = timezone.make_aware(
                     sleep_end_dt, timezone.get_current_timezone()
                 )
 
-            # --- ensure day_start_dt is timezone aware ---
             if timezone.is_naive(day_start_dt):
                 day_start_dt = timezone.make_aware(
                     day_start_dt, timezone.get_current_timezone()
@@ -171,7 +188,6 @@ def fitbit_summary(request, patient_id=None):
 
             wake_minute = int((sleep_end_dt - day_start_dt).total_seconds() // 60)
             wake_minute = max(0, min(1440, wake_minute))
-
             return sleep_end_dt, wake_minute
 
         # ---------- Build daily ----------
@@ -179,8 +195,6 @@ def fitbit_summary(request, patient_id=None):
             sm = _sleep_minutes(d)
             am = int(d.active_minutes or 0)
             st = int(d.steps or 0)
-
-            print(f"Processing date {d.date}: steps={st}, active_minutes={am}, sleep_minutes={sm}")
 
             sleep_obj = getattr(d, "sleep", None)
             sleep_end_raw = getattr(sleep_obj, "sleep_end", None)
@@ -192,21 +206,32 @@ def fitbit_summary(request, patient_id=None):
 
             _, wake_minute = _parse_sleep_end(sleep_end_raw, day_start)
 
-            # Awake window
+            # Awake window (still used if you want; but we are NOT returning inactivity anymore)
             if d.date.date() == today_start.date():
                 awake_window = max(0, minutes_since_midnight - wake_minute)
             else:
                 awake_window = max(0, 1440 - wake_minute)
 
-            inactivity = max(0, awake_window - am)
-            inactivity = min(inactivity, awake_window)
+            # -----------------------------
+            # BP resolution: FitbitData first, else PatientVitals day map
+            # -----------------------------
+            day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+
+            bp_sys = getattr(d, "bp_sys", None)
+            bp_dia = getattr(d, "bp_dia", None)
+
+            if bp_sys is None or bp_dia is None:
+                vday = vitals_by_day.get(day_key) or {}
+                bp_sys = bp_sys if bp_sys is not None else vday.get("bp_sys")
+                bp_dia = bp_dia if bp_dia is not None else vday.get("bp_dia")
 
             row = {
                 "date": d.date.isoformat(),
                 "steps": st,
                 "active_minutes": am,
                 "sleep_minutes": sm,
-                "inactivity_minutes": inactivity,
+                "bp_sys": bp_sys,
+                "bp_dia": bp_dia,
             }
             daily.append(row)
 
@@ -214,17 +239,23 @@ def fitbit_summary(request, patient_id=None):
             has_real_data = (
                 (d.steps not in (None, 0)) or
                 (d.active_minutes not in (None, 0)) or
-                (sm not in (None, 0))
+                (sm not in (None, 0)) or
+                (bp_sys is not None) or
+                (bp_dia is not None)
             )
 
             if has_real_data:
                 valid_days += 1
                 steps_tot.append(st)
                 act_tot.append(am)
-                sleep_tot.append(sm)          
-                inact_tot.append(inactivity)   
-            last_sync = d.date
+                sleep_tot.append(sm)
 
+                if bp_sys is not None:
+                    bp_sys_vals.append(int(bp_sys))
+                if bp_dia is not None:
+                    bp_dia_vals.append(int(bp_dia))
+
+            last_sync = d.date
 
         valid_days = max(1, valid_days)
 
@@ -242,40 +273,42 @@ def fitbit_summary(request, patient_id=None):
             sleep_obj = getattr(today, "sleep", None)
             sleep_end_raw = getattr(sleep_obj, "sleep_end", None)
 
-            day_start_today = today.date.replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            day_start_today = today.date.replace(hour=0, minute=0, second=0, microsecond=0)
             if timezone.is_naive(day_start_today):
-                day_start_today = timezone.make_aware(
-                    day_start_today, timezone.get_current_timezone()
-                )
+                day_start_today = timezone.make_aware(day_start_today, timezone.get_current_timezone())
 
-            _, wake_minute_today = _parse_sleep_end(
-                sleep_end_raw, day_start_today
-            )
+            _parse_sleep_end(sleep_end_raw, day_start_today)
 
-            if today.date.date() == today_start.date():
-                awake_window_today = max(0, minutes_since_midnight - wake_minute_today)
-            else:
-                awake_window_today = max(0, 1440 - wake_minute_today)
-
-            im = max(0, awake_window_today - am)
-            im = min(im, awake_window_today)
+            # BP resolution for today
+            day_key_today = today.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            bp_sys_today = getattr(today, "bp_sys", None)
+            bp_dia_today = getattr(today, "bp_dia", None)
+            if bp_sys_today is None or bp_dia_today is None:
+                vday = vitals_by_day.get(day_key_today) or {}
+                bp_sys_today = bp_sys_today if bp_sys_today is not None else vday.get("bp_sys")
+                bp_dia_today = bp_dia_today if bp_dia_today is not None else vday.get("bp_dia")
 
             today_payload = {
                 "steps": int(today.steps or 0),
                 "active_minutes": am,
                 "sleep_minutes": sm,
-                "inactivity_minutes": im,
                 "resting_heart_rate": (
                     int(today.resting_heart_rate)
                     if today.resting_heart_rate is not None
                     else None
                 ),
+                "bp_sys": bp_sys_today,
+                "bp_dia": bp_dia_today,
             }
+
+        def avg_nums(vals):
+            nums = [int(x) for x in vals if x is not None]
+            return (sum(nums) / len(nums)) if nums else None
+
         return JsonResponse(
             {
                 "connected": connected,
+                "thresholds": thresholds,
                 "last_sync": last_sync.isoformat() if last_sync else None,
                 "today": today_payload,
                 "period": {
@@ -284,13 +317,16 @@ def fitbit_summary(request, patient_id=None):
                         "steps": sum(steps_tot),
                         "active_minutes": sum(act_tot),
                         "sleep_minutes": sum(sleep_tot),
-                        "inactivity_minutes": sum(inact_tot),
+                        # BP totals are not very meaningful; keep or remove as you prefer:
+                        "bp_sys": sum([int(x) for x in bp_sys_vals]) if bp_sys_vals else None,
+                        "bp_dia": sum([int(x) for x in bp_dia_vals]) if bp_dia_vals else None,
                     },
                     "averages": {
                         "steps": avg_excluding_zero(steps_tot),
                         "active_minutes": avg_excluding_zero(act_tot),
                         "sleep_minutes": avg_excluding_zero(sleep_tot),
-                        "inactivity_minutes": avg_excluding_zero(inact_tot),
+                        "bp_sys": avg_nums(bp_sys_vals),
+                        "bp_dia": avg_nums(bp_dia_vals),
                     },
                     "daily": daily,
                 },
@@ -301,6 +337,37 @@ def fitbit_summary(request, patient_id=None):
     except Exception as e:
         logger.error("[fitbit_summary] %s", e, exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+def _default_thresholds():
+    return {
+        "steps_goal": 10000,
+        "active_minutes_green": 30,
+        "active_minutes_yellow": 20,
+        "sleep_green_min": 7 * 60,
+        "sleep_yellow_min": 6 * 60,
+        "bp_sys_green_max": 129,
+        "bp_sys_yellow_max": 139,
+        "bp_dia_green_max": 84,
+        "bp_dia_yellow_max": 89,
+    }
+
+def _merge_thresholds(patient):
+    """
+    Merge patient.thresholds into backend defaults.
+    If patient has no thresholds or partial thresholds, defaults fill the gaps.
+    """
+    base = _default_thresholds()
+
+    th = getattr(patient, "thresholds", None)
+    if not th:
+        return base
+
+    # mongoengine EmbeddedDocument -> attributes
+    for k in list(base.keys()):
+        v = getattr(th, k, None)
+        if v is not None:
+            base[k] = v
+    return base
 
 
 @csrf_exempt

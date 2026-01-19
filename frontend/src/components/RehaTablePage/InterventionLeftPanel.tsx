@@ -1,5 +1,5 @@
 // src/components/RehaTablePage/InterventionLeftPanel.tsx
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Card,
   Nav,
@@ -116,6 +116,20 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     handleAddIntervention,
   } = actions;
 
+  // Scroll-to-top targets
+  const allListRef = useRef<HTMLDivElement | null>(null);
+  const patientListRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollListToTop = () => {
+    const el = selectedTab === 'all' ? allListRef.current : patientListRef.current;
+    if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleReset = () => {
+    resetAllFilters();      // clears controlled fields in parent
+    scrollListToTop();      // scroll list back to top (ALL tab mainly)
+  };
+
   return (
     <div className="left-bar-wrapper">
       <div className="left-bar-inner">
@@ -155,6 +169,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                   </Form.Group>
                 </Col>
               </Row>
+
               <Row className="mb-3">
                 <Col>
                   <Form.Select
@@ -169,6 +184,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                     ))}
                   </Form.Select>
                 </Col>
+
                 <Col>
                   <Form.Select
                     value={contentTypeFilter}
@@ -183,6 +199,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                   </Form.Select>
                 </Col>
               </Row>
+
               <Row className="mb-3">
                 <Col>
                   <Select
@@ -191,11 +208,13 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                       value: tag,
                       label: t(tag),
                     }))}
-                    value={tagFilter.map((tag) => ({ value: tag, label: tag }))}
-                    onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
+                    // IMPORTANT: keep labels translated (so UI stays consistent after reset)
+                    value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
+                    onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
                     placeholder={t('Filter by Tags')}
                   />
                 </Col>
+
                 <Col>
                   <Select
                     isMulti
@@ -203,22 +222,32 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                       value: b,
                       label: t(b),
                     }))}
-                    value={benefitForFilter.map((b) => ({ value: b, label: b }))}
-                    onChange={(opts) =>
-                      setBenefitForFilter(opts.map((opt) => opt.value))
-                    }
+                    value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
+                    onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
                     placeholder={t('Filter by Benefit')}
                   />
                 </Col>
               </Row>
+
               <Row>
-                <Col>
+                <Col className="d-flex gap-2">
                   <Button
                     variant="outline-secondary"
                     size="sm"
-                    onClick={resetAllFilters}
+                    onClick={handleReset}
                   >
                     <FaUndo className="me-2" /> {t('Reset filters')}
+                  </Button>
+
+                  {/* Optional: quick scroll-to-top even without reset */}
+                  <Button
+                    variant="outline-light"
+                    size="sm"
+                    onClick={scrollListToTop}
+                    aria-label={t('Scroll to top')}
+                    title={t('Scroll to top')}
+                  >
+                    ↑
                   </Button>
                 </Col>
               </Row>
@@ -230,36 +259,32 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
         {selectedTab === 'patient' ? (
           <Card className="d-flex flex-column flex-1 min-h-0">
             <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
-              <div className="flex-1 min-h-0 scroll-y">
+              <div className="flex-1 min-h-0 scroll-y" ref={patientListRef}>
                 {/* Active */}
                 <div className="mb-2">
-                  <div className="fw-bold mb-2">
-                    {t('Active interventions')}
-                  </div>
+                  <div className="fw-bold mb-2">{t('Active interventions')}</div>
+
                   {activeItems.length === 0 && (
-                    <div className="text-muted mb-3">
-                      {t('No active interventions.')}
-                    </div>
+                    <div className="text-muted mb-3">{t('No active interventions.')}</div>
                   )}
+
                   {activeItems.map((intervention) => {
                     const translated = titleMap[intervention._id];
                     const title = translated?.title || intervention.title;
                     const originalLang = translated?.lang;
                     const isTranslated =
                       originalLang &&
-                      title.trim().toLowerCase() !==
-                        intervention.title.trim().toLowerCase();
+                      title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+
                     const typeLabel =
-                      typeMap[intervention._id] ||
-                      capitalize(intervention.content_type || '');
+                      typeMap[intervention._id] || capitalize(intervention.content_type || '');
+
                     const patientHasIntervention =
-                      patientData?.interventions?.find(
-                        (item) => item._id === intervention._id
-                      );
+                      patientData?.interventions?.find((item) => item._id === intervention._id);
+
                     const hasFuture =
-                      patientHasIntervention?.dates?.some(
-                        (d) => new Date(d.datetime) > new Date()
-                      );
+                      patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date());
+
                     const assigned = !!patientHasIntervention;
 
                     return (
@@ -274,77 +299,44 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                         onClick={() => handleExerciseClick(intervention)}
                       >
                         <div className="flex-grow-1">
-                          <strong
-                            {...(isTranslated
-                              ? { title: `Original: ${intervention.title}` }
-                              : {})}
-                          >
+                          <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>
                             {title}
                           </strong>
+
                           {isTranslated && (
-                            <div
-                              className="text-muted fst-italic"
-                              style={{ fontSize: '0.85rem' }}
-                            >
+                            <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>
                               ({t('Translated from')}: {originalLang})
                             </div>
                           )}
+
                           <div className="text-muted">{typeLabel}</div>
+
                           <Badge
-                            bg={getBadgeVariantFromUrl(
-                              intervention.media_url,
-                              intervention.link
-                            )}
+                            bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}
                           >
-                            {t(
-                              getMediaTypeLabelFromUrl(
-                                intervention.media_url,
-                                intervention.link
-                              )
-                            )}
+                            {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
                           </Badge>
                         </div>
+
                         <div style={{ flex: '0 0 auto' }}>
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="ms-2"
-                          >
+                          <div onClick={(e) => e.stopPropagation()} className="ms-2">
                             <ButtonGroup size="sm" vertical>
                               {assigned && (
                                 <>
-                                  <OverlayTrigger
-                                    placement="left"
-                                    overlay={
-                                      <Tooltip>
-                                        {t('Statistics')}
-                                      </Tooltip>
-                                    }
-                                  >
+                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
                                     <Button
                                       variant="outline-primary"
-                                      onClick={() =>
-                                        showStats(intervention)
-                                      }
+                                      onClick={() => showStats(intervention)}
                                       aria-label={t('Statistics')}
                                     >
                                       <FaChartBar />
                                     </Button>
                                   </OverlayTrigger>
-                                  <OverlayTrigger
-                                    placement="left"
-                                    overlay={
-                                      <Tooltip>
-                                        {t('Feedback')}
-                                      </Tooltip>
-                                    }
-                                  >
+
+                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
                                     <Button
                                       variant="outline-info"
-                                      onClick={() =>
-                                        openFeedbackBrowser(
-                                          intervention
-                                        )
-                                      }
+                                      onClick={() => openFeedbackBrowser(intervention)}
                                       aria-label={t('Feedback')}
                                     >
                                       <FaCommentDots />
@@ -352,40 +344,24 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                                   </OverlayTrigger>
                                 </>
                               )}
+
                               {assigned && hasFuture && (
-                                <OverlayTrigger
-                                  placement="left"
-                                  overlay={
-                                    <Tooltip>{t('Modify')}</Tooltip>
-                                  }
-                                >
+                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
                                   <Button
                                     variant="outline-secondary"
-                                    onClick={() =>
-                                      handleModifyIntervention(
-                                        intervention
-                                      )
-                                    }
+                                    onClick={() => handleModifyIntervention(intervention)}
                                     aria-label={t('Modify')}
                                   >
                                     <FaEdit />
                                   </Button>
                                 </OverlayTrigger>
                               )}
+
                               {hasFuture && (
-                                <OverlayTrigger
-                                  placement="left"
-                                  overlay={
-                                    <Tooltip>{t('Remove')}</Tooltip>
-                                  }
-                                >
+                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                                   <Button
                                     variant="outline-danger"
-                                    onClick={() =>
-                                      handleDeleteExercise(
-                                        intervention._id
-                                      )
-                                    }
+                                    onClick={() => handleDeleteExercise(intervention._id)}
                                     aria-label={t('Remove')}
                                   >
                                     <FaMinus />
@@ -403,29 +379,25 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 {/* Past */}
                 <hr className="my-3" />
                 <div className="mb-2">
-                  <div className="fw-bold mb-2">
-                    {t('Past interventions')}
-                  </div>
+                  <div className="fw-bold mb-2">{t('Past interventions')}</div>
+
                   {pastItems.length === 0 && (
-                    <div className="text-muted">
-                      {t('No past interventions.')}
-                    </div>
+                    <div className="text-muted">{t('No past interventions.')}</div>
                   )}
+
                   {pastItems.map((intervention) => {
                     const translated = titleMap[intervention._id];
                     const title = translated?.title || intervention.title;
                     const originalLang = translated?.lang;
                     const isTranslated =
                       originalLang &&
-                      title.trim().toLowerCase() !==
-                        intervention.title.trim().toLowerCase();
+                      title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+
                     const typeLabel =
-                      typeMap[intervention._id] ||
-                      capitalize(intervention.content_type || '');
+                      typeMap[intervention._id] || capitalize(intervention.content_type || '');
+
                     const patientHasIntervention =
-                      patientData?.interventions?.find(
-                        (item) => item._id === intervention._id
-                      );
+                      patientData?.interventions?.find((item) => item._id === intervention._id);
                     const assigned = !!patientHasIntervention;
 
                     return (
@@ -440,77 +412,44 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                         onClick={() => handleExerciseClick(intervention)}
                       >
                         <div className="flex-grow-1">
-                          <strong
-                            {...(isTranslated
-                              ? { title: `Original: ${intervention.title}` }
-                              : {})}
-                          >
+                          <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>
                             {title}
                           </strong>
+
                           {isTranslated && (
-                            <div
-                              className="text-muted fst-italic"
-                              style={{ fontSize: '0.85rem' }}
-                            >
+                            <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>
                               ({t('Translated from')}: {originalLang})
                             </div>
                           )}
+
                           <div className="text-muted">{typeLabel}</div>
+
                           <Badge
-                            bg={getBadgeVariantFromUrl(
-                              intervention.media_url,
-                              intervention.link
-                            )}
+                            bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}
                           >
-                            {t(
-                              getMediaTypeLabelFromUrl(
-                                intervention.media_url,
-                                intervention.link
-                              )
-                            )}
+                            {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
                           </Badge>
                         </div>
+
                         <div style={{ flex: '0 0 auto' }}>
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="ms-2"
-                          >
+                          <div onClick={(e) => e.stopPropagation()} className="ms-2">
                             <ButtonGroup size="sm" vertical>
                               {assigned && (
                                 <>
-                                  <OverlayTrigger
-                                    placement="left"
-                                    overlay={
-                                      <Tooltip>
-                                        {t('Statistics')}
-                                      </Tooltip>
-                                    }
-                                  >
+                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
                                     <Button
                                       variant="outline-primary"
-                                      onClick={() =>
-                                        showStats(intervention)
-                                      }
+                                      onClick={() => showStats(intervention)}
                                       aria-label={t('Statistics')}
                                     >
                                       <FaChartBar />
                                     </Button>
                                   </OverlayTrigger>
-                                  <OverlayTrigger
-                                    placement="left"
-                                    overlay={
-                                      <Tooltip>
-                                        {t('Feedback')}
-                                      </Tooltip>
-                                    }
-                                  >
+
+                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
                                     <Button
                                       variant="outline-info"
-                                      onClick={() =>
-                                        openFeedbackBrowser(
-                                          intervention
-                                        )
-                                      }
+                                      onClick={() => openFeedbackBrowser(intervention)}
                                       aria-label={t('Feedback')}
                                     >
                                       <FaCommentDots />
@@ -518,19 +457,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                                   </OverlayTrigger>
                                 </>
                               )}
-                              <OverlayTrigger
-                                placement="left"
-                                overlay={
-                                  <Tooltip>
-                                    {t('Schedule again')}
-                                  </Tooltip>
-                                }
-                              >
+
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Schedule again')}</Tooltip>}>
                                 <Button
                                   variant="outline-success"
-                                  onClick={() =>
-                                    handleAddIntervention(intervention)
-                                  }
+                                  onClick={() => handleAddIntervention(intervention)}
                                   aria-label={t('Schedule again')}
                                 >
                                   <FaPlus />
@@ -550,26 +481,24 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
           // ALL tab list
           <Card className="d-flex flex-column flex-1 min-h-0">
             <Card.Body className="d-flex flex-column flex-1 min-h-0 p-2">
-              <div className="flex-1 min-h-0 all-scroll-y">
+              <div className="flex-1 min-h-0 all-scroll-y" ref={allListRef}>
                 {visibleItems.map((intervention) => {
                   const translated = titleMap[intervention._id];
                   const title = translated?.title || intervention.title;
                   const originalLang = translated?.lang;
                   const isTranslated =
                     originalLang &&
-                    title.trim().toLowerCase() !==
-                      intervention.title.trim().toLowerCase();
+                    title.trim().toLowerCase() !== intervention.title.trim().toLowerCase();
+
                   const typeLabel =
-                    typeMap[intervention._id] ||
-                    capitalize(intervention.content_type || '');
+                    typeMap[intervention._id] || capitalize(intervention.content_type || '');
+
                   const patientHasIntervention =
-                    patientData?.interventions?.find(
-                      (item) => item._id === intervention._id
-                    );
+                    patientData?.interventions?.find((item) => item._id === intervention._id);
+
                   const hasFuture =
-                    patientHasIntervention?.dates?.some(
-                      (d) => new Date(d.datetime) > new Date()
-                    ) || false;
+                    patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date()) || false;
+
                   const assigned = !!patientHasIntervention;
 
                   return (
@@ -584,77 +513,44 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                       onClick={() => handleExerciseClick(intervention)}
                     >
                       <div className="flex-grow-1">
-                        <strong
-                          {...(isTranslated
-                            ? { title: `Original: ${intervention.title}` }
-                            : {})}
-                        >
+                        <strong {...(isTranslated ? { title: `Original: ${intervention.title}` } : {})}>
                           {title}
                         </strong>
+
                         {isTranslated && (
-                          <div
-                            className="text-muted fst-italic"
-                            style={{ fontSize: '0.85rem' }}
-                          >
+                          <div className="text-muted fst-italic" style={{ fontSize: '0.85rem' }}>
                             ({t('Translated from')}: {originalLang})
                           </div>
                         )}
+
                         <div className="text-muted">{typeLabel}</div>
+
                         <Badge
-                          bg={getBadgeVariantFromUrl(
-                            intervention.media_url,
-                            intervention.link
-                          )}
+                          bg={getBadgeVariantFromUrl(intervention.media_url, intervention.link)}
                         >
-                          {t(
-                            getMediaTypeLabelFromUrl(
-                              intervention.media_url,
-                              intervention.link
-                            )
-                          )}
+                          {t(getMediaTypeLabelFromUrl(intervention.media_url, intervention.link))}
                         </Badge>
                       </div>
+
                       <div style={{ flex: '0 0 auto' }}>
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="ms-2"
-                        >
+                        <div onClick={(e) => e.stopPropagation()} className="ms-2">
                           <ButtonGroup size="sm" vertical>
                             {assigned && (
                               <>
-                                <OverlayTrigger
-                                  placement="left"
-                                  overlay={
-                                    <Tooltip>
-                                      {t('Statistics')}
-                                    </Tooltip>
-                                  }
-                                >
+                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
                                   <Button
                                     variant="outline-primary"
-                                    onClick={() =>
-                                      showStats(intervention)
-                                    }
+                                    onClick={() => showStats(intervention)}
                                     aria-label={t('Statistics')}
                                   >
                                     <FaChartBar />
                                   </Button>
                                 </OverlayTrigger>
-                                <OverlayTrigger
-                                  placement="left"
-                                  overlay={
-                                    <Tooltip>
-                                      {t('Feedback')}
-                                    </Tooltip>
-                                  }
-                                >
+
+                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
                                   <Button
                                     variant="outline-info"
-                                    onClick={() =>
-                                      openFeedbackBrowser(
-                                        intervention
-                                      )
-                                    }
+                                    onClick={() => openFeedbackBrowser(intervention)}
                                     aria-label={t('Feedback')}
                                   >
                                     <FaCommentDots />
@@ -662,56 +558,32 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                                 </OverlayTrigger>
                               </>
                             )}
+
                             {assigned && hasFuture ? (
-                              <OverlayTrigger
-                                placement="left"
-                                overlay={
-                                  <Tooltip>{t('Modify')}</Tooltip>
-                                }
-                              >
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
                                 <Button
                                   variant="outline-secondary"
-                                  onClick={() =>
-                                    handleModifyIntervention(
-                                      intervention
-                                    )
-                                  }
+                                  onClick={() => handleModifyIntervention(intervention)}
                                   aria-label={t('Modify')}
                                 >
                                   <FaEdit />
                                 </Button>
                               </OverlayTrigger>
                             ) : assigned ? (
-                              <OverlayTrigger
-                                placement="left"
-                                overlay={
-                                  <Tooltip>{t('Remove')}</Tooltip>
-                                }
-                              >
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                                 <Button
                                   variant="outline-danger"
-                                  onClick={() =>
-                                    handleDeleteExercise(
-                                      intervention._id
-                                    )
-                                  }
+                                  onClick={() => handleDeleteExercise(intervention._id)}
                                   aria-label={t('Remove')}
                                 >
                                   <FaMinus />
                                 </Button>
                               </OverlayTrigger>
                             ) : (
-                              <OverlayTrigger
-                                placement="left"
-                                overlay={
-                                  <Tooltip>{t('Add')}</Tooltip>
-                                }
-                              >
+                              <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
                                 <Button
                                   variant="outline-success"
-                                  onClick={() =>
-                                    handleAddIntervention(intervention)
-                                  }
+                                  onClick={() => handleAddIntervention(intervention)}
                                   aria-label={t('Add')}
                                 >
                                   <FaPlus />

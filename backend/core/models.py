@@ -343,7 +343,26 @@ class RedcapParticipant(Document):
     is_active = BooleanField(default=True)
 
     meta = {"indexes": ["record_id", "assigned_therapist", "clinic"]}
+# ---------------------------
+# NEW: Embedded thresholds doc
+# ---------------------------
+class PatientThresholds(EmbeddedDocument):
+    # Steps
+    steps_goal = IntField(default=10000)
 
+    # Active minutes (color thresholds)
+    active_minutes_green = IntField(default=30)
+    active_minutes_yellow = IntField(default=20)
+
+    # Sleep thresholds (in minutes)
+    sleep_green_min = IntField(default=7 * 60)
+    sleep_yellow_min = IntField(default=6 * 60)
+
+    # Blood pressure thresholds (mmHg)
+    bp_sys_green_max = IntField(default=129)
+    bp_sys_yellow_max = IntField(default=139)
+    bp_dia_green_max = IntField(default=84)
+    bp_dia_yellow_max = IntField(default=89)
 class Patient(Document):
     meta = {"collection": "Patients"}
 
@@ -370,6 +389,7 @@ class Patient(Document):
     duration = IntField()
     care_giver = StringField(max_length=20, default="")
     reha_end_date = DateTimeField(required=True)
+    thresholds = EmbeddedDocumentField(PatientThresholds, default=PatientThresholds)
 
     clinic = StringField(max_length=120, default="")
     last_clinic_visit = DateTimeField(required=False, null=True)

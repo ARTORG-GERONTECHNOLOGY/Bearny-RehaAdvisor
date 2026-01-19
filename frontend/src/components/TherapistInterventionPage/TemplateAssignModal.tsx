@@ -1,5 +1,5 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
@@ -70,6 +70,18 @@ const TemplateAssignModal: React.FC<Props> = ({
     return Math.floor((lastDay - startDay) / everyK) + 1;
   }, [startDay, lastDay, everyK, validRange]);
 
+  // ✅ track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
+  const hasUnsavedChanges = useMemo(() => {
+    const diagChanged = (diagnosis || '') !== (defaultDiagnosis || '');
+    const defaultsChanged =
+      startDay !== 1 ||
+      lastDay !== 10 ||
+      everyK !== 1 ||
+      startTime !== '08:00' ||
+      (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false);
+    return diagChanged || defaultsChanged || !!error;
+  }, [diagnosis, defaultDiagnosis, startDay, lastDay, everyK, startTime, keepPrevious, mode, error]);
+
   /* ---------------- ERROR HANDLER ---------------- */
   const applyBackendErrors = (data: any) => {
     const fe: ErrorMap = {};
@@ -92,6 +104,40 @@ const TemplateAssignModal: React.FC<Props> = ({
     setShowErrorDetails(Object.keys(fe).length > 0);
   };
 
+  // ✅ close handler used by X, Esc, and programmatic close
+  const confirmClose = useCallback(() => {
+    if (submitting) return; // avoid closing mid-submit
+
+    if (hasUnsavedChanges) {
+      const ok = window.confirm(
+        t('Close this window? Unsaved changes will be lost.')
+      );
+      if (!ok) return;
+    }
+
+    setError('');
+    setFieldErrors({});
+    setShowErrorDetails(false);
+    setSubmitting(false);
+
+    onHide();
+  }, [hasUnsavedChanges, onHide, submitting, t]);
+
+  // ✅ Esc should trigger same logic
+  useEffect(() => {
+    if (!show) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        confirmClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [show, confirmClose]);
+
   /* ---------------- SAVE ---------------- */
   const handleSave = async () => {
     try {
@@ -108,7 +154,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
       const payload = {
         therapistId: authStore.id,
-        patientId: diagnosis,   // BE expects diagnosis here
+        patientId: diagnosis, // BE expects diagnosis here
         interventions: [
           {
             interventionId,
@@ -118,7 +164,7 @@ const TemplateAssignModal: React.FC<Props> = ({
             start_day: startDay,
             end: { type: 'count', count: lastDay },
             keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
-            suggested_execution_time: suggestedExecution, // ✔ matches BE
+            suggested_execution_time: suggestedExecution,
           },
         ],
       };
@@ -130,7 +176,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
       if (res.status === 201 || res.status === 200) {
         onSuccess?.();
-        onHide();
+        confirmClose(); // ✅ close via same exit path (no confirm since we reset state)
       } else {
         setError(t('Failed to save template assignment.'));
       }
@@ -142,7 +188,17 @@ const TemplateAssignModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal
+      show={show}
+      onHide={confirmClose} // ✅ X uses confirmClose
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        confirmClose();
+      }}
+      centered
+      backdrop="static"
+      keyboard // ✅ Esc triggers onHide
+    >
       <Modal.Header closeButton>
         <Modal.Title>
           {mode === 'modify'
@@ -157,7 +213,11 @@ const TemplateAssignModal: React.FC<Props> = ({
           <Alert variant="danger" dismissible onClose={() => setError('')}>
             <div className="d-flex justify-content-between">
               <span>{error}</span>
-              <Button size="sm" onClick={() => setShowErrorDetails(!showErrorDetails)}>
+              <Button
+                size="sm"
+                onClick={() => setShowErrorDetails(!showErrorDetails)}
+                variant="light"
+              >
                 {showErrorDetails ? t('Hide details') : t('Show details')}
               </Button>
             </div>
@@ -264,24 +324,22 @@ const TemplateAssignModal: React.FC<Props> = ({
           )}
 
           <Alert variant="info">
-            {t(
-              'These are relative template days. Actual calendar dates are set when applying to a patient.'
-            )}
+            {t('These are relative template days. Actual calendar dates are set when applying to a patient.')}
           </Alert>
 
           <div className="text-muted">
             {validRange
-              ? t(
-                  '{{count}} session(s): Days S,S+K,…≤N at ~{{time}}',
-                  { count: occurrencesCount, time: startTime }
-                )
+              ? t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
+                  count: occurrencesCount,
+                  time: startTime,
+                })
               : t('Invalid range.')}
           </div>
         </Form>
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={submitting}>
+        <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
           {t('Cancel')}
         </Button>
         <Button variant="primary" onClick={handleSave} disabled={!canSubmit || submitting}>
