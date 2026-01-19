@@ -1,5 +1,5 @@
 // src/components/HomePage/RegisteringForm.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Modal, Spinner } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -13,7 +13,7 @@ interface FormDataShape {
 
 interface RegisterFormProps {
   show: boolean;
-  handleRegShow: () => void;
+  handleRegShow: () => void; // toggles modal open/close
 }
 
 const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
@@ -59,37 +59,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const resetForm = () => {
-    setFormData({
-      email: '',
-      password: '',
-      repeatPassword: '',
-      userType: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-      specialisation: [],
-      clinic: [],
-      researcherInfo: '',
-      adminInfo: '',
-      function: [],
-      diagnosis: [],
-    });
-    setStep(0);
-    setErrors({});
-    setFormError(null);
-    setSuccessMsg(null);
-    setServerDetail(null);
-    setShowDetails(false);
-    setShowPassword(false);
-    setShowRepeatPassword(false);
-  };
-
-  const handleCloseForm = () => {
-    resetForm();
-    handleRegShow();
-  };
-
   /** Password policy and live validation */
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
@@ -102,12 +71,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const cleanName = (s: string) => cleanSpaces(s);
 
   // remove all spaces (useful for emails)
-  const cleanEmail = (s: string) =>
-    String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
+  const cleanEmail = (s: string) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
   // phone: remove spaces and common separators
-  const cleanPhone = (s: string) =>
-    String(s ?? '').replace(/[\s\-().]/g, '').trim();
+  const cleanPhone = (s: string) => String(s ?? '').replace(/[\s\-().]/g, '').trim();
 
   // stricter email validation:
   // - local part must start with alnum (so "-1@gmail.com" fails)
@@ -135,8 +102,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
     const labels = domain.split('.');
     if (labels.some((l) => !l.length)) return false;
-    if (labels.some((l) => l.startsWith('-') || l.endsWith('-')))
-      return false;
+    if (labels.some((l) => l.startsWith('-') || l.endsWith('-'))) return false;
 
     return true;
   };
@@ -174,9 +140,79 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     });
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const resetForm = useCallback(() => {
+    setFormData({
+      email: '',
+      password: '',
+      repeatPassword: '',
+      userType: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      specialisation: [],
+      clinic: [],
+      researcherInfo: '',
+      adminInfo: '',
+      function: [],
+      diagnosis: [],
+    });
+    setStep(0);
+    setErrors({});
+    setFormError(null);
+    setSuccessMsg(null);
+    setServerDetail(null);
+    setShowDetails(false);
+    setShowPassword(false);
+    setShowRepeatPassword(false);
+    setLoading(false);
+  }, []);
+
+  // ✅ same keyboard exit behavior: Esc should close using the same logic
+  const confirmClose = useCallback(() => {
+    const hasAny = Object.entries(formData).some(([k, v]) => {
+      if (k === 'repeatPassword') return false; // ignore repeatPassword for "unsaved"
+      if (Array.isArray(v)) return v.length > 0;
+      return !!String(v ?? '').trim();
+    });
+
+    // If already successful, close without prompting
+    if (successMsg) {
+      resetForm();
+      handleRegShow();
+      return;
+    }
+
+    if (loading) {
+      // avoid exiting mid-submit without confirmation
+      if (!window.confirm(t('A request is in progress. Do you want to close?'))) return;
+      setLoading(false);
+    } else if (hasAny) {
+      if (!window.confirm(t('Are you sure you want to close? Unsaved data will be lost.'))) return;
+    }
+
+    resetForm();
+    handleRegShow();
+  }, [formData, handleRegShow, loading, resetForm, successMsg, t]);
+
+  const handleCloseForm = useCallback(() => {
+    confirmClose();
+  }, [confirmClose]);
+
+  useEffect(() => {
+    if (!show) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        confirmClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [show, confirmClose]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id } = e.target;
     let value = e.target.value;
 
@@ -195,10 +231,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
       if (id === 'password' || id === 'repeatPassword') {
         const pwd = id === 'password' ? value : String(updated.password || '');
-        const rep =
-          id === 'repeatPassword'
-            ? value
-            : String(updated.repeatPassword || '');
+        const rep = id === 'repeatPassword' ? value : String(updated.repeatPassword || '');
         liveValidatePassword(pwd, rep);
       } else {
         setErrors((prevErr) => ({ ...prevErr, [id]: '' }));
@@ -221,14 +254,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   };
 
   const handleMultiSelectChange = (
-    selectedOptions:
-      | readonly { value: string; label: string }[]
-      | null,
+    selectedOptions: readonly { value: string; label: string }[] | null,
     fieldName: string
   ) => {
-    const selectedValues = selectedOptions
-      ? selectedOptions.map((opt) => opt.value)
-      : [];
+    const selectedValues = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
     setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
     if (formError) setFormError(null);
@@ -249,10 +278,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     // required fields
     fields.forEach((field: any) => {
       const val = formData[field.name];
-      if (
-        field.required &&
-        (!val || (Array.isArray(val) && val.length === 0))
-      ) {
+      if (field.required && (!val || (Array.isArray(val) && val.length === 0))) {
         newErrors[field.name] = t('This field is required.');
       }
     });
@@ -304,8 +330,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () =>
-    validateStep() && step < formSteps.length - 1 && setStep(step + 1);
+  const nextStep = () => validateStep() && step < formSteps.length - 1 && setStep(step + 1);
   const prevStep = () => step > 0 && setStep(step - 1);
 
   /** Extract a single message string from arbitrary server payload */
@@ -316,10 +341,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       if (typeof data.error === 'string') return data.error;
       if (typeof data.message === 'string') return data.message;
       if (typeof data.detail === 'string') return data.detail;
-      if (
-        Array.isArray(data.non_field_errors) &&
-        data.non_field_errors.length
-      ) {
+      if (Array.isArray(data.non_field_errors) && data.non_field_errors.length) {
         return String(data.non_field_errors[0]);
       }
       for (const v of Object.values(data)) {
@@ -356,11 +378,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
       if (res.status >= 200 && res.status < 300) {
         setErrors({});
-        setSuccessMsg(
-          t(
-            'You have been registered. Account info will be emailed after approval.'
-          )
-        );
+        setSuccessMsg(t('You have been registered. Account info will be emailed after approval.'));
       } else {
         const message = extractServerMessage(res.data, t('Registration failed.'));
         setFormError(message);
@@ -374,9 +392,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
       if (status >= 500) {
         setFormError(
-          `${t(
-            'The server is busy or temporarily unavailable. Please try again.'
-          )}\n${t('Error')}: ${status}`
+          `${t('The server is busy or temporarily unavailable. Please try again.')}\n${t('Error')}: ${status}`
         );
       } else {
         setFormError(message);
@@ -393,11 +409,15 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   return (
     <Modal
       show={show}
-      onHide={handleCloseForm}
+      onHide={handleCloseForm} // ✅ X button uses confirmClose too
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        confirmClose();
+      }}
       centered
       size="lg"
       backdrop="static"
-      keyboard={false}
+      keyboard // ✅ enable Esc -> onHide
     >
       <Modal.Header closeButton>
         <Modal.Title>{t('Register')}</Modal.Title>
@@ -423,11 +443,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
             {serverDetail && (
               <div className="mt-2">
-                <button
-                  type="button"
-                  className="btn btn-link p-0"
-                  onClick={() => setShowDetails((v) => !v)}
-                >
+                <button type="button" className="btn btn-link p-0" onClick={() => setShowDetails((v) => !v)}>
                   {t('Additional information')}
                 </button>
                 {showDetails && (
@@ -445,12 +461,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         {successMsg && (
           <div className="alert alert-success d-flex justify-content-between align-items-center">
             <span>{successMsg}</span>
-            <button
-              type="button"
-              className="btn-close"
-              aria-label={t('Close')}
-              onClick={() => setSuccessMsg(null)}
-            />
+            <button type="button" className="btn-close" aria-label={t('Close')} onClick={() => setSuccessMsg(null)} />
           </div>
         )}
 
@@ -463,8 +474,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               const isRequired = !!field.required;
               const labelText = (
                 <>
-                  {t(field.label)}{' '}
-                  {isRequired && <span className="text-danger">*</span>}
+                  {t(field.label)} {isRequired && <span className="text-danger">*</span>}
                 </>
               );
 
@@ -478,43 +488,23 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     <Select
                       id={field.name}
                       isMulti
-                      value={(formData[field.name] as string[]).map(
-                        (val: string) => ({
-                          value: val,
-                          label: t(val),
-                        })
-                      )}
+                      value={(formData[field.name] as string[]).map((val: string) => ({ value: val, label: t(val) }))}
                       options={
-                        field.name === 'diagnosis' &&
-                        (formData.function || []).length > 0
-                          ? (formData.function as string[]).flatMap(
-                              (spec: string) =>
-                                (specialityDiagnosisMap[spec] || []).map(
-                                  (diag) => ({
-                                    value: diag,
-                                    label: t(diag),
-                                  })
-                                )
+                        field.name === 'diagnosis' && (formData.function || []).length > 0
+                          ? (formData.function as string[]).flatMap((spec: string) =>
+                              (specialityDiagnosisMap[spec] || []).map((diag) => ({ value: diag, label: t(diag) }))
                             )
-                          : (field.options || []).map((opt: string) => ({
-                              value: opt,
-                              label: t(opt),
-                            }))
+                          : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }))
                       }
-                      onChange={(options) =>
-                        handleMultiSelectChange(options, field.name)
-                      }
+                      onChange={(options) => handleMultiSelectChange(options, field.name)}
                     />
                   ) : field.type === 'dropdown' ? (
                     <select
                       id={field.name}
-                      className={`form-control ${
-                        errors[field.name] ? 'is-invalid' : ''
-                      }`}
+                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                       value={String(formData[field.name] || '')}
                       onChange={handleChange}
                       onBlur={() => {
-                        // normalize dropdown value is already stable; still clear errors
                         setErrors((prev) => {
                           const next = { ...prev };
                           if (next[field.name]) delete next[field.name];
@@ -543,9 +533,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                             ? 'text'
                             : 'password'
                         }
-                        className={`form-control ${
-                          errors[field.name] ? 'is-invalid' : ''
-                        }`}
+                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                         id={field.name}
                         value={String(formData[field.name] || '')}
                         onChange={handleChange}
@@ -555,11 +543,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                       <span
                         className="position-absolute end-0 top-50 translate-middle-y me-3"
                         role="button"
-                        onClick={() =>
-                          togglePassword(
-                            field.name === 'password' ? 'main' : 'repeat'
-                          )
-                        }
+                        tabIndex={0}
+                        onClick={() => togglePassword(field.name === 'password' ? 'main' : 'repeat')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            togglePassword(field.name === 'password' ? 'main' : 'repeat');
+                          }
+                        }}
                         aria-label={t('Toggle password visibility')}
                       >
                         {field.name === 'password'
@@ -572,11 +563,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                       </span>
 
                       {errors[field.name] && (
-                        <div
-                          id={`${field.name}-help`}
-                          className="mt-1 small text-danger"
-                          aria-live="polite"
-                        >
+                        <div id={`${field.name}-help`} className="mt-1 small text-danger" aria-live="polite">
                           {errors[field.name]}
                         </div>
                       )}
@@ -584,47 +571,29 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                   ) : (
                     <input
                       type={field.type}
-                      className={`form-control ${
-                        errors[field.name] ? 'is-invalid' : ''
-                      }`}
+                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                       id={field.name}
                       value={String(formData[field.name] || '')}
                       onChange={handleChange}
                       onBlur={() => {
-                        // per-field blur validation (faster feedback)
                         setErrors((prev) => {
                           const next = { ...prev };
 
                           if (field.name === 'email' && formData.email) {
-                            if (!isValidEmailStrict(formData.email)) {
-                              next.email = t('Invalid email address.');
-                            } else {
-                              delete next.email;
-                            }
+                            if (!isValidEmailStrict(formData.email)) next.email = t('Invalid email address.');
+                            else delete next.email;
                           }
 
-                          if (
-                            (field.name === 'firstName' ||
-                              field.name === 'lastName') &&
-                            formData[field.name]
-                          ) {
-                            if (!isValidHumanName(String(formData[field.name]))) {
-                              next[field.name] = t(
-                                'Please enter a valid name (letters only).'
-                              );
-                            } else {
-                              delete next[field.name];
-                            }
+                          if ((field.name === 'firstName' || field.name === 'lastName') && formData[field.name]) {
+                            if (!isValidHumanName(String(formData[field.name])))
+                              next[field.name] = t('Please enter a valid name (letters only).');
+                            else delete next[field.name];
                           }
 
                           if (field.name === 'phone' && formData.phone) {
-                            if (!/^\d{8,15}$/.test(String(formData.phone))) {
-                              next.phone = t(
-                                'Invalid phone number. Enter 8-15 digits only.'
-                              );
-                            } else {
-                              delete next.phone;
-                            }
+                            if (!/^\d{8,15}$/.test(String(formData.phone)))
+                              next.phone = t('Invalid phone number. Enter 8-15 digits only.');
+                            else delete next.phone;
                           }
 
                           return next;
@@ -654,19 +623,12 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               </div>
             ) : step > 0 ? (
               <>
-                <Button
-                  variant="secondary"
-                  onClick={prevStep}
-                  disabled={loading}
-                >
+                <Button variant="secondary" onClick={prevStep} disabled={loading}>
                   {t('Back')}
                 </Button>
+
                 {step < formSteps.length - 1 ? (
-                  <Button
-                    variant="primary"
-                    onClick={nextStep}
-                    disabled={loading}
-                  >
+                  <Button variant="primary" onClick={nextStep} disabled={loading}>
                     {t('Next')}
                   </Button>
                 ) : (
@@ -677,7 +639,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               </>
             ) : (
               <>
-                <span /> {/* spacer */}
+                <span />
                 <Button variant="primary" onClick={nextStep} disabled={loading}>
                   {t('Next')}
                 </Button>

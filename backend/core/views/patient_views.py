@@ -354,6 +354,7 @@ def mark_intervention_completed(request):
     """
     POST /api/interventions/complete/
     Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # 'date' optional; defaults to today
+    Ensures only ONE log per (patient, rehab_plan, intervention, day) exists.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -365,18 +366,16 @@ def mark_intervention_completed(request):
         target_date_str = data.get("date")  # optional
 
         if not patient_id or not intervention_id:
-          return JsonResponse({"error": "Missing patient_id or intervention_id"}, status=400)
+            return JsonResponse({"error": "Missing patient_id or intervention_id"}, status=400)
 
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
-          return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
+            return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
 
-        # Determine target day (timezone-aware start/end of day)
         tz_now = timezone.localtime(timezone.now())
         if target_date_str:
-            # YYYY-MM-DD
             y, m, d = [int(x) for x in target_date_str.split('-')]
             target = timezone.make_aware(datetime.datetime(y, m, d, 0, 0, 0), tz_now.tzinfo)
         else:
@@ -385,38 +384,78 @@ def mark_intervention_completed(request):
         day_start = target
         day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        log = PatientInterventionLogs.objects(
+        # ✅ fetch ALL logs for the day
+        logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
             date__gte=day_start,
             date__lte=day_end,
-        ).first()
+        ).order_by("-date")
 
-        if log:
-            if "completed" in log.status:
-                return JsonResponse({"message": "Already marked as completed"}, status=200)
-            else:
-                log.status.append("completed")
-                log.updatedAt = timezone.now()
-                log.save()
-        else:
-            log = PatientInterventionLogs(
-                userId=patient,
-                interventionId=intervention,
-                rehabilitationPlanId=rehab_plan,
-                date=timezone.now(),
-                status=["completed"],
-                feedback=[],
-                comments="",
-            )
-            log.save()
+        logs = list(logs_qs)
+
+        if logs:
+            # ✅ keep the newest, merge others into it, delete old ones
+            keep = logs[0]
+            others = logs[1:]
+
+            # merge status unique
+            merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
+            keep.status = merged_status
+
+            # merge feedback (simple concat; if you have IDs you can dedupe)
+            merged_feedback = (keep.feedback or [])
+            for l in others:
+                if l.feedback:
+                    merged_feedback.extend(l.feedback)
+            keep.feedback = merged_feedback
+
+            # you may choose to merge comments too
+            # keep.comments = keep.comments or ""
+
+            for l in others:
+                try:
+                    l.delete()
+                except Exception:
+                    pass
+
+            # ensure completed
+            if "completed" not in keep.status:
+                keep.status.append("completed")
+            keep.updatedAt = timezone.now()
+
+            # (optional) normalize date to day_start to improve grouping
+            # keep.date = day_start
+
+            keep.save()
+
+            Logs(
+                userId=patient.userId,
+                action="OTHER",
+                userAgent="Patient",
+                details=f"Marked intervention {intervention.title} as done on {day_start.date().isoformat()}",
+            ).save()
+
+            return JsonResponse({"message": "Marked as completed successfully"}, status=200)
+
+        # ✅ no log yet -> create ONE canonical log for that day
+        log = PatientInterventionLogs(
+            userId=patient,
+            interventionId=intervention,
+            rehabilitationPlanId=rehab_plan,
+            date=day_start,  # ✅ stable per day (prevents many 'now' variants)
+            status=["completed"],
+            feedback=[],
+            comments="",
+        )
+        log.save()
 
         Logs(
             userId=patient.userId,
             action="OTHER",
             userAgent="Patient",
-            details=f"Marked intervention {intervention.title} as done on {timezone.now().isoformat()}",
+            details=f"Marked intervention {intervention.title} as done on {day_start.date().isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -435,8 +474,8 @@ def mark_intervention_completed(request):
 def unmark_intervention_completed(request):
     """
     POST /api/interventions/uncomplete/
-    Body: { patient_id, intervention_id, date: 'YYYY-MM-DD' }  # date required for safety
-    Removes 'completed' status for the specified calendar day.
+    Body: { patient_id, intervention_id, date: 'YYYY-MM-DD' }
+    Removes 'completed' for that day and also cleans duplicates.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -462,33 +501,50 @@ def unmark_intervention_completed(request):
         day_start = target
         day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        log = PatientInterventionLogs.objects(
+        logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
             date__gte=day_start,
             date__lte=day_end,
-        ).first()
+        ).order_by("-date")
 
-        if not log:
-            # idempotent “ok”
+        logs = list(logs_qs)
+        if not logs:
             return JsonResponse({"message": "No completion log for this day"}, status=200)
 
-        if "completed" in log.status:
-            log.status = [s for s in log.status if s != "completed"]
-            log.updatedAt = timezone.now()
+        # ✅ keep newest, merge others, delete duplicates
+        keep = logs[0]
+        others = logs[1:]
 
-            # If there’s nothing meaningful left, you may choose to delete the log
-            if not log.status and not log.feedback:
-                log.delete()
-            else:
-                log.save()
+        merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
+        keep.status = [s for s in merged_status if s != "completed"]
+
+        merged_feedback = (keep.feedback or [])
+        for l in others:
+            if l.feedback:
+                merged_feedback.extend(l.feedback)
+        keep.feedback = merged_feedback
+
+        keep.updatedAt = timezone.now()
+
+        for l in others:
+            try:
+                l.delete()
+            except Exception:
+                pass
+
+        # ✅ delete if empty after uncomplete
+        if not keep.status and not keep.feedback:
+            keep.delete()
+        else:
+            keep.save()
 
         Logs(
             userId=patient.userId,
             action="OTHER",
             userAgent="Patient",
-            details=f"Unmarked intervention {intervention.title} as done on {timezone.now().isoformat()}",
+            details=f"Unmarked intervention {intervention.title} as done on {day_start.date().isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
@@ -2019,6 +2075,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                 {
                     "_id": str(intervention.id),
                     "title": intervention.title,
+                    "benefitFor": intervention.benefitFor,
                     "frequency": assignment.frequency,
                     "notes": assignment.notes,
                     "dates": intervention_dates,
