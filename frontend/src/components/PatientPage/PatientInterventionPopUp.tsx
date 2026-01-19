@@ -1,5 +1,5 @@
 // src/components/PatientPage/PatientInterventionPopUp.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Col, ListGroup, Modal, Row, Badge, Alert } from 'react-bootstrap';
 import { generateTagColors, getMediaTypeLabelFromUrl } from '../../utils/interventions';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -29,7 +29,7 @@ interface MediaItem {
 
   preview_img?: string;
 
-  // 👇 therapist’s personal instruction for the patient
+  // therapist’s personal instruction for the patient
   notes?: string;
 }
 
@@ -56,6 +56,12 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
   const [detectedLangTitle, setDetectedLangTitle] = useState('');
   const [detectedLangDesc, setDetectedLangDesc] = useState('');
   const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // ✅ same idea as FeedbackPopup: Esc uses the same close logic
+  const confirmClose = useCallback(() => {
+    // If you ever add “unsaved changes” here, keep the logic in this one place.
+    handleClose();
+  }, [handleClose]);
 
   useEffect(() => {
     if (!show) return;
@@ -90,6 +96,8 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
         setTranslatedDescription('');
         setDetectedLangDesc('');
       }
+
+      setPdfError(null);
     })();
   }, [show, baseTitle, baseDesc, userLang]);
 
@@ -111,12 +119,34 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
 
       case 'Audio':
         return <ReactAudioPlayer src={String(source)} controls />;
+
       case 'PDF':
         return (
           <div className="pdf-preview text-center">
-            <Document file={item.media_url || item.media_file} loading={<p>{t('Loading')}</p>}>
-              <Page pageNumber={1} width={300} />
+            {pdfError ? (
+              <Alert variant="warning" className="mb-2">
+                {pdfError}
+              </Alert>
+            ) : null}
+
+            <Document
+              file={item.media_url || item.media_file}
+              loading={<p className="m-0">{t('Loading')}</p>}
+              onLoadError={(err) => {
+                console.error('PDF load error:', err);
+                setPdfError(t('Could not load PDF preview.'));
+              }}
+            >
+              <Page
+                pageNumber={1}
+                width={300}
+                onRenderError={(err) => {
+                  console.error('PDF render error:', err);
+                  setPdfError(t('Could not render PDF preview.'));
+                }}
+              />
             </Document>
+
             <a
               href={item.media_url || item.media_file}
               target="_blank"
@@ -128,6 +158,7 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
             </a>
           </div>
         );
+
       case 'Image':
         return (
           <img
@@ -162,7 +193,18 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
   const personalNote = (item.notes || '').trim();
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false}>
+    <Modal
+      show={show}
+      onHide={confirmClose}          // ✅ X button + Esc go through the same path
+      onEscapeKeyDown={(e) => {      // ✅ make Esc reliable while focus is inside media/links
+        e.preventDefault();
+        confirmClose();
+      }}
+      centered
+      size="lg"
+      backdrop="static"
+      keyboard
+    >
       <Modal.Header closeButton>
         <Modal.Title>
           <h2 className="mb-0">

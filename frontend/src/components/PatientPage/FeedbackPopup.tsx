@@ -1,7 +1,15 @@
 // src/components/patient/FeedbackPopup.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  Modal, Button, ProgressBar, Form, Row, Col, Alert, OverlayTrigger, Tooltip,
+  Modal,
+  Button,
+  ProgressBar,
+  Form,
+  Row,
+  Col,
+  Alert,
+  OverlayTrigger,
+  Tooltip,
 } from 'react-bootstrap';
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash, FaUpload } from 'react-icons/fa';
 import ReactPlayer from 'react-player';
@@ -31,11 +39,11 @@ const normalizeLang = (lang?: string) => (lang || 'en').split('-')[0];
 
 const pickText = (trs: Translation[] | undefined, lang: string, fallbackKey?: string) => {
   if (!trs || trs.length === 0) return fallbackKey || '';
-  const exact = trs.find(t => t.language === lang)?.text;
+  const exact = trs.find((t) => t.language === lang)?.text;
   if (exact) return exact;
-  const base = trs.find(t => t.language.split('-')[0] === lang)?.text;
+  const base = trs.find((t) => t.language.split('-')[0] === lang)?.text;
   if (base) return base;
-  const en = trs.find(t => t.language === 'en')?.text;
+  const en = trs.find((t) => t.language === 'en')?.text;
   if (en) return en;
   return fallbackKey || trs[0].text || '';
 };
@@ -105,9 +113,26 @@ const FeedbackPopup = ({
 
   const currentQuestion = normalizedQuestions[currentQuestionIndex];
 
-  useEffect(() => {
-    if (!show) resetAll();
-  }, [show]);
+  // ✅ stop any active recording/stream when closing/unmounting
+  const forceStopAllMedia = () => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch {}
+
+    try {
+      const stream = previewRef.current?.srcObject as MediaStream | null;
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        if (previewRef.current) previewRef.current.srcObject = null;
+      }
+    } catch {}
+
+    setRecording(false);
+    setCountdown(null);
+    clearInterval(timerRef.current);
+  };
 
   const resetAll = () => {
     setCurrentQuestionIndex(0);
@@ -120,27 +145,43 @@ const FeedbackPopup = ({
     setCountdown(null);
     setMicPermissionDenied(false);
     setInputMode('text');
+    setError(null);
     clearInterval(timerRef.current);
   };
 
+  // Reset when fully closed
+  useEffect(() => {
+    if (!show) resetAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show]);
+
+  // Safety cleanup if component unmounts while open
+  useEffect(() => {
+    return () => {
+      forceStopAllMedia();
+      try {
+        clearInterval(timerRef.current);
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleChangeText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: e.target.value }));
+    setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: e.target.value }));
   };
 
   const handleOptionSelect = (optionKey: string, fieldKey: string, multiple = false) => {
-    setAnswers(prev => {
+    setAnswers((prev) => {
       if (multiple) {
         const current: string[] = prev[fieldKey] || [];
         const next = current.includes(optionKey)
-          ? current.filter(k => k !== optionKey)
+          ? current.filter((k) => k !== optionKey)
           : [...current, optionKey];
         return { ...prev, [fieldKey]: next };
       }
-      // single-select
       return { ...prev, [fieldKey]: [optionKey] };
     });
 
-    // Auto-advance for single-select
     if (!multiple) {
       setTimeout(() => {
         setCurrentQuestionIndex((idx) =>
@@ -170,19 +211,20 @@ const FeedbackPopup = ({
     mediaRecorderRef.current = recorder;
     audioChunks.current = [];
 
-    recorder.ondataavailable = e => audioChunks.current.push(e.data);
+    recorder.ondataavailable = (e) => audioChunks.current.push(e.data);
     recorder.onstop = () => {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       const blob = new Blob(audioChunks.current, { type: 'audio/wav' });
       setAudioURL(URL.createObjectURL(blob));
-      setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: blob }));
+      setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: blob }));
       setRecording(false);
       clearInterval(timerRef.current);
     };
 
     recorder.start();
     setRecording(true);
-    timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    setRecordingTime(0);
+    timerRef.current = setInterval(() => setRecordingTime((tt) => tt + 1), 1000);
   };
 
   const stopRecording = () => {
@@ -193,34 +235,43 @@ const FeedbackPopup = ({
   const deleteAudio = () => {
     setAudioURL(null);
     setRecordingTime(0);
-    setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: null }));
+    setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: null }));
   };
 
   const startVideoRecording = async () => {
     setError(null);
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     if (previewRef.current) previewRef.current.srcObject = stream as any;
+
     setCountdown(10);
     let sec = 10;
+
     const interval = setInterval(() => {
       sec--;
       setCountdown(sec);
+
       if (sec === 0) {
         clearInterval(interval);
         const recorder = new MediaRecorder(stream);
         mediaRecorderRef.current = recorder;
         videoChunks.current = [];
-        recorder.ondataavailable = e => videoChunks.current.push(e.data);
+
+        recorder.ondataavailable = (e) => videoChunks.current.push(e.data);
         recorder.onstop = () => {
-          stream.getTracks().forEach(track => track.stop());
+          stream.getTracks().forEach((track) => track.stop());
+          try {
+            if (previewRef.current) previewRef.current.srcObject = null as any;
+          } catch {}
+
           const blob = new Blob(videoChunks.current, { type: 'video/webm' });
           if (blob.size > MAX_VIDEO_SIZE) {
             setError(t('Video too large (max 50MB)'));
             return;
           }
           setVideoURL(URL.createObjectURL(blob));
-          setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: blob }));
+          setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: blob }));
         };
+
         recorder.start();
         setRecording(true);
         setCountdown(null);
@@ -231,11 +282,12 @@ const FeedbackPopup = ({
   const stopVideoRecording = () => {
     mediaRecorderRef.current?.stop();
     setRecording(false);
+    setCountdown(null);
   };
 
   const deleteVideo = () => {
     setVideoURL(null);
-    setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: null }));
+    setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: null }));
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,14 +299,27 @@ const FeedbackPopup = ({
     }
     setVideoURL(URL.createObjectURL(file));
     setUploadVideoFile(file);
-    setAnswers(prev => ({ ...prev, [currentQuestion.questionKey]: file }));
+    setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: file }));
   };
 
-  /** Layout helper for options: 2x2 (≤4) or 2x3 (5–6). */
   const getGridLayout = (count: number) => {
     const cols = count <= 4 ? 2 : 3;
-    const rows = Math.min(2, Math.ceil(count / cols)); // cap to two rows
+    const rows = Math.min(2, Math.ceil(count / cols));
     return { cols, rows };
+  };
+
+  const confirmClose = () => {
+    const isBusy = recording || countdown !== null;
+    const hasAny = Object.values(answers).some((a) => a);
+
+    const msg = hasAny
+      ? t('Are you sure you want to close? Unsaved data will be lost.')
+      : t('Close this window?');
+
+    if ((hasAny || isBusy) && !window.confirm(msg)) return;
+
+    forceStopAllMedia();
+    onClose();
   };
 
   const handleSubmit = async () => {
@@ -265,12 +330,17 @@ const FeedbackPopup = ({
       formData.append('userId', userId);
       formData.append('interventionId', interventionId);
 
-      normalizedQuestions.forEach(q => {
+      normalizedQuestions.forEach((q) => {
         const key = q.questionKey;
         const answer = answers[key];
+
         if (answer instanceof Blob) {
           const isVideo = (answer as any).type?.startsWith('video/');
-          formData.append(isVideo ? `${key}_video` : key, answer, `${key}.${isVideo ? 'webm' : 'wav'}`);
+          formData.append(
+            isVideo ? `${key}_video` : key,
+            answer,
+            `${key}.${isVideo ? 'webm' : 'wav'}`
+          );
         } else if (typeof answer === 'string' || typeof answer === 'number') {
           formData.append(key, answer.toString());
         } else if (Array.isArray(answer)) {
@@ -282,6 +352,7 @@ const FeedbackPopup = ({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
+      forceStopAllMedia();
       onClose();
     } catch {
       setError(t('Error submitting feedback. Please try again.'));
@@ -290,13 +361,6 @@ const FeedbackPopup = ({
     }
   };
 
-  const confirmClose = () => {
-    const hasAny = Object.values(answers).some(a => a);
-    if (hasAny && !window.confirm(t('Are you sure you want to close? Unsaved data will be lost.'))) return;
-    onClose();
-  };
-
-  /** Answers area (no scrolling; auto-fit grid) */
   const renderOptions = (multiple = false) => {
     const selected: string[] = answers[currentQuestion.questionKey] || [];
     const options = currentQuestion.options || [];
@@ -308,7 +372,6 @@ const FeedbackPopup = ({
           className="feedback-box answers p-3"
           style={
             {
-              // expose rows to CSS for button height calculation
               ['--rows' as any]: rows,
               ['--cols' as any]: cols,
             } as React.CSSProperties
@@ -328,7 +391,9 @@ const FeedbackPopup = ({
                   key={i}
                   variant={active ? 'primary' : 'outline-primary'}
                   className="answer-btn"
-                  onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
+                  onClick={() =>
+                    handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)
+                  }
                   aria-pressed={active}
                   aria-label={label}
                   title={label}
@@ -337,8 +402,6 @@ const FeedbackPopup = ({
                 </Button>
               );
             })}
-            {/* If fewer items than grid cells, we add invisible fillers to keep
-                consistent sizing (so each row has exactly `cols` items). */}
             {Array.from({ length: Math.max(0, rows * cols - options.length) }).map((_, i) => (
               <div className="answer-filler" key={`f-${i}`} />
             ))}
@@ -349,7 +412,18 @@ const FeedbackPopup = ({
   };
 
   return (
-    <Modal show={show} onHide={confirmClose} centered size="lg">
+    <Modal
+      show={show}
+      onHide={confirmClose}           // ✅ X button uses confirmClose()
+      onEscapeKeyDown={(e) => {       // ✅ Esc uses confirmClose() too
+        e.preventDefault();
+        confirmClose();
+      }}
+      centered
+      size="lg"
+      backdrop="static"
+      keyboard
+    >
       <Modal.Header closeButton>
         <Modal.Title>{t('Feedback')}</Modal.Title>
       </Modal.Header>
@@ -372,11 +446,9 @@ const FeedbackPopup = ({
 
             <Row className="w-100 justify-content-center m-0">
               <Col md={10} className="p-0">
-                {/* options */}
                 {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
                   renderOptions(currentQuestion.type === 'multi-select')}
 
-                {/* text vs audio (same fixed-height box) */}
                 {currentQuestion.type === 'text' && (
                   <>
                     <div className="d-flex justify-content-center gap-2 mb-3">
@@ -402,7 +474,7 @@ const FeedbackPopup = ({
                       <div className="feedback-box">
                         <Form.Control
                           as="textarea"
-                          aria-label="Text Feedback"
+                          aria-label={t('Text Feedback')}
                           value={answers[currentQuestion.questionKey] || ''}
                           onChange={handleChangeText}
                           style={{ height: '100%', resize: 'none' }}
@@ -437,7 +509,6 @@ const FeedbackPopup = ({
                   </>
                 )}
 
-                {/* video (same fixed-height box) */}
                 {currentQuestion.type === 'video' && (
                   <div className="feedback-box d-flex flex-column align-items-center justify-content-start p-3">
                     {videoURL ? (
@@ -464,7 +535,14 @@ const FeedbackPopup = ({
                           </div>
                         ) : (
                           <div className="d-flex gap-2 mt-2">
-                            <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
+                            {recording ? (
+                              <Button variant="danger" onClick={stopVideoRecording}>
+                                <FaStop className="me-1" /> {t('Stop')}
+                              </Button>
+                            ) : (
+                              <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
+                            )}
+
                             <Form.Label className="btn btn-outline-secondary mb-0">
                               <FaUpload className="me-1" /> {t('Upload')}
                               <Form.Control type="file" accept="video/*" hidden onChange={handleUpload} />
@@ -483,17 +561,19 @@ const FeedbackPopup = ({
           </div>
         </div>
 
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />}
+        {error && (
+          <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />
+        )}
       </Modal.Body>
 
       <Modal.Footer>
         {currentQuestionIndex > 0 && (
-          <Button variant="secondary" onClick={() => setCurrentQuestionIndex(i => i - 1)}>
+          <Button variant="secondary" onClick={() => setCurrentQuestionIndex((i) => i - 1)}>
             {t('Back')}
           </Button>
         )}
         {currentQuestionIndex + 1 < normalizedQuestions.length ? (
-          <Button variant="primary" onClick={() => setCurrentQuestionIndex(i => i + 1)}>
+          <Button variant="primary" onClick={() => setCurrentQuestionIndex((i) => i + 1)}>
             {t('Next')}
           </Button>
         ) : (
@@ -503,13 +583,12 @@ const FeedbackPopup = ({
         )}
       </Modal.Footer>
 
-      {/* Inline styles: stable layout + NON-scrolling answers area that fits in window */}
       <style>{`
         :root{
-          --footer-safe: 84px;            /* keeps sticky area clear of footer */
-          --feedback-min-h: 56vh;         /* stable content height */
-          --feedback-box-h: 236px;        /* text/audio/video box height */
-          --answers-area-h: clamp(180px, 36vh, 360px); /* height reserved for answers grid */
+          --footer-safe: 84px;
+          --feedback-min-h: 56vh;
+          --feedback-box-h: 236px;
+          --answers-area-h: clamp(180px, 36vh, 360px);
         }
         @media (max-width: 576px){
           :root{
@@ -532,10 +611,9 @@ const FeedbackPopup = ({
           background:#fff;
         }
 
-        /* Answers version — fixed height, NO scrolling, fits 2 rows */
         .feedback-box.answers{
           height: var(--answers-area-h);
-          overflow: hidden;               /* no scrollbars */
+          overflow: hidden;
           display: flex;
           align-items: stretch;
         }
@@ -548,19 +626,17 @@ const FeedbackPopup = ({
           z-index: 1;
         }
 
-        .answer-grid{ 
-          display:grid; 
-          gap:${GAP_PX}px; 
+        .answer-grid{
+          display:grid;
+          gap:${GAP_PX}px;
           width: 100%;
         }
         .answer-filler{ visibility: hidden; }
 
-        /* Buttons fill exactly the available rows height */
         .answer-btn{
           height: calc(
             (var(--answers-area-h) - ( (var(--rows, 2) - 1) * ${GAP_PX}px ) - 2px) / var(--rows, 2)
           );
-          /* the -2px compensates the container border so last row doesn't clip */
           width: 100%;
           display:flex; align-items:center; justify-content:center;
           border-radius: 12px;

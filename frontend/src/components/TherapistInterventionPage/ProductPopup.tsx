@@ -1,5 +1,5 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Col,
   Modal,
@@ -11,7 +11,7 @@ import {
   OverlayTrigger,
   Tooltip,
   ButtonGroup,
-  InputGroup
+  InputGroup,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Document, Page } from 'react-pdf';
@@ -39,10 +39,10 @@ type Props = {
 const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) => {
   const { t } = useTranslation();
 
-  const [translatedText, setTranslatedText]   = useState('');
+  const [translatedText, setTranslatedText] = useState('');
   const [translatedTitle, setTranslatedTitle] = useState('');
-  const [detectedLang, setDetectedLang]       = useState('');
-  const [titleLang, setTitleLang]             = useState('');
+  const [detectedLang, setDetectedLang] = useState('');
+  const [titleLang, setTitleLang] = useState('');
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
@@ -54,7 +54,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   const [error, setError] = useState('');
 
   const specialisations = authStore.specialisations?.map((s) => s.trim()) || [];
- const allDiagnoses = useMemo(
+  const allDiagnoses = useMemo(
     () =>
       specialisations.flatMap(
         (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
@@ -65,9 +65,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   const [diagSearch, setDiagSearch] = useState('');
   const filteredDiagnoses = useMemo(() => {
     const q = diagSearch.trim().toLowerCase();
-    return q
-      ? allDiagnoses.filter((d) => d.toLowerCase().includes(q))
-      : allDiagnoses;
+    return q ? allDiagnoses.filter((d) => d.toLowerCase().includes(q)) : allDiagnoses;
   }, [allDiagnoses, diagSearch]);
 
   const chunk = <T,>(arr: T[], size: number): T[][] => {
@@ -75,6 +73,45 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
     return out;
   };
+
+  // ✅ unsaved changes detector (only for this modal)
+  const hasUnsavedChanges = useMemo(() => {
+    // This popup mostly doesn’t edit local data, but users might type in search
+    return diagSearch.trim().length > 0 || error.trim().length > 0;
+  }, [diagSearch, error]);
+
+  // ✅ confirm-close used by X + Esc + programmatic close
+  const confirmClose = useCallback(() => {
+    if (assignOpen) {
+      // if sub-modal is open, close that first
+      setAssignOpen(false);
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      const ok = window.confirm(t('Close this window?'));
+      if (!ok) return;
+    }
+
+    setError('');
+    setDiagSearch('');
+    handleClose();
+  }, [assignOpen, handleClose, hasUnsavedChanges, t]);
+
+  // ✅ Esc should trigger same logic
+  useEffect(() => {
+    if (!show) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        confirmClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [show, confirmClose]);
 
   useEffect(() => {
     const translate = async () => {
@@ -87,6 +124,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           setTranslatedText('');
           setDetectedLang('');
         }
+
         if (item?.title) {
           const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(item.title);
           setTranslatedTitle(tt);
@@ -102,6 +140,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         setTitleLang('');
       }
     };
+
     if (show) translate();
   }, [item, show]);
 
@@ -124,7 +163,10 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     }
   };
 
-  useEffect(() => { refreshAssignments(); /* eslint-disable-next-line */ }, [show, item?._id]);
+  useEffect(() => {
+    refreshAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, item?._id]);
 
   const openAssign = (diag: string) => {
     setSelectedDiagnosis(diag);
@@ -158,7 +200,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             <Document file={item.media_url}>
               <Page pageNumber={1} width={300} />
             </Document>
-            <a href={item.media_file} className="btn btn-outline-primary mt-2" target="_blank" rel="noreferrer">
+            <a
+              href={item.media_file}
+              className="btn btn-outline-primary mt-2"
+              target="_blank"
+              rel="noreferrer"
+            >
               {t('Open PDF')}
             </a>
           </div>
@@ -169,7 +216,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         return <Microlink url={item.link} style={{ width: '100%' }} />;
       default:
         return (
-          <a href={item.media_file || item.link} className="btn btn-secondary" target="_blank" rel="noreferrer">
+          <a
+            href={item.media_file || item.link}
+            className="btn btn-secondary"
+            target="_blank"
+            rel="noreferrer"
+          >
             {t('Open Resource')}
           </a>
         );
@@ -178,7 +230,19 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   return (
     <>
-      <Modal show={show} onHide={handleClose} centered size="lg" scrollable>
+      <Modal
+        show={show}
+        onHide={confirmClose} // ✅ X button + backdrop-close (if enabled) call this
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          confirmClose();
+        }}
+        centered
+        size="lg"
+        scrollable
+        backdrop="static"
+        keyboard // ✅ allow Esc to call onHide
+      >
         <Modal.Header closeButton>
           <Modal.Title as="h2">
             {titleLang ? (
@@ -231,7 +295,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   ))}
                   {item?.benefitFor?.map((b: string) => (
                     <Badge key={b} className="me-2 mb-1 bg-info text-dark">
-                      {b}
+                      {t(b)}
                     </Badge>
                   ))}
                 </div>
@@ -242,15 +306,15 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             <Row className="mb-2">
               <Col className="d-flex align-items-center justify-content-between">
                 <h5 className="mb-0">{t('Add/modify in template by diagnosis')}</h5>
-                <small className="text-muted">
-                  {loadingAssignments ? t('Loading assignments…') : null}
-                </small>
+                <small className="text-muted">{loadingAssignments ? t('Loading assignments…') : null}</small>
               </Col>
             </Row>
             <Row className="mb-3">
               <Col md={6}>
                 <InputGroup>
-                  <InputGroup.Text><FaSearch /></InputGroup.Text>
+                  <InputGroup.Text>
+                    <FaSearch />
+                  </InputGroup.Text>
                   <Form.Control
                     placeholder={t('Search diagnoses')}
                     value={diagSearch}
@@ -284,7 +348,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                               <ButtonGroup size="sm">
                                 <OverlayTrigger
                                   placement="top"
-                                  overlay={<Tooltip>{isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}</Tooltip>}
+                                  overlay={
+                                    <Tooltip>
+                                      {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
+                                    </Tooltip>
+                                  }
                                 >
                                   <Button
                                     variant={isAssigned ? 'outline-secondary' : 'outline-success'}
@@ -295,14 +363,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                                 </OverlayTrigger>
 
                                 {isAssigned && (
-                                  <OverlayTrigger
-                                    placement="top"
-                                    overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
-                                  >
-                                    <Button
-                                      variant="outline-danger"
-                                      onClick={() => removeFromTemplate(d)}
-                                    >
+                                  <OverlayTrigger placement="top" overlay={<Tooltip>{t('Delete from template')}</Tooltip>}>
+                                    <Button variant="outline-danger" onClick={() => removeFromTemplate(d)}>
                                       <FaTrash />
                                     </Button>
                                   </OverlayTrigger>
@@ -315,6 +377,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                     })}
                   </React.Fragment>
                 ))}
+
                 {filteredDiagnoses.length === 0 && (
                   <Col>
                     <div className="text-muted">{t('No diagnoses match your search.')}</div>
