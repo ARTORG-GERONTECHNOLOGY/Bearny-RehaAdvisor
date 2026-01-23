@@ -71,7 +71,6 @@ const Header: React.FC<HeaderProps> = ({
   const userType = authStore.userType?.toLowerCase();
 
   // NAV LINKS
-  // NAV LINKS
   const navLinks =
     authStore.userType === 'Patient'
       ? [
@@ -81,7 +80,6 @@ const Header: React.FC<HeaderProps> = ({
       : authStore.userType === 'Therapist' ||
         authStore.userType === 'Researcher'
       ? [
-          { path: '/', label: t('Home') },
           { path: `/${userType}`, label: t('Patients') },
           { path: '/interventions', label: t('Interventions') },
           { path: '/userprofile', label: t('Profile') },
@@ -181,34 +179,37 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* ===================== ROW 2: NAV LINKS + LOGOUT (TABLET/DESKTOP) ===================== */}
-          {hasNav && (
-            <div className="nav-second-row d-none d-md-flex w-100 mt-2 justify-content-between align-items-center">
-              {/* LEFT: PAGE LINKS */}
-              <Nav className="flex-row gap-2 nav-links">
-                {navLinks.map((lnk) => (
-                  <Nav.Link
-                    key={lnk.path}
-                    as={Link}
-                    to={lnk.path}
-                    className={
-                      location.pathname === lnk.path ? 'active fw-bold' : ''
-                    }
-                  >
-                    {lnk.label}
-                  </Nav.Link>
-                ))}
-              </Nav>
+{hasNav && (
+  <div className="nav-second-row d-none d-md-flex w-100 mt-2 align-items-center">
+    <Nav className="flex-row nav-links w-100 align-items-center gap-3">
 
-              {/* RIGHT: LOGOUT */}
-              <Button
-                variant="outline-dark"
-                size="sm"
-                onClick={handleLogout}
-              >
-                {t('Logout')}
-              </Button>
-            </div>
-          )}
+      {navLinks.map((lnk) => (
+        <Nav.Link
+          key={lnk.path}
+          as={Link}
+          to={lnk.path}
+          className={`nav-item-link ${
+            location.pathname === lnk.path ? 'active' : ''
+          }`}
+        >
+          {lnk.label}
+        </Nav.Link>
+      ))}
+
+      {/* Push logout to the far right, but keep it same style */}
+      <Nav.Link
+        as="button"
+        type="button"
+        onClick={handleLogout}
+        className="nav-item-link nav-logout ms-auto"
+      >
+        <i className="bi bi-box-arrow-right me-2" aria-hidden="true" />
+        {t('Logout')}
+      </Nav.Link>
+    </Nav>
+  </div>
+)}
+
 
           {/* ===================== MOBILE COLLAPSE ===================== */}
           <Navbar.Collapse

@@ -1,47 +1,93 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Container, Row, Col, Card, Button, ButtonGroup, Form, Nav,
-  Badge, OverlayTrigger, Tooltip
-} from 'react-bootstrap';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Container } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaMinus, FaEdit, FaUndo } from 'react-icons/fa';
-import Select from 'react-select';
-import { observer } from 'mobx-react-lite'; // ✅ NEW
+import { observer } from 'mobx-react-lite';
 
-import { filterInterventions } from '../utils/filterUtils';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
-import ProductPopup from '../components/TherapistInterventionPage/ProductPopup';
-import InterventionList from '../components/TherapistInterventionPage/InterventionList';
-import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp';
 import ErrorAlert from '../components/common/ErrorAlert';
 
-import config from '../config/config.json';
-import apiClient from '../api/client';
-import authStore from '../stores/authStore';
-import { generateTagColors } from '../utils/interventions';
-import { translateText } from '../utils/translate';
+import ProductPopup from '../components/TherapistInterventionPage/ProductPopup';
+import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp';
 
 import TemplateAssignModal from '../components/TherapistInterventionPage/TemplateAssignModal';
 import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTimeline';
-import { TemplateItem, TemplatePayload } from '../types/templates';
-import { InterventionTypeTh } from '../types';
 
-const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer wrapper
+import authStore from '../stores/authStore';
+import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
+
+import config from '../config/config.json';
+import apiClient from '../api/client';
+
+import { filterInterventions } from '../utils/filterUtils';
+import { generateTagColors } from '../utils/interventions';
+import { translateText } from '../utils/translate';
+
+import type { TemplateItem, TemplatePayload } from '../types/templates';
+import type { InterventionTypeTh } from '../types';
+
+import MainTabs from '../components/TherapistInterventionPage/MainTabs';
+import LibraryFiltersCard, {
+  LibraryFiltersState,
+} from '../components/TherapistInterventionPage/LibraryFiltersCard';
+import LibraryListSection from '../components/TherapistInterventionPage/LibraryListSection';
+import AddInterventionRow from '../components/TherapistInterventionPage/AddInterventionRow';
+import TemplatesLayout, {
+  TemplatesFiltersState,
+} from '../components/TherapistInterventionPage/TemplatesLayout';
+
+// ---------------- Template helpers (unchanged logic, moved out of render) ----------------
+const normalizeSegment = (segOrSchedule: any) => {
+  const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
+  const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
+  const end_day = raw.end_day ?? segOrSchedule?.end_day;
+  const selectedDays = raw.selectedDays || raw.selected_days || [];
+  return {
+    unit: raw.unit || 'day',
+    interval: raw.interval ?? 1,
+    selectedDays,
+    start_day,
+    end_day,
+    start_time: raw.start_time || raw.startTime || '08:00',
+  };
+};
+
+const getSegments = (it: TemplateItem) => {
+  const segs = (it as any).segments;
+  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
+  const s = normalizeSegment((it as any).schedule);
+  return [s];
+};
+
+const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
+  const occ = it.occurrences || [];
+  return occ.filter((o) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
+};
+
+const TherapistRecomendations: React.FC = observer(() => {
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
 
-  // ─────────────────────────── Library (catalog) ───────────────────────────
-  const [recommendations, setRecommendations] = useState<InterventionTypeTh[]>([]);
-  const [filteredInterventions, setFilteredInterventions] = useState<InterventionTypeTh[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // ─────────────────────────── Templates (defaults) ───────────────────────────
+  // ─────────────────────────── tabs ───────────────────────────
   type MainTab = 'library' | 'templates';
   const [mainTab, setMainTab] = useState<MainTab>('library');
 
+  // ─────────────────────────── auth gate ───────────────────────────
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // ─────────────────────────── global ui state ───────────────────────────
+  const [error, setError] = useState('');
+
+  // ─────────────────────────── popup (details) ───────────────────────────
+  const [selectedItem, setSelectedItem] = useState<InterventionTypeTh | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+
+  // ─────────────────────────── add intervention popup ───────────────────────────
+  const [showPopupAdd, setShowPopupAdd] = useState(false);
+
+  // ─────────────────────────── templates (defaults) ───────────────────────────
   type TemplateLeftTab = 'my' | 'all';
   const [templateLeftTab, setTemplateLeftTab] = useState<TemplateLeftTab>('my');
 
@@ -55,43 +101,194 @@ const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer 
   const [assignInterventionId, setAssignInterventionId] = useState<string | null>(null);
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
 
-  // Normalize "segment" whether it's an object from `segments` or a single `schedule`
-  const normalizeSegment = (segOrSchedule: any) => {
-    const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
-    const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
-    const end_day = raw.end_day ?? segOrSchedule?.end_day;
-    const selectedDays = raw.selectedDays || raw.selected_days || [];
-    return {
-      unit: raw.unit || 'day',
-      interval: raw.interval ?? 1,
-      selectedDays,
-      start_day,
-      end_day,
-      start_time: raw.start_time || raw.startTime || '08:00',
+  // ─────────────────────────── Filters (library tab) ───────────────────────────
+  const [libraryFilters, setLibraryFilters] = useState<LibraryFiltersState>({
+    searchTerm: '',
+    patientTypeFilter: '',
+    contentTypeFilter: '',
+    tagFilter: [],
+    benefitForFilter: [],
+    frequencyFilter: '',
+  });
+
+  // ─────────────────────────── Filters (templates → Browse All) ───────────────────────────
+  const [templatesFilters, setTemplatesFilters] = useState<TemplatesFiltersState>({
+    tSearchTerm: '',
+    tPatientTypeFilter: '',
+    tContentTypeFilter: '',
+    tTagFilter: [],
+    tBenefitForFilter: [],
+    tFrequencyFilter: '',
+  });
+
+  // ─────────────────────────── computed data ───────────────────────────
+  const tagColors = useMemo(() => generateTagColors(config.RecomendationInfo.tags), []);
+  const patientTypes = authStore.specialisations; // observer() => reactive
+  const diagnoses = useMemo(
+    () =>
+      authStore.specialisations.flatMap(
+        (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
+      ),
+    [authStore.specialisations]
+  );
+
+  // Store-driven interventions
+  const recommendations = therapistInterventionsLibraryStore.items;
+
+  // translated titles (page-local cache, fine)
+  type TitleMap = Record<string, { title: string; lang: string | null }>;
+  const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
+
+  const filteredInterventions = useMemo(() => {
+    return filterInterventions(recommendations, {
+      patientTypeFilter: libraryFilters.patientTypeFilter,
+      contentTypeFilter: libraryFilters.contentTypeFilter,
+      tagFilter: libraryFilters.tagFilter,
+      benefitForFilter: libraryFilters.benefitForFilter,
+      searchTerm: libraryFilters.searchTerm,
+    });
+  }, [recommendations, libraryFilters]);
+
+  const templateFilteredAll = useMemo(() => {
+    return filterInterventions(recommendations, {
+      patientTypeFilter: templatesFilters.tPatientTypeFilter,
+      contentTypeFilter: templatesFilters.tContentTypeFilter,
+      tagFilter: templatesFilters.tTagFilter,
+      benefitForFilter: templatesFilters.tBenefitForFilter,
+      searchTerm: templatesFilters.tSearchTerm,
+    });
+  }, [recommendations, templatesFilters]);
+
+  // ─────────────────────────── auth check ───────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await authStore.checkAuthentication();
+      } finally {
+        if (mounted) setAuthChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
     };
-  };
+  }, []);
 
-  const getSegments = (it: TemplateItem) => {
-    const segs = (it as any).segments;
-    if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
-    const s = normalizeSegment((it as any).schedule);
-    return [s];
-  };
+  // ─────────────────────────── load library via MobX store ───────────────────────────
+  useEffect(() => {
+    if (!authChecked) return;
 
-  const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
-    const occ = it.occurrences || [];
-    return occ.filter(o => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
-  };
+    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+      navigate('/');
+      return;
+    }
 
-  const segmentSummary = (seg: any, it: TemplateItem, tfn: any) => {
-    const daysStr =
-      Array.isArray(seg.selectedDays) && seg.selectedDays.length
-        ? ` • ${seg.selectedDays.join(', ')}`
-        : '';
-    const rangeStr = ` ${tfn("from day")} ${seg.start_day}${seg.end_day ? ` → ${tfn("day")} ${seg.end_day}` : ''}`;
-    const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
-    return `• ${tfn(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${tfn("Occurrences")} ${occCount}`;
-  };
+    therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' });
+  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate]);
+
+  // surface store errors in existing ErrorAlert
+  useEffect(() => {
+    const storeErr = therapistInterventionsLibraryStore.error;
+    if (storeErr) setError(storeErr);
+  }, [therapistInterventionsLibraryStore.error]);
+
+  // ─────────────────────────── translate titles ───────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!recommendations.length) {
+        if (!cancelled) setTranslatedTitles({});
+        return;
+      }
+
+      const lang = (i18n.language || 'en').slice(0, 2);
+
+      const pairs = await Promise.all(
+        recommendations.map(async (rec) => {
+          try {
+            const { translatedText, detectedSourceLanguage } = await translateText(rec.title, lang);
+            return [
+              rec._id,
+              { title: translatedText || rec.title, lang: detectedSourceLanguage || null },
+            ] as const;
+          } catch {
+            return [rec._id, { title: rec.title, lang: null }] as const;
+          }
+        })
+      );
+
+      if (!cancelled) setTranslatedTitles(Object.fromEntries(pairs));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recommendations, i18n.language]);
+
+  // Ensure template item titles are translated too (only for missing ids)
+  useEffect(() => {
+    const missing = (templateItems || [])
+      .map((it) => it?.intervention?._id)
+      .filter(Boolean)
+      .filter((id) => !translatedTitles[id as string]) as string[];
+
+    if (!missing.length) return;
+
+    let cancelled = false;
+    (async () => {
+      const lang = (i18n.language || 'en').slice(0, 2);
+
+      const pairs = await Promise.all(
+        missing.map(async (id) => {
+          const it = templateItems.find((x) => x.intervention._id === id)!;
+          try {
+            const { translatedText, detectedSourceLanguage } = await translateText(
+              it.intervention.title,
+              lang
+            );
+            return [id, { title: translatedText || it.intervention.title, lang: detectedSourceLanguage || null }] as const;
+          } catch {
+            return [id, { title: it.intervention.title, lang: null }] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setTranslatedTitles((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [templateItems, i18n.language, translatedTitles]);
+
+  // ─────────────────────────── templates fetch + actions ───────────────────────────
+  const fetchTemplates = useCallback(
+    async (diag?: string, horizon?: number) => {
+      try {
+        setTLoading(true);
+        const q = new URLSearchParams();
+        if (diag) q.set('diagnosis', diag);
+        if (horizon) q.set('horizon', String(horizon));
+
+        const res = await apiClient.get<TemplatePayload>(
+          `therapists/${authStore.id}/template-plan?${q.toString()}`
+        );
+        setTemplateItems(res.data.items || []);
+      } catch {
+        setTemplateItems([]);
+      } finally {
+        setTLoading(false);
+      }
+    },
+    [authStore.id]
+  );
+
+  useEffect(() => {
+    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon);
+  }, [mainTab, templateDiag, templateHorizon, fetchTemplates]);
 
   const openAssignToTemplate = (id: string, mode: 'create' | 'modify' = 'create') => {
     setAssignMode(mode);
@@ -99,13 +296,17 @@ const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer 
     setAssignOpen(true);
   };
 
-  const [error, setError] = useState('');
+  const openModifyTemplate = (it: TemplateItem) => {
+    setAssignMode('modify');
+    setAssignInterventionId(it.intervention._id);
+    setTemplateDiag(it.diagnosis);
+    setAssignOpen(true);
+  };
 
-  // Delete from template (corrected to match backend)
   const removeTemplateItem = async (diagnosis: string, interventionId: string, startDay?: number) => {
     try {
       const payload: any = { intervention_id: interventionId, diagnosis };
-      if (typeof startDay === "number") payload.start_day = startDay;
+      if (typeof startDay === 'number') payload.start_day = startDay;
 
       await apiClient.post(
         `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
@@ -116,15 +317,15 @@ const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer 
     } catch (e: any) {
       const data = e?.response?.data || {};
       const base =
-        (Array.isArray(data.non_field_errors) && data.non_field_errors.join(" ")) ||
+        (Array.isArray(data.non_field_errors) && data.non_field_errors.join(' ')) ||
         data.message ||
         data.error ||
-        t("Failed to delete from template.");
+        t('Failed to delete from template.');
 
       if (data.field_errors) {
         const extra = Object.entries(data.field_errors)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
-          .join("\n");
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`)
+          .join('\n');
         setError(`${base}\n${extra}`);
       } else {
         setError(base);
@@ -132,585 +333,146 @@ const TherapistRecomendations: React.FC = observer(() => { // ✅ NEW: observer 
     }
   };
 
-  // ─────────────────────────── Filters (library tab) ───────────────────────────
-  const [searchTerm, setSearchTerm] = useState('');
-  const [patientTypeFilter, setPatientTypeFilter] = useState('');
-  const [contentTypeFilter, setContentTypeFilter] = useState('');
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
-  const [frequencyFilter, setFrequencyFilter] = useState('');
-  const [benefitForFilter, setBenefitForFilter] = useState<string[]>([]);
-
-  // ─────────────────────────── Filters (templates → Browse All) ───────────────────────────
-  const [tSearchTerm, setTSearchTerm] = useState('');
-  const [tPatientTypeFilter, setTPatientTypeFilter] = useState('');
-  const [tContentTypeFilter, setTContentTypeFilter] = useState('');
-  const [tTagFilter, setTTagFilter] = useState<string[]>([]);
-  const [tFrequencyFilter, setTFrequencyFilter] = useState('');
-  const [tBenefitForFilter, setTBenefitForFilter] = useState<string[]>([]);
-  const [templateFilteredAll, setTemplateFilteredAll] = useState<InterventionTypeTh[]>([]);
-
-  const resetTemplateFilters = () => {
-    setTSearchTerm('');
-    setTPatientTypeFilter('');
-    setTContentTypeFilter('');
-    setTTagFilter([]);
-    setTBenefitForFilter([]);
-    setTFrequencyFilter('');
-  };
-
-  type TitleMap = Record<string, { title: string; lang: string | null }>;
-  const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
-
-  const tagColors = generateTagColors(config.RecomendationInfo.tags);
-
-  // ✅ IMPORTANT: now this will re-render because component is observer()
-const patientTypes = authStore.specialisations;
-
-
-  const diagnoses = authStore.specialisations.flatMap(
-    (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
-  );
-
-  // Auth gate
-  const [authChecked, setAuthChecked] = useState(false);
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        await authStore.checkAuthentication();
-      } finally {
-        if (mounted) setAuthChecked(true);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!authChecked) return;
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
-    fetchLibrary();
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate]);
-
-  const fetchLibrary = async () => {
-    try {
-      const res = await apiClient.get<InterventionTypeTh[]>('interventions/all/');
-      setRecommendations(res.data);
-      setFilteredInterventions(res.data);
-      setTemplateFilteredAll(res.data);
-    } catch (e) {
-      console.error('Error fetching recommendations:', e);
-      setError(t('Error fetching recommendations. Please try again later.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!recommendations.length) {
-        if (!cancelled) setTranslatedTitles({});
-        return;
-      }
-      const pairs = await Promise.all(
-        recommendations.map(async (rec) => {
-          try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
-            return [rec._id, { title: translatedText, lang: detectedSourceLanguage }] as const;
-          } catch {
-            return [rec._id, { title: rec.title, lang: null }] as const;
-          }
-        })
-      );
-      if (!cancelled) setTranslatedTitles(Object.fromEntries(pairs));
-    })();
-    return () => { cancelled = true; };
-  }, [recommendations, i18n.language]);
-
-  useEffect(() => {
-    const filtered = filterInterventions(recommendations, {
-      patientTypeFilter,
-      contentTypeFilter,
-      tagFilter,
-      benefitForFilter,
-      searchTerm,
-    });
-    setFilteredInterventions(filtered);
-  }, [recommendations, patientTypeFilter, contentTypeFilter, tagFilter, benefitForFilter, searchTerm]);
-
-  useEffect(() => {
-    const filtered = filterInterventions(recommendations, {
-      patientTypeFilter: tPatientTypeFilter,
-      contentTypeFilter: tContentTypeFilter,
-      tagFilter: tTagFilter,
-      benefitForFilter: tBenefitForFilter,
-      searchTerm: tSearchTerm,
-    });
-    setTemplateFilteredAll(filtered);
-  }, [recommendations, tPatientTypeFilter, tContentTypeFilter, tTagFilter, tBenefitForFilter, tSearchTerm]);
-
-  const fetchTemplates = async (diag?: string, horizon?: number) => {
-    try {
-      setTLoading(true);
-      const q = new URLSearchParams();
-      if (diag) q.set('diagnosis', diag);
-      if (horizon) q.set('horizon', String(horizon));
-      const res = await apiClient.get<TemplatePayload>(
-        `therapists/${authStore.id}/template-plan?${q.toString()}`
-      );
-      setTemplateItems(res.data.items || []);
-    } catch {
-      setTemplateItems([]);
-    } finally {
-      setTLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainTab, templateDiag, templateHorizon]);
-
-  const openModifyTemplate = (it: TemplateItem) => {
-    setAssignMode('modify');
-    setAssignInterventionId(it.intervention._id);
-    setTemplateDiag(it.diagnosis);
-    setAssignOpen(true);
-  };
-
-  const [selectedItem, setSelectedItem] = useState<InterventionTypeTh | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const handleItemClick = (item: InterventionTypeTh) => { setSelectedItem(item); setShowPopup(true); };
-  const handleClosePopup = () => { setSelectedItem(null); setShowPopup(false); };
-
-  const [showPopupAdd, setShowPopupAdd] = useState(false);
-  const handleOpenAdd = () => setShowPopupAdd(true);
-  const handleCloseAdd = () => setShowPopupAdd(false);
-
-  const resetAllFilters = () => {
-    setSearchTerm('');
-    setPatientTypeFilter('');
-    setContentTypeFilter('');
-    setTagFilter([]);
-    setBenefitForFilter([]);
-    setFrequencyFilter('');
-  };
-
   const findTemplateFor = (intId: string): TemplateItem | undefined => {
     if (templateDiag) {
-      return templateItems.find(
-        (it) => it.diagnosis === templateDiag && it.intervention._id === intId
-      );
+      return templateItems.find((it) => it.diagnosis === templateDiag && it.intervention._id === intId);
     }
     return templateItems.find((it) => it.intervention._id === intId);
   };
 
-  useEffect(() => {
-    const missing = (templateItems || [])
-      .map(it => it?.intervention?._id)
-      .filter(Boolean)
-      .filter(id => !translatedTitles[id as string]) as string[];
+  const segmentSummary = (seg: any, it: TemplateItem) => {
+    const daysStr =
+      Array.isArray(seg.selectedDays) && seg.selectedDays.length
+        ? ` • ${seg.selectedDays.join(', ')}`
+        : '';
+    const rangeStr = ` ${t('from day')} ${seg.start_day}${seg.end_day ? ` → ${t('day')} ${seg.end_day}` : ''}`;
+    const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
+    return `• ${t(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${t('Occurrences')} ${occCount}`;
+  };
 
-    if (!missing.length) return;
+  const handleItemClick = (item: InterventionTypeTh) => {
+    setSelectedItem(item);
+    setShowPopup(true);
+  };
 
-    let cancelled = false;
-    (async () => {
-      const pairs = await Promise.all(
-        missing.map(async (id) => {
-          const it = templateItems.find(x => x.intervention._id === id)!;
-          try {
-            const { translatedText, detectedSourceLanguage } =
-              await translateText(it.intervention.title, (i18n.language || 'en').slice(0,2));
-            return [id, { title: translatedText, lang: detectedSourceLanguage }] as const;
-          } catch {
-            return [id, { title: it.intervention.title, lang: null }] as const;
-          }
-        })
-      );
-      if (!cancelled) {
-        setTranslatedTitles(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [templateItems, i18n.language, translatedTitles]);
+  const handleClosePopup = () => {
+    setSelectedItem(null);
+    setShowPopup(false);
+  };
 
   const handleTemplateItemClick = (it: TemplateItem) => {
-    const full = recommendations.find(r => r._id === it.intervention._id);
+    const full = recommendations.find((r) => r._id === it.intervention._id);
     if (full) handleItemClick(full);
     else setError(t('Full details for this intervention are not loaded yet. Please refresh the page.'));
   };
 
+  // ---- controls ----
+  const resetLibraryFilters = () =>
+    setLibraryFilters({
+      searchTerm: '',
+      patientTypeFilter: '',
+      contentTypeFilter: '',
+      tagFilter: [],
+      benefitForFilter: [],
+      frequencyFilter: '',
+    });
+
+  const resetTemplateFilters = () =>
+    setTemplatesFilters({
+      tSearchTerm: '',
+      tPatientTypeFilter: '',
+      tContentTypeFilter: '',
+      tTagFilter: [],
+      tBenefitForFilter: [],
+      tFrequencyFilter: '',
+    });
+
+  const handleOpenAdd = () => setShowPopupAdd(true);
+  const handleCloseAdd = () => setShowPopupAdd(false);
+
+  // store loading (optional: show somewhere)
+  const loading = therapistInterventionsLibraryStore.loading;
+
   return (
     <div className="therapist-view-container">
       <Header isLoggedIn />
+
       <Container className="main-content mt-4">
         <WelcomeArea user="TherapistPatients" />
 
-        <Row>
-          <Col>{error && <ErrorAlert message={error} onClose={() => setError('')} />}</Col>
-        </Row>
+        {error && (
+          <ErrorAlert
+            message={error}
+            onClose={() => {
+              setError('');
+              therapistInterventionsLibraryStore.clearError();
+            }}
+          />
+        )}
 
-        <Row className="mb-3">
-          <Col xs={12} md="auto">
-            <Button onClick={handleOpenAdd} className="btn-primary">
-              {t('Add Intervention')}
-            </Button>
-          </Col>
-        </Row>
+        <AddInterventionRow onAdd={handleOpenAdd} />
 
-        <Row className="mb-3">
-          <Col>
-            <Nav variant="tabs" activeKey={mainTab} onSelect={(k) => setMainTab((k as MainTab) || 'library')}>
-              <Nav.Item><Nav.Link eventKey="library">{t('Interventions')}</Nav.Link></Nav.Item>
-              <Nav.Item><Nav.Link eventKey="templates">{t('Your Templates')}</Nav.Link></Nav.Item>
-            </Nav>
-          </Col>
-        </Row>
+        <MainTabs mainTab={mainTab} onChange={setMainTab} />
 
         {mainTab === 'library' ? (
           <>
-            <Row className="mb-4">
-              <Col xs={12}>
-                <Card className="mb-3">
-                  <Card.Body>
-                    <Row className="mb-3">
-                      <Col>
-                        <Form.Group controlId="searchInput">
-                          <Form.Control
-                            type="text"
-                            placeholder={t('Search Interventions')}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </Row>
+            <LibraryFiltersCard
+              t={t}
+              patientTypes={patientTypes}
+              filters={libraryFilters}
+              onChange={setLibraryFilters}
+              onReset={resetLibraryFilters}
+            />
 
-                    <Row className="mb-3">
-                      <Col>
-                        <Form.Select
-                          value={patientTypeFilter}
-                          onChange={(e) => setPatientTypeFilter(e.target.value)}
-                        >
-                          <option value="">{t('All Patient Types')}</option>
-                          {patientTypes.map((type: string) => (
-                            <option key={type} value={type}>{t(type)}</option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col>
-                        <Form.Select
-                          value={contentTypeFilter}
-                          onChange={(e) => setContentTypeFilter(e.target.value)}
-                        >
-                          <option value="">{t('Filter by Content Type')}</option>
-                          {config.RecomendationInfo.types.map((type) => (
-                            <option key={type} value={type}>{t(type)}</option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                    </Row>
-
-                    <Row className="mb-3">
-                      <Col>
-                        <Select
-                          isMulti
-                          options={config.RecomendationInfo.tags.map((tag) => ({ value: tag, label: t(tag) }))}
-                          value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                          onChange={(opts) => setTagFilter(opts.map((opt) => opt.value))}
-                          placeholder={t('Filter by Tags')}
-                        />
-                      </Col>
-                      <Col>
-                        <Select
-                          isMulti
-                          options={config.RecomendationInfo.benefits.map((b) => ({ value: b, label: t(b) }))}
-                          value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                          onChange={(opts) => setBenefitForFilter(opts.map((opt) => opt.value))}
-                          placeholder={t('Filter by Benefit')}
-                        />
-                      </Col>
-                    </Row>
-
-                    <Row>
-                      <Col>
-                        <Button variant="outline-secondary" size="sm" onClick={resetAllFilters}>
-                          <FaUndo className="me-2" /> {t('Reset filters')}
-                        </Button>
-                      </Col>
-                    </Row>
-                  </Card.Body>
-                </Card>
-              </Col>
-           
-
-            </Row>
-
-            <Row>
-              <Col xs={12}>
-                <InterventionList
-                  items={filteredInterventions}
-                  onClick={handleItemClick}
-                  t={t}
-                  tagColors={tagColors}
-                  translatedTitles={translatedTitles}
-                />
-              </Col>
-            </Row>
+            <LibraryListSection
+              loading={loading}
+              items={filteredInterventions}
+              onClick={handleItemClick}
+              t={t}
+              tagColors={tagColors}
+              translatedTitles={translatedTitles}
+            />
           </>
         ) : (
-          <Row className="g-3">
-            <Col xs={12} md={4}>
-              <Card className="mb-3">
-                <Card.Header>{t('Template filters')}</Card.Header>
-                <Card.Body>
-                  <Form.Group className="mb-2">
-                    <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-                    <Form.Select value={templateDiag} onChange={(e) => setTemplateDiag(e.target.value)}>
-                      <option value="">{t('All')}</option>
-                      {diagnoses.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-
-                  <Form.Group>
-                    <Form.Label>{t('Horizon (days)')}</Form.Label>
-                    <Form.Control
-                      type="number"
-                      min={14}
-                      max={180}
-                      value={templateHorizon}
-                      onChange={(e) => setTemplateHorizon(parseInt(e.target.value || '84', 10))}
-                    />
-                  </Form.Group>
-                </Card.Body>
-              </Card>
-
-              <Card>
-                <Card.Header className="d-flex align-items-center justify-content-between">
-                  <div>{t('Content')}</div>
-                  <Nav
-                    variant="tabs"
-                    activeKey={templateLeftTab}
-                    onSelect={(k) => setTemplateLeftTab((k as TemplateLeftTab) || 'my')}
-                  >
-                    <Nav.Item><Nav.Link eventKey="my">{t('My Template')}</Nav.Link></Nav.Item>
-                    <Nav.Item><Nav.Link eventKey="all">{t('Browse All')}</Nav.Link></Nav.Item>
-                  </Nav>
-                </Card.Header>
-
-                {templateLeftTab === 'my' && (
-                  <Card.Body style={{ maxHeight: 480, overflowY: 'auto' }}>
-                    {tLoading && <div className="text-muted">{t('Loading...')}</div>}
-                    {!tLoading && templateItems.length === 0 && (
-                      <div className="text-muted">{t('No template items')}</div>
-                    )}
-
-                    {templateItems.map((it, idx) => (
-                      <div
-                        key={`${it.intervention._id}-${it.diagnosis}-${idx}`}
-                        className="d-flex justify-content-between align-items-start mb-2 p-2 border rounded"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => handleTemplateItemClick(it)}
-                        title={t('Click to view details')}
-                      >
-                        <div>
-                          <div className="fw-semibold">
-                            {translatedTitles[it.intervention._id]?.title || it.intervention.title}
-                            {translatedTitles[it.intervention._id]?.lang && (
-                              <span className="text-muted ms-2 small">
-                                ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="small text-muted">{t('For')}: {it.diagnosis}</div>
-
-                          <div className="small text-muted mt-1">
-                            {getSegments(it).map((seg, i) => (
-                              <div key={i}>{segmentSummary(seg, it, t)}</div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <ButtonGroup size="sm" vertical>
-                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                              <Button
-                                variant="outline-secondary"
-                                onClick={() => openModifyTemplate(it)}
-                                title={t('Modify from a specific day onward')}
-                              >
-                                <FaEdit />
-                              </Button>
-                            </OverlayTrigger>
-                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                              <Button
-                                variant="outline-danger"
-                                onClick={() => removeTemplateItem(it.diagnosis, it.intervention._id)}
-                              >
-                                <FaMinus />
-                              </Button>
-                            </OverlayTrigger>
-                          </ButtonGroup>
-                        </div>
-                      </div>
-                    ))}
-                  </Card.Body>
-                )}
-
-                {templateLeftTab === 'all' && (
-                  <Card.Body className="mb-3">
-                    <Row className="mb-3">
-                      <Col>
-                        <Form.Group controlId="tSearchInput">
-                          <Form.Control
-                            type="text"
-                            placeholder={t('Search Interventions')}
-                            value={tSearchTerm}
-                            onChange={(e) => setTSearchTerm(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </Row>
-
-                    <Row className="mb-3">
-                      <Col>
-                        <Form.Select
-                          value={tPatientTypeFilter}
-                          onChange={(e) => setTPatientTypeFilter(e.target.value)}
-                        >
-                          <option value="">{t('All Patient Types')}</option>
-                          {patientTypes.map((type: string) => (
-                            <option key={type} value={type}>{t(type)}</option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col>
-                        <Form.Select
-                          value={tContentTypeFilter}
-                          onChange={(e) => setTContentTypeFilter(e.target.value)}
-                        >
-                          <option value="">{t('Filter by Content Type')}</option>
-                          {config.RecomendationInfo.types.map((type) => (
-                            <option key={type} value={type}>{t(type)}</option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                    </Row>
-
-                    <Row className="mb-3">
-                      <Col>
-                        <Select
-                          isMulti
-                          options={config.RecomendationInfo.tags.map((tag) => ({ value: tag, label: t(tag) }))}
-                          value={tTagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                          onChange={(opts) => setTTagFilter(opts.map((opt) => opt.value))}
-                          placeholder={t('Filter by Tags')}
-                        />
-                      </Col>
-                      <Col>
-                        <Select
-                          isMulti
-                          options={config.RecomendationInfo.benefits.map((b) => ({ value: b, label: t(b) }))}
-                          value={tBenefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                          onChange={(opts) => setTBenefitForFilter(opts.map((opt) => opt.value))}
-                          placeholder={t('Filter by Benefit')}
-                        />
-                      </Col>
-                    </Row>
-
-                    <Row>
-                      <Col>
-                        <Button variant="outline-secondary" size="sm" onClick={resetTemplateFilters}>
-                          <FaUndo className="me-2" /> {t('Reset filters')}
-                        </Button>
-                      </Col>
-                    </Row>
-
-                    <div style={{ maxHeight: 420, overflowY: 'auto' }} className="p-2">
-                      {templateFilteredAll.length === 0 && (
-                        <div className="text-muted px-2">{t('No interventions match your filters.')}</div>
-                      )}
-
-                      {templateFilteredAll.map((intervention) => {
-                        const displayTitle = translatedTitles[intervention._id]?.title ?? intervention.title;
-                        const entry = findTemplateFor(intervention._id);
-                        const inTemplate = !!entry;
-
-                        return (
-                          <div
-                            key={intervention._id}
-                            className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedItem(intervention) || setShowPopup(true)}
-                            title={t('Click to view details')}
-                          >
-                            <div className="me-2">
-                              <div className="fw-semibold">{displayTitle}</div>
-                              {intervention.tags?.length > 0 && (
-                                <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
-                                  {intervention.tags.map((tag) => (
-                                    <Badge
-                                      key={tag}
-                                      bg=""
-                                      className="me-1"
-                                      style={{ backgroundColor: (tagColors as any)[tag] || 'gray' }}
-                                    >
-                                      {t(tag)}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div onClick={(e) => e.stopPropagation()}>
-                              {!inTemplate ? (
-                                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add this intervention to your template')}</Tooltip>}>
-                                  <Button size="sm" variant="outline-success" onClick={() => openAssignToTemplate(intervention._id, 'create')}>
-                                    <FaPlus className="me-1" />
-                                  </Button>
-                                </OverlayTrigger>
-                              ) : (
-                                <ButtonGroup size="sm" vertical>
-                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                                    <Button variant="outline-secondary" onClick={() => openModifyTemplate(entry!)}>
-                                      <FaEdit />
-                                    </Button>
-                                  </OverlayTrigger>
-                                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                                    <Button variant="outline-danger" onClick={() => removeTemplateItem(entry!.diagnosis, intervention._id)}>
-                                      <FaMinus />
-                                    </Button>
-                                  </OverlayTrigger>
-                                </ButtonGroup>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Card.Body>
-                )}
-              </Card>
-            </Col>
-
-            <Col xs={12} md={8}>
-              <Card className="h-100">
-                <Card.Body className="min-vh-50" style={{ overflow: 'auto' }}>
-                  <TemplateTimeline
-                    items={templateItems}
-                    horizonDays={templateHorizon}
-                    translatedTitles={translatedTitles}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
+          <TemplatesLayout
+            t={t}
+            // left panel state
+            templateDiag={templateDiag}
+            onTemplateDiag={setTemplateDiag}
+            templateHorizon={templateHorizon}
+            onTemplateHorizon={setTemplateHorizon}
+            diagnoses={diagnoses}
+            patientTypes={patientTypes}
+            // sub-tab
+            templateLeftTab={templateLeftTab}
+            onTemplateLeftTab={setTemplateLeftTab}
+            // my template list
+            templateItems={templateItems}
+            tLoading={tLoading}
+            translatedTitles={translatedTitles}
+            getSegments={getSegments}
+            segmentSummary={segmentSummary}
+            onTemplateItemClick={handleTemplateItemClick}
+            onModifyTemplate={openModifyTemplate}
+            onRemoveTemplateItem={removeTemplateItem}
+            // browse all list
+            browseAllItems={templateFilteredAll}
+            findTemplateFor={findTemplateFor}
+            onOpenAssign={openAssignToTemplate}
+            // browse filters
+            filters={templatesFilters}
+            onFilters={setTemplatesFilters}
+            onResetFilters={resetTemplateFilters}
+            // right timeline
+            timeline={
+              <TemplateTimeline
+                items={templateItems}
+                horizonDays={templateHorizon}
+                translatedTitles={translatedTitles}
+              />
+            }
+            tagColors={tagColors}
+          />
         )}
       </Container>
 
@@ -723,7 +485,11 @@ const patientTypes = authStore.specialisations;
         />
       )}
 
-      <AddInterventionPopup show={showPopupAdd} handleClose={handleCloseAdd} onSuccess={fetchLibrary} />
+      <AddInterventionPopup
+        show={showPopupAdd}
+        handleClose={handleCloseAdd}
+        onSuccess={() => therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' })}
+      />
 
       {assignOpen && (
         <TemplateAssignModal

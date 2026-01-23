@@ -1,0 +1,40 @@
+/* src/assets/styles/patient-library.css */
+/* Fluid, accessible, cross-browser layout helpers for the Patient Interventions Library */
+
+.patient-lib-root {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow-x: hidden;
+}
+
+.patient-lib-main {
+  padding-block: clamp(0.75rem, 2vh, 1.5rem);
+}
+
+.patient-lib-container {
+  /* Similar to Home: comfortable padding across device sizes */
+  padding-left: clamp(0.75rem, 2vw, 2.25rem);
+  padding-right: clamp(0.75rem, 2vw, 2.25rem);
+}
+
+.patient-lib-section {
+  margin-block: clamp(0.75rem, 1.6vh, 1.25rem);
+}
+
+.patient-lib-card {
+  border-radius: 1rem;
+}
+
+.patient-lib-tabs .nav-link {
+  padding-inline: 1rem;
+}
+
+/* Make react-select sit nicely in Bootstrap layouts */
+.patient-lib-card .react-select__control {
+  min-height: 42px;
+}
+
+/* Respect reduced motion users */
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}

@@ -1,150 +1,277 @@
-// components/RehaTablePage/InterventionFeedbackModal.tsx
-
+import React, { useMemo, useState, useEffect } from 'react';
+import { Modal, Button, ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import React, { useEffect, useState } from 'react';
-import { Modal } from 'react-bootstrap';
-import ReactPlayer from 'react-player';
-import { Intervention } from '../../types';
-import { translateText } from '../../utils/translate';
 
-interface FeedbackEntry {
-  // allow both shapes: backend sends answerKey; older UI used answer
-  answer?: { key: string; translations: { language: string; text: string }[] }[];
-  answerKey?: { key: string; translations: { language: string; text: string }[] }[];
-  question: { translations: { language: string; text: string }[] };
-  comment?: string;
-  audio_url?: string; // <-- NEW
-}
-
-interface VideoFeedback {
-  video_url: string;
-  video_expired: boolean;
-  comment?: string;
-}
+type AnyObj = Record<string, any>;
 
 interface Props {
   show: boolean;
-  onClose: () => void;
-  exercise: Intervention;
-  feedbackEntries?: FeedbackEntry[];
-  date: string;
-  userLang: string;
-  video?: VideoFeedback;
+  onHide: () => void;
+  intervention: AnyObj; // should include dates[] with feedback/video
 }
 
-const getTranslation = (
-  translations: { language: string; text: string }[],
-  lang: string
-): string =>
-  translations.find((t) => t.language === lang)?.text ||
-  translations.find((t) => t.language === 'en')?.text ||
-  '';
+const safeT = (t: any, key: string) => {
+  const v = t(key);
+  return typeof v === 'string' ? v : key;
+};
 
-const InterventionFeedbackModal: React.FC<Props> = ({
-  show,
-  onClose,
-  exercise,
-  feedbackEntries = [],
-  date,
-  userLang,
-  video,
-}) => {
-  const { t } = useTranslation();
-  const [translatedTitle, setTranslatedTitle] = useState('');
-  const [detectedLang, setDetectedLang] = useState('');
+const asArray = (v: any) => (Array.isArray(v) ? v : []);
 
+const formatDateTime = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+// very defensive language pick
+const pickTranslation = (translations: any[], preferredLang: string) => {
+  const arr = asArray(translations);
+  return (
+    arr.find((tr: any) => tr?.language === preferredLang)?.text ||
+    arr.find((tr: any) => tr?.language === 'en')?.text ||
+    arr[0]?.text ||
+    ''
+  );
+};
+
+const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention }) => {
+  const { t, i18n } = useTranslation();
+  const userLang = i18n.language || 'en';
+
+  const allDates = useMemo(() => asArray(intervention?.dates), [intervention]);
+
+  // ✅ filter toggle
+  const [onlyWithFeedback, setOnlyWithFeedback] = useState(true);
+
+  // reset UI when opening a different intervention/modal
   useEffect(() => {
-    if (show && exercise?.title) {
-      translateText(exercise.title, userLang)
-        .then(({ translatedText, detectedSourceLanguage }) => {
-          setTranslatedTitle(translatedText);
-          setDetectedLang(detectedSourceLanguage);
-        })
-        .catch(() => {
-          setTranslatedTitle(exercise.title);
-          setDetectedLang('');
-        });
+    if (show) {
+      setOnlyWithFeedback(true);
+      setSelectedIdx(0);
     }
-  }, [exercise?.title, show, userLang]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, intervention?._id]);
+
+  // counts
+  const totalScheduled = allDates.length;
+
+  const answeredCount = useMemo(() => {
+    return allDates.reduce((acc: number, d: any) => {
+      const fbCount = asArray(d?.feedback).length;
+      const hasVideo = !!d?.video?.video_url;
+      // treat either Q-feedback or video feedback as "answered"
+      return acc + (fbCount > 0 || hasVideo ? 1 : 0);
+    }, 0);
+  }, [allDates]);
+
+  // ✅ filtered list for left column
+  const visibleDates = useMemo(() => {
+    if (!onlyWithFeedback) return allDates;
+    return allDates.filter((d: any) => {
+      const fbCount = asArray(d?.feedback).length;
+      const hasVideo = !!d?.video?.video_url;
+      return fbCount > 0 || hasVideo;
+    });
+  }, [allDates, onlyWithFeedback]);
+
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const selected = visibleDates[selectedIdx] || null;
+
+  // if filter makes current index invalid, clamp
+  useEffect(() => {
+    if (selectedIdx >= visibleDates.length) setSelectedIdx(0);
+  }, [visibleDates.length, selectedIdx]);
+
+  const feedback = asArray(selected?.feedback);
+
+  const title = intervention?.title || safeT(t, 'Intervention');
 
   return (
-    <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>
+    <Modal
+      show={show}
+      onHide={onHide}
+      centered
+      size="lg"
+      // ✅ limit popup size
+      dialogClassName="reha-feedback-modal"
+      contentClassName="reha-feedback-modal__content"
+    >
       <Modal.Header closeButton>
         <Modal.Title>
-          {translatedTitle}{' '}
-          {detectedLang && (
-            <span className="text-muted">({t('Original language:')} {detectedLang})</span>
-          )}
-          <span className="ms-2 text-secondary">({date})</span>
+          {safeT(t, 'Feedback')}: {title}
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <section className="mb-4">
-          <h6 className="fw-bold">{t('Feedback')}</h6>
-        </section>
 
-        {/* Video feedback section (unchanged) */}
-        {video && (
-          <section className="mb-4">
-            <hr />
-            <p className="fw-bold mb-1">{t('Video feedback')}</p>
-            {video.comment && <p className="fst-italic">{video.comment}</p>}
-            {!video.video_expired ? (
-              <div className="rounded shadow-sm overflow-hidden mt-3">
-                <ReactPlayer url={video.video_url} width="100%" height="400px" controls />
-              </div>
-            ) : (
-              <p className="text-muted mt-2">{t('Video feedback has expired.')}</p>
-            )}
-          </section>
-        )}
-
-        {/* Text / audio / multiselect feedback */}
-        {feedbackEntries.length > 0 ? (
-          feedbackEntries.map((entry, idx) => {
-            const questionText = getTranslation(entry.question.translations, userLang);
-            const answers = (entry.answer ?? entry.answerKey ?? []) as {
-              key: string;
-              translations: { language: string; text: string }[];
-            }[];
-
-            return (
-              <section key={idx} className="mb-4">
-                <hr/>
-                <p className="fw-bold">{questionText}</p>
-
-                {/* If audio was recorded: let therapist listen to the ORIGINAL */}
-                {entry.audio_url && (
-                  <div className="mb-2">
-                    <div className="small text-muted">
-                      {t('Original audio (no translation)')}
-                    </div>
-                    <audio
-                      controls
-                      preload="none"
-                      src={entry.audio_url}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                )}
-
-                {/* Render any answers/transcriptions as usual */}
-                {answers.length > 0 && (
-                  <ul className="mb-2">
-                    {answers.map((ans, i) => {
-                      const answerText =
-                        getTranslation(ans.translations, userLang) || ans.key;
-                      return <li key={i}>{answerText || t("No transcription.")}</li>;
-                    })}
-                  </ul>
-                )}
-              </section>
-            );
-          })
+      <Modal.Body className="reha-feedback-modal__body">
+        {!totalScheduled ? (
+          <Alert variant="info" className="mb-0">
+            {safeT(t, 'No scheduled events found')}
+          </Alert>
         ) : (
-          <p className="text-muted">{t('No feedback available')}</p>
+          <>
+            {/* ✅ summary + filter toggle */}
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <div className="text-muted">
+                {safeT(t, 'Answered feedback for')}{' '}
+                <strong>
+                  {answeredCount} {safeT(t, 'out of')} {totalScheduled}
+                </strong>{' '}
+                {safeT(t, 'scheduled events')}.
+              </div>
+
+              <Form.Check
+                type="switch"
+                id="onlyWithFeedbackSwitch"
+                label={safeT(t, 'Show only dates with feedback')}
+                checked={onlyWithFeedback}
+                onChange={(e) => setOnlyWithFeedback(e.target.checked)}
+              />
+            </div>
+
+            {!visibleDates.length ? (
+              <Alert variant="secondary" className="mb-0">
+                {safeT(t, 'No feedback available')}
+              </Alert>
+            ) : (
+              <Row className="g-3">
+                {/* LEFT: dates list (scrollable) */}
+                <Col md={4}>
+                  <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
+
+                  <div className="reha-feedback-modal__datesScroll">
+                    <ListGroup>
+                      {visibleDates.map((d: any, idx: number) => {
+                        const st = String(d?.status || '').toLowerCase();
+                        const fbCount = asArray(d?.feedback).length;
+                        const hasVid = !!d?.video?.video_url;
+
+                        return (
+                          <ListGroup.Item
+                            key={d?.datetime || idx}
+                            action
+                            active={idx === selectedIdx}
+                            onClick={() => setSelectedIdx(idx)}
+                            className="d-flex justify-content-between align-items-center"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span style={{ fontSize: 13 }}>
+                              {formatDateTime(String(d?.datetime || ''))}
+                            </span>
+
+                            <span className="d-flex gap-1 align-items-center">
+                              {st ? (
+                                <Badge
+                                  bg={
+                                    st === 'completed'
+                                      ? 'success'
+                                      : st === 'missed'
+                                        ? 'danger'
+                                        : st === 'today'
+                                          ? 'primary'
+                                          : 'secondary'
+                                  }
+                                >
+                                  {safeT(t, st)}
+                                </Badge>
+                              ) : null}
+
+                              {fbCount > 0 ? <Badge bg="info">Q:{fbCount}</Badge> : null}
+                              {hasVid ? (
+                                <Badge bg="warning" text="dark">
+                                  V
+                                </Badge>
+                              ) : null}
+                            </span>
+                          </ListGroup.Item>
+                        );
+                      })}
+                    </ListGroup>
+                  </div>
+                </Col>
+
+                {/* RIGHT: feedback detail (scrollable if long) */}
+                <Col md={8}>
+                  {!selected ? (
+                    <Alert variant="info">{safeT(t, 'Select a date')}</Alert>
+                  ) : (
+                    <div className="reha-feedback-modal__detailScroll">
+                      {/* video */}
+                      {selected?.video?.video_url ? (
+                        <div className="mb-3">
+                          <div className="fw-semibold mb-2">{safeT(t, 'Video feedback')}</div>
+                          <video
+                            src={selected.video.video_url}
+                            controls
+                            style={{ width: '100%', borderRadius: 8 }}
+                          />
+                          {selected.video.comment ? (
+                            <div className="text-muted mt-2" style={{ whiteSpace: 'pre-wrap' }}>
+                              {selected.video.comment}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <div className="fw-semibold mb-2">{safeT(t, 'Answers')}</div>
+
+                      {!feedback.length ? (
+                        <Alert variant="secondary">{safeT(t, 'No feedback available')}</Alert>
+                      ) : (
+                        <ListGroup>
+                          {feedback.map((fb: any, i: number) => {
+                            const q = fb?.question;
+                            const qText = pickTranslation(q?.translations, userLang);
+
+                            const answers = asArray(fb?.answer);
+                            const answerText = answers
+                              .map((a: any) => pickTranslation(a?.translations, userLang) || a?.key)
+                              .filter(Boolean)
+                              .join(', ');
+
+                            return (
+                              <ListGroup.Item key={i}>
+                                <div className="fw-semibold">
+                                  {qText || safeT(t, 'Question')}
+                                </div>
+
+                                {answerText ? <div className="mt-1">{answerText}</div> : null}
+
+                                {fb?.comment ? (
+                                  <div className="text-muted mt-2" style={{ whiteSpace: 'pre-wrap' }}>
+                                    {fb.comment}
+                                  </div>
+                                ) : null}
+
+                                {fb?.audio_url ? (
+                                  <div className="mt-2">
+                                    <audio controls src={fb.audio_url} />
+                                  </div>
+                                ) : null}
+                              </ListGroup.Item>
+                            );
+                          })}
+                        </ListGroup>
+                      )}
+                    </div>
+                  )}
+                </Col>
+              </Row>
+            )}
+          </>
         )}
       </Modal.Body>
+
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onHide}>
+          {safeT(t, 'Close')}
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

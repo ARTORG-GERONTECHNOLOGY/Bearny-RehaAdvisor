@@ -1,5 +1,5 @@
-// src/components/PatientPage/InterventionList.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import { observer } from 'mobx-react-lite';
 import {
   Button,
   Card,
@@ -19,47 +19,21 @@ import {
   endOfWeek,
 } from 'date-fns';
 import { enUS, de, fr, it } from 'date-fns/locale';
-import apiClient from '../../api/client';
+
+import authStore from '../../stores/authStore';
 import PatientInterventionPopUp from './PatientInterventionPopUp';
 import FeedbackPopup from './FeedbackPopup';
 import PatientQuestionaire from './PatientQuestionaire';
-import { translateText } from '../../utils/translate';
 
-type Rec = {
-  intervention_id: string;
-  intervention_title: string;
-  description?: string;
-  dates: string[];
-  duration?: number;
-  preview_img?: string;
-  completion_dates?: string[];
-  translated_title?: string;
-  translated_description?: string;
-  titleLang?: string;
-  descLang?: string;
-  notes?: string;
-};
+import { patientUiStore } from '../../stores/patientUiStore';
+import { patientInterventionsStore, PatientRec } from '../../stores/patientInterventionsStore';
+import { patientQuestionnairesStore } from '../../stores/patientQuestionnairesStore';
 
-type Props = {
-  selectedDate: Date;
-  onDateChange: (d: Date) => void;
-};
-
-const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
+const InterventionList: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
-  const [recommendations, setRecommendations] = useState<Rec[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Rec | null>(null);
-  const [feedbackItem, setFeedbackItem] = useState<string | null>(null);
-  const [feedbackQuestions, setFeedbackQuestions] = useState<any[]>([]);
-  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
-  const [showHealthPopup, setShowHealthPopup] = useState(false);
-  const [showPatientPopup, setShowPatientPopup] = useState(false);
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const patientId = useMemo(() => localStorage.getItem('id') || authStore.id, []);
 
-  // Error handling
-  const [error, setError] = useState<string | null>(null);
-  const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<PatientRec | null>(null);
 
   const localeMap: Record<string, any> = { en: enUS, de, fr, it };
   const currentLocale = useMemo(
@@ -68,168 +42,36 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
   );
 
   useEffect(() => {
-    fetchInterventions();
-    getInitialQuestionnaire();
-    getHealthQuestionnaire();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const getHealthQuestionnaire = async () => {
-    try {
-      const { data: res } = await apiClient.get(
-        `/patients/get-questions/Healthstatus/${localStorage.getItem('id')}/`
-      );
-      if (!res.questions?.length) return;
-
-      const lang = (i18n.language || 'en').slice(0, 2);
-      const formatted = res.questions.map((q: any) => ({
-        questionKey: q.questionKey,
-        label:
-          q.translations.find((tt: any) => tt.language === lang)?.text ||
-          q.translations[0]?.text ||
-          '',
-        options: q.possibleAnswers || [],
-        type: q.answerType,
-      }));
-      setFeedbackQuestions(formatted);
-      setShowHealthPopup(true);
-    } catch (err) {
-      console.error('Error loading health questionnaire:', err);
-    }
-  };
-
-  const getInitialQuestionnaire = async () => {
-    try {
-      const { data: res } = await apiClient.get(
-        `users/${localStorage.getItem('id')}/initial-questionaire/`
-      );
-      setShowPatientPopup(res.data);
-    } catch (err) {
-      console.error('Error checking initial questionnaire:', err);
-    }
-  };
-
-  const fetchInterventions = async () => {
-    try {
-      const { data } = await apiClient.get(
-        `/patients/rehabilitation-plan/patient/${localStorage.getItem('id')}/`
-      );
-
-      const lang = (i18n.language || 'en').slice(0, 2);
-
-      const translated: Rec[] = await Promise.all(
-        (data || []).map(async (rec: Rec) => {
-          const t1 = await translateText(rec.intervention_title, lang);
-          const t2 = await translateText(rec.description || '', lang);
-          return {
-            ...rec,
-            translated_title: t1.translatedText,
-            translated_description: t2.translatedText,
-            titleLang: t1.detectedSourceLanguage,
-            descLang: t2.detectedSourceLanguage,
-          };
-        })
-      );
-
-      setRecommendations(translated);
-      setError(null);
-      setErrorDetails(null);
-      setShowErrorDetails(false);
-    } catch (err: any) {
-      console.error('Failed to load interventions:', err);
-      const backend = err?.response?.data;
-      setError(backend?.error || err?.message || t('An unexpected error occurred.'));
-      setErrorDetails(backend?.details || null);
-    }
-  };
-
-  const isCompletedOn = (rec: Rec, date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return (rec.completion_dates || []).some((d) => String(d).startsWith(dateStr));
-  };
-
-  // ✅ ensure FE state contains only ONE entry per calendar day
-  const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
-    const base = Array.isArray(dates) ? dates : [];
-    const withoutDay = base.filter((d) => !String(d).startsWith(dateKey));
-    // canonical day marker (stable + unique)
-    const canonical = `${dateKey}T00:00:00.000Z`;
-    return [...withoutDay, canonical];
-  };
-
-  const handleToggleCompleted = async (rec: Rec, date: Date) => {
-    const patientId = localStorage.getItem('id');
     if (!patientId) return;
 
-    const dateKey = format(date, 'yyyy-MM-dd');
-    const already = isCompletedOn(rec, date);
+    patientInterventionsStore.fetchPlan(patientId, i18n.language);
+    patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
+    patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
 
+  const openFeedbackFor = async (interventionId: string, dateKey: string) => {
+    await patientQuestionnairesStore.openInterventionFeedback(
+      patientId,
+      interventionId,
+      dateKey,
+      i18n.language
+    );
+  };
+
+  const handleToggleCompleted = async (rec: PatientRec, date: Date) => {
     try {
-      if (!already) {
-        await apiClient.post('interventions/complete/', {
-          patient_id: patientId,
-          intervention_id: rec.intervention_id,
-          date: dateKey,
-        });
-
-        setRecommendations((prev) =>
-          prev.map((r) =>
-            r.intervention_id === rec.intervention_id
-              ? {
-                  ...r,
-                  completion_dates: upsertCompletionDate(r.completion_dates, dateKey),
-                }
-              : r
-          )
-        );
-
-        if (isToday(date)) {
-          setFeedbackItem(rec.intervention_id);
-          const { data: res } = await apiClient.get(
-            `/patients/get-questions/Intervention/${patientId}/${rec.intervention_id}/`
-          );
-
-          const lang = (i18n.language || 'en').slice(0, 2);
-          const formatted = res.questions.map((q: any) => ({
-            questionKey: q.questionKey,
-            label:
-              q.translations.find((tt: any) => tt.language === lang)?.text ||
-              q.translations[0]?.text ||
-              '',
-            options: q.possibleAnswers || [],
-            type: q.answerType,
-          }));
-
-          setFeedbackQuestions(formatted);
-          setShowFeedbackPopup(true);
-        }
-      } else {
-        await apiClient.post('interventions/uncomplete/', {
-          patient_id: patientId,
-          intervention_id: rec.intervention_id,
-          date: dateKey,
-        });
-
-        setRecommendations((prev) =>
-          prev.map((r) =>
-            r.intervention_id === rec.intervention_id
-              ? {
-                  ...r,
-                  completion_dates: (r.completion_dates || []).filter(
-                    (d) => !String(d).startsWith(dateKey)
-                  ),
-                }
-              : r
-          )
-        );
+      const res = await patientInterventionsStore.toggleCompleted(patientId, rec, date);
+      if (res.completed) {
+        await openFeedbackFor(rec.intervention_id, res.dateKey);
       }
     } catch (err) {
       console.error('Toggle completed failed:', err);
     }
   };
 
-  const renderStatus = (rec: Rec, date: Date) => {
-    const completed = isCompletedOn(rec, date);
+  const renderStatus = (rec: PatientRec, date: Date) => {
+    const completed = patientInterventionsStore.isCompletedOn(rec, date);
 
     if (isToday(date)) {
       return completed ? (
@@ -294,17 +136,13 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
       );
     }
 
-    return completed ? (
-      <Badge bg="success">{t('Done')}</Badge>
-    ) : (
-      <Badge bg="info">{t('Upcoming')}</Badge>
-    );
+    return completed ? <Badge bg="success">{t('Done')}</Badge> : <Badge bg="info">{t('Upcoming')}</Badge>;
   };
 
-  const sortDayItems = (items: Rec[], date: Date) => {
+  const sortDayItems = (items: PatientRec[], date: Date) => {
     return [...items].sort((a, b) => {
-      const aDone = isCompletedOn(a, date);
-      const bDone = isCompletedOn(b, date);
+      const aDone = patientInterventionsStore.isCompletedOn(a, date);
+      const bDone = patientInterventionsStore.isCompletedOn(b, date);
       if (aDone === bDone) {
         const at = a.translated_title || a.intervention_title || '';
         const bt = b.translated_title || b.intervention_title || '';
@@ -314,17 +152,17 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
     });
   };
 
-  const getTimeForDay = (rec: Rec, dateKey: string) => {
-    const matchingDateStr = (rec.dates || []).find((d) => String(d).startsWith(dateKey));
-    if (!matchingDateStr) return '';
-    const dt = new Date(matchingDateStr);
+  const getTimeForDay = (rec: PatientRec, dateKey: string) => {
+    const matching = (rec.dates || []).find((d) => String(d).startsWith(dateKey));
+    if (!matching) return '';
+    const dt = new Date(matching);
     if (Number.isNaN(dt.getTime())) return '';
     return format(dt, 'HH:mm');
   };
 
-  const openRec = useCallback((rec: Rec) => setSelectedItem(rec), []);
-  const onCardKeyDown = (e: React.KeyboardEvent, rec: Rec) => {
-    // Make cards behave like accessible buttons
+  const openRec = useCallback((rec: PatientRec) => setSelectedItem(rec), []);
+
+  const onCardKeyDown = (e: React.KeyboardEvent, rec: PatientRec) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       openRec(rec);
@@ -333,9 +171,10 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
 
   const renderDayColumn = (date: Date, isWeekView = false) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    const listForDay = recommendations.filter((rec) =>
+    const listForDay = patientInterventionsStore.items.filter((rec) =>
       (rec.dates || []).some((d) => String(d).startsWith(dateKey))
     );
+
     const sorted = sortDayItems(listForDay, date);
     const today = isToday(date);
 
@@ -354,8 +193,8 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
               type="button"
               className={`day-heading-btn ${today ? 'today' : ''}`}
               onClick={() => {
-                onDateChange(date);
-                setViewMode('day');
+                patientUiStore.setSelectedDate(date);
+                patientUiStore.setViewMode('day');
               }}
               aria-label={t('Open day view for {{day}}', { day: dayFullLabel })}
               aria-current={today ? 'date' : undefined}
@@ -372,11 +211,10 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
         )}
 
         {sorted.map((rec) => {
-          const completed = isCompletedOn(rec, date);
+          const completed = patientInterventionsStore.isCompletedOn(rec, date);
           const title = rec.translated_title || rec.intervention_title;
           const timeStr = getTimeForDay(rec, dateKey);
 
-          // WEEK VIEW CARD (compact)
           if (isWeekView) {
             const aria = `${title}. ${t('Time')}: ${timeStr || t('Unknown')}. ${
               typeof rec.duration === 'number' ? `${t('Duration')}: ${rec.duration} ${t('min')}.` : ''
@@ -395,9 +233,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
               >
                 {completed && (
                   <div className="done-strip" aria-hidden="true">
-                    <span className="check" aria-hidden="true">
-                      ✓
-                    </span>
+                    <span className="check" aria-hidden="true">✓</span>
                   </div>
                 )}
 
@@ -407,23 +243,18 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
 
                     <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
                       <span className="meta-inline">
-                        <span className="meta-icon" aria-hidden="true">
-                          🕒
-                        </span>
+                        <span className="meta-icon" aria-hidden="true">🕒</span>
                         <span aria-label={t('Time')}>{timeStr || '—'}</span>
                       </span>
 
                       {typeof rec.duration === 'number' && (
                         <span className="meta-inline">
-                          <span className="meta-icon" aria-hidden="true">
-                            ⏱️
-                          </span>
+                          <span className="meta-icon" aria-hidden="true">⏱️</span>
                           <span aria-label={t('Duration')}>{rec.duration}</span> {t('min')}
                         </span>
                       )}
                     </div>
 
-                    {/* SR-only status */}
                     <span className="sr-only">
                       {completed ? t('Done') : isPast(date) ? t('Missed') : t('Upcoming')}
                     </span>
@@ -433,7 +264,6 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
             );
           }
 
-          // DAY VIEW CARD (full)
           return (
             <Card
               key={`${rec.intervention_id}-${dateKey}`}
@@ -447,9 +277,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
             >
               {completed && (
                 <div className="done-strip" aria-live="polite">
-                  <span className="check" aria-hidden="true">
-                    ✓
-                  </span>{' '}
+                  <span className="check" aria-hidden="true">✓</span>{' '}
                   {isToday(date) ? t('Completed today') : t('Completed')}
                 </div>
               )}
@@ -468,7 +296,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                     {title}{' '}
                     {rec.titleLang && (
                       <small className="text-muted">
-                        ({t('Original language:')} {rec.titleLang})
+                        {'\n'} ({t('Original language:')} {rec.titleLang})
                       </small>
                     )}
                   </Card.Title>
@@ -478,7 +306,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                     {(rec.translated_description || '').length > 80 ? '…' : ''}
                     {rec.descLang && (
                       <span className="text-muted ms-2">
-                        ({t('Original language:')} {rec.descLang})
+                        {'\n'} ({t('Original language:')} {rec.descLang})
                       </span>
                     )}
                   </Card.Text>
@@ -487,9 +315,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                 <Card.Footer className="d-flex justify-content-between align-items-center px-2 py-2 footer-meta">
                   <div className="d-flex align-items-center gap-2 text-muted small">
                     <span className="meta-inline">
-                      <span className="meta-icon" aria-hidden="true">
-                        🕒
-                      </span>
+                      <span className="meta-icon" aria-hidden="true">🕒</span>
                       <span aria-label={t('Time')}>{timeStr || '—'}</span>
                     </span>
                   </div>
@@ -499,9 +325,7 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
                   {typeof rec.duration === 'number' ? (
                     <div className="d-flex align-items-center gap-2 text-muted small">
                       <span className="meta-inline">
-                        <span className="meta-icon" aria-hidden="true">
-                          ⏱️
-                        </span>
+                        <span className="meta-icon" aria-hidden="true">⏱️</span>
                         <span aria-label={t('Duration')}>{rec.duration}</span> {t('min')}
                       </span>
                     </div>
@@ -518,16 +342,15 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
   };
 
   const renderWeekView = () => {
-    const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    const end = endOfWeek(selectedDate, { weekStartsOn: 1 });
+    const start = startOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 });
+    const end = endOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 });
     const weekDates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
     const weekNumber = format(start, 'I');
 
     return (
       <>
         <h5 className="text-center mb-3 week-title" aria-live="polite">
-          {format(start, 'dd.MM', { locale: currentLocale })} – {format(end, 'dd.MM', { locale: currentLocale })}{' '}
-          ({t('Week')} {weekNumber})
+          {format(start, 'dd.MM', { locale: currentLocale })} – {format(end, 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
         </h5>
 
         <div className="week-grid" role="grid" aria-label={t('Weekly interventions grid')}>
@@ -541,51 +364,54 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
     );
   };
 
-  const renderDayView = () => (
-    <>
-      <h5 className="text-center mb-3" aria-live="polite">
-        {format(selectedDate, 'EEEE, dd.MM.yyyy', { locale: currentLocale })}
-      </h5>
-      <Row className="g-3">
-        <Col>{renderDayColumn(selectedDate)}</Col>
-      </Row>
-    </>
-  );
+  const renderDayView = () => {
+    const short = format(patientUiStore.selectedDate, 'EEE dd.MM.yyyy', { locale: currentLocale });
+    const label = isToday(patientUiStore.selectedDate) ? `${short} (${t('Today')})` : short;
+
+    return (
+      <>
+        <h5 className="text-center mb-3" aria-live="polite">{label}</h5>
+        <Row className="g-3">
+          <Col>{renderDayColumn(patientUiStore.selectedDate)}</Col>
+        </Row>
+      </>
+    );
+  };
 
   const handleNavigate = (dir: 'prev' | 'next') => {
-    const delta = viewMode === 'day' ? 1 : 7;
-    onDateChange(addDays(selectedDate, dir === 'next' ? delta : -delta));
+    const delta = patientUiStore.viewMode === 'day' ? 1 : 7;
+    patientUiStore.setSelectedDate(addDays(patientUiStore.selectedDate, dir === 'next' ? delta : -delta));
   };
+
+  const isViewingToday =
+    patientUiStore.viewMode === 'day'
+      ? isToday(patientUiStore.selectedDate)
+      : format(startOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd') ===
+        format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   return (
     <div className="p-3">
-      {/* ERROR BANNER */}
-      {error && (
+      {patientInterventionsStore.error && (
         <div className="alert alert-danger mb-3" role="alert" aria-live="assertive">
           <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-            <span>{error}</span>
-            {errorDetails && (
+            <span>{patientInterventionsStore.error}</span>
+            {patientInterventionsStore.errorDetails && (
               <button
                 type="button"
                 className="btn btn-sm btn-outline-light"
-                onClick={() => setShowErrorDetails((prev) => !prev)}
-                aria-expanded={showErrorDetails}
+                onClick={() => {
+                  // keep minimal; you can also store "showDetails" in ui store if you want
+                  alert(patientInterventionsStore.errorDetails);
+                }}
               >
-                {showErrorDetails ? t('Hide details') : t('Show details')}
+                {t('Show details')}
               </button>
             )}
           </div>
-
-          {showErrorDetails && errorDetails && (
-            <pre className="bg-light p-2 mt-2 border rounded small" style={{ whiteSpace: 'pre-wrap' }}>
-              {errorDetails}
-            </pre>
-          )}
         </div>
       )}
 
-      {/* Controls */}
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <Button onClick={() => handleNavigate('prev')} aria-label={t('Previous')} title={t('Go back')}>
           {t('Previous')}
         </Button>
@@ -593,8 +419,8 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
         <ToggleButtonGroup
           type="radio"
           name="viewMode"
-          value={viewMode}
-          onChange={setViewMode}
+          value={patientUiStore.viewMode}
+          onChange={(v) => patientUiStore.setViewMode(v)}
           aria-label={t('Change view mode')}
         >
           <ToggleButton id="day" value="day" variant="outline-primary" aria-label={t('Day view')}>
@@ -610,160 +436,88 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
         </Button>
       </div>
 
-      {viewMode === 'week' ? renderWeekView() : renderDayView()}
+      <div className="d-flex justify-content-center align-items-center mb-3">
+        <Button
+          variant={isViewingToday ? 'primary' : 'outline-primary'}
+          onClick={() => patientUiStore.goToday()}
+          aria-label={t('Go to today')}
+          title={t('Go to today')}
+          className="today-btn"
+        >
+          {t('Today')}
+        </Button>
+      </div>
+
+      {patientUiStore.viewMode === 'week' ? renderWeekView() : renderDayView()}
 
       {/* Popups */}
-      {selectedItem && !showFeedbackPopup && (
+      {selectedItem && !patientQuestionnairesStore.showFeedbackPopup && (
         <PatientInterventionPopUp show item={selectedItem} handleClose={() => setSelectedItem(null)} />
       )}
 
-      {showFeedbackPopup && (
+      {patientQuestionnairesStore.showFeedbackPopup && (
         <FeedbackPopup
           show
-          interventionId={feedbackItem || ''}
-          questions={feedbackQuestions}
-          onClose={() => setShowFeedbackPopup(false)}
+          interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
+          questions={patientQuestionnairesStore.feedbackQuestions}
+          date={patientQuestionnairesStore.feedbackDateKey}
+          onClose={() => patientQuestionnairesStore.closeFeedback()}
         />
       )}
 
-      {showHealthPopup && (
-        <FeedbackPopup show interventionId="" questions={feedbackQuestions} onClose={() => setShowHealthPopup(false)} />
+      {patientQuestionnairesStore.showHealthPopup && (
+        <FeedbackPopup
+          show
+          interventionId=""
+          questions={patientQuestionnairesStore.healthQuestions}
+          date={format(patientUiStore.selectedDate, 'yyyy-MM-dd')}
+          onClose={() => patientQuestionnairesStore.closeHealth()}
+        />
       )}
 
-      {showPatientPopup && (
+      {patientQuestionnairesStore.showInitialPopup && (
         <PatientQuestionaire
           patient_id={localStorage.getItem('id') as any}
           show
-          handleClose={() => setShowPatientPopup(false)}
+          handleClose={() => patientQuestionnairesStore.closeInitial()}
         />
       )}
 
       <style>{`
-        /* Screen-reader only utility */
-        .sr-only {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
-        }
+        .today-btn { border-radius: .75rem; padding: .55rem 1rem; font-weight: 700; min-width: 140px; }
 
-        /* WEEK GRID — responsive + standardized */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
         .week-title { font-weight: 700; }
-        .week-grid {
-          display: grid;
-          gap: 12px;
-          align-items: start;
-        }
-
-        /* Large screens: 7 columns */
-        @media (min-width: 992px) {
-          .week-grid {
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-          }
-        }
-
-        /* Medium: 3 columns */
-        @media (min-width: 576px) and (max-width: 991.98px) {
-          .week-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
-        }
-
-        /* Small: horizontal scroll with snap */
+        .week-grid { display: grid; gap: 12px; align-items: start; }
+        @media (min-width: 992px) { .week-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+        @media (min-width: 576px) and (max-width: 991.98px) { .week-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 575.98px) {
-          .week-grid {
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(240px, 80vw);
-            overflow-x: auto;
-            padding-bottom: 8px;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-          }
-          .week-grid-cell {
-            scroll-snap-align: start;
-          }
+          .week-grid { grid-auto-flow: column; grid-auto-columns: minmax(240px, 80vw); overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+          .week-grid-cell { scroll-snap-align: start; }
         }
 
-        .week-grid-cell { min-width: 0; }
-
-        .day-col { min-width: 0; }
-        .day-col.is-today {
-          outline: 2px solid rgba(13,110,253,.35);
-          outline-offset: 4px;
-          border-radius: 12px;
-        }
-
-        .day-col-header { margin-bottom: 6px; }
-        .day-heading-btn {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 10px;
-          border-radius: 10px;
-          border: 1px solid rgba(0,0,0,.08);
-          background: #fff;
-          font-weight: 700;
-          cursor: pointer;
-        }
+        .day-col.is-today { outline: 2px solid rgba(13,110,253,.35); outline-offset: 4px; border-radius: 12px; }
+        .day-heading-btn { width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); background: #fff; font-weight: 700; cursor: pointer; }
         .day-heading-btn.today { border-color: rgba(13,110,253,.45); }
-        .day-heading-btn:focus {
-          outline: 3px solid rgba(13,110,253,.45);
-          outline-offset: 2px;
-        }
-        .day-heading-text { white-space: nowrap; }
+        .day-heading-btn:focus { outline: 3px solid rgba(13,110,253,.45); outline-offset: 2px; }
 
-        .empty-day {
-          padding: 10px 12px;
-          border-radius: 10px;
-          border: 1px dashed rgba(0,0,0,.12);
-          background: rgba(0,0,0,.02);
-          margin-bottom: 8px;
-          text-align: center;
-        }
+        .empty-day { padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(0,0,0,.12); background: rgba(0,0,0,.02); margin-bottom: 8px; text-align: center; }
 
-        /* CARDS */
         .day-card { position: relative; overflow: hidden; }
-        .day-card:focus {
-          outline: 3px solid rgba(13,110,253,.45);
-          outline-offset: 2px;
-        }
-
+        .day-card:focus { outline: 3px solid rgba(13,110,253,.45); outline-offset: 2px; }
         .card-inner.is-completed { filter: grayscale(1); opacity: .72; }
 
         .done-strip {
-          position: absolute;
-          top: 8px; left: 8px; right: 8px;
-          z-index: 3;
-          background: #e8f5e9;
-          color: #1b5e20;
-          border: 1px solid #c8e6c9;
-          border-radius: 12px;
-          padding: 6px 10px;
-          text-align: center;
-          font-weight: 700;
-          box-shadow: 0 1px 2px rgba(0,0,0,.06);
-          pointer-events: none;
+          position: absolute; top: 8px; left: 8px; right: 8px;
+          z-index: 3; background: #e8f5e9; color: #1b5e20;
+          border: 1px solid #c8e6c9; border-radius: 12px;
+          padding: 6px 10px; text-align: center; font-weight: 700;
+          box-shadow: 0 1px 2px rgba(0,0,0,.06); pointer-events: none;
         }
         .done-strip .check { font-weight: 900; margin-right: .35rem; }
 
-        .preview-slot {
-          width: 100%;
-          height: 160px;
-          background: #f1f3f4;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-top-left-radius: .375rem;
-          border-top-right-radius: .375rem;
-          overflow: hidden;
-        }
+        .preview-slot { width: 100%; height: 160px; background: #f1f3f4; display: flex; align-items: center; justify-content: center; border-top-left-radius: .375rem; border-top-right-radius: .375rem; overflow: hidden; }
         .preview-img { width: 100%; height: 100%; object-fit: cover; }
         .preview-placeholder { color: #9aa0a6; font-size: .9rem; }
 
@@ -773,20 +527,11 @@ const InterventionList: React.FC<Props> = ({ selectedDate, onDateChange }) => {
         .meta-inline { display: inline-flex; align-items: center; gap: 6px; }
         .meta-icon { font-size: .95rem; opacity: .85; }
 
-        /* Buttons */
-        .action-btn {
-          font-size: 1.05rem;
-          padding: .65rem 1.15rem;
-          border-radius: .75rem;
-        }
-
-        .footer-meta {
-          background: #f8f9fa;
-          border-top: 1px solid rgba(0,0,0,0.05);
-        }
+        .action-btn { font-size: 1.05rem; padding: .65rem 1.15rem; border-radius: .75rem; }
+        .footer-meta { background: #f8f9fa; border-top: 1px solid rgba(0,0,0,0.05); }
       `}</style>
     </div>
   );
-};
+});
 
 export default InterventionList;

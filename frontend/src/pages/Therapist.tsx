@@ -1,5 +1,4 @@
-// src/pages/Therapist.tsx
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import {
   Button,
   Col,
@@ -15,6 +14,7 @@ import {
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { observer } from 'mobx-react-lite';
 
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -22,166 +22,35 @@ import WelcomeArea from '../components/common/WelcomeArea';
 import PatientPopup from '../components/TherapistPatientPage/PatientPopup';
 import AddPatientPopup from '../components/AddPatient/AddPatientPopUp';
 
-import apiClient from '../api/client';
 import authStore from '../stores/authStore';
 import config from '../config/config.json';
 
 import { PatientType } from '../types';
+import { TherapistPatientsStore, SortKey } from '../stores/therapistPatientsStore';
 
-type SortKey = 'ampel' | 'created' | 'last_login' | 'adherence' | 'health' | 'feedback';
-
-const Therapist: React.FC = () => {
-  const [patients, setPatients] = useState<PatientType[]>([]);
-  const [filteredPatients, setFilteredPatients] = useState<PatientType[]>([]);
-  const [selectedItem, setSelectedItem] = useState<PatientType | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [showPopupAdd, setShowPopupAdd] = useState(false);
-
-  // Error handling (banner + details)
-  const [error, setError] = useState<string>('');
-  const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
-
-  // Loading state
-  const [loading, setLoading] = useState(false);
-
-  // Filters / sort
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sexFilter, setSexFilter] = useState('');
-  const [durationFilter, setDurationFilter] = useState('');
-  const [birthdateFilter, setBirthdateFilter] = useState('');
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [sortBy, setSortBy] = useState<SortKey>('ampel'); // DEFAULT: Ampel (worst first)
-  const [diseaseFilter, setDiseaseFilter] = useState('');
-
+const Therapist: React.FC = observer(() => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const durationOptions = config.RehaInfo;
+  const store = useMemo(() => new TherapistPatientsStore(), []);
 
-  const sortByCreatedDesc = (list: PatientType[]) =>
-    [...list].sort((a, b) => {
-      const da = new Date((a as any).created_at ?? 0).getTime();
-      const db = new Date((b as any).created_at ?? 0).getTime();
-      return db - da;
-    });
-
-  // Backend-aware patients loader
-  const fetchPatients = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    setErrorDetails(null);
-    setShowErrorDetails(false);
-
-    try {
-      const res = await apiClient.get<any>(`therapists/${authStore.id}/patients`);
-      const payload = res.data ?? {};
-
-      // New unified backend format: { success, data, message, error, field_errors, details }
-      if (payload && payload.success === false) {
-        const fieldErrors = payload.field_errors || {};
-        const nonField =
-          Array.isArray(payload.non_field_errors) && payload.non_field_errors.length
-            ? payload.non_field_errors.join(' ')
-            : '';
-
-        const fieldText = fieldErrors
-          ? Object.entries(fieldErrors)
-              .map(([k, v]) =>
-                `${k}: ${
-                  Array.isArray(v)
-                    ? v.join(' ')
-                    : typeof v === 'string'
-                    ? v
-                    : JSON.stringify(v)
-                }`
-              )
-              .join(' | ')
-          : '';
-
-        const message =
-          payload.message ||
-          payload.error ||
-          nonField ||
-          t('Failed to fetch patients. Please try again later.');
-
-        setError(message);
-        setErrorDetails(payload.details || fieldText || null);
-        setPatients([]);
-        setFilteredPatients([]);
-        return;
-      }
-
-      // Accept both old (array) and new ({ data: [...] }) shapes
-      const list: PatientType[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload.data)
-        ? payload.data
-        : [];
-
-      const sorted = sortByCreatedDesc(list);
-      setPatients(sorted);
-      setFilteredPatients(sorted);
-    } catch (err: any) {
-      console.error('Error fetching patients:', err);
-      const api = err?.response?.data;
-
-      const fieldErrors = api?.field_errors || {};
-      const nonField =
-        Array.isArray(api?.non_field_errors) && api.non_field_errors.length
-          ? api.non_field_errors.join(' ')
-          : '';
-
-      const fieldText = fieldErrors
-        ? Object.entries(fieldErrors)
-            .map(([k, v]) =>
-              `${k}: ${
-                Array.isArray(v)
-                  ? v.join(' ')
-                  : typeof v === 'string'
-                  ? v
-                  : JSON.stringify(v)
-              }`
-            )
-            .join(' | ')
-        : '';
-
-      const message =
-        api?.message ||
-        api?.error ||
-        nonField ||
-        err?.message ||
-        t('Failed to fetch patients. Please try again later.');
-
-      setError(message);
-      setErrorDetails(api?.details || fieldText || null);
-      setPatients([]);
-      setFilteredPatients([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const durationOptions = (config as any).RehaInfo;
 
   useEffect(() => {
     authStore.checkAuthentication();
     if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
       navigate('/');
-    } else {
-      fetchPatients();
+      return;
     }
-  }, [navigate, fetchPatients]);
+    store.fetchPatients(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, store]);
 
-  const handleOpen = () => setShowPopupAdd(true);
-
-  const handleClose = useCallback(() => {
-    fetchPatients();
-    setShowPopupAdd(false);
-  }, [fetchPatients]);
-
-  const handleItemClick = (patient: PatientType) => {
-    setSelectedItem(patient);
-    setShowPopup(true);
-  };
+  // re-fetch after closing add patient popup
+  const handleCloseAdd = useCallback(async () => {
+    store.closeAddPatient();
+    await store.fetchPatients(t);
+  }, [store, t]);
 
   const handleRehabButton = (id: string, name: string) => {
     localStorage.setItem('selectedPatient', id);
@@ -194,35 +63,6 @@ const Therapist: React.FC = () => {
     localStorage.setItem('selectedPatientName', name);
     navigate('/health');
   };
-
-  const handleClosePopup = () => {
-    setShowPopup(false);
-    setSelectedItem(null);
-  };
-
-  const diseaseOptions = useMemo(() => {
-    const all: string[] = [];
-
-    patients.forEach((p) => {
-      if (Array.isArray(p.diagnosis)) {
-        p.diagnosis.forEach((d) => all.push(String(d)));
-      } else if (p.diagnosis) {
-        all.push(String(p.diagnosis));
-      }
-    });
-
-    return Array.from(new Set(all)).sort();
-  }, [patients]);
-
-  const resetFilters = useCallback(() => {
-    setSearchTerm('');
-    setSexFilter('');
-    setDurationFilter('');
-    setBirthdateFilter('');
-    setDiseaseFilter('');
-    setShowCompleted(false);
-    setSortBy('ampel'); // keep default
-  }, []);
 
   // helpers for display
   const fmtDate = (iso?: string) => {
@@ -247,12 +87,6 @@ const Therapist: React.FC = () => {
     return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  const isCompletedPatient = (p: PatientType) => {
-    const status = (p as any).rehab_status;
-    const end = (p as any).rehab_end_date;
-    return status === 'completed' || !!end;
-  };
-
   // ===== Ampel helpers =====
   type Traffic = 'good' | 'warn' | 'bad' | 'unknown';
   const chipClass = (level: Traffic) => {
@@ -267,12 +101,9 @@ const Therapist: React.FC = () => {
         return 'bg-secondary';
     }
   };
-  const levelToNum = (lvl: Traffic) =>
-    lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
-  const levelRankSmallBadFirst = (lvl: Traffic) =>
-    lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
+  const levelToNum = (lvl: Traffic) => (lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0);
+  const levelRankSmallBadFirst = (lvl: Traffic) => (lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5);
 
-  // Health (biomarker) scoring & tip
   const healthScore = (p: any) => {
     const bio = (p as any).biomarker || (p as any).fitbitData || {};
     const sleep = typeof bio.sleep_avg_h === 'number' ? bio.sleep_avg_h : null;
@@ -312,23 +143,15 @@ const Therapist: React.FC = () => {
     else if (score >= 0) level = 'bad';
 
     const parts: string[] = [];
-    if (typeof sleep === 'number')
-      parts.push(`${t('Sleep')}: ${sleep.toFixed(1)}h ${t('avg (7d)')}`);
-    if (typeof steps === 'number')
-      parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
-    if (typeof act === 'number')
-      parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
+    if (typeof sleep === 'number') parts.push(`${t('Sleep')}: ${sleep.toFixed(1)}h ${t('avg (7d)')}`);
+    if (typeof steps === 'number') parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
+    if (typeof act === 'number') parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
 
     return { level, tip: parts.length ? parts.join(' • ') : t('No recent health data') };
   };
 
-  // Login chip
   const loginLevelAndTip = (p: any): { level: Traffic; tip: string } => {
-    const last =
-      (p as any).last_online ||
-      (p as any).user_last_login ||
-      (p as any).last_login ||
-      '';
+    const last = (p as any).last_online || (p as any).user_last_login || (p as any).last_login || '';
     const d = daysSince(last);
     let level: Traffic = 'unknown';
     if (d === Number.POSITIVE_INFINITY) level = 'unknown';
@@ -337,13 +160,10 @@ const Therapist: React.FC = () => {
     else level = 'bad';
     return {
       level,
-      tip: last
-        ? `${t('Last login')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
-        : t('Never logged in'),
+      tip: last ? `${t('Last login')}: ${fmtDateTime(last)} (${d} ${t('days ago')})` : t('Never logged in'),
     };
   };
 
-  // Adherence chip (rehab adherence over last 7d from backend summary)
   const adherenceLevelAndTip = (p: any): { level: Traffic; tip: string } => {
     const rate = (p as any).adherence_rate as number | undefined;
     let level: Traffic = 'unknown';
@@ -354,21 +174,13 @@ const Therapist: React.FC = () => {
     }
     return {
       level,
-      tip:
-        typeof rate === 'number'
-          ? `${t('Completed in last 7d')}: ${rate}%`
-          : t('No adherence data'),
+      tip: typeof rate === 'number' ? `${t('Completed in last 7d')}: ${rate}%` : t('No adherence data'),
     };
   };
 
-  // Feedback chip — uses backend questionnaires[] summary.
-  // Tooltip shows: Title • <last date> • Score: X • (↓/↑ Δ) • (optional adherence info)
   const feedbackLevelAndTip = (p: any): { level: Traffic; tip: string } => {
-    const qs: any[] = Array.isArray((p as any).questionnaires)
-      ? (p as any).questionnaires
-      : [];
+    const qs: any[] = Array.isArray((p as any).questionnaires) ? (p as any).questionnaires : [];
 
-    // If no per-questionnaire summary, fall back to coarse recency
     if (qs.length === 0) {
       const last = (p as any).last_feedback_at || '';
       const d = daysSince(last);
@@ -377,71 +189,38 @@ const Therapist: React.FC = () => {
       else if (d <= 14) level = 'good';
       else if (d <= 30) level = 'warn';
       else level = 'bad';
-      const tip = last
-        ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
-        : t('No recent feedback');
+      const tip = last ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})` : t('No recent feedback');
       return { level, tip };
     }
 
-    // Determine worst level across questionnaires & build tooltip lines
     let worst: Traffic = 'good';
-    const ord = (lvl: Traffic) =>
-      lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
+    const ord = (lvl: Traffic) => (lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0);
     const lines: string[] = [];
 
     qs.forEach((q) => {
       const title = q.title || q.key || t('Questionnaire');
       const lastISO: string | null = q.last_answered_at || null;
 
-      // scores & delta
       const lastScore =
-        typeof q.last_score === 'number'
-          ? q.last_score
-          : typeof q.last_score === 'string'
-          ? Number(q.last_score)
-          : null;
+        typeof q.last_score === 'number' ? q.last_score : typeof q.last_score === 'string' ? Number(q.last_score) : null;
       const prevScore =
-        typeof q.prev_score === 'number'
-          ? q.prev_score
-          : typeof q.prev_score === 'string'
-          ? Number(q.prev_score)
-          : null;
+        typeof q.prev_score === 'number' ? q.prev_score : typeof q.prev_score === 'string' ? Number(q.prev_score) : null;
 
       let delta =
-        typeof q.delta_score === 'number'
-          ? q.delta_score
-          : typeof q.delta_score === 'string'
-          ? Number(q.delta_score)
-          : null;
+        typeof q.delta_score === 'number' ? q.delta_score : typeof q.delta_score === 'string' ? Number(q.delta_score) : null;
 
-      if (delta === null && lastScore != null && prevScore != null) {
-        delta = lastScore - prevScore;
-      }
+      if (delta === null && lastScore != null && prevScore != null) delta = lastScore - prevScore;
 
-      // adherence hints
       const adh7 =
-        typeof q.adherence_7 === 'number'
-          ? q.adherence_7
-          : typeof q.adherence_7 === 'string'
-          ? Number(q.adherence_7)
-          : undefined;
+        typeof q.adherence_7 === 'number' ? q.adherence_7 : typeof q.adherence_7 === 'string' ? Number(q.adherence_7) : undefined;
       const answered7 =
-        typeof q.answered_7 === 'number'
-          ? q.answered_7
-          : typeof q.answered_7 === 'string'
-          ? Number(q.answered_7)
-          : undefined;
+        typeof q.answered_7 === 'number' ? q.answered_7 : typeof q.answered_7 === 'string' ? Number(q.answered_7) : undefined;
       const expected7 =
-        typeof q.expected_7 === 'number'
-          ? q.expected_7
-          : typeof q.expected_7 === 'string'
-          ? Number(q.expected_7)
-          : undefined;
+        typeof q.expected_7 === 'number' ? q.expected_7 : typeof q.expected_7 === 'string' ? Number(q.expected_7) : undefined;
 
       const low = q.low_score === true;
       const days = daysSince(lastISO || undefined);
 
-      // Decide level
       let lvl: Traffic = 'good';
       if (low) lvl = 'bad';
       else if (!lastISO) lvl = 'warn';
@@ -451,7 +230,6 @@ const Therapist: React.FC = () => {
 
       if (ord(lvl) > ord(worst)) worst = lvl;
 
-      // Build tooltip line
       const parts: string[] = [];
       parts.push(title);
       parts.push(lastISO ? fmtDate(lastISO) : t('No answers yet'));
@@ -460,43 +238,27 @@ const Therapist: React.FC = () => {
         const arrow = delta < 0 ? '↓' : '↑';
         parts.push(`${arrow} ${Math.abs(delta)}`);
       }
-      if (typeof answered7 === 'number' && typeof expected7 === 'number') {
-        parts.push(`${t('7d')}: ${answered7}/${expected7}`);
-      } else if (typeof adh7 === 'number') {
-        parts.push(`${t('7d adh')}: ${adh7}%`);
-      }
+      if (typeof answered7 === 'number' && typeof expected7 === 'number') parts.push(`${t('7d')}: ${answered7}/${expected7}`);
+      else if (typeof adh7 === 'number') parts.push(`${t('7d adh')}: ${adh7}%`);
+
       lines.push(parts.join(' • '));
     });
 
-    const tip = lines.join('\n');
-    return { level: worst || 'unknown', tip: tip || t('No recent feedback') };
+    return { level: worst || 'unknown', tip: lines.join('\n') || t('No recent feedback') };
   };
 
-  // Composite Ampel score (higher = worse). Used for default sorting (worst first).
   const ampelComposite = (p: any) => {
     const l = loginLevelAndTip(p);
     const a = adherenceLevelAndTip(p);
     const h = healthLevelAndTip(p);
     const f = feedbackLevelAndTip(p);
 
-    const base =
-      levelToNum(l.level) +
-      levelToNum(a.level) +
-      levelToNum(h.level) +
-      levelToNum(f.level);
+    const base = levelToNum(l.level) + levelToNum(a.level) + levelToNum(h.level) + levelToNum(f.level);
 
-    // Tie-breakers
-    const dLogin = daysSince(
-      (p as any).last_online ||
-        (p as any).user_last_login ||
-        (p as any).last_login ||
-        ''
-    );
-    const adh =
-      typeof (p as any).adherence_rate === 'number'
-        ? (p as any).adherence_rate
-        : -1; // lower worse
-    const hScore = healthScore(p); // lower worse (0..2)
+    const dLogin = daysSince((p as any).last_online || (p as any).user_last_login || (p as any).last_login || '');
+    const adh = typeof (p as any).adherence_rate === 'number' ? (p as any).adherence_rate : -1;
+    const hScore = healthScore(p);
+
     const lastFbISO =
       (Array.isArray((p as any).questionnaires) &&
         (p as any).questionnaires
@@ -517,22 +279,13 @@ const Therapist: React.FC = () => {
     return base + tweak;
   };
 
-  // Render stacked chips with multi-line tooltips
   const renderStatusChips = (p: any) => {
     const login = loginLevelAndTip(p);
     const adh = adherenceLevelAndTip(p);
     const health = healthLevelAndTip(p);
     const fb = feedbackLevelAndTip(p);
 
-    const Chip = ({
-      label,
-      level,
-      tip,
-    }: {
-      label: string;
-      level: Traffic;
-      tip: string;
-    }) => (
+    const Chip = ({ label, level, tip }: { label: string; level: Traffic; tip: string }) => (
       <OverlayTrigger
         placement="top"
         overlay={
@@ -541,11 +294,7 @@ const Therapist: React.FC = () => {
           </Tooltip>
         }
       >
-        <span
-          className={`status-chip ${chipClass(level)}`}
-          role="img"
-          aria-label={`${label} ${level}`}
-        >
+        <span className={`status-chip ${chipClass(level)}`} role="img" aria-label={`${label} ${level}`}>
           {label}
         </span>
       </OverlayTrigger>
@@ -561,138 +310,44 @@ const Therapist: React.FC = () => {
     );
   };
 
-  // ===== Filtering =====
-  useEffect(() => {
-    let filtered = [...patients];
-
-    if (sexFilter) {
-      filtered = filtered.filter((p) => p.sex === sexFilter);
-    }
-
-    if (durationFilter) {
-      filtered = filtered.filter((p) => {
-        const d = (p as any).duration as number;
-        if (durationFilter === '< 30 days') return d < 30;
-        if (durationFilter === '30-60 days') return d >= 30 && d <= 60;
-        if (durationFilter === '60-90 days') return d > 60 && d <= 90;
-        return d > 90;
-      });
-    }
-
-    if (diseaseFilter) {
-      filtered = filtered.filter((p) => {
-        const diag = p.diagnosis;
-        if (!diag) return false;
-
-        // diagnosis can be an array or a single string
-        if (Array.isArray(diag)) {
-          return diag.map((x) => String(x)).includes(diseaseFilter);
-        }
-        return String(diag) === diseaseFilter;
-      });
-    }
-
-    // Name / Patient code / username / _id search
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((p) => {
-        const first = (p.first_name || '').toLowerCase();
-        const last = (p.name || '').toLowerCase();
-        const full1 = `${first} ${last}`.trim();
-        const full2 = `${last} ${first}`.trim();
-        const username = (p as any).username
-          ? String((p as any).username).toLowerCase()
-          : '';
-        const pid = String((p as any)._id || '').toLowerCase();
-        const pcode = (p as any).patient_code
-          ? String((p as any).patient_code).toLowerCase()
-          : '';
-        return (
-          first.includes(term) ||
-          last.includes(term) ||
-          full1.includes(term) ||
-          full2.includes(term) ||
-          username.includes(term) ||
-          pcode.includes(term) ||
-          pid.includes(term)
-        );
-      });
-    }
-
-    if (birthdateFilter) {
-      filtered = filtered.filter(
-        (p) => String((p as any).age).slice(0, 10) === birthdateFilter
-      );
-    }
-
-    setFilteredPatients(filtered);
-  }, [searchTerm, sexFilter, durationFilter, birthdateFilter, diseaseFilter, patients]);
-
-  // ===== Sorting (worst first for Ampel) =====
+  // ===== Sorting (includes ampel) =====
   const sortedFiltered = useMemo(() => {
-    const arr = [...filteredPatients];
+    const arr = [...store.filteredPatients];
 
     const getHealth = (p: any) => healthScore(p);
     const getLogin = (p: any) =>
-      daysSince(
-        (p as any).last_online ||
-          (p as any).user_last_login ||
-          (p as any).last_login ||
-          ''
-      );
-    const getAdh = (p: any) =>
-      typeof (p as any).adherence_rate === 'number'
-        ? (p as any).adherence_rate
-        : -1;
-
-    // For "feedback" sort, use questionnaire-driven level; smaller = worse
-    const getFb = (p: any) =>
-      levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
+      daysSince((p as any).last_online || (p as any).user_last_login || (p as any).last_login || '');
+    const getAdh = (p: any) => (typeof (p as any).adherence_rate === 'number' ? (p as any).adherence_rate : -1);
+    const getFb = (p: any) => levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
 
     arr.sort((a: any, b: any) => {
-      switch (sortBy) {
-        case 'ampel': {
+      switch (store.sortBy) {
+        case 'ampel':
           return ampelComposite(b) - ampelComposite(a);
-        }
-        case 'last_login': {
+        case 'last_login':
           return getLogin(a) - getLogin(b);
-        }
-        case 'adherence': {
+        case 'adherence':
           return getAdh(b) - getAdh(a);
-        }
-        case 'health': {
+        case 'health':
           return getHealth(a) - getHealth(b);
-        }
-        case 'feedback': {
+        case 'feedback':
           return getFb(a) - getFb(b);
-        }
         case 'created':
         default: {
-          const da =
-            new Date((a as any).created_at ?? 0).getTime();
-          const db =
-            new Date((b as any).created_at ?? 0).getTime();
+          const da = new Date((a as any).created_at ?? 0).getTime();
+          const db = new Date((b as any).created_at ?? 0).getTime();
           return db - da;
         }
       }
     });
 
     return arr;
-  }, [filteredPatients, sortBy]);
+  }, [store.filteredPatients, store.sortBy]);
 
-  // Split after sort
-  const activePatients = sortedFiltered.filter((p) => !isCompletedPatient(p));
-  const completedPatients = sortedFiltered
-    .filter((p) => isCompletedPatient(p))
-    .sort((a, b) => {
-      const ea = new Date(
-        (a as any).rehab_end_date ?? (a as any).created_at ?? 0
-      ).getTime();
-      const eb = new Date(
-        (b as any).rehab_end_date ?? (b as any).created_at ?? 0
-      ).getTime();
-      return eb - ea;
-    });
+  const { active: activePatients, completed: completedPatients } = useMemo(
+    () => store.splitCompleted(sortedFiltered),
+    [store, sortedFiltered]
+  );
 
   return (
     <div className="d-flex flex-column min-vh-100">
@@ -700,43 +355,26 @@ const Therapist: React.FC = () => {
       <Container className="main-content mt-4">
         <WelcomeArea user="Therapist" />
 
-        {/* Unified error banner with details + retry */}
-        {error && (
+        {store.error && (
           <Row className="mb-3">
             <Col>
               <div className="alert alert-danger d-flex justify-content-between align-items-start">
                 <div>
-                  <div>{error}</div>
-                  {showErrorDetails && errorDetails && (
-                    <pre
-                      className="bg-light p-2 mt-2 border rounded small"
-                      style={{ whiteSpace: 'pre-wrap' }}
-                    >
-                      {errorDetails}
+                  <div>{store.error}</div>
+                  {store.showErrorDetails && store.errorDetails && (
+                    <pre className="bg-light p-2 mt-2 border rounded small" style={{ whiteSpace: 'pre-wrap' }}>
+                      {store.errorDetails}
                     </pre>
                   )}
                 </div>
                 <div className="ms-3 d-flex flex-column gap-2 align-items-end">
-                  {errorDetails && (
-                    <Button
-                      size="sm"
-                      variant="outline-light"
-                      onClick={() =>
-                        setShowErrorDetails((prev) => !prev)
-                      }
-                    >
-                      {showErrorDetails
-                        ? t('Hide details')
-                        : t('Show details')}
+                  {store.errorDetails && (
+                    <Button size="sm" variant="outline-light" onClick={store.toggleErrorDetails}>
+                      {store.showErrorDetails ? t('Hide details') : t('Show details')}
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    variant="light"
-                    onClick={fetchPatients}
-                    disabled={loading}
-                  >
-                    {loading ? t('Loading...') : t('Retry')}
+                  <Button size="sm" variant="light" onClick={() => store.fetchPatients(t)} disabled={store.loading}>
+                    {store.loading ? t('Loading...') : t('Retry')}
                   </Button>
                 </div>
               </div>
@@ -746,13 +384,12 @@ const Therapist: React.FC = () => {
 
         <Row className="mb-3">
           <Col>
-            <Button onClick={handleOpen} disabled={loading}>
+            <Button onClick={store.openAddPatient} disabled={store.loading}>
               {t('Add a New Patient')}
             </Button>
           </Col>
         </Row>
 
-        {/* Filters + Sort */}
         <Card className="mb-3">
           <Card.Body>
             <Row className="g-3">
@@ -760,36 +397,33 @@ const Therapist: React.FC = () => {
                 <Form.Control
                   type="text"
                   placeholder={t('Search by name, ID or username')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={store.searchTerm}
+                  onChange={(e) => store.setSearchTerm(e.target.value)}
                 />
               </Col>
+
               <Col xs={12} md={3}>
                 <Form.Control
                   type="date"
-                  value={birthdateFilter}
-                  onChange={(e) => setBirthdateFilter(e.target.value)}
+                  value={store.birthdateFilter}
+                  onChange={(e) => store.setBirthdateFilter(e.target.value)}
                   aria-label={t('Filter by Birth Date')}
                 />
               </Col>
+
               <Col xs={12} md={3}>
-                <Form.Select
-                  value={sexFilter}
-                  onChange={(e) => setSexFilter(e.target.value)}
-                >
+                <Form.Select value={store.sexFilter} onChange={(e) => store.setSexFilter(e.target.value)}>
                   <option value="">{t('Filter by Sex')}</option>
-                  {config.patientInfo.sex.map((sex: string) => (
+                  {(config as any).patientInfo.sex.map((sex: string) => (
                     <option key={sex} value={sex}>
                       {t(sex)}
                     </option>
                   ))}
                 </Form.Select>
               </Col>
+
               <Col xs={12} md={3}>
-                <Form.Select
-                  value={durationFilter}
-                  onChange={(e) => setDurationFilter(e.target.value)}
-                >
+                <Form.Select value={store.durationFilter} onChange={(e) => store.setDurationFilter(e.target.value)}>
                   <option value="">{t('Filter by Duration')}</option>
                   {durationOptions.map((duration: string) => (
                     <option key={duration} value={duration}>
@@ -802,75 +436,56 @@ const Therapist: React.FC = () => {
 
             <Row className="mt-3 align-items-center">
               <Col xs={12} md={3}>
-                <Form.Select
-                  value={diseaseFilter}
-                  onChange={(e) => setDiseaseFilter(e.target.value)}
-                >
+                <Form.Select value={store.diseaseFilter} onChange={(e) => store.setDiseaseFilter(e.target.value)}>
                   <option value="">{t('Filter by Disease')}</option>
-                  {diseaseOptions.map((d) => (
+                  {store.diseaseOptions.map((d) => (
                     <option key={d} value={d}>
                       {t(d)}
                     </option>
                   ))}
                 </Form.Select>
               </Col>
+
               <Col xs={12} md={6}>
-                <Form.Label className="me-2">
-                  {t('Sort by')}
-                </Form.Label>
+                <Form.Label className="me-2">{t('Sort by')}</Form.Label>
                 <Form.Select
                   aria-label="Sort by"
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(e.target.value as SortKey)
-                  }
+                  value={store.sortBy}
+                  onChange={(e) => store.setSortBy(e.target.value as SortKey)}
                   style={{ maxWidth: 320, display: 'inline-block' }}
                 >
                   <option value="ampel">{t('Performance')}</option>
-                  <option value="created">
-                    {t('Newest created')}
-                  </option>
-                  <option value="last_login">
-                    {t('Last login (recent first)')}
-                  </option>
-                  <option value="adherence">
-                    {t('Adherence (high → low)')}
-                  </option>
-                  <option value="health">
-                    {t('Health (best → worst)')}
-                  </option>
-                  <option value="feedback">
-                    {t('Feedback (worst → best)')}
-                  </option>
+                  <option value="created">{t('Newest created')}</option>
+                  <option value="last_login">{t('Last login (recent first)')}</option>
+                  <option value="adherence">{t('Adherence (high → low)')}</option>
+                  <option value="health">{t('Health (best → worst)')}</option>
+                  <option value="feedback">{t('Feedback (worst → best)')}</option>
                 </Form.Select>
               </Col>
+
               <Col className="d-flex flex-wrap gap-3 justify-content-end">
-                <Button
-                  variant="outline-secondary"
-                  onClick={resetFilters}
-                >
+                <Button variant="outline-secondary" onClick={store.resetFilters}>
                   {t('Reset filters')}
                 </Button>
               </Col>
+
               <Col className="d-flex flex-wrap gap-3 justify-content-end">
                 <Form.Check
                   type="switch"
                   id="toggle-completed"
                   label={t('Show completed')}
-                  checked={showCompleted}
-                  onChange={(e) =>
-                    setShowCompleted(e.currentTarget.checked)
-                  }
+                  checked={store.showCompleted}
+                  onChange={(e) => store.setShowCompleted(e.currentTarget.checked)}
                 />
               </Col>
             </Row>
           </Card.Body>
         </Card>
 
-        {/* Active Patients */}
         <h5 className="mb-2">
           {t('Active patients')} ({activePatients.length})
         </h5>
+
         <Table responsive hover className="align-middle">
           <thead>
             <tr>
@@ -885,16 +500,10 @@ const Therapist: React.FC = () => {
           </thead>
           <tbody>
             {activePatients.map((p) => {
-              const fullName = `${p.first_name || ''} ${
-                p.name || ''
-              }`.trim();
-              const diagnosis = Array.isArray(p.diagnosis)
-                ? p.diagnosis.join(', ')
-                : String(p.diagnosis || '');
+              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+              const diagnosis = Array.isArray(p.diagnosis) ? p.diagnosis.join(', ') : String(p.diagnosis || '');
               const patientId =
-                (p as any).patient_code ||
-                (p as any).username ||
-                (String((p as any)._id || '').slice(-8) || '—');
+                (p as any).patient_code || (p as any).username || (String((p as any)._id || '').slice(-8) || '—');
 
               return (
                 <tr key={(p as any)._id}>
@@ -903,39 +512,23 @@ const Therapist: React.FC = () => {
                   <td>{fmtDate(String((p as any).age))}</td>
                   <td>{t(p.sex)}</td>
                   <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                  <td style={{ minWidth: 220 }}>
-                    {renderStatusChips(p)}
-                  </td>
+                  <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
                   <td className="text-end">
                     <div className="d-flex justify-content-end gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="success"
-                        onClick={() => handleItemClick(p)}
-                      >
+                      <Button size="sm" variant="success" onClick={() => store.openPatient(p)}>
                         {t('Info')}
                       </Button>
                       <Button
                         size="sm"
                         variant="primary"
-                        onClick={() =>
-                          handleRehabButton(
-                            (p as any)._id as any,
-                            fullName
-                          )
-                        }
+                        onClick={() => handleRehabButton((p as any)._id as any, fullName)}
                       >
                         {t('Rehabilitation Plan')}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-primary"
-                        onClick={() =>
-                          handleProgressButton(
-                            (p as any)._id as any,
-                            fullName
-                          )
-                        }
+                        onClick={() => handleProgressButton((p as any)._id as any, fullName)}
                       >
                         {t('Outcomes Dashboard')}
                       </Button>
@@ -944,27 +537,23 @@ const Therapist: React.FC = () => {
                 </tr>
               );
             })}
+
             {activePatients.length === 0 && (
               <tr>
-                <td
-                  colSpan={7}
-                  className="text-center text-muted py-4"
-                >
-                  {loading
-                    ? t('Loading patients...')
-                    : t('No active patients')}
+                <td colSpan={7} className="text-center text-muted py-4">
+                  {store.loading ? t('Loading patients...') : t('No active patients')}
                 </td>
               </tr>
             )}
           </tbody>
         </Table>
 
-        {/* Completed Patients (collapsible) */}
-        <Collapse in={showCompleted}>
+        <Collapse in={store.showCompleted}>
           <div>
             <h5 className="mt-4 mb-2">
               {t('Completed')} ({completedPatients.length})
             </h5>
+
             <Table responsive hover className="align-middle">
               <thead>
                 <tr>
@@ -979,67 +568,39 @@ const Therapist: React.FC = () => {
               </thead>
               <tbody>
                 {completedPatients.map((p) => {
-                  const fullName = `${p.first_name || ''} ${
-                    p.name || ''
-                  }`.trim();
-                  const diagnosis = Array.isArray(p.diagnosis)
-                    ? p.diagnosis.join(', ')
-                    : String(p.diagnosis || '');
+                  const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+                  const diagnosis = Array.isArray(p.diagnosis) ? p.diagnosis.join(', ') : String(p.diagnosis || '');
                   const endDate = (p as any).rehab_end_date;
                   const patientId =
-                    (p as any).patient_code ||
-                    (p as any).username ||
-                    (String((p as any)._id || '').slice(-8) || '—');
+                    (p as any).patient_code || (p as any).username || (String((p as any)._id || '').slice(-8) || '—');
 
                   return (
-                    <tr
-                      key={(p as any)._id}
-                      className="completed-row"
-                    >
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {patientId}
-                      </td>
+                    <tr key={(p as any)._id} className="completed-row">
+                      <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
                       <td>
                         {fullName}{' '}
-                        <Badge
-                          bg="success"
-                          className="ms-2"
-                        >
+                        <Badge bg="success" className="ms-2">
                           {t('Completed')}
                         </Badge>
                         {endDate && (
                           <small className="text-muted ms-2">
-                            {t('Discharged')}:{' '}
-                            {fmtDate(endDate as any)}
+                            {t('Discharged')}: {fmtDate(endDate as any)}
                           </small>
                         )}
                       </td>
                       <td>{fmtDate(String((p as any).age))}</td>
                       <td>{t(p.sex)}</td>
-                      <td style={{ minWidth: 200 }}>
-                        {diagnosis}
-                      </td>
-                      <td style={{ minWidth: 220 }}>
-                        {renderStatusChips(p)}
-                      </td>
+                      <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                      <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
                       <td className="text-end">
                         <div className="d-flex justify-content-end gap-2 flex-wrap">
-                          <Button
-                            size="sm"
-                            variant="outline-secondary"
-                            onClick={() => handleItemClick(p)}
-                          >
+                          <Button size="sm" variant="outline-secondary" onClick={() => store.openPatient(p)}>
                             {t('Info')}
                           </Button>
                           <Button
                             size="sm"
                             variant="outline-primary"
-                            onClick={() =>
-                              handleProgressButton(
-                                (p as any)._id as any,
-                                fullName
-                              )
-                            }
+                            onClick={() => handleProgressButton((p as any)._id as any, fullName)}
                           >
                             {t('Outcomes Dashboard')}
                           </Button>
@@ -1048,12 +609,10 @@ const Therapist: React.FC = () => {
                     </tr>
                   );
                 })}
+
                 {completedPatients.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="text-center text-muted py-4"
-                    >
+                    <td colSpan={7} className="text-center text-muted py-4">
                       {t('No completed patients')}
                     </td>
                   </tr>
@@ -1064,19 +623,15 @@ const Therapist: React.FC = () => {
         </Collapse>
       </Container>
 
-      {selectedItem && (
-        <PatientPopup
-          patient_id={selectedItem}
-          show={showPopup}
-          handleClose={handleClosePopup}
-        />
+      {store.selectedPatient && (
+        <PatientPopup patient_id={store.selectedPatient} show={store.showPatientPopup} handleClose={store.closePatient} />
       )}
 
-      <AddPatientPopup show={showPopupAdd} handleClose={handleClose} />
+      <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />
+
       <Footer />
 
       <style>{`
-        /* Status chips */
         .status-stack { display: flex; flex-direction: column; gap: 6px; }
         .status-chip {
           display: inline-block;
@@ -1087,12 +642,11 @@ const Therapist: React.FC = () => {
           line-height: 1;
           width: fit-content;
         }
-        /* Subtle visual difference for completed rows */
         .completed-row { opacity: .85; }
         .completed-row td:first-child { color: #555; }
       `}</style>
     </div>
   );
-};
+});
 
 export default Therapist;

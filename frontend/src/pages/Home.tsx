@@ -24,8 +24,8 @@ const Home: React.FC = () => {
     }
   }, [navigate]);
 
-  const toggleLoginModal = () => setShowLoginModal(p => !p);
-  const toggleRegisterModal = () => setShowRegisterModal(p => !p);
+  const toggleLoginModal = () => setShowLoginModal((p) => !p);
+  const toggleRegisterModal = () => setShowRegisterModal((p) => !p);
 
   return (
     <div className="d-flex flex-column min-vh-100 home-root">
@@ -37,22 +37,29 @@ const Home: React.FC = () => {
       />
 
       {/* HERO */}
-      <main className="flex-grow-1 d-flex align-items-center home-main">
+      <main className="flex-grow-1 d-flex align-items-center home-main py-4 py-sm-5">
         <Container fluid="md" className="px-3 px-sm-4 px-md-5">
-          <Row className="g-4 g-lg-5 align-items-center">
+          {/* keep hero from touching header/footer on small screens */}
+          <Row className="g-4 g-lg-5 align-items-center py-2 py-md-3">
             {/* Text column */}
-            <Col xs={12} md={6} className="text-center text-md-start order-2 order-md-1">
+            <Col
+              xs={12}
+              md={6}
+              className="text-center text-md-start order-2 order-md-1 d-flex flex-column align-items-center align-items-md-start"
+            >
               <h1 className="home-title fw-bold mb-3">
                 {t('Tele-rehabilitation')}
               </h1>
 
-              <p className="home-lead text-muted mb-4">
+              <p className="home-lead text-muted mb-4 px-1 px-sm-0">
                 {t('Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.')}
               </p>
 
-              <div className="d-grid d-sm-flex gap-3 justify-content-center justify-content-md-start">
+              {/* full-width on mobile, natural width on >=sm */}
+              <div className="d-grid d-sm-flex gap-3 justify-content-center justify-content-md-start w-100">
                 <Button
-                  className="home-cta"
+                  variant="primary"
+                  className="home-cta px-4"
                   size="lg"
                   onClick={toggleLoginModal}
                 >
@@ -63,15 +70,16 @@ const Home: React.FC = () => {
 
             {/* Image column */}
             <Col xs={12} md={6} className="order-1 order-md-2">
-              <div className=" home-art  rounded-4">
+              {/* add consistent padding + prevent overflow on small screens */}
+              <div className="home-art rounded-4 overflow-hidden shadow-sm mx-auto">
                 <picture>
-                  {/* modern formats first */}
                   <img
                     src="/home.jpg"
                     alt={t('Tele-Rehabilitation') as string}
-                    className="w-100 h-100"
+                    className="w-100 h-100 d-block"
                     loading="eager"
                     decoding="async"
+                    style={{ objectFit: 'cover', aspectRatio: '16 / 10' }}
                   />
                 </picture>
               </div>
@@ -81,8 +89,15 @@ const Home: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
-      <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
+      <LoginForm
+        show={showLoginModal}
+        handleClose={toggleLoginModal}
+        defaultRole="Therapist"
+      />
+      <FormRegister
+        show={showRegisterModal}
+        handleRegShow={toggleRegisterModal}
+      />
       <Footer />
     </div>
   );

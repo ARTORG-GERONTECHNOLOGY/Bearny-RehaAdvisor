@@ -111,6 +111,8 @@ def submit_patient_feedback(request):
     """
     POST /api/patients/feedback/questionaire/
     Handles submission of patient feedback with optional video/audio input.
+
+    Supports optional 'date' (YYYY-MM-DD) from FE to save feedback to that day (past/today).
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -118,12 +120,39 @@ def submit_patient_feedback(request):
     try:
         user_id = request.POST.get("userId")
         intervention_id = request.POST.get("interventionId", None)
+
+        # ✅ NEW: date from frontend (YYYY-MM-DD)
+        date_str = request.POST.get("date")  # optional
+
         if not user_id:
             return JsonResponse({"error": "Missing userId"}, status=400)
+
+        # --- Resolve target day (date-only) ---
+        # If FE didn't send it, fallback to "today"
+        if date_str:
+            try:
+                target_day = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+            except Exception:
+                return JsonResponse({"error": "Invalid date format. Expected YYYY-MM-DD."}, status=400)
+        else:
+            target_day = timezone.localdate()
+
+        # create day bounds in local time
+        day_start = datetime.datetime.combine(target_day, datetime.time.min)
+        day_end = datetime.datetime.combine(target_day, datetime.time.max)
+
+        # make aware if timezone is used
+        if timezone.is_naive(day_start):
+            day_start = timezone.make_aware(day_start, timezone.get_current_timezone())
+        if timezone.is_naive(day_end):
+            day_end = timezone.make_aware(day_end, timezone.get_current_timezone())
 
         recognizer = sr.Recognizer()
         answers = {}
 
+        # =========================
+        # FILE answers (audio/video)
+        # =========================
         for key, upload in request.FILES.items():
             ct = upload.content_type or ""
             ts = timezone.now().strftime("%Y%m%d%H%M%S")
@@ -135,6 +164,7 @@ def submit_patient_feedback(request):
                 path = default_storage.save(f"video_feedback/{fname}", upload)
                 url = f"{settings.MEDIA_HOST}{default_storage.url(path)}"
                 logger.info(f"[submit_patient_feedback] Saved video to {path}")
+
                 normalized_key = re.sub(r"_(video)$", "", key)
                 answers[normalized_key] = {"video_url": url, "uploaded_at": timezone.now()}
                 continue
@@ -147,21 +177,18 @@ def submit_patient_feedback(request):
             public_url = f"{settings.MEDIA_HOST}{default_storage.url(saved_path)}"
             logger.info(f"[submit_patient_feedback] Saved raw audio to {saved_path}")
 
-            # Normalize key to match FeedbackQuestion.questionKey (e.g. q1_audio -> q1)
             normalized_key = re.sub(r"_(audio|file|voice|recording)$", "", key)
 
             transcription = ""
             converted_ok = False
             try:
                 if ext in {"wav", "flac", "aiff", "aif"}:
-                    # These are directly supported by speech_recognition
                     with default_storage.open(saved_path, "rb") as f:
                         with sr.AudioFile(f) as source:
                             audio_data = recognizer.record(source)
                             transcription = recognizer.recognize_google(audio_data)
                     converted_ok = True
                 elif FFMPEG_OK:
-                    # Convert to wav using ffmpeg/pydub
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp_in:
                         for chunk in default_storage.open(saved_path).chunks():
                             tmp_in.write(chunk)
@@ -175,44 +202,54 @@ def submit_patient_feedback(request):
                             transcription = recognizer.recognize_google(audio_data)
                         converted_ok = True
                     except Exception as e:
-                        logger.error("[submit_patient_feedback] ffmpeg/pydub conversion failed for %s: %s",
-                                    key, e, exc_info=True)
+                        logger.error(
+                            "[submit_patient_feedback] ffmpeg/pydub conversion failed for %s: %s",
+                            key, e, exc_info=True
+                        )
                     finally:
                         try: os.remove(tmp_in_path)
                         except Exception: pass
                         try: os.remove(wav_path)
                         except Exception: pass
                 else:
-                    logger.warning("[submit_patient_feedback] ffmpeg not available; skipping transcription for %s", key)
+                    logger.warning(
+                        "[submit_patient_feedback] ffmpeg not available; skipping transcription for %s",
+                        key
+                    )
             except (ValueError, sr.UnknownValueError, sr.RequestError) as e:
-                # ValueError is what you see in the screenshot when a non-supported file hits AudioFile
                 logger.warning("[submit_patient_feedback] Transcription failed for %s: %s", key, e)
 
-            # ALWAYS record the answer—even if transcription failed or conversion isn't possible
             answers[normalized_key] = {
                 "file_path": saved_path,
                 "audio_url": public_url,
-                "transcription": transcription,  # may be ""
-                "converted_ok": converted_ok,    # optional debug flag
+                "transcription": transcription,
+                "converted_ok": converted_ok,
             }
 
-
-        # --- Plain-text answers ---
+        # =========================
+        # Plain-text answers
+        # =========================
         for key, val in request.POST.items():
-            if key in ("userId", "interventionId"):
+            # ✅ include "date" in skip keys so it doesn't become an answer
+            if key in ("userId", "interventionId", "date"):
                 continue
             if key not in answers:
                 try:
                     answers[key] = json.loads(val)
                 except Exception:
                     answers[key] = val
+
         logger.info(f"[submit_patient_feedback] Collected answers: {answers}")
+
         # --- Lookup patient ---
         try:
             patient = Patient.objects.get(userId=ObjectId(user_id))
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found."}, status=404)
 
+        # =========================
+        # INTERVENTION feedback path
+        # =========================
         if intervention_id:
             intervention = Intervention.objects.filter(id=ObjectId(intervention_id)).first()
             if not intervention:
@@ -222,27 +259,28 @@ def submit_patient_feedback(request):
             if not plan:
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
-            today = timezone.now().date()
+            # ✅ use target_day bounds, NOT "today"
             log = PatientInterventionLogs.objects(
                 userId=patient,
                 interventionId=intervention,
-                date__gte=datetime.datetime.combine(today, datetime.time.min),
-                date__lte=datetime.datetime.combine(today, datetime.time.max),
+                date__gte=day_start,
+                date__lte=day_end,
             ).first()
 
-
             if not log:
+                # ✅ log.date should be within the target day
                 log = PatientInterventionLogs(
                     userId=patient,
                     interventionId=intervention,
                     rehabilitationPlanId=plan,
-                    date=timezone.now(),
+                    date=day_start,   # keep consistent day anchor
                     status=[],
                     feedback=[],
                     comments="",
                 )
 
             for qkey, answer_val in answers.items():
+                # keep your special video handling
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
@@ -254,38 +292,52 @@ def submit_patient_feedback(request):
                     logger.warning("[submit_patient_feedback] No FeedbackQuestion found for key: %s", qkey)
                     continue
 
-                entry_kwargs = {"questionId": qobj}
+                entry_kwargs = {
+                    "questionId": qobj,
+                    # ✅ ensure FeedbackEntry.date matches the completed day
+                    "date": day_start,
+                }
+
                 opts = []
                 comment = ""
 
                 if isinstance(answer_val, dict) and ("audio_url" in answer_val or "transcription" in answer_val):
                     text_ans = (answer_val.get("transcription") or "").strip()
                     comment = f"Audio saved at {answer_val.get('file_path')}"
-                    # Put a placeholder text if transcription is empty, so there's always one AnswerOption
-                    opts = [AnswerOption(key="text",
-                                        translations=[Translation(language="en", text=text_ans or " ")])]
+
+                    # ensure at least one option exists
+                    opts = [
+                        AnswerOption(
+                            key="text",
+                            translations=[Translation(language="en", text=text_ans or " ")]
+                        )
+                    ]
                     entry_kwargs["audio_url"] = answer_val.get("audio_url")
+
                 elif isinstance(answer_val, list):
-                    for val in answer_val:
-                        opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
-                        opts.append(opt if opt else AnswerOption(key=val,
-                                    translations=[Translation(language="en", text=val)]))
+                    for v in answer_val:
+                        opt = next((o for o in qobj.possibleAnswers if o.key == v), None)
+                        opts.append(
+                            opt if opt else AnswerOption(key=str(v), translations=[Translation(language="en", text=str(v))])
+                        )
                 else:
-                    val = str(answer_val)
-                    opt = next((o for o in qobj.possibleAnswers if o.key == val), None)
-                    opts = [opt if opt else AnswerOption(key=val,
-                                translations=[Translation(language="en", text=val)])]
+                    v = str(answer_val)
+                    opt = next((o for o in qobj.possibleAnswers if o.key == v), None)
+                    opts = [
+                        opt if opt else AnswerOption(key=v, translations=[Translation(language="en", text=v)])
+                    ]
 
                 entry_kwargs["answerKey"] = opts
                 entry_kwargs["comment"] = comment
                 log.feedback.append(FeedbackEntry(**entry_kwargs))
 
-
             log.updatedAt = timezone.now()
             log.save()
 
+        # =========================
+        # HEALTHSTATUS feedback path
+        # =========================
         else:
-            # Health-status feedback (similar pattern)
             for qkey, answer_val in answers.items():
                 qobj = FeedbackQuestion.objects.filter(
                     questionKey=qkey, questionSubject="Healthstatus"
@@ -294,7 +346,7 @@ def submit_patient_feedback(request):
                     continue
 
                 if isinstance(answer_val, dict):
-                    text_ans = answer_val.get("transcription", "").strip()
+                    text_ans = (answer_val.get("transcription") or "").strip()
                     notes = f"Audio saved at {answer_val.get('file_path')}"
                 elif isinstance(answer_val, list):
                     text_ans = answer_val[0].strip() if answer_val else ""
@@ -303,49 +355,41 @@ def submit_patient_feedback(request):
                     text_ans = str(answer_val).strip()
                     notes = ""
 
-                # Prevent accidental saving of stringified lists
                 if text_ans.startswith("[") and text_ans.endswith("]"):
                     try:
                         text_ans = json.loads(text_ans)[0]
                     except Exception:
                         text_ans = text_ans.strip("[]").strip("'").strip('"')
 
-                # Find matching answer option to reuse translations
                 opt_match = next((opt for opt in qobj.possibleAnswers if opt.key == text_ans), None)
-
-                if opt_match:
-                    translations = opt_match.translations
-                else:
-                    translations = [Translation(language="en", text=text_ans)]
+                translations = opt_match.translations if opt_match else [Translation(language="en", text=text_ans)]
 
                 entry = FeedbackEntry(
                     questionId=qobj,
-                    answerKey=[
-                        AnswerOption(
-                            key=text_ans,
-                            translations=translations
-                        )
-                    ],
+                    answerKey=[AnswerOption(key=text_ans, translations=translations)],
                     comment=notes,
+                    # ✅ align FeedbackEntry.date to selected day
+                    date=day_start,
                 )
 
                 rating = PatientICFRating(
                     questionId=qobj,
                     patientId=patient,
                     icfCode=qobj.icfCode,
+                    # ✅ align rating date too (important for time-series charts)
+                    date=day_start,
                     rating=int(text_ans) if text_ans.isdigit() else None,
                     notes=notes,
                     feedback_entries=[entry],
                 )
-
                 rating.save()
-
 
         return JsonResponse({"message": "Feedback submitted successfully"}, status=201)
 
     except Exception as e:
         logger.exception("Unexpected error in submit_patient_feedback")
         return JsonResponse({"error": str(e)}, status=500)
+
 
 
 @csrf_exempt
