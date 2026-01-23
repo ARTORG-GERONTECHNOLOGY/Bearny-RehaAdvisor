@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useEffect, useMemo, useState } from 'react';
+import { observer } from 'mobx-react-lite';
 import {
   Card,
   Col,
@@ -11,182 +12,55 @@ import {
   Form,
   Alert,
 } from 'react-bootstrap';
-import apiClient from '../../api/client';
 import authStore from '../../stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { isSameDay, format, subDays } from 'date-fns';
 
-/* ---------- Types ---------- */
-type Thresholds = {
-  steps_goal: number;
-  active_minutes_green: number;
-  active_minutes_yellow: number;
-  sleep_green_min: number;
-  sleep_yellow_min: number;
-  bp_sys_green_max: number;
-  bp_sys_yellow_max: number;
-  bp_dia_green_max: number;
-  bp_dia_yellow_max: number;
-};
+import { patientFitbitStore, mergeThresholds } from '../../stores/patientFitbitStore';
 
-type DailyRow = {
-  date: string;
-  steps: number;
-  active_minutes?: number;
-  sleep_minutes?: number;
+/* ---------- Color helpers ---------- */
+const colorForSteps = (v: number, thr: any) =>
+  v >= thr.steps_goal ? 'text-success' : v >= thr.steps_goal * 0.6 ? 'text-warning' : 'text-danger';
 
-  // NEW:
-  bp_sys?: number | null;
-  bp_dia?: number | null;
-};
+const colorForActive = (v: number, thr: any) =>
+  v >= thr.active_minutes_green ? 'text-success' : v >= thr.active_minutes_yellow ? 'text-warning' : 'text-danger';
 
-type Summary = {
-  connected: boolean;
-  last_sync: string | null;
-  thresholds?: Partial<Thresholds>; // NEW (from BE)
-  today?: {
-    steps?: number;
-    active_minutes?: number;
-    sleep_minutes?: number;
-    resting_heart_rate?: number | null;
+const colorForSleep = (minutes: number, thr: any) =>
+  minutes >= thr.sleep_green_min ? 'text-success' : minutes >= thr.sleep_yellow_min ? 'text-warning' : 'text-danger';
 
-    // NEW:
-    bp_sys?: number | null;
-    bp_dia?: number | null;
-  } | null;
-  period: {
-    days: number;
-    totals?: {
-      steps?: number;
-      active_minutes?: number;
-      sleep_minutes?: number;
-
-      // NEW:
-      bp_sys?: number | null;
-      bp_dia?: number | null;
-    };
-    averages?: {
-      steps?: number;
-      active_minutes?: number;
-      sleep_minutes?: number;
-
-      // NEW:
-      bp_sys?: number | null;
-      bp_dia?: number | null;
-    };
-    daily: DailyRow[];
-  };
-};
-
-/* ---------- Defaults + merge ---------- */
-const DEFAULT_THRESHOLDS: Thresholds = {
-  steps_goal: 10000,
-  active_minutes_green: 30,
-  active_minutes_yellow: 20,
-  sleep_green_min: 7 * 60,
-  sleep_yellow_min: 6 * 60,
-  bp_sys_green_max: 129,
-  bp_sys_yellow_max: 139,
-  bp_dia_green_max: 84,
-  bp_dia_yellow_max: 89,
-};
-
-const mergeThresholds = (api?: Partial<Thresholds>): Thresholds => ({
-  ...DEFAULT_THRESHOLDS,
-  ...(api || {}),
-});
-
-/* ---------- Color helpers (personalized via thr) ---------- */
-const colorForSteps = (v: number, thr: Thresholds) =>
-  v >= thr.steps_goal
-    ? 'text-success'
-    : v >= thr.steps_goal * 0.6
-    ? 'text-warning'
-    : 'text-danger';
-
-const colorForActive = (v: number, thr: Thresholds) =>
-  v >= thr.active_minutes_green
-    ? 'text-success'
-    : v >= thr.active_minutes_yellow
-    ? 'text-warning'
-    : 'text-danger';
-
-const colorForSleep = (minutes: number, thr: Thresholds) =>
-  minutes >= thr.sleep_green_min
-    ? 'text-success'
-    : minutes >= thr.sleep_yellow_min
-    ? 'text-warning'
-    : 'text-danger';
-
-const colorForBP = (
-  sys: number | null | undefined,
-  dia: number | null | undefined,
-  thr: Thresholds
-) => {
+const colorForBP = (sys: number | null | undefined, dia: number | null | undefined, thr: any) => {
   if (sys == null && dia == null) return 'text-muted';
   const s = sys ?? 0;
   const d = dia ?? 0;
-
   const green = s <= thr.bp_sys_green_max && d <= thr.bp_dia_green_max;
-  const yellow =
-    !green && s <= thr.bp_sys_yellow_max && d <= thr.bp_dia_yellow_max;
-
+  const yellow = !green && s <= thr.bp_sys_yellow_max && d <= thr.bp_dia_yellow_max;
   if (green) return 'text-success';
   if (yellow) return 'text-warning';
   return 'text-danger';
 };
 
-/* ---------- MiniTrend (unchanged) ---------- */
-const MiniTrend: React.FC<{
-  daily: number[];
-  color?: string;
-  threshold?: number | null;
-}> = ({ daily, color = '#007bff', threshold = null }) => {
+/* ---------- MiniTrend ---------- */
+const MiniTrend: React.FC<{ daily: number[]; color?: string; threshold?: number | null }> = ({
+  daily,
+  color = '#007bff',
+  threshold = null,
+}) => {
   if (!daily.length) return null;
-
   const max = Math.max(...daily);
   const min = Math.min(...daily);
   const norm = daily.map((v) => (max === min ? 0.5 : (v - min) / (max - min)));
-
-  const thresholdY =
-    threshold !== null && max !== min
-      ? 40 - ((threshold - min) / (max - min)) * 35
-      : null;
+  const thresholdY = threshold !== null && max !== min ? 40 - ((threshold - min) / (max - min)) * 35 : null;
 
   return (
     <div className="mini-chart-wrapper" style={{ position: 'relative' }}>
-      <svg
-        viewBox="0 0 120 45"
-        preserveAspectRatio="none"
-        className="mini-chart-svg"
-      >
+      <svg viewBox="0 0 120 45" preserveAspectRatio="none" className="mini-chart-svg">
         <line x1="10" y1="0" x2="10" y2="40" stroke="#555" strokeWidth="0.8" />
-        <line
-          x1="10"
-          y1="40"
-          x2="120"
-          y2="40"
-          stroke="#555"
-          strokeWidth="0.8"
-        />
-
-        <text x="0" y="6" fontSize="5" fill="#666">
-          {max}
-        </text>
-        <text x="0" y="40" fontSize="5" fill="#666">
-          {min}
-        </text>
+        <line x1="10" y1="40" x2="120" y2="40" stroke="#555" strokeWidth="0.8" />
+        <text x="0" y="6" fontSize="5" fill="#666">{max}</text>
+        <text x="0" y="40" fontSize="5" fill="#666">{min}</text>
 
         {thresholdY !== null && (
-          <line
-            x1="10"
-            x2="120"
-            y1={thresholdY}
-            y2={thresholdY}
-            stroke="red"
-            strokeDasharray="4 2"
-            strokeWidth="0.8"
-          />
+          <line x1="10" x2="120" y1={thresholdY} y2={thresholdY} stroke="red" strokeDasharray="4 2" strokeWidth="0.8" />
         )}
 
         <polyline
@@ -195,10 +69,7 @@ const MiniTrend: React.FC<{
           strokeWidth="2"
           strokeLinecap="round"
           points={norm
-            .map(
-              (v, i) =>
-                `${10 + (i / (daily.length - 1)) * 110},${40 - v * 35}`
-            )
+            .map((v, i) => `${10 + (i / (daily.length - 1)) * 110},${40 - v * 35}`)
             .join(' ')}
         />
       </svg>
@@ -206,22 +77,15 @@ const MiniTrend: React.FC<{
   );
 };
 
-const TrendToggle: React.FC<{ open: boolean; onToggle: () => void; color: string }> =
-  ({ open, onToggle, color }) => {
-    const { t } = useTranslation();
-    return (
-      <Button
-        variant="light"
-        size="sm"
-        onClick={onToggle}
-        className="trend-toggle-btn"
-        style={{ color, borderColor: color }}
-      >
-        {open ? '▲ ' : '▼ '}
-        {open ? t('Hide trend') : t('Show trend')}
-      </Button>
-    );
-  };
+const TrendToggle: React.FC<{ open: boolean; onToggle: () => void; color: string }> = ({ open, onToggle, color }) => {
+  const { t } = useTranslation();
+  return (
+    <Button variant="light" size="sm" onClick={onToggle} className="trend-toggle-btn" style={{ color, borderColor: color }}>
+      {open ? '▲ ' : '▼ '}
+      {open ? t('Hide trend') : t('Show trend')}
+    </Button>
+  );
+};
 
 const StatCard: React.FC<{
   label: string;
@@ -237,34 +101,22 @@ const StatCard: React.FC<{
         <div className="text-muted">{label}</div>
         {tooltip && (
           <OverlayTrigger overlay={<Tooltip>{tooltip}</Tooltip>} placement="left">
-            <span className="text-muted" style={{ cursor: 'help' }}>
-              ⓘ
-            </span>
+            <span className="text-muted" style={{ cursor: 'help' }}>ⓘ</span>
           </OverlayTrigger>
         )}
       </div>
 
-      <div className={`display-6 fw-semibold mt-1 ${valueClassName || ''}`}>
-        {value}
-      </div>
-
+      <div className={`display-6 fw-semibold mt-1 ${valueClassName || ''}`}>{value}</div>
       {sub && <div className="small text-muted mt-1">{sub}</div>}
-
       {children}
     </Card.Body>
   </Card>
 );
 
-/* ---------- MAIN COMPONENT ---------- */
-const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) => {
+const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedDate }) => {
   const { i18n, t } = useTranslation();
   const id = useMemo(() => localStorage.getItem('id') || authStore.id, []);
   const nf = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
-
-  const [connected, setConnected] = useState<boolean | null>(null);
-  const [data, setData] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   /* Trend states */
   const [showStepsTrend, setShowStepsTrend] = useState(false);
@@ -272,7 +124,7 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
   const [showSleepTrend, setShowSleepTrend] = useState(false);
   const [showBPTrend, setShowBPTrend] = useState(false);
 
-  /* Manual steps */
+  /* Manual steps UI state */
   const [manualSteps, setManualSteps] = useState('');
   const [manualDate, setManualDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [manualMsg, setManualMsg] = useState('');
@@ -286,65 +138,20 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
     return t('{{hours}}h {{minutes}}m', { hours: h, minutes: mm });
   };
 
-  /* ---------- Check Fitbit connection ---------- */
   useEffect(() => {
-    (async () => {
-      try {
-        const { data: res } = await apiClient.get(`/fitbit/status/${id}/`);
-        setConnected(!!res.connected);
-      } catch {
-        setConnected(false);
-      }
-    })();
+    if (!id) return;
+    patientFitbitStore.fetchStatus(id);
   }, [id]);
 
-  /* ---------- Fetch data ---------- */
-  const fetchData = async () => {
-    try {
-      setError('');
-      setLoading(true);
-      const res = await apiClient.get(`/fitbit/summary/${id}/?days=7`);
-      setData(res.data);
-    } catch {
-      setError(t('error_f'));
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (connected !== null) fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected]);
-
-  /* ---------- Submit manual steps ---------- */
-  const submitManualSteps = async () => {
-    if (!manualSteps || isNaN(Number(manualSteps))) return;
-
-    setSubmitting(true);
-    try {
-      await apiClient.post(`/fitbit/manual_steps/${id}/`, {
-        date: manualDate,
-        steps: Number(manualSteps),
-      });
-
-      setManualMsg(t('Steps saved successfully.'));
-      setShowManualSuccess(true);
-      setShowManualError(false);
-      setManualSteps('');
-      fetchData();
-    } catch {
-      setManualMsg(t('Failed to save steps. Please try again.'));
-      setShowManualError(true);
-      setShowManualSuccess(false);
-    } finally {
-      setSubmitting(false);
+    if (!id) return;
+    if (patientFitbitStore.connected !== null) {
+      patientFitbitStore.fetchSummary(id, 7);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientFitbitStore.connected, id]);
 
-  /* ---------- Loading ---------- */
-  if (connected === null || loading) {
+  if (patientFitbitStore.connected === null || patientFitbitStore.summaryLoading) {
     return (
       <Card className="mb-4">
         <Card.Body className="d-flex align-items-center gap-2">
@@ -354,42 +161,49 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
     );
   }
 
-  /* ---------- MANUAL ENTRY MODE ---------- */
-  if (connected === false) {
+  const data = patientFitbitStore.summary;
+
+  // MANUAL MODE (not connected)
+  if (patientFitbitStore.connected === false) {
     const daily = data?.period?.daily || [];
     const focusRow =
-      daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) ||
-      null;
+      daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
 
     const steps = focusRow?.steps ?? null;
     const avgSteps = data?.period?.averages?.steps ?? null;
 
-    // In manual mode we might not get thresholds; still safe
     const thr = mergeThresholds(data?.thresholds);
+
+    const submitManualSteps = async () => {
+      if (!manualSteps || isNaN(Number(manualSteps))) return;
+
+      setSubmitting(true);
+      try {
+        await patientFitbitStore.submitManualSteps(id, manualDate, Number(manualSteps));
+        setManualMsg(t('Steps saved successfully.'));
+        setShowManualSuccess(true);
+        setShowManualError(false);
+        setManualSteps('');
+      } catch {
+        setManualMsg(t('Failed to save steps. Please try again.'));
+        setShowManualError(true);
+        setShowManualSuccess(false);
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
     return (
       <Card className="mb-4 border-warning">
-        <Card.Header>
-          <strong>{t('Manual Steps Entry')}</strong>
-        </Card.Header>
-
+        <Card.Header><strong>{t('Manual Steps Entry')}</strong></Card.Header>
         <Card.Body>
           {showManualSuccess && (
-            <Alert
-              variant="success"
-              dismissible
-              onClose={() => setShowManualSuccess(false)}
-            >
+            <Alert variant="success" dismissible onClose={() => setShowManualSuccess(false)}>
               {manualMsg}
             </Alert>
           )}
-
           {showManualError && (
-            <Alert
-              variant="danger"
-              dismissible
-              onClose={() => setShowManualError(false)}
-            >
+            <Alert variant="danger" dismissible onClose={() => setShowManualError(false)}>
               {manualMsg}
             </Alert>
           )}
@@ -422,13 +236,8 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
             </Col>
 
             <Col xs="auto">
-              <Button
-                onClick={submitManualSteps}
-                disabled={submitting || !manualSteps}
-              >
-                {submitting && (
-                  <Spinner size="sm" animation="border" className="me-2" />
-                )}
+              <Button onClick={submitManualSteps} disabled={submitting || !manualSteps}>
+                {submitting && <Spinner size="sm" animation="border" className="me-2" />}
                 {t('Save')}
               </Button>
             </Col>
@@ -475,7 +284,7 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
     );
   }
 
-  /* ---------- CONNECTED MODE ---------- */
+  // CONNECTED MODE
   if (!data) {
     return (
       <Card className="mb-4">
@@ -485,17 +294,15 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
   }
 
   const thr = mergeThresholds(data.thresholds);
-
   const daily = data.period.daily || [];
+
   const focusRow =
-    daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) ||
-    null;
+    daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
 
   const stepsToday = focusRow?.steps ?? 0;
   const activeToday = focusRow?.active_minutes ?? 0;
   const sleepToday = focusRow?.sleep_minutes ?? 0;
 
-  // Prefer daily row; fall back to today payload
   const bpSysToday = focusRow?.bp_sys ?? data.today?.bp_sys ?? null;
   const bpDiaToday = focusRow?.bp_dia ?? data.today?.bp_dia ?? null;
 
@@ -508,7 +315,6 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
 
   const daysCount = data.period.days || daily.length || 0;
 
-  // Trend: map BP to a single numeric line: sys + dia/1000
   const bpTrend = daily
     .map((d) => {
       const s = d.bp_sys;
@@ -526,22 +332,19 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
         <strong>{t('Fitbit Activity Summary')}</strong>
         <span className="small text-muted">
           {data.last_sync
-            ? t('lastSync', {
-                date: new Date(data.last_sync).toLocaleString(i18n.language),
-              })
+            ? t('lastSync', { date: new Date(data.last_sync).toLocaleString(i18n.language) })
             : t('notConnected')}
         </span>
       </Card.Header>
 
       <Card.Body>
-        {error && (
+        {!!patientFitbitStore.error && (
           <Alert variant="danger" className="py-2">
-            {error}
+            {t(patientFitbitStore.error)}
           </Alert>
         )}
 
         <Row xs={1} md={4} className="g-3">
-          {/* ---- Steps ---- */}
           <Col>
             <StatCard
               label={t('Steps')}
@@ -550,22 +353,11 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
               sub={`${t('avg', { days: daysCount })} ${nf.format(avgSteps)}`}
               tooltip={t('stepsTip')}
             >
-              <TrendToggle
-                open={showStepsTrend}
-                onToggle={() => setShowStepsTrend(!showStepsTrend)}
-                color="#0d6efd"
-              />
-              {showStepsTrend && (
-                <MiniTrend
-                  daily={daily.map((d) => d.steps)}
-                  color="#0d6efd"
-                  threshold={thr.steps_goal}
-                />
-              )}
+              <TrendToggle open={showStepsTrend} onToggle={() => setShowStepsTrend(!showStepsTrend)} color="warning" />
+              {showStepsTrend && <MiniTrend daily={daily.map((d) => d.steps)} color="warning" threshold={thr.steps_goal} />}
             </StatCard>
           </Col>
 
-          {/* ---- Active Minutes ---- */}
           <Col>
             <StatCard
               label={t('Active Minutes')}
@@ -573,22 +365,13 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
               valueClassName={colorForActive(activeToday, thr)}
               sub={`${t('avg', { days: daysCount })} ${avgActive} ${t('min')}`}
             >
-              <TrendToggle
-                open={showActiveTrend}
-                onToggle={() => setShowActiveTrend(!showActiveTrend)}
-                color="#28a745"
-              />
+              <TrendToggle open={showActiveTrend} onToggle={() => setShowActiveTrend(!showActiveTrend)} color="text-success" />
               {showActiveTrend && (
-                <MiniTrend
-                  daily={daily.map((d) => d.active_minutes || 0)}
-                  color="#28a745"
-                  threshold={thr.active_minutes_green}
-                />
+                <MiniTrend daily={daily.map((d) => d.active_minutes || 0)} color="text-success" threshold={thr.active_minutes_green} />
               )}
             </StatCard>
           </Col>
 
-          {/* ---- Sleep ---- */}
           <Col>
             <StatCard
               label={t('Sleep')}
@@ -596,90 +379,39 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = ({ selectedDate }) =>
               valueClassName={colorForSleep(sleepToday, thr)}
               sub={`${t('avg', { days: daysCount })} ${mmToHhMm(avgSleep)}`}
             >
-              <TrendToggle
-                open={showSleepTrend}
-                onToggle={() => setShowSleepTrend(!showSleepTrend)}
-                color="#6f42c1"
-              />
-              {showSleepTrend && (
-                <MiniTrend
-                  daily={daily.map((d) => d.sleep_minutes || 0)}
-                  color="#6f42c1"
-                  threshold={thr.sleep_green_min}
-                />
-              )}
+              <TrendToggle open={showSleepTrend} onToggle={() => setShowSleepTrend(!showSleepTrend)} color="#6f42c1" />
+              {showSleepTrend && <MiniTrend daily={daily.map((d) => d.sleep_minutes || 0)} color="#6f42c1" threshold={thr.sleep_green_min} />}
             </StatCard>
           </Col>
 
-          {/* ---- Blood Pressure (replaces inactivity) ---- */}
           <Col>
             <StatCard
               label={t('Blood Pressure')}
-              value={
-                bpSysToday == null && bpDiaToday == null
-                  ? '—'
-                  : `${bpSysToday ?? '—'}/${bpDiaToday ?? '—'}`
-              }
+              value={bpSysToday == null && bpDiaToday == null ? '—' : `${bpSysToday ?? '—'}/${bpDiaToday ?? '—'}`}
               valueClassName={colorForBP(bpSysToday, bpDiaToday, thr)}
               sub={
                 avgBpSys == null && avgBpDia == null
                   ? `${t('avg', { days: daysCount })} —`
-                  : `${t('avg', { days: daysCount })} ${Math.round(
-                      avgBpSys ?? 0
-                    )}/${Math.round(avgBpDia ?? 0)}`
+                  : `${t('avg', { days: daysCount })} ${Math.round(avgBpSys ?? 0)}/${Math.round(avgBpDia ?? 0)}`
               }
               tooltip={t('Enter BP manually on the patient page if needed.')}
             >
-              <TrendToggle
-                open={showBPTrend}
-                onToggle={() => setShowBPTrend(!showBPTrend)}
-                color="#dc3545"
-              />
-              {showBPTrend && (
-                <MiniTrend
-                  daily={bpTrend}
-                  color="#dc3545"
-                  threshold={thr.bp_sys_green_max}
-                />
-              )}
+              <TrendToggle open={showBPTrend} onToggle={() => setShowBPTrend(!showBPTrend)} color="text-danger" />
+              {showBPTrend && <MiniTrend daily={bpTrend} color="text-danger" threshold={thr.bp_sys_green_max} />}
             </StatCard>
           </Col>
         </Row>
       </Card.Body>
 
       <style>{`
-        .trend-toggle-btn {
-          width: 100%;
-          margin-top: 0.6rem;
-          font-size: 0.9rem;
-          padding: 0.4rem 0.6rem;
-          border-radius: 8px;
-        }
-
-        @media (min-width: 768px) {
-          .trend-toggle-btn { width: auto; }
-        }
-
-        .mini-chart-wrapper {
-          width: 100%;
-          height: 80px;
-          margin-top: 8px;
-          padding: 6px;
-          background: rgba(0,0,0,0.03);
-          border-radius: 10px;
-          overflow: hidden;
-          animation: fadeIn 0.3s ease-out;
-        }
-
+        .trend-toggle-btn { width: 100%; margin-top: 0.6rem; font-size: 0.9rem; padding: 0.4rem 0.6rem; border-radius: 8px; }
+        @media (min-width: 768px) { .trend-toggle-btn { width: auto; } }
+        .mini-chart-wrapper { width: 100%; height: 80px; margin-top: 8px; padding: 6px; background: rgba(0,0,0,0.03); border-radius: 10px; overflow: hidden; animation: fadeIn 0.3s ease-out; }
         .mini-chart-svg { width: 100%; height: 100%; }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </Card>
   );
-};
+});
 
 export default ActivitySummary;

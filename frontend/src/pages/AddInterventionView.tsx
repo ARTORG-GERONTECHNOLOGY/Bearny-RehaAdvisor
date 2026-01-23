@@ -206,3 +206,4 @@ const AddInterventionView: React.FC = observer(() => {
 });
 
 export default AddInterventionView;
+export { AddInterventionView };

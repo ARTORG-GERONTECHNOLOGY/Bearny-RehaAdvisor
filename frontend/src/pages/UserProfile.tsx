@@ -1,213 +1,134 @@
-import React, { useEffect, useState } from "react";
-import {
-  Button,
-  Card,
-  Col,
-  Container,
-  Row,
-  Spinner,
-} from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+// src/pages/UserProfile.tsx
+import React, { useEffect, useMemo } from 'react';
+import { Card, Col, Container, Row, Spinner, Button } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { observer } from 'mobx-react-lite';
 
-import InfoBubble from "../components/common/InfoBubble";
-import Header from "../components/common/Header";
-import Footer from "../components/common/Footer";
-import EditUserInfo from "../components/UserProfile/EditTherapistInfo";
-import DeleteConfirmation from "../components/UserProfile/DeleteConfirmation";
-import StatusBanner from "../components/common/StatusBanner";
+import Header from '../components/common/Header';
+import Footer from '../components/common/Footer';
+import StatusBanner from '../components/common/StatusBanner';
 
-import authStore from "../stores/authStore";
-import apiClient from "../api/client";
-import { UserType } from "../types";
+import EditUserInfo from '../components/UserProfile/EditTherapistInfo';
+import ChangePasswordForm from '../components/UserProfile/ChangePasswordForm';
+import DeleteConfirmation from '../components/UserProfile/DeleteConfirmation';
+import ProfileDetails from '../components/UserProfile/ProfileDetails';
 
-const UserProfile: React.FC = () => {
+import authStore from '../stores/authStore';
+import userProfileStore from '../stores/userProfileStore';
+
+const UserProfile: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [userData, setUserData] = useState<UserType | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [errorBanner, setErrorBanner] = useState("");
-  const [successBanner, setSuccessBanner] = useState("");
-  const [deleting, setDeleting] = useState(false); // ✅ prevent double submit
-
-  const therapistId = authStore?.id;
+  // translate store banners at render-time (store keeps stable keys/messages)
+  const errorBanner = useMemo(() => (userProfileStore.errorBanner ? t(userProfileStore.errorBanner) : ''), [t, userProfileStore.errorBanner]);
+  const successBanner = useMemo(() => (userProfileStore.successBanner ? t(userProfileStore.successBanner) : ''), [t, userProfileStore.successBanner]);
 
   useEffect(() => {
     authStore.checkAuthentication();
+
     if (!authStore.isAuthenticated) {
-      navigate("/");
+      navigate('/', { replace: true });
       return;
     }
-    fetchUserProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, therapistId]);
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await apiClient.get(`/users/${therapistId}/profile`);
-      setUserData(response.data);
-    } catch (err) {
-      console.error("Profile load failed:", err);
-      setErrorBanner(t("Failed to load user profile"));
-    } finally {
-      setLoading(false);
-    }
+    document.title = t('User Profile') || 'User Profile';
+    userProfileStore.fetchProfile();
+  }, [navigate, t]);
+
+  const renderModeTitle = () => {
+    if (userProfileStore.mode === 'editProfile') return t('Edit Info');
+    if (userProfileStore.mode === 'changePassword') return t('Change Password');
+    return t('User Profile');
   };
 
-  const handleSave = async (updatedUserData: UserType) => {
-    try {
-      await apiClient.put(`/users/${therapistId}/profile/`, updatedUserData);
-      const refreshed = await apiClient.get(`/users/${therapistId}/profile`);
-      setUserData(refreshed.data);
-
-      setSuccessBanner(t("Profile updated successfully"));
-      setTimeout(() => setSuccessBanner(""), 2500);
-      setIsEditing(false);
-    } catch (err: any) {
-      console.error("Update failed:", err);
-      setErrorBanner(t("Failed to update profile"));
-      setTimeout(() => setErrorBanner(""), 3000);
+  const onDeleteConfirmed = async () => {
+    await userProfileStore.deleteAccount();
+    // if delete succeeded, authStore.logout already ran; go home
+    if (!userProfileStore.errorBanner) {
+      navigate('/', { replace: true });
     }
   };
-
-  // ✅ Delete -> on success: logout + go home
-  const handleDelete = async () => {
-    if (deleting) return;
-    setDeleting(true);
-    setErrorBanner("");
-    setSuccessBanner("");
-
-    try {
-      await apiClient.delete(`/users/${therapistId}/profile/`);
-
-      // optional banner (will likely not be seen long because we navigate)
-      setSuccessBanner(t("Account deleted successfully"));
-
-      // close modal immediately
-      setShowDeletePopup(false);
-
-      // ✅ Log out properly (clears tokens, timers, listeners, calls /auth/logout/)
-      await authStore.logout();
-
-      // ✅ Go home
-      navigate("/", { replace: true });
-    } catch (err) {
-      console.error("Delete failed:", err);
-      setErrorBanner(t("Failed to delete account"));
-      setTimeout(() => setErrorBanner(""), 3000);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const renderProfileDetails = () => (
-    <>
-      <h4 className="text-center mb-4">
-        {userData?.first_name} {userData?.name}
-      </h4>
-
-      <p>
-        <strong>{t("Email")}:</strong> {userData?.email}
-      </p>
-      <p>
-        <strong>{t("Phone")}:</strong> {userData?.phone}
-      </p>
-
-      {authStore.userType === "Therapist" && (
-        <>
-          <p>
-            <strong>{t("Specialization")}:</strong>{" "}
-            {userData?.specializations?.length
-              ? userData.specializations.join(", ")
-              : t("None")}
-            <InfoBubble tooltip={t("Therapist’s areas of clinical expertise")} />
-          </p>
-
-          <p>
-            <strong>{t("Clinics")}:</strong>{" "}
-            {userData?.clinics?.length ? userData.clinics.join(", ") : t("None")}
-            <InfoBubble tooltip={t("Affiliated institutions")} />
-          </p>
-        </>
-      )}
-
-      <div className="d-flex justify-content-between mt-4">
-        <Button variant="primary" onClick={() => setIsEditing(true)}>
-          {t("Edit Info")}
-        </Button>
-
-        <Button
-          variant="danger"
-          onClick={() => setShowDeletePopup(true)}
-          disabled={deleting}
-        >
-          {t("Delete Account")}
-        </Button>
-      </div>
-    </>
-  );
 
   return (
     <Container fluid className="d-flex flex-column min-vh-100">
       <Header isLoggedIn={!!authStore.userType} />
 
-      <StatusBanner
-        type="danger"
-        message={errorBanner}
-        onClose={() => setErrorBanner("")}
-      />
-
-      <StatusBanner
-        type="success"
-        message={successBanner}
-        onClose={() => setSuccessBanner("")}
-      />
+      <StatusBanner type="danger" message={errorBanner} onClose={userProfileStore.clearError} />
+      <StatusBanner type="success" message={successBanner} onClose={userProfileStore.clearSuccess} />
 
       <Container className="my-5 flex-grow-1">
         <Row className="justify-content-center">
           <Col xs={12} md={10} lg={8} xl={6}>
             <Card className="shadow-sm">
               <Card.Header className="bg-primary text-white text-center">
-                <h2>{t("User Profile")}</h2>
+                <h2 className="mb-0">{renderModeTitle()}</h2>
               </Card.Header>
 
               <Card.Body>
-                {loading ? (
+                {userProfileStore.loading ? (
                   <div className="text-center my-4">
                     <Spinner animation="border" />
-                    <p className="mt-3">{t("Loading")}...</p>
+                    <p className="mt-3">{t('Loading')}...</p>
                   </div>
-                ) : isEditing && userData ? (
-                  <EditUserInfo
-                    userData={userData}
-                    onSave={handleSave}
-                    onCancel={() => setIsEditing(false)}
-                  />
+                ) : userProfileStore.userData ? (
+                  userProfileStore.mode === 'editProfile' ? (
+                    <EditUserInfo
+                      userData={userProfileStore.userData}
+                      onCancel={() => userProfileStore.setMode('view')}
+                    />
+                  ) : userProfileStore.mode === 'changePassword' ? (
+                    <ChangePasswordForm onCancel={() => userProfileStore.setMode('view')} />
+                  ) : (
+                    <ProfileDetails
+                      userData={userProfileStore.userData}
+                      deleting={userProfileStore.deleting}
+                      onEdit={() => userProfileStore.setMode('editProfile')}
+                      onChangePassword={() => userProfileStore.setMode('changePassword')}
+                      onDelete={userProfileStore.openDelete}
+                    />
+                  )
                 ) : (
-                  userData && renderProfileDetails()
+                  <div className="text-center text-muted">{t('No user data found.')}</div>
                 )}
               </Card.Body>
+
+              {(userProfileStore.mode === 'editProfile' ||
+                userProfileStore.mode === 'changePassword') && (
+                <Card.Footer className="bg-light">
+                  <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                    <small className="text-muted">
+                      {userProfileStore.mode === 'editProfile'
+                        ? t('Update your profile information.')
+                        : t('Change your account password.')}
+                    </small>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => userProfileStore.setMode('view')}
+                      disabled={userProfileStore.saving}
+                    >
+                      {t('Back')}
+                    </Button>
+                  </div>
+                </Card.Footer>
+              )}
             </Card>
           </Col>
         </Row>
       </Container>
 
-      {showDeletePopup && (
-        <DeleteConfirmation
-          show={showDeletePopup}
-          handleClose={() => setShowDeletePopup(false)}
-          handleConfirm={handleDelete}
-          isLoading={deleting}
-        />
-      )}
+      <DeleteConfirmation
+        show={userProfileStore.showDeletePopup}
+        handleClose={userProfileStore.closeDelete}
+        handleConfirm={onDeleteConfirmed}
+        isLoading={userProfileStore.deleting}
+      />
 
       <Footer />
     </Container>
   );
-};
+});
 
 export default UserProfile;

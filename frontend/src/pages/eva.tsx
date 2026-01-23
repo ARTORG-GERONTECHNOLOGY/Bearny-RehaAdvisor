@@ -33,16 +33,28 @@ const REAL_QUESTIONS = [
   'Einflüsse von Umwelt und Klima auf körperliche und psychische Gesundheit',
   'Auf Gesundheit achten',
 ];
-const VERSION = 'Version 7, 05.12.2025';
+const VERSION = 'Version 8.1 (Auto-Save), 23.01.2026';
 
 /** ====== COMPONENT ====== */
 export default function HealthSlider() {
+  // 1. Initialize state from LocalStorage if it exists
   const [sliderPosition, setSliderPosition] = useState(50);
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(() => {
+    const saved = localStorage.getItem('survey_index');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [isDragging, setIsDragging] = useState(false);
-  const [answers, setAnswers] = useState<[string, number][]>([]);
-  const [showSummary, setShowSummary] = useState(false);
-  const [testMode, setTestMode] = useState(true);
+  const [answers, setAnswers] = useState<[string, number][]>(() => {
+    const saved = localStorage.getItem('survey_answers');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showSummary, setShowSummary] = useState(() => {
+    return localStorage.getItem('survey_showSummary') === 'true';
+  });
+  const [testMode, setTestMode] = useState(() => {
+    const saved = localStorage.getItem('survey_testMode');
+    return saved === null ? true : saved === 'true'; 
+  });
   const [patientId, setPatientId] = useState('');
 
   const spectrumRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +64,14 @@ export default function HealthSlider() {
   const progressText = testMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
   const progressPercent = testMode ? 0 : ((questionIndex + 1) / total) * 100;
 
+  // 2. Persistent Save Effect: Triggered whenever state changes
+  useEffect(() => {
+    localStorage.setItem('survey_index', questionIndex.toString());
+    localStorage.setItem('survey_answers', JSON.stringify(answers));
+    localStorage.setItem('survey_testMode', testMode.toString());
+    localStorage.setItem('survey_showSummary', showSummary.toString());
+  }, [questionIndex, answers, testMode, showSummary]);
+
   /** position the slider by pointer Y within the track */
   const handleSliderMove = useCallback((clientY: number) => {
     const el = spectrumRef.current;
@@ -60,11 +80,11 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     let pct = Math.round(100 - (y / rect.height) * 100);
-    pct = Math.min(97, Math.max(3, pct)); // keep knob within caps
+    pct = Math.min(97, Math.max(3, pct));
     setSliderPosition(pct);
   }, []);
 
-  /** global event listeners for dragging + get patient ID */
+  /** global event listeners */
   useEffect(() => {
     const storedId = localStorage.getItem('patient_id');
     if (storedId) setPatientId(storedId);
@@ -80,7 +100,7 @@ export default function HealthSlider() {
     const onMove = (e: MouseEvent) => isDragging && handleSliderMove(e.clientY);
     const onTouchMove = (e: TouchEvent) => {
       if (isDragging && e.touches.length === 1) {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         handleSliderMove(e.touches[0].clientY);
       }
     };
@@ -125,7 +145,7 @@ export default function HealthSlider() {
       return;
     }
 
-    const val = answerValue === 'NA' ? -1 : answerValue; // NA as -1
+    const val = answerValue === 'NA' ? -1 : answerValue;
     const updated = [...answers, [REAL_QUESTIONS[questionIndex], val]];
     if (questionIndex < total - 1) {
       setAnswers(updated);
@@ -137,35 +157,41 @@ export default function HealthSlider() {
     }
   };
 
-  /** go back (not prominent) */
+  /** go back */
   const goBack = () => {
     if (testMode || questionIndex === 0) return;
-
     setAnswers((prev) => {
-      const lastVal = prev[prev.length - 1]?.[1];
-      // restore previous slider value if available and not NA (-1)
+      const newAnswers = prev.slice(0, -1);
+      const lastVal = newAnswers[newAnswers.length - 1]?.[1];
       setSliderPosition(typeof lastVal === 'number' && lastVal >= 0 ? lastVal : 50);
-      return prev.slice(0, -1);
+      return newAnswers;
     });
     setQuestionIndex((i) => Math.max(0, i - 1));
   };
 
-  /** confirm export */
+  /** 3. Clear storage when finished */
   const confirmAndExport = () => {
     exportResults(answers);
     alert('Fragebogen abgeschlossen!');
+    
+    // Clear all survey progress
+    localStorage.removeItem('survey_index');
+    localStorage.removeItem('survey_answers');
+    localStorage.removeItem('survey_testMode');
+    localStorage.removeItem('survey_showSummary');
+    localStorage.removeItem('patient_id');
+
+    // Reset local state
     setAnswers([]);
     setQuestionIndex(0);
     setSliderPosition(50);
     setShowSummary(false);
     setTestMode(true);
-    localStorage.removeItem('patient_id');
     window.location.reload();
   };
 
   return (
     <main style={styles.app}>
-      {/* small progress in top left */}
       {!testMode && (
         <div style={styles.progressRow}>
           <div style={styles.progressText}>{progressText}</div>
@@ -175,15 +201,10 @@ export default function HealthSlider() {
         </div>
       )}
 
-      {/* big keyword / title */}
       <h1 style={styles.title}>{currentQuestion}</h1>
 
-      {/* center column with vertical slider */}
       <section style={styles.centerArea}>
-        <div style={styles.endLabelTop} aria-hidden>
-          Sehr gut
-        </div>
-
+        <div style={styles.endLabelTop} aria-hidden>Sehr gut</div>
         <div
           ref={spectrumRef}
           style={styles.trackBox}
@@ -194,7 +215,6 @@ export default function HealthSlider() {
           <div style={styles.gradientBar} />
           <div style={{ ...styles.cap, ...styles.capTop }} />
           <div style={{ ...styles.cap, ...styles.capBottom }} />
-
           <div
             role="slider"
             aria-valuemin={0}
@@ -207,51 +227,29 @@ export default function HealthSlider() {
               e.stopPropagation();
               setIsDragging(true);
             }}
-            style={{
-              ...styles.knob,
-              bottom: `${sliderPosition}%`,
-            }}
+            style={{ ...styles.knob, bottom: `${sliderPosition}%` }}
           />
         </div>
-
-        <div style={styles.endLabelBottom} aria-hidden>
-          Sehr schlecht
-        </div>
+        <div style={styles.endLabelBottom} aria-hidden>Sehr schlecht</div>
       </section>
 
-      {/* main buttons row */}
       {!showSummary ? (
         <>
           <div style={styles.buttonsRow}>
-            <button
-              style={{ ...styles.btn, ...styles.btnNeutral }}
-              onClick={() => goNext('NA')}
-            >
+            <button style={{ ...styles.btn, ...styles.btnNeutral }} onClick={() => goNext('NA')}>
               Kann ich nicht beantworten
             </button>
-
-            <button
-              style={{ ...styles.btn, ...styles.btnPrimary }}
-              onClick={() => goNext(sliderPosition)}
-            >
+            <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => goNext(sliderPosition)}>
               {testMode ? 'Interview starten' : 'Weiter'}
             </button>
           </div>
-
-          {/* spacer to force scroll, then subtle back button */}
           <div style={styles.backSpacer} />
-
           <div style={styles.backRow}>
             <button
               type="button"
               onClick={goBack}
               disabled={testMode || questionIndex === 0}
-              style={{
-                ...styles.btnBack,
-                ...(testMode || questionIndex === 0 ? styles.btnBackDisabled : {}),
-              }}
-              aria-label="Zurück zur vorherigen Frage"
-              title="Zurück"
+              style={{ ...styles.btnBack, ...(testMode || questionIndex === 0 ? styles.btnBackDisabled : {}) }}
             >
               Zurück
             </button>
@@ -265,27 +263,24 @@ export default function HealthSlider() {
         </div>
       )}
 
-      {/* footer */}
       <footer style={styles.footer}>
         <button
           onClick={() => {
-            localStorage.removeItem('patient_id');
+            localStorage.clear(); // Complete reset
             window.location.reload();
           }}
           style={styles.resetLink}
         >
-          ID zurücksetzen
+          Alle Daten löschen & Reset
         </button>
-        <div style={styles.footerText}>
-          {patientId ? `Teilnehmer:in: ${patientId}` : 'No ID gesetzt'}
-        </div>
+        <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
         <div style={styles.footerText}>{VERSION}</div>
       </footer>
     </main>
   );
 }
 
-/** ====== STYLES ====== */
+// ... styles remain the same as your original provided code ...
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: '100dvh',
@@ -294,157 +289,34 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    overflowY: 'auto', // allow vertical scroll so Back sits "below"
+    overflowY: 'auto',
     padding: '0 16px 24px',
-    fontFamily: '"Atkinson Hyperlegible", system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    fontFamily: '"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif',
     color: '#1f1f1f',
   },
-
-  /* progress */
   progressRow: { width: '100%', maxWidth: 980, marginTop: 8 },
   progressText: { fontSize: 14, color: '#4a4a4a', marginBottom: 6 },
   progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
-  progressFill: {
-    height: '100%',
-    background: '#2fb463',
-    borderRadius: 8,
-    transition: 'width .2s ease',
-  },
-
-  /* title */
-  title: {
-    margin: '8px 0 0',
-    fontSize: 36,
-    lineHeight: 1.2,
-    textAlign: 'center',
-    maxWidth: 980,
-  },
-
-  /* center area */
-  centerArea: {
-    flex: 1,
-    maxWidth: 980,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingBottom: 12,
-  },
-
+  progressFill: { height: '100%', background: '#2fb463', borderRadius: 8, transition: 'width .2s ease' },
+  title: { margin: '8px 0 0', fontSize: 36, lineHeight: 1.2, textAlign: 'center', maxWidth: 980 },
+  centerArea: { flex: 1, maxWidth: 980, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 12 },
   endLabelTop: { fontSize: 20, color: '#222', marginBottom: 6 },
   endLabelBottom: { fontSize: 20, color: '#222', marginTop: 6 },
-
-  trackBox: {
-    position: 'relative',
-    width: 140,
-    height: 'min(60vh, calc(100dvh - 260px))',
-    touchAction: 'none',
-  },
-
-  gradientBar: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: 0,
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)',
-    borderRadius: 14,
-    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.05)',
-    zIndex: 0,
-  },
-
-  cap: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '140%',
-    height: 15,
-    borderRadius: 6,
-    zIndex: 1,
-  },
+  trackBox: { position: 'relative', width: 140, height: 'min(60vh, calc(100dvh - 260px))', touchAction: 'none' },
+  gradientBar: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)', borderRadius: 14, zIndex: 0 },
+  cap: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: '140%', height: 15, borderRadius: 6, zIndex: 1 },
   capTop: { top: -5, background: '#67d7be' },
   capBottom: { bottom: -5, background: '#c47993' },
-
-  knob: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translate(-50%, 50%)',
-    width: '130%',
-    height: 28,
-    background: '#1f1f1f',
-    borderRadius: 16,
-    opacity: 0.9,
-    zIndex: 2,
-    cursor: 'grab',
-    boxShadow: '0 2px 8px rgba(0,0,0,.25)',
-  },
-
-  /* main buttons */
-  buttonsRow: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    padding: '4px 0 4px',
-  },
-  btn: {
-    flex: 1,
-    minHeight: 56,
-    fontSize: 20,
-    borderRadius: 14,
-    border: 'none',
-    letterSpacing: 0.2,
-  },
+  knob: { position: 'absolute', left: '50%', transform: 'translate(-50%, 50%)', width: '130%', height: 28, background: '#1f1f1f', borderRadius: 16, opacity: 0.9, zIndex: 2, cursor: 'grab', boxShadow: '0 2px 8px rgba(0,0,0,.25)' },
+  buttonsRow: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', gap: 16, padding: '4px 0 4px' },
+  btn: { flex: 1, minHeight: 56, fontSize: 20, borderRadius: 14, border: 'none' },
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
   btnPrimary: { background: '#9d8d71', color: '#fff' },
-
-  /* Spacer + subtle back */
-  backSpacer: {
-    height: 'min(22vh, 260px)', // enough space to force a scroll on most screens
-  },
-  backRow: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  btnBack: {
-    padding: '10px 16px',
-    fontSize: 16,
-    borderRadius: 10,
-    background: '#efefef',
-    color: '#4a4a4a',
-    border: '1px solid #ddd',
-    opacity: 0.9, // less prominent
-  },
-  btnBackDisabled: {
-    opacity: 0.45,
-    cursor: 'not-allowed',
-  },
-
-  /* footer */
-  footer: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    padding: '6px 0 10px',
-    color: '#707070',
-    fontSize: 14,
-  },
-  resetLink: {
-    fontSize: 14,
-    color: '#9b9b9b',
-    background: 'none',
-    border: 'none',
-    textDecoration: 'underline',
-    cursor: 'pointer',
-  },
+  backSpacer: { height: 'min(22vh, 260px)' },
+  backRow: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'center' },
+  btnBack: { padding: '10px 16px', fontSize: 16, borderRadius: 10, background: '#efefef', color: '#4a4a4a', border: '1px solid #ddd' },
+  btnBackDisabled: { opacity: 0.45, cursor: 'not-allowed' },
+  footer: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '6px 0 10px', color: '#707070', fontSize: 14 },
+  resetLink: { fontSize: 14, color: '#9b9b9b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' },
   footerText: { whiteSpace: 'nowrap' },
 };

@@ -490,7 +490,7 @@ class HealthSliderEntry(Document):
     # Storage path (MEDIA storage), e.g. "healthslider/SUBJ_001/20260112T093000/SUBJ_001_q01.webm"
     audio_file     = StringField(default="")              # storage path
     audio_name     = StringField(default="")              # user-friendly filename (for FE)
-    audio_mime     = StringField(default="audio/webm")    # "audio/webm", "audio/wav", ...
+    audio_mime     = StringField()    # "audio/webm", "audio/wav", ...
 
     answered_at    = DateTimeField(default=timezone.now)
 

@@ -1,5 +1,5 @@
 // src/components/HomePage/RegisterPatient.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
@@ -16,6 +16,16 @@ interface RegisterFormProps {
   therapist: string;
 }
 
+type BackendErrorPayload = {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  detail?: string;
+  field_errors?: Record<string, string[]>;
+  non_field_errors?: string[];
+  details?: string;
+};
+
 const initialFormData = (therapist: string): FormData => ({
   email: '',
   password: '',
@@ -25,7 +35,7 @@ const initialFormData = (therapist: string): FormData => ({
   therapist,
   firstName: '',
   lastName: '',
-  age: '',                 // birth date (YYYY-MM-DD)
+  age: '', // birth date (YYYY-MM-DD)
   sex: '',
   function: [],
   diagnosis: [],
@@ -45,10 +55,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<FormData>(initialFormData(therapist));
   const [step, setStep] = useState(0);
+
+  // field-level client validation (per step)
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // server errors (banner + field mapping)
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiFieldErrors, setApiFieldErrors] = useState<Record<string, string>>({});
+
   const [registered, setRegistered] = useState(false);
   const [patientId, setPatientId] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
 
   const formSteps = (config as any).PatientForm;
   const specialityDiagnosisMap: Record<string, string[]> = (config as any).patientInfo.functionPat;
@@ -95,11 +111,53 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     });
   };
 
+  const clearServerErrors = () => {
+    setApiError(null);
+    setApiFieldErrors({});
+  };
+
+  const prettifyServerErrors = (payload: BackendErrorPayload | any) => {
+    const msg =
+      payload?.message ||
+      payload?.error ||
+      payload?.detail ||
+      (typeof payload === 'string' ? payload : '') ||
+      '';
+
+    const fieldErrs: Record<string, string> = {};
+    if (payload?.field_errors && typeof payload.field_errors === 'object') {
+      Object.entries(payload.field_errors).forEach(([k, arr]) => {
+        const val = Array.isArray(arr) ? arr.join(' ') : String(arr);
+        fieldErrs[k] = val;
+      });
+    }
+
+    const nonField = Array.isArray(payload?.non_field_errors) ? payload.non_field_errors.join(' ') : '';
+    const details = payload?.details ? String(payload.details) : '';
+
+    // Build a human readable banner message (no JSON)
+    const parts = [msg, nonField, details].filter(Boolean);
+    const banner = parts.join(' ');
+
+    return { banner: banner || t('An unexpected error occurred. Please try again.'), fieldErrs };
+  };
+
   // ---- handlers ----
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
+
+    // clear client + server error for this field on change
     setErrors((prev) => ({ ...prev, [id]: '' }));
+    setApiFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    // clear banner if user edits
+    setApiError(null);
+
     if (id === 'age') validateAge(value);
   };
 
@@ -109,7 +167,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   ) => {
     const selectedValues = selectedOptions?.map((option) => option.value) || [];
     setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
+
+    // clear client + server error for this field
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
+    setApiFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldName];
+      return next;
+    });
+
+    setApiError(null);
   };
 
   const validateStep = (): boolean => {
@@ -164,19 +231,21 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   };
 
   const nextStep = () => {
+    clearServerErrors();
     if (validateStep() && step < formSteps.length - 1) {
       setStep((prev) => prev + 1);
-      setApiError(null);
     }
   };
 
   const prevStep = () => {
+    clearServerErrors();
     if (step > 0) setStep((prev) => prev - 1);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setApiError(null);
+    clearServerErrors();
+
     if (!validateStep()) return;
 
     try {
@@ -186,16 +255,29 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         setPatientId(response.data?.id || null);
       }
     } catch (error: any) {
-      const backendMsg =
-        error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        error?.message ||
-        error;
-      setApiError(backendMsg || t('An unexpected error occurred. Please try again.'));
+      const payload: BackendErrorPayload | any = error?.response?.data;
+      const { banner, fieldErrs } = prettifyServerErrors(payload || error?.message || error);
+
+      // show banner message
+      setApiError(banner);
+
+      // map backend field errors to fields (inline)
+      if (Object.keys(fieldErrs).length > 0) {
+        setApiFieldErrors(fieldErrs);
+
+        // optional: also set client errors so bootstrap highlights fields consistently
+        setErrors((prev) => ({ ...prev, ...fieldErrs }));
+      }
     }
   };
 
   const currentFields: any[] = formSteps[step]?.fields || [];
+
+  // For consistent inline error rendering, prefer client errors, then backend errors
+  const mergedFieldError = useMemo(() => {
+    const merged: Record<string, string> = { ...apiFieldErrors, ...errors };
+    return merged;
+  }, [apiFieldErrors, errors]);
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -206,8 +288,12 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         </small>
       </div>
 
-      {/* Server-side error banner */}
-      {apiError && <div className="alert alert-danger">{apiError}</div>}
+      {/* Server-side error banner (human readable, not JSON) */}
+      {apiError && (
+        <div className="alert alert-danger" role="alert" aria-live="assertive">
+          {apiError}
+        </div>
+      )}
 
       {currentFields.map((field) => {
         const isMulti = field.type === 'multi-select';
@@ -217,6 +303,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         // Force birth date to use a date picker
         const inputType = field.name === 'age' ? 'date' : field.type;
 
+        const fieldErrMsg = mergedFieldError[field.name];
+        const invalid = !!fieldErrMsg;
+
         return (
           <Form.Group controlId={field.name} className="mb-3" key={field.name}>
             <Form.Label className="d-flex align-items-center gap-1">
@@ -224,7 +313,10 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 {t(field.label)}
                 {required && (
                   <>
-                    <span className="text-danger" aria-hidden="true"> *</span>
+                    <span className="text-danger" aria-hidden="true">
+                      {' '}
+                      *
+                    </span>
                     <span className="visually-hidden"> {t('required')}</span>
                   </>
                 )}
@@ -237,17 +329,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 inputId={field.name}
                 isMulti
                 aria-required={required}
-                aria-invalid={!!errors[field.name]}
+                aria-invalid={invalid}
                 options={
                   field.name === 'diagnosis' &&
                   Array.isArray(formData.function) &&
                   (formData.function as string[]).length > 0
-                    ? (formData.function as string[]).flatMap(
-                        (spec: string) =>
-                          (specialityDiagnosisMap[spec] || []).map((diag) => ({
-                            value: diag,
-                            label: t(diag),
-                          }))
+                    ? (formData.function as string[]).flatMap((spec: string) =>
+                        (specialityDiagnosisMap[spec] || []).map((diag) => ({
+                          value: diag,
+                          label: t(diag),
+                        }))
                       )
                     : (field.options || []).map((option: string) => ({
                         value: option,
@@ -265,12 +356,14 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 as="select"
                 value={String(formData[field.name] || '')}
                 onChange={handleChange}
-                isInvalid={!!errors[field.name]}
+                isInvalid={invalid}
                 required={required}
                 aria-required={required}
-                aria-invalid={!!errors[field.name]}
+                aria-invalid={invalid}
               >
-                <option value="">{t('Select')} {t(field.label)}</option>
+                <option value="">
+                  {t('Select')} {t(field.label)}
+                </option>
                 {(field.options || []).map((option: string) => (
                   <option key={option} value={option}>
                     {t(option)}
@@ -282,27 +375,23 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 type={inputType}
                 value={String(formData[field.name] ?? '')}
                 onChange={handleChange}
-                isInvalid={!!errors[field.name]}
+                isInvalid={invalid}
                 required={required}
                 aria-required={required}
-                aria-invalid={!!errors[field.name]}
+                aria-invalid={invalid}
                 placeholder={field.name === 'age' ? 'YYYY-MM-DD' : undefined}
                 onBlur={field.name === 'age' ? (e) => validateAge(e.currentTarget.value) : undefined}
               />
             )}
 
-            {errors[field.name] && (
-              <Form.Text className="text-danger">{errors[field.name]}</Form.Text>
-            )}
+            {fieldErrMsg && <Form.Text className="text-danger">{fieldErrMsg}</Form.Text>}
           </Form.Group>
         );
       })}
 
       {registered ? (
         <div className="alert alert-success mt-4">
-          <p>
-            {t('The patient has been registered. Account information has been sent to the given email.')}
-          </p>
+          <p>{t('The patient has been registered. Account information has been sent to the given email.')}</p>
           {patientId && (
             <p>
               <strong>{t('Patient ID:')}</strong> {patientId}

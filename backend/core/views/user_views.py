@@ -12,7 +12,7 @@ from core.models import Logs, Patient, Therapist, User, PasswordAttempt
 from utils.utils import convert_to_serializable, sanitize_text, check_rate_limit, validate_password_strength
 
 logger = logging.getLogger(__name__)
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import re
 from django.core.mail import send_mail
 from django.views.decorators.http import require_http_methods
@@ -153,13 +153,53 @@ def user_profile_view(request, user_id):
     # ------------------------------------------------------------------
     # Sanitizer
     # ------------------------------------------------------------------
+
     def sanitize(v):
-        if isinstance(v, str):
-            cleaned = v.replace("<", "").replace(">", "").replace("{", "").replace("}", "").strip()
-            return cleaned[:500]
-        if isinstance(v, list):
+        # Mongo ObjectId
+        if isinstance(v, ObjectId):
+            return str(v)
+
+        # dates / datetimes
+        if isinstance(v, datetime):
+            return v.isoformat()
+        if isinstance(v, date):
+            return v.isoformat()
+
+        # MongoEngine EmbeddedDocument / Document (PatientThresholds, etc.)
+        if hasattr(v, "to_mongo"):
+            try:
+                # to_mongo() returns a BSON-friendly structure (often SON)
+                return sanitize(v.to_mongo().to_dict())
+            except Exception:
+                # fallback: string representation
+                return str(v)
+
+        # dict-like
+        if isinstance(v, dict):
+            return {str(k): sanitize(val) for k, val in v.items()}
+
+        # lists/tuples
+        if isinstance(v, (list, tuple)):
             return [sanitize(x) for x in v if x not in ("", None)]
-        return v
+
+        # strings
+        if isinstance(v, str):
+            cleaned = (
+                v.replace("<", "")
+                .replace(">", "")
+                .replace("{", "")
+                .replace("}", "")
+                .strip()
+            )
+            return cleaned[:500]
+
+        # numbers / bool / None
+        if isinstance(v, (int, float, bool)) or v is None:
+            return v
+
+        # everything else (safe fallback)
+        return str(v)
+
 
     # ------------------------------------------------------------------
     # Allowed field schemas

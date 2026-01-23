@@ -261,12 +261,13 @@ const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({
               <h5>{t('Description')}</h5>
               <p className="text-muted mb-0">
                 {translatedDescription}
+  </p>
                 {detectedLangDesc && (
                   <span className="ms-2 text-secondary">
-                    ({t('Original language:')} {detectedLangDesc})
+                  ({t('Original language:')} {detectedLangDesc})
                   </span>
                 )}
-              </p>
+             
             </Col>
           </Row>
         )}

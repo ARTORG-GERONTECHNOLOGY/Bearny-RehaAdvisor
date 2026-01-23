@@ -1,0 +1,35 @@
+/* src/assets/styles/patient.css */
+/* Fluid, accessible layout helpers for Patient pages */
+
+.patient-root {
+  padding: env(safe-area-inset-top)
+           env(safe-area-inset-right)
+           env(safe-area-inset-bottom)
+           env(safe-area-inset-left);
+  overflow-x: hidden;
+}
+
+.patient-main {
+  padding-block: clamp(0.75rem, 2vh, 1.5rem);
+}
+
+.patient-container {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.patient-section {
+  margin-block: 1rem;
+}
+
+@media (min-width: 768px) {
+  .patient-section {
+    margin-block: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}

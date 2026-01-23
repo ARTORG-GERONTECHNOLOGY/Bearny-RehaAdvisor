@@ -44,6 +44,7 @@
     "npm": "^10.9.2",
     "prettier": "^3.5.3",
     "react-test-renderer": "^19.1.0",
+    "sass-embedded": "^1.97.2",
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",

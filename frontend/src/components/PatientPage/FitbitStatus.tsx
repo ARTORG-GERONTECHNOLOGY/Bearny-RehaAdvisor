@@ -1,32 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import apiClient from '../../api/client'; // ✅ Adjust path as needed
+import React, { useEffect, useMemo } from 'react';
+import { observer } from 'mobx-react-lite';
+import { patientFitbitStore } from '../../stores/patientFitbitStore';
+import authStore from '../../stores/authStore';
 
 const FITBIT_CLIENT_ID = '23QHGK';
 const FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/';
 const FITBIT_SCOPES =
   'activity heartrate respiratory_rate oxygen_saturation temperature electrocardiogram profile sleep';
 
-const FitbitConnectButton: React.FC = () => {
-  const [connected, setConnected] = useState<boolean | null>(null);
+const FitbitConnectButton: React.FC = observer(() => {
+  const patientId = useMemo(() => localStorage.getItem('id') || authStore.id, []);
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const userId = localStorage.getItem('id');
-        const { data: res } = await apiClient.get(`/fitbit/status/${userId}/`);
-        setConnected(res.connected);
-      } catch (error) {
-        console.error('Error fetching Fitbit connection status:', error);
-      }
-    };
+    if (!patientId) return;
+    patientFitbitStore.fetchStatus(patientId);
+  }, [patientId]);
 
-    fetchStatus();
-  }, []);
+  if (patientFitbitStore.connected === null) return null;
+  if (patientFitbitStore.connected) return null;
 
-  if (connected === null) return null; // optional: render spinner
-  if (connected) return null; // hide button if already connected
-  const patientId = localStorage.getItem('id');
-  const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${FITBIT_CLIENT_ID}&redirect_uri=${encodeURIComponent(FITBIT_REDIRECT_URI)}&scope=${encodeURIComponent(FITBIT_SCOPES)}&state=${patientId}&expires_in=604800`;
+  const authUrl =
+    `https://www.fitbit.com/oauth2/authorize?response_type=code` +
+    `&client_id=${FITBIT_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(FITBIT_REDIRECT_URI)}` +
+    `&scope=${encodeURIComponent(FITBIT_SCOPES)}` +
+    `&state=${patientId}` +
+    `&expires_in=604800`;
 
   return (
     <a href={authUrl}>
@@ -44,6 +43,6 @@ const FitbitConnectButton: React.FC = () => {
       </button>
     </a>
   );
-};
+});
 
 export default FitbitConnectButton;

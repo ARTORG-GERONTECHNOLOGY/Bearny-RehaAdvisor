@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
+/** ====== DATA ====== */
+const PRACTICE_QUESTION = 'Übungslauf Beispiel: Holzhacken (Wird nicht gespeichert)';
 const REAL_QUESTIONS = [
   'Allgemeine Gesundheit und wie geht es Ihnen heute und in den letzten Tagen und warum?',
   'Essen und Trinken',
@@ -32,46 +33,166 @@ const REAL_QUESTIONS = [
   'Einflüsse von Umwelt und Klima auf körperliche und psychische Gesundheit',
   'Auf Gesundheit achten',
 ];
-const VERSION = 'Version 7, 05.12.2025';
+const VERSION = 'Version 8.1 (Original Look + Alert + Practice), 2026';
 
 export default function HealthSlider() {
+  // --- PERSISTENCE & MODES ---
   const [sliderPosition, setSliderPosition] = useState(50);
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(() => {
+    const saved = localStorage.getItem('survey_index');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [isDragging, setIsDragging] = useState(false);
-
-  // store answers locally (optional)
-  const [answers, setAnswers] = useState<[string, number][]>([]);
+  const [isPracticeMode, setIsPracticeMode] = useState(() => {
+    return localStorage.getItem('survey_index') === null;
+  });
+  const [testMode, setTestMode] = useState(true); 
   const [showSummary, setShowSummary] = useState(false);
-  const [testMode, setTestMode] = useState(true);
+  const [patientId, setPatientId] = useState('');
 
-  // participant code entered by user (NOT DB id)
-  const [participantId, setParticipantId] = useState('');
-
-  // recording state
-  const [micReady, setMicReady] = useState(false);
-  const [micError, setMicError] = useState<string>('');
+  // --- RECORDING & AUDIO ---
   const [isRecording, setIsRecording] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [micError, setMicError] = useState('');
+  const [practiceAudioUrl, setPracticeAudioUrl] = useState<string | null>(null);
 
   const spectrumRef = useRef<HTMLDivElement | null>(null);
-
-  // One recorder session
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-
-  // Queue to resolve the next chunk when requestData fires
   const chunkResolversRef = useRef<Array<(b: Blob | null) => void>>([]);
-  const lastCutAtRef = useRef<number>(Date.now());
-
-  // session id to group all items
-  const sessionIdRef = useRef<string>('');
+  const sessionIdRef = useRef<string>(localStorage.getItem('survey_sessionId') || '');
 
   const total = REAL_QUESTIONS.length;
-  const currentQuestion = testMode ? TEST_QUESTION : REAL_QUESTIONS[questionIndex];
-  const progressText = testMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
-  const progressPercent = testMode ? 0 : ((questionIndex + 1) / total) * 100;
+  const progressPercent = isPracticeMode ? 0 : ((questionIndex + 1) / total) * 100;
+  const progressText = isPracticeMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
 
-  // ---- helpers: slider move ----
+  // --- AUTO-SAVE EFFECT ---
+  useEffect(() => {
+    if (!isPracticeMode) {
+      localStorage.setItem('survey_index', questionIndex.toString());
+      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
+    }
+  }, [questionIndex, isPracticeMode]);
+
+  // --- ID INITIALIZATION ---
+  useEffect(() => {
+    const stored = localStorage.getItem('patient_id');
+    if (stored) setPatientId(stored);
+    else {
+      const input = window.prompt('Bitte geben Sie Ihre Patienten-ID ein:');
+      if (input && input.trim()) {
+        localStorage.setItem('patient_id', input.trim());
+        setPatientId(input.trim());
+      }
+    }
+  }, []);
+
+  // --- AUDIO TOOLS ---
+  const pickMime = () => {
+    const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+    return types.find(t => (window as any).MediaRecorder?.isTypeSupported?.(t)) || '';
+  };
+
+  const startMic = async () => {
+    setMicError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const rec = new MediaRecorder(stream, { mimeType: pickMime() });
+      rec.ondataavailable = (ev) => {
+        const resolver = chunkResolversRef.current.shift();
+        if (resolver) resolver(ev.data.size > 0 ? ev.data : null);
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setIsRecording(true);
+      setTestMode(false);
+    } catch (e) {
+      setMicError('Mikrofon-Zugriff verweigert. Bitte in den Einstellungen erlauben.');
+    }
+  };
+
+  const cutAudioChunk = (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!recorderRef.current || recorderRef.current.state !== 'recording') return resolve(null);
+      chunkResolversRef.current.push(resolve);
+      recorderRef.current.requestData();
+    });
+  };
+
+  // --- UPLOAD LOGIC WITH DETAILED ALERTS ---
+  const uploadItem = async (payload: any) => {
+    const fd = new FormData();
+    fd.append('participantId', patientId);
+    fd.append('sessionId', sessionIdRef.current);
+    fd.append('questionIndex', String(payload.questionIndex));
+    fd.append('questionText', payload.questionText);
+    fd.append('answerValue', String(payload.answerValue));
+    
+    if (payload.audio) {
+      const ext = payload.audio.type.includes('mp4') ? 'mp4' : 'webm';
+      fd.append('audio', new File([payload.audio], `rec.${ext}`, { type: payload.audio.type }));
+    }
+
+    try {
+      const res = await fetch('/api/healthslider/submit-item/', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Unbekannter Serverfehler' }));
+        throw new Error(errData.error || `Server antwortete mit Status ${res.status}`);
+      }
+    } catch (e: any) {
+      // Alert the user specifically why it failed
+      alert(`Fehler beim Speichern!\nGrund: ${e.message}\n\nBitte prüfen Sie Ihre Internetverbindung.`);
+      throw e; // Stop the flow
+    }
+  };
+
+  // --- NAVIGATION ---
+  const handleNext = async (val: number | 'NA') => {
+    if (isPracticeMode) {
+      const blob = await cutAudioChunk();
+      if (blob) setPracticeAudioUrl(URL.createObjectURL(blob));
+      return; 
+    }
+
+    setSaving(true);
+    try {
+      if (!sessionIdRef.current) sessionIdRef.current = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const audio = await cutAudioChunk();
+      await uploadItem({
+        questionIndex,
+        questionText: REAL_QUESTIONS[questionIndex],
+        answerValue: val === 'NA' ? -1 : val,
+        audio
+      });
+
+      if (questionIndex < total - 1) {
+        setQuestionIndex(i => i + 1);
+        setSliderPosition(50);
+      } else {
+        setShowSummary(true);
+        stopAll();
+      }
+    } catch (e) {
+      // Upload error handled in uploadItem alert
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startRealInterview = () => {
+    setIsPracticeMode(false);
+    setQuestionIndex(0);
+    setSliderPosition(50);
+    setPracticeAudioUrl(null);
+  };
+
+  const stopAll = () => {
+    recorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    setIsRecording(false);
+  };
+
   const handleSliderMove = useCallback((clientY: number) => {
     const el = spectrumRef.current;
     if (!el) return;
@@ -79,16 +200,15 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     let pct = Math.round(100 - (y / rect.height) * 100);
-    pct = Math.min(97, Math.max(3, pct));
-    setSliderPosition(pct);
+    setSliderPosition(Math.min(97, Math.max(3, pct)));
   }, []);
 
-  // ---- dragging listeners ----
+  // --- GLOBAL EVENT LISTENERS ---
   useEffect(() => {
     const onMove = (e: MouseEvent) => isDragging && handleSliderMove(e.clientY);
     const onTouchMove = (e: TouchEvent) => {
       if (isDragging && e.touches.length === 1) {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         handleSliderMove(e.touches[0].clientY);
       }
     };
@@ -107,245 +227,31 @@ export default function HealthSlider() {
     };
   }, [isDragging, handleSliderMove]);
 
-  // ---- Ask participant code once (on mount) ----
-  useEffect(() => {
-    const stored = localStorage.getItem('participant_code');
-    if (stored) {
-      setParticipantId(stored);
-      return;
-    }
-    const input = window.prompt('Bitte geben Sie Ihre Teilnehmer-ID ein:');
-    if (input && input.trim()) {
-      const cleaned = input.trim();
-      localStorage.setItem('participant_code', cleaned);
-      setParticipantId(cleaned);
-    }
-  }, []);
+  // --- RENDERING ---
+  if (testMode) {
+    return (
+      <main style={styles.app}>
+        <h1 style={styles.title}>Willkommen</h1>
+        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
+          <p style={{ fontSize: 18, color: '#444' }}>
+            Bitte erlauben Sie den Mikrofon-Zugriff. Wir starten mit einem Übungslauf, um die Bedienung zu testen.
+          </p>
+          {micError && <div style={{ color: '#b00020', marginBottom: 12 }}>{micError}</div>}
+          <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={startMic}>
+            Übungslauf starten
+          </button>
+        </div>
+      </main>
+    );
+  }
 
-  // ---- pick a supported mime type ----
-  const pickMime = () => {
-    const candidates = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/ogg',
-    ];
-    for (const c of candidates) {
-      if ((window as any).MediaRecorder?.isTypeSupported?.(c)) return c;
-    }
-    return ''; // let browser decide
-  };
-
-  // ---- Start recording ONCE (user click) ----
-  const startInterview = async () => {
-    setMicError('');
-
-    if (!participantId) {
-      setMicError('Teilnehmer-ID fehlt. Bitte Seite neu laden und ID setzen.');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      streamRef.current = stream;
-
-      const mimeType = pickMime();
-      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-
-      rec.ondataavailable = (ev: BlobEvent) => {
-        const resolver = chunkResolversRef.current.shift();
-        if (!resolver) return;
-        if (ev.data && ev.data.size > 0) resolver(ev.data);
-        else resolver(null);
-      };
-
-      rec.onerror = () => {
-        setMicError('Audioaufnahme-Fehler. Bitte Browser neu starten oder anderes Gerät.');
-      };
-
-      recorderRef.current = rec;
-
-      // session id = timestamp+random
-      sessionIdRef.current = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-      rec.start(); // continuous
-      lastCutAtRef.current = Date.now();
-
-      setMicReady(true);
-      setIsRecording(true);
-
-      // move from test screen to first real question if you want immediately:
-      // keep your old behavior: first click transitions out of testMode
-      setTestMode(false);
-      setQuestionIndex(0);
-      setSliderPosition(50);
-
-    } catch (e: any) {
-      setMicError(
-        e?.name === 'NotAllowedError'
-          ? 'Mikrofon-Zugriff verweigert. Bitte erlauben und erneut versuchen.'
-          : 'Mikrofon konnte nicht gestartet werden.'
-      );
-    }
-  };
-
-  // ---- Request a chunk since last cut (auto per question) ----
-  const cutAudioChunk = (): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      const rec = recorderRef.current;
-      if (!rec || rec.state !== 'recording') return resolve(null);
-
-      chunkResolversRef.current.push(resolve);
-      try {
-        rec.requestData(); // emits one dataavailable with audio since last requestData/start
-      } catch {
-        resolve(null);
-      }
-    });
-  };
-
-  // ---- Upload one item (answer + chunk) ----
-  const uploadItem = async (payload: {
-    questionIndex: number;
-    questionText: string;
-    answerValue: number;
-    audio: Blob | null;
-  }) => {
-    const fd = new FormData();
-    fd.append('participantId', participantId);
-    fd.append('sessionId', sessionIdRef.current);
-    fd.append('version', VERSION);
-    fd.append('questionIndex', String(payload.questionIndex));
-    fd.append('questionText', payload.questionText);
-    fd.append('answerValue', String(payload.answerValue));
-    fd.append('answeredAt', new Date().toISOString());
-
-    if (payload.audio) {
-      // name can be anything; backend stores to GridFS
-      const ext = payload.audio.type.includes('ogg') ? 'ogg' : 'webm';
-      const file = new File([payload.audio], `q_${payload.questionIndex}.${ext}`, {
-        type: payload.audio.type || 'audio/webm',
-      });
-      fd.append('audio', file);
-      // optional: duration can be measured client-side later
-    }
-
-    const res = await fetch('/api/healthslider/submit-item/', {
-      method: 'POST',
-      body: fd,
-    });
-
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j?.error || 'Upload failed');
-    }
-  };
-
-  // ---- stop recorder + mic ----
-  const stopRecording = () => {
-    try {
-      recorderRef.current?.stop();
-    } catch {}
-    recorderRef.current = null;
-
-    const s = streamRef.current;
-    if (s) s.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-
-    setIsRecording(false);
-    setMicReady(false);
-  };
-
-  // cleanup on unmount
-  useEffect(() => {
-    return () => stopRecording();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ---- advance + auto-save per question ----
-  const goNext = async (answerValue: number | 'NA') => {
-    if (testMode) {
-      // if you want to keep a test step BEFORE start, do not use this.
-      // With auto-record once, we start via startInterview() button instead.
-      return;
-    }
-
-    if (!isRecording) {
-      setMicError('Aufnahme läuft nicht. Bitte Interview neu starten.');
-      return;
-    }
-
-    const val = answerValue === 'NA' ? -1 : answerValue;
-
-    setSaving(true);
-    setMicError('');
-
-    try {
-      const audioChunk = await cutAudioChunk();
-
-      await uploadItem({
-        questionIndex,
-        questionText: REAL_QUESTIONS[questionIndex],
-        answerValue: val,
-        audio: audioChunk,
-      });
-
-      // keep local summary (optional)
-      const updated = [...answers, [REAL_QUESTIONS[questionIndex], val]] as [string, number][];
-      setAnswers(updated);
-
-      if (questionIndex < total - 1) {
-        setQuestionIndex((i) => i + 1);
-        setSliderPosition(50);
-      } else {
-        setShowSummary(true);
-        // optionally stop here (or after confirm)
-        stopRecording();
-      }
-    } catch (e: any) {
-      setMicError(e?.message || 'Speichern fehlgeschlagen.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const goBack = () => {
-    if (testMode || questionIndex === 0 || saving) return;
-
-    setAnswers((prev) => {
-      const lastVal = prev[prev.length - 1]?.[1];
-      setSliderPosition(typeof lastVal === 'number' && lastVal >= 0 ? lastVal : 50);
-      return prev.slice(0, -1);
-    });
-    setQuestionIndex((i) => Math.max(0, i - 1));
-    // Note: going back does NOT “uncut” audio already uploaded.
-    // If you need that, we add delete/overwrite endpoints.
-  };
-
-  const confirmAndFinish = () => {
-    alert('Fragebogen abgeschlossen!');
-    stopRecording();
-
-    setAnswers([]);
-    setQuestionIndex(0);
-    setSliderPosition(50);
-    setShowSummary(false);
-    setTestMode(true);
-
-    localStorage.removeItem('participant_code');
-    window.location.reload();
-  };
-
-  // --- UI ---
   return (
     <main style={styles.app}>
-      {!testMode && (
+      {isPracticeMode && (
+        <div style={styles.practiceBanner}>ÜBUNGSMODUS - Daten werden nicht gespeichert</div>
+      )}
+
+      {!isPracticeMode && (
         <div style={styles.progressRow}>
           <div style={styles.progressText}>{progressText}</div>
           <div style={styles.progressTrack}>
@@ -354,36 +260,10 @@ export default function HealthSlider() {
         </div>
       )}
 
-      <h1 style={styles.title}>{currentQuestion}</h1>
+      <h1 style={styles.title}>{isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}</h1>
 
-      {/* One-time mic start screen */}
-      {testMode ? (
-        <div style={{ width: '100%', maxWidth: 980, marginTop: 18, textAlign: 'center' }}>
-          <p style={{ color: '#444', fontSize: 18 }}>
-            Bitte erlauben Sie das Mikrofon. Die Aufnahme startet automatisch und wird pro Frage gespeichert.
-          </p>
-
-          {micError && (
-            <div style={{ color: '#b00020', marginBottom: 12 }}>
-              {micError}
-            </div>
-          )}
-
-          <button
-            style={{ ...styles.btn, ...styles.btnPrimary, maxWidth: 520 }}
-            onClick={startInterview}
-          >
-            Interview starten (Mikrofon aktivieren)
-          </button>
-        </div>
-      ) : (
+      {!showSummary ? (
         <>
-          {micError && (
-            <div style={{ color: '#b00020', marginTop: 8 }}>
-              {micError}
-            </div>
-          )}
-
           <section style={styles.centerArea}>
             <div style={styles.endLabelTop} aria-hidden>Sehr gut</div>
 
@@ -392,7 +272,6 @@ export default function HealthSlider() {
               style={styles.trackBox}
               onClick={(e) => handleSliderMove(e.clientY)}
               aria-label="Schieberegler vertikal"
-              role="group"
             >
               <div style={styles.gradientBar} />
               <div style={{ ...styles.cap, ...styles.capTop }} />
@@ -400,99 +279,69 @@ export default function HealthSlider() {
 
               <div
                 role="slider"
-                aria-valuemin={0}
-                aria-valuemax={100}
                 aria-valuenow={sliderPosition}
-                aria-label="Wert einstellen"
-                tabIndex={0}
                 onMouseDown={() => setIsDragging(true)}
-                onTouchStart={(e) => {
-                  e.stopPropagation();
-                  setIsDragging(true);
-                }}
-                style={{
-                  ...styles.knob,
-                  bottom: `${sliderPosition}%`,
-                }}
+                onTouchStart={(e) => { e.stopPropagation(); setIsDragging(true); }}
+                style={{ ...styles.knob, bottom: `${sliderPosition}%` }}
               />
             </div>
 
             <div style={styles.endLabelBottom} aria-hidden>Sehr schlecht</div>
           </section>
 
-          {!showSummary ? (
-            <>
-              <div style={styles.buttonsRow}>
-                <button
-                  style={{ ...styles.btn, ...styles.btnNeutral }}
-                  disabled={saving}
-                  onClick={() => goNext('NA')}
-                >
-                  {saving ? 'Speichern…' : 'Kann ich nicht beantworten'}
-                </button>
-
-                <button
-                  style={{ ...styles.btn, ...styles.btnPrimary }}
-                  disabled={saving}
-                  onClick={() => goNext(sliderPosition)}
-                >
-                  {saving ? 'Speichern…' : 'Weiter'}
-                </button>
-              </div>
-
-              <div style={styles.backSpacer} />
-
-              <div style={styles.backRow}>
-                <button
-                  type="button"
-                  onClick={goBack}
-                  disabled={questionIndex === 0 || saving}
-                  style={{
-                    ...styles.btnBack,
-                    ...(questionIndex === 0 || saving ? styles.btnBackDisabled : {}),
-                  }}
-                  aria-label="Zurück zur vorherigen Frage"
-                  title="Zurück"
-                >
-                  Zurück
-                </button>
-              </div>
-            </>
-          ) : (
-            <div style={styles.buttonsRow}>
-              <button
-                style={{ ...styles.btn, ...styles.btnPrimary }}
-                onClick={confirmAndFinish}
-              >
-                Bestätigen & Beenden
-              </button>
+          {isPracticeMode && practiceAudioUrl && (
+            <div style={styles.audioTestBox}>
+              <p style={{ marginBottom: 8, fontSize: 14 }}>Ihre Test-Aufnahme zum Prüfen:</p>
+              <audio src={practiceAudioUrl} controls style={{ height: 40 }} />
             </div>
           )}
 
-          <footer style={styles.footer}>
-            <button
-              onClick={() => {
-                localStorage.removeItem('participant_code');
-                stopRecording();
-                window.location.reload();
-              }}
-              style={styles.resetLink}
-            >
-              ID zurücksetzen
-            </button>
-            <div style={styles.footerText}>
-              {participantId ? `Teilnehmer:in: ${participantId}` : 'No ID gesetzt'}
-              {isRecording ? ' • Aufnahme läuft' : ''}
-            </div>
-            <div style={styles.footerText}>{VERSION}</div>
-          </footer>
+          <div style={styles.buttonsRow}>
+            {isPracticeMode ? (
+              <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={startRealInterview}>
+                {practiceAudioUrl ? "Test okay, Interview starten" : "Übung beenden & Start"}
+              </button>
+            ) : (
+              <>
+                <button
+                  style={{ ...styles.btn, ...styles.btnNeutral }}
+                  disabled={saving}
+                  onClick={() => handleNext('NA')}
+                >
+                  {saving ? 'Speichert...' : 'Kann ich nicht beantworten'}
+                </button>
+                <button
+                  style={{ ...styles.btn, ...styles.btnPrimary }}
+                  disabled={saving}
+                  onClick={() => handleNext(sliderPosition)}
+                >
+                  {saving ? 'Speichert...' : 'Weiter'}
+                </button>
+              </>
+            )}
+          </div>
         </>
+      ) : (
+        <div style={styles.buttonsRow}>
+          <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => { localStorage.clear(); window.location.reload(); }}>
+            Bestätigen & Beenden
+          </button>
+        </div>
       )}
+
+      <footer style={styles.footer}>
+        <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={styles.resetLink}>ID zurücksetzen</button>
+        <div style={styles.footerText}>
+          {patientId ? `Teilnehmer:in: ${patientId}` : 'No ID'}
+          {isRecording && !isPracticeMode ? ' • ⏺ Aufnahme läuft' : ''}
+        </div>
+        <div style={styles.footerText}>{VERSION}</div>
+      </footer>
     </main>
   );
 }
 
-/** ====== STYLES (unchanged from you, keep your existing styles) ====== */
+/** ====== ORIGINAL STYLES RESTORED ====== */
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: '100dvh',
@@ -500,137 +349,39 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    overflowY: 'auto',
     padding: '0 16px 24px',
-    fontFamily:
-      '"Atkinson Hyperlegible", system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    fontFamily: '"Atkinson Hyperlegible", system-ui, sans-serif',
     color: '#1f1f1f',
+  },
+  practiceBanner: {
+    background: '#ffcc00',
+    padding: '8px 20px',
+    borderRadius: '20px',
+    fontWeight: 'bold',
+    marginTop: 10,
+    fontSize: 14,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
   progressRow: { width: '100%', maxWidth: 980, marginTop: 8 },
   progressText: { fontSize: 14, color: '#4a4a4a', marginBottom: 6 },
   progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
-  progressFill: {
-    height: '100%',
-    background: '#2fb463',
-    borderRadius: 8,
-    transition: 'width .2s ease',
-  },
-  title: {
-    margin: '8px 0 0',
-    fontSize: 36,
-    lineHeight: 1.2,
-    textAlign: 'center',
-    maxWidth: 980,
-  },
-  centerArea: {
-    flex: 1,
-    maxWidth: 980,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingBottom: 12,
-  },
+  progressFill: { height: '100%', background: '#2fb463', borderRadius: 8, transition: 'width .2s ease' },
+  title: { margin: '16px 0', fontSize: 32, lineHeight: 1.2, textAlign: 'center', maxWidth: 980 },
+  centerArea: { flex: 1, maxWidth: 980, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 12 },
   endLabelTop: { fontSize: 20, color: '#222', marginBottom: 6 },
   endLabelBottom: { fontSize: 20, color: '#222', marginTop: 6 },
-  trackBox: {
-    position: 'relative',
-    width: 140,
-    height: 'min(60vh, calc(100dvh - 260px))',
-    touchAction: 'none',
-  },
-  gradientBar: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: 0,
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)',
-    borderRadius: 14,
-    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.05)',
-    zIndex: 0,
-  },
-  cap: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '140%',
-    height: 15,
-    borderRadius: 6,
-    zIndex: 1,
-  },
+  trackBox: { position: 'relative', width: 140, height: 'min(50vh, 400px)', touchAction: 'none' },
+  gradientBar: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)', borderRadius: 14, zIndex: 0 },
+  cap: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: '140%', height: 15, borderRadius: 6, zIndex: 1 },
   capTop: { top: -5, background: '#67d7be' },
   capBottom: { bottom: -5, background: '#c47993' },
-  knob: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translate(-50%, 50%)',
-    width: '130%',
-    height: 28,
-    background: '#1f1f1f',
-    borderRadius: 16,
-    opacity: 0.9,
-    zIndex: 2,
-    cursor: 'grab',
-    boxShadow: '0 2px 8px rgba(0,0,0,.25)',
-  },
-  buttonsRow: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    padding: '4px 0 4px',
-  },
-  btn: {
-    flex: 1,
-    minHeight: 56,
-    fontSize: 20,
-    borderRadius: 14,
-    border: 'none',
-    letterSpacing: 0.2,
-  },
+  knob: { position: 'absolute', left: '50%', transform: 'translate(-50%, 50%)', width: '130%', height: 28, background: '#1f1f1f', borderRadius: 16, opacity: 0.9, zIndex: 2, cursor: 'grab', boxShadow: '0 2px 8px rgba(0,0,0,.25)' },
+  audioTestBox: { background: '#fff', padding: '12px', borderRadius: '14px', marginBottom: 16, boxShadow: 'inset 0 0 0 1px #eee' },
+  buttonsRow: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', gap: 16, padding: '4px 0' },
+  btn: { flex: 1, minHeight: 56, fontSize: 20, borderRadius: 14, border: 'none', cursor: 'pointer' },
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
   btnPrimary: { background: '#9d8d71', color: '#fff' },
-  backSpacer: { height: 'min(22vh, 260px)' },
-  backRow: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  btnBack: {
-    padding: '10px 16px',
-    fontSize: 16,
-    borderRadius: 10,
-    background: '#efefef',
-    color: '#4a4a4a',
-    border: '1px solid #ddd',
-    opacity: 0.9,
-  },
-  btnBackDisabled: { opacity: 0.45, cursor: 'not-allowed' },
-  footer: {
-    width: '100%',
-    maxWidth: 980,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    padding: '6px 0 10px',
-    color: '#707070',
-    fontSize: 14,
-  },
-  resetLink: {
-    fontSize: 14,
-    color: '#9b9b9b',
-    background: 'none',
-    border: 'none',
-    textDecoration: 'underline',
-    cursor: 'pointer',
-  },
+  footer: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 0', color: '#707070', fontSize: 14 },
+  resetLink: { fontSize: 14, color: '#9b9b9b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' },
   footerText: { whiteSpace: 'nowrap' },
 };
