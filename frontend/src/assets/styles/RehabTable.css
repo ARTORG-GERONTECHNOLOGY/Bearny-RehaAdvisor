@@ -1,45 +1,302 @@
-/* Main container that holds the two columns */
-.rehab-panels {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-}
+/* src/assets/styles/RehabTable.css */
 
-/* OVERRIDE BOOTSTRAP COLUMN BEHAVIOR  
-   This is the REAL FIX that enables scrolling. */
-.rehab-panels > .col,
-.rehab-panels > [class*="col-"] {
+/* =========================
+   Base page layout
+   ========================= */
+.rehaPage {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-height: 0 !important;   /* 🔥 CRITICAL FIX */
+}
+
+.rehaPage__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+}
+
+.rehaLayout {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.rehaGrid {
+  align-items: stretch;
+}
+
+.rehaCol {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* =========================
+   Shared panel shell
+   ========================= */
+.rehaPanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
   overflow: hidden;
 }
 
-/* Left side scroll area */
-.left-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+/* Never allow pseudo-elements to block clicks */
+.rehaPanel::before,
+.rehaPanel::after,
+.rehaPanel__header::before,
+.rehaPanel__header::after {
+  pointer-events: none !important;
 }
 
-/* Top (tabs + filters) — auto height */
-.left-top {
+.rehaPanel__header {
+  padding: 10px 12px;
+  background: #f8f9fa;
+  position: relative;
+  z-index: 0;
+}
+
+.rehaPanel__headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rehaPanel__title {
+  font-weight: 600;
+}
+
+.rehaPanel__body {
+  /* CRITICAL: body must be a flex column and must be shrinkable */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* ✅ only inner areas scroll */
+  padding: 12px;
+  position: relative;
+  z-index: 0;
+  pointer-events: auto;
+}
+
+.rehaPanel__body--flush {
+  padding: 0;
+}
+
+/* =========================
+   Panel height alignment (left = calendar)
+   ========================= */
+:root {
+  --reha-panels-max-h: calc(100dvh - 260px);
+}
+
+.rehaPanel--left,
+.rehaPanel--calendar {
+  height: var(--reha-panels-max-h);
+  max-height: var(--reha-panels-max-h);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* IMPORTANT: Do NOT force inner cards to full height */
+.rehaPanel--left .left-bar-inner .card {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* =========================
+   LEFT PANEL SCROLL (your exact structure)
+   ========================= */
+.left-bar-wrapper {
+  /* CRITICAL: wrapper must participate in flex sizing */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-bar-inner {
+  /* CRITICAL: inner must be a shrinkable flex column */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky header block (tabs + filters) */
+.rehaLeftSticky {
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  padding: 8px 0 10px 0;
 }
 
-/* Calendar scroll wrapper */
-.calendar-scroll {
+/* ✅ THE SCROLL AREA */
+.rehaLeftListScroll {
+  flex: 1 1 auto;
+  min-height: 0;           /* CRITICAL */
+  overflow-y: auto;        /* CRITICAL */
+  overflow-x: hidden;
+  padding: 0 8px 8px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Help react-select menus not clip weirdly */
+.rehaLeftSticky .card-body {
+  overflow: visible;
+}
+
+/* Ensure form controls never overflow container */
+.rehaLeftSticky input,
+.rehaLeftSticky select,
+.rehaLeftSticky .form-control,
+.rehaLeftSticky .form-select {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* =========================
+   CALENDAR HEIGHT (avoid blank)
+   ========================= */
+.rehaPanel__body--calendar {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* react-big-calendar forcing fixes */
+.rehaCalendarWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Give RBC a drawable height */
+.rehaCalendarWrap .rbc-calendar {
+  flex: 1 1 auto;
+  min-height: 520px;
+}
+
+/* Hardening clicks */
+.rehaCalendarWrap,
 .rbc-calendar,
-.rbc-time-view,
-.rbc-time-content {
-  min-height: 0 !important;
-  height: 100% !important;
+.rbc-event,
+.rbc-row-segment,
+.rbc-day-slot,
+.rbc-time-content,
+.rbc-agenda-table {
+  pointer-events: auto;
+}
+
+/* =========================
+   Calendar topbar + legends
+   ========================= */
+.rehaCalendar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rehaCalendar__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rehaCalendar__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rehaCalendar__legendWrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 240px;
+}
+
+.rehaLegend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.rehaLegend__label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.rehaLegend__item {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.rehaLegend__item--completed { background: rgba(25, 135, 84, 0.18); border-color: rgba(25, 135, 84, 0.35); }
+.rehaLegend__item--missed    { background: rgba(220, 53, 69, 0.14); border-color: rgba(220, 53, 69, 0.30); }
+.rehaLegend__item--today     { background: rgba(13, 110, 253, 0.14); border-color: rgba(13, 110, 253, 0.30); }
+.rehaLegend__item--upcoming  { background: rgba(108, 117, 125, 0.12); border-color: rgba(108, 117, 125, 0.28); }
+
+.rehaLegend__item--benefit {
+  background: hsl(calc(var(--benefit-bucket) * 36) 70% 92%);
+  border-color: hsl(calc(var(--benefit-bucket) * 36) 70% 75%);
+}
+
+.rehaLegend__more {
+  opacity: 0.7;
+}
+
+/* =========================
+   Calendar event coloring
+   ========================= */
+.rehaEvent {
+  border-radius: 10px;
+  padding: 2px 6px;
+}
+
+.rehaEvent--completed { background: rgba(25, 135, 84, 0.25) !important; border: 1px solid rgba(25, 135, 84, 0.45) !important; }
+.rehaEvent--missed    { background: rgba(220, 53, 69, 0.20) !important; border: 1px solid rgba(220, 53, 69, 0.40) !important; }
+.rehaEvent--today     { background: rgba(13, 110, 253, 0.22) !important; border: 1px solid rgba(13, 110, 253, 0.45) !important; }
+.rehaEvent--upcoming  { background: rgba(108, 117, 125, 0.18) !important; border: 1px solid rgba(108, 117, 125, 0.35) !important; }
+
+.rehaEvent--benefit {
+  background: hsl(calc(var(--benefit-bucket) * 36) 70% 92%) !important;
+  border: 1px solid hsl(calc(var(--benefit-bucket) * 36) 70% 75%) !important;
+}
+
+/* =========================
+   Mobile tweaks
+   ========================= */
+@media (max-width: 576px) {
+  :root {
+    --reha-panels-max-h: calc(100dvh - 220px);
+  }
+
+  .rehaPage__content {
+    padding: 12px;
+  }
+}
+/* Make the filters accordion more compact */
+.rehaFiltersAccordion .accordion-button {
+  padding: 8px 10px;
+  font-size: 0.95rem;
+}
+
+.rehaFiltersAccordion .accordion-body {
+  padding: 10px;
 }

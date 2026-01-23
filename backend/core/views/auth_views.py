@@ -403,7 +403,40 @@ def register_view(request):
     if request.method != "POST":
         return _err("Method not allowed", status=405)
 
+    user = None
+    patient = None
+    therapist = None
+
+    def rollback():
+        """Best-effort cleanup so we don't keep a User if downstream creation fails."""
+        nonlocal user, patient, therapist
+
+        # delete child first
+        try:
+            if patient is not None:
+                patient.delete()
+        except Exception:
+            logger.exception("Rollback: patient delete failed")
+
+        try:
+            if therapist is not None:
+                therapist.delete()
+        except Exception:
+            logger.exception("Rollback: therapist delete failed")
+
+        # delete user last
+        try:
+            if user is not None:
+                user.delete()
+        except Exception:
+            logger.exception("Rollback: user delete failed")
+
+        patient = None
+        therapist = None
+        user = None
+
     try:
+        # -------- Parse JSON --------
         try:
             data = json.loads(request.body or "{}")
         except json.JSONDecodeError:
@@ -417,7 +450,7 @@ def register_view(request):
         email = _norm_email(email_raw)
         raw_password = data.get("password")
 
-        # ---- basic required fields ----
+        # -------- Basic required fields --------
         if not user_type:
             field_errors["userType"] = ["This field is required."]
         if not email:
@@ -428,7 +461,7 @@ def register_view(request):
         if field_errors:
             return _err("Validation error.", status=400, field_errors=field_errors)
 
-        # ---- validate email ----
+        # -------- Validate email --------
         try:
             validate_email(email)
         except ValidationError:
@@ -438,7 +471,7 @@ def register_view(request):
                 field_errors={"email": ["Enter a valid email address."]},
             )
 
-        # (Optional) also reject any internal whitespace like "a b@c.com"
+        # reject any whitespace in the raw email input
         if any(ch.isspace() for ch in (email_raw or "")):
             return _err(
                 "Validation error.",
@@ -446,156 +479,159 @@ def register_view(request):
                 field_errors={"email": ["Email must not contain whitespace."]},
             )
 
-        # ---- normalize user_type values if needed ----
-        # If your backend expects exactly "Patient"/"Therapist"/"Admin"
-        # keep as-is but trim; otherwise map here.
-
-        # ---- extra validation by role ----
+        # -------- Extra validation by role --------
         if user_type == "Patient":
             if not data.get("therapist"):
                 field_errors["therapist"] = ["Assigned therapist is required."]
             if not data.get("rehaEndDate"):
                 field_errors["rehaEndDate"] = ["Rehabilitation end date is required."]
         elif user_type == "Therapist":
-            # optional: validate any required fields for therapist
+            # add required therapist fields here if needed
             pass
 
         if field_errors:
             return _err("Validation error.", status=400, field_errors=field_errors)
 
-        # ---- atomic: prevents partial user creation ----
-        with transaction.atomic():
-            # check existence properly + using normalized email
-            if User.objects(email=email).first():
+        # -------- Uniqueness check (MongoEngine) --------
+        if User.objects(email=email).first():
+            return _err(
+                "Validation error.",
+                status=400,
+                field_errors={"email": ["An account with this email already exists."]},
+            )
+
+        # -------- Create user (but rollback if anything later fails) --------
+        user = User(
+            username=generate_custom_id(user_type),
+            role=user_type,
+            email=sanitize_text(email),
+            phone=sanitize_text((data.get("phone") or "").strip()),
+            pwdhash=make_password(raw_password),
+            createdAt=timezone.now(),
+            isActive=(user_type == "Patient"),
+        )
+
+        try:
+            user.save()
+        except Exception:
+            # If you have a unique index on email at DB level, this can still race
+            logger.exception("User save failed")
+            rollback()
+            return _err(
+                "Validation error.",
+                status=400,
+                field_errors={"email": ["An account with this email already exists."]},
+            )
+
+        # ===================== Patient Registration =====================
+        if user_type == "Patient":
+            try:
+                therapist_user_id = data.get("therapist")
+                # therapist_user_id is likely a string/ObjectId; pk works for both in mongoengine
+                therapist_user = User.objects.get(pk=therapist_user_id)
+                pat_therapist = Therapist.objects.get(userId=therapist_user)
+            except (User.DoesNotExist, Therapist.DoesNotExist):
+                rollback()
+                return _err("Assigned therapist not found.", status=404)
+
+            # Parse date safely: accept "YYYY-MM-DD" and full ISO "YYYY-MM-DDTHH:mm:ssZ"
+            raw_reha_end = (data.get("rehaEndDate") or "").strip()
+            try:
+                cleaned = raw_reha_end.split("T")[0]
+                reha_end_date = datetime.strptime(cleaned, "%Y-%m-%d")
+            except Exception as e:
+                logger.warning(
+                    "Invalid rehaEndDate. raw=%r cleaned=%r error=%s",
+                    raw_reha_end,
+                    (raw_reha_end.split("T")[0] if raw_reha_end else ""),
+                    e,
+                )
+                rollback()
                 return _err(
                     "Validation error.",
                     status=400,
-                    field_errors={"email": ["An account with this email already exists."]},
+                    field_errors={"rehaEndDate": ["Invalid date format. Use YYYY-MM-DD."]},
                 )
 
-            # create user
-            user = User(
-                username=generate_custom_id(user_type),
-                role=user_type,
-                email=sanitize_text(email),
-                phone=sanitize_text((data.get("phone") or "").strip()),
-                pwdhash=make_password(raw_password),
-                createdAt=timezone.now(),
-                isActive=(user_type == "Patient"),
+            patient = Patient(
+                userId=user,
+                patient_code=(data.get("patient_code") or "").strip(),
+                name=sanitize_text(data.get("lastName"), True),
+                first_name=sanitize_text(data.get("firstName"), True),
+                age=(data.get("age") or ""),
+                therapist=pat_therapist,
+                sex=(data.get("sex") or "").strip()
+                if isinstance(data.get("sex"), str)
+                else data.get("sex"),
+                diagnosis=data.get("diagnosis"),
+                function=data.get("function"),
+                restrictions=sanitize_text(data.get("restrictions", "-")),
+                access_word=raw_password,
+                duration=(reha_end_date.date() - timezone.now().date()).days,
+                reha_end_date=reha_end_date,
+                # ✅ FIX: correct key (your payload uses "careGiver")
+                care_giver=sanitize_text(data.get("careGiver", ""), True),
             )
 
             try:
-                user.save()
-            except IntegrityError:
-                # In case email has a DB-level unique constraint race condition
+                patient.save()
+            except Exception as e:
+                logger.exception("Patient save failed.")
+                rollback()
+                return _err("Patient creation failed.", status=400, non_field_errors=[str(e)])
+
+            # create rehab plan; if fails -> rollback patient + user
+            try:
+                ok = create_rehab_plan(patient, pat_therapist)
+            except Exception as e:
+                logger.exception("create_rehab_plan crashed.")
+                rollback()
                 return _err(
-                    "Validation error.",
-                    status=400,
-                    field_errors={"email": ["An account with this email already exists."]},
+                    "Rehabilitation plan creation failed.",
+                    status=500,
+                    non_field_errors=[str(e)],
                 )
 
-            # --- Patient Registration ---
-            if user_type == "Patient":
-                try:
-                    therapist_user_id = data.get("therapist")
-                    therapist_user = User.objects.get(pk=therapist_user_id)
-                    pat_therapist = Therapist.objects.get(userId=therapist_user)
-                except (User.DoesNotExist, Therapist.DoesNotExist):
-                    # transaction.atomic will rollback user creation automatically
-                    return _err("Assigned therapist not found.", status=404)
+            if not ok:
+                rollback()
+                return _err("Rehabilitation plan creation failed.", status=500)
 
-                # Parse dates safely
-                try:
-                    reha_end_date = datetime.strptime(
-                        (data.get("rehaEndDate") or "").strip(), "%Y-%m-%d"
-                    )
-                except Exception:
-                    return _err(
-                        "Validation error.",
-                        status=400,
-                        field_errors={"rehaEndDate": ["Invalid date format. Use YYYY-MM-DD."]},
-                    )
+            return JsonResponse(
+                {"success": True, "message": "Patient registered successfully", "id": user.username},
+                status=200,
+            )
 
-                patient = Patient(
-                    userId=user,
-                    patient_code=(data.get("patient_code") or "").strip(),
-                    name=sanitize_text(data.get("lastName"), True),
-                    first_name=sanitize_text(data.get("firstName"), True),
-                    age=(data.get("age") or ""),
-                    therapist=pat_therapist,
-                    sex=(data.get("sex") or "").strip() if isinstance(data.get("sex"), str) else data.get("sex"),
-                    diagnosis=data.get("diagnosis"),
-                    function=data.get("function"),
-                    restrictions=sanitize_text(data.get("restrictions", "-")),
-                    access_word=raw_password,
-                    duration=(reha_end_date.date() - timezone.now().date()).days,
-                    reha_end_date=reha_end_date,
-                    care_giver=sanitize_text(data.get("carreGiver", ""), True),
-                )
+        # ===================== Therapist Registration =====================
+        if user_type == "Therapist":
+            therapist = Therapist(
+                userId=user,
+                name=sanitize_text(data.get("lastName", ""), True),
+                first_name=sanitize_text(data.get("firstName", ""), True),
+                specializations=data.get("specialisation"),
+                clinics=data.get("clinic"),
+            )
 
-                try:
-                    patient.save()
-                except Exception as e:
-                    logger.exception("Patient save failed.")
-                    return _err(
-                        "Patient creation failed.",
-                        status=400,
-                        non_field_errors=[str(e)],
-                    )
+            try:
+                therapist.save()
+            except Exception as e:
+                logger.exception("Therapist save failed.")
+                rollback()
+                return _err("Therapist creation failed.", status=400, non_field_errors=[str(e)])
 
-                try:
-                    ok = create_rehab_plan(patient, pat_therapist)
-                except Exception as e:
-                    logger.exception("create_rehab_plan crashed.")
-                    return _err(
-                        "Rehabilitation plan creation failed.",
-                        status=500,
-                        non_field_errors=[str(e)],
-                    )
+            return JsonResponse(
+                {"success": True, "message": "Therapist registered successfully", "id": user.username},
+                status=200,
+            )
 
-                if not ok:
-                    return _err("Rehabilitation plan creation failed.", status=500)
-
-                return JsonResponse(
-                    {"success": True, "message": "Patient registered successfully", "id": user.username},
-                    status=200,
-                )
-
-            # --- Therapist Registration ---
-            elif user_type == "Therapist":
-                therapist = Therapist(
-                    userId=user,
-                    name=sanitize_text(data.get("lastName", ""), True),
-                    first_name=sanitize_text(data.get("firstName", ""), True),
-                    specializations=data.get("specialisation"),
-                    clinics=data.get("clinic"),
-                )
-                try:
-                    therapist.save()
-                except Exception as e:
-                    logger.exception("Therapist save failed.")
-                    return _err(
-                        "Therapist creation failed.",
-                        status=400,
-                        non_field_errors=[str(e)],
-                    )
-
-                return JsonResponse(
-                    {"success": True, "message": "Therapist registered successfully", "id": user.username},
-                    status=200,
-                )
-
-            # --- Admin / other ---
-            return JsonResponse({"success": True, "message": "Admin added"}, status=200)
+        # ===================== Admin / other =====================
+        # If you later create other docs here, follow the same rollback pattern.
+        return JsonResponse({"success": True, "message": "Admin added"}, status=200)
 
     except Exception as e:
-        logger.exception("Unexpected error during registration.")
-        # return useful debug text without leaking too much
-        return _err(
-            "Internal server error",
-            status=500,
-            non_field_errors=[str(e)],
-        )
+        logger.exception("Unexpected error in register_view")
+        rollback()
+        return _err("Internal server error", status=500, non_field_errors=[str(e)])
+
 
 
 def generate_code(length=6):

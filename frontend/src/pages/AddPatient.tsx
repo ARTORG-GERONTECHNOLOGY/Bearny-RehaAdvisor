@@ -44,3 +44,4 @@ const AddPatient: React.FC = () => {
 };
 
 export default AddPatient;
+export { AddPatient };

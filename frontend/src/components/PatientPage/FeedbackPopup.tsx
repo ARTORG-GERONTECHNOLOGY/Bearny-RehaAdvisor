@@ -65,16 +65,23 @@ const PRIVACY_NOTE: Record<string, string> = {
 
 const GAP_PX = 12; // keep in sync with CSS .answer-grid gap
 
-const FeedbackPopup = ({
-  show,
-  interventionId,
-  questions,
-  onClose,
-}: {
+type Props = {
   show: boolean;
   interventionId: string;
   questions: Array<RawQuestion | NormalizedQuestion>;
   onClose: () => void;
+
+  // ✅ NEW: allows saving feedback for past completions
+  // Expected format: 'YYYY-MM-DD'
+  date?: string;
+};
+
+const FeedbackPopup: React.FC<Props> = ({
+  show,
+  interventionId,
+  questions,
+  onClose,
+  date,
 }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
@@ -124,7 +131,7 @@ const FeedbackPopup = ({
     try {
       const stream = previewRef.current?.srcObject as MediaStream | null;
       if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((tt) => tt.stop());
         if (previewRef.current) previewRef.current.srcObject = null;
       }
     } catch {}
@@ -146,6 +153,7 @@ const FeedbackPopup = ({
     setMicPermissionDenied(false);
     setInputMode('text');
     setError(null);
+    setIsSubmitting(false);
     clearInterval(timerRef.current);
   };
 
@@ -328,7 +336,13 @@ const FeedbackPopup = ({
     try {
       const formData = new FormData();
       formData.append('userId', userId);
-      formData.append('interventionId', interventionId);
+
+      // For health questionnaires interventionId can be empty — keep behavior
+      formData.append('interventionId', interventionId || '');
+
+      // ✅ NEW: submit the calendar day we are answering for (when available)
+      // Expected by backend: 'YYYY-MM-DD'
+      if (date) formData.append('date', date);
 
       normalizedQuestions.forEach((q) => {
         const key = q.questionKey;
@@ -344,6 +358,7 @@ const FeedbackPopup = ({
         } else if (typeof answer === 'string' || typeof answer === 'number') {
           formData.append(key, answer.toString());
         } else if (Array.isArray(answer)) {
+          // dropdown + multi-select send an array of optionKeys
           formData.append(key, JSON.stringify(answer));
         }
       });
@@ -354,7 +369,8 @@ const FeedbackPopup = ({
 
       forceStopAllMedia();
       onClose();
-    } catch {
+    } catch (e) {
+      console.error('Error submitting feedback:', e);
       setError(t('Error submitting feedback. Please try again.'));
     } finally {
       setIsSubmitting(false);
@@ -414,8 +430,8 @@ const FeedbackPopup = ({
   return (
     <Modal
       show={show}
-      onHide={confirmClose}           // ✅ X button uses confirmClose()
-      onEscapeKeyDown={(e) => {       // ✅ Esc uses confirmClose() too
+      onHide={confirmClose}
+      onEscapeKeyDown={(e) => {
         e.preventDefault();
         confirmClose();
       }}

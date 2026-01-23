@@ -21,6 +21,8 @@ from core.views.eva_view import (
     list_healthslider_items,
     download_healthslider_audio,
     submit_healthslider_item,
+    delete_healthslider_session,
+    download_healthslider_session_zip,
 )
 
 urlpatterns = [
@@ -161,6 +163,7 @@ urlpatterns = [
     path("api/healthslider/items/", list_healthslider_items),
     path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
     path("api/healthslider/submit-item/", submit_healthslider_item),
+    path("api/healthslider/delete-session/", download_healthslider_session_zip),
 
 ]
 

@@ -1,61 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Table, Button, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+
 import ErrorAlert from '../components/common/ErrorAlert';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
+import ConfirmModal from '../components/common/ConfirmModal';
+
 import adminStore from '../stores/adminStore';
 import authStore from '../stores/authStore';
+import { AdminDashboardStore } from '../stores/adminDashboardStore';
 
 const AdminDashboard: React.FC = observer(() => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+
+  const store = useMemo(() => new AdminDashboardStore(), []);
 
   useEffect(() => {
-    const checkAccessAndLoad = async () => {
-      await authStore.checkAuthentication();
-      if (!authStore.isAuthenticated || authStore.userType !== 'Admin') {
-        navigate('/unauthorized');
-        return;
-      }
-
-      try {
-        await adminStore.fetchPendingEntries();
-      } catch (err) {
-        console.error('Error fetching pending entries:', err);
-        setError(t('Failed to fetch pending entries. Please try again later.'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAccessAndLoad();
-  }, [navigate, t]);
-
-  const handleAccept = async (entryId: string) => {
-    try {
-      await adminStore.acceptEntry(entryId);
-    } catch (err) {
-      console.error('Error accepting entry:', err);
-      setError(t('Failed to accept entry. Please try again later.'));
-    }
-  };
-
-  const handleDecline = async (entryId: string) => {
-    const confirmed = window.confirm(t('Are you sure you want to decline this therapist?'));
-    if (!confirmed) return;
-
-    try {
-      await adminStore.declineEntry(entryId);
-    } catch (err) {
-      console.error('Error declining entry:', err);
-      setError(t('Failed to decline entry. Please try again later.'));
-    }
-  };
+    store.init(navigate, t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, navigate, t]);
 
   return (
     <div className="d-flex flex-column min-vh-100">
@@ -65,14 +32,9 @@ const AdminDashboard: React.FC = observer(() => {
         <h1 className="text-center">{t('Admin Dashboard')}</h1>
         <h3 className="text-center mb-4">{t('Pending Therapists, Researchers, and Content')}</h3>
 
-        {error && (
-          <ErrorAlert
-            message={error}
-            onClose={() => setError('')}
-          />
-        )}
+        {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
 
-        {loading ? (
+        {store.loading ? (
           <div className="text-center my-5">
             <Spinner animation="border" role="status" />
             <div>{t('Loading')}...</div>
@@ -95,18 +57,11 @@ const AdminDashboard: React.FC = observer(() => {
                   <td>{entry.name}</td>
                   <td>{entry.email}</td>
                   <td>{t(entry.role)}</td>
-                  <td>
-                    <Button
-                      variant="success"
-                      onClick={() => handleAccept(entry.id)}
-                      className="me-2"
-                    >
+                  <td className="d-flex gap-2 flex-wrap">
+                    <Button variant="success" onClick={() => store.accept(entry.id, t)}>
                       {t('Accept')}
                     </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => handleDecline(entry.id)}
-                    >
+                    <Button variant="danger" onClick={() => store.openDeclineConfirm(entry.id)}>
                       {t('Decline')}
                     </Button>
                   </td>
@@ -116,6 +71,17 @@ const AdminDashboard: React.FC = observer(() => {
           </Table>
         )}
       </main>
+
+      <ConfirmModal
+        show={store.showDeclineConfirm}
+        onHide={store.closeDeclineConfirm}
+        title={t('ConfirmDeletion')}
+        body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
+        cancelText={t('Cancel')}
+        confirmText={t('Decline')}
+        confirmVariant="danger"
+        onConfirm={() => store.declineConfirmed(t)}
+      />
 
       <Footer />
     </div>
