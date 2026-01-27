@@ -27,18 +27,17 @@ def run_delete_expired_videos():
     return "ok"
 
 # If your PeriodicTask points to "core.tasks.run_fetch_fitbit_data"
-@shared_task(name="core.tasks.run_fetch_fitbit_data",
-             autoretry_for=(Exception,), retry_backoff=60, max_retries=3)
+@shared_task(name="core.tasks.run_fetch_fitbit_data", autoretry_for=(Exception,), retry_backoff=60, max_retries=3)
 def run_fetch_fitbit_data():
-    """
-    Runs the Django management command that fetches Fitbit data.
-    If your command is named 'fetch_fitbit_data' or 'fetch_fitbit_extended',
-    match that name here.
-    """
-    call_command("fetch_fitbit_extended")  # or "fetch_fitbit_data" if that's your command name
-    logger.info("✅ fetch_fitbit_extended finished")
-    return "ok"
+    try:
+        call_command("fetch_fitbit_data")  # ✅ correct command name
+        logger.info("✅ fetch_fitbit finished")
+        return "ok"
+    except Exception:
+        logger.exception("❌ fetch_fitbit failed")
+        raise
 
+    
 @shared_task(name='core.tasks.fetch_fitbit_data_async') 
 def fetch_fitbit_data_async(user_id):
     

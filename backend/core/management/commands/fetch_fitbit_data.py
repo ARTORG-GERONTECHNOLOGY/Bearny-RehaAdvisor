@@ -1,4 +1,4 @@
-# management/commands/fetch_fitbit.py
+# management/commands/fetch_fitbit_data.py
 
 import datetime
 import logging
