@@ -25,3 +25,4 @@ FITBIT_CLIENT_ID = '23QHGK'
 FITBIT_CLIENT_SECRET = '24df5c74c036104eb00df5f84efbd32f'
 FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/'
 FRONTEND_URL = 'https://dev.reha-advisor.ch'
+
