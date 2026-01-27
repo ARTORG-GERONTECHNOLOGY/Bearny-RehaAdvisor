@@ -48,7 +48,7 @@ const Home: React.FC = () => {
               className="text-center text-md-start order-2 order-md-1 d-flex flex-column align-items-center align-items-md-start"
             >
               <h1 className="home-title fw-bold mb-3">
-                {t('Tele-rehabilitation')}
+                {t('YourCompanyName')} {t('Tele-Rehabilitation Platform')}
               </h1>
 
               <p className="home-lead text-muted mb-4 px-1 px-sm-0">
@@ -75,7 +75,7 @@ const Home: React.FC = () => {
                 <picture>
                   <img
                     src="/home.jpg"
-                    alt={t('Tele-Rehabilitation') as string}
+                    alt={t('YourCompanyName')}
                     className="w-100 h-100 d-block"
                     loading="eager"
                     decoding="async"

@@ -1,4 +1,5 @@
 {
+  "Tele-Rehabilitation Platform": "Piattaforma di tele-riabilitazione",
   "Intervention successfully added": "Intervento aggiunto con successo",
     "Filter by Disease": "Filtra per malattia",
       "failedCheck": "Impossibile verificare i valori vitali di oggi.",
@@ -566,7 +567,7 @@
   "Enterverificationcode": "Inserisci codice di verifica",
   "VerificationCode": "Codice di verifica",
   "SubmitCode": "Invia codice",
-  "YourCompanyName": "Reha-Advisor",
+  "YourCompanyName": "Bärni",
   "NoRecForToday": "Nessuna raccomandazione per oggi. Controlla di nuovo domani o contatta il tuo terapeuta.",
   "InterventionsforToday": "Raccomandazioni per oggi",
   "AssigntoPatientTypes": "Aggiungi al modello della malattia del paziente",
