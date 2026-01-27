@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-
+import { zipSync, strToU8 } from 'fflate';
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel: Holzhacken (Wird nicht gespeichert)';
 const REAL_QUESTIONS = [
@@ -92,6 +92,61 @@ export default function HealthSlider() {
     const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
     return types.find(t => (window as any).MediaRecorder?.isTypeSupported?.(t)) || '';
   };
+const safeFilePart = (s: string) =>
+  (s || '')
+    .replace(/[^\w\-]+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 60);
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+};
+
+const downloadFailureZip = async (args: {
+  audio: Blob;
+  questionIndex: number;
+  questionText: string;
+  answerValue: number;
+  patientId: string;
+  sessionId: string;
+}) => {
+  const ext = args.audio.type.includes('mp4') ? 'mp4' : 'webm';
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  const baseName =
+    `healthslider_${safeFilePart(args.patientId || 'unknown')}` +
+    `_q${String(args.questionIndex + 1).padStart(2, '0')}` +
+    `_${stamp}`;
+
+  const meta = {
+    patientId: args.patientId,
+    sessionId: args.sessionId,
+    questionIndex: args.questionIndex,
+    questionText: args.questionText,
+    answerValue: args.answerValue,
+    mimeType: args.audio.type,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Convert audio Blob -> Uint8Array
+  const audioBytes = new Uint8Array(await args.audio.arrayBuffer());
+  const metaBytes = strToU8(JSON.stringify(meta, null, 2));
+
+  const zipped = zipSync({
+    [`${baseName}.${ext}`]: audioBytes,
+    [`${baseName}.json`]: metaBytes,
+  });
+
+  const zipBlob = new Blob([zipped], { type: 'application/zip' });
+  downloadBlob(zipBlob, `${baseName}.zip`);
+};
 
   const startMic = async () => {
     setMicError('');
@@ -141,10 +196,28 @@ export default function HealthSlider() {
         throw new Error(errData.error || `Server antwortete mit Status ${res.status}`);
       }
     } catch (e: any) {
-      // Alert the user specifically why it failed
-      alert(`Fehler beim Speichern!\nGrund: ${e.message}\n\nBitte prüfen Sie Ihre Internetverbindung.`);
-      throw e; // Stop the flow
-    }
+  // ✅ auto-download ZIP (audio + metadata) if upload fails
+  if (payload.audio) {
+    await downloadFailureZip({
+      audio: payload.audio,
+      questionIndex: payload.questionIndex,
+      questionText: payload.questionText,
+      answerValue: Number(payload.answerValue),
+      patientId,
+      sessionId: sessionIdRef.current,
+    });
+  }
+
+  alert(
+    `Fehler beim Speichern!\nGrund: ${e.message}\n\n` +
+    `Die Aufnahme wurde als ZIP lokal heruntergeladen, damit nichts verloren geht.\n` +
+    `Bitte später erneut hochladen oder dem Team senden.`
+  );
+
+  throw e;
+}
+
+
   };
 
   // --- NAVIGATION ---
@@ -370,12 +443,12 @@ const styles: Record<string, React.CSSProperties> = {
   centerArea: { flex: 1, maxWidth: 980, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 12 },
   endLabelTop: { fontSize: 20, color: '#222', marginBottom: 6 },
   endLabelBottom: { fontSize: 20, color: '#222', marginTop: 6 },
-  trackBox: { position: 'relative', width: 140, height: 'min(50vh, 400px)', touchAction: 'none' },
-  gradientBar: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)', borderRadius: 14, zIndex: 0 },
-  cap: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: '140%', height: 15, borderRadius: 6, zIndex: 1 },
+  trackBox: { position: 'relative', width: 180, height: 'min(60vh, 520px)', touchAction: 'none' },
+  gradientBar: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)', borderRadius: 18, zIndex: 0 },
+  cap: { position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: '145%', height: 18, borderRadius: 8, zIndex: 1 },
   capTop: { top: -5, background: '#67d7be' },
   capBottom: { bottom: -5, background: '#c47993' },
-  knob: { position: 'absolute', left: '50%', transform: 'translate(-50%, 50%)', width: '130%', height: 28, background: '#1f1f1f', borderRadius: 16, opacity: 0.9, zIndex: 2, cursor: 'grab', boxShadow: '0 2px 8px rgba(0,0,0,.25)' },
+  knob: { position: 'absolute', left: '50%', transform: 'translate(-50%, 50%)', width: '135%', height: 34, background: '#1f1f1f', borderRadius: 18, opacity: 0.9, zIndex: 2, cursor: 'grab', boxShadow: '0 2px 8px rgba(0,0,0,.25)' },
   audioTestBox: { background: '#fff', padding: '12px', borderRadius: '14px', marginBottom: 16, boxShadow: 'inset 0 0 0 1px #eee' },
   buttonsRow: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', gap: 16, padding: '4px 0' },
   btn: { flex: 1, minHeight: 56, fontSize: 20, borderRadius: 14, border: 'none', cursor: 'pointer' },

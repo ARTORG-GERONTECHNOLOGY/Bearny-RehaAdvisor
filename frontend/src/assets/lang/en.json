@@ -1,4 +1,5 @@
 {
+  "Tele-Rehabilitation Platform": "Tele-Rehabilitation Platform",
   "Intervention successfully added": "Intervention successfully added",
   "Filter by Disease": "Filter by Disease",
 
@@ -559,7 +560,7 @@
   "Enterverificationcode": "Enter verification code",
   "VerificationCode": "Verification Code",
   "SubmitCode": "Submit Code",
-  "YourCompanyName": "Reha-Advisor",
+  "YourCompanyName": "Bärni",
   "NoRecForToday": "No recommendations for today. Please check back tomorrow or contact your therapist.",
   "InterventionsforToday": "Recomendations for Today",
   "AssigntoPatientTypes": "Add to your patient disease template",
