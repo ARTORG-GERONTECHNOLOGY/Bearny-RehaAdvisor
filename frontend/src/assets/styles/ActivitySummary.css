@@ -1,0 +1,378 @@
+/* ActivitySummary.css */
+
+.activity-stat-card {
+  border-radius: 14px;
+}
+
+.activity-stat-label {
+  font-size: 0.95rem;
+}
+
+.activity-stat-value {
+  line-height: 1.05;
+}
+
+.activity-info-icon {
+  cursor: help;
+  user-select: none;
+}
+
+.activity-view-chart-btn {
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* -------- Trend Modal (desktop + mobile bottom sheet) -------- */
+
+.trend-modal-dialog {
+  max-width: 980px;
+}
+
+.trend-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.trend-modal-header {
+  padding: 1rem 1.1rem;
+}
+
+.trend-modal-title {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.trend-modal-subtitle {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.trend-modal-last-sync {
+  font-size: 0.85rem;
+}
+
+.trend-modal-body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+/* Controls */
+.trend-modal-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.trend-meaning-link {
+  font-size: 0.92rem;
+  color: rgba(0, 0, 0, 0.65);
+  cursor: help;
+  user-select: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Chart */
+.trend-modal-chart {
+  position: relative;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 14px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 340px;
+  display: block;
+}
+
+/* Tooltip */
+.trend-tooltip {
+  position: absolute;
+  transform: translate(0, -100%);
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  max-width: 280px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.trend-tooltip-date {
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.trend-tooltip-value {
+  margin-top: 3px;
+  font-weight: 800;
+}
+
+.trend-tooltip-meta {
+  margin-top: 3px;
+  opacity: 0.9;
+  font-size: 0.84rem;
+}
+
+.trend-tooltip-extra {
+  margin-top: 3px;
+  opacity: 0.85;
+  font-size: 0.8rem;
+}
+
+/* Chart primitives */
+.trend-axis {
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 1;
+}
+
+.trend-grid-line {
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 1;
+}
+
+.trend-axis-label {
+  fill: rgba(0, 0, 0, 0.55);
+  font-size: 14px;
+}
+
+.trend-x-label {
+  fill: rgba(0, 0, 0, 0.55);
+  font-size: 14px;
+}
+
+.trend-line {
+  stroke: rgba(13, 110, 253, 0.95);
+  stroke-width: 3;
+}
+
+.trend-line-secondary {
+  stroke: rgba(111, 66, 193, 0.9);
+  stroke-width: 2.5;
+  stroke-dasharray: 4 3;
+}
+
+/* Markers */
+.trend-marker-today {
+  stroke: rgba(13, 110, 253, 0.35);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+
+.trend-marker-selected {
+  stroke: rgba(220, 53, 69, 0.35);
+  stroke-width: 3;
+}
+
+/* Points */
+.trend-point-hit {
+  fill: rgba(13, 110, 253, 0.25);
+  stroke: rgba(13, 110, 253, 0.95);
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.trend-point-selected {
+  stroke-width: 3;
+}
+
+.trend-point-today {
+  fill: rgba(13, 110, 253, 0.35);
+}
+
+.trend-point-secondary {
+  fill: rgba(111, 66, 193, 0.25);
+  stroke: rgba(111, 66, 193, 0.9);
+  stroke-width: 2;
+}
+
+.trend-point-secondary-selected {
+  stroke-width: 3;
+}
+
+.trend-point-secondary-today {
+  fill: rgba(111, 66, 193, 0.35);
+}
+
+/* Threshold lines + labels */
+.trend-th-line {
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: 0.95;
+}
+
+.trend-th-goal {
+  stroke: rgba(25, 135, 84, 0.95);
+}
+
+.trend-th-warn {
+  stroke: rgba(255, 193, 7, 0.95);
+}
+
+.trend-th-green {
+  stroke: rgba(25, 135, 84, 0.95);
+}
+
+.trend-th-yellow {
+  stroke: rgba(255, 193, 7, 0.95);
+}
+
+.trend-th-secondary {
+  stroke-dasharray: 2 4;
+  opacity: 0.75;
+}
+
+.trend-th-label {
+  fill: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+}
+
+.trend-th-label-secondary {
+  opacity: 0.85;
+}
+
+/* Sections */
+.trend-modal-section {
+  margin-top: 14px;
+}
+
+.trend-section-title {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+/* Insights grid */
+.trend-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trend-insight-item {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.trend-insight-label {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.trend-insight-value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+/* Threshold context list */
+.trend-threshold-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.trend-threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trend-legend-line {
+  width: 42px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: dashed;
+  border-radius: 2px;
+}
+
+.trend-legend-secondary {
+  border-top-style: dotted;
+}
+
+.trend-legend-goal {
+  border-top-color: rgba(25, 135, 84, 0.95);
+}
+.trend-legend-warn {
+  border-top-color: rgba(255, 193, 7, 0.95);
+}
+.trend-legend-green {
+  border-top-color: rgba(25, 135, 84, 0.95);
+}
+.trend-legend-yellow {
+  border-top-color: rgba(255, 193, 7, 0.95);
+}
+
+.trend-legend-text {
+  font-size: 0.92rem;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+/* Trend badge */
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.trend-badge-up {
+  background: rgba(25, 135, 84, 0.12);
+  color: rgb(25, 135, 84);
+}
+
+.trend-badge-down {
+  background: rgba(220, 53, 69, 0.12);
+  color: rgb(220, 53, 69);
+}
+
+.trend-badge-flat {
+  background: rgba(13, 110, 253, 0.12);
+  color: rgb(13, 110, 253);
+}
+
+.trend-badge-inline {
+  font-weight: 700;
+}
+
+/* -------- Mobile bottom-sheet behavior -------- */
+@media (max-width: 576px) {
+  .trend-modal-dialog {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .trend-modal-content {
+    border-radius: 18px 18px 0 0;
+    max-height: 92vh;
+    overflow: auto;
+  }
+
+  .trend-svg {
+    height: 280px;
+  }
+
+  .trend-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-view-chart-btn {
+    padding: 0.3rem 0.65rem;
+  }
+}
