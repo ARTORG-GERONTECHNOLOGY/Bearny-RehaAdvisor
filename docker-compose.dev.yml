@@ -48,7 +48,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: celery
     restart: always
-    command: celery -A api worker --loglevel=info --statedb=/app/celery_worker.state
+    command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state
     volumes:
       - ./backend:/app
 
@@ -57,7 +57,10 @@ services:
     depends_on:
       - django-dev
       - redis
+    working_dir: /app
     environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.base
+      - PYTHONPATH=/app
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - CELERY_WORKER_PREFETCH_MULTIPLIER=1
@@ -71,19 +74,29 @@ services:
       dockerfile: Dockerfile.dev
     container_name: celery-beat
     restart: always
-    command: sh -c "DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True celery -A api beat --loglevel=info"
+    working_dir: /app
+    command: >
+      python -m celery -A api.celery:app beat -l info
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - ./.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.base
+      - PYTHONPATH=/app
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
     volumes:
       - ./backend:/app
     depends_on:
       - django-dev
       - redis
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DJANGO_SETTINGS_MODULE=api.settings
-      - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
+    networks:
+      - telereha
+
+
+
+
 
   redis:
     image: redis:alpine
