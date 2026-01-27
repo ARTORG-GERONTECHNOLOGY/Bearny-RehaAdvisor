@@ -759,6 +759,28 @@ def add_new_intervention(request):
             status=400,
         )
 
+    def normalize_title(s: str) -> str:
+        return re.sub(r"\s+", " ", (s or "").strip()).lower()
+
+    def normalize_url(u: str) -> str:
+        """
+        Normalize URL for duplicate checks:
+        - lowercase scheme + host
+        - trim trailing slash in path
+        - ignore query + fragment (usually desired for "same link" checks)
+        """
+        u = (u or "").strip()
+        if not u:
+            return ""
+        p = urlparse(u)
+        scheme = (p.scheme or "").lower()
+        netloc = (p.netloc or "").lower()
+        path = (p.path or "").rstrip("/")
+        if scheme and netloc:
+            return f"{scheme}://{netloc}{path}"
+        # if user pasted something odd, fallback to trimmed raw
+        return u.rstrip("/")
+
     try:
         # -------------------------
         # Parse non-file fields
@@ -768,8 +790,10 @@ def add_new_intervention(request):
         content_type = request.POST.get("contentType", "").strip()
         duration = request.POST.get("duration")
         link = request.POST.get("link", "").strip()
+
         is_private = request.POST.get("isPrivate", "").lower() in ("true", "1", "yes")
         patient_id = request.POST.get("patientId")
+
         benefit_for = json.loads(request.POST.get("benefitFor", "[]"))
         tag_list = json.loads(request.POST.get("tagList", "[]"))
 
@@ -789,7 +813,11 @@ def add_new_intervention(request):
         if not description:
             field_errors.setdefault("description", []).append("Description is required.")
 
-        if not duration or int(duration) <= 0:
+        try:
+            dur_int = int(duration) if duration is not None else 0
+        except Exception:
+            dur_int = 0
+        if dur_int <= 0:
             field_errors.setdefault("duration", []).append("Duration must be greater than 0.")
 
         if not content_type:
@@ -800,23 +828,24 @@ def add_new_intervention(request):
                 field_errors.setdefault("link", []).append("Link must be a valid URL.")
 
         patient_obj = None
+        patient_types = []
+
         if is_private:
             if not patient_id:
                 field_errors.setdefault("patientId", []).append("Required for private intervention.")
             else:
                 try:
                     patient_obj = Patient.objects.get(pk=ObjectId(patient_id))
-                except:
+                except Exception:
                     field_errors.setdefault("patientId", []).append("Invalid patient id.")
         else:
-            patient_types = []
             if not patient_types_raw:
                 field_errors.setdefault("patientTypes", []).append("At least one entry is required.")
             else:
                 for idx, pt in enumerate(patient_types_raw):
-                    t = pt.get("type", "").strip()
-                    d = pt.get("diagnosis", "").strip()
-                    f = pt.get("frequency", "").strip()
+                    t = (pt.get("type") or "").strip()
+                    d = (pt.get("diagnosis") or "").strip()
+                    f = (pt.get("frequency") or "").strip()
                     incl = pt.get("includeOption", False)
 
                     if not t or not d or not f:
@@ -843,12 +872,68 @@ def add_new_intervention(request):
             return bad("Validation error.", field_errors)
 
         # -------------------------
+        # ✅ Duplicate checks (title + link) BEFORE saving files
+        # -------------------------
+        norm_title = normalize_title(title)
+        norm_link = normalize_url(link)
+
+        # Title duplicate check:
+        # - public: block against other public
+        # - private: block against public OR same patient private
+        if is_private and patient_obj:
+            dup_title = (
+                Intervention.objects(is_private=False, title__iexact=title).first()
+                or Intervention.objects(is_private=True, private_patient_id=patient_obj.id, title__iexact=title).first()
+            )
+        else:
+            dup_title = Intervention.objects(is_private=False, title__iexact=title).first()
+
+        if dup_title:
+            field_errors.setdefault("title", []).append(
+                f"An intervention with this title already exists (ID: {dup_title.id}). "
+                "Please choose a different title."
+            )
+
+        # Link duplicate check (only when link provided):
+        # Link duplicate check (only when link provided):
+        if link:
+            # Private intervention: duplicates allowed only if it would collide with
+            # a PUBLIC intervention OR a PRIVATE intervention for the SAME patient.
+            if is_private and patient_obj:
+                dup_link = Intervention.objects(
+                    __raw__={
+                        "$and": [
+                            {"link": link},
+                            {
+                                "$or": [
+                                    {"is_private": False},
+                                    {"is_private": True, "private_patient_id": patient_obj.id},
+                                ]
+                            },
+                        ]
+                    }
+                ).only("id", "title", "link").first()
+            else:
+                # Public intervention: duplicates only checked against other PUBLIC interventions
+                dup_link = Intervention.objects(is_private=False, link=link).only("id", "title", "link").first()
+
+            if dup_link:
+                field_errors.setdefault("link", []).append(
+                    f"This link is already used by another intervention "
+                    f"('{dup_link.title}', ID: {dup_link.id}). Please use a different link."
+                )
+
+
+        if field_errors:
+            return bad("Duplicate intervention detected.", field_errors)
+
+        # -------------------------
         # Filename-safe save helper
         # -------------------------
         def save_file(file, folder, intervention_title):
-            # sanitize title for filename
             safe_title = "".join(
-                c for c in intervention_title.lower().replace(" ", "_")
+                c
+                for c in (intervention_title or "").lower().replace(" ", "_")
                 if c.isalnum() or c in ("_", "-")
             )
             ts = timezone.now().strftime("%Y%m%d_%H%M%S")
@@ -873,7 +958,7 @@ def add_new_intervention(request):
         intervention = Intervention(
             title=title,
             description=description,
-            duration=int(duration),
+            duration=dur_int,
             content_type=content_type,
             link=link,
             preview_img=preview_path,
@@ -881,7 +966,7 @@ def add_new_intervention(request):
             benefitFor=benefit_for,
             tags=tag_list,
             is_private=is_private,
-            private_patient_id=patient_obj.id if is_private else None,
+            private_patient_id=patient_obj.id if (is_private and patient_obj) else None,
             patient_types=patient_types if not is_private else [],
         )
 
