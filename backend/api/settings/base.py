@@ -19,7 +19,6 @@ CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, 'celery_worker.state')
 # Redis broker
 CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
-
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 
@@ -75,8 +74,11 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = "/app/media"
 
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = os.environ.get('DATA_UPLOAD_MAX_MEMORY_SIZE', 104857600)  # 100MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = os.environ.get('FILE_UPLOAD_MAX_MEMORY_SIZE', 104857600)  # 100MB
+import os
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "104857600"))
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", "104857600"))
+
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

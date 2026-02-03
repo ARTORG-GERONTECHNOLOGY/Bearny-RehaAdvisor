@@ -1,17 +1,28 @@
 from .base import *
 import os
-
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'  # Enable detailed error messages and auto-reload
 
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
-CORS_ALLOW_CREDENTIALS = os.environ.get('CORS_ALLOW_CREDENTIALS', 'True') == 'True'
+# CORS
+CORS_ALLOWED_ORIGINS = [
+    "https://dev.reha-advisor.ch",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+CORS_ALLOW_CREDENTIALS = True
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
-SECURE_PROXY_SSL_HEADER = os.environ.get('SECURE_PROXY_SSL_HEADER', None)
+ALLOWED_HOSTS=["localhost", "127.0.0.1", "django", "nginx", "dev.reha-advisor.ch"]
+
+SECURE_PROXY_SSL_HEADER = (
+    os.getenv("SECURE_PROXY_SSL_HEADER_NAME", "HTTP_X_FORWARDED_PROTO"),
+    os.getenv("SECURE_PROXY_SSL_HEADER_VALUE", "https"),
+)
+
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
 
-STATICFILES_DIRS = os.environ.get('STATICFILES_DIRS', BASE_DIR / 'frontend_static')
 SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
 CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False')
 

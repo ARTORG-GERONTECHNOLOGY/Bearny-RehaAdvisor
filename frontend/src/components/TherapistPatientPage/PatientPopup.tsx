@@ -1,10 +1,10 @@
 /* eslint-disable */
 import React, { useEffect, useMemo } from 'react';
-import { Button, Col, Form, Row, Spinner, Tabs, Tab } from 'react-bootstrap';
+import { Button, Col, Form, Row, Spinner, Tabs, Tab, Badge, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import { observer } from 'mobx-react-lite';
-import { FaEdit, FaTrash, FaUndo, FaDownload } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaUndo, FaDownload, FaCloudDownloadAlt, FaSyncAlt } from 'react-icons/fa';
 
 import config from '../../config/config.json';
 import { PatientType } from '../../types';
@@ -32,7 +32,6 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
   }, [show, store]);
 
   const onClose = () => {
-    // if you want: prevent closing while editing / or if dirty later
     handleClose();
   };
 
@@ -48,12 +47,27 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     store.setField(id, value);
   };
 
+  const SourceBadge = ({ fieldKey }: { fieldKey: string }) => {
+    const src = store.getValueSource(fieldKey);
+    if (src === 'manual') return <Badge bg="success" className="ms-2">{t('Manual')}</Badge>;
+    if (src === 'redcap') return <Badge bg="info" className="ms-2">{t('REDCap')}</Badge>;
+    return <Badge bg="secondary" className="ms-2">{t('Empty')}</Badge>;
+  };
+
   const renderField = (field: any) => {
     const key = field.be_name;
-    const fieldValue = store.formData[key];
+
+    // In edit mode: edit manual data
+    const manualValue = store.formData[key];
+
+    // In view mode: show manual-or-redcap fallback
+    const displayValue = store.getDisplayValue(key);
+
     const isDisabled = !store.isEditing || key === 'access_word';
 
     if (field.type === 'multi-select') {
+      const currentValues: string[] = (store.isEditing ? (manualValue || []) : (displayValue || [])) as any;
+
       const options =
         key === 'diagnosis' && store.formData.function?.length
           ? store.formData.function.flatMap((spec: string) =>
@@ -67,7 +81,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
           isMulti
           isDisabled={isDisabled}
           options={options}
-          value={(fieldValue || []).map((val: string) => ({ value: val, label: t(val) }))}
+          value={(currentValues || []).map((val: string) => ({ value: val, label: t(val) }))}
           onChange={(selected) => store.setMultiSelect(key, selected as any)}
           aria-label={t(field.label)}
         />
@@ -75,10 +89,12 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     }
 
     if (field.type === 'dropdown') {
+      const v = store.isEditing ? (manualValue || '') : (displayValue || '');
+
       return (
         <Form.Select
           id={key}
-          value={fieldValue || ''}
+          value={v}
           onChange={handleChange}
           disabled={isDisabled}
           aria-label={t(field.label)}
@@ -94,11 +110,13 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     }
 
     if (field.type === 'date') {
+      const v = store.isEditing ? manualValue : displayValue;
+
       return (
         <Form.Control
           id={key}
           type="date"
-          value={toDateInput(fieldValue)}
+          value={toDateInput(v)}
           onChange={handleChange}
           disabled={isDisabled}
           aria-label={t(field.label)}
@@ -107,12 +125,13 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     }
 
     const commonMaxLength = field.type === 'text' || !field.type ? 500 : undefined;
+    const v = store.isEditing ? (manualValue || '') : (displayValue || '');
 
     return (
       <Form.Control
         id={key}
         type={field.type}
-        value={fieldValue || ''}
+        value={v}
         onChange={handleChange}
         disabled={isDisabled}
         aria-label={t(field.label)}
@@ -121,7 +140,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     );
   };
 
-  const title = `${store.formData.first_name || ''} ${store.formData.name || t('Patient')}`.trim();
+  const title = `${store.formData.first_name || store.manualData.first_name || ''} ${store.formData.name || store.manualData.name || t('Patient')}`.trim();
+
+  const hasRedcap = (store.redcapRows?.length || 0) > 0;
 
   return (
     <>
@@ -135,26 +156,50 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
         footer={
           store.isEditing ? (
             <>
-              <Button variant="secondary" onClick={() => store.setEditing(false)}>
+              <Button variant="secondary" onClick={() => store.setEditing(false)} disabled={store.saving}>
                 <FaUndo className="me-2" />
                 {t('Cancel')}
               </Button>
-              <Button variant="success" onClick={() => store.save(t)} disabled={store.loading}>
+
+              {hasRedcap && (
+                <Button
+                  variant="outline-info"
+                  onClick={() => store.copyRedcapIntoManual()}
+                  disabled={store.saving}
+                  title={t('Copy missing fields from REDCap into the manual form')}
+                >
+                  <FaCloudDownloadAlt className="me-2" />
+                  {t('Copy from REDCap')}
+                </Button>
+              )}
+
+              <Button variant="success" onClick={() => store.save(t)} disabled={store.saving}>
                 <FaDownload className="me-2" />
-                {t('SaveChanges')}
+                {store.saving ? t('Saving...') : t('SaveChanges')}
               </Button>
             </>
           ) : (
             <>
-              <Button variant="warning" onClick={() => store.setEditing(true)} disabled={store.loading}>
+              <Button variant="warning" onClick={() => store.setEditing(true)} disabled={store.loading || store.saving}>
                 <FaEdit className="me-2" />
                 {t('Edit')}
               </Button>
+
+              <Button
+                variant="outline-secondary"
+                onClick={() => store.fetchRedcapIfPossible(t)}
+                disabled={store.loading || store.redcapLoading}
+                title={t('Refresh REDCap data')}
+              >
+                <FaSyncAlt className="me-2" />
+                {store.redcapLoading ? t('Loading...') : t('Refresh REDCap')}
+              </Button>
+
               <Button
                 variant="danger"
                 onClick={() => store.setShowConfirmDelete(true)}
                 aria-label={t('DeletePatient')}
-                disabled={store.loading}
+                disabled={store.loading || store.saving}
               >
                 <FaTrash className="me-2" />
                 {t('DeletePatient')}
@@ -172,6 +217,29 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
           <>
             {store.error && <ErrorAlert message={store.error} onClose={() => store.setError('')} />}
 
+            {store.redcapError && (
+              <div className="mb-3">
+                <ErrorAlert message={store.redcapError} onClose={() => (store.redcapError = null)} />
+              </div>
+            )}
+
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <div className="text-muted">
+                {t('Data mode')}:&nbsp;
+                {store.hasManualInfo ? (
+                  <Badge bg="success">{t('Manual preferred')}</Badge>
+                ) : (
+                  <Badge bg="info">{t('REDCap fallback')}</Badge>
+                )}
+              </div>
+
+              {store.redcapProject && (
+                <div className="text-muted">
+                  {t('REDCap Project')}: <Badge bg="info">{store.redcapProject}</Badge>
+                </div>
+              )}
+            </div>
+
             <Tabs
               id="patient-details-tabs"
               activeKey={store.activeTab}
@@ -188,14 +256,14 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                         <Form.Control
                           plaintext
                           readOnly
-                          value={toDisplayDate(store.formData.last_online_contact) || '—'}
+                          value={toDisplayDate(store.getDisplayValue('last_online_contact')) || '—'}
                         />
                       </Form.Group>
                     </Col>
 
                     <Col xs={12} md={6}>
                       <Form.Group controlId="last_clinic_visit">
-                        <Form.Label>{t('Last clinic visit')}</Form.Label>
+                        <Form.Label>{t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" /></Form.Label>
                         {store.isEditing ? (
                           <Form.Control
                             id="last_clinic_visit"
@@ -207,7 +275,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                           <Form.Control
                             plaintext
                             readOnly
-                            value={toDisplayDate(store.formData.last_clinic_visit) || '—'}
+                            value={toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'}
                           />
                         )}
                       </Form.Group>
@@ -215,16 +283,37 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                     <Col xs={12}>
                       <Form.Group controlId="clinic">
-                        <Form.Label>{t('Clinics')}</Form.Label>
+                        <Form.Label>{t('Clinics')} <SourceBadge fieldKey="clinic" /></Form.Label>
                         <Form.Control
                           id="clinic"
                           type="text"
-                          value={store.formData.clinic || ''}
+                          value={store.isEditing ? (store.formData.clinic || '') : (store.getDisplayValue('clinic') || '')}
                           onChange={handleChange}
                           disabled={!store.isEditing}
                           placeholder={t('e.g. Inselspital Bern')}
                           maxLength={200}
                         />
+                      </Form.Group>
+                    </Col>
+
+                    {/* Example showing reha_end_date which can come from REDCap rehab_end mapping */}
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="reha_end_date">
+                        <Form.Label>{t('Rehabilitation end date')} <SourceBadge fieldKey="reha_end_date" /></Form.Label>
+                        {store.isEditing ? (
+                          <Form.Control
+                            id="reha_end_date"
+                            type="date"
+                            value={toDateInput(store.formData.reha_end_date)}
+                            onChange={handleChange}
+                          />
+                        ) : (
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
+                          />
+                        )}
                       </Form.Group>
                     </Col>
                   </Row>
@@ -239,7 +328,10 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                         .map((field: any, index: number) => (
                           <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
                             <Form.Group controlId={field.be_name}>
-                              <Form.Label>{t(field.label)}</Form.Label>
+                              <Form.Label>
+                                {t(field.label)}
+                                <SourceBadge fieldKey={field.be_name} />
+                              </Form.Label>
                               {renderField(field)}
                             </Form.Group>
                           </Col>
@@ -253,11 +345,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 <Row className="g-3">
                   <Col xs={12} md={6}>
                     <Form.Group controlId="level_of_education">
-                      <Form.Label>{t('Level of education')}</Form.Label>
+                      <Form.Label>{t('Level of education')} <SourceBadge fieldKey="level_of_education" /></Form.Label>
                       <Form.Control
                         id="level_of_education"
                         type="text"
-                        value={store.formData.level_of_education || ''}
+                        value={
+                          store.isEditing
+                            ? (store.formData.level_of_education || '')
+                            : (store.getDisplayValue('level_of_education') || '')
+                        }
                         onChange={handleChange}
                         disabled={!store.isEditing}
                         maxLength={200}
@@ -267,11 +363,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="professional_status">
-                      <Form.Label>{t('Professional status')}</Form.Label>
+                      <Form.Label>{t('Professional status')} <SourceBadge fieldKey="professional_status" /></Form.Label>
                       <Form.Control
                         id="professional_status"
                         type="text"
-                        value={store.formData.professional_status || ''}
+                        value={
+                          store.isEditing
+                            ? (store.formData.professional_status || '')
+                            : (store.getDisplayValue('professional_status') || '')
+                        }
                         onChange={handleChange}
                         disabled={!store.isEditing}
                         maxLength={200}
@@ -281,11 +381,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="marital_status">
-                      <Form.Label>{t('Marital status')}</Form.Label>
+                      <Form.Label>{t('Marital status')} <SourceBadge fieldKey="marital_status" /></Form.Label>
                       <Form.Control
                         id="marital_status"
                         type="text"
-                        value={store.formData.marital_status || ''}
+                        value={
+                          store.isEditing
+                            ? (store.formData.marital_status || '')
+                            : (store.getDisplayValue('marital_status') || '')
+                        }
                         onChange={handleChange}
                         disabled={!store.isEditing}
                         maxLength={200}
@@ -295,11 +399,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="lifestyle">
-                      <Form.Label>{t('Lifestyle (comma separated)')}</Form.Label>
+                      <Form.Label>{t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" /></Form.Label>
                       <Form.Control
                         id="lifestyle"
                         type="text"
-                        value={store.arrayToDisplay(store.formData.lifestyle)}
+                        value={
+                          store.isEditing
+                            ? store.arrayToDisplay(store.formData.lifestyle)
+                            : store.arrayToDisplay(store.getDisplayValue('lifestyle'))
+                        }
                         onChange={(e) => store.setCommaSeparated('lifestyle', e.target.value)}
                         disabled={!store.isEditing}
                         placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
@@ -310,11 +418,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="personal_goals">
-                      <Form.Label>{t('Personal goals (comma separated)')}</Form.Label>
+                      <Form.Label>{t('Personal goals (comma separated)')} <SourceBadge fieldKey="personal_goals" /></Form.Label>
                       <Form.Control
                         id="personal_goals"
                         type="text"
-                        value={store.arrayToDisplay(store.formData.personal_goals)}
+                        value={
+                          store.isEditing
+                            ? store.arrayToDisplay(store.formData.personal_goals)
+                            : store.arrayToDisplay(store.getDisplayValue('personal_goals'))
+                        }
                         onChange={(e) => store.setCommaSeparated('personal_goals', e.target.value)}
                         disabled={!store.isEditing}
                         placeholder={t('e.g. Walk 30 min daily, Return to work')}
@@ -325,11 +437,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="social_support">
-                      <Form.Label>{t('Social support (comma separated)')}</Form.Label>
+                      <Form.Label>{t('Social support (comma separated)')} <SourceBadge fieldKey="social_support" /></Form.Label>
                       <Form.Control
                         id="social_support"
                         type="text"
-                        value={store.arrayToDisplay(store.formData.social_support)}
+                        value={
+                          store.isEditing
+                            ? store.arrayToDisplay(store.formData.social_support)
+                            : store.arrayToDisplay(store.getDisplayValue('social_support'))
+                        }
                         onChange={(e) => store.setCommaSeparated('social_support', e.target.value)}
                         disabled={!store.isEditing}
                         placeholder={t('e.g. Family, Friends, Community group')}
@@ -340,12 +456,16 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12}>
                     <Form.Group controlId="restrictions">
-                      <Form.Label>{t('Restrictions')}</Form.Label>
+                      <Form.Label>{t('Restrictions')} <SourceBadge fieldKey="restrictions" /></Form.Label>
                       <Form.Control
                         id="restrictions"
                         as="textarea"
                         rows={3}
-                        value={store.formData.restrictions || ''}
+                        value={
+                          store.isEditing
+                            ? (store.formData.restrictions || '')
+                            : (store.getDisplayValue('restrictions') || '')
+                        }
                         onChange={handleChange}
                         disabled={!store.isEditing}
                         maxLength={2000}
@@ -353,6 +473,63 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     </Form.Group>
                   </Col>
                 </Row>
+              </Tab>
+
+              <Tab eventKey="redcap" title={t('REDCap')}>
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <div className="text-muted">
+                    {store.redcapProject ? (
+                      <>
+                        {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
+                        <span className="ms-2">{t('Records')}: {store.redcapRows?.length || 0}</span>
+                      </>
+                    ) : (
+                      <span>{t('No project selected')}</span>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => store.fetchRedcapIfPossible(t)}
+                    disabled={store.redcapLoading}
+                  >
+                    <FaSyncAlt className="me-2" />
+                    {store.redcapLoading ? t('Loading...') : t('Refresh')}
+                  </Button>
+                </div>
+
+                {store.redcapLoading ? (
+                  <div className="text-center my-4">
+                    <Spinner animation="border" role="status" aria-label={t('Loading')} />
+                    <p className="mt-3">{t('Loading')}...</p>
+                  </div>
+                ) : !hasRedcap ? (
+                  <p className="text-muted mb-0">{t('No REDCap data available for this patient.')}</p>
+                ) : (
+                  <>
+                    <p className="text-muted">
+                      {t('This data is fetched live from REDCap and is not stored in the platform database.')}
+                    </p>
+
+                    <Table striped bordered hover responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 280 }}>{t('Field')}</th>
+                          <th>{t('Value')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(store.redcapFlat).map(([k, v]) => (
+                          <tr key={k}>
+                            <td><code>{k}</code></td>
+                            <td style={{ whiteSpace: 'pre-wrap' }}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </>
+                )}
               </Tab>
             </Tabs>
           </>
@@ -367,7 +544,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
         cancelText={t('Cancel')}
         confirmText={t('Delete')}
         onConfirm={handleDelete}
-        isConfirmDisabled={store.loading}
+        isConfirmDisabled={store.saving}
       />
     </>
   );
