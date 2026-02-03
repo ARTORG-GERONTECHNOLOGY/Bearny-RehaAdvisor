@@ -3,7 +3,7 @@ services:
     image: libretranslate/libretranslate
     container_name: libretranslate
     environment:
-      LT_LOAD_ONLY: "en,fr,de,it"
+      LT_LOAD_ONLY: "en,fr,de,it,nl,pt"
     restart: unless-stopped
     networks:
       - telereha

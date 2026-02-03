@@ -1,7 +1,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-import os
+
 
 DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE = True
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +22,7 @@ CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
 
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "biglongsecretstuffhere")
+
 APPEND_SLASH = True
 
 INSTALLED_APPS = [
@@ -75,8 +75,8 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = "/app/media"
 
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = os.environ.get('DATA_UPLOAD_MAX_MEMORY_SIZE', 104857600)  # 100MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = os.environ.get('FILE_UPLOAD_MAX_MEMORY_SIZE', 104857600)  # 100MB
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -120,13 +120,13 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.office365.com")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 
 # Use TLS on port 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "info@reha-advisor.ch")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #"nrk37CAYsTW&3sJ"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 

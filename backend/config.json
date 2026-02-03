@@ -134,10 +134,11 @@
       "Endocrinology",
       "Physical Therapy"
     ],
-    "clinics": [
-      "Berner Reha Centrum",
-      "Inselspital"
-    ]
+"projects": ["COPAIN", "COMPASS"],
+  "clinic_projects": {
+    "Berner Reha Centrum": ["COPAIN"],
+    "Inselspital": ["COMPASS"]
+  }
   },
   "Users": ["Therapist"],
   "userInfo": {
