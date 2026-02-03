@@ -29,7 +29,6 @@ def _guess_ext(mime: str, fallback=".webm") -> str:
     return ext if ext else fallback
 
 @csrf_exempt
-@permission_classes([IsAuthenticated])
 def submit_healthslider_item(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -116,7 +115,6 @@ def submit_healthslider_item(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@permission_classes([IsAuthenticated])
 def list_healthslider_items(request):
     """
     GET /api/healthslider/items/?participantId=...&sessionId=...
@@ -162,7 +160,6 @@ def _safe_filename(name: str) -> str:
 
 
 @csrf_exempt
-@permission_classes([IsAuthenticated])
 def download_healthslider_audio(request, item_id: str):
     """
     GET /api/healthslider/audio/<item_id>/
@@ -200,7 +197,6 @@ def download_healthslider_audio(request, item_id: str):
     return resp
 
 @csrf_exempt
-@permission_classes([IsAuthenticated])
 def download_healthslider_session_zip(request):
     """
     GET /api/healthslider/session-zip/?participantId=...&sessionId=...
@@ -237,7 +233,6 @@ def download_healthslider_session_zip(request):
     return response
 
 @csrf_exempt
-@permission_classes([IsAuthenticated])
 def delete_healthslider_session(request):
     """
     DELETE /api/healthslider/delete-session/?participantId=...&sessionId=...

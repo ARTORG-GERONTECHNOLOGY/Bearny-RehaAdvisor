@@ -1,7 +1,14 @@
-# ignore .env.<ext> files like .env.dev but not .env-example
+
 coverage/
 mongo_data/
 nginx/certs/
 nginx/logs/
 nginx/certbot/
 logs
+.env
+.env.*
+*.pem
+*.key
+secrets/
+.env.dev
+.env.prod
