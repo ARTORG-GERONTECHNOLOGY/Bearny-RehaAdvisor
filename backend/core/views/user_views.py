@@ -438,115 +438,167 @@ def user_profile_view(request, user_id):
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
-
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_pending_users(request):
-    if request.method == "GET":
-        try:
-            pending_users = User.objects(isActive=False)
-            result = []
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
 
-            for user in pending_users:
-                user_info = {
-                    "id": str(user.id),
-                    "username": user.username,
-                    "email": user.email,
-                    "role": user.role,
-                    "phone": user.phone,
-                    "isActive": user.isActive,
-                }
 
-                if user.role == "Therapist":
-                    try:
-                        therapist = Therapist.objects.get(userId=user.id)
-                        user_info.update(
-                            {
-                                "name": therapist.first_name + " " + therapist.name,
-                                "specializations": therapist.specializations,
-                                "clinics": therapist.clinics,
-                            }
-                        )
-                    except Therapist.DoesNotExist:
-                        user_info.update(
-                            {
-                                "name": "",
-                                "specializations": [],
-                                "clinics": [],
-                            }
-                        )
-                else:  # Admin or other roles without therapist info
+    try:
+        pending_users = User.objects(isActive=False)
+        result = []
+
+        for user in pending_users:
+            user_info = {
+                "id": str(user.id),
+                "username": getattr(user, "username", ""),
+                "email": getattr(user, "email", ""),
+                "role": getattr(user, "role", ""),
+                "phone": getattr(user, "phone", ""),
+                "isActive": bool(getattr(user, "isActive", False)),
+            }
+
+            if getattr(user, "role", "") == "Therapist":
+                therapist = Therapist.objects(userId=user.id).first()
+
+                if therapist:
+                    # Backward compat: some DBs may still have therapist.project (string)
+                    project_single = getattr(therapist, "project", "") or ""
+                    projects_list = getattr(therapist, "projects", None)
+
+                    if projects_list is None:
+                        # if new field doesn't exist yet, derive list from old single
+                        projects_list = [project_single] if project_single else []
+
                     user_info.update(
                         {
+                            "therapistId": str(therapist.id),  # ✅ FE needs this
+                            "name": f"{getattr(therapist, 'first_name', '')} {getattr(therapist, 'name', '')}".strip(),
+                            "specializations": getattr(therapist, "specializations", []) or [],
+                            "clinics": getattr(therapist, "clinics", []) or [],
+                            # ✅ FE shows badges from "projects"
+                            "projects": projects_list,
+                            # optional: keep old field for compatibility
+                            "project": project_single,
+                        }
+                    )
+                else:
+                    user_info.update(
+                        {
+                            "therapistId": None,
                             "name": "",
                             "specializations": [],
                             "clinics": [],
+                            "projects": [],
+                            "project": "",
                         }
                     )
+            else:
+                # For Admin / Researcher / others
+                user_info.update(
+                    {
+                        "therapistId": None,
+                        "name": user_info.get("username", "") or "",
+                        "specializations": [],
+                        "clinics": [],
+                        "projects": [],
+                        "project": "",
+                    }
+                )
 
-                result.append(user_info)
+            result.append(user_info)
 
-            return JsonResponse({"pending_users": result}, status=200)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"pending_users": result}, status=200)
+
+    except Exception as e:
+        logger.exception("get_pending_users failed")
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def accept_user(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
         user_id = data.get("userId")
-        user = User.objects.get(id=user_id)
+
+        if not user_id:
+            return JsonResponse({"error": "userId is required"}, status=400)
+
+        try:
+            oid = ObjectId(user_id)
+        except Exception:
+            return JsonResponse({"error": "Invalid userId"}, status=400)
+
+        user = User.objects(id=oid).first()
+        if not user:
+            return JsonResponse({"error": "User not found."}, status=404)
 
         user.isActive = True
         user.save()
 
-        send_mail(
-            subject="Account Activation",
-            message=(
-                "Dear user, your account has been accepted and activated. You can now log in."
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        # Email (safe guards)
+        if getattr(user, "email", None):
+            send_mail(
+                subject="Account Activation",
+                message="Dear user, your account has been accepted and activated. You can now log in.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
 
         return JsonResponse({"message": "User accepted successfully."}, status=200)
 
-    except User.DoesNotExist:
-        return JsonResponse({"error": "User not found."}, status=404)
     except Exception as e:
+        logger.exception("accept_user failed")
         return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def decline_user(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
         user_id = data.get("userId")
-        user = User.objects.get(id=ObjectId(user_id))
 
-        # Delete and send email...
+        if not user_id:
+            return JsonResponse({"error": "userId is required"}, status=400)
+
+        try:
+            oid = ObjectId(user_id)
+        except Exception:
+            return JsonResponse({"error": "Invalid userId"}, status=400)
+
+        user = User.objects(id=oid).first()
+        if not user:
+            return JsonResponse({"error": "User not found."}, status=404)
+
+        # capture email before deletion
+        email = getattr(user, "email", None)
+
         user.delete()
-        send_mail(
-            subject="Account Declined",
-            message=(
-                f"Dear user, we regret to inform you that your registration was not approved."
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        
 
-        return JsonResponse(
-            {"message": "User declined and deleted successfully."}, status=200
-        )
+        if email:
+            send_mail(
+                subject="Account Declined",
+                message="Dear user, we regret to inform you that your registration was not approved.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
 
-    except User.DoesNotExist:
-        return JsonResponse({"error": "User not found."}, status=404)
+        return JsonResponse({"message": "User declined and deleted successfully."}, status=200)
+
     except Exception as e:
+        logger.exception("decline_user failed")
         return JsonResponse({"error": str(e)}, status=500)

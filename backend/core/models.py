@@ -309,19 +309,32 @@ class DefaultInterventions(EmbeddedDocument):
     )
 
 
+# core/models.py
 class Therapist(Document):
     meta = {"collection": "Therapist"}
     userId = ReferenceField(User, required=True)
     name = StringField(max_length=20)
     first_name = StringField(max_length=20)
     created_at = DateTimeField(default=timezone.now)
-    specializations = ListField(StringField(max_length=200),
-                                choices=config["therapistInfo"]["specializations"])
-    clinics = ListField(StringField(max_length=200),
-                        choices=config["therapistInfo"]["clinics"])
 
-    # Templates are **therapist-specific** here:
+    specializations = ListField(
+        StringField(max_length=200),
+        choices=config["therapistInfo"]["specializations"],
+    )
+
+    clinics = ListField(
+        StringField(max_length=200),
+        choices=list((config["therapistInfo"].get("clinic_projects") or {}).keys()),
+    )
+
+    # ✅ store one or more projects the therapist is working with
+    projects = ListField(
+        StringField(max_length=100, choices=config["therapistInfo"]["clinic_projects"]),
+        default=list,
+    )
+
     default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions))
+
 
 
 # models.py
@@ -363,39 +376,64 @@ class PatientThresholds(EmbeddedDocument):
     bp_sys_yellow_max = IntField(default=139)
     bp_dia_green_max = IntField(default=84)
     bp_dia_yellow_max = IntField(default=89)
+
+
 class Patient(Document):
     meta = {"collection": "Patients"}
 
-    userId = ReferenceField(User, required=True)
-    # NEW: stable human-readable patient ID (copy of user.username at creation)
-    patient_code = StringField(max_length=30, required=True)
+    # ✅ Platform linking / auth
+    userId = ReferenceField("User", required=True)
 
-    name = StringField(max_length=20, required=True)
-    pwdhash = StringField()
-    access_word = StringField(max_length=100, required=True)
-    first_name = StringField(max_length=20, required=True)
-    age = StringField(max_length=20, required=True)
-    therapist = ReferenceField(Therapist, required=True)
-    sex = StringField(max_length=10, choices=config["patientInfo"]["sex"], required=True)
-    diagnosis = ListField(StringField(max_length=100), choices=all_diagnoses, required=True)
-    function = ListField(StringField(max_length=200, choices=config["therapistInfo"]["specializations"]), required=True)
-    level_of_education = StringField(max_length=30, choices=config["patientInfo"]["level_of_education"])
-    professional_status = StringField(max_length=30, choices=config["patientInfo"]["professional_status"])
-    marital_status = StringField(max_length=30, choices=config["patientInfo"]["marital_status"])
-    lifestyle = ListField(StringField(max_length=200, choices=config["patientInfo"]["lifestyle"]))
-    personal_goals = ListField(StringField(max_length=200, choices=config["patientInfo"]["personal_goals"]))
-    restrictions = StringField(max_length=30)
-    social_support = ListField(StringField(max_length=30))
-    duration = IntField()
-    care_giver = StringField(max_length=20, default="")
-    reha_end_date = DateTimeField(required=True)
-    thresholds = EmbeddedDocumentField(PatientThresholds, default=PatientThresholds)
+    # ✅ Connector to REDCap (pat_id)
+    patient_code = StringField(max_length=30, required=True, unique=True)
 
+    # ✅ Platform relationships
+    therapist = ReferenceField("Therapist", required=True)
+
+    # ✅ Access fields (platform)
+    access_word = StringField(max_length=100, required=False, default="")
+
+    # ✅ Only if you still use it; otherwise remove
+    pwdhash = StringField(required=False, default="")
+
+    # ✅ Platform-specific settings
+    thresholds = EmbeddedDocumentField("PatientThresholds", default=lambda: PatientThresholds())
+
+    # ✅ Optional platform fields (can also come from REDCap)
     clinic = StringField(max_length=120, default="")
     last_clinic_visit = DateTimeField(required=False, null=True)
 
+    # ✅ Optional “profile” fields (REDCap source of truth)
+    name = StringField(max_length=80, required=False, default="")
+    first_name = StringField(max_length=80, required=False, default="")
+    age = StringField(max_length=20, required=False, default="")
+
+    sex = StringField(max_length=20, required=False, default="")  # removed choices constraint to avoid mismatch
+    diagnosis = ListField(StringField(max_length=120), required=False, default=list)
+    function = ListField(StringField(max_length=200), required=False, default=list)
+
+    level_of_education = StringField(max_length=60, required=False, default="")
+    professional_status = StringField(max_length=60, required=False, default="")
+    marital_status = StringField(max_length=60, required=False, default="")
+    lifestyle = ListField(StringField(max_length=200), required=False, default=list)
+    personal_goals = ListField(StringField(max_length=200), required=False, default=list)
+
+    restrictions = StringField(max_length=200, required=False, default="")
+    social_support = ListField(StringField(max_length=120), required=False, default=list)
+    duration = IntField(required=False, null=True)
+    care_giver = StringField(max_length=80, required=False, default="")
+
+    reha_end_date = DateTimeField(required=False, null=True)
+
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.patient_code} (Patient)"   # optional
+        return f"{self.patient_code} (Patient)"
 
 class HealthQuestionnaire(Document):
     meta = {"collection": "HealthQuestionnaires"}

@@ -2,7 +2,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-
+from core.views.redcap_views import redcap_projects, redcap_record
+from core.views.redcap_import_views import import_patient_from_redcap
 import core.views.auth_views as auth_views
 import core.views.patient_views as patient_views
 import core.views.recomendation_views as recomendation_views
@@ -24,7 +25,8 @@ from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_session_zip,
 )
-
+from core.views.therapist_projects_views import therapist_projects
+from core.views.redcap_patient_views import redcap_patient
 urlpatterns = [
     path("api/", core_views.index, name="index"),
     path("api/admin/pending-users/", user_views.get_pending_users),
@@ -164,6 +166,11 @@ urlpatterns = [
     path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
     path("api/healthslider/submit-item/", submit_healthslider_item),
     path("api/healthslider/delete-session/", download_healthslider_session_zip),
+
+    path("api/redcap/projects/", redcap_projects),
+    path("api/redcap/import-patient/", import_patient_from_redcap),
+    path("api/redcap/patient/", redcap_patient),
+    path("api/therapist/projects/", therapist_projects, name="therapist-projects"),
 
 ]
 
