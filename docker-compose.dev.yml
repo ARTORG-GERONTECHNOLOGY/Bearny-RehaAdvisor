@@ -13,14 +13,14 @@ services:
     container_name: db
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      - ./.env.dev
     ports:
       - "27017:27017"
     volumes:
       - ./mongo_data:/data/db  # Correctly map this volume to persist data
     networks:
       - telereha
+
   django-dev:
     build:
       context: ./backend
@@ -51,7 +51,6 @@ services:
     command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state
     volumes:
       - ./backend:/app
-
     env_file:
       - ./.env.dev
     depends_on:
@@ -59,7 +58,7 @@ services:
       - redis
     working_dir: /app
     environment:
-      - DJANGO_SETTINGS_MODULE=api.settings.base
+      - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -81,7 +80,7 @@ services:
     env_file:
       - ./.env.dev
     environment:
-      - DJANGO_SETTINGS_MODULE=api.settings.base
+      - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -93,10 +92,6 @@ services:
       - redis
     networks:
       - telereha
-
-
-
-
 
   redis:
     image: redis:alpine

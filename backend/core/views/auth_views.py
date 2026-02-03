@@ -2,9 +2,11 @@ import json
 import logging
 import random
 import string
+from datetime import timezone as dt_timezone
 from datetime import datetime, timedelta
 from twilio.rest import Client
 from bson import ObjectId
+from django.utils import timezone
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
 from django.db.models import Q
@@ -39,7 +41,7 @@ from utils.utils import (
     get_labels,
     sanitize_text,
 )
-
+import uuid
 logger = logging.getLogger(__name__)
 
 
@@ -258,47 +260,100 @@ def login_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
+    request_id = uuid.uuid4().hex[:10]
+
     try:
-        data = json.loads(request.body)
-        identifier = data.get("email")
-        raw_password = data.get("password")
+        identifier = ""
+        raw_password = ""
+
+        content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+
+        # 1) JSON
+        if "application/json" in content_type:
+            try:
+                data = json.loads(request.body.decode("utf-8") or "{}")
+                identifier = (data.get("email") or data.get("username") or "").strip()
+                raw_password = data.get("password") or ""
+            except Exception:
+                body_preview = (request.body or b"")[:200]
+                logger.warning(
+                    f"[LOGIN][{request_id}] Invalid JSON. content_type={content_type} body_preview={body_preview!r}"
+                )
+                # fallback to POST parsing just in case FE sent wrong header
+                identifier = (request.POST.get("email") or request.POST.get("username") or "").strip()
+                raw_password = request.POST.get("password") or ""
+
+        # 2) Form-encoded / multipart / unknown
+        else:
+            identifier = (request.POST.get("email") or request.POST.get("username") or "").strip()
+            raw_password = request.POST.get("password") or ""
+            if not identifier and request.body:
+                # sometimes axios sends JSON but without header
+                try:
+                    data = json.loads(request.body.decode("utf-8") or "{}")
+                    identifier = (data.get("email") or data.get("username") or "").strip()
+                    raw_password = data.get("password") or ""
+                except Exception:
+                    body_preview = (request.body or b"")[:200]
+                    logger.warning(
+                        f"[LOGIN][{request_id}] Non-JSON content_type={content_type} and body not JSON. body_preview={body_preview!r}"
+                    )
 
         if not identifier or not raw_password:
-            return JsonResponse({"error": "Email/username and password are required."}, status=400)
+            return JsonResponse(
+                {
+                    "error": "Email/username and password are required.",
+                    "request_id": request_id,
+                    "content_type": content_type,
+                },
+                status=400,
+            )
 
         user = User.objects.filter(
             __raw__={"$or": [{"email": identifier}, {"username": identifier}]}
         ).first()
 
         if not user or not check_password(raw_password, user.pwdhash):
-            return JsonResponse({"error": "Invalid credentials."}, status=401)
+            return JsonResponse({"error": "Invalid credentials.", "request_id": request_id}, status=401)
 
-        if not user.isActive:
-            return JsonResponse({"error": "User is not yet accepted."}, status=403)
+        if not getattr(user, "isActive", False):
+            return JsonResponse({"error": "User is not yet accepted.", "request_id": request_id}, status=403)
 
-        # --- If therapist: do NOT issue tokens here ---
+        user_id_str = str(user.id)
+
         if user.role == "Therapist":
-            return JsonResponse({
-                "user_type": "Therapist",
-                "id": str(user.id),
-                "require_2fa": True
-            }, status=200)
+            return JsonResponse(
+                {
+                    "user_type": "Therapist",
+                    "id": user_id_str,
+                    "require_2fa": True,
+                    "request_id": request_id,
+                },
+                status=200,
+            )
 
-        # --- Other roles: issue tokens immediately ---
         Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
-        refresh = RefreshToken.for_user(user)
 
-        return JsonResponse({
-            "user_type": user.role,
-            "id": str(user.id),
-            "access_token": str(refresh.access_token),
-            "refresh_token": str(refresh),
-            "require_2fa": False
-        }, status=200)
+        refresh = RefreshToken()
+        refresh["user_id"] = user_id_str
+        refresh["role"] = user.role
+        refresh["username"] = getattr(user, "username", "") or ""
 
-    except Exception:
-        return JsonResponse({"error": "Internal server error"}, status=500)
+        return JsonResponse(
+            {
+                "user_type": user.role,
+                "id": user_id_str,
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),
+                "require_2fa": False,
+                "request_id": request_id,
+            },
+            status=200,
+        )
 
+    except Exception as e:
+        logger.exception(f"[LOGIN][{request_id}] Internal server error: {e}")
+        return JsonResponse({"error": "Internal server error.", "request_id": request_id}, status=500)
 
 
 
@@ -651,6 +706,12 @@ def send_sms(phone_number, message):
     )
 
 
+# =============================
+# SEND 2FA CODE (Therapist)
+# - Fixes MongoEngine ValidationError by forcing str(user.id)
+# - Deletes old codes first
+# - Logs what's saved
+# =============================
 @csrf_exempt
 def send_verification_code(request):
     try:
@@ -738,35 +799,37 @@ def send_verification_code(request):
 @csrf_exempt
 def verify_code_view(request):
     try:
-        data = json.loads(request.body)
-        user_id = data.get("userId")
-        code = data.get("verificationCode")
+        data = json.loads(request.body or "{}")
+        user_id = (data.get("userId") or "").strip()
+        code = (data.get("verificationCode") or "").strip()
 
         if not user_id or not code:
-            return JsonResponse(
-                {"error": "Missing user ID or verification code"}, status=400
-            )
+            return JsonResponse({"error": "Missing user ID or verification code"}, status=400)
 
-        # Find the code in the DB
-        verification = SMSVerification.objects.filter(userId=user_id, code=code).first()
-
+        verification = (
+            SMSVerification.objects(userId=user_id, code=code)
+            .order_by("-created_at")
+            .first()
+        )
         if not verification:
             return JsonResponse({"error": "Invalid verification code"}, status=400)
 
-        # ---- FIX: ensure expires_at is timezone-aware ----
+        # ---- Compare in UTC (+00:00) ALWAYS ----
         expires_at = verification.expires_at
         if timezone.is_naive(expires_at):
-            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+            expires_at_utc = expires_at.replace(tzinfo=dt_timezone.utc)
+        else:
+            expires_at_utc = expires_at.astimezone(dt_timezone.utc)
 
-        if expires_at < timezone.now():
+        now_utc = timezone.now().astimezone(dt_timezone.utc)
+
+        if expires_at_utc < now_utc:
             verification.delete()
             return JsonResponse({"error": "Verification code expired"}, status=400)
 
-        # Success
         user = User.objects.get(pk=user_id)
         verification.delete()
 
-        # Issue tokens only AFTER 2FA succeeded
         refresh = RefreshToken.for_user(user)
         Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
 
