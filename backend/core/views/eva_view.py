@@ -36,28 +36,22 @@ def submit_healthslider_item(request):
     try:
         participant_id = (request.POST.get("participantId") or "").strip()
         session_id = (request.POST.get("sessionId") or "").strip()
+        q_text = (request.POST.get("questionText") or "").strip() # Capture Text
         
         if not participant_id or not session_id:
             return JsonResponse({"error": "participantId and sessionId are required"}, status=400)
 
-        try:
-            question_index = int(request.POST.get("questionIndex", "").strip())
-        except:
-            return JsonResponse({"error": "Invalid questionIndex"}, status=400)
-
+        question_index = int(request.POST.get("questionIndex", 0))
         answer_raw = (request.POST.get("answerValue") or "").strip()
         answer_value = float(answer_raw) if answer_raw != "" else None
 
-        # Handle Date
+        # Handle Date (Timestamp from FE or Server fallback)
         answered_at_raw = (request.POST.get("answeredAt") or "").strip()
         if answered_at_raw:
             dt = datetime.datetime.fromisoformat(answered_at_raw.replace("Z", "+00:00"))
         else:
             dt = timezone.now()
-        if timezone.is_naive(dt):
-            dt = timezone.make_aware(dt, timezone.utc)
 
-        # ---- UPSERT LOGIC ----
         entry = HealthSliderEntry.objects(
             participant_id=participant_id,
             session_id=session_id,
@@ -72,84 +66,57 @@ def submit_healthslider_item(request):
             )
 
         entry.answer_value = answer_value
+        entry.question_text = q_text # Save question text
         entry.answered_at = dt
 
-        # ---- AUDIO HANDLING (iPad Optimized) ----
         audio = request.FILES.get("audio")
         if audio:
-            # 1. Cleanup old file if it exists (prevents orphaned files on reloads)
             if entry.audio_file and default_storage.exists(entry.audio_file):
                 default_storage.delete(entry.audio_file)
 
-            # 2. Identify Extension
             mime = (request.POST.get("audioMime") or getattr(audio, "content_type", "")).strip()
-            ext = os.path.splitext(audio.name or "")[1].lower()
-            if not ext:
-                ext = _guess_ext(mime, ".mp4" if "mp4" in mime else ".webm")
+            ext = os.path.splitext(audio.name or "")[1].lower() or _guess_ext(mime)
 
-            # 3. Naming
             ts = timezone.now().strftime("%Y%m%dT%H%M%S")
-            safe_part = _safe_slug(participant_id)
-            safe_sess = _safe_slug(session_id)
-            disk_name = f"{safe_part}_{safe_sess}_q{question_index+1:02d}_{ts}{ext}"
-            storage_path = f"healthslider/{safe_part}/{safe_sess}/{disk_name}"
+            disk_name = f"{_safe_slug(participant_id)}_q{question_index+1:02d}_{ts}{ext}"
+            storage_path = f"healthslider/{_safe_slug(participant_id)}/{disk_name}"
 
-            # 4. Save to Disk
             saved_path = default_storage.save(storage_path, audio)
-
             entry.audio_file = saved_path
             entry.audio_name = disk_name
             entry.audio_mime = mime
             entry.has_audio = True
 
         entry.save()
-
-        return JsonResponse({
-            "ok": True,
-            "id": str(entry.id),
-            "hasAudio": bool(entry.has_audio),
-            "mimeUsed": entry.audio_mime
-        }, status=201)
-
+        return JsonResponse({"ok": True}, status=201)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 def list_healthslider_items(request):
-    """
-    GET /api/healthslider/items/?participantId=...&sessionId=...
-    Returns items ordered by question_index.
-    """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    participant_id = (request.GET.get("participantId") or "").strip()
-    session_id = (request.GET.get("sessionId") or "").strip()
-
+    participant_id = request.GET.get("participantId")
     if not participant_id:
-        return JsonResponse({"error": "participantId is required"}, status=400)
+        return JsonResponse({"error": "participantId required"}, status=400)
 
-    qs = HealthSliderEntry.objects(participant_id=participant_id)
-    if session_id:
-        qs = qs.filter(session_id=session_id)
-
+    qs = HealthSliderEntry.objects(participant_id=participant_id).order_by("question_index")
     out = []
-    for it in qs.order_by("question_index"):
-        out.append(
-            {
-                "id": str(it.id),
-                "participantId": it.participant_id,
-                "sessionId": it.session_id,
-                "questionIndex": it.question_index,
-                "answerValue": it.answer_value,
-                "hasAudio": bool(it.has_audio),
-                "audioName": it.audio_name,
-                "audioMime": it.audio_mime,
-                "answeredAt": it.answered_at.isoformat() if it.answered_at else None,
-            }
-        )
+    for it in qs:
+        size = 0
+        if it.has_audio and it.audio_file and default_storage.exists(it.audio_file):
+            size = default_storage.size(it.audio_file) # Audio size in bytes
 
-    return JsonResponse({"items": out}, status=200)
+        out.append({
+            "id": str(it.id),
+            "questionIndex": it.question_index,
+            "questionText": it.question_text, # Included for Dashboard
+            "answerValue": it.answer_value,
+            "hasAudio": it.has_audio,
+            "audioSize": size,
+            "audioName": it.audio_name,
+            "answeredAt": it.answered_at.isoformat() if it.answered_at else None,
+        })
+    return JsonResponse({"items": out})
+
 
 
 def _safe_filename(name: str) -> str:
