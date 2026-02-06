@@ -1,204 +1,150 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Button, Table, Spinner, Container, Row, Col, Form } from 'react-bootstrap';
+import { zipSync, strToU8 } from 'fflate';
 import apiClient from '../api/client';
 
-type Item = {
-  id: string;
-  participantId: string;
-  sessionId: string;
-  questionIndex: number;
-  answerValue: number | null;
-  hasAudio: boolean;
-  audioName?: string | null;
-  answeredAt?: string | null;
-};
-
-type ListResp = { items: Item[] };
-
-function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  try { return new Date(iso).toLocaleString(); } catch { return iso; }
-}
-
-export default function HealthSliderDownloadsPage() {
+export default function DownloadsPage() {
   const [participantId, setParticipantId] = useState('');
-  const [sessionId, setSessionId] = useState('');
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-
-  const stats = useMemo(() => {
-    const total = items.length;
-    const withAudio = items.filter((i) => i.hasAudio).length;
-    const sessions = new Set(items.map((i) => i.sessionId)).size;
-    return { total, withAudio, sessions };
-  }, [items]);
+  const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
 
   const fetchItems = async () => {
-    setError(''); setInfo(''); setItems([]);
-    const pid = participantId.trim();
-    if (!pid) return setError('Please enter a participant ID.');
-
+    if (!participantId.trim()) return alert("Please enter a Patient ID");
     setLoading(true);
     try {
-      const res = await apiClient.get<ListResp>('/healthslider/items/', {
-        params: { participantId: pid, sessionId: sessionId.trim() || undefined },
-      });
-      const arr = Array.isArray(res.data?.items) ? res.data.items : [];
-      setItems(arr);
-      if (!arr.length) setInfo('No recordings found for this participant/session.');
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Failed to load recordings.');
-    } finally { setLoading(false); }
-  };
-
-  const downloadOne = async (item: Item) => {
-    try {
-      const res = await apiClient.get(`/healthslider/audio/${item.id}/`, { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = item.audioName || `q${item.questionIndex}.mp4`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch { alert('Download failed.'); }
-  };
-
-const downloadZip = async () => {
-  const pid = participantId.trim();
-  if (!pid) return;
-
-  setLoading(true);
-  setError('');
-
-  try {
-    // 1. Fetch the data as a 'blob'
-    const res = await apiClient.get('/healthslider/session-zip/', {
-      params: {
-        participantId: pid,
-        sessionId: sessionId.trim() || undefined,
-      },
-      responseType: 'blob', // IMPORTANT: Tells the browser this is binary data
-    });
-
-    // 2. Create a local URL representing that data
-    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
-    
-    // 3. Create a hidden <a> tag and "click" it
-    const link = document.createElement('a');
-    link.href = url;
-    
-    // Set the filename for the user's computer
-    const fileName = `Session_${pid}_${new Date().toISOString().split('T')[0]}.zip`;
-    link.setAttribute('download', fileName);
-    
-    document.body.appendChild(link);
-    link.click();
-
-    // 4. Cleanup
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  } catch (e: any) {
-    setError('Failed to generate or download ZIP.');
-  } finally {
+      const res = await apiClient.get(`/healthslider/items/`, { params: { participantId: participantId.trim() } });
+      setItems(res.data.items || []);
+    } catch (e) { alert("Error fetching data"); }
     setLoading(false);
-  }
-};
+  };
 
-  const deleteSession = async () => {
-    const pid = participantId.trim();
-    const sid = sessionId.trim();
-    const msg = sid 
-      ? `Are you SURE you want to delete session "${sid}"? All audio files and data will be permanently lost.`
-      : `Are you SURE you want to delete ALL sessions for participant "${pid}"? This is permanent.`;
-
-    if (!window.confirm(msg)) return;
-
-    setLoading(true);
+  /** --- DYNAMIC AUDIO LOADING --- */
+  const loadAudio = async (itemId: string) => {
+    if (audioUrls[itemId]) return; // Already loaded
     try {
-      await apiClient.delete('/healthslider/delete-session/', {
-        params: { participantId: pid, sessionId: sid || undefined }
-      });
-      setItems([]);
-      setInfo('Successfully deleted.');
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Failed to delete.');
-    } finally { setLoading(false); }
+      const res = await apiClient.get(`/healthslider/audio/${itemId}/`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      setAudioUrls(prev => ({ ...prev, [itemId]: url }));
+    } catch (e) { alert("Playback failed to load."); }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const downloadAll = async () => {
+    if (!items.length) return;
+    setLoading(true);
+
+    const zipData: Record<string, Uint8Array> = {};
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    const csvRows = [["QuestionID", "QuestionText", "Rating", "Timestamp", "AudioFile"]];
+    
+    for (const item of items) {
+      const fileName = item.audioName || `Q${item.questionIndex + 1}_${participantId}.mp4`;
+      csvRows.push([
+        item.questionIndex + 1,
+        `"${item.questionText}"`,
+        item.answerValue === -1 ? "N/A" : item.answerValue,
+        item.answeredAt,
+        item.hasAudio ? fileName : "No Audio"
+      ]);
+
+      if (item.hasAudio) {
+        try {
+          const audioRes = await apiClient.get(`/healthslider/audio/${item.id}/`, { responseType: 'arraybuffer' });
+          zipData[fileName] = new Uint8Array(audioRes.data);
+        } catch (e) { console.error("Audio download failed", item.id); }
+      }
+    }
+
+    zipData[`Summary_${participantId}_${dateStr}.csv`] = strToU8(csvRows.map(r => r.join(",")).join("\n"));
+
+    const zipped = zipSync(zipData);
+    const blob = new Blob([zipped], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ICF_Monitor_Export_${participantId}_${dateStr}.zip`;
+    a.click();
+    
+    setLoading(false);
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100">
-      <Container className="mt-4 mb-5">
-        <Row className="justify-content-center">
-          <Col lg={10} xl={9}>
-            <Card className="shadow-sm">
-              <Card.Body>
-                <h3 className="mb-2">HealthSlider Recordings Download</h3>
-                <p className="text-muted mb-4">Manage and download recorded participant sessions.</p>
+    <Container className="py-5" style={{ fontFamily: 'Atkinson Hyperlegible, sans-serif' }}>
+      <h3 className="mb-4">Admin Dashboard (V2.2)</h3>
+      <Row className="mb-4 align-items-end">
+        <Col md={4}>
+          <Form.Group>
+            <Form.Label className="fw-bold">Patient ID (Format: Pxx)</Form.Label>
+            <Form.Control 
+              value={participantId} 
+              onChange={e => setParticipantId(e.target.value)} 
+              placeholder="e.g. P01" 
+            />
+          </Form.Group>
+        </Col>
+        <Col>
+          <Button onClick={fetchItems} variant="primary" className="me-2 px-4 shadow-sm">Search</Button>
+          <Button variant="success" onClick={downloadAll} disabled={!items.length || loading} className="px-4 shadow-sm">
+            {loading ? <Spinner size="sm" /> : "Download All (ZIP + CSV)"}
+          </Button>
+        </Col>
+      </Row>
 
-                {error && <Alert variant="danger">{error}</Alert>}
-                {info && <Alert variant="info">{info}</Alert>}
-
-                <Row className="g-3 align-items-end">
-                  <Col md={6}>
-                    <Form.Label className="fw-semibold">Participant ID</Form.Label>
-                    <Form.Control value={participantId} onChange={(e) => setParticipantId(e.target.value)} placeholder="e.g. SUBJ_001" />
-                  </Col>
-                  <Col md={6}>
-                    <Form.Label className="fw-semibold">Session ID (optional)</Form.Label>
-                    <Form.Control value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="e.g. Session Timestamp" />
-                  </Col>
-                  <Col xs={12} className="d-flex gap-2">
-                    <Button onClick={fetchItems} disabled={loading}>{loading ? <Spinner size="sm" /> : 'Search'}</Button>
-                    <Button variant="outline-primary" disabled={!items.length} onClick={downloadZip}>Download all (ZIP)</Button>
-                    <Button variant="outline-danger" disabled={!items.length} onClick={deleteSession}>Delete All</Button>
-                    <Button variant="outline-secondary" onClick={() => { setParticipantId(''); setSessionId(''); setItems([]); setError(''); setInfo(''); }}>Clear</Button>
-                  </Col>
-                </Row>
-
-                {!!items.length && (
-                  <div className="mt-4 text-muted small">
-                    Found <b>{stats.total}</b> items across <b>{stats.sessions}</b> sessions. Audio files: <b>{stats.withAudio}</b>
-                  </div>
+      <Table striped bordered hover responsive className="mt-2 align-middle">
+        <thead className="table-dark">
+          <tr>
+            <th className="text-center">Q#</th>
+            <th>Question & Timestamp</th>
+            <th className="text-center">Rating</th>
+            <th className="text-center">Audio Size</th>
+            <th style={{ width: '300px' }}>Playback</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(it => (
+            <tr key={it.id}>
+              <td className="text-center fw-bold">{it.questionIndex + 1}</td>
+              <td>
+                <div className="fw-semibold">{it.questionText}</div>
+                <small className="text-muted">{new Date(it.answeredAt).toLocaleString('de-DE')}</small>
+              </td>
+              <td className="text-center">
+                {it.answerValue === -1 ? (
+                  <span className="badge bg-secondary">N/A</span>
+                ) : (
+                  <span className="badge bg-primary" style={{ fontSize: '1rem' }}>{it.answerValue}</span>
                 )}
-
-                <div className="mt-3" style={{ overflowX: 'auto' }}>
-                  <Table striped bordered hover responsive className="mb-0 align-middle">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 60 }}>Q#</th>
-                        <th>Session</th>
-                        <th style={{ width: 100 }}>Answer</th>
-                        <th style={{ width: 180 }}>Saved</th>
-                        <th style={{ width: 200 }}>Audio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((it) => (
-                        <tr key={it.id}>
-                          <td>{it.questionIndex + 1}</td>
-                          <td className="small text-break">{it.sessionId}</td>
-                          <td>{it.answerValue ?? '—'}</td>
-                          <td>{fmtDate(it.answeredAt)}</td>
-                          <td>
-                            {it.hasAudio ? (
-                              <Button size="sm" variant="primary" onClick={() => downloadOne(it)}>Download</Button>
-                            ) : <span className="text-muted">No audio</span>}
-                          </td>
-                        </tr>
-                      ))}
-                      {!loading && !items.length && (
-                        <tr><td colSpan={5} className="text-center text-muted py-4">No data loaded.</td></tr>
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
-    </div>
+              </td>
+              <td className="text-center text-muted small">{it.hasAudio ? formatSize(it.audioSize) : '—'}</td>
+              <td>
+                {it.hasAudio ? (
+                  audioUrls[it.id] ? (
+                    <audio src={audioUrls[it.id]} controls style={{ height: '35px', width: '100%' }} />
+                  ) : (
+                    <Button size="sm" variant="outline-dark" onClick={() => loadAudio(it.id)}>
+                      ▶ Load Recording
+                    </Button>
+                  )
+                ) : (
+                  <span className="text-danger small">No recording available</span>
+                )}
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && !loading && (
+            <tr><td colSpan={5} className="text-center py-5 text-muted">Enter a Patient ID and click Search to display results.</td></tr>
+          )}
+        </tbody>
+      </Table>
+    </Container>
   );
 }
