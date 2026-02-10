@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PlayFill, BellFill, BellSlashFill } from 'react-bootstrap-icons';
 
-
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
 const REAL_QUESTIONS = [
@@ -132,6 +131,14 @@ export default function HealthSlider() {
   // pre-recorded audio
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioError, setAudioError] = useState<string>('');
+
+  // ✅ responsive breakpoint
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 520 : false));
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 520);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const total = REAL_QUESTIONS.length;
   const progressPercent = isPracticeMode ? 0 : ((questionIndex + 1) / total) * 100;
@@ -286,7 +293,9 @@ export default function HealthSlider() {
   }, []);
 
   const stopAll = () => {
-    try { recorderRef.current?.stop(); } catch {}
+    try {
+      recorderRef.current?.stop();
+    } catch {}
     streamRef.current?.getTracks().forEach((t) => t.stop());
     recorderRef.current = null;
     chunksRef.current = [];
@@ -376,7 +385,9 @@ export default function HealthSlider() {
       if (!isLast) {
         advanceToNextQuestion();
         setTimeout(() => {
-          try { startItemRecorder(); } catch {}
+          try {
+            startItemRecorder();
+          } catch {}
         }, 0);
       } else {
         setShowSummary(true);
@@ -400,7 +411,9 @@ export default function HealthSlider() {
         meta,
       });
 
-      try { startItemRecorder(); } catch {}
+      try {
+        startItemRecorder();
+      } catch {}
     } finally {
       setSaving(false);
     }
@@ -414,12 +427,7 @@ export default function HealthSlider() {
     await executeNextSafe(val);
   };
 
-  /** ===== Touch + pointer drag fix =====
-   * We:
-   *  - set touchAction: 'none' on the track
-   *  - add non-passive touch listeners to prevent scroll/pull-to-refresh
-   *  - still support pointer events for modern browsers
-   */
+  /** ===== Touch + pointer drag fix ===== */
   const handleSliderMove = useCallback((clientY: number) => {
     const el = spectrumRef.current;
     if (!el) return;
@@ -446,17 +454,17 @@ export default function HealthSlider() {
   };
   const onPointerUp = (e: React.PointerEvent) => {
     isDraggingRef.current = false;
-    try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); } catch {}
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    } catch {}
   };
 
-  // Mobile Safari/Chrome: prevent page scroll / refresh while dragging
   useEffect(() => {
     const el = spectrumRef.current;
     if (!el) return;
 
     const onTouchStart = (ev: TouchEvent) => {
       if (saving || isLocked) return;
-      // IMPORTANT: requires passive:false
       ev.preventDefault();
       isDraggingRef.current = true;
       const t = ev.touches[0];
@@ -544,7 +552,7 @@ export default function HealthSlider() {
           aria-label={dingActive ? 'Ton an' : 'Ton aus'}
           title={dingActive ? 'Ton an' : 'Ton aus'}
         >
-          {dingActive ? <BellFill size={20} /> : <BellSlashFill size={20} />}
+          {dingActive ? <BellFill size={isMobile ? 18 : 20} /> : <BellSlashFill size={isMobile ? 18 : 20} />}
         </button>
       </div>
 
@@ -553,10 +561,32 @@ export default function HealthSlider() {
           <section style={styles.centerArea}>
             <div style={styles.endLabelTop}>Sehr gut</div>
 
-            <div style={styles.sliderWrap}>
-              <button type="button" onClick={playItemAudio} style={styles.playBtnAnchored} aria-label="Frage abspielen" title="Frage abspielen">
-                <PlayFill size={32} />
+            {/* ✅ On mobile: play button ABOVE the slider, not off-screen */}
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={playItemAudio}
+                style={styles.playBtnMobile}
+                aria-label="Frage abspielen"
+                title="Frage abspielen"
+              >
+                <PlayFill size={22} />
+                <span style={{ fontWeight: 700 }}>Frage abspielen</span>
               </button>
+            ) : null}
+
+            <div style={styles.sliderWrap}>
+              {!isMobile ? (
+                <button
+                  type="button"
+                  onClick={playItemAudio}
+                  style={styles.playBtnAnchored}
+                  aria-label="Frage abspielen"
+                  title="Frage abspielen"
+                >
+                  <PlayFill size={32} />
+                </button>
+              ) : null}
 
               <div
                 ref={spectrumRef}
@@ -590,7 +620,11 @@ export default function HealthSlider() {
                 <p style={{ fontSize: 18, marginBottom: 20 }}>
                   Möchten Sie den Schieber in der Mitte belassen oder eine andere Position wählen?
                 </p>
-                <button type="button" style={{ ...styles.btn, ...styles.btnPrimary, marginBottom: 10 }} onClick={() => executeNextSafe(sliderPosition)}>
+                <button
+                  type="button"
+                  style={{ ...styles.btn, ...styles.btnPrimary, marginBottom: 10 }}
+                  onClick={() => executeNextSafe(sliderPosition)}
+                >
                   Belassen und weiter
                 </button>
                 <button type="button" style={{ ...styles.btn, ...styles.btnNeutral }} onClick={() => setShowSliderAlert(false)}>
@@ -609,7 +643,7 @@ export default function HealthSlider() {
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnNeutral, minWidth: 200 }}
+                    style={{ ...styles.btn, ...styles.btnNeutral, minWidth: 180 }}
                     onClick={() => setUploadFail({ open: false, message: '', audio: null, meta: null })}
                   >
                     Schließen
@@ -617,7 +651,7 @@ export default function HealthSlider() {
 
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnPrimary, minWidth: 240 }}
+                    style={{ ...styles.btn, ...styles.btnPrimary, minWidth: 220 }}
                     onClick={() => {
                       const meta = uploadFail.meta;
                       const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -641,6 +675,7 @@ export default function HealthSlider() {
             </div>
           )}
 
+          {/* ✅ Buttons stack on mobile */}
           <div style={styles.buttonsRow}>
             {isPracticeMode ? (
               <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => executeNextSafe(50)}>
@@ -683,6 +718,7 @@ export default function HealthSlider() {
         </div>
       )}
 
+      {/* ✅ Footer stacks on mobile */}
       <footer style={styles.footer}>
         <button
           type="button"
@@ -703,48 +739,61 @@ export default function HealthSlider() {
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
-    minHeight: '100dvh',
+    minHeight: '100svh',
     background: '#f6f4f0',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: '0 16px 24px',
+    padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
     fontFamily: 'sans-serif',
     color: '#1f1f1f',
+    maxWidth: 980,
+    margin: '0 auto',
   },
+
   practiceBanner: {
     background: '#ffcc00',
-    padding: '8px 20px',
-    borderRadius: '20px',
+    padding: '6px 14px',
+    borderRadius: 999,
     fontWeight: 'bold',
-    marginTop: 10,
-    fontSize: 14,
+    marginTop: 8,
+    fontSize: 13,
   },
-  progressRow: { width: '100%', maxWidth: 980, marginTop: 8 },
-  progressText: { fontSize: 14, color: '#4a4a4a', marginBottom: 6 },
+
+  progressRow: { width: '100%', marginTop: 8 },
+  progressText: { fontSize: 13, color: '#4a4a4a', marginBottom: 6 },
   progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
   progressFill: { height: '100%', background: '#2fb463', borderRadius: 8, transition: 'width .2s ease' },
 
   questionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 15,
     width: '100%',
-    maxWidth: 980,
-    justifyContent: 'center',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: 10,
+    alignItems: 'start',
+    marginTop: 6,
   },
-  title: { margin: '16px 0', fontSize: 32, lineHeight: 1.2, textAlign: 'center' },
+
+  title: {
+    margin: '10px 0 6px',
+    fontSize: 'clamp(18px, 4.8vw, 32px)',
+    lineHeight: 1.25,
+    textAlign: 'left',
+    wordBreak: 'break-word',
+    hyphens: 'auto',
+  },
 
   audioBtn: {
     border: '1px solid #ccc',
     borderRadius: '50%',
-    width: 50,
-    height: 50,
+    width: 'clamp(44px, 10vw, 52px)',
+    height: 'clamp(44px, 10vw, 52px)',
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     display: 'grid',
     placeItems: 'center',
+    flexShrink: 0,
   },
 
   centerArea: {
@@ -754,14 +803,16 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    marginTop: 4,
   },
-  endLabelTop: { fontSize: 20, color: '#222' },
-  endLabelBottom: { fontSize: 20, color: '#222' },
+
+  endLabelTop: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
+  endLabelBottom: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
 
   sliderWrap: {
     position: 'relative',
-    width: 180,
+    width: 'min(180px, 56vw)', // ✅ narrower on small phones
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -770,7 +821,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   playBtnAnchored: {
     position: 'absolute',
-    left: 'calc(-76px - 80px)',
+    left: 'calc(-76px - 64px)',
     top: '50%',
     transform: 'translateY(-50%)',
     width: 76,
@@ -785,14 +836,30 @@ const styles: Record<string, React.CSSProperties> = {
     placeItems: 'center',
   },
 
+  playBtnMobile: {
+    width: '100%',
+    maxWidth: 520,
+    border: 'none',
+    borderRadius: 14,
+    padding: '12px 14px',
+    background: '#9bb0e6',
+    color: '#0f1a2a',
+    cursor: 'pointer',
+    boxShadow: '0 8px 16px rgba(0,0,0,0.10)',
+    display: 'flex',
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   trackBox: {
     position: 'relative',
-    width: 180,
-    height: 'min(72vh, 640px)',
+    width: '100%',
+    height: 'clamp(320px, 55svh, 560px)', // ✅ fits phones
     userSelect: 'none',
     WebkitUserSelect: 'none',
-    touchAction: 'none', // ✅ critical for mobile drag
-    overscrollBehavior: 'contain', // ✅ helps prevent pull-to-refresh on some browsers
+    touchAction: 'none',
+    overscrollBehavior: 'contain',
   },
 
   gradientBar: {
@@ -828,7 +895,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 2px 8px rgba(0,0,0,.25)',
   },
 
-  audioError: { marginTop: 10, color: '#b00020', fontSize: 14, textAlign: 'center' },
+  audioError: { marginTop: 6, color: '#b00020', fontSize: 13, textAlign: 'center' },
 
   modalOverlay: {
     position: 'fixed',
@@ -838,22 +905,48 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
+    padding: 12,
   },
   modal: {
     background: '#fff',
-    padding: 26,
-    borderRadius: 18,
+    padding: 18,
+    borderRadius: 16,
     maxWidth: 520,
-    width: '92%',
+    width: '100%',
     textAlign: 'center',
   },
 
-  buttonsRow: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', gap: 16 },
-  btn: { flex: 1, minHeight: 60, fontSize: 20, borderRadius: 14, border: 'none', cursor: 'pointer', fontWeight: 'bold' },
+  buttonsRow: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 12,
+    marginTop: 8,
+  },
+
+  btn: {
+    width: '100%',
+    minHeight: 56,
+    fontSize: 'clamp(16px, 4.4vw, 20px)',
+    borderRadius: 14,
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
   btnPrimary: { background: '#9d8d71', color: '#fff' },
 
-  footer: { width: '100%', maxWidth: 980, display: 'flex', justifyContent: 'space-between', padding: '12px 0', fontSize: 14, color: '#707070' },
+  footer: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 6,
+    padding: '10px 0 0',
+    fontSize: 13,
+    color: '#707070',
+    textAlign: 'center',
+  },
+
   resetLink: { color: '#9b9b9b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' },
-  footerText: { whiteSpace: 'nowrap' },
+  footerText: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
 };
