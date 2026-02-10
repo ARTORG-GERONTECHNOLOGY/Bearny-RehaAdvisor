@@ -15,18 +15,25 @@ export default function DownloadsPage() {
     try {
       const res = await apiClient.get(`/healthslider/items/`, { params: { participantId: participantId.trim() } });
       setItems(res.data.items || []);
-    } catch (e) { alert("Error fetching data"); }
+      setAudioUrls({});
+    } catch {
+      alert("Error fetching data");
+    }
     setLoading(false);
   };
 
-  /** --- DYNAMIC AUDIO LOADING --- */
+  /** ✅ Robust audio load */
   const loadAudio = async (itemId: string) => {
-    if (audioUrls[itemId]) return; // Already loaded
+    if (audioUrls[itemId]) return;
     try {
-      const res = await apiClient.get(`/healthslider/audio/${itemId}/`, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
+      const res = await apiClient.get(`/healthslider/audio/${itemId}/`, { responseType: 'arraybuffer' });
+      const ct = (res.headers?.['content-type'] as string) || 'audio/webm';
+      const blob = new Blob([res.data], { type: ct });
+      const url = URL.createObjectURL(blob);
       setAudioUrls(prev => ({ ...prev, [itemId]: url }));
-    } catch (e) { alert("Playback failed to load."); }
+    } catch {
+      alert("Playback failed to load.");
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -45,14 +52,14 @@ export default function DownloadsPage() {
     const dateStr = new Date().toISOString().split('T')[0];
 
     const csvRows = [["QuestionID", "QuestionText", "Rating", "Timestamp", "AudioFile"]];
-    
+
     for (const item of items) {
-      const fileName = item.audioName || `Q${item.questionIndex + 1}_${participantId}.mp4`;
+      const fileName = item.audioName || `Q${item.questionIndex + 1}_${participantId}.webm`;
       csvRows.push([
-        item.questionIndex + 1,
-        `"${item.questionText}"`,
-        item.answerValue === -1 ? "N/A" : item.answerValue,
-        item.answeredAt,
+        String(item.questionIndex + 1),
+        `"${(item.questionText || '').replace(/"/g, '""')}"`,
+        item.answerValue === -1 ? "N/A" : String(item.answerValue),
+        item.answeredAt || '',
         item.hasAudio ? fileName : "No Audio"
       ]);
 
@@ -60,7 +67,9 @@ export default function DownloadsPage() {
         try {
           const audioRes = await apiClient.get(`/healthslider/audio/${item.id}/`, { responseType: 'arraybuffer' });
           zipData[fileName] = new Uint8Array(audioRes.data);
-        } catch (e) { console.error("Audio download failed", item.id); }
+        } catch (e) {
+          console.error("Audio download failed", item.id, e);
+        }
       }
     }
 
@@ -73,7 +82,7 @@ export default function DownloadsPage() {
     a.href = url;
     a.download = `ICF_Monitor_Export_${participantId}_${dateStr}.zip`;
     a.click();
-    
+
     setLoading(false);
   };
 
@@ -84,10 +93,10 @@ export default function DownloadsPage() {
         <Col md={4}>
           <Form.Group>
             <Form.Label className="fw-bold">Patient ID (Format: Pxx)</Form.Label>
-            <Form.Control 
-              value={participantId} 
-              onChange={e => setParticipantId(e.target.value)} 
-              placeholder="e.g. P01" 
+            <Form.Control
+              value={participantId}
+              onChange={e => setParticipantId(e.target.value)}
+              placeholder="e.g. P01"
             />
           </Form.Group>
         </Col>
@@ -106,7 +115,7 @@ export default function DownloadsPage() {
             <th>Question & Timestamp</th>
             <th className="text-center">Rating</th>
             <th className="text-center">Audio Size</th>
-            <th style={{ width: '300px' }}>Playback</th>
+            <th style={{ width: '320px' }}>Playback</th>
           </tr>
         </thead>
         <tbody>
@@ -115,7 +124,7 @@ export default function DownloadsPage() {
               <td className="text-center fw-bold">{it.questionIndex + 1}</td>
               <td>
                 <div className="fw-semibold">{it.questionText}</div>
-                <small className="text-muted">{new Date(it.answeredAt).toLocaleString('de-DE')}</small>
+                <small className="text-muted">{it.answeredAt ? new Date(it.answeredAt).toLocaleString('de-DE') : ''}</small>
               </td>
               <td className="text-center">
                 {it.answerValue === -1 ? (
@@ -140,8 +149,13 @@ export default function DownloadsPage() {
               </td>
             </tr>
           ))}
+
           {items.length === 0 && !loading && (
-            <tr><td colSpan={5} className="text-center py-5 text-muted">Enter a Patient ID and click Search to display results.</td></tr>
+            <tr>
+              <td colSpan={5} className="text-center py-5 text-muted">
+                Enter a Patient ID and click Search to display results.
+              </td>
+            </tr>
           )}
         </tbody>
       </Table>
