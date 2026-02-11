@@ -1,22 +1,16 @@
-// src/components/HomePage/AddInterventionPopup.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import apiClient from '../../api/client';
-import config from '../../config/config.json';
+import config from '../../config/config.json'; // still used for patientInfo.function mapping
 import authStore from '../../stores/authStore';
 import StandardModal from '../common/StandardModal';
-
-interface AddInterventionPopupProps {
-  show: boolean;
-  handleClose: () => void;
-  onSuccess: () => void;
-}
+import interventionsTaxonomyStore from '../../stores/interventionsTaxonomyStore';
 
 type PatientType = {
   type: string;
@@ -26,6 +20,26 @@ type PatientType = {
   diagnosesOptions: string[];
 };
 
+type MediaType = 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
+type MediaProvider = 'spotify' | 'youtube' | 'soundcloud' | 'vimeo' | string;
+
+type MediaItem = {
+  kind: 'external' | 'file';
+  media_type: MediaType;
+  provider?: MediaProvider | '';
+  title?: string;
+  url?: string;
+  file?: File | null;
+};
+
+interface AddInterventionPopupProps {
+  show: boolean;
+  handleClose: () => void;
+  onSuccess: () => void;
+}
+
+type ErrorMap = Record<string, string>;
+
 const defaultPatientType: PatientType = {
   type: '',
   frequency: '',
@@ -34,27 +48,74 @@ const defaultPatientType: PatientType = {
   diagnosesOptions: [],
 };
 
+const defaultMediaItem: MediaItem = {
+  kind: 'external',
+  media_type: 'website',
+  provider: '',
+  title: '',
+  url: '',
+  file: null,
+};
+
 const defaultFormData = {
   title: '',
   description: '',
+
+  // keep duration numeric (manual input)
   duration: 0,
-  contentType: '',
-  link: '',
-  benefitFor: [] as string[],
-  isPrivate: false,
-  tagList: [] as string[],
-  mediaFile: null as File | null,
+
+  // taxonomy content_type is lowercase
+  contentType: '' as string,
+
+  // NEW model fields
+  language: 'en',
+  externalId: '',
+  provider: '',
+
+  // taxonomy fields (NEW)
+  inputFrom: [] as string[],
+  lc9: [] as string[],
+  originalLanguage: '' as string, // from taxonomy original_languages (DE/FR/IT/...)
+  primaryDiagnosis: '' as string,
+  aims: [] as string[],
+  topics: [] as string[],
+  cognitiveLevel: '' as string,
+  physicalLevel: '' as string,
+  frequencyTime: '' as string,
+  timing: '' as string,
+  durationBucket: '' as string,
+  sexSpecific: '' as string,
+  where: [] as string[],
+  setting: [] as string[],
+
+  // media
+  media: [] as MediaItem[],
+
+  // preview image
   previewImage: null as File | null,
+
+  // private/public
+  isPrivate: false,
   patientId: '',
   patientTypes: [defaultPatientType] as PatientType[],
 };
 
-type ErrorMap = Record<string, string>;
-
 // -------------------- HELPERS --------------------
 const cleanStr = (v: any) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
+const uniqueStrings = (arr: string[]) => Array.from(new Set((arr || []).filter(Boolean)));
 
-const isPatientTypeRowComplete = (pt: PatientType) => !!cleanStr(pt.type) && !!cleanStr(pt.diagnosis) && !!cleanStr(pt.frequency);
+const isValidUrlHttp = (raw: string) => {
+  if (!raw) return true;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const isPatientTypeRowComplete = (pt: PatientType) =>
+  !!cleanStr(pt.type) && !!cleanStr(pt.diagnosis) && !!cleanStr(pt.frequency);
 
 const sanitizePatientTypes = (pts: PatientType[]) =>
   (pts || [])
@@ -69,39 +130,52 @@ const sanitizePatientTypes = (pts: PatientType[]) =>
 const patientTypeRowKey = (idx: number, field: keyof PatientType) => `patientTypes.${idx}.${field}`;
 
 const isDirtyForm = (f: typeof defaultFormData) => {
-  if (cleanStr(f.title)) return true;
-  if (cleanStr(f.description)) return true;
-  if (Number(f.duration) > 0) return true;
-  if (cleanStr(f.contentType)) return true;
-  if (cleanStr(f.link)) return true;
-
-  if (Array.isArray(f.benefitFor) && f.benefitFor.length) return true;
-  if (Array.isArray(f.tagList) && f.tagList.length) return true;
-
-  if (f.mediaFile) return true;
-  if (f.previewImage) return true;
-
-  if (f.isPrivate) {
-    if (cleanStr(f.patientId)) return true;
-  } else {
-    if ((f.patientTypes || []).some((pt) => !!cleanStr(pt.type) || !!cleanStr(pt.diagnosis) || !!cleanStr(pt.frequency))) {
-      return true;
+  // quick conservative dirty check
+  const keys = Object.keys(f) as (keyof typeof defaultFormData)[];
+  for (const k of keys) {
+    const v: any = (f as any)[k];
+    if (k === 'patientTypes') {
+      if ((v || []).some((pt: PatientType) => pt.type || pt.diagnosis || pt.frequency)) return true;
+      continue;
     }
+    if (k === 'media') {
+      if ((v || []).length) return true;
+      continue;
+    }
+    if (k === 'previewImage') {
+      if (v) return true;
+      continue;
+    }
+    if (Array.isArray(v) && v.length) return true;
+    if (typeof v === 'string' && cleanStr(v)) return true;
+    if (typeof v === 'number' && v > 0) return true;
+    if (typeof v === 'boolean' && v === true && k === 'isPrivate') return true;
   }
   return false;
 };
 
-const isValidUrlHttp = (raw: string) => {
-  if (!raw) return true;
-  try {
-    const u = new URL(raw);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
+const kindOptions = [
+  { value: 'external', label: 'External link' },
+  { value: 'file', label: 'Upload file' },
+];
 
-const uniqueStrings = (arr: string[]) => Array.from(new Set((arr || []).filter(Boolean)));
+const langOptions = [
+  { value: 'de', label: 'DE' },
+  { value: 'en', label: 'EN' },
+  { value: 'fr', label: 'FR' },
+  { value: 'it', label: 'IT' },
+];
+
+const mediaTypeOptions: { value: MediaType; label: string }[] = [
+  { value: 'audio', label: 'Audio' },
+  { value: 'video', label: 'Video' },
+  { value: 'image', label: 'Image' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'website', label: 'Website' },
+  { value: 'app', label: 'App' },
+  { value: 'streaming', label: 'Streaming' },
+  { value: 'text', label: 'Text' },
+];
 
 const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ show, handleClose, onSuccess }) => {
   const { t } = useTranslation();
@@ -116,36 +190,38 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
   const [patientsLoaded, setPatientsLoaded] = useState(false);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [patientsLoadError, setPatientsLoadError] = useState<string>('');
-
   const [showErrorDetails, setShowErrorDetails] = useState(false);
-
-  // control fetching: only retrieve when checkbox is ON
   const [privateCheckedOnce, setPrivateCheckedOnce] = useState(false);
 
-  const tagOptions = useMemo(
-    () =>
-      (config.RecomendationInfo.tags || []).map((tag: string) => ({
-        value: tag,
-        label: t(tag.charAt(0).toUpperCase() + tag.slice(1)),
-      })),
-    [t]
-  );
+  // ---------- taxonomy options (store) ----------
+  const taxonomy = interventionsTaxonomyStore;
 
-  const benefitOptions = useMemo(
-    () =>
-      (config.RecomendationInfo.benefits || []).map((benefit: string) => ({
-        value: benefit,
-        label: t(benefit.charAt(0).toUpperCase() + benefit.slice(1)),
-      })),
-    [t]
-  );
+  const inputFromOptions = useMemo(() => taxonomy.toOptions(taxonomy.inputFrom), [taxonomy]);
+  const lc9Options = useMemo(() => taxonomy.toOptions(taxonomy.lc9), [taxonomy]);
+  const aimsOptions = useMemo(() => taxonomy.toOptions(taxonomy.aims), [taxonomy]);
+  const topicsOptions = useMemo(() => taxonomy.toOptions(taxonomy.topics), [taxonomy]);
+  const whereOptions = useMemo(() => taxonomy.toOptions(taxonomy.where), [taxonomy]);
+  const settingOptions = useMemo(() => taxonomy.toOptions(taxonomy.setting), [taxonomy]);
 
+  // dropdown options
+  const originalLanguageOptions = useMemo(() => taxonomy.originalLanguages, [taxonomy]);
+  const primaryDiagnosisOptions = useMemo(() => taxonomy.primaryDiagnoses, [taxonomy]);
+  const cognitiveLevelOptions = useMemo(() => taxonomy.cognitiveLevels, [taxonomy]);
+  const physicalLevelOptions = useMemo(() => taxonomy.physicalLevels, [taxonomy]);
+  const frequencyTimeOptions = useMemo(() => taxonomy.frequencyTime, [taxonomy]);
+  const timingOptions = useMemo(() => taxonomy.timing, [taxonomy]);
+  const durationBucketOptions = useMemo(() => taxonomy.durationBuckets, [taxonomy]);
+  const sexSpecificOptions = useMemo(() => taxonomy.sexSpecific, [taxonomy]);
+
+  // content types come from taxonomy: lowercase
+  const contentTypes = useMemo(() => taxonomy.contentTypes, [taxonomy]);
+
+  // still using patient config for public targeting
   const specializationKeys = Object.keys(config.patientInfo.function || {});
-
   const getDiagnosesForSpecialization = (specialization: string) =>
     config?.patientInfo?.function?.[specialization]?.diagnosis || [];
 
-  // -------------------- FETCH PATIENTS (MOBX therapist id) --------------------
+  // -------------------- FETCH PATIENTS --------------------
   const fetchTherapistPatients = useCallback(async () => {
     if (patientsLoading) return;
 
@@ -162,7 +238,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
       }
 
       const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
-
       const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const patientOptions = arr.map((p: any) => ({
         id: p._id,
@@ -188,12 +263,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
   useEffect(() => {
     if (!formData.isPrivate) return;
-
     setPrivateCheckedOnce(true);
-
-    if (!patientsLoaded && !patientsLoading) {
-      fetchTherapistPatients();
-    }
+    if (!patientsLoaded && !patientsLoading) fetchTherapistPatients();
   }, [formData.isPrivate, patientsLoaded, patientsLoading, fetchTherapistPatients]);
 
   // -------------------- RESET --------------------
@@ -220,9 +291,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
     if (submitting) return;
 
     const dirty = isDirtyForm(formData);
-    const msg = dirty
-      ? t('Are you sure you want to close? Unsaved data will be lost.')
-      : t('Close this window?');
+    const msg = dirty ? t('Are you sure you want to close? Unsaved data will be lost.') : t('Close this window?');
 
     if (dirty && !window.confirm(msg)) return;
 
@@ -231,26 +300,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
   }, [formData, handleClose, resetForm, submitting, t]);
 
   // -------------------- FIELD HANDLERS --------------------
-  const handlePatientTypeChange = (index: number, field: keyof PatientType, value: string | boolean) => {
-    const updated = [...formData.patientTypes];
-    // @ts-ignore
-    updated[index][field] = typeof value === 'string' ? value : value;
-
-    if (field === 'type') {
-      updated[index].diagnosesOptions = getDiagnosesForSpecialization(value as string);
-      updated[index].diagnosis = '';
-    }
-
-    setFormData((prev) => ({ ...prev, patientTypes: updated }));
-
-    const key = patientTypeRowKey(index, field);
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { id, value, type, checked } = e.target as HTMLInputElement;
     const val = type === 'checkbox' ? checked : value;
@@ -271,36 +320,30 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
     setError('');
   };
 
-  const handleFileChange =
-    (field: 'mediaFile' | 'previewImage') =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] || null;
-
-      if (file) {
-        const maxBytes = 50 * 1024 * 1024;
-        if (file.size > maxBytes) {
-          setErrors((prev) => ({ ...prev, [field]: t('File is too large (max 50MB).') }));
-          return;
-        }
+  const handlePreviewChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      const maxBytes = 50 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        setErrors((prev) => ({ ...prev, previewImage: t('File is too large (max 50MB).') }));
+        return;
       }
-
-      if (field === 'previewImage' && file && !file.type.startsWith('image/')) {
+      if (!file.type.startsWith('image/')) {
         setErrors((prev) => ({ ...prev, previewImage: t('Preview image must be an image file') }));
         return;
       }
+    }
 
-      setFormData((prev) => ({ ...prev, [field]: file }));
-
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    };
+    setFormData((prev) => ({ ...prev, previewImage: file }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.previewImage;
+      return next;
+    });
+  };
 
   const handleMultiChange = (field: keyof typeof formData, selected: any[]) => {
     setFormData((prev) => ({ ...prev, [field]: uniqueStrings((selected || []).map((opt) => opt.value)) }));
-
     const key = field as string;
     if (errors[key]) {
       setErrors((prev) => {
@@ -309,6 +352,71 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
         return next;
       });
     }
+  };
+
+  // -------------------- MEDIA EDITING --------------------
+  const addMediaRow = () => {
+    setFormData((prev) => ({ ...prev, media: [...(prev.media || []), { ...defaultMediaItem }] }));
+  };
+
+  const removeMediaRow = (idx: number) => {
+    setFormData((prev) => ({ ...prev, media: (prev.media || []).filter((_, i) => i !== idx) }));
+  };
+
+  const updateMediaRow = (idx: number, patch: Partial<MediaItem>) => {
+    setFormData((prev) => {
+      const next = [...(prev.media || [])];
+      const current = next[idx] || { ...defaultMediaItem };
+
+      let merged: MediaItem = { ...current, ...patch };
+      if (patch.kind === 'external') merged = { ...merged, file: null };
+      if (patch.kind === 'file') merged = { ...merged, url: '' };
+
+      next[idx] = merged;
+      return { ...prev, media: next };
+    });
+
+    const rowKey = `media.${idx}`;
+    setErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(next)
+        .filter((k) => k.startsWith(rowKey))
+        .forEach((k) => delete next[k]);
+      return next;
+    });
+  };
+
+  const handleMediaFileChange = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      const maxBytes = 50 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        setErrors((prev) => ({ ...prev, [`media.${idx}.file`]: t('File is too large (max 50MB).') }));
+        return;
+      }
+    }
+    updateMediaRow(idx, { file });
+  };
+
+  // -------------------- PATIENT TYPES --------------------
+  const handlePatientTypeChange = (index: number, field: keyof PatientType, value: string | boolean) => {
+    const updated = [...formData.patientTypes];
+    // @ts-ignore
+    updated[index][field] = typeof value === 'string' ? value : value;
+
+    if (field === 'type') {
+      updated[index].diagnosesOptions = getDiagnosesForSpecialization(value as string);
+      updated[index].diagnosis = '';
+    }
+
+    setFormData((prev) => ({ ...prev, patientTypes: updated }));
+
+    const key = patientTypeRowKey(index, field);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   const addPatientType = () => {
@@ -350,28 +458,35 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
     const title = cleanStr(f.title);
     const desc = cleanStr(f.description);
-    const link = cleanStr(f.link);
 
     if (!title) e.title = t('Title is required');
     if (!desc) e.description = t('Description is required');
-
-    if (title && String(title).length > 120) e.title = t('Title is too long (max 120 characters).');
-    if (desc && String(desc).length > 4000) e.description = t('Description is too long (max 4000 characters).');
 
     const dur = Number(f.duration);
     if (!dur || Number.isNaN(dur) || dur <= 0) e.duration = t('Duration must be greater than 0');
     if (dur > 600) e.duration = t('Duration seems too high (max 600 minutes).');
 
-    if (!f.contentType) e.contentType = t('Content type is required');
+    if (!cleanStr(f.contentType)) e.contentType = t('Content type is required');
     if (!f.previewImage) e.previewImage = t('Preview image is required');
 
-    if (link && !isValidUrlHttp(link)) {
-      e.link = t('Link must be a valid URL starting with http:// or https://');
-    }
-    if (cleanStr(f.contentType) === 'Link' && !link) {
-      e.link = t('Link is required when Content Type is Link.');
-    }
+    const lang = cleanStr(f.language);
+    if (!lang) e.language = t('Language is required');
 
+    // media validation
+    (f.media || []).forEach((m, idx) => {
+      if (!m?.media_type) e[`media.${idx}.media_type`] = t('Media type is required');
+      if (m.kind === 'external') {
+        const url = cleanStr(m.url || '');
+        if (!url) e[`media.${idx}.url`] = t('URL is required');
+        else if (!isValidUrlHttp(url)) e[`media.${idx}.url`] = t('URL must start with http:// or https://');
+      } else if (m.kind === 'file') {
+        if (!m.file) e[`media.${idx}.file`] = t('Please select a file');
+      } else {
+        e[`media.${idx}.kind`] = t('Invalid media kind');
+      }
+    });
+
+    // private/public validation
     if (f.isPrivate) {
       if (!cleanStr(f.patientId)) e.patientId = t('Please select a patient');
     } else {
@@ -381,15 +496,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
       f.patientTypes.forEach((pt, idx) => {
         const anyFilled = !!cleanStr(pt.type) || !!cleanStr(pt.diagnosis) || !!cleanStr(pt.frequency);
         const complete = isPatientTypeRowComplete(pt);
-
         if (anyFilled && !complete) {
           if (!cleanStr(pt.type)) e[patientTypeRowKey(idx, 'type')] = t('Patient type is required');
           if (!cleanStr(pt.diagnosis)) e[patientTypeRowKey(idx, 'diagnosis')] = t('Diagnosis is required');
           if (!cleanStr(pt.frequency)) e[patientTypeRowKey(idx, 'frequency')] = t('Frequency is required');
         }
       });
-
-      if ((f.patientTypes || []).length > 5) e.patientTypes = t('You can add up to 5 patient type recommendations only.');
     }
 
     if (f.previewImage && !f.previewImage.type.startsWith('image/')) {
@@ -410,7 +522,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
       });
     }
     setErrors(fieldErrors);
-
     if (Object.keys(fieldErrors).length > 0) setShowErrorDetails(true);
 
     const nonField =
@@ -424,23 +535,31 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
     e.preventDefault();
     if (submitting) return;
 
-    const cleanedForCheck = {
+    const cleaned = {
       ...formData,
       title: cleanStr(formData.title),
       description: cleanStr(formData.description),
-      link: cleanStr(formData.link),
-      tagList: uniqueStrings(formData.tagList || []),
-      benefitFor: uniqueStrings(formData.benefitFor || []),
-      patientId: cleanStr(formData.patientId),
-      patientTypes: (formData.patientTypes || []).map((pt) => ({
-        ...pt,
-        type: cleanStr(pt.type),
-        diagnosis: cleanStr(pt.diagnosis),
-        frequency: cleanStr(pt.frequency),
+      externalId: cleanStr(formData.externalId),
+      provider: cleanStr(formData.provider),
+      language: cleanStr(formData.language),
+      contentType: cleanStr(formData.contentType),
+
+      inputFrom: uniqueStrings(formData.inputFrom),
+      lc9: uniqueStrings(formData.lc9),
+      aims: uniqueStrings(formData.aims),
+      topics: uniqueStrings(formData.topics),
+      where: uniqueStrings(formData.where),
+      setting: uniqueStrings(formData.setting),
+
+      media: (formData.media || []).map((m) => ({
+        ...m,
+        title: cleanStr(m.title || ''),
+        url: cleanStr(m.url || ''),
+        provider: cleanStr(m.provider || ''),
       })),
     };
 
-    setFormData(cleanedForCheck);
+    setFormData(cleaned as any);
 
     const { valid, errors: found } = validateForm();
     if (!valid) {
@@ -456,26 +575,64 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
       setShowErrorDetails(false);
 
       const payload = new FormData();
-      payload.append('title', cleanStr(cleanedForCheck.title));
-      payload.append('description', cleanStr(cleanedForCheck.description));
-      payload.append('duration', String(cleanedForCheck.duration));
-      payload.append('contentType', cleanedForCheck.contentType);
-      payload.append('link', cleanStr(cleanedForCheck.link) || '');
 
-      payload.append('tagList', JSON.stringify(uniqueStrings(cleanedForCheck.tagList)));
-      payload.append('benefitFor', JSON.stringify(uniqueStrings(cleanedForCheck.benefitFor)));
+      payload.append('title', String(cleaned.title || ''));
+      payload.append('description', String(cleaned.description || ''));
+      payload.append('duration', String(cleaned.duration || 0));
+      payload.append('contentType', String(cleaned.contentType || ''));
 
-      payload.append('isPrivate', String(cleanedForCheck.isPrivate));
+      payload.append('language', String(cleaned.language || 'en'));
+      if (cleaned.externalId) payload.append('external_id', String(cleaned.externalId));
+      if (cleaned.provider) payload.append('provider', String(cleaned.provider));
 
-      if (cleanedForCheck.isPrivate) {
-        payload.append('patientId', cleanStr(cleanedForCheck.patientId));
+      // taxonomy meta as JSON (backend: accept optional fields)
+      payload.append(
+        'taxonomy',
+        JSON.stringify({
+          input_from: cleaned.inputFrom,
+          lc9: cleaned.lc9,
+          original_language: cleaned.originalLanguage || null,
+          primary_diagnosis: cleaned.primaryDiagnosis || null,
+          aims: cleaned.aims,
+          topics: cleaned.topics,
+          cognitive_level: cleaned.cognitiveLevel || null,
+          physical_level: cleaned.physicalLevel || null,
+          frequency_time: cleaned.frequencyTime || null,
+          timing: cleaned.timing || null,
+          duration_bucket: cleaned.durationBucket || null,
+          sex_specific: cleaned.sexSpecific || null,
+          where: cleaned.where,
+          setting: cleaned.setting,
+        })
+      );
+
+      payload.append('isPrivate', String(cleaned.isPrivate));
+
+      if (cleaned.isPrivate) {
+        payload.append('patientId', String(cleaned.patientId || ''));
       } else {
-        const cleanedPatientTypes = sanitizePatientTypes(cleanedForCheck.patientTypes).slice(0, 5);
+        const cleanedPatientTypes = sanitizePatientTypes(cleaned.patientTypes).slice(0, 5);
         payload.append('patientTypes', JSON.stringify(cleanedPatientTypes));
       }
 
-      if (cleanedForCheck.mediaFile) payload.append('media_file', cleanedForCheck.mediaFile);
-      if (cleanedForCheck.previewImage) payload.append('img_file', cleanedForCheck.previewImage);
+      // media meta + files
+      const mediaMeta = (cleaned.media || []).map((m, idx) => ({
+        kind: m.kind,
+        media_type: m.media_type,
+        provider: m.provider || null,
+        title: m.title || null,
+        url: m.kind === 'external' ? (m.url || null) : null,
+        file_field: m.kind === 'file' ? `media_file_${idx}` : null,
+      }));
+      payload.append('media', JSON.stringify(mediaMeta));
+
+      (cleaned.media || []).forEach((m, idx) => {
+        if (m.kind === 'file' && m.file) {
+          payload.append(`media_file_${idx}`, m.file);
+        }
+      });
+
+      if (cleaned.previewImage) payload.append('img_file', cleaned.previewImage);
 
       const res = await apiClient.post('/interventions/add/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -564,102 +721,403 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
         <Form onSubmit={handleSubmit} noValidate>
           <fieldset disabled={success || submitting}>
-            <Form.Group controlId="title" className="mb-3">
-              <Form.Label className="fw-semibold">{t('InterventionTitle')}</Form.Label>
-              <Form.Control type="text" value={formData.title} onChange={handleChange} isInvalid={!!fe('title')} required />
-              <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
-            </Form.Group>
+            {/* ---------- core fields ---------- */}
+            <Row className="g-3">
+              <Col md={8}>
+                <Form.Group controlId="title" className="mb-3">
+                  <Form.Label className="fw-semibold">{t('InterventionTitle')}</Form.Label>
+                  <Form.Control type="text" value={formData.title} onChange={handleChange} isInvalid={!!fe('title')} required />
+                  <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+
+              <Col md={4}>
+                <Form.Group controlId="language" className="mb-3">
+                  <Form.Label className="fw-semibold">{t('Language')}</Form.Label>
+                  <Form.Control as="select" value={formData.language} onChange={handleChange} isInvalid={!!fe('language')}>
+                    {langOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Form.Control>
+                  <Form.Control.Feedback type="invalid">{fe('language')}</Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="g-3">
+              <Col md={6}>
+                <Form.Group controlId="externalId" className="mb-3">
+                  <Form.Label className="fw-semibold">{t('External ID (optional)')}</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.externalId}
+                    onChange={handleChange}
+                    placeholder="e.g. 4001"
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group controlId="provider" className="mb-3">
+                  <Form.Label className="fw-semibold">{t('Provider (optional)')}</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.provider}
+                    onChange={handleChange}
+                    placeholder="e.g. compass / spotify / youtube"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
             <Form.Group controlId="description" className="mb-3">
               <Form.Label className="fw-semibold">{t('Description')}</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={formData.description}
-                onChange={handleChange}
-                isInvalid={!!fe('description')}
-              />
+              <Form.Control as="textarea" rows={3} value={formData.description} onChange={handleChange} isInvalid={!!fe('description')} />
               <Form.Control.Feedback type="invalid">{fe('description')}</Form.Control.Feedback>
             </Form.Group>
 
-            <Form.Group controlId="duration" className="mb-3">
-              <Form.Label className="fw-semibold">{t('RecomendationDuration(min)')}</Form.Label>
-              <Form.Control type="number" value={formData.duration} onChange={handleChange} isInvalid={!!fe('duration')} />
-              <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
-            </Form.Group>
+            <Row className="g-3">
+              <Col md={6}>
+                <Form.Group controlId="duration" className="mb-3">
+                  <Form.Label className="fw-semibold">{t('Duration (min)')}</Form.Label>
+                  <Form.Control type="number" value={formData.duration} onChange={handleChange} isInvalid={!!fe('duration')} />
+                  <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
+                </Form.Group>
+              </Col>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-semibold">{t('TagList')}</Form.Label>
-              <Select
-                isMulti
-                options={tagOptions}
-                value={tagOptions.filter((opt) => formData.tagList.includes(opt.value))}
-                onChange={(opts) => handleMultiChange('tagList', opts as any)}
-              />
-              {fe('tagList') && <div className="text-danger small mt-1">{fe('tagList')}</div>}
-            </Form.Group>
+              <Col md={6}>
+                <Form.Group className="mb-3" controlId="contentType">
+                  <Form.Label className="fw-semibold">{t('Content type')}</Form.Label>
+                  <Form.Control as="select" value={formData.contentType} onChange={handleChange} isInvalid={!!fe('contentType')}>
+                    <option value="">{t('Select')}</option>
+                    {contentTypes.map((ct: string) => (
+                      <option key={ct} value={ct}>
+                        {t(ct)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                  <Form.Control.Feedback type="invalid">{fe('contentType')}</Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-semibold">{t('BenefitFor')}</Form.Label>
-              <Select
-                isMulti
-                options={benefitOptions}
-                value={benefitOptions.filter((opt) => formData.benefitFor.includes(opt.value))}
-                onChange={(opts) => handleMultiChange('benefitFor', opts as any)}
-              />
-              {fe('benefitFor') && <div className="text-danger small mt-1">{fe('benefitFor')}</div>}
-            </Form.Group>
+            {/* ---------- taxonomy fields ---------- */}
+            <hr className="my-4" />
+            <h5 className="mb-3">{t('Taxonomy')}</h5>
 
-            <Form.Group className="mb-3" controlId="contentType">
-              <Form.Label className="fw-semibold">{t('ContentType')}</Form.Label>
-              <Form.Control as="select" value={formData.contentType} onChange={handleChange} isInvalid={!!fe('contentType')}>
-                <option value="">{t('SelectContentType')}</option>
-                {(config.RecomendationInfo.types || []).map((type: string) => (
-                  <option key={type} value={type}>
-                    {t(type)}
-                  </option>
-                ))}
-              </Form.Control>
-              <Form.Control.Feedback type="invalid">{fe('contentType')}</Form.Control.Feedback>
-            </Form.Group>
+            <Row className="g-3">
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('Input from')}</Form.Label>
+                <Select
+                  isMulti
+                  options={inputFromOptions}
+                  value={inputFromOptions.filter((o) => (formData.inputFrom || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
+                />
+              </Col>
 
-            <Form.Group controlId="link" className="mb-3">
-              <Form.Label className="fw-semibold">{t('Link(Optional)')}</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.link}
-                onChange={handleChange}
-                isInvalid={!!fe('link')}
-                placeholder="https://..."
-              />
-              <Form.Control.Feedback type="invalid">{fe('link')}</Form.Control.Feedback>
-            </Form.Group>
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
+                <Select
+                  isMulti
+                  options={lc9Options}
+                  value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('lc9', opts as any)}
+                />
+              </Col>
+            </Row>
 
-            <Form.Group controlId="mediaFile" className="mb-3">
-              <Form.Label className="fw-semibold">{t('UploadFile(Optional)')}</Form.Label>
-              <Form.Control
-                type="file"
-                accept="image/*,video/*,audio/*,application/pdf"
-                onChange={handleFileChange('mediaFile')}
-                isInvalid={!!fe('mediaFile')}
-              />
-              {fe('mediaFile') && <div className="text-danger small mt-1">{fe('mediaFile')}</div>}
-            </Form.Group>
+            <Row className="g-3 mt-1">
+              <Col md={6}>
+                <Form.Group controlId="originalLanguage">
+                  <Form.Label className="fw-semibold">{t('Original language')}</Form.Label>
+                  <Form.Control as="select" value={formData.originalLanguage} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {originalLanguageOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
 
+              <Col md={6}>
+                <Form.Group controlId="primaryDiagnosis">
+                  <Form.Label className="fw-semibold">{t('Primary diagnosis')}</Form.Label>
+                  <Form.Control as="select" value={formData.primaryDiagnosis} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {primaryDiagnosisOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="g-3 mt-1">
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('Aims')}</Form.Label>
+                <Select
+                  isMulti
+                  options={aimsOptions}
+                  value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('aims', opts as any)}
+                />
+              </Col>
+
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('Topics')}</Form.Label>
+                <Select
+                  isMulti
+                  options={topicsOptions}
+                  value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('topics', opts as any)}
+                />
+              </Col>
+            </Row>
+
+            <Row className="g-3 mt-1">
+              <Col md={4}>
+                <Form.Group controlId="cognitiveLevel">
+                  <Form.Label className="fw-semibold">{t('Cognitive level')}</Form.Label>
+                  <Form.Control as="select" value={formData.cognitiveLevel} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {cognitiveLevelOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+
+              <Col md={4}>
+                <Form.Group controlId="physicalLevel">
+                  <Form.Label className="fw-semibold">{t('Physical level')}</Form.Label>
+                  <Form.Control as="select" value={formData.physicalLevel} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {physicalLevelOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+
+              <Col md={4}>
+                <Form.Group controlId="durationBucket">
+                  <Form.Label className="fw-semibold">{t('Duration bucket')}</Form.Label>
+                  <Form.Control as="select" value={formData.durationBucket} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {durationBucketOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="g-3 mt-1">
+              <Col md={4}>
+                <Form.Group controlId="frequencyTime">
+                  <Form.Label className="fw-semibold">{t('Frequency time')}</Form.Label>
+                  <Form.Control as="select" value={formData.frequencyTime} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {frequencyTimeOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+
+              <Col md={4}>
+                <Form.Group controlId="timing">
+                  <Form.Label className="fw-semibold">{t('Timing')}</Form.Label>
+                  <Form.Control as="select" value={formData.timing} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {timingOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+
+              <Col md={4}>
+                <Form.Group controlId="sexSpecific">
+                  <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>
+                  <Form.Control as="select" value={formData.sexSpecific} onChange={handleChange}>
+                    <option value="">{t('Select')}</option>
+                    {sexSpecificOptions.map((x) => (
+                      <option key={x} value={x}>
+                        {t(x)}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="g-3 mt-1">
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('Where')}</Form.Label>
+                <Select
+                  isMulti
+                  options={whereOptions}
+                  value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('where', opts as any)}
+                />
+              </Col>
+
+              <Col md={6}>
+                <Form.Label className="fw-semibold">{t('Setting')}</Form.Label>
+                <Select
+                  isMulti
+                  options={settingOptions}
+                  value={settingOptions.filter((o) => (formData.setting || []).includes(o.value))}
+                  onChange={(opts) => handleMultiChange('setting', opts as any)}
+                />
+              </Col>
+            </Row>
+
+            {/* ---------- preview ---------- */}
+            <hr className="my-4" />
             <Form.Group controlId="previewImage" className="mb-3">
-              <Form.Label className="fw-semibold">{t('UploadaPreviewImage')}</Form.Label>
-              <Form.Control
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange('previewImage')}
-                isInvalid={!!fe('previewImage')}
-                required
-              />
+              <Form.Label className="fw-semibold">{t('Upload a preview image')}</Form.Label>
+              <Form.Control type="file" accept="image/*" onChange={handlePreviewChange} isInvalid={!!fe('previewImage')} required />
               <Form.Control.Feedback type="invalid">{fe('previewImage')}</Form.Control.Feedback>
             </Form.Group>
 
+            {/* ---------- media ---------- */}
             <hr className="my-4" />
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <h5 className="mb-0">{t('Media')}</h5>
+              <Button variant="outline-primary" size="sm" onClick={addMediaRow}>
+                <FaPlus /> {t('Add media')}
+              </Button>
+            </div>
 
+            {(formData.media || []).length === 0 && (
+              <div className="text-muted mb-3">{t('No media added yet. You can add links or upload files.')}</div>
+            )}
+
+            {(formData.media || []).map((m, idx) => {
+              const baseKey = `media.${idx}`;
+              return (
+                <div key={idx} className="border rounded p-3 mb-3">
+                  <div className="d-flex justify-content-between align-items-start gap-2">
+                    <div className="fw-semibold">
+                      {t('Media item')} #{idx + 1}
+                    </div>
+                    <Button variant="outline-danger" size="sm" onClick={() => removeMediaRow(idx)} aria-label={t('Remove media')}>
+                      <FaTrash />
+                    </Button>
+                  </div>
+
+                  <Row className="g-3 mt-1">
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold">{t('Kind')}</Form.Label>
+                        <Form.Control
+                          as="select"
+                          value={m.kind}
+                          onChange={(e) => updateMediaRow(idx, { kind: e.target.value as 'external' | 'file' })}
+                          isInvalid={!!fe(`${baseKey}.kind`)}
+                        >
+                          {kindOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {t(o.label)}
+                            </option>
+                          ))}
+                        </Form.Control>
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold">{t('Media type')}</Form.Label>
+                        <Form.Control
+                          as="select"
+                          value={m.media_type}
+                          onChange={(e) => updateMediaRow(idx, { media_type: e.target.value as MediaType })}
+                          isInvalid={!!fe(`${baseKey}.media_type`)}
+                        >
+                          {mediaTypeOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {t(o.label)}
+                            </option>
+                          ))}
+                        </Form.Control>
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold">{t('Provider (optional)')}</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={m.provider || ''}
+                          onChange={(e) => updateMediaRow(idx, { provider: e.target.value })}
+                          placeholder="spotify / youtube / etc."
+                        />
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold">{t('Title (optional)')}</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={m.title || ''}
+                          onChange={(e) => updateMediaRow(idx, { title: e.target.value })}
+                        />
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={6}>
+                      {m.kind === 'external' ? (
+                        <Form.Group>
+                          <Form.Label className="fw-semibold">{t('URL')}</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={m.url || ''}
+                            onChange={(e) => updateMediaRow(idx, { url: e.target.value })}
+                            placeholder="https://..."
+                            isInvalid={!!fe(`${baseKey}.url`)}
+                          />
+                          {fe(`${baseKey}.url`) && <div className="text-danger small mt-1">{fe(`${baseKey}.url`)}</div>}
+                        </Form.Group>
+                      ) : (
+                        <Form.Group>
+                          <Form.Label className="fw-semibold">{t('Upload file')}</Form.Label>
+                          <Form.Control
+                            type="file"
+                            accept="image/*,video/*,audio/*,application/pdf"
+                            onChange={handleMediaFileChange(idx)}
+                            isInvalid={!!fe(`${baseKey}.file`)}
+                          />
+                          {fe(`${baseKey}.file`) && <div className="text-danger small mt-1">{fe(`${baseKey}.file`)}</div>}
+                        </Form.Group>
+                      )}
+                    </Col>
+                  </Row>
+                </div>
+              );
+            })}
+
+            {/* ---------- privacy ---------- */}
+            <hr className="my-4" />
             <Form.Group controlId="isPrivate" className="mb-3">
               <Form.Check
                 type="checkbox"
@@ -675,9 +1133,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
                 {!patientsLoaded && privateCheckedOnce && (
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <div className="text-muted small">
-                      {patientsLoading ? t('Loading patients...') : t('Patients not loaded yet')}
-                    </div>
+                    <div className="text-muted small">{patientsLoading ? t('Loading patients...') : t('Patients not loaded yet')}</div>
                     <Button size="sm" variant="outline-secondary" disabled={patientsLoading} onClick={fetchTherapistPatients}>
                       {t('Reload')}
                     </Button>
@@ -702,24 +1158,29 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
               </Form.Group>
             )}
 
+            {/* ---------- patient types (public only) ---------- */}
             {!formData.isPrivate && (
               <>
-                <h5 className="mt-4 mb-3">{t('PatientTypeandFrequency')}</h5>
+                <h5 className="mt-4 mb-3">{t('Patient Type and Frequency')}</h5>
 
-                {fe('patientTypes') && <Alert variant="warning" className="py-2 mb-3">{fe('patientTypes')}</Alert>}
+                {fe('patientTypes') && (
+                  <Alert variant="warning" className="py-2 mb-3">
+                    {fe('patientTypes')}
+                  </Alert>
+                )}
 
                 {formData.patientTypes.map((pt, idx) => (
                   <Row key={idx} className="g-3 mb-3">
                     <Col md={4}>
                       <Form.Group>
-                        <Form.Label className="fw-semibold">{t('PatientType')}</Form.Label>
+                        <Form.Label className="fw-semibold">{t('Patient Type')}</Form.Label>
                         <Form.Control
                           as="select"
                           value={pt.type}
                           onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}
                           isInvalid={!!fe(patientTypeRowKey(idx, 'type'))}
                         >
-                          <option value="">{t('SelectType')}</option>
+                          <option value="">{t('Select')}</option>
                           {specializationKeys.map((spec) => (
                             <option key={spec} value={spec}>
                               {t(spec)}
@@ -740,7 +1201,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
                           isInvalid={!!fe(patientTypeRowKey(idx, 'diagnosis'))}
                           disabled={!pt.type}
                         >
-                          <option value="">{t('SelectDiagnosis')}</option>
+                          <option value="">{t('Select')}</option>
                           {(pt.diagnosesOptions || []).map((d) => (
                             <option key={d} value={d}>
                               {t(d)}
@@ -754,14 +1215,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
                     <Col md={4}>
                       <Form.Group>
-                        <Form.Label className="fw-semibold">{t('RecomendationFrequency')}</Form.Label>
+                        <Form.Label className="fw-semibold">{t('Frequency')}</Form.Label>
                         <Form.Control
                           as="select"
                           value={pt.frequency}
                           onChange={(e) => handlePatientTypeChange(idx, 'frequency', e.target.value)}
                           isInvalid={!!fe(patientTypeRowKey(idx, 'frequency'))}
                         >
-                          <option value="">{t('SelectFrequency')}</option>
+                          <option value="">{t('Select')}</option>
                           {(config.RecomendationInfo.frequency || []).map((f: string) => (
                             <option key={f} value={f}>
                               {t(f)}
@@ -776,11 +1237,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(({ sh
 
                 <div className="d-flex align-items-center justify-content-between mt-2">
                   <Button variant="link" onClick={addPatientType} disabled={formData.patientTypes.length >= 5} className="px-0">
-                    <FaPlus /> {t('AddAnotherPatientType')}
+                    <FaPlus /> {t('Add another')}
                   </Button>
-                  <div className="text-muted small">
-                    {t('Max')}: 5
-                  </div>
+                  <div className="text-muted small">{t('Max')}: 5</div>
                 </div>
               </>
             )}

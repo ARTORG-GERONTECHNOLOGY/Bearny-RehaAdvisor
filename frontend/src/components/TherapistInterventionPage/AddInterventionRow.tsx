@@ -1,22 +1,31 @@
+// src/components/TherapistInterventionPage/AddInterventionRow.tsx
 import React from 'react';
-import { Row, Col, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
+import { FaPlus, FaFileImport } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 
 type Props = {
   onAdd: () => void;
+  onImport: () => void;
 };
 
-const AddInterventionRow: React.FC<Props> = ({ onAdd }) => {
+const AddInterventionRow: React.FC<Props> = ({ onAdd, onImport }) => {
   const { t } = useTranslation();
 
   return (
-    <Row className="mb-3">
-      <Col xs={12} md="auto">
-        <Button onClick={onAdd} variant="primary">
-          {t('Add Intervention')}
+    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+      <div className="d-flex gap-2">
+        <Button variant="primary" onClick={onAdd}>
+          <FaPlus className="me-2" />
+          {t('Add New Intervention')}
         </Button>
-      </Col>
-    </Row>
+
+        <Button variant="outline-primary" onClick={onImport}>
+          <FaFileImport className="me-2" />
+          {t('Import')}
+        </Button>
+      </div>
+    </div>
   );
 };
 

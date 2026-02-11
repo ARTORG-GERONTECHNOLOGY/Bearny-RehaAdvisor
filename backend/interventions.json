@@ -1,0 +1,61 @@
+{
+  "interventionsTaxonomy": {
+    "input_from": ["Italy", "Portugal", "Belgium", "Switzerland"],
+    "lc9": [
+      "diet",
+      "physical activity",
+      "sleep",
+      "smoking",
+      "BMI",
+      "non-HDL cholesterol",
+      "HbA1c",
+      "blood pressure",
+      "PHQ-9 / Depression",
+      "other"
+    ],
+    "original_languages": ["DE", "FR", "IT", "PT", "ENG", "NL"],
+    "primary_diagnoses": [
+      "heart failure",
+      "acute corornary syndrom",
+      "chronic coronary syndrome"
+    ],
+    "aims": ["Education", "Exercise", "Instructions"],
+    "topics": [
+      "disease",
+      "medication",
+      "physical acitivity",
+      "endurance training",
+      "strength training",
+      "breathing",
+      "relaxation",
+      "mobility",
+      "balance",
+      "sleep",
+      "dyspnoea",
+      "cough",
+      "fatigue",
+      "dynapenia",
+      "anxiety",
+      "depression",
+      "pain",
+      "smoking",
+      "overweight",
+      "blood pressure",
+      "dislipidemia",
+      "diabetes mellitus",
+      "social loneliness",
+      "stress",
+      "nutrition",
+      "environment"
+    ],
+    "cognitive_levels": ["easy", "medium", "advanced", "for all levels"],
+    "physical_levels": ["low", "medium", "high", "for all levels"],
+    "frequency_time": ["day", "week", "month", "according to patients preference"],
+    "timing": ["early", "late", "equal / according to patients preference"],
+    "content_types": ["text", "video", "audio", "image", "app", "website"],
+    "duration_buckets": ["<5min", "5-10min", "10-20min", "20-30min", "30-45min", ">45min"],
+    "sex_specific": ["male", "female", "other"],
+    "where": ["home", "outside", "inside"],
+    "setting": ["individual", "group", "class"]
+  }
+}
