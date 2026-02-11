@@ -40,13 +40,13 @@ class SMSVerification(Document):
 
 
 class User(Document):
-    meta = {"collection": "users"}  # MongoDB collection
+    meta = {"collection": "users"}
     username = StringField(max_length=150, required=True)
     role = StringField(choices=["Therapist", "Patient", "Admin"], default="Therapist")
     createdAt = DateTimeField(required=True)
     updatedAt = DateTimeField(default=timezone.now)
-    email = EmailField(unique=True, required=True)
-    phone = StringField(max_length=20, required=True)
+    email = EmailField(required=False)
+    phone = StringField(max_length=20, required=False)
     pwdhash = StringField()
     isActive = BooleanField(default=False)
 
@@ -226,21 +226,68 @@ class PatientType(EmbeddedDocument):
     include_option = BooleanField(default=True)
 
 
-# Intervention Document
-class Intervention(Document):
-    meta = {"collection": "exercises"}
-    title = StringField(required=True, unique=True)
-    description = StringField(required=True)
-    content_type = StringField(
-        required=True, choices=config["RecomendationInfo"]["types"]
+class InterventionMedia(EmbeddedDocument):
+    kind = StringField(required=True, choices=["external", "file"])
+    media_type = StringField(
+        required=True,
+        choices=["audio", "video", "image", "pdf", "website", "app", "streaming", "text"]
     )
-    benefitFor = ListField(StringField())
-    tags = ListField(StringField())
-    link = StringField()
-    media_file = StringField()
+
+    provider = StringField(required=False, null=True)
+    title = StringField(required=False, null=True)
+
+    url = StringField(required=False, null=True)        # kind=external
+    embed_url = StringField(required=False, null=True)  # optional
+    file_path = StringField(required=False, null=True)  # kind=file
+    mime = StringField(required=False, null=True)
+
+    thumbnail = StringField(required=False, null=True)
+
+class Intervention(Document):
+    meta = {
+        "collection": "Interventions",
+        "indexes": [
+            {"fields": ["external_id", "language"], "unique": True},
+            "external_id",
+            "language",
+            "content_type",
+        ],
+    }
+
+    external_id = StringField(required=True)
+    language = StringField(required=True)        # normalized: "en","de","fr","it",...
+    provider = StringField(required=False, null=True)
+
+    title = StringField(required=True)
+    description = StringField(required=True)
+
+    content_type = StringField(required=True)    # validate against taxonomy in BE
+
+    # Excel-aligned metadata (recommended)
+    input_from = StringField(required=False, null=True)
+    lc9 = ListField(StringField(), default=list)
+    original_language = StringField(required=False, null=True)
+    primary_diagnosis = StringField(required=False, null=True)
+    aim = StringField(required=False, null=True)
+    topic = ListField(StringField(), default=list)
+    cognitive_level = StringField(required=False, null=True)
+    physical_level = StringField(required=False, null=True)
+    frequency_time = StringField(required=False, null=True)
+    timing = StringField(required=False, null=True)
+    duration_bucket = StringField(required=False, null=True)
+    sex_specific = StringField(required=False, null=True)
+    where = ListField(StringField(), default=list)
+    setting = ListField(StringField(), default=list)
+    keywords = ListField(StringField(), default=list)
+
+    # ✅ Only media source of truth
+    media = ListField(EmbeddedDocumentField(InterventionMedia), default=list)
+
     preview_img = StringField()
-    patient_types = ListField(EmbeddedDocumentField(PatientType))
     duration = IntField()
+
+    patient_types = ListField(EmbeddedDocumentField("PatientType"))
+
     is_private = BooleanField(default=False)
     private_patient_id = ReferenceField("Patient", required=False, null=True)
 
@@ -311,7 +358,7 @@ class DefaultInterventions(EmbeddedDocument):
 
 # core/models.py
 class Therapist(Document):
-    meta = {"collection": "Therapist"}
+    meta = {"collection": "Therapists"}
     userId = ReferenceField(User, required=True)
     name = StringField(max_length=20)
     first_name = StringField(max_length=20)
@@ -328,12 +375,15 @@ class Therapist(Document):
     )
 
     # ✅ store one or more projects the therapist is working with
+    # core/models.py
     projects = ListField(
-        StringField(max_length=100, choices=config["therapistInfo"]["clinic_projects"]),
+        StringField(max_length=100, choices=config["therapistInfo"]["projects"]),
         default=list,
     )
 
-    default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions))
+
+
+    default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions), default=list)
 
 
 
@@ -427,6 +477,12 @@ class Patient(Document):
 
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
+
+    preferred_language = StringField(
+        max_length=10,
+        choices=["en", "es", "fr", "de", "it", "nl", "sv", "zh", "ja", "ko"],
+        default="en",
+    )
 
     def save(self, *args, **kwargs):
         self.updatedAt = timezone.now()
@@ -524,6 +580,7 @@ class HealthSliderEntry(Document):
     question_index = IntField(required=True)              # 0-based
     answer_value   = FloatField(null=True)                # or IntField, but float allows future scale
     has_audio      = BooleanField(default=False)
+    question_text  = StringField(required=True)
 
     # Storage path (MEDIA storage), e.g. "healthslider/SUBJ_001/20260112T093000/SUBJ_001_q01.webm"
     audio_file     = StringField(default="")              # storage path

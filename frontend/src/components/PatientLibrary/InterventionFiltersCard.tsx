@@ -4,6 +4,9 @@ import { Button, Card, Col, Form, Row } from 'react-bootstrap';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 
+// ✅ NEW taxonomy config (patient filters should use the same source of truth)
+import interventionsConfig from '../../config/interventions.json';
+
 type Option = { value: string; label: string };
 
 type Props = {
@@ -12,15 +15,14 @@ type Props = {
 
   contentType: string;
   onContentType: (v: string) => void;
-  contentTypeOptions: string[];
 
+  // ✅ NEW: aims separated from tags
+  aimsFilter: string[];
+  onAimsFilter: (v: string[]) => void;
+
+  // ✅ tags (everything except aims)
   tagFilter: string[];
   onTagFilter: (v: string[]) => void;
-  tagOptions: string[];
-
-  benefitForFilter: string[];
-  onBenefitForFilter: (v: string[]) => void;
-  benefitOptions: string[];
 
   loading: boolean;
   resultCount: number;
@@ -28,33 +30,54 @@ type Props = {
   onReset: () => void;
 };
 
+const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
+
 const InterventionFiltersCard: React.FC<Props> = ({
   searchTerm,
   onSearchTerm,
   contentType,
   onContentType,
-  contentTypeOptions,
+  aimsFilter,
+  onAimsFilter,
   tagFilter,
   onTagFilter,
-  tagOptions,
-  benefitForFilter,
-  onBenefitForFilter,
-  benefitOptions,
   loading,
   resultCount,
   onReset,
 }) => {
   const { t } = useTranslation();
 
-  const tagSelectOptions: Option[] = useMemo(
-    () => tagOptions.map((tag) => ({ value: tag, label: t(tag) })),
-    [tagOptions, t]
-  );
+  const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
-  const benefitSelectOptions: Option[] = useMemo(
-    () => benefitOptions.map((b) => ({ value: b, label: t(b) })),
-    [benefitOptions, t]
-  );
+  const aims = useMemo(() => uniq(tx.aims), [tx]);
+  const contentTypes = useMemo(() => uniq(tx.content_types), [tx]);
+  const frequencyTimes = useMemo(() => uniq(tx.frequency_time), [tx]); // optional, if you later want it
+
+  const aimsOptions: Option[] = useMemo(() => aims.map((a) => ({ value: a, label: t(a) })), [aims, t]);
+
+  // ✅ tags = all taxonomy buckets except aims
+  const tagOptions: Option[] = useMemo(() => {
+    const buckets = [
+      ...(tx.topics || []),
+      ...(tx.lc9 || []),
+      ...(tx.cognitive_levels || []),
+      ...(tx.physical_levels || []),
+      ...(tx.timing || []),
+      ...(tx.duration_buckets || []),
+      ...(tx.sex_specific || []),
+      ...(tx.where || []),
+      ...(tx.setting || []),
+
+      // optional extra metadata as tags if desired
+      ...(tx.primary_diagnoses || []),
+      ...(tx.input_from || []),
+      ...(tx.original_languages || []),
+    ];
+
+    return uniq(buckets)
+      .filter((x) => !aims.includes(x))
+      .map((tag) => ({ value: tag, label: t(tag) }));
+  }, [tx, aims, t]);
 
   return (
     <Card className="shadow-sm border-0">
@@ -74,7 +97,7 @@ const InterventionFiltersCard: React.FC<Props> = ({
           <Col xs={12}>
             <Form.Select value={contentType} onChange={(e) => onContentType(e.target.value)}>
               <option value="">{t('Filter by Content Type')}</option>
-              {contentTypeOptions.map((type) => (
+              {contentTypes.map((type: string) => (
                 <option key={type} value={type}>
                   {t(type)}
                 </option>
@@ -82,23 +105,25 @@ const InterventionFiltersCard: React.FC<Props> = ({
             </Form.Select>
           </Col>
 
+          {/* ✅ NEW: Aims */}
           <Col xs={12} lg={6}>
             <Select
               isMulti
-              options={tagSelectOptions}
-              value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-              onChange={(opts) => onTagFilter((opts || []).map((opt) => opt.value))}
-              placeholder={t('Filter by Tags')}
+              options={aimsOptions}
+              value={(aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
+              onChange={(opts) => onAimsFilter((opts || []).map((opt) => (opt as any).value))}
+              placeholder={t('Filter by Aims')}
             />
           </Col>
 
+          {/* ✅ Tags */}
           <Col xs={12} lg={6}>
             <Select
               isMulti
-              options={benefitSelectOptions}
-              value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-              onChange={(opts) => onBenefitForFilter((opts || []).map((opt) => opt.value))}
-              placeholder={t('Filter by Benefit')}
+              options={tagOptions}
+              value={(tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
+              onChange={(opts) => onTagFilter((opts || []).map((opt) => (opt as any).value))}
+              placeholder={t('Filter by Tags')}
             />
           </Col>
 

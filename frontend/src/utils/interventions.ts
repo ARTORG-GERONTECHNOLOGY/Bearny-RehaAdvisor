@@ -1,3 +1,88 @@
+// src/utils/interventions.ts
+
+export type InterventionMedia = {
+  kind: 'external' | 'file';
+  media_type: 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
+  provider?: string | null;
+  title?: string | null;
+
+  // external
+  url?: string | null;
+  embed_url?: string | null;
+
+  // file
+  file_path?: string | null;
+  file_url?: string | null; // ✅ from BE
+  mime?: string | null;
+
+  thumbnail?: string | null;
+};
+
+export function getAllMedia(item?: any): InterventionMedia[] {
+  const list = item?.media;
+  return Array.isArray(list) ? list : [];
+}
+
+export function getPrimaryMedia(item?: any): InterventionMedia | null {
+  const list = getAllMedia(item);
+  return list.length ? list[0] : null;
+}
+
+export function getPlayableUrl(m?: InterventionMedia | null): string {
+  if (!m) return '';
+  if (m.kind === 'file') return String(m.file_url || '');
+  return String(m.embed_url || m.url || '');
+}
+
+export function getMediaTypeLabelFromIntervention(item?: any): string {
+  const m = getPrimaryMedia(item);
+  if (!m) return 'None';
+
+  switch (m.media_type) {
+    case 'video':
+      return 'Video';
+    case 'audio':
+      return 'Audio';
+    case 'pdf':
+      return 'PDF';
+    case 'image':
+      return 'Image';
+    case 'streaming':
+      return 'Streaming';
+    case 'app':
+      return 'App';
+    case 'website':
+      return 'Link';
+    case 'text':
+      return 'Text';
+    default:
+      return 'Link';
+  }
+}
+
+export function getBadgeVariantFromIntervention(item?: any): string {
+  const m = getPrimaryMedia(item);
+  if (!m) return 'secondary';
+
+  switch (m.media_type) {
+    case 'video':
+      return 'danger';
+    case 'audio':
+      return 'warning';
+    case 'pdf':
+      return 'primary';
+    case 'image':
+      return 'info';
+    case 'streaming':
+      return 'success';
+    case 'app':
+      return 'dark';
+    case 'website':
+    case 'text':
+    default:
+      return 'secondary';
+  }
+}
 //utils/interventions.ts
 export const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
   if (!mediaUrl) {
@@ -17,6 +102,17 @@ export const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
     return 'success';
 
   return 'secondary'; // Default for unknown file types
+};
+// Function to generate color spectrum based on available tags
+export const generateTagColors = (tags: string[]) => {
+  const tagColors: Record<string, string> = {};
+
+  tags.forEach((tag, index) => {
+    const hue = (index * 360) / tags.length; // Spread colors evenly in HSL spectrum
+    tagColors[tag] = `hsl(${hue}, 70%, 50%)`; // Generate HSL color
+  });
+
+  return tagColors;
 };
 
 export const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
@@ -42,16 +138,4 @@ export const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
     return 'Image';
 
   return 'Unknown';
-};
-
-// Function to generate color spectrum based on available tags
-export const generateTagColors = (tags: string[]) => {
-  const tagColors: Record<string, string> = {};
-
-  tags.forEach((tag, index) => {
-    const hue = (index * 360) / tags.length; // Spread colors evenly in HSL spectrum
-    tagColors[tag] = `hsl(${hue}, 70%, 50%)`; // Generate HSL color
-  });
-
-  return tagColors;
 };
