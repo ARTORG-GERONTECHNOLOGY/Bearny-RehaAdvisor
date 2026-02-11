@@ -1,3 +1,4 @@
+// src/pages/TherapistRecomendations.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Container } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
@@ -8,9 +9,10 @@ import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import WelcomeArea from '../components/common/WelcomeArea';
 import ErrorAlert from '../components/common/ErrorAlert';
+import ImportInterventionsModal from '../components/TherapistInterventionPage/ImportInterventionsModal';
 
 import ProductPopup from '../components/TherapistInterventionPage/ProductPopup';
-import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp';
+import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp'; // ✅ use the updated manual creation popup
 
 import TemplateAssignModal from '../components/TherapistInterventionPage/TemplateAssignModal';
 import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTimeline';
@@ -62,8 +64,29 @@ const getSegments = (it: TemplateItem) => {
 };
 
 const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
-  const occ = it.occurrences || [];
-  return occ.filter((o) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
+  const occ = (it as any).occurrences || [];
+  return occ.filter((o: any) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
+};
+
+// ✅ shared defaults (avoids drift between reset + initial state)
+const defaultLibraryFilters: LibraryFiltersState = {
+  searchTerm: '',
+  patientTypeFilter: '',
+  contentTypeFilter: '',
+  tagFilter: [],
+  benefitForFilter: [],
+  frequencyFilter: '',
+};
+
+// ✅ UPDATED: templates filters include diagnosis multi-filter
+const defaultTemplatesFilters: TemplatesFiltersState = {
+  tSearchTerm: '',
+  tPatientTypeFilter: '',
+  tDiagnosisFilter: [],
+  tContentTypeFilter: '',
+  tTagFilter: [],
+  tBenefitForFilter: [],
+  tFrequencyFilter: '',
 };
 
 const TherapistRecomendations: React.FC = observer(() => {
@@ -96,37 +119,30 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
   const [tLoading, setTLoading] = useState<boolean>(false);
 
+  // ─────────────────────────── import popup ───────────────────────────
+  const [showPopupImport, setShowPopupImport] = useState(false);
+  const handleOpenImport = () => setShowPopupImport(true);
+  const handleCloseImport = () => setShowPopupImport(false);
+
   // Template assign modal (create/modify)
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignInterventionId, setAssignInterventionId] = useState<string | null>(null);
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
-  const [libraryFilters, setLibraryFilters] = useState<LibraryFiltersState>({
-    searchTerm: '',
-    patientTypeFilter: '',
-    contentTypeFilter: '',
-    tagFilter: [],
-    benefitForFilter: [],
-    frequencyFilter: '',
-  });
+  const [libraryFilters, setLibraryFilters] = useState<LibraryFiltersState>(defaultLibraryFilters);
 
   // ─────────────────────────── Filters (templates → Browse All) ───────────────────────────
-  const [templatesFilters, setTemplatesFilters] = useState<TemplatesFiltersState>({
-    tSearchTerm: '',
-    tPatientTypeFilter: '',
-    tContentTypeFilter: '',
-    tTagFilter: [],
-    tBenefitForFilter: [],
-    tFrequencyFilter: '',
-  });
+  const [templatesFilters, setTemplatesFilters] =
+    useState<TemplatesFiltersState>(defaultTemplatesFilters);
 
   // ─────────────────────────── computed data ───────────────────────────
   const tagColors = useMemo(() => generateTagColors(config.RecomendationInfo.tags), []);
   const patientTypes = authStore.specialisations; // observer() => reactive
+
   const diagnoses = useMemo(
     () =>
-      authStore.specialisations.flatMap(
+      (authStore.specialisations || []).flatMap(
         (spec) => config?.patientInfo?.function?.[spec]?.diagnosis || []
       ),
     [authStore.specialisations]
@@ -135,7 +151,7 @@ const TherapistRecomendations: React.FC = observer(() => {
   // Store-driven interventions
   const recommendations = therapistInterventionsLibraryStore.items;
 
-  // translated titles (page-local cache, fine)
+  // translated titles (page-local cache)
   type TitleMap = Record<string, { title: string; lang: string | null }>;
   const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
 
@@ -149,9 +165,11 @@ const TherapistRecomendations: React.FC = observer(() => {
     });
   }, [recommendations, libraryFilters]);
 
+  // ✅ UPDATED: includes diagnosisFilter (multi) for templates browse
   const templateFilteredAll = useMemo(() => {
     return filterInterventions(recommendations, {
       patientTypeFilter: templatesFilters.tPatientTypeFilter,
+      diagnosisFilter: templatesFilters.tDiagnosisFilter, // ✅ NEW
       contentTypeFilter: templatesFilters.tContentTypeFilter,
       tagFilter: templatesFilters.tTagFilter,
       benefitForFilter: templatesFilters.tBenefitForFilter,
@@ -247,7 +265,10 @@ const TherapistRecomendations: React.FC = observer(() => {
               it.intervention.title,
               lang
             );
-            return [id, { title: translatedText || it.intervention.title, lang: detectedSourceLanguage || null }] as const;
+            return [
+              id,
+              { title: translatedText || it.intervention.title, lang: detectedSourceLanguage || null },
+            ] as const;
           } catch {
             return [id, { title: it.intervention.title, lang: null }] as const;
           }
@@ -367,25 +388,9 @@ const TherapistRecomendations: React.FC = observer(() => {
   };
 
   // ---- controls ----
-  const resetLibraryFilters = () =>
-    setLibraryFilters({
-      searchTerm: '',
-      patientTypeFilter: '',
-      contentTypeFilter: '',
-      tagFilter: [],
-      benefitForFilter: [],
-      frequencyFilter: '',
-    });
+  const resetLibraryFilters = () => setLibraryFilters(defaultLibraryFilters);
 
-  const resetTemplateFilters = () =>
-    setTemplatesFilters({
-      tSearchTerm: '',
-      tPatientTypeFilter: '',
-      tContentTypeFilter: '',
-      tTagFilter: [],
-      tBenefitForFilter: [],
-      tFrequencyFilter: '',
-    });
+  const resetTemplateFilters = () => setTemplatesFilters(defaultTemplatesFilters);
 
   const handleOpenAdd = () => setShowPopupAdd(true);
   const handleCloseAdd = () => setShowPopupAdd(false);
@@ -410,7 +415,7 @@ const TherapistRecomendations: React.FC = observer(() => {
           />
         )}
 
-        <AddInterventionRow onAdd={handleOpenAdd} />
+        <AddInterventionRow onAdd={handleOpenAdd} onImport={handleOpenImport} />
 
         <MainTabs mainTab={mainTab} onChange={setMainTab} />
 
@@ -488,6 +493,12 @@ const TherapistRecomendations: React.FC = observer(() => {
       <AddInterventionPopup
         show={showPopupAdd}
         handleClose={handleCloseAdd}
+        onSuccess={() => therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' })}
+      />
+
+      <ImportInterventionsModal
+        show={showPopupImport}
+        onHide={handleCloseImport}
         onSuccess={() => therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' })}
       />
 

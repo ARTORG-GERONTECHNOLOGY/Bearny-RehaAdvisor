@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.views.redcap_views import redcap_projects, redcap_record
-from core.views.redcap_import_views import import_patient_from_redcap
+from core.views.redcap_import_views import available_redcap_patients,import_patient_from_redcap
 import core.views.auth_views as auth_views
 import core.views.patient_views as patient_views
 import core.views.recomendation_views as recomendation_views
@@ -25,8 +25,11 @@ from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_session_zip,
 )
-from core.views.therapist_projects_views import therapist_projects
+from core.views.therapist_projects import therapist_projects
 from core.views.redcap_patient_views import redcap_patient
+from core.views.therapist_access_views import therapist_access
+from core.views.intervention_import import import_interventions
+
 urlpatterns = [
     path("api/", core_views.index, name="index"),
     path("api/admin/pending-users/", user_views.get_pending_users),
@@ -161,16 +164,21 @@ urlpatterns = [
     path("api/users/<str:therapist_id>/change-password/", user_views.change_password, name="change_password"),
     path("api/patients/health-combined-history/<str:patient_id>/",fitbit_views.health_combined_history,name="health_combined_history"),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
-
+    # ICF/EVA Healthslider
     path("api/healthslider/items/", list_healthslider_items),
     path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
     path("api/healthslider/submit-item/", submit_healthslider_item),
     path("api/healthslider/delete-session/", download_healthslider_session_zip),
-
+    # REDCap Integration
     path("api/redcap/projects/", redcap_projects),
-    path("api/redcap/import-patient/", import_patient_from_redcap),
     path("api/redcap/patient/", redcap_patient),
-    path("api/therapist/projects/", therapist_projects, name="therapist-projects"),
+    path("api/redcap/available-patients/", available_redcap_patients, name="available-redcap-patients"),
+
+    path("api/admin/therapist/access/", therapist_access, name="therapist_access"),
+    path("api/admin/therapist/access/<str:therapistId>/", therapist_access, name="therapist_access_admin"),
+    path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
+    path("api/interventions/import/excel", import_interventions, name="import_interventions"),
+
 
 ]
 

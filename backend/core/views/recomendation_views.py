@@ -29,6 +29,7 @@ from core.models import (
 from utils.config import config
 from utils.utils import generate_custom_id, get_labels, sanitize_text
 from utils.scheduling import _merge_date_and_time
+from utils.interventions import (_serialize_intervention_basic, _available_language_variants, _lang_fallback_chain, _pick_best_variant)
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 FILE_TYPE_FOLDERS = {
@@ -44,6 +45,72 @@ from utils.scheduling import _expand_dates  # you already use this
 from datetime import datetime, date, time as dtime
 from django.utils import timezone
 
+import re
+
+
+
+'''
+InterventionMedia(
+  kind="external",
+  media_type="streaming",
+  provider="spotify",
+  title="Spotify Playlist",
+  url="https://open.spotify.com/playlist/....",
+  embed_url="https://open.spotify.com/embed/playlist/...."
+)
+
+InterventionMedia(
+  kind="external",
+  media_type="video",
+  provider="youtube",
+  title="Video Anleitung",
+  url="https://www.youtube.com/watch?v=....",
+  embed_url="https://www.youtube.com/embed/...."
+)
+
+InterventionMedia(
+  kind="file",
+  media_type="audio",
+  title="Audio Anleitung",
+  file_path="interventions/P01/rec_q01.webm",
+  mime="audio/webm"
+)
+
+InterventionMedia(
+  kind="file",
+  media_type="pdf",
+  title="Infoblatt",
+  file_path="interventions/4001_de/info.pdf",
+  mime="application/pdf"
+)
+
+'''
+
+
+
+
+
+
+
+
+def spotify_embed(url: str) -> str | None:
+    if not url:
+        return None
+    m = re.search(r"open\.spotify\.com/(track|playlist|album|episode|show)/([A-Za-z0-9]+)", url)
+    if not m:
+        return None
+    typ, sid = m.group(1), m.group(2)
+    return f"https://open.spotify.com/embed/{typ}/{sid}"
+
+def youtube_embed(url: str) -> str | None:
+    if not url:
+        return None
+    # supports youtu.be/<id> or youtube.com/watch?v=<id>
+    m = re.search(r"(?:youtu\.be/|v=)([A-Za-z0-9_-]{6,})", url)
+    if not m:
+        return None
+    vid = m.group(1)
+    return f"https://www.youtube.com/embed/{vid}"
 
 def _as_int(v, default=0):
     try:
@@ -734,21 +801,258 @@ def _parse_int(val, default=None):
 # MAIN VIEW: add_new_intervention
 # --------------------------------------------------------------------
 
+import json
+import logging
+import os
+import mimetypes
+import re
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+
+from bson import ObjectId
+from mongoengine.queryset.visitor import Q
+
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+from core.models import Intervention, InterventionMedia, Patient, PatientType
+from utils.config import config
+from utils.utils import sanitize_text
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
+
+# Map extensions to storage folders (fallback to "others")
+FILE_TYPE_FOLDERS = {
+    "mp4": "videos",
+    "mov": "videos",
+    "avi": "videos",
+    "mkv": "videos",
+    "webm": "videos",
+    "mp3": "audios",
+    "wav": "audios",
+    "m4a": "audios",
+    "ogg": "audios",
+    "pdf": "pdfs",
+    "png": "images",
+    "jpg": "images",
+    "jpeg": "images",
+    "gif": "images",
+    "webp": "images",
+}
+
+MAX_FILE_SIZE_BYTES = 400 * 1024 * 1024  # 400MB
+MAX_LIST_ITEMS = 30
+MAX_ITEM_LEN = 80
+
+# ---------------------------
+# embed helpers (same logic as you posted)
+# ---------------------------
+
+def spotify_embed(url: str) -> Optional[str]:
+    if not url:
+        return None
+    m = re.search(r"open\.spotify\.com/(track|playlist|album|episode|show)/([A-Za-z0-9]+)", url)
+    if not m:
+        return None
+    typ, sid = m.group(1), m.group(2)
+    return f"https://open.spotify.com/embed/{typ}/{sid}"
+
+def youtube_embed(url: str) -> Optional[str]:
+    if not url:
+        return None
+    m = re.search(r"(?:youtu\.be/|v=)([A-Za-z0-9_-]{6,})", url)
+    if not m:
+        return None
+    vid = m.group(1)
+    return f"https://www.youtube.com/embed/{vid}"
+
+def _guess_provider(url: str) -> Optional[str]:
+    u = (url or "").lower()
+    if "spotify.com" in u:
+        return "spotify"
+    if "youtube.com" in u or "youtu.be" in u:
+        return "youtube"
+    if "soundcloud.com" in u:
+        return "soundcloud"
+    if "vimeo.com" in u:
+        return "vimeo"
+    return "website"
+
+def _is_valid_url(u: str) -> bool:
+    try:
+        p = urlparse(u)
+        return p.scheme in ("http", "https") and bool(p.netloc)
+    except Exception:
+        return False
+
+def _safe_title_slug(s: str) -> str:
+    return "".join(c for c in (s or "").lower().replace(" ", "_") if c.isalnum() or c in ("_", "-"))[:80] or "intervention"
+
+def _parse_str_list(val) -> List[str]:
+    if val is None:
+        return []
+    if isinstance(val, list):
+        items = [sanitize_text(str(x)).strip() for x in val if str(x).strip()]
+    elif isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return []
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                items = [sanitize_text(str(x)).strip() for x in parsed if str(x).strip()]
+            else:
+                items = [sanitize_text(s)]
+        except json.JSONDecodeError:
+            pieces = [p.strip().strip('"').strip("'") for p in s.split(",")]
+            items = [sanitize_text(x) for x in pieces if x]
+    else:
+        items = [sanitize_text(str(val)).strip()]
+
+    items = items[:MAX_LIST_ITEMS]
+    return [x[:MAX_ITEM_LEN] for x in items]
+
+def _parse_bool(val, default=False) -> bool:
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in {"1", "true", "yes", "y", "on"}
+    return bool(val) if val is not None else default
+
+def _parse_int(val, default=None):
+    if val in (None, ""):
+        return default
+    try:
+        return int(val)
+    except Exception:
+        return default
+
+def _abs_media_url(path: str) -> str:
+    """
+    Convert storage path to absolute URL for frontend.
+    Supports:
+      - MEDIA_HOST + MEDIA_URL + path (current pattern)
+      - or if path already looks like URL, return as is
+    """
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    media_host = getattr(settings, "MEDIA_HOST", "")
+    media_url = getattr(settings, "MEDIA_URL", "/media/")
+    # ensure clean joining
+    return f"{media_host}{media_url.rstrip('/')}/{path.lstrip('/')}"
+
+def _save_file(file_obj, folder: str, title: str) -> str:
+    ts = timezone.now().strftime("%Y%m%d_%H%M%S")
+    ext = (os.path.splitext(file_obj.name)[1] or "").lower().lstrip(".") or "bin"
+    safe_title = _safe_title_slug(title)
+    filename = f"{ts}_{safe_title}.{ext}"
+    return default_storage.save(f"{folder}/{filename}", file_obj)
+
+def _detect_file_media_type(ext: str, content_type_hint: str = "") -> str:
+    e = (ext or "").lower().lstrip(".")
+    if e in ("mp3", "wav", "m4a", "ogg", "webm"):
+        return "audio"
+    if e in ("mp4", "mov", "avi", "mkv", "webm"):
+        return "video"
+    if e in ("pdf",):
+        return "pdf"
+    if e in ("png", "jpg", "jpeg", "gif", "webp"):
+        return "image"
+    # fallback from intervention content type
+    hint = (content_type_hint or "").lower()
+    if "video" in hint:
+        return "video"
+    if "audio" in hint:
+        return "audio"
+    if "image" in hint:
+        return "image"
+    if "web" in hint:
+        return "website"
+    if "app" in hint:
+        return "app"
+    return "text"
+
+def _build_external_media(url: str, title: Optional[str] = None, media_type: Optional[str] = None) -> InterventionMedia:
+    prov = _guess_provider(url)
+    embed = None
+    if prov == "spotify":
+        embed = spotify_embed(url)
+    elif prov == "youtube":
+        embed = youtube_embed(url)
+
+    # If caller didn't specify type, infer.
+    mt = media_type
+    if not mt:
+        if prov == "spotify":
+            mt = "streaming"
+        elif prov in ("youtube", "vimeo"):
+            mt = "video"
+        else:
+            mt = "website"
+
+    return InterventionMedia(
+        kind="external",
+        media_type=mt,
+        provider=prov,
+        title=title,
+        url=url,
+        embed_url=embed,
+    )
+
+def _build_file_media(file_path: str, mime: Optional[str], title: Optional[str], media_type: str) -> InterventionMedia:
+    return InterventionMedia(
+        kind="file",
+        media_type=media_type,
+        provider=None,
+        title=title,
+        file_path=file_path,
+        mime=mime,
+    )
+
+def _media_key(m: InterventionMedia) -> str:
+    return f"{m.kind}|{(m.url or '').strip()}|{(m.file_path or '').strip()}|{(m.media_type or '').strip()}"
+
+# --------------------------------------------------------------------
+# UPDATED VIEW: add_new_intervention
+# --------------------------------------------------------------------
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
     POST /api/interventions/add/
-    Create a new intervention (public or private).
-    Handles multipart/form-data:
-    - img_file (preview image REQUIRED)
-    - media_file (optional)
-    - all other fields in request.POST
+    Supports multipart/form-data
+
+    Required:
+      - title
+      - description
+      - contentType
+      - duration
+      - img_file (preview)
+
+    Optional:
+      - language (default 'en')
+      - external_id (optional)
+      - provider (optional)
+      - isPrivate + patientId
+
+    Media (NO LEGACY):
+      - media: JSON list of objects, each {kind, media_type, title?, url?, embed_url?, provider?, file_path?, mime?}
+      - optional upload file in "media_file" (will be appended as kind=file)
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    def bad(message, field_errors=None, non_field_errors=None):
+    def bad(message, field_errors=None, non_field_errors=None, status=400):
         return JsonResponse(
             {
                 "success": False,
@@ -756,80 +1060,73 @@ def add_new_intervention(request):
                 "field_errors": field_errors or {},
                 "non_field_errors": non_field_errors or [],
             },
-            status=400,
+            status=status,
         )
 
-    def normalize_title(s: str) -> str:
-        return re.sub(r"\s+", " ", (s or "").strip()).lower()
-
-    def normalize_url(u: str) -> str:
-        """
-        Normalize URL for duplicate checks:
-        - lowercase scheme + host
-        - trim trailing slash in path
-        - ignore query + fragment (usually desired for "same link" checks)
-        """
-        u = (u or "").strip()
-        if not u:
-            return ""
-        p = urlparse(u)
-        scheme = (p.scheme or "").lower()
-        netloc = (p.netloc or "").lower()
-        path = (p.path or "").rstrip("/")
-        if scheme and netloc:
-            return f"{scheme}://{netloc}{path}"
-        # if user pasted something odd, fallback to trimmed raw
-        return u.rstrip("/")
-
     try:
-        # -------------------------
-        # Parse non-file fields
-        # -------------------------
-        title = request.POST.get("title", "").strip()
-        description = request.POST.get("description", "").strip()
-        content_type = request.POST.get("contentType", "").strip()
+        # ----------- base fields -----------
+        title = (request.POST.get("title") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        content_type = (request.POST.get("contentType") or "").strip()
         duration = request.POST.get("duration")
-        link = request.POST.get("link", "").strip()
 
-        is_private = request.POST.get("isPrivate", "").lower() in ("true", "1", "yes")
-        patient_id = request.POST.get("patientId")
+        language = (request.POST.get("language") or "en").strip().lower()
+        external_id = (request.POST.get("external_id") or "").strip() or None
+        provider = (request.POST.get("provider") or "").strip() or None
 
-        benefit_for = json.loads(request.POST.get("benefitFor", "[]"))
-        tag_list = json.loads(request.POST.get("tagList", "[]"))
+        # privacy
+        is_private = _parse_bool(request.POST.get("isPrivate"), False)
+        patient_id = (request.POST.get("patientId") or "").strip() or None
 
-        try:
-            patient_types_raw = json.loads(request.POST.get("patientTypes", "[]"))
-        except Exception:
-            return bad("Invalid patientTypes JSON", {"patientTypes": ["Invalid JSON"]})
+        # arrays
+        benefit_for = _parse_str_list(request.POST.get("benefitFor"))
+        tags = _parse_str_list(request.POST.get("tagList"))
 
-        # -------------------------
-        # Validation
-        # -------------------------
-        field_errors = {}
+        # patient types (public only)
+        patient_types: List[PatientType] = []
+        patient_types_raw = []
+        if not is_private:
+            try:
+                patient_types_raw = json.loads(request.POST.get("patientTypes", "[]") or "[]")
+                if not isinstance(patient_types_raw, list):
+                    raise ValueError("patientTypes must be a list")
+            except Exception:
+                return bad("Invalid patientTypes JSON", {"patientTypes": ["Invalid JSON or shape"]})
+
+        # files
+        preview_img = request.FILES.get("img_file")
+        upload_media_file = request.FILES.get("media_file")  # optional extra file that becomes a media item
+
+        # ----------- validation -----------
+        field_errors: Dict[str, List[str]] = {}
 
         if not title:
             field_errors.setdefault("title", []).append("This field is required.")
-
         if not description:
             field_errors.setdefault("description", []).append("Description is required.")
 
-        try:
-            dur_int = int(duration) if duration is not None else 0
-        except Exception:
-            dur_int = 0
+        dur_int = _parse_int(duration, 0) or 0
         if dur_int <= 0:
             field_errors.setdefault("duration", []).append("Duration must be greater than 0.")
 
         if not content_type:
             field_errors.setdefault("contentType", []).append("Content type is required.")
+        elif content_type not in ALLOWED_CONTENT_TYPES:
+            field_errors.setdefault("contentType", []).append(
+                f"Invalid. Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
+            )
 
-        if link:
-            if not (link.startswith("http://") or link.startswith("https://")):
-                field_errors.setdefault("link", []).append("Link must be a valid URL.")
+        if not preview_img:
+            field_errors.setdefault("img_file", []).append("Preview image is required.")
 
+        # file size checks
+        if preview_img and getattr(preview_img, "size", 0) > MAX_FILE_SIZE_BYTES:
+            field_errors.setdefault("img_file", []).append("Preview image is too large.")
+        if upload_media_file and getattr(upload_media_file, "size", 0) > MAX_FILE_SIZE_BYTES:
+            field_errors.setdefault("media_file", []).append("Media file is too large.")
+
+        # private validation
         patient_obj = None
-        patient_types = []
-
         if is_private:
             if not patient_id:
                 field_errors.setdefault("patientId", []).append("Required for private intervention.")
@@ -841,45 +1138,83 @@ def add_new_intervention(request):
         else:
             if not patient_types_raw:
                 field_errors.setdefault("patientTypes", []).append("At least one entry is required.")
-            else:
-                for idx, pt in enumerate(patient_types_raw):
-                    t = (pt.get("type") or "").strip()
-                    d = (pt.get("diagnosis") or "").strip()
-                    f = (pt.get("frequency") or "").strip()
-                    incl = pt.get("includeOption", False)
 
-                    if not t or not d or not f:
-                        field_errors.setdefault(f"patientTypes[{idx}]", []).append(
-                            "type, diagnosis and frequency are required."
-                        )
-                    else:
-                        patient_types.append(
-                            PatientType(
-                                type=t,
-                                diagnosis=d,
-                                frequency=f,
-                                include_option=bool(incl),
-                            )
-                        )
-
-        preview_img = request.FILES.get("img_file")
-        media_file = request.FILES.get("media_file")
-
-        if not preview_img:
-            field_errors.setdefault("img_file", []).append("Preview image is required.")
+        # patientTypes validate
+        if not is_private:
+            for idx, pt in enumerate(patient_types_raw):
+                t_ = (pt.get("type") or "").strip()
+                d_ = (pt.get("diagnosis") or "").strip()
+                f_ = (pt.get("frequency") or "").strip()
+                incl = bool(pt.get("includeOption", False))
+                if not t_ or not d_ or not f_:
+                    field_errors.setdefault(f"patientTypes[{idx}]", []).append(
+                        "type, diagnosis and frequency are required."
+                    )
+                else:
+                    patient_types.append(PatientType(type=t_, diagnosis=d_, frequency=f_, include_option=incl))
 
         if field_errors:
             return bad("Validation error.", field_errors)
 
-        # -------------------------
-        # ✅ Duplicate checks (title + link) BEFORE saving files
-        # -------------------------
-        norm_title = normalize_title(title)
-        norm_link = normalize_url(link)
+        # ----------- parse media JSON (new only) -----------
+        media_items: List[InterventionMedia] = []
+        media_raw = request.POST.get("media", None)
 
-        # Title duplicate check:
-        # - public: block against other public
-        # - private: block against public OR same patient private
+        if media_raw:
+            try:
+                parsed = json.loads(media_raw) if isinstance(media_raw, str) else media_raw
+                if not isinstance(parsed, list):
+                    raise ValueError("media must be a list")
+
+                for i, m in enumerate(parsed[:30]):
+                    if not isinstance(m, dict):
+                        field_errors.setdefault(f"media[{i}]", []).append("Must be an object.")
+                        continue
+
+                    kind = (m.get("kind") or "").strip()
+                    mt = (m.get("media_type") or m.get("mediaType") or "").strip()
+                    title_m = (m.get("title") or "").strip() or None
+
+                    if kind not in ("external", "file"):
+                        field_errors.setdefault(f"media[{i}].kind", []).append("Must be 'external' or 'file'.")
+                        continue
+
+                    if mt not in {"audio", "video", "image", "pdf", "website", "app", "streaming", "text"}:
+                        field_errors.setdefault(f"media[{i}].media_type", []).append("Invalid media_type.")
+                        continue
+
+                    if kind == "external":
+                        url = (m.get("url") or "").strip()
+                        if not _is_valid_url(url):
+                            field_errors.setdefault(f"media[{i}].url", []).append("Invalid URL.")
+                            continue
+                        media_items.append(_build_external_media(url=url, title=title_m, media_type=mt))
+
+                    else:
+                        fp = (m.get("file_path") or m.get("filePath") or "").strip()
+                        if not fp:
+                            field_errors.setdefault(f"media[{i}].file_path", []).append(
+                                "file_path required for kind=file."
+                            )
+                            continue
+                        mime = (m.get("mime") or "").strip() or None
+                        media_items.append(_build_file_media(file_path=fp, mime=mime, title=title_m, media_type=mt))
+
+            except Exception:
+                field_errors.setdefault("media", []).append("Invalid media JSON.")
+                return bad("Validation error.", field_errors)
+
+        # Require at least one media item OR upload_media_file
+        # (If you want "Text" interventions to allow no media, uncomment the content_type check.)
+        if not media_items and not upload_media_file:
+            # if content_type == "Text": pass  # <- optional rule
+            field_errors.setdefault("media", []).append(
+                "Provide at least one media entry or upload a media file."
+            )
+            return bad("Validation error.", field_errors)
+
+        # ----------- duplicate checks -----------
+        # Title duplicates:
         if is_private and patient_obj:
             dup_title = (
                 Intervention.objects(is_private=False, title__iexact=title).first()
@@ -890,20 +1225,18 @@ def add_new_intervention(request):
 
         if dup_title:
             field_errors.setdefault("title", []).append(
-                f"An intervention with this title already exists (ID: {dup_title.id}). "
-                "Please choose a different title."
+                f"An intervention with this title already exists (ID: {dup_title.id})."
             )
 
-        # Link duplicate check (only when link provided):
-        # Link duplicate check (only when link provided):
-        if link:
-            # Private intervention: duplicates allowed only if it would collide with
-            # a PUBLIC intervention OR a PRIVATE intervention for the SAME patient.
+        # External media URL duplicates (check first external url only)
+        ext_urls = [m.url for m in media_items if m.kind == "external" and m.url]
+        if ext_urls:
+            url0 = ext_urls[0]
             if is_private and patient_obj:
                 dup_link = Intervention.objects(
                     __raw__={
                         "$and": [
-                            {"link": link},
+                            {"media": {"$elemMatch": {"kind": "external", "url": url0}}},
                             {
                                 "$or": [
                                     {"is_private": False},
@@ -912,59 +1245,73 @@ def add_new_intervention(request):
                             },
                         ]
                     }
-                ).only("id", "title", "link").first()
+                ).only("id", "title").first()
             else:
-                # Public intervention: duplicates only checked against other PUBLIC interventions
-                dup_link = Intervention.objects(is_private=False, link=link).only("id", "title", "link").first()
+                dup_link = Intervention.objects(
+                    __raw__={
+                        "$and": [
+                            {"is_private": False},
+                            {"media": {"$elemMatch": {"kind": "external", "url": url0}}},
+                        ]
+                    }
+                ).only("id", "title").first()
 
             if dup_link:
-                field_errors.setdefault("link", []).append(
-                    f"This link is already used by another intervention "
-                    f"('{dup_link.title}', ID: {dup_link.id}). Please use a different link."
+                field_errors.setdefault("media", []).append(
+                    f"This external link is already used by '{dup_link.title}' (ID: {dup_link.id})."
                 )
 
+        # external_id+language uniqueness (if provided)
+        if external_id:
+            dup_ext = Intervention.objects(external_id=external_id, language=language).first()
+            if dup_ext:
+                field_errors.setdefault("external_id", []).append(
+                    f"external_id+language already exists (ID: {dup_ext.id}). Use import/update instead."
+                )
 
         if field_errors:
             return bad("Duplicate intervention detected.", field_errors)
 
-        # -------------------------
-        # Filename-safe save helper
-        # -------------------------
-        def save_file(file, folder, intervention_title):
-            safe_title = "".join(
-                c
-                for c in (intervention_title or "").lower().replace(" ", "_")
-                if c.isalnum() or c in ("_", "-")
-            )
-            ts = timezone.now().strftime("%Y%m%d_%H%M%S")
-            ext = file.name.split(".")[-1].lower()
-            filename = f"{ts}_{safe_title}.{ext}"
-            return default_storage.save(f"{folder}/{filename}", file)
+        # ----------- save files -----------
+        preview_path = _save_file(preview_img, "images", title)
 
-        # -------------------------
-        # Save files with new naming scheme
-        # -------------------------
-        preview_path = save_file(preview_img, "images", title)
-
-        media_path = ""
-        if media_file:
-            ext = media_file.name.lower().split(".")[-1]
+        # uploaded media_file becomes an additional media item
+        if upload_media_file:
+            ext = (os.path.splitext(upload_media_file.name)[1] or "").lower().lstrip(".")
             folder = FILE_TYPE_FOLDERS.get(ext, "others")
-            media_path = save_file(media_file, folder, title)
+            saved_media_path = _save_file(upload_media_file, folder, title)
+            mime = getattr(upload_media_file, "content_type", None) or mimetypes.guess_type(upload_media_file.name)[0]
+            media_type = _detect_file_media_type(ext, content_type)
+            media_items.append(
+                _build_file_media(file_path=saved_media_path, mime=mime, title=None, media_type=media_type)
+            )
 
-        # -------------------------
-        # Create object
-        # -------------------------
+        # de-dup media items (by kind/url/path/type)
+        merged: List[InterventionMedia] = []
+        seen = set()
+        for m in media_items:
+            k = _media_key(m)
+            if k not in seen:
+                merged.append(m)
+                seen.add(k)
+
+        # ----------- create intervention -----------
         intervention = Intervention(
+            external_id=external_id,
+            language=language,
+            provider=provider,
+
             title=title,
             description=description,
             duration=dur_int,
             content_type=content_type,
-            link=link,
-            preview_img=preview_path,
-            media_file=media_path,
+
             benefitFor=benefit_for,
-            tags=tag_list,
+            tags=tags,
+
+            media=merged,
+            preview_img=preview_path,
+
             is_private=is_private,
             private_patient_id=patient_obj.id if (is_private and patient_obj) else None,
             patient_types=patient_types if not is_private else [],
@@ -973,19 +1320,29 @@ def add_new_intervention(request):
         intervention.save()
 
         return JsonResponse(
-            {
-                "success": True,
-                "message": "Intervention created successfully",
-                "id": str(intervention.id),
-            },
+            {"success": True, "message": "Intervention created successfully", "id": str(intervention.id)},
             status=201,
         )
 
     except Exception as e:
-        print("ERROR creating intervention:", e)
+        logger.exception("ERROR creating intervention")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
+
+
+def _serialize_media(m):
+    return {
+        "kind": getattr(m, "kind", None),
+        "media_type": getattr(m, "media_type", None),
+        "provider": getattr(m, "provider", None),
+        "title": getattr(m, "title", None),
+        "url": getattr(m, "url", None),
+        "embed_url": getattr(m, "embed_url", None),
+        "file_path": getattr(m, "file_path", None),
+        "mime": getattr(m, "mime", None),
+        "thumbnail": getattr(m, "thumbnail", None),
+    }
 
 
 @csrf_exempt
@@ -1002,35 +1359,47 @@ def get_intervention_detail(request, intervention_id):
         intervention = Intervention.objects.get(pk=intervention_id)
 
         feedbacks = []
-        patient_logs = PatientInterventionLogs.objects.filter(
-            interventionId=intervention
-        )
+        patient_logs = PatientInterventionLogs.objects.filter(interventionId=intervention)
 
         for log in patient_logs:
-            for entry in log.feedback:
+            for entry in (log.feedback or []):
                 feedbacks.append(
                     {
-                        "date": entry.date.isoformat(),
-                        "comment": entry.comment,
-                        "rating": entry.rating,
+                        "date": entry.date.isoformat() if getattr(entry, "date", None) else None,
+                        "comment": getattr(entry, "comment", None),
+                        "rating": getattr(entry, "rating", None),
                     }
                 )
 
         data = {
+            "_id": str(intervention.id),
+            "external_id": getattr(intervention, "external_id", None),
+            "language": getattr(intervention, "language", None),
+            "provider": getattr(intervention, "provider", None),
+
             "title": intervention.title,
             "description": intervention.description,
             "content_type": intervention.content_type,
+            "duration": getattr(intervention, "duration", None),
+
             "patient_types": [
                 {
                     "type": pt.type,
                     "frequency": pt.frequency,
-                    "include_option": pt.include_option,
+                    "include_option": getattr(pt, "include_option", False),
                     "diagnosis": pt.diagnosis,
                 }
-                for pt in intervention.patient_types
+                for pt in (intervention.patient_types or [])
             ],
-            "link": intervention.link or "",
-            "media_file": intervention.media_file or "",
+
+            # ✅ no legacy
+            "media": [_serialize_media(m) for m in (intervention.media or [])],
+
+            "preview_img": getattr(intervention, "preview_img", "") or "",
+            "is_private": bool(getattr(intervention, "is_private", False)),
+            "private_patient_id": str(intervention.private_patient_id.id)
+            if getattr(intervention, "private_patient_id", None)
+            else None,
         }
 
         return JsonResponse({"recommendation": data, "feedback": feedbacks}, status=200)
@@ -1040,64 +1409,87 @@ def get_intervention_detail(request, intervention_id):
         return JsonResponse({"error": "Intervention not found"}, status=404)
 
     except Exception as e:
-        logger.error(
-            f"[get_intervention_detail] Unexpected error: {str(e)}", exc_info=True
-        )
+        logger.error(f"[get_intervention_detail] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({"error": str(e)}, status=500)
+
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def list_intervention_diagnoses(request, intervention, specialisation, therapist_id):
+def list_all_interventions(request, patient_id=None):
     """
-    GET /api/interventions/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
-    Returns a mapping of diagnoses to their assigned status and the 'all' flag.
-    """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+    GET /api/interventions/all/(<str:patient_id>/)?
+    Returns public interventions and optionally private ones for the patient (listed first).
 
+    ✅ Now includes:
+      - external_id, language, provider
+      - media[] (with absolute URLs for file_path)
+      - legacy link/media_file still present for old FE
+    """
     try:
-        therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
-        intervention_id = ObjectId(intervention)
+        public_interventions = Intervention.objects.filter(Q(is_private=False) | Q(is_private__exists=False))
 
-        # Parse all diagnoses based on specialisation(s)
-        specialisation_list = [s.strip() for s in specialisation.split(",")]
-        all_diagnoses = []
-        for spec in specialisation_list:
-            all_diagnoses.extend(
-                config["patientInfo"]["function"].get(spec, {}).get("diagnosis", [])
-            )
+        private_interventions = []
+        if patient_id:
+            try:
+                private_interventions = Intervention.objects.filter(
+                    is_private=True,
+                    private_patient_id=ObjectId(patient_id)
+                )
+            except Exception as e:
+                logger.warning(f"Invalid patient ID or private fetch error: {e}")
 
-        diagnosis_map = {d: False for d in all_diagnoses}
-        all_flag = False
+        def serialize_media(m):
+            out = {
+                "kind": getattr(m, "kind", None),
+                "media_type": getattr(m, "media_type", None),
+                "provider": getattr(m, "provider", None),
+                "title": getattr(m, "title", None),
+                "url": getattr(m, "url", None),
+                "embed_url": getattr(m, "embed_url", None),
+                "file_path": getattr(m, "file_path", None),
+                "mime": getattr(m, "mime", None),
+                "thumbnail": getattr(m, "thumbnail", None),
+            }
+            if out["kind"] == "file" and out.get("file_path"):
+                out["file_url"] = _abs_media_url(out["file_path"])  # optional convenience
+            return out
 
-        # Match default recommendation
-        default_rec = next(
-            (
-                r
-                for r in therapist.default_recommendations
-                if r.recommendation.id == intervention_id
-            ),
-            None,
-        )
+        def serialize(item):
+            return {
+                "_id": str(item.pk),
+                "external_id": item.external_id,
+                "language": item.language,
+                "provider": getattr(item, "provider", None),
 
-        if default_rec:
-            for diagnosis, settings in default_rec.diagnosis_assignments.items():
-                if diagnosis == "all":
-                    all_flag = settings.active
-                elif diagnosis in diagnosis_map:
-                    diagnosis_map[diagnosis] = settings.active
+                "title": item.title,
+                "description": item.description,
+                "content_type": item.content_type,
 
-        return JsonResponse({"diagnoses": diagnosis_map, "all": all_flag}, status=200)
+                "media": [serialize_media(m) for m in (item.media or [])],
 
-    except Therapist.DoesNotExist as e:
-        logger.warning(f"[list_intervention_diagnoses] Entity not found: {e}")
-        return JsonResponse({"error": "Therapist not found"}, status=404)
+                "preview_img": _abs_media_url(item.preview_img) if item.preview_img else "",
+                "duration": item.duration,
+
+                "patient_types": [
+                    {
+                        "type": pt.type,
+                        "frequency": pt.frequency,
+                        "include_option": pt.include_option,
+                        "diagnosis": pt.diagnosis,
+                    }
+                    for pt in item.patient_types
+                ],
+                "is_private": bool(item.is_private),
+            }
+
+
+        serialized_data = [serialize(i) for i in private_interventions] + [serialize(i) for i in public_interventions]
+        return JsonResponse(serialized_data, safe=False, status=200)
+
     except Exception as e:
-        logger.error(
-            f"[list_intervention_diagnoses] Unexpected error: {str(e)}", exc_info=True
-        )
-        return JsonResponse({"error": str(e)}, status=500)
+        logger.error(f"[list_all_interventions] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
 # views: assign_intervention_to_types
@@ -1720,3 +2112,55 @@ def update_daily_recomendations(request):
             return JsonResponse({"success": "Done."}, status=200)
         except Exception as e:
             return JsonResponse({"error": "Failed."}, status=400)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def list_intervention_diagnoses(request, intervention, specialisation, therapist_id):
+    """
+    GET /api/interventions/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
+    Returns a mapping of diagnoses to their assigned status and the 'all' flag.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
+        intervention_id = ObjectId(intervention)
+
+        # Parse all diagnoses based on specialisation(s)
+        specialisation_list = [s.strip() for s in specialisation.split(",")]
+        all_diagnoses = []
+        for spec in specialisation_list:
+            all_diagnoses.extend(
+                config["patientInfo"]["function"].get(spec, {}).get("diagnosis", [])
+            )
+
+        diagnosis_map = {d: False for d in all_diagnoses}
+        all_flag = False
+
+        # Match default recommendation
+        default_rec = next(
+            (
+                r
+                for r in therapist.default_recommendations
+                if r.recommendation.id == intervention_id
+            ),
+            None,
+        )
+
+        if default_rec:
+            for diagnosis, settings in default_rec.diagnosis_assignments.items():
+                if diagnosis == "all":
+                    all_flag = settings.active
+                elif diagnosis in diagnosis_map:
+                    diagnosis_map[diagnosis] = settings.active
+
+        return JsonResponse({"diagnoses": diagnosis_map, "all": all_flag}, status=200)
+
+    except Therapist.DoesNotExist as e:
+        logger.warning(f"[list_intervention_diagnoses] Entity not found: {e}")
+        return JsonResponse({"error": "Therapist not found"}, status=404)
+
+
+
