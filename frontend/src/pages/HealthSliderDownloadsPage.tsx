@@ -10,14 +10,16 @@ export default function DownloadsPage() {
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
 
   const fetchItems = async () => {
-    if (!participantId.trim()) return alert("Please enter a Patient ID");
+    if (!participantId.trim()) return alert('Please enter a Patient ID');
     setLoading(true);
     try {
-      const res = await apiClient.get(`/healthslider/items/`, { params: { participantId: participantId.trim() } });
+      const res = await apiClient.get(`/healthslider/items/`, {
+        params: { participantId: participantId.trim() },
+      });
       setItems(res.data.items || []);
       setAudioUrls({});
     } catch {
-      alert("Error fetching data");
+      alert('Error fetching data');
     }
     setLoading(false);
   };
@@ -26,13 +28,15 @@ export default function DownloadsPage() {
   const loadAudio = async (itemId: string) => {
     if (audioUrls[itemId]) return;
     try {
-      const res = await apiClient.get(`/healthslider/audio/${itemId}/`, { responseType: 'arraybuffer' });
+      const res = await apiClient.get(`/healthslider/audio/${itemId}/`, {
+        responseType: 'arraybuffer',
+      });
       const ct = (res.headers?.['content-type'] as string) || 'audio/webm';
       const blob = new Blob([res.data], { type: ct });
       const url = URL.createObjectURL(blob);
-      setAudioUrls(prev => ({ ...prev, [itemId]: url }));
+      setAudioUrls((prev) => ({ ...prev, [itemId]: url }));
     } catch {
-      alert("Playback failed to load.");
+      alert('Playback failed to load.');
     }
   };
 
@@ -51,29 +55,33 @@ export default function DownloadsPage() {
     const zipData: Record<string, Uint8Array> = {};
     const dateStr = new Date().toISOString().split('T')[0];
 
-    const csvRows = [["QuestionID", "QuestionText", "Rating", "Timestamp", "AudioFile"]];
+    const csvRows = [['QuestionID', 'QuestionText', 'Rating', 'Timestamp', 'AudioFile']];
 
     for (const item of items) {
       const fileName = item.audioName || `Q${item.questionIndex + 1}_${participantId}.webm`;
       csvRows.push([
         String(item.questionIndex + 1),
         `"${(item.questionText || '').replace(/"/g, '""')}"`,
-        item.answerValue === -1 ? "N/A" : String(item.answerValue),
+        item.answerValue === -1 ? 'N/A' : String(item.answerValue),
         item.answeredAt || '',
-        item.hasAudio ? fileName : "No Audio"
+        item.hasAudio ? fileName : 'No Audio',
       ]);
 
       if (item.hasAudio) {
         try {
-          const audioRes = await apiClient.get(`/healthslider/audio/${item.id}/`, { responseType: 'arraybuffer' });
+          const audioRes = await apiClient.get(`/healthslider/audio/${item.id}/`, {
+            responseType: 'arraybuffer',
+          });
           zipData[fileName] = new Uint8Array(audioRes.data);
         } catch (e) {
-          console.error("Audio download failed", item.id, e);
+          console.error('Audio download failed', item.id, e);
         }
       }
     }
 
-    zipData[`Summary_${participantId}_${dateStr}.csv`] = strToU8(csvRows.map(r => r.join(",")).join("\n"));
+    zipData[`Summary_${participantId}_${dateStr}.csv`] = strToU8(
+      csvRows.map((r) => r.join(',')).join('\n')
+    );
 
     const zipped = zipSync(zipData);
     const blob = new Blob([zipped], { type: 'application/zip' });
@@ -95,15 +103,22 @@ export default function DownloadsPage() {
             <Form.Label className="fw-bold">Patient ID (Format: Pxx)</Form.Label>
             <Form.Control
               value={participantId}
-              onChange={e => setParticipantId(e.target.value)}
+              onChange={(e) => setParticipantId(e.target.value)}
               placeholder="e.g. P01"
             />
           </Form.Group>
         </Col>
         <Col>
-          <Button onClick={fetchItems} variant="primary" className="me-2 px-4 shadow-sm">Search</Button>
-          <Button variant="success" onClick={downloadAll} disabled={!items.length || loading} className="px-4 shadow-sm">
-            {loading ? <Spinner size="sm" /> : "Download All (ZIP + CSV)"}
+          <Button onClick={fetchItems} variant="primary" className="me-2 px-4 shadow-sm">
+            Search
+          </Button>
+          <Button
+            variant="success"
+            onClick={downloadAll}
+            disabled={!items.length || loading}
+            className="px-4 shadow-sm"
+          >
+            {loading ? <Spinner size="sm" /> : 'Download All (ZIP + CSV)'}
           </Button>
         </Col>
       </Row>
@@ -119,25 +134,35 @@ export default function DownloadsPage() {
           </tr>
         </thead>
         <tbody>
-          {items.map(it => (
+          {items.map((it) => (
             <tr key={it.id}>
               <td className="text-center fw-bold">{it.questionIndex + 1}</td>
               <td>
                 <div className="fw-semibold">{it.questionText}</div>
-                <small className="text-muted">{it.answeredAt ? new Date(it.answeredAt).toLocaleString('de-DE') : ''}</small>
+                <small className="text-muted">
+                  {it.answeredAt ? new Date(it.answeredAt).toLocaleString('de-DE') : ''}
+                </small>
               </td>
               <td className="text-center">
                 {it.answerValue === -1 ? (
                   <span className="badge bg-secondary">N/A</span>
                 ) : (
-                  <span className="badge bg-primary" style={{ fontSize: '1rem' }}>{it.answerValue}</span>
+                  <span className="badge bg-primary" style={{ fontSize: '1rem' }}>
+                    {it.answerValue}
+                  </span>
                 )}
               </td>
-              <td className="text-center text-muted small">{it.hasAudio ? formatSize(it.audioSize) : '—'}</td>
+              <td className="text-center text-muted small">
+                {it.hasAudio ? formatSize(it.audioSize) : '—'}
+              </td>
               <td>
                 {it.hasAudio ? (
                   audioUrls[it.id] ? (
-                    <audio src={audioUrls[it.id]} controls style={{ height: '35px', width: '100%' }} />
+                    <audio
+                      src={audioUrls[it.id]}
+                      controls
+                      style={{ height: '35px', width: '100%' }}
+                    />
                   ) : (
                     <Button size="sm" variant="outline-dark" onClick={() => loadAudio(it.id)}>
                       ▶ Load Recording
