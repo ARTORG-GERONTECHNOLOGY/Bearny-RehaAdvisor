@@ -118,7 +118,10 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
       M = { top: 30, right: 20, bottom: 40, left: 48 };
     svg.attr('viewBox', `0 0 ${W} ${H}`);
 
-    const x = d3.scaleTime().domain([xExtent[0], xExtent[1]]).range([M.left, W - M.right]);
+    const x = d3
+      .scaleTime()
+      .domain([xExtent[0], xExtent[1]])
+      .range([M.left, W - M.right]);
 
     const y = d3
       .scaleLinear()
@@ -129,14 +132,21 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
 
     // Axes
     const xAxis = d3.axisBottom<Date>(x);
-    const yAxis = d3.axisLeft(y).ticks(5).tickFormat((d) => `${d}%`);
+    const yAxis = d3
+      .axisLeft(y)
+      .ticks(5)
+      .tickFormat((d) => `${d}%`);
 
-    svg.append('g').attr('transform', `translate(0,${H - M.bottom})`).call(xAxis);
+    svg
+      .append('g')
+      .attr('transform', `translate(0,${H - M.bottom})`)
+      .call(xAxis);
 
     svg.append('g').attr('transform', `translate(${M.left},0)`).call(yAxis);
 
     // Gridlines
-    svg.append('g')
+    svg
+      .append('g')
       .attr('stroke-opacity', 0.1)
       .selectAll('line.h')
       .data(y.ticks(5))
@@ -154,7 +164,8 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
       .x((r) => x(r.d))
       .y((r) => y(r.y as number));
 
-    svg.append('path')
+    svg
+      .append('path')
       .datum(rows)
       .attr('fill', 'none')
       .attr('stroke', '#69b3a2')
@@ -162,7 +173,8 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
       .attr('d', line as any);
 
     // Points
-    svg.append('g')
+    svg
+      .append('g')
       .selectAll('circle')
       .data(rows.filter((r) => r.y != null))
       .enter()
@@ -173,7 +185,8 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
       .attr('fill', '#69b3a2');
 
     // Title
-    svg.append('text')
+    svg
+      .append('text')
       .attr('x', W / 2)
       .attr('y', 18)
       .attr('text-anchor', 'middle')

@@ -184,7 +184,8 @@ const HealthPage: React.FC = observer(() => {
         adIn.forEach((d) => {
           const dt = new Date(d.date);
           const key = ymKey(dt);
-          if (!map.has(key)) map.set(key, { sched: 0, comp: 0, d: new Date(dt.getFullYear(), dt.getMonth(), 1) });
+          if (!map.has(key))
+            map.set(key, { sched: 0, comp: 0, d: new Date(dt.getFullYear(), dt.getMonth(), 1) });
           const v = map.get(key)!;
           v.sched += d.scheduled ?? 0;
           v.comp += d.completed ?? 0;
@@ -240,19 +241,48 @@ const HealthPage: React.FC = observer(() => {
       return sorted.length ? emitRows2(['Date', label], sorted) : '';
     };
 
-    if (selections.restingHR) csv += emitScalar('Resting Heart Rate', fitIn.map((d) => ({ date: d.date, val: d.resting_heart_rate })));
-    if (selections.steps) csv += emitScalar('Steps', fitIn.map((d) => ({ date: d.date, val: d.steps })));
-    if (selections.distance) csv += emitScalar('Distance', fitIn.map((d) => ({ date: d.date, val: d.distance })));
-    if (selections.floors) csv += emitScalar('Floors', fitIn.map((d) => ({ date: d.date, val: d.floors })));
-    if (selections.breathing) csv += emitScalar('Breathing Rate', fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate })));
-    if (selections.hrv) csv += emitScalar('HRV (dailyRmssd)', fitIn.map((d: any) => ({ date: d.date, val: d.hrv?.dailyRmssd })));
+    if (selections.restingHR)
+      csv += emitScalar(
+        'Resting Heart Rate',
+        fitIn.map((d) => ({ date: d.date, val: (d as any).resting_heart_rate }))
+      );
+    if (selections.steps)
+      csv += emitScalar(
+        'Steps',
+        fitIn.map((d) => ({ date: d.date, val: (d as any).steps }))
+      );
+    if (selections.distance)
+      csv += emitScalar(
+        'Distance',
+        fitIn.map((d) => ({ date: d.date, val: (d as any).distance }))
+      );
+    if (selections.floors)
+      csv += emitScalar(
+        'Floors',
+        fitIn.map((d) => ({ date: d.date, val: (d as any).floors }))
+      );
+    if (selections.breathing)
+      csv += emitScalar(
+        'Breathing Rate',
+        fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
+      );
+    if (selections.hrv)
+      csv += emitScalar(
+        'HRV (dailyRmssd)',
+        fitIn.map((d: any) => ({ date: d.date, val: d.hrv?.dailyRmssd }))
+      );
 
     if (selections.sleep) {
       const rows = fitIn
         .filter((d: any) => d.sleep?.sleep_duration != null)
         .map((d: any) => {
           const h = (d.sleep.sleep_duration / 3600000).toFixed(2);
-          return [toEuroDate(d.date.slice(0, 10)), d.sleep.sleep_start ?? '', d.sleep.sleep_end ?? '', h];
+          return [
+            toEuroDate(d.date.slice(0, 10)),
+            d.sleep.sleep_start ?? '',
+            d.sleep.sleep_end ?? '',
+            h,
+          ];
         })
         .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
       if (rows.length) csv += emitRows2(['Date', 'Sleep Start', 'Sleep End', 'Duration (h)'], rows);
@@ -271,7 +301,7 @@ const HealthPage: React.FC = observer(() => {
 
     if (selections.weight) {
       const rows = fitIn
-        .filter((d: any) => (d as any).weight_kg != null)
+        .filter((d: any) => d.weight_kg != null)
         .map((d: any) => [toEuroDate(d.date.slice(0, 10)), d.weight_kg as number])
         .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
       if (rows.length) csv += emitRows2(['Date', 'Weight (kg)'], rows);
@@ -279,8 +309,12 @@ const HealthPage: React.FC = observer(() => {
 
     if (selections.bloodPressure) {
       const rows = fitIn
-        .filter((d: any) => (d as any).bp_sys != null || (d as any).bp_dia != null)
-        .map((d: any) => [toEuroDate(d.date.slice(0, 10)), d.bp_sys != null ? d.bp_sys : '', d.bp_dia != null ? d.bp_dia : ''])
+        .filter((d: any) => d.bp_sys != null || d.bp_dia != null)
+        .map((d: any) => [
+          toEuroDate(d.date.slice(0, 10)),
+          d.bp_sys != null ? d.bp_sys : '',
+          d.bp_dia != null ? d.bp_dia : '',
+        ])
         .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
       if (rows.length) csv += emitRows2(['Date', 'Systolic (mmHg)', 'Diastolic (mmHg)'], rows);
     }
@@ -303,7 +337,17 @@ const HealthPage: React.FC = observer(() => {
       });
       rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
       if (rows.length) {
-        csv += emitRows2(['Date', 'Exercise Name', 'Duration (min)', 'Calories (kcal)', 'Avg HR (bpm)', 'Max HR (bpm)'], rows);
+        csv += emitRows2(
+          [
+            'Date',
+            'Exercise Name',
+            'Duration (min)',
+            'Calories (kcal)',
+            'Avg HR (bpm)',
+            'Max HR (bpm)',
+          ],
+          rows
+        );
       }
     }
 
@@ -324,7 +368,11 @@ const HealthPage: React.FC = observer(() => {
     const charts = [
       { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
       { ref: svgRefs.totalScore, key: 'totalScore', title: t('Total Questionnaire Score Per Day') },
-      { ref: svgRefs.questionnaire, key: 'questionnaire', title: t('Questionnaire Answers Over Time') },
+      {
+        ref: svgRefs.questionnaire,
+        key: 'questionnaire',
+        title: t('Questionnaire Answers Over Time'),
+      },
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
       { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
@@ -366,7 +414,9 @@ const HealthPage: React.FC = observer(() => {
       doc.addImage(url, 'PNG', (pageW - imgW) / 2, 50, imgW, imgH);
     }
 
-    doc.save(`HealthCharts_${from.toISOString().slice(0, 10)}_to_${to.toISOString().slice(0, 10)}.pdf`);
+    doc.save(
+      `HealthCharts_${from.toISOString().slice(0, 10)}_to_${to.toISOString().slice(0, 10)}.pdf`
+    );
     setShowExport(false);
   };
 
@@ -383,6 +433,13 @@ const HealthPage: React.FC = observer(() => {
                 <div className="text-center mb-3">
                   <h4 className="mb-0">{store.patientName}</h4>
                 </div>
+              )}
+
+              {/* Threshold load error (non-blocking) */}
+              {store.thresholdsError && (
+                <Alert variant="warning" className="mb-3" role="alert">
+                  {store.thresholdsError}
+                </Alert>
               )}
 
               {/* Controls */}

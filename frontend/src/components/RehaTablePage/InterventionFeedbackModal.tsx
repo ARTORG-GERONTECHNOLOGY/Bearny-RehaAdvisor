@@ -236,14 +236,15 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
 
                             return (
                               <ListGroup.Item key={i}>
-                                <div className="fw-semibold">
-                                  {qText || safeT(t, 'Question')}
-                                </div>
+                                <div className="fw-semibold">{qText || safeT(t, 'Question')}</div>
 
                                 {answerText ? <div className="mt-1">{answerText}</div> : null}
 
                                 {fb?.comment ? (
-                                  <div className="text-muted mt-2" style={{ whiteSpace: 'pre-wrap' }}>
+                                  <div
+                                    className="text-muted mt-2"
+                                    style={{ whiteSpace: 'pre-wrap' }}
+                                  >
                                     {fb.comment}
                                   </div>
                                 ) : null}

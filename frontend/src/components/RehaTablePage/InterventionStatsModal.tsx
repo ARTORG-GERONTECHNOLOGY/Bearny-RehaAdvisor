@@ -8,7 +8,7 @@ interface Props {
   show: boolean;
   onHide: () => void;
   intervention: AnyObj; // merged intervention (catalog + assigned)
-  patientData: AnyObj;  // plan payload
+  patientData: AnyObj; // plan payload
 }
 
 const safeT = (t: any, key: string) => {
@@ -23,7 +23,8 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
 
   const stats = useMemo(() => {
     const id = intervention?._id;
-    const assigned = asArray(patientData?.interventions).find((x: any) => x?._id === id) || intervention;
+    const assigned =
+      asArray(patientData?.interventions).find((x: any) => x?._id === id) || intervention;
 
     const dates = asArray(assigned?.dates);
 
@@ -77,16 +78,28 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>{safeT(t, 'Statistics')}: {title}</Modal.Title>
+        <Modal.Title>
+          {safeT(t, 'Statistics')}: {title}
+        </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
         <div className="d-flex flex-wrap gap-2 mb-3">
-          <Badge bg="secondary">{safeT(t, 'Total')}: {stats.total}</Badge>
-          <Badge bg="success">{safeT(t, 'Completed')}: {stats.completed}</Badge>
-          <Badge bg="danger">{safeT(t, 'Missed')}: {stats.missed}</Badge>
-          <Badge bg="primary">{safeT(t, 'Today')}: {stats.today}</Badge>
-          <Badge bg="warning" text="dark">{safeT(t, 'Upcoming')}: {stats.upcoming}</Badge>
+          <Badge bg="secondary">
+            {safeT(t, 'Total')}: {stats.total}
+          </Badge>
+          <Badge bg="success">
+            {safeT(t, 'Completed')}: {stats.completed}
+          </Badge>
+          <Badge bg="danger">
+            {safeT(t, 'Missed')}: {stats.missed}
+          </Badge>
+          <Badge bg="primary">
+            {safeT(t, 'Today')}: {stats.today}
+          </Badge>
+          <Badge bg="warning" text="dark">
+            {safeT(t, 'Upcoming')}: {stats.upcoming}
+          </Badge>
         </div>
 
         <Table bordered responsive className="mb-0">

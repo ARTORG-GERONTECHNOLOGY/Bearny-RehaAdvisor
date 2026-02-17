@@ -229,7 +229,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
                     </option>
                   ))}
                 </Form.Select>
-                <Form.Control.Feedback type="invalid">{fieldErrors.diagnosis}</Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.diagnosis}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
 
@@ -259,7 +261,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
                   onChange={(e) => setStartTime(e.target.value)}
                   isInvalid={!!fieldErrors.startTime}
                 />
-                <Form.Control.Feedback type="invalid">{fieldErrors.startTime}</Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.startTime}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
 
@@ -286,7 +290,12 @@ const ApplyTemplateModal: React.FC<Props> = ({
 
           <Form.Group>
             <Form.Label>{t('Notes (optional)')}</Form.Label>
-            <Form.Control as="textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </Form.Group>
         </Form>
       </Modal.Body>

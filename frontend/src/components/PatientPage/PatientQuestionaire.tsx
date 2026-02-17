@@ -97,15 +97,11 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       setFieldErrors(res.data.field_errors || {});
       setNonFieldErrors(res.data.non_field_errors || []);
       setDetails(res.data.details || null);
-
     } catch (err: any) {
       const backend = err?.response?.data;
 
       setError(
-        backend?.message ||
-          backend?.error ||
-          err?.message ||
-          t('An unexpected error occurred.')
+        backend?.message || backend?.error || err?.message || t('An unexpected error occurred.')
       );
 
       setFieldErrors(backend?.field_errors || {});
@@ -115,7 +111,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   };
 
   const renderField = (field: any) => {
-    const fieldValue = formData[field.be_name] || "";
+    const fieldValue = formData[field.be_name] || '';
     const errors = fieldErrors[field.be_name];
 
     const commonProps = {
@@ -125,12 +121,11 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       onChange: handleChange,
       required: field.required,
       'aria-label': t(field.label),
-      className: errors?.length ? "is-invalid" : ""
+      className: errors?.length ? 'is-invalid' : '',
     };
 
     if (field.type === 'multi-select') {
-      const options =
-        field.options?.map((opt: string) => ({ value: opt, label: t(opt) })) || [];
+      const options = field.options?.map((opt: string) => ({ value: opt, label: t(opt) })) || [];
 
       return (
         <>
@@ -143,11 +138,9 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
             onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
             styles={selectStyles as any}
             menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
-            className={errors?.length ? "is-invalid" : ""}
+            className={errors?.length ? 'is-invalid' : ''}
           />
-          {errors?.length > 0 && (
-            <div className="invalid-feedback d-block">{errors.join(' ')}</div>
-          )}
+          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -163,9 +156,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
               </option>
             ))}
           </Form.Select>
-          {errors?.length > 0 && (
-            <div className="invalid-feedback d-block">{errors.join(' ')}</div>
-          )}
+          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -173,14 +164,8 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     if (field.type === 'date') {
       return (
         <>
-          <Form.Control
-            type="date"
-            {...commonProps}
-            style={{ height: CONTROL_HEIGHT }}
-          />
-          {errors?.length > 0 && (
-            <div className="invalid-feedback d-block">{errors.join(' ')}</div>
-          )}
+          <Form.Control type="date" {...commonProps} style={{ height: CONTROL_HEIGHT }} />
+          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -194,9 +179,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
             {...commonProps}
             style={{ minHeight: TEXTAREA_MIN_HEIGHT, resize: 'vertical' }}
           />
-          {errors?.length > 0 && (
-            <div className="invalid-feedback d-block">{errors.join(' ')}</div>
-          )}
+          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -209,9 +192,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
           {...commonProps}
           style={{ height: CONTROL_HEIGHT }}
         />
-        {errors?.length > 0 && (
-          <div className="invalid-feedback d-block">{errors.join(' ')}</div>
-        )}
+        {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
       </>
     );
   };
@@ -226,7 +207,15 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   }
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static" keyboard={false} dialogClassName="pq-modal">
+    <Modal
+      show={show}
+      onHide={handleClose}
+      centered
+      size="lg"
+      backdrop="static"
+      keyboard={false}
+      dialogClassName="pq-modal"
+    >
       <Modal.Header closeButton>
         <Modal.Title>{t('Initial Questionnaire')}</Modal.Title>
       </Modal.Header>
@@ -243,11 +232,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
               </ul>
             )}
 
-            {details && (
-              <pre className="bg-light p-2 mt-2 small border rounded">
-                {details}
-              </pre>
-            )}
+            {details && <pre className="bg-light p-2 mt-2 small border rounded">{details}</pre>}
           </ErrorAlert>
         )}
 
@@ -259,13 +244,14 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
               {section.fields
                 .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))
                 .map((field: any, fieldIdx: number) => (
-                  <Row key={field.be_name || `${field.label}-${fieldIdx}`} className="pq-field mb-3">
+                  <Row
+                    key={field.be_name || `${field.label}-${fieldIdx}`}
+                    className="pq-field mb-3"
+                  >
                     <Form.Group as={Col}>
                       <Form.Label className="pq-label">{t(field.label)}</Form.Label>
                       {renderField(field)}
-                      {field.help && (
-                        <Form.Text className="text-muted">{t(field.help)}</Form.Text>
-                      )}
+                      {field.help && <Form.Text className="text-muted">{t(field.help)}</Form.Text>}
                     </Form.Group>
                   </Row>
                 ))}

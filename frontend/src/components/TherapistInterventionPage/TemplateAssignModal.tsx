@@ -80,7 +80,17 @@ const TemplateAssignModal: React.FC<Props> = ({
       startTime !== '08:00' ||
       (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false);
     return diagChanged || defaultsChanged || !!error;
-  }, [diagnosis, defaultDiagnosis, startDay, lastDay, everyK, startTime, keepPrevious, mode, error]);
+  }, [
+    diagnosis,
+    defaultDiagnosis,
+    startDay,
+    lastDay,
+    everyK,
+    startTime,
+    keepPrevious,
+    mode,
+    error,
+  ]);
 
   /* ---------------- ERROR HANDLER ---------------- */
   const applyBackendErrors = (data: any) => {
@@ -109,9 +119,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     if (submitting) return; // avoid closing mid-submit
 
     if (hasUnsavedChanges) {
-      const ok = window.confirm(
-        t('Close this window? Unsaved changes will be lost.')
-      );
+      const ok = window.confirm(t('Close this window? Unsaved changes will be lost.'));
       if (!ok) return;
     }
 
@@ -201,9 +209,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     >
       <Modal.Header closeButton>
         <Modal.Title>
-          {mode === 'modify'
-            ? t('Modify template (from day S)')
-            : t('Add to template (Day S → N)')}
+          {mode === 'modify' ? t('Modify template (from day S)') : t('Add to template (Day S → N)')}
         </Modal.Title>
       </Modal.Header>
 
@@ -249,9 +255,7 @@ const TemplateAssignModal: React.FC<Props> = ({
                 </option>
               ))}
             </Form.Select>
-            <Form.Control.Feedback type="invalid">
-              {fieldErrors['patientId']}
-            </Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">{fieldErrors['patientId']}</Form.Control.Feedback>
           </Form.Group>
 
           {/* Start / End / Interval */}
@@ -324,7 +328,9 @@ const TemplateAssignModal: React.FC<Props> = ({
           )}
 
           <Alert variant="info">
-            {t('These are relative template days. Actual calendar dates are set when applying to a patient.')}
+            {t(
+              'These are relative template days. Actual calendar dates are set when applying to a patient.'
+            )}
           </Alert>
 
           <div className="text-muted">

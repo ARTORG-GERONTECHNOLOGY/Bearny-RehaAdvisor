@@ -20,7 +20,8 @@ const fetchManifest = async (): Promise<V1Manifest> => {
   const res = await fetch(MANIFEST_URL, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
   const data = (await res.json()) as V1Manifest;
-  if (!data || data.version !== 1) throw new Error('Unsupported help manifest format (expected version 1).');
+  if (!data || data.version !== 1)
+    throw new Error('Unsupported help manifest format (expected version 1).');
   return data;
 };
 
@@ -31,8 +32,7 @@ const joinUrl = (...parts: string[]) =>
     .join('/')
     .replace(/^/, '/');
 
-const pretty = (s: string) =>
-  s.replace(/_/g, ' ').replace(/\b([a-z])/g, (m, c) => c.toUpperCase());
+const pretty = (s: string) => s.replace(/_/g, ' ').replace(/\b([a-z])/g, (m, c) => c.toUpperCase());
 
 const extVariants = (ext: string) => {
   const e = ext.startsWith('.') ? ext.slice(1) : ext;
@@ -139,7 +139,7 @@ const HelpCenter: React.FC<{
         const safeManifest: V1Manifest = {
           ...m,
           keys: allowedKeys,
-          displayOrder: allowedOrder
+          displayOrder: allowedOrder,
         };
 
         setManifest(safeManifest);
@@ -174,9 +174,11 @@ const HelpCenter: React.FC<{
 
   const order = React.useMemo<string[]>(() => {
     if (!manifest) return [];
-    return (Array.isArray(manifest.displayOrder) && manifest.displayOrder.length
-      ? manifest.displayOrder
-      : manifest.keys) ?? [];
+    return (
+      (Array.isArray(manifest.displayOrder) && manifest.displayOrder.length
+        ? manifest.displayOrder
+        : manifest.keys) ?? []
+    );
   }, [manifest]);
 
   const grouped = React.useMemo<Record<GroupName, string[]>>(() => {
@@ -187,7 +189,11 @@ const HelpCenter: React.FC<{
   }, [order]);
 
   const subgroups = React.useMemo<Record<GroupName, Record<string, string[]>>>(() => {
-    const out: Record<GroupName, Record<string, string[]>> = { common: {}, therapist: {}, patient: {} };
+    const out: Record<GroupName, Record<string, string[]>> = {
+      common: {},
+      therapist: {},
+      patient: {},
+    };
     (Object.keys(grouped) as GroupName[]).forEach((g) => {
       grouped[g].forEach((k) => {
         const sg = detectSubgroup(k, g);
@@ -309,7 +315,9 @@ const HelpCenter: React.FC<{
   return (
     <Modal show onHide={onClose} size="xl" centered dialogClassName="help-center-modal">
       <Modal.Header closeButton>
-        <Modal.Title>{t('Help')} — {resolvedTitle}</Modal.Title>
+        <Modal.Title>
+          {t('Help')} — {resolvedTitle}
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {/* Top groups — Therapist tab is hidden unless the viewer is a therapist */}
@@ -319,16 +327,27 @@ const HelpCenter: React.FC<{
           onSelect={(k) => handleSelectGroup((k as GroupName) || activeGroup)}
           className="mb-3"
         >
-          <Nav.Item><Nav.Link eventKey="common">{t('Common')}</Nav.Link></Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="common">{t('Common')}</Nav.Link>
+          </Nav.Item>
           {isTherapist && (
-            <Nav.Item><Nav.Link eventKey="therapist">{t('Therapist')}</Nav.Link></Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="therapist">{t('Therapist')}</Nav.Link>
+            </Nav.Item>
           )}
-          <Nav.Item><Nav.Link eventKey="patient">{t('Patient')}</Nav.Link></Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="patient">{t('Patient')}</Nav.Link>
+          </Nav.Item>
         </Nav>
 
         {/* Subgroups (only therapist/patient) */}
         {showSubgroups && subgroupEntries.length > 0 && (
-          <Nav variant="tabs" activeKey={activeSubgroup} onSelect={handleSelectSubgroup} className="mb-2">
+          <Nav
+            variant="tabs"
+            activeKey={activeSubgroup}
+            onSelect={handleSelectSubgroup}
+            className="mb-2"
+          >
             {subgroupEntries.map(([sg]) => (
               <Nav.Item key={sg}>
                 <Nav.Link eventKey={sg}>{t(pretty(sg))}</Nav.Link>
@@ -343,7 +362,9 @@ const HelpCenter: React.FC<{
             const sg = detectSubgroup(k, activeGroup);
             const label = showSubgroups
               ? labelWithoutGroup(k, activeGroup, sg)
-              : (t(k) !== k ? t(k) : titleFromKey(k));
+              : t(k) !== k
+                ? t(k)
+                : titleFromKey(k);
             return (
               <Nav.Item key={k}>
                 <Nav.Link eventKey={k}>{t(label)}</Nav.Link>
@@ -358,17 +379,19 @@ const HelpCenter: React.FC<{
             {currentSrc ? (
               <img src={currentSrc} alt={activeKey} onError={onImgError} className="help-slide" />
             ) : (
-              <div className="text-muted">
-                {t('No image available.')}
-              </div>
+              <div className="text-muted">{t('No image available.')}</div>
             )}
           </div>
 
-        {/* Pager (single-page for now) */}
+          {/* Pager (single-page for now) */}
           <div className="d-flex align-items-center gap-2 mt-2">
-            <Button size="sm" variant="outline-secondary" disabled>{t('Previous')}</Button>
+            <Button size="sm" variant="outline-secondary" disabled>
+              {t('Previous')}
+            </Button>
             <span className="text-muted">1 / 1</span>
-            <Button size="sm" variant="outline-secondary" disabled>{t('Next')}</Button>
+            <Button size="sm" variant="outline-secondary" disabled>
+              {t('Next')}
+            </Button>
             {currentSrc && (
               <a className="ms-3" href={currentSrc} download target="_blank" rel="noreferrer">
                 {t('Download Image')}

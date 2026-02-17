@@ -64,7 +64,11 @@ interface Props {
   onSelectIntervention?: (it: Intervention) => void;
 }
 
-const InterventionCalendar: React.FC<Props> = ({ patientData, titleMap = {}, onSelectIntervention }) => {
+const InterventionCalendar: React.FC<Props> = ({
+  patientData,
+  titleMap = {},
+  onSelectIntervention,
+}) => {
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
   const [colorMode, setColorMode] = useState<ColorMode>('status');
@@ -76,7 +80,8 @@ const InterventionCalendar: React.FC<Props> = ({ patientData, titleMap = {}, onS
     for (const it of planItems as any[]) {
       const dates: DateEntry[] = Array.isArray(it?.dates) ? it.dates : [];
       const durationMinRaw = Number(it?.duration);
-      const durationMin = Number.isFinite(durationMinRaw) && durationMinRaw > 0 ? durationMinRaw : 30;
+      const durationMin =
+        Number.isFinite(durationMinRaw) && durationMinRaw > 0 ? durationMinRaw : 30;
 
       const displayTitle = titleMap[it._id]?.title || it.title;
 
@@ -128,7 +133,9 @@ const InterventionCalendar: React.FC<Props> = ({ patientData, titleMap = {}, onS
     }
 
     // benefit legend: show distinct benefits in range (cap)
-    const keys = Array.from(new Set(events.map((e) => e.resource.benefitKey).filter(Boolean))) as string[];
+    const keys = Array.from(
+      new Set(events.map((e) => e.resource.benefitKey).filter(Boolean))
+    ) as string[];
     const shown = keys.slice(0, 8);
 
     return (
@@ -137,7 +144,11 @@ const InterventionCalendar: React.FC<Props> = ({ patientData, titleMap = {}, onS
         {shown.map((k) => {
           const b = hashBucket(k, 10);
           return (
-            <span key={k} className={`rehaLegend__item rehaLegend__item--benefit`} style={{ ['--benefit-bucket' as any]: b }}>
+            <span
+              key={k}
+              className={`rehaLegend__item rehaLegend__item--benefit`}
+              style={{ ['--benefit-bucket' as any]: b }}
+            >
               {k === 'benefit_unknown' ? 'Unknown' : k}
             </span>
           );
