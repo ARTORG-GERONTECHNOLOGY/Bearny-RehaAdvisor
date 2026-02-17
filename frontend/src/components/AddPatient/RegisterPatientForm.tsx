@@ -132,7 +132,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       });
     }
 
-    const nonField = Array.isArray(payload?.non_field_errors) ? payload.non_field_errors.join(' ') : '';
+    const nonField = Array.isArray(payload?.non_field_errors)
+      ? payload.non_field_errors.join(' ')
+      : '';
     const details = payload?.details ? String(payload.details) : '';
 
     // Build a human readable banner message (no JSON)
@@ -380,7 +382,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 aria-required={required}
                 aria-invalid={invalid}
                 placeholder={field.name === 'age' ? 'YYYY-MM-DD' : undefined}
-                onBlur={field.name === 'age' ? (e) => validateAge(e.currentTarget.value) : undefined}
+                onBlur={
+                  field.name === 'age' ? (e) => validateAge(e.currentTarget.value) : undefined
+                }
               />
             )}
 
@@ -391,7 +395,11 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
       {registered ? (
         <div className="alert alert-success mt-4">
-          <p>{t('The patient has been registered. Account information has been sent to the given email.')}</p>
+          <p>
+            {t(
+              'The patient has been registered. Account information has been sent to the given email.'
+            )}
+          </p>
           {patientId && (
             <p>
               <strong>{t('Patient ID:')}</strong> {patientId}
