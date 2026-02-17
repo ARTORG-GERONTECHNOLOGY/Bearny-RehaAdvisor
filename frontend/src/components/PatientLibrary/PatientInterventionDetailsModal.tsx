@@ -52,7 +52,9 @@ const toPatientPopupItem = (it: InterventionTypeTh) => {
 const PatientInterventionDetailsModal: React.FC<Props> = ({ item, show, onClose }) => {
   if (!item) return null;
 
-  return <PatientInterventionPopUp show={show} handleClose={onClose} item={toPatientPopupItem(item)} />;
+  return (
+    <PatientInterventionPopUp show={show} handleClose={onClose} item={toPatientPopupItem(item)} />
+  );
 };
 
 export default PatientInterventionDetailsModal;

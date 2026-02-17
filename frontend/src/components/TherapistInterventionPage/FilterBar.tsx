@@ -160,7 +160,10 @@ const FilterBar: React.FC<Props> = ({
 
       <Form.Group controlId="filterContentType">
         <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
-        <Form.Select value={contentTypeFilter} onChange={(e) => setContentTypeFilter(e.target.value)}>
+        <Form.Select
+          value={contentTypeFilter}
+          onChange={(e) => setContentTypeFilter(e.target.value)}
+        >
           <option value="">{t('All Content Types')}</option>
           {contentTypes.map((type: string) => (
             <option key={type} value={type}>
@@ -213,7 +216,11 @@ const FilterBar: React.FC<Props> = ({
   );
 
   return (
-    <Card ref={rootRef as any} className="p-3 shadow-sm w-100" aria-label={t('Filter Interventions')}>
+    <Card
+      ref={rootRef as any}
+      className="p-3 shadow-sm w-100"
+      aria-label={t('Filter Interventions')}
+    >
       {/* top row */}
       <div className="filterbar-top">
         <Form.Group className="flex-grow-1" controlId="searchInput">
@@ -262,10 +269,14 @@ const FilterBar: React.FC<Props> = ({
       </div>
 
       {/* meta row */}
-      {(typeof resultCount === 'number' || loading) ? (
+      {typeof resultCount === 'number' || loading ? (
         <div className="filterbar-meta">
           <div className="text-muted small">
-            {loading ? `${t('Loading')}...` : typeof resultCount === 'number' ? `${resultCount} ${t('items')}` : null}
+            {loading
+              ? `${t('Loading')}...`
+              : typeof resultCount === 'number'
+                ? `${resultCount} ${t('items')}`
+                : null}
           </div>
 
           {/* non-narrow: show reset here (single place) */}

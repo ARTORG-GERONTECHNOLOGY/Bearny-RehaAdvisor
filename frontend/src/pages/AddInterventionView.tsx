@@ -187,7 +187,12 @@ const AddInterventionView: React.FC = observer(() => {
               onChange={handlePatientTypeChange}
             />
 
-            <Button variant="link" className="mt-3" onClick={addPatientType} aria-label="Add another patient type">
+            <Button
+              variant="link"
+              className="mt-3"
+              onClick={addPatientType}
+              aria-label="Add another patient type"
+            >
               <FaPlus /> {t('AddAnotherPatientType')}
             </Button>
 

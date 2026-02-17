@@ -118,7 +118,9 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
                   isMulti
                   options={aimsOptions}
                   value={(filters.aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
-                  onChange={(opts) => onChange({ ...filters, aimsFilter: (opts || []).map((o: any) => o.value) })}
+                  onChange={(opts) =>
+                    onChange({ ...filters, aimsFilter: (opts || []).map((o: any) => o.value) })
+                  }
                   placeholder={t('Filter by Aims')}
                 />
               </Col>
@@ -129,7 +131,9 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
                   isMulti
                   options={tagOptions}
                   value={(filters.tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
-                  onChange={(opts) => onChange({ ...filters, tagFilter: (opts || []).map((o: any) => o.value) })}
+                  onChange={(opts) =>
+                    onChange({ ...filters, tagFilter: (opts || []).map((o: any) => o.value) })
+                  }
                   placeholder={t('Filter by Tags')}
                 />
               </Col>

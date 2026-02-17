@@ -4,23 +4,24 @@ import { Button, Card, Col, Form, Row } from 'react-bootstrap';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 
-// ✅ NEW taxonomy config (patient filters should use the same source of truth)
 import interventionsConfig from '../../config/interventions.json';
+import type { InterventionTypeTh } from '../../types';
 
 type Option = { value: string; label: string };
 
 type Props = {
+  // optional: pass the currently loaded items to enhance filter lists (recommended)
+  items?: InterventionTypeTh[];
+
   searchTerm: string;
   onSearchTerm: (v: string) => void;
 
   contentType: string;
   onContentType: (v: string) => void;
 
-  // ✅ NEW: aims separated from tags
   aimsFilter: string[];
   onAimsFilter: (v: string[]) => void;
 
-  // ✅ tags (everything except aims)
   tagFilter: string[];
   onTagFilter: (v: string[]) => void;
 
@@ -30,9 +31,18 @@ type Props = {
   onReset: () => void;
 };
 
-const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
+const uniq = (arr: any[]) =>
+  Array.from(
+    new Set(
+      (arr || [])
+        .map((x) => String(x))
+        .map((x) => x.trim())
+        .filter(Boolean)
+    )
+  );
 
 const InterventionFiltersCard: React.FC<Props> = ({
+  items = [],
   searchTerm,
   onSearchTerm,
   contentType,
@@ -49,14 +59,11 @@ const InterventionFiltersCard: React.FC<Props> = ({
 
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
-  const aims = useMemo(() => uniq(tx.aims), [tx]);
-  const contentTypes = useMemo(() => uniq(tx.content_types), [tx]);
-  const frequencyTimes = useMemo(() => uniq(tx.frequency_time), [tx]); // optional, if you later want it
+  // --- taxonomy sources (preferred) ---
+  const taxonomyAims = useMemo(() => uniq(tx.aims), [tx]);
+  const taxonomyContentTypes = useMemo(() => uniq(tx.content_types), [tx]);
 
-  const aimsOptions: Option[] = useMemo(() => aims.map((a) => ({ value: a, label: t(a) })), [aims, t]);
-
-  // ✅ tags = all taxonomy buckets except aims
-  const tagOptions: Option[] = useMemo(() => {
+  const taxonomyTags = useMemo(() => {
     const buckets = [
       ...(tx.topics || []),
       ...(tx.lc9 || []),
@@ -67,17 +74,49 @@ const InterventionFiltersCard: React.FC<Props> = ({
       ...(tx.sex_specific || []),
       ...(tx.where || []),
       ...(tx.setting || []),
-
-      // optional extra metadata as tags if desired
       ...(tx.primary_diagnoses || []),
       ...(tx.input_from || []),
       ...(tx.original_languages || []),
     ];
+    return uniq(uniq(buckets).filter((x) => !taxonomyAims.includes(x)));
+  }, [tx, taxonomyAims]);
 
-    return uniq(buckets)
-      .filter((x) => !aims.includes(x))
-      .map((tag) => ({ value: tag, label: t(tag) }));
-  }, [tx, aims, t]);
+  // --- runtime sources (fallback/augment): derive from loaded items ---
+  const runtimeAims = useMemo(() => {
+    const all = items.flatMap((it: any) => (Array.isArray(it?.aims) ? it.aims : []));
+    return uniq(all);
+  }, [items]);
+
+  const runtimeTags = useMemo(() => {
+    const all = items.flatMap((it: any) => (Array.isArray(it?.tags) ? it.tags : []));
+    // make sure aims are excluded from tags
+    return uniq(all).filter((x) => !taxonomyAims.includes(x));
+  }, [items, taxonomyAims]);
+
+  const runtimeContentTypes = useMemo(() => {
+    const all = items.map((it: any) => it?.content_type ?? it?.contentType ?? '');
+    return uniq(all);
+  }, [items]);
+
+  // merge taxonomy + runtime so filters don’t become empty if taxonomy misses something
+  const aims = useMemo(() => uniq([...taxonomyAims, ...runtimeAims]), [taxonomyAims, runtimeAims]);
+  const contentTypes = useMemo(
+    () => uniq([...taxonomyContentTypes, ...runtimeContentTypes]),
+    [taxonomyContentTypes, runtimeContentTypes]
+  );
+  const tags = useMemo(
+    () => uniq([...taxonomyTags, ...runtimeTags]).filter((x) => !aims.includes(x)),
+    [taxonomyTags, runtimeTags, aims]
+  );
+
+  const aimsOptions: Option[] = useMemo(
+    () => aims.map((a) => ({ value: a, label: t(a) })),
+    [aims, t]
+  );
+  const tagOptions: Option[] = useMemo(
+    () => tags.map((tag) => ({ value: tag, label: t(tag) })),
+    [tags, t]
+  );
 
   return (
     <Card className="shadow-sm border-0">
@@ -105,7 +144,7 @@ const InterventionFiltersCard: React.FC<Props> = ({
             </Form.Select>
           </Col>
 
-          {/* ✅ NEW: Aims */}
+          {/* Aims */}
           <Col xs={12} lg={6}>
             <Select
               isMulti
@@ -113,10 +152,11 @@ const InterventionFiltersCard: React.FC<Props> = ({
               value={(aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
               onChange={(opts) => onAimsFilter((opts || []).map((opt) => (opt as any).value))}
               placeholder={t('Filter by Aims')}
+              classNamePrefix="rs"
             />
           </Col>
 
-          {/* ✅ Tags */}
+          {/* Tags */}
           <Col xs={12} lg={6}>
             <Select
               isMulti
@@ -124,6 +164,7 @@ const InterventionFiltersCard: React.FC<Props> = ({
               value={(tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
               onChange={(opts) => onTagFilter((opts || []).map((opt) => (opt as any).value))}
               placeholder={t('Filter by Tags')}
+              classNamePrefix="rs"
             />
           </Col>
 

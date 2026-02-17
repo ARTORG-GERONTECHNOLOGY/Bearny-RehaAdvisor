@@ -1,368 +1,595 @@
-// src/components/PatientPage/PatientInterventionPopUp.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Col, ListGroup, Modal, Row, Badge, Alert, Button, ButtonGroup } from 'react-bootstrap';
+// components/TherapistInterventionPage/PatientInterventionPopUp.tsx
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  generateTagColors,
-  getPlayableUrl,
-  getMediaTypeLabelFromUrl,
-  type InterventionMedia,
-} from '../../utils/interventions';
-import { Document, Page, pdfjs } from 'react-pdf';
-import Microlink from '@microlink/react';
-import ReactPlayer from 'react-player';
-import ReactAudioPlayer from 'react-audio-player';
+  Col,
+  Modal,
+  Row,
+  Badge,
+  Button,
+  Container,
+  OverlayTrigger,
+  Tooltip,
+  ButtonGroup,
+} from 'react-bootstrap';
+import { getTagColor } from '../../utils/interventions';
 import { useTranslation } from 'react-i18next';
+import { Document, Page } from 'react-pdf';
+import Microlink from '@microlink/react';
+import { FaLock } from 'react-icons/fa';
+import { PlayableMedia } from '../common/PlayableMedia';
+
+import apiClient from '../../api/client';
+import ErrorAlert from '../common/ErrorAlert';
 import { translateText } from '../../utils/translate';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-
-interface PatientPopupItem {
-  id?: string;
-
-  // titles from different sources
-  title?: string;
-  intervention_title?: string;
-
-  content_type?: string;
-  description?: string;
-
-  // ✅ NEW model metadata
-  language?: string;
-  external_id?: string;
-  provider?: string;
-
-  // ✅ taxonomy
-  aims?: string[];
-  tags?: string[];
-
-  // ✅ NEW media list
-  media?: InterventionMedia[];
-
-  // legacy single fields (fallback)
-  media_file?: string;
-  media_url?: string;
-  link?: string;
-
-  benefitFor?: string[];
-  preview_img?: string;
-
-  // therapist’s personal instruction for the patient
-  notes?: string;
-}
-
-interface PatientInterventionPopUpProps {
+type Props = {
   show: boolean;
-  item: PatientPopupItem;
+  item: any;
   handleClose: () => void;
-}
+  tagColors: Record<string, string>;
+};
 
-const PatientInterventionPopUp: React.FC<PatientInterventionPopUpProps> = ({ show, item, handleClose }) => {
+// minimal, FE-friendly media type
+export type InterventionMedia = {
+  kind: 'external' | 'file';
+  media_type: 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
+  provider?: string | null;
+  title?: string | null;
+  url?: string | null;
+  embed_url?: string | null;
+  file_path?: string | null;
+  file_url?: string | null; // if BE provides it
+  mime?: string | null;
+};
+
+type LangOpt = { language: string; title?: string | null };
+
+const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
+const lower = (v: any) => norm(v).toLowerCase();
+
+const isHttpUrl = (u: string) => {
+  try {
+    const x = new URL(u);
+    return x.protocol === 'http:' || x.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const isSpotify = (u: string) => u.includes('spotify.com');
+const isYouTube = (u: string) => u.includes('youtube.com') || u.includes('youtu.be');
+const isVimeo = (u: string) => u.includes('vimeo.com');
+const isSoundCloud = (u: string) => u.includes('soundcloud.com');
+
+const guessMediaTypeFromUrl = (u: string): InterventionMedia['media_type'] => {
+  const url = lower(u);
+  if (isSpotify(url)) return 'streaming';
+  if (isYouTube(url) || isVimeo(url)) return 'video';
+  if (isSoundCloud(url)) return 'audio';
+  if (url.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'audio';
+  if (url.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'video';
+  if (url.match(/\.(pdf)(\?|$)/)) return 'pdf';
+  if (url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'image';
+  return 'website';
+};
+
+const guessProvider = (u: string) => {
+  const url = lower(u);
+  if (isSpotify(url)) return 'spotify';
+  if (isYouTube(url)) return 'youtube';
+  if (isSoundCloud(url)) return 'soundcloud';
+  if (isVimeo(url)) return 'vimeo';
+  return 'website';
+};
+
+const guessMediaTypeFromFilePath = (p: string): InterventionMedia['media_type'] => {
+  const path = lower(p);
+  if (path.match(/\.(mp3|wav|m4a|ogg|webm)$/)) return 'audio';
+  if (path.match(/\.(mp4|mov|m4v|webm)$/)) return 'video';
+  if (path.endsWith('.pdf')) return 'pdf';
+  if (path.match(/\.(png|jpg|jpeg|gif|webp)$/)) return 'image';
+  return 'text';
+};
+
+const getAllMedia = (item: any): InterventionMedia[] => {
+  const media = Array.isArray(item?.media) ? item.media : [];
+
+  if (media.length) {
+    return media
+      .map((m: any) => ({
+        kind: m.kind,
+        media_type: m.media_type || m.mediaType || 'website',
+        provider: m.provider ?? null,
+        title: m.title ?? null,
+        url: m.url ?? null,
+        embed_url: m.embed_url ?? m.embedUrl ?? null,
+        file_path: m.file_path ?? m.filePath ?? null,
+        file_url: m.file_url ?? m.fileUrl ?? null,
+        mime: m.mime ?? null,
+      }))
+      .filter((m: InterventionMedia) => m.kind === 'external' || m.kind === 'file');
+  }
+
+  // legacy fallback
+  const out: InterventionMedia[] = [];
+  const link = norm(item?.link);
+  const mf = norm(item?.media_file);
+
+  if (link && isHttpUrl(link)) {
+    out.push({
+      kind: 'external',
+      media_type: guessMediaTypeFromUrl(link),
+      provider: guessProvider(link),
+      url: link,
+      title: null,
+      embed_url: null,
+    });
+  }
+  if (mf) {
+    out.push({
+      kind: 'file',
+      media_type: guessMediaTypeFromFilePath(mf),
+      file_path: mf,
+      title: null,
+      provider: null,
+      url: null,
+      embed_url: null,
+      mime: null,
+    });
+  }
+  return out;
+};
+
+const getPlayableUrl = (m: InterventionMedia): string | '' => {
+  if (m.media_type === 'streaming' && lower(m.provider) === 'spotify' && m.embed_url)
+    return m.embed_url;
+  if (m.kind === 'external') return norm(m.url || '');
+  if (m.kind === 'file') return norm(m.file_url || m.file_path || '');
+  return '';
+};
+
+const getMediaBadge = (media: InterventionMedia[]) => {
+  if (!media.length) return { label: 'No media', variant: 'secondary' as const };
+  const types = new Set(media.map((m) => m.media_type));
+  if (types.size > 1) return { label: 'Mixed', variant: 'primary' as const };
+
+  const only = [...types][0];
+  switch (only) {
+    case 'video':
+      return { label: 'Video', variant: 'danger' as const };
+    case 'audio':
+    case 'streaming':
+      return { label: 'Audio', variant: 'warning' as const };
+    case 'pdf':
+      return { label: 'PDF', variant: 'info' as const };
+    case 'image':
+      return { label: 'Image', variant: 'success' as const };
+    case 'app':
+      return { label: 'App', variant: 'dark' as const };
+    default:
+      return { label: 'Link', variant: 'secondary' as const };
+  }
+};
+
+const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose, tagColors }) => {
   const { t, i18n } = useTranslation();
-  const userLang = i18n.language || 'en';
 
-  const baseTitle = (item.title || item.intervention_title || '').trim();
-  const baseDesc = (item.description || '').trim();
+  const [error, setError] = useState('');
 
-  // ✅ tag colors only for tags (aims are separate badges)
-  const tagColors = generateTagColors(item.tags || []);
+  // local override allows switching variants without parent involvement
+  const [localOverride, setLocalOverride] = useState<any | null>(null);
+  const effectiveItem = localOverride || item;
 
-  const [translatedTitle, setTranslatedTitle] = useState(baseTitle);
-  const [translatedDescription, setTranslatedDescription] = useState(baseDesc);
-  const [detectedLangTitle, setDetectedLangTitle] = useState('');
-  const [detectedLangDesc, setDetectedLangDesc] = useState('');
-  const [pdfError, setPdfError] = useState<string | null>(null);
+  // translations
+  const [translatedText, setTranslatedText] = useState('');
+  const [translatedTitle, setTranslatedTitle] = useState('');
+  const [detectedLang, setDetectedLang] = useState('');
+  const [titleLang, setTitleLang] = useState('');
 
-  // ✅ if multiple media exist, let patient switch between them
-  const mediaList: InterventionMedia[] = useMemo(() => {
-    const fromList = Array.isArray(item.media) ? item.media : [];
-    if (fromList.length) return fromList;
-
-    // fallback legacy single fields
-    const source = item.media_file || item.media_url || item.link;
-    if (!source) return [];
-    return [
-      {
-        kind: 'external',
-        media_type: (getMediaTypeLabelFromUrl(item.media_file || item.media_url, item.link) || 'website').toLowerCase() as any,
-        url: String(source),
-        title: item.title || item.intervention_title || undefined,
-        provider: item.provider || undefined,
-      } as any,
-    ];
-  }, [item]);
-
-  const [activeMediaIdx, setActiveMediaIdx] = useState(0);
+  // languages
+  const [langOptions, setLangOptions] = useState<LangOpt[]>([]);
+  const [variantsByLang, setVariantsByLang] = useState<Record<string, any>>({});
+  const [loadingLangs, setLoadingLangs] = useState(false);
 
   useEffect(() => {
-    // reset active media when item changes / modal opens
-    if (show) setActiveMediaIdx(0);
-  }, [show, item?.id]);
+    if (!show) {
+      setLocalOverride(null);
+      setLangOptions([]);
+      setVariantsByLang({});
+      setError('');
+      return;
+    }
+  }, [show]);
+  const toLangList = (x: any): string[] => {
+    if (Array.isArray(x)) return x.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
+    return [];
+  };
 
-  const activeMedia = mediaList[activeMediaIdx];
+  const preferredLang = useMemo(() => {
+    const l = (i18n?.language || '').slice(0, 2).toLowerCase();
+    return l || 'en';
+  }, [i18n?.language]);
 
-  const confirmClose = useCallback(() => {
-    handleClose();
-  }, [handleClose]);
+  const currentLang = useMemo(
+    () =>
+      String(effectiveItem?.language || '')
+        .trim()
+        .toLowerCase(),
+    [effectiveItem?.language]
+  );
+
+  // ✅ Fetch all variants when modal opens (use external_id first)
+  const fetchVariants = useCallback(async () => {
+    if (!show) return;
+
+    const externalId = norm(effectiveItem?.external_id);
+    const seeded = toLangList(effectiveItem?.available_languages);
+
+    // ✅ seed language buttons immediately
+    const seedOpts: LangOpt[] = seeded.map((l) => ({ language: l, title: null }));
+    if (currentLang && !seeded.includes(currentLang))
+      seedOpts.unshift({ language: currentLang, title: null });
+    if (seedOpts.length) setLangOptions(seedOpts);
+
+    try {
+      setLoadingLangs(true);
+
+      // still do the bulk call to preload variantsByLang (nice-to-have)
+      if (externalId) {
+        const res = await apiClient.get('/api/interventions/all/', {
+          params: { external_id: externalId },
+        });
+        const arr = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+            ? res.data.data
+            : [];
+
+        const map: Record<string, any> = {};
+        const opts: LangOpt[] = [];
+
+        for (const v of arr) {
+          const l = String(v?.language || '')
+            .trim()
+            .toLowerCase();
+          if (!l) continue;
+          map[l] = v;
+          opts.push({ language: l, title: v?.title ?? null });
+        }
+
+        if (currentLang && !map[currentLang]) {
+          map[currentLang] = effectiveItem;
+          opts.push({ language: currentLang, title: effectiveItem?.title ?? null });
+        }
+
+        const uniq = opts.reduce((acc: LangOpt[], cur) => {
+          const key = (cur.language || '').toLowerCase();
+          if (!key) return acc;
+          if (!acc.find((x) => (x.language || '').toLowerCase() === key)) acc.push(cur);
+          return acc;
+        }, []);
+
+        setVariantsByLang(map);
+        setLangOptions(uniq.length ? uniq : seedOpts);
+      }
+    } catch {
+      // ✅ keep seeded languages if fetch fails
+    } finally {
+      setLoadingLangs(false);
+    }
+  }, [show, effectiveItem, currentLang]);
 
   useEffect(() => {
     if (!show) return;
+    fetchVariants();
+  }, [show, fetchVariants]);
 
-    (async () => {
-      // Title
-      if (baseTitle) {
-        try {
-          const { translatedText, detectedSourceLanguage } = await translateText(baseTitle, userLang);
-          setTranslatedTitle(translatedText || baseTitle);
-          // ✅ only show original lang if it really changed
-          const changed =
-            (translatedText || '').trim().toLowerCase() !== baseTitle.trim().toLowerCase();
-          setDetectedLangTitle(changed ? detectedSourceLanguage || '' : '');
-        } catch {
-          setTranslatedTitle(baseTitle);
-          setDetectedLangTitle('');
-        }
-      } else {
-        setTranslatedTitle('');
-        setDetectedLangTitle('');
+  // Sort languages nicely
+  const sortedLangOptions = useMemo(() => {
+    const score = (l: string) => {
+      const ll = String(l || '').toLowerCase();
+      if (ll === preferredLang) return 0;
+      if (ll === 'en') return 1;
+      if (ll === 'de') return 2;
+      return 3;
+    };
+
+    return [...(langOptions || [])]
+      .filter((x) => x?.language)
+      .sort(
+        (a, b) => score(a.language) - score(b.language) || a.language.localeCompare(b.language)
+      );
+  }, [langOptions, preferredLang]);
+
+  // ✅ Switch variant: prefer in-memory variant list, fallback to API call with lang
+  const switchVariantByLang = useCallback(
+    async (lang: string) => {
+      const nextLang = String(lang || '')
+        .toLowerCase()
+        .trim();
+      if (!nextLang || nextLang === currentLang) return;
+
+      // if we already have the variant, use it
+      if (variantsByLang[nextLang]) {
+        setLocalOverride(variantsByLang[nextLang]);
+        return;
       }
 
-      // Description
-      if (baseDesc) {
-        try {
-          const { translatedText, detectedSourceLanguage } = await translateText(baseDesc, userLang);
-          setTranslatedDescription(translatedText || baseDesc);
-          const changed =
-            (translatedText || '').trim().toLowerCase() !== baseDesc.trim().toLowerCase();
-          setDetectedLangDesc(changed ? detectedSourceLanguage || '' : '');
-        } catch {
-          setTranslatedDescription(baseDesc);
-          setDetectedLangDesc('');
-        }
-      } else {
-        setTranslatedDescription('');
-        setDetectedLangDesc('');
+      const externalId = norm(effectiveItem?.external_id);
+      if (!externalId) return;
+
+      try {
+        setLoadingLangs(true);
+        const res = await apiClient.get('/api/interventions/all/', {
+          params: { external_id: externalId, lang: nextLang },
+        });
+
+        const arr = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+            ? res.data.data
+            : [];
+
+        const next = arr?.[0];
+        if (next) setLocalOverride(next);
+      } catch {
+        // ignore
+      } finally {
+        setLoadingLangs(false);
       }
+    },
+    [currentLang, variantsByLang, effectiveItem?.external_id, effectiveItem]
+  );
 
-      setPdfError(null);
-    })();
-  }, [show, baseTitle, baseDesc, userLang]);
+  // Keep translations in sync with effectiveItem
+  useEffect(() => {
+    if (!show) return;
 
-  const renderMediaContent = () => {
-    if (!activeMedia) {
-      return <p className="text-muted m-0">{t('No media available')}</p>;
-    }
+    const run = async () => {
+      try {
+        if (effectiveItem?.description) {
+          const { translatedText: tx, detectedSourceLanguage } = await translateText(
+            effectiveItem.description
+          );
+          setTranslatedText(tx);
+          setDetectedLang(tx !== effectiveItem.description ? detectedSourceLanguage : '');
+        } else {
+          setTranslatedText('');
+          setDetectedLang('');
+        }
 
-    const playable = getPlayableUrl(activeMedia as any) || (activeMedia as any)?.url || (activeMedia as any)?.media_url;
-    if (!playable) return <p className="text-muted m-0">{t('No media available')}</p>;
+        if (effectiveItem?.title) {
+          const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(
+            effectiveItem.title
+          );
+          setTranslatedTitle(tt);
+          setTitleLang(tt !== effectiveItem.title ? tl : '');
+        } else {
+          setTranslatedTitle('');
+          setTitleLang('');
+        }
+      } catch {
+        setTranslatedText(effectiveItem?.description || '');
+        setTranslatedTitle(effectiveItem?.title || '');
+        setDetectedLang('');
+        setTitleLang('');
+      }
+    };
 
-    const type =
-      (activeMedia.media_type ? String(activeMedia.media_type) : '') ||
-      getMediaTypeLabelFromUrl(undefined as any, playable);
+    run();
+  }, [show, effectiveItem]);
 
-    switch (String(type).toLowerCase()) {
-      case 'video':
-        return (
-          <div className="rounded shadow-sm overflow-hidden">
-            <ReactPlayer url={String(playable)} width="100%" height="400px" controls />
-          </div>
-        );
+  // media
+  const effectiveMediaList: InterventionMedia[] = useMemo(
+    () => getAllMedia(effectiveItem),
+    [effectiveItem]
+  );
+  const effectiveMediaBadge = useMemo(
+    () => getMediaBadge(effectiveMediaList),
+    [effectiveMediaList]
+  );
 
-      case 'audio':
-        return <ReactAudioPlayer src={String(playable)} controls style={{ width: '100%' }} />;
+  const renderOneMedia = (m: InterventionMedia, idx: number) => {
+    const label = m.title || `${t('Media')} ${idx + 1}`;
 
-      case 'pdf':
-        return (
-          <div className="pdf-preview text-center">
-            {pdfError ? (
-              <Alert variant="warning" className="mb-2">
-                {pdfError}
-              </Alert>
-            ) : null}
+    // Use the shared fallback chain.
+    // Only visible action is the Open link button.
+    return (
+      <div key={`${idx}-${label}`} className="mb-3">
+        <div className="fw-semibold mb-1">{label}</div>
 
-            <Document
-              file={String(playable)}
-              loading={<p className="m-0">{t('Loading')}</p>}
-              onLoadError={(err) => {
-                console.error('PDF load error:', err);
-                setPdfError(t('Could not load PDF preview.'));
-              }}
-            >
-              <Page
-                pageNumber={1}
-                width={320}
-                onRenderError={(err) => {
-                  console.error('PDF render error:', err);
-                  setPdfError(t('Could not render PDF preview.'));
-                }}
-              />
-            </Document>
-
+        {/* Keep PDFs/images handled as before (better UX),
+          but everything else goes through PlayableMedia */}
+        {m.media_type === 'pdf' ? (
+          <>
+            <div style={{ border: '1px solid #e9ecef', borderRadius: 8, padding: 8 }}>
+              <Document file={getPlayableUrl(m)}>
+                <Page pageNumber={1} width={320} />
+              </Document>
+            </div>
             <a
-              href={String(playable)}
+              href={getPlayableUrl(m)}
+              className="btn btn-outline-primary btn-sm mt-2"
               target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline-primary mt-2"
-              title={t('Open full PDF in new tab')}
+              rel="noreferrer"
             >
               {t('Open PDF')}
             </a>
-          </div>
-        );
-
-      case 'image':
-        return <img src={String(playable)} alt={t('Intervention')} className="img-fluid rounded shadow" />;
-
-      case 'website':
-      case 'app':
-      case 'link':
-      case 'text':
-      default:
-        return <Microlink url={String(playable)} style={{ width: '100%', borderRadius: 10, marginTop: 10 }} />;
-    }
+          </>
+        ) : m.media_type === 'image' ? (
+          <img
+            src={getPlayableUrl(m)}
+            alt={label}
+            className="img-fluid rounded"
+            style={{ maxHeight: 420, objectFit: 'contain' }}
+          />
+        ) : (
+          <PlayableMedia
+            m={{
+              kind: m.kind,
+              media_type: m.media_type,
+              url: m.url,
+              embed_url: m.embed_url,
+              file_path: m.file_path,
+              file_url: m.file_url,
+              title: m.title,
+              provider: m.provider,
+            }}
+            label={label}
+            openText={t('Open link')}
+          />
+        )}
+      </div>
+    );
   };
 
-  const personalNote = (item.notes || '').trim();
+  const renderMediaContent = () => {
+    if (!effectiveMediaList.length)
+      return <div className="text-muted">{t('No media available.')}</div>;
+    return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
+  };
+
+  const effectiveIsPrivate = Boolean(effectiveItem?.is_private);
+
+  const confirmClose = useCallback(() => {
+    setError('');
+    setLangOptions([]);
+    setVariantsByLang({});
+    setLocalOverride(null);
+    handleClose();
+  }, [handleClose]);
 
   return (
     <Modal
       show={show}
       onHide={confirmClose}
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
-      }}
       centered
       size="lg"
+      scrollable
       backdrop="static"
       keyboard
     >
       <Modal.Header closeButton>
-        <Modal.Title className="w-100">
-          <div className="d-flex flex-column gap-1">
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              <h2 className="mb-0">{translatedTitle || t('Intervention')}</h2>
-              {detectedLangTitle && (
-                <small className="text-muted">
-                  ({t('Translated from')}: {detectedLangTitle})
-                </small>
-              )}
-            </div>
+        <Modal.Title as="h2" className="d-flex align-items-center gap-2 flex-wrap">
+          {effectiveIsPrivate && (
+            <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+              <span className="text-muted">
+                <FaLock />
+              </span>
+            </OverlayTrigger>
+          )}
 
-            {item.content_type ? <h6 className="text-muted mb-0">{t(item.content_type)}</h6> : null}
-
-            {/* ✅ metadata chips (optional) */}
-            <div className="d-flex flex-wrap gap-2 mt-1">
-              {item.language ? (
-                <Badge bg="secondary">{String(item.language).toUpperCase()}</Badge>
-              ) : null}
-              {item.external_id ? (
-                <Badge bg="secondary">external_id: {item.external_id}</Badge>
-              ) : null}
-              {item.provider ? (
-                <Badge bg="secondary">{t('Provider')}: {item.provider}</Badge>
-              ) : null}
-            </div>
-
-            {/* ✅ aims (separate from tags) */}
-            {!!(item.aims || []).length && (
-              <div className="mt-2 d-flex flex-wrap gap-2">
-                {(item.aims || []).map((aim) => (
-                  <Badge key={aim} bg="primary" className="me-1" title={t('Aim')}>
-                    {t(aim)}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {!!item.benefitFor?.length && (
-              <div className="mt-2 d-flex flex-wrap gap-2">
-                {item.benefitFor.map((benefit) => (
-                  <Badge key={benefit} bg="info" className="me-1" title={t('Targeted benefit')}>
-                    {t(benefit)}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {!!item.tags?.length && (
-              <div className="mt-2 d-flex flex-wrap gap-2">
-                {item.tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    title={t('Tag')}
-                    style={{ backgroundColor: tagColors[tag] || 'grey', color: 'white' }}
-                    className="me-1"
-                  >
-                    {t(tag)}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          {titleLang ? (
+            <OverlayTrigger overlay={<Tooltip>{effectiveItem?.title}</Tooltip>}>
+              <span>{translatedTitle}</span>
+            </OverlayTrigger>
+          ) : (
+            effectiveItem?.title
+          )}
         </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {personalNote && (
-          <Alert variant="info" className="mb-3">
-            <div className="fw-semibold mb-1">{t('Personal instructions')}</div>
-            <div className="mb-0">{personalNote}</div>
-            <div className="text-muted small">{t('Added by your therapist')}</div>
-          </Alert>
-        )}
+        {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
-        {!!translatedDescription && (
-          <Row className="pb-3 mb-3 border-bottom">
-            <Col>
-              <h5>{t('Description')}</h5>
-              <p className="text-muted mb-0">{translatedDescription}</p>
-              {detectedLangDesc && (
-                <div className="text-secondary small mt-1">
-                  ({t('Translated from')}: {detectedLangDesc})
+        <Container fluid>
+          {/* ✅ Languages (now works because we fetch variants) */}
+          {(loadingLangs || sortedLangOptions.length > 1) && (
+            <Row className="mb-3">
+              <Col>
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <h5 className="mb-0">{t('Languages')}</h5>
+                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
                 </div>
-              )}
-            </Col>
-          </Row>
-        )}
 
-        <Row className="pb-3 mb-3">
-          <Col md={12}>
-            <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-              <h5 className="mb-0">{t('Media')}</h5>
-
-              {/* ✅ media selector when multiple */}
-              {mediaList.length > 1 ? (
-                <ButtonGroup size="sm" aria-label={t('Select media')}>
-                  {mediaList.slice(0, 6).map((m, idx) => {
-                    const label = (m.title || '').trim() || `${t('Item')} ${idx + 1}`;
-                    const active = idx === activeMediaIdx;
+                <ButtonGroup className="flex-wrap gap-2">
+                  {sortedLangOptions.map((opt) => {
+                    const optLang = String(opt.language || '').toLowerCase();
+                    const active = optLang === currentLang;
                     return (
                       <Button
-                        key={`${idx}-${label}`}
-                        variant={active ? 'primary' : 'outline-secondary'}
-                        onClick={() => setActiveMediaIdx(idx)}
-                        title={label}
+                        key={optLang}
+                        variant={active ? 'primary' : 'outline-primary'}
+                        size="sm"
+                        onClick={() => switchVariantByLang(optLang)}
+                        aria-pressed={active}
                       >
-                        {idx + 1}
+                        {optLang.toUpperCase()}
+                        {!active && optLang === preferredLang ? ' ★' : ''}
                       </Button>
                     );
                   })}
                 </ButtonGroup>
-              ) : null}
-            </div>
+              </Col>
+            </Row>
+          )}
 
-            {activeMedia?.title ? (
-              <div className="text-muted small mt-1">{activeMedia.title}</div>
-            ) : null}
+          <Row className="mb-3">
+            <Col xs={12} md={6}>
+              <h5>{t('Description')}</h5>
+              <p className="text-muted mb-0">
+                {detectedLang ? (
+                  <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description}</Tooltip>}>
+                    <span>{translatedText}</span>
+                  </OverlayTrigger>
+                ) : (
+                  effectiveItem?.description
+                )}
+              </p>
 
-            <ListGroup variant="flush" className="mt-2">
-              <ListGroup.Item className="text-center">{renderMediaContent()}</ListGroup.Item>
-            </ListGroup>
-          </Col>
-        </Row>
+              <div className="mt-3 d-flex flex-wrap gap-2">
+                {effectiveItem?.external_id && (
+                  <Badge bg="secondary">external_id: {effectiveItem.external_id}</Badge>
+                )}
+                {effectiveItem?.provider && (
+                  <Badge bg="secondary">provider: {String(effectiveItem.provider)}</Badge>
+                )}
+                {effectiveItem?.content_type && (
+                  <Badge bg="light" text="dark">
+                    {t('Content Type')}: {t(String(effectiveItem.content_type))}
+                  </Badge>
+                )}
+              </div>
+            </Col>
+
+            <Col xs={12} md={6}>
+              <div className="d-flex align-items-center justify-content-between">
+                <h5 className="mb-0">{t('Media')}</h5>
+                <Badge bg={effectiveMediaBadge.variant as any}>
+                  {t(effectiveMediaBadge.label)}
+                </Badge>
+              </div>
+              <div className="mt-2">{renderMediaContent()}</div>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col>
+              <h5>{t('Tags & Benefits')}</h5>
+              <div className="mb-2">
+                {(effectiveItem?.tags || []).map((tag: string) => (
+                  <Badge
+                    key={tag}
+                    className="me-2 mb-1"
+                    style={{
+                      backgroundColor: getTagColor(tagColors, tag) || '#888',
+                      color: '#fff',
+                    }}
+                  >
+                    {t(tag)}
+                  </Badge>
+                ))}
+
+                {(effectiveItem?.benefitFor || []).map((b: string) => (
+                  <Badge key={b} className="me-2 mb-1 bg-info text-dark">
+                    {t(b)}
+                  </Badge>
+                ))}
+              </div>
+            </Col>
+          </Row>
+        </Container>
       </Modal.Body>
-
-      <Modal.Footer />
     </Modal>
   );
 };
