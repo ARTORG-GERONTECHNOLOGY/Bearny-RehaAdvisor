@@ -12,7 +12,11 @@ const MainTabs: React.FC<Props> = ({ mainTab, onChange }) => {
   return (
     <Row className="mb-3">
       <Col>
-        <Nav variant="tabs" activeKey={mainTab} onSelect={(k) => onChange((k as MainTab) || 'library')}>
+        <Nav
+          variant="tabs"
+          activeKey={mainTab}
+          onSelect={(k) => onChange((k as MainTab) || 'library')}
+        >
           <Nav.Item>
             <Nav.Link eventKey="library">Interventions</Nav.Link>
           </Nav.Item>

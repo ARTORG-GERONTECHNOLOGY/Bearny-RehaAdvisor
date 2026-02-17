@@ -228,7 +228,10 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
                       <div style={{ minWidth: 0 }}>
                         <div className="d-flex align-items-center gap-2 flex-wrap">
                           <h5 className="mb-1">{rec.title}</h5>
-                          <Badge bg={getBadgeVariantFromUrl(rec.media_url, rec.link)} title={mediaLabel}>
+                          <Badge
+                            bg={getBadgeVariantFromUrl(rec.media_url, rec.link)}
+                            title={mediaLabel}
+                          >
                             {mediaLabel}
                           </Badge>
                         </div>

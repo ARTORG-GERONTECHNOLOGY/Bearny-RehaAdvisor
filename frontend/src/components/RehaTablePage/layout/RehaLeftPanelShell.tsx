@@ -9,9 +9,7 @@ type Props = {
 const RehaLeftPanelShell: React.FC<Props> = ({ children, className }) => {
   return (
     <Card className={`rehaPanel rehaPanel--left ${className || ''}`}>
-      <Card.Body className="rehaPanel__body rehaPanel__body--flush">
-        {children}
-      </Card.Body>
+      <Card.Body className="rehaPanel__body rehaPanel__body--flush">{children}</Card.Body>
     </Card>
   );
 };

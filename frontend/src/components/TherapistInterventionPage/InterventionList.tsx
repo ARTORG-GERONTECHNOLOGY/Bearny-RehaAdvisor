@@ -1,27 +1,28 @@
 // components/TherapistInterventionPage/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { ListGroup, Badge, Spinner } from 'react-bootstrap';
+import { ListGroup, Badge, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { translateText } from '../../utils/translate';
 import {
   getBadgeVariantFromIntervention,
   getMediaTypeLabelFromIntervention,
-  type InterventionMedia,
+  InterventionMedia,
 } from '../../utils/interventions';
-
+import { getTagColor } from '../../utils/interventions';
 interface Intervention {
   _id: string;
   title: string;
   content_type: string;
 
-  // ✅ NEW: aims is its own field; everything else is tags
-  aims?: string[]; // e.g. ["Education", "Exercise", ...] (optional)
-  tags?: string[]; // everything except aims
-
+  aims?: string[];
+  tags?: string[];
   media?: InterventionMedia[];
+
   language?: string;
+  available_languages?: string[];
 
   is_private?: boolean;
   private_patient_id?: string | null;
+  external_id?: string;
 }
 
 interface TitleMap {
@@ -40,6 +41,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
   const [localTitles, setLocalTitles] = useState<TitleMap>({});
   const [loading, setLoading] = useState<boolean>(!translatedTitles);
 
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const titles = translatedTitles ?? localTitles;
+
   useEffect(() => {
     if (translatedTitles) {
       setLoading(false);
@@ -50,11 +54,14 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
       setLoading(true);
       const updates: TitleMap = {};
 
-      for (const rec of items) {
+      for (const rec of safeItems) {
         if (!rec?.title) continue;
         try {
           const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
-          updates[rec._id] = { title: translatedText, lang: detectedSourceLanguage };
+          updates[rec._id] = {
+            title: translatedText || rec.title,
+            lang: detectedSourceLanguage || null,
+          };
         } catch {
           updates[rec._id] = { title: rec.title, lang: null };
         }
@@ -64,13 +71,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
       setLoading(false);
     };
 
-    if (items.length > 0) translateAll();
+    if (safeItems.length > 0) translateAll();
     else setLoading(false);
-  }, [items, translatedTitles]);
-
-  const titles = translatedTitles ?? localTitles;
-
-  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  }, [safeItems, translatedTitles]);
 
   if (loading) {
     return (
@@ -107,6 +110,23 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
 
         const isPrivate = Boolean(rec.is_private);
 
+        const lang = String(rec.language || '')
+          .trim()
+          .toLowerCase();
+        const available = Array.isArray(rec.available_languages) ? rec.available_languages : [];
+        const otherLangs = available
+          .map((x) =>
+            String(x || '')
+              .trim()
+              .toLowerCase()
+          )
+          .filter((x) => x && x !== lang);
+
+        const langBadge = lang ? lang.toUpperCase() : null;
+        const globeHint = otherLangs.length
+          ? otherLangs.map((x) => x.toUpperCase()).join(', ')
+          : t('No other languages');
+
         return (
           <ListGroup.Item
             key={rec._id}
@@ -117,7 +137,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
           >
             <div className="d-flex flex-column" style={{ minWidth: 260, flex: 1 }}>
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                <strong {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}>{title}</strong>
+                <strong {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}>
+                  {title}
+                </strong>
 
                 {isPrivate ? (
                   <Badge bg="dark" title={t('Private intervention')}>
@@ -134,7 +156,6 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
 
               <div className="text-muted">{t(rec.content_type)}</div>
 
-              {/* ✅ aims is separate */}
               {aims.length ? (
                 <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Aims')}>
                   {aims.map((a) => (
@@ -145,14 +166,16 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
                 </div>
               ) : null}
 
-              {/* ✅ everything else is tags */}
               {tags.length ? (
                 <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
                   {tags.map((tag) => (
                     <Badge
                       key={tag}
                       bg=""
-                      style={{ backgroundColor: tagColors[tag] || 'gray', color: '#fff' }}
+                      style={{
+                        backgroundColor: getTagColor(tagColors, tag) || 'gray',
+                        color: '#fff',
+                      }}
                       className="text-capitalize"
                     >
                       {t(tag)}
@@ -163,10 +186,33 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
             </div>
 
             <div className="d-flex align-items-center gap-2">
-              {rec.language ? (
-                <Badge bg="secondary" aria-label={t('Language')}>
-                  {String(rec.language).toUpperCase()}
-                </Badge>
+              {langBadge ? (
+                <>
+                  <Badge bg="secondary">{langBadge}</Badge>
+
+                  <OverlayTrigger placement="top" overlay={<Tooltip>{globeHint}</Tooltip>}>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t('Show other languages')}
+                      style={{ cursor: 'pointer', userSelect: 'none', lineHeight: 1 }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); // don’t trigger row click
+                        onClick(rec); // open details modal
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onClick(rec);
+                        }
+                      }}
+                    >
+                      🌐
+                    </span>
+                  </OverlayTrigger>
+                </>
               ) : null}
 
               <Badge bg={badgeVariant as any} aria-label={t('Media type')}>
