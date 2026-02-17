@@ -135,3 +135,33 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 import sys
 print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
 print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
+
+CONTENT_TYPE_CANONICAL_MAP = {
+    "app": "App",
+    "audio": "Audio",
+    "image": "Image",
+    "pdf": "PDF",
+    "streaming": "Streaming",
+    "text": "Text",
+    "video": "Video",
+    "website": "Website",
+}
+
+# Map extensions to storage folders (fallback to "others")
+FILE_TYPE_FOLDERS = {
+    "mp4": "videos",
+    "mov": "videos",
+    "avi": "videos",
+    "mkv": "videos",
+    "webm": "videos",
+    "mp3": "audios",
+    "wav": "audios",
+    "m4a": "audios",
+    "ogg": "audios",
+    "pdf": "pdfs",
+    "png": "images",
+    "jpg": "images",
+    "jpeg": "images",
+    "gif": "images",
+    "webp": "images",
+}

@@ -12,12 +12,22 @@ services:
     image: mongo:8.0.3
     container_name: db
     restart: always
-    environment:
+    command: >
+      mongod
+      --auth
+      --tlsMode requireTLS
+      --tlsCertificateKeyFile /etc/ssl/mongo/server.pem
+      --tlsCAFile /etc/ssl/mongo/ca.crt
+      --tlsAllowConnectionsWithoutCertificates
+      --bind_ip_all
+    env_file:
       - ./.env.dev
     ports:
       - "27017:27017"
     volumes:
       - ./mongo_data:/data/db  # Correctly map this volume to persist data
+      - ./mongo/tls:/etc/ssl/mongo:ro
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
     networks:
       - telereha
 
@@ -36,6 +46,8 @@ services:
       - static:/app/static
       - media:/app/media
       - ./frontend/src/config/:/app/config
+      - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
+
     depends_on:
       - db-dev
       - redis
@@ -51,6 +63,7 @@ services:
     command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state
     volumes:
       - ./backend:/app
+      - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     env_file:
       - ./.env.dev
     depends_on:
@@ -87,6 +100,7 @@ services:
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
     volumes:
       - ./backend:/app
+      - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     depends_on:
       - django-dev
       - redis

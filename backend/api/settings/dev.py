@@ -14,7 +14,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-ALLOWED_HOSTS=["localhost", "127.0.0.1", "django", "nginx", "dev.reha-advisor.ch"]
+ALLOWED_HOSTS=["localhost", "127.0.0.1", "django", "nginx", "dev.reha-advisor.ch", "159.100.246.89"]
 
 SECURE_PROXY_SSL_HEADER = (
     os.getenv("SECURE_PROXY_SSL_HEADER_NAME", "HTTP_X_FORWARDED_PROTO"),
@@ -31,4 +31,9 @@ FITBIT_CLIENT_ID = os.environ.get('FITBIT_CLIENT_ID')
 FITBIT_CLIENT_SECRET = os.environ.get('FITBIT_CLIENT_SECRET')
 FITBIT_REDIRECT_URI = os.environ.get('FITBIT_REDIRECT_URI')
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
+
+
+REDCAP_API_URL = os.environ.get("REDCAP_API_URL", default="https://redcap.unibe.ch/api/")
+REDCAP_TOKEN_COPAIN = os.environ.get("REDCAP_TOKEN_COPAIN", default="")
+REDCAP_TOKEN_COMPASS = os.environ.get("REDCAP_TOKEN_COMPASS", default="")
 
