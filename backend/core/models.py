@@ -427,6 +427,10 @@ class PatientThresholds(EmbeddedDocument):
     bp_dia_green_max = IntField(default=84)
     bp_dia_yellow_max = IntField(default=89)
 
+class PatientThresholdsSnapshot(EmbeddedDocument):
+    effective_from = DateTimeField(required=True, default=timezone.now)
+    reason = StringField(default="")
+    thresholds = EmbeddedDocumentField("PatientThresholds", required=True)
 
 class Patient(Document):
     meta = {"collection": "Patients"}
@@ -448,6 +452,7 @@ class Patient(Document):
 
     # ✅ Platform-specific settings
     thresholds = EmbeddedDocumentField("PatientThresholds", default=lambda: PatientThresholds())
+    thresholds_history = ListField(EmbeddedDocumentField("PatientThresholdsSnapshot"), default=list)
 
     # ✅ Optional platform fields (can also come from REDCap)
     clinic = StringField(max_length=120, default="")

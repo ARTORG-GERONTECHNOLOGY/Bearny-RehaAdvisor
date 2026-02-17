@@ -1,19 +1,21 @@
 # core/views/redcap_patient_views.py
 import logging
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from typing import List, Dict, Any
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
 from core.services.redcap_access import (
     get_therapist_for_user,
     get_allowed_redcap_projects_for_therapist,
 )
+from core.views.redcap_import_views import get_therapist_by_user_id, _norm
 from core.services.redcap_service import export_record_by_pat_id, RedcapError
 
 logger = logging.getLogger(__name__)
 
-
-@api_view(["GET"])
+@csrf_exempt
 @permission_classes([IsAuthenticated])
 def redcap_patient(request):
     """
@@ -26,64 +28,58 @@ def redcap_patient(request):
     """
     patient_code = (request.GET.get("patient_code") or "").strip()
     project = (request.GET.get("project") or "").strip()
+    print(project)
 
     if not patient_code:
-        return JsonResponse({"error": "patient_code is required"}, status=400)
+        return JsonResponse({"ok": False, "error": "patient_code is required"}, status=400)
+    therapist_user_id = _norm(request.GET.get("therapistUserId"))
 
-    therapist = get_therapist_for_user(request.user)
+    # Allow both: (A) therapistUserId param OR (B) derive from request.user
+    therapist = get_therapist_by_user_id(therapist_user_id) if therapist_user_id else get_therapist_for_user(request.user)
     if not therapist:
-        return JsonResponse({"error": "Therapist profile not found."}, status=404)
+        return JsonResponse({"ok": False, "error": "Therapist profile not found."}, status=404)
 
-    allowed = get_allowed_redcap_projects_for_therapist(therapist)
+    allowed = therapist.projects
+    print("Allowed REDCap projects for therapist:", allowed)
     if not allowed:
-        return JsonResponse(
-            {"error": "No REDCap projects configured for your clinic."},
-            status=403,
-        )
+        return JsonResponse({"ok": False, "error": "No REDCap projects configured for your clinic.", "project": project}, status=403)
 
-    # If project specified, validate it.
-    projects_to_search = []
+    # Decide which projects to search
     if project:
         if project not in allowed:
             return JsonResponse(
                 {
+                    "ok": False,
                     "error": "Not allowed to access this REDCap project for your clinic.",
                     "allowedProjects": allowed,
                 },
                 status=403,
             )
-        projects_to_search = [project]
+        projects_to_search = [project] if isinstance(project, str) else project
     else:
         projects_to_search = allowed
 
-    matches = []
-    errors = []
+    matches: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
 
     for proj in projects_to_search:
         try:
             rows = export_record_by_pat_id(proj, patient_code) or []
+            print(rows)
             if rows:
-                matches.append(
-                    {
-                        "project": proj,
-                        "count": len(rows),
-                        "rows": rows,  # may be >1 if longitudinal/events
-                    }
-                )
+                matches.append({"project": proj, "count": len(rows), "rows": rows})
         except RedcapError as e:
-            # REDCap errors per project are collected; we still try other projects.
             logger.exception("REDCap error in redcap_patient (project=%s)", proj)
             errors.append({"project": proj, "error": str(e), "detail": getattr(e, "detail", None)})
-
         except Exception as e:
             logger.exception("Unexpected error in redcap_patient (project=%s)", proj)
             errors.append({"project": proj, "error": "Unexpected server error.", "detail": str(e)})
 
     if not matches:
-        # If we had errors, return 502; otherwise record not found.
         if errors:
             return JsonResponse(
                 {
+                    "ok": False,
                     "error": "Failed to retrieve REDCap records (one or more projects errored).",
                     "patient_code": patient_code,
                     "allowedProjects": allowed,
@@ -91,8 +87,10 @@ def redcap_patient(request):
                 },
                 status=502,
             )
+        
         return JsonResponse(
             {
+                "ok": False,
                 "error": "No REDCap record found for this patient_code in the allowed projects.",
                 "patient_code": patient_code,
                 "allowedProjects": allowed,
@@ -106,7 +104,7 @@ def redcap_patient(request):
             "patient_code": patient_code,
             "searchedProjects": projects_to_search,
             "matches": matches,
-            "errors": errors,  # might be non-empty if one project failed but another succeeded
+            "errors": errors,
         },
         status=200,
     )

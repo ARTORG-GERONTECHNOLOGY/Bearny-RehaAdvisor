@@ -43,6 +43,7 @@ from utils.utils import (
 )
 import uuid
 logger = logging.getLogger(__name__)
+from mongoengine.queryset.visitor import Q
 
 
 from django.db import transaction, IntegrityError
@@ -254,7 +255,28 @@ from django.utils import timezone
 
 MAX_ATTEMPTS = 5            # allowed failed attempts
 LOCKOUT_MINUTES = 15        # lockout duration
-
+def _parse_body(request):
+    """
+    Parse JSON or form body without crashing.
+    Returns dict.
+    """
+    content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+    # JSON
+    if "application/json" in content_type:
+        try:
+            return json.loads((request.body or b"{}").decode("utf-8") or "{}")
+        except Exception:
+            return {}
+    # Form or unknown: try POST first, else try JSON fallback
+    if request.POST:
+        return request.POST.dict()
+    try:
+        return json.loads((request.body or b"{}").decode("utf-8") or "{}")
+    except Exception:
+        return {}
+# ---------------------------------------------------------------------
+# LOGIN
+# ---------------------------------------------------------------------
 @csrf_exempt
 def login_view(request):
     if request.method != "POST":
@@ -263,57 +285,40 @@ def login_view(request):
     request_id = uuid.uuid4().hex[:10]
 
     try:
-        identifier = ""
-        raw_password = ""
+        data = _parse_body(request)
 
-        content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+        identifier = (data.get("email") or data.get("username") or "").strip()
 
-        # 1) JSON
-        if "application/json" in content_type:
-            try:
-                data = json.loads(request.body.decode("utf-8") or "{}")
-                identifier = (data.get("email") or data.get("username") or "").strip()
-                raw_password = data.get("password") or ""
-            except Exception:
-                body_preview = (request.body or b"")[:200]
-                logger.warning(
-                    f"[LOGIN][{request_id}] Invalid JSON. content_type={content_type} body_preview={body_preview!r}"
-                )
-                # fallback to POST parsing just in case FE sent wrong header
-                identifier = (request.POST.get("email") or request.POST.get("username") or "").strip()
-                raw_password = request.POST.get("password") or ""
-
-        # 2) Form-encoded / multipart / unknown
-        else:
-            identifier = (request.POST.get("email") or request.POST.get("username") or "").strip()
-            raw_password = request.POST.get("password") or ""
-            if not identifier and request.body:
-                # sometimes axios sends JSON but without header
-                try:
-                    data = json.loads(request.body.decode("utf-8") or "{}")
-                    identifier = (data.get("email") or data.get("username") or "").strip()
-                    raw_password = data.get("password") or ""
-                except Exception:
-                    body_preview = (request.body or b"")[:200]
-                    logger.warning(
-                        f"[LOGIN][{request_id}] Non-JSON content_type={content_type} and body not JSON. body_preview={body_preview!r}"
-                    )
+        raw_password = data.get("password") or ""
 
         if not identifier or not raw_password:
             return JsonResponse(
                 {
                     "error": "Email/username and password are required.",
                     "request_id": request_id,
-                    "content_type": content_type,
                 },
                 status=400,
             )
+        users = User.objects()  # all docs
+        print("count:", users.count())
 
-        user = User.objects.filter(
-            __raw__={"$or": [{"email": identifier}, {"username": identifier}]}
-        ).first()
+        user = User.objects(Q(email=identifier) | Q(username=identifier)).first()
 
-        if not user or not check_password(raw_password, user.pwdhash):
+        print(f"Found user: {user}")
+        print(User.objects(Q(email=identifier) | Q(username=identifier)).first())
+
+
+        # IMPORTANT: never touch user fields before checking user exists
+        if not user:
+            return JsonResponse({"error": "Invalid credentials (username).", "request_id": request_id}, status=401)
+
+        # If a user exists but pwdhash missing / empty
+        pwdhash = getattr(user, "pwdhash", None)
+        if not pwdhash:
+            logger.warning(f"[LOGIN][{request_id}] User has no pwdhash user_id={user.id}")
+            return JsonResponse({"error": "Invalid credentials. Password is missing.", "request_id": request_id}, status=401)
+
+        if not check_password(raw_password, pwdhash):
             return JsonResponse({"error": "Invalid credentials.", "request_id": request_id}, status=401)
 
         if not getattr(user, "isActive", False):
@@ -321,6 +326,7 @@ def login_view(request):
 
         user_id_str = str(user.id)
 
+        # Therapists: require 2FA
         if user.role == "Therapist":
             return JsonResponse(
                 {
@@ -332,6 +338,7 @@ def login_view(request):
                 status=200,
             )
 
+        # Others: issue JWT immediately
         Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
 
         refresh = RefreshToken()
@@ -658,12 +665,33 @@ def register_view(request):
 
         # ===================== Therapist Registration =====================
         if user_type == "Therapist":
+            clinics = data.get("clinic") or []
+            projects = data.get("projects") or []
+
+            clinic_projects = (config.get("therapistInfo", {}).get("clinic_projects") or {})
+
+            # allowed projects from selected clinics
+            allowed = set()
+            for c in clinics:
+                for p in clinic_projects.get(c, []):
+                    allowed.add(p)
+
+            invalid = [p for p in projects if p not in allowed]
+            if invalid:
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"projects": [f"Invalid project(s) for selected clinics: {', '.join(invalid)}"]},
+                )
+
             therapist = Therapist(
                 userId=user,
                 name=sanitize_text(data.get("lastName", ""), True),
                 first_name=sanitize_text(data.get("firstName", ""), True),
-                specializations=data.get("specialisation"),
-                clinics=data.get("clinic"),
+                specializations=data.get("specialisation") or [],
+                clinics=clinics,
+                projects=projects,  # ✅ NEW
             )
 
             try:
@@ -677,6 +705,7 @@ def register_view(request):
                 {"success": True, "message": "Therapist registered successfully", "id": user.username},
                 status=200,
             )
+
 
         # ===================== Admin / other =====================
         # If you later create other docs here, follow the same rollback pattern.

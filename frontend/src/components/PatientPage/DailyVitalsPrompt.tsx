@@ -7,10 +7,7 @@ import { patientVitalsStore } from '../../stores/patientVitalsStore';
 
 const DailyVitalsPrompt: React.FC = observer(() => {
   const { t } = useTranslation();
-  const userId = useMemo(
-    () => localStorage.getItem('selectedPatient') || authStore.id,
-    []
-  );
+  const userId = useMemo(() => localStorage.getItem('selectedPatient') || authStore.id, []);
 
   const [weight, setWeight] = useState<string>('');
   const [sys, setSys] = useState<string>('');
@@ -43,7 +40,8 @@ const DailyVitalsPrompt: React.FC = observer(() => {
           <Col>
             <div className="fw-semibold fs-5">{t('Today’s vitals')}</div>
             <div className="text-muted small">
-              {t('Please enter your weight and blood pressure for today')} ({patientVitalsStore.today}).
+              {t('Please enter your weight and blood pressure for today')} (
+              {patientVitalsStore.today}).
             </div>
           </Col>
         </Row>
@@ -68,7 +66,8 @@ const DailyVitalsPrompt: React.FC = observer(() => {
         <Row className="g-3">
           <Col xs={12} md={4}>
             <Form.Label className="mb-1">
-              {t('Weight (kg)')} <span className="text-muted fw-normal small">({t('optional')})</span>
+              {t('Weight (kg)')}{' '}
+              <span className="text-muted fw-normal small">({t('optional')})</span>
             </Form.Label>
             <Form.Control
               type="number"
@@ -87,7 +86,8 @@ const DailyVitalsPrompt: React.FC = observer(() => {
 
           <Col xs={6} md={4}>
             <Form.Label className="mb-1">
-              {t('Systolic (mmHg)')} <span className="text-muted fw-normal small">({t('optional')})</span>
+              {t('Systolic (mmHg)')}{' '}
+              <span className="text-muted fw-normal small">({t('optional')})</span>
             </Form.Label>
             <Form.Control
               type="number"
@@ -106,7 +106,8 @@ const DailyVitalsPrompt: React.FC = observer(() => {
 
           <Col xs={6} md={4}>
             <Form.Label className="mb-1">
-              {t('Diastolic (mmHg)')} <span className="text-muted fw-normal small">({t('optional')})</span>
+              {t('Diastolic (mmHg)')}{' '}
+              <span className="text-muted fw-normal small">({t('optional')})</span>
             </Form.Label>
             <Form.Control
               type="number"

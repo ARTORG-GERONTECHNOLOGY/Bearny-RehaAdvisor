@@ -25,20 +25,18 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
 
   const fields = useMemo(() => {
     // keep your existing schema logic, just cached
-    return (config as any).TherapistForm
-      .flatMap((section: any) => section.fields)
-      .filter(
-        (field: any) =>
-          ![
-            'password',
-            'repeatPassword',
-            'oldPassword',
-            'newPassword',
-            'confirmPassword',
-            'userType',
-            'User Type:',
-          ].includes(field.be_name)
-      );
+    return (config as any).TherapistForm.flatMap((section: any) => section.fields).filter(
+      (field: any) =>
+        ![
+          'password',
+          'repeatPassword',
+          'oldPassword',
+          'newPassword',
+          'confirmPassword',
+          'userType',
+          'User Type:',
+        ].includes(field.be_name)
+    );
   }, []);
 
   const handleChange = (

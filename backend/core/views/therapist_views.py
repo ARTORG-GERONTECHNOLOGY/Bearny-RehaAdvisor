@@ -484,8 +484,7 @@ def list_therapist_patients(request, therapist_id):
             # ---------------------------------------------
             output_list.append({
                 "_id": str(patient.pk),
-                "first_name": patient.first_name,
-                "name": patient.name,
+                "patient_code": patient.patient_code,
                 "sex": patient.sex,
                 "diagnosis": patient.diagnosis,
                 "age": patient.age,
@@ -532,8 +531,7 @@ def get_patients_by_therapist(request, therapist_id):
         data = [
             {
                 "id": str(p.userId),
-                "firstName": p.first_name,
-                "lastName": p.name,
+                "patient_code": p.patient_code,
             }
             for p in patients
         ]
