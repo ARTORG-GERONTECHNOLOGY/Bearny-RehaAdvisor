@@ -1,0 +1,258 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  dependency-check:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Check Python dependencies
+        working-directory: backend
+        run: |
+          pip install safety bandit
+          safety check --json > safety-report.json || true
+          bandit -r . -f json -o bandit-report.json || true
+
+      - name: Check Node dependencies
+        working-directory: frontend
+        run: |
+          npm audit --audit-level=moderate || true
+
+      - name: Upload dependency reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-reports
+          path: |
+            backend/safety-report.json
+            backend/bandit-report.json
+
+  code-analysis:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Python code analysis
+        working-directory: backend
+        run: |
+          pip install pylint flake8 black isort
+          echo "🔍 Running flake8..."
+          flake8 . --count --show-source --statistics || true
+          
+          echo "🔍 Checking code formatting..."
+          black --check . || true
+          
+          echo "🔍 Checking import ordering..."
+          isort --check-only . || true
+          
+          echo "🔍 Running pylint..."
+          pylint **/*.py --exit-zero || true
+
+      - name: JavaScript code analysis
+        working-directory: frontend
+        run: |
+          npm ci
+          echo "🔍 Running ESLint..."
+          npm run lint || true
+
+  sast-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-fs.sarif
+          category: 'Trivy Filesystem Scan'
+
+  docker-security:
+    name: Docker Image Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod.reha-advisor
+          push: false
+          load: true
+          tags: reha-advisor:frontend-scan
+          cache-from: type=gha
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: 'reha-advisor:frontend-scan'
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+
+      - name: Build backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: false
+          load: true
+          tags: reha-advisor:backend-scan
+          cache-from: type=gha
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: 'reha-advisor:backend-scan'
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+
+      - name: Upload Docker scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: |
+            trivy-frontend.sarif
+            trivy-backend.sarif
+
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install TruffleHog
+        run: pip install truffleHog
+
+      - name: Scan for secrets
+        run: |
+          truffleHog filesystem . --json > secrets-report.json || true
+          cat secrets-report.json
+
+      - name: Fail if secrets found
+        run: |
+          if grep -q '"verified": true' secrets-report.json; then
+            echo "❌ Verified secrets found in repository!"
+            exit 1
+          fi
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check licenses (Python)
+        working-directory: backend
+        run: |
+          pip install pip-licenses
+          pip-licenses --format=csv --output-file=python-licenses.csv || true
+          cat python-licenses.csv
+
+      - name: Check licenses (Node)
+        working-directory: frontend
+        run: |
+          npm install -g license-checker
+          license-checker --json > node-licenses.json || true
+          cat node-licenses.json
+
+      - name: Upload license reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: license-reports
+          path: |
+            backend/python-licenses.csv
+            frontend/node-licenses.json
+
+  security-summary:
+    name: Security Check Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-check, code-analysis, sast-scan, secret-scanning, license-check]
+    if: always()
+
+    steps:
+      - name: Print summary
+        run: |
+          echo "## 🔒 Security Scan Summary"
+          echo ""
+          echo "✅ Dependency Check: ${{ needs.dependency-check.result }}"
+          echo "✅ Code Analysis: ${{ needs.code-analysis.result }}"
+          echo "✅ SAST Scan: ${{ needs.sast-scan.result }}"
+          echo "✅ Secret Scanning: ${{ needs.secret-scanning.result }}"
+          echo "✅ License Check: ${{ needs.license-check.result }}"
+          echo ""
+          
+          if [[ "${{ needs.secret-scanning.result }}" == "failure" ]]; then
+            echo "❌ Security checks failed - secrets detected"
+            exit 1
+          fi
+          
+          echo "✅ Security checks completed"
