@@ -1,3 +1,14 @@
+"""
+Authentication Verify Code View Tests
+
+This module tests the code verification endpoint (/api/auth/verify-code/) for email/SMS verification.
+Tests cover successful code verification, wrong codes, expired codes, and missing parameters.
+
+Framework: Django Test Client with pytest
+Database: mongomock (in-memory MongoDB) for isolated testing
+Verification: Tests SMSVerification model lifecycle
+"""
+
 import mongomock
 import pytest
 from mongoengine import connect, disconnect
@@ -35,6 +46,33 @@ client = Client()
 
 
 def test_verify_code_success(mongo_mock):
+    """
+    Scenario: User successfully verifies email with correct code
+    
+    Setup:
+    - User exists and has pending email verification
+    - Verification code: "123456" (6 digits)
+    - Code expires at: now + 5 minutes (not yet expired)
+    - SMSVerification record created
+    
+    Steps:
+    1. User receives verification code via email/SMS
+    2. User enters code in app: "123456"
+    3. POST /api/auth/verify-code/ with userId and code
+    4. System looks up SMSVerification record
+    5. Code matches and not expired
+    6. System marks email as verified
+    7. System deletes used code (security)
+    
+    Expected Results:
+    - HTTP 200 OK
+    - Response message: "Verification successful"
+    - User.is_verified becomes True (or similar flag)
+    - SMSVerification record deleted (count == 0)
+    - User can now login and use full functionality
+    
+    Use Case: New user registers, receives code via email, enters code, activates account
+    """
     user = User(
         username="verifyuser",
         role="Patient",
@@ -62,6 +100,30 @@ def test_verify_code_success(mongo_mock):
 
 
 def test_verify_code_wrong_code(mongo_mock):
+    """
+    Scenario: User enters wrong verification code
+    
+    Setup:
+    - User exists and code is pending
+    - Correct code stored in database: "654321"
+    - User enters: "123456" (wrong code)
+    
+    Steps:
+    1. User enters wrong verification code
+    2. POST /api/auth/verify-code/ with wrong code
+    3. System validates code
+    4. Code does not match stored code
+    5. Verification fails
+    
+    Expected Results:
+    - HTTP 400 Bad Request or 401 Unauthorized
+    - Error message: "Invalid verification code" or similar
+    - Verification code NOT deleted (can retry)
+    - User remains unverified
+    - User can request new code or retry
+    
+    Error Handling: Allows retry attempts, prevents brute force (should have rate limiting in production)
+    """
     user = User(
         username="wrongcodeuser",
         role="Patient",

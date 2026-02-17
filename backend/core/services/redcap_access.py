@@ -4,7 +4,7 @@ from typing import List
 
 from django.utils import timezone
 from core.models import Therapist
-from utils.config import config  # you already use this pattern elsewhere
+from utils.config import config
 
 logger = logging.getLogger(__name__)
 

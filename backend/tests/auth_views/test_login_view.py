@@ -1,3 +1,13 @@
+"""
+Authentication Login View Tests
+
+This module tests the login endpoint (/api/auth/login/) which handles user authentication.
+Tests cover successful login, wrong credentials, inactive users, and error conditions.
+
+Framework: Django Test Client with pytest
+Database: mongomock (in-memory MongoDB) for isolated testing
+"""
+
 import mongomock
 import pytest
 from mongoengine import connect, disconnect
@@ -7,6 +17,19 @@ from core.models import Patient, Therapist, User
 
 @pytest.fixture(autouse=True, scope="function")
 def mongo_mock():
+    """
+    Fixture: Mock MongoDB for login tests
+    
+    Sets up:
+    - In-memory MongoDB connection for each test
+    - Isolation: Each test has clean database
+    - Cleanup: Disconnect after test completes
+    
+    Why mongomock?
+    - No external MongoDB dependency
+    - Fast test execution
+    - Deterministic results (no state leakage between tests)
+    """
     alias = "default"
     from mongoengine.connection import _connections
 
@@ -36,6 +59,32 @@ client = Client()
 
 
 def test_login_success(mongo_mock):
+    """
+    Scenario: Therapist logs in with valid email and password
+    
+    Setup:
+    - Therapist user exists in database
+    - Email: therapist@example.com
+    - Password: testpass123 (hashed)
+    - User marked as active
+    - Therapist profile created with specializations
+    
+    Steps:
+    1. POST /api/auth/login/ with email and password
+    2. Credentials validated against stored password hash
+    3. User type identified as "Therapist"
+    4. JWT access_token generated
+    5. Response includes user metadata
+    
+    Expected Results:
+    - HTTP 200 OK
+    - Response contains access_token (JWT for authenticated requests)
+    - user_type matches: "Therapist"
+    - full_name includes first name: "John"
+    - User can use token for subsequent API calls
+    
+    Business Flow: Therapist starts their session, enters credentials, gains access to patient dashboard
+    """
     # Set up user
     user = User(
         username="therapist1",
@@ -44,6 +93,30 @@ def test_login_success(mongo_mock):
         phone="123456789",
         pwdhash=make_password("testpass123"),
         createdAt=datetime.now(),
+    """
+    Scenario: User attempts login with incorrect password
+    
+    Setup:
+    - User exists with email wrongpass@example.com
+    - Correct password: "correctpass"
+    - User attempts: "badpass"
+    
+    Steps:
+    1. User enters email and wrong password
+    2. POST /api/auth/login/ with incorrect password
+    3. System retrieves user
+    4. Password hash comparison fails
+    5. Security: Generic error returned (doesn't reveal if email exists)
+    
+    Expected Results:
+    - HTTP 401 Unauthorized
+    - Error message: "Invalid credentials"
+    - No access token provided
+    - User remains logged out
+    - System logs authentication failure (for security monitoring)
+    
+    Security: Generic error prevents email enumeration attacks
+    """
         isActive=True,
     ).save()
 
@@ -66,6 +139,31 @@ def test_login_success(mongo_mock):
     json_data = resp.json()
     assert "access_token" in json_data
     assert json_data["user_type"] == "Therapist"
+    """
+    Scenario: Inactive user attempts to log in
+    
+    Setup:
+    - User exists but has isActive=False
+    - This occurs when:
+      * Account suspended by admin
+      * Email not yet verified
+      * Account deleted (soft delete)
+    
+    Steps:
+    1. User enters correct email and password
+    2. POST /api/auth/login/
+    3. System validates password (correct)
+    4. System checks isActive flag
+    5. User is inactive, access denied
+    
+    Expected Results:
+    - HTTP 403 Forbidden OR 401 Unauthorized
+    - Error message: "Account is inactive" or "Invalid credentials"
+    - No access token
+    - User cannot access system
+    
+    Use Case: Admin suspends therapist due to contract ending, user sees access denied message
+    """
     assert json_data["full_name"] == "John"
 
 
