@@ -1,3 +1,4 @@
+// src/components/TherapistInterventionPage/TemplatesLayout.tsx
 import React from 'react';
 import {
   Row,
@@ -11,25 +12,32 @@ import {
   Tooltip,
   Badge,
 } from 'react-bootstrap';
-import Select from 'react-select';
-import { FaPlus, FaMinus, FaEdit, FaUndo } from 'react-icons/fa';
-import config from '../../config/config.json';
+import { FaPlus, FaMinus, FaEdit } from 'react-icons/fa';
+import { getTagColor } from '../../utils/interventions';
+import FilterBar from './FilterBar';
+
 import type { TemplateItem } from '../../types/templates';
 import type { InterventionTypeTh } from '../../types';
 
 export type TemplatesFiltersState = {
   tSearchTerm: string;
   tPatientTypeFilter: string;
+
+  // optional / compatible with FilterBar
+  tDiagnosisFilter: string[];
+
   tContentTypeFilter: string;
+
+  // ✅ tags = everything (including aims if your taxonomy includes them)
   tTagFilter: string[];
-  tBenefitForFilter: string[];
+
   tFrequencyFilter: string;
 };
 
 type TemplateLeftTab = 'my' | 'all';
 
 type Props = {
-  t: any;
+  t: (key: string) => string;
 
   templateDiag: string;
   onTemplateDiag: (v: string) => void;
@@ -38,7 +46,7 @@ type Props = {
   onTemplateHorizon: (v: number) => void;
 
   diagnoses: string[];
-  patientTypes: string[];
+  patientTypes: string[]; // (kept even if not used; you may want later)
 
   templateLeftTab: TemplateLeftTab;
   onTemplateLeftTab: (v: TemplateLeftTab) => void;
@@ -73,7 +81,7 @@ const TemplatesLayout: React.FC<Props> = ({
   templateHorizon,
   onTemplateHorizon,
   diagnoses,
-  patientTypes,
+  patientTypes, // kept (unused for now)
   templateLeftTab,
   onTemplateLeftTab,
   templateItems,
@@ -181,11 +189,7 @@ const TemplatesLayout: React.FC<Props> = ({
                   <div onClick={(e) => e.stopPropagation()}>
                     <ButtonGroup size="sm" vertical>
                       <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                        <Button
-                          variant="outline-secondary"
-                          onClick={() => onModifyTemplate(it)}
-                          title={t('Modify from a specific day onward')}
-                        >
+                        <Button variant="outline-secondary" onClick={() => onModifyTemplate(it)}>
                           <FaEdit />
                         </Button>
                       </OverlayTrigger>
@@ -205,94 +209,34 @@ const TemplatesLayout: React.FC<Props> = ({
             </Card.Body>
           ) : (
             <Card.Body className="mb-3">
-              <Row className="mb-3">
-                <Col>
-                  <Form.Group controlId="tSearchInput">
-                    <Form.Control
-                      type="text"
-                      placeholder={t('Search Interventions')}
-                      value={filters.tSearchTerm}
-                      onChange={(e) => onFilters({ ...filters, tSearchTerm: e.target.value })}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+              {/* ✅ Reuse updated FilterBar (NO aims, NO benefits, NO config prop) */}
+              <FilterBar
+                searchTerm={filters.tSearchTerm}
+                setSearchTerm={(v) => onFilters({ ...filters, tSearchTerm: v })}
+                patientTypeFilter={filters.tPatientTypeFilter}
+                setPatientTypeFilter={(v) =>
+                  onFilters({ ...filters, tPatientTypeFilter: v, tDiagnosisFilter: [] })
+                }
+                diagnosisFilter={filters.tDiagnosisFilter}
+                setDiagnosisFilter={(v) => onFilters({ ...filters, tDiagnosisFilter: v })}
+                contentTypeFilter={filters.tContentTypeFilter}
+                setContentTypeFilter={(v) => onFilters({ ...filters, tContentTypeFilter: v })}
+                tagFilter={filters.tTagFilter}
+                setTagFilter={(v) => onFilters({ ...filters, tTagFilter: v })}
+                frequencyFilter={filters.tFrequencyFilter}
+                setFrequencyFilter={(v) => onFilters({ ...filters, tFrequencyFilter: v })}
+                t={t}
+                onReset={onResetFilters}
+              />
 
-              <Row className="mb-3 g-3">
-                <Col xs={12} md={6}>
-                  <Form.Select
-                    value={filters.tPatientTypeFilter}
-                    onChange={(e) => onFilters({ ...filters, tPatientTypeFilter: e.target.value })}
-                  >
-                    <option value="">{t('All Patient Types')}</option>
-                    {patientTypes.map((type: string) => (
-                      <option key={type} value={type}>
-                        {t(type)}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-
-                <Col xs={12} md={6}>
-                  <Form.Select
-                    value={filters.tContentTypeFilter}
-                    onChange={(e) => onFilters({ ...filters, tContentTypeFilter: e.target.value })}
-                  >
-                    <option value="">{t('Filter by Content Type')}</option>
-                    {(config as any).RecomendationInfo.types.map((type: string) => (
-                      <option key={type} value={type}>
-                        {t(type)}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-              </Row>
-
-              <Row className="mb-3 g-3">
-                <Col xs={12} md={6}>
-                  <Select
-                    isMulti
-                    options={(config as any).RecomendationInfo.tags.map((tag: string) => ({
-                      value: tag,
-                      label: t(tag),
-                    }))}
-                    value={filters.tTagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                    onChange={(opts) => onFilters({ ...filters, tTagFilter: (opts || []).map((o: any) => o.value) })}
-                    placeholder={t('Filter by Tags')}
-                  />
-                </Col>
-
-                <Col xs={12} md={6}>
-                  <Select
-                    isMulti
-                    options={(config as any).RecomendationInfo.benefits.map((b: string) => ({
-                      value: b,
-                      label: t(b),
-                    }))}
-                    value={filters.tBenefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                    onChange={(opts) =>
-                      onFilters({ ...filters, tBenefitForFilter: (opts || []).map((o: any) => o.value) })
-                    }
-                    placeholder={t('Filter by Benefit')}
-                  />
-                </Col>
-              </Row>
-
-              <Row className="mb-2">
-                <Col>
-                  <Button variant="outline-secondary" size="sm" onClick={onResetFilters}>
-                    <FaUndo className="me-2" /> {t('Reset filters')}
-                  </Button>
-                </Col>
-              </Row>
-
-              <div style={{ maxHeight: 420, overflowY: 'auto' }} className="p-2">
+              <div style={{ maxHeight: 420, overflowY: 'auto' }} className="p-2 mt-3">
                 {browseAllItems.length === 0 && (
                   <div className="text-muted px-2">{t('No interventions match your filters.')}</div>
                 )}
 
                 {browseAllItems.map((intervention) => {
-                  const displayTitle = translatedTitles[intervention._id]?.title ?? intervention.title;
+                  const displayTitle =
+                    translatedTitles[intervention._id]?.title ?? intervention.title;
                   const entry = findTemplateFor(intervention._id);
                   const inTemplate = !!entry;
 
@@ -301,23 +245,25 @@ const TemplatesLayout: React.FC<Props> = ({
                       key={intervention._id}
                       className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
                       style={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        // browsing list: click should still open details via page-level popup handler
-                        // parent wires this by intercepting selection in the page
-                      }}
                       title={t('Click to view details')}
+                      onClick={() => {
+                        // optional: if you want clicking to open details, wire handler from parent
+                      }}
                     >
                       <div className="me-2">
                         <div className="fw-semibold">{displayTitle}</div>
 
-                        {intervention.tags?.length > 0 && (
+                        {(intervention.tags || []).length > 0 && (
                           <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
-                            {intervention.tags.map((tag) => (
+                            {(intervention.tags || []).map((tag) => (
                               <Badge
                                 key={tag}
                                 bg=""
                                 className="me-1"
-                                style={{ backgroundColor: tagColors[tag] || 'gray' }}
+                                style={{
+                                  backgroundColor: getTagColor(tagColors, tag) || 'gray',
+                                  color: '#fff',
+                                }}
                               >
                                 {t(tag)}
                               </Badge>
@@ -330,7 +276,9 @@ const TemplatesLayout: React.FC<Props> = ({
                         {!inTemplate ? (
                           <OverlayTrigger
                             placement="left"
-                            overlay={<Tooltip>{t('Add this intervention to your template')}</Tooltip>}
+                            overlay={
+                              <Tooltip>{t('Add this intervention to your template')}</Tooltip>
+                            }
                           >
                             <Button
                               size="sm"
@@ -342,16 +290,27 @@ const TemplatesLayout: React.FC<Props> = ({
                           </OverlayTrigger>
                         ) : (
                           <ButtonGroup size="sm" vertical>
-                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                              <Button variant="outline-secondary" onClick={() => onOpenAssign(entry!.intervention._id, 'modify')}>
+                            <OverlayTrigger
+                              placement="left"
+                              overlay={<Tooltip>{t('Modify')}</Tooltip>}
+                            >
+                              <Button
+                                variant="outline-secondary"
+                                onClick={() => onOpenAssign(entry!.intervention._id, 'modify')}
+                              >
                                 <FaEdit />
                               </Button>
                             </OverlayTrigger>
 
-                            <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
+                            <OverlayTrigger
+                              placement="left"
+                              overlay={<Tooltip>{t('Remove')}</Tooltip>}
+                            >
                               <Button
                                 variant="outline-danger"
-                                onClick={() => onRemoveTemplateItem(entry!.diagnosis, intervention._id)}
+                                onClick={() =>
+                                  onRemoveTemplateItem(entry!.diagnosis, intervention._id)
+                                }
                               >
                                 <FaMinus />
                               </Button>

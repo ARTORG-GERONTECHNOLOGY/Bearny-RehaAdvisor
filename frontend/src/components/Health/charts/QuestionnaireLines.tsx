@@ -26,7 +26,9 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const W = 900, H = 420, m = { top: 36, right: 40, bottom: 60, left: 60 };
+      const W = 900,
+        H = 420,
+        m = { top: 36, right: 40, bottom: 60, left: 60 };
       svg.attr('viewBox', `0 0 ${W} ${H}`).attr('preserveAspectRatio', 'xMidYMid meet');
 
       const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
@@ -38,7 +40,7 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
       const keys = Array.from(byQ.keys()).filter((k) => visibleKeys?.[k]);
 
       // full day domain for axis
-      const s = start ? new Date(start) : (filtered.length ? new Date(filtered[0].date) : new Date());
+      const s = start ? new Date(start) : filtered.length ? new Date(filtered[0].date) : new Date();
       const e = end ? new Date(end) : s;
       const days = d3.timeDay.range(
         new Date(s.getFullYear(), s.getMonth(), s.getDate()),
@@ -46,17 +48,28 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
       );
       const xDomain = days.map((d) => new Date(dayIso(d)));
 
-      const x = d3.scaleTime().domain([xDomain[0] ?? s, xDomain[xDomain.length - 1] ?? e]).range([0, width]);
+      const x = d3
+        .scaleTime()
+        .domain([xDomain[0] ?? s, xDomain[xDomain.length - 1] ?? e])
+        .range([0, width]);
 
       const yMax = d3.max(filtered, (d) => toNum(d?.answers?.[0]?.key)) ?? 5;
-      const y = d3.scaleLinear().domain([0, Math.max(5, yMax)]).nice().range([height, 0]);
+      const y = d3
+        .scaleLinear()
+        .domain([0, Math.max(5, yMax)])
+        .nice()
+        .range([height, 0]);
 
       smartBandAxisBottom(g.append('g').attr('transform', `translate(0,${height})`), x, width);
       g.append('g').call(d3.axisLeft(y));
 
-      svg.append('text')
-        .attr('x', W / 2).attr('y', 22).attr('text-anchor', 'middle')
-        .style('font-size', '14px').style('font-weight', 600)
+      svg
+        .append('text')
+        .attr('x', W / 2)
+        .attr('y', 22)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '14px')
+        .style('font-weight', 600)
         .text(t('Responses to Individual Questionnaire Questions'));
 
       const palette = d3.scaleOrdinal(d3.schemeTableau10).domain(keys);
@@ -106,7 +119,9 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
               key;
             tt.style('opacity', 1).html(`<strong>${label}</strong><br/>${d.iso} — ${d.y}`);
           })
-          .on('mousemove', (ev: any) => tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px'))
+          .on('mousemove', (ev: any) =>
+            tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px')
+          )
           .on('mouseout', () => tt.style('opacity', 0));
       });
 
@@ -114,7 +129,8 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
         svg as any,
         keys.map((k) => ({
           label:
-            (byQ.get(k) || [])[0]?.questionTranslations?.find((tr) => tr.language === i18n.language)?.text ??
+            (byQ.get(k) || [])[0]?.questionTranslations?.find((tr) => tr.language === i18n.language)
+              ?.text ??
             (byQ.get(k) || [])[0]?.questionTranslations?.find((tr) => tr.language === 'en')?.text ??
             k,
           color: palette(k)!,

@@ -3,12 +3,14 @@ import React, { useEffect } from 'react';
 import * as d3 from 'd3';
 import { isInRange } from '../../../utils/healthCharts';
 
-const WeightChart = React.forwardRef<SVGSVGElement, {
-  data: any[];
-  start: Date;
-  end: Date;
-}>(({ data, start, end }, ref) => {
-
+const WeightChart = React.forwardRef<
+  SVGSVGElement,
+  {
+    data: any[];
+    start: Date;
+    end: Date;
+  }
+>(({ data, start, end }, ref) => {
   useEffect(() => {
     if (!ref || !(ref as any).current) return;
 
@@ -31,7 +33,8 @@ const WeightChart = React.forwardRef<SVGSVGElement, {
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
     if (filtered.length === 0) {
-      svg.append('text')
+      svg
+        .append('text')
         .attr('x', width / 2)
         .attr('y', height / 2)
         .attr('text-anchor', 'middle')
@@ -48,21 +51,17 @@ const WeightChart = React.forwardRef<SVGSVGElement, {
 
     const y = d3
       .scaleLinear()
-      .domain([
-        d3.min(filtered, (d) => d.weight)! - 1,
-        d3.max(filtered, (d) => d.weight)! + 1,
-      ])
+      .domain([d3.min(filtered, (d) => d.weight)! - 1, d3.max(filtered, (d) => d.weight)! + 1])
       .nice()
       .range([height - margin.bottom, margin.top]);
 
     // ------- Axis -------
-    svg.append('g')
+    svg
+      .append('g')
       .attr('transform', `translate(0, ${height - margin.bottom})`)
       .call(d3.axisBottom(x).ticks(6));
 
-    svg.append('g')
-      .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y));
+    svg.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
     // ------- Line -------
     const line = d3
@@ -71,7 +70,8 @@ const WeightChart = React.forwardRef<SVGSVGElement, {
       .y((d) => y(d.weight))
       .curve(d3.curveMonotoneX);
 
-    svg.append('path')
+    svg
+      .append('path')
       .datum(filtered)
       .attr('fill', 'none')
       .attr('stroke', '#007bff')
@@ -79,7 +79,8 @@ const WeightChart = React.forwardRef<SVGSVGElement, {
       .attr('d', line);
 
     // ------- Points -------
-    svg.selectAll('circle')
+    svg
+      .selectAll('circle')
       .data(filtered)
       .enter()
       .append('circle')
@@ -87,7 +88,6 @@ const WeightChart = React.forwardRef<SVGSVGElement, {
       .attr('cy', (d) => y(d.weight))
       .attr('r', 4)
       .attr('fill', '#007bff');
-
   }, [data, start, end, ref]);
 
   return <svg ref={ref} />;

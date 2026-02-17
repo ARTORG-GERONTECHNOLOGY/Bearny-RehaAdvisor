@@ -1,5 +1,5 @@
 // src/components/HomePage/RegisteringForm.tsx
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Modal, Spinner } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -16,6 +16,8 @@ interface RegisterFormProps {
   handleRegShow: () => void; // toggles modal open/close
 }
 
+type Option = { value: string; label: string };
+
 const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const { t } = useTranslation();
 
@@ -23,6 +25,12 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const formSteps = (config as any).TherapistForm;
   const specialityDiagnosisMap: Record<string, string[]> =
     (config as any).patientInfo?.functionPat || {};
+
+  const therapistInfo = (config as any).therapistInfo || {};
+  const therapistSpecializations: string[] = therapistInfo.specializations || [];
+  const therapistClinics: string[] = Object.keys(therapistInfo.clinic_projects || {});
+  const allProjects: string[] = therapistInfo.projects || [];
+  const clinicProjectsMap: Record<string, string[]> = therapistInfo.clinic_projects || {};
 
   const [formData, setFormData] = useState<FormDataShape>({
     email: '',
@@ -34,6 +42,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     phone: '',
     specialisation: [],
     clinic: [],
+    projects: [], // ✅ NEW
     researcherInfo: '',
     adminInfo: '',
     function: [],
@@ -49,10 +58,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const [serverDetail, setServerDetail] = useState<{
-    status?: number;
-    message?: string;
-  } | null>(null);
+  const [serverDetail, setServerDetail] = useState<{ status?: number; message?: string } | null>(
+    null
+  );
   const [showDetails, setShowDetails] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -63,24 +71,21 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
   /** ---------- sanitizers / validators ---------- */
-
-  // collapse multiple spaces, trim
-  const cleanSpaces = (s: string) => String(s ?? '').replace(/\s+/g, ' ').trim();
-
-  // "soft" clean: keep internal spaces for names, but normalize
+  const cleanSpaces = (s: string) =>
+    String(s ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
   const cleanName = (s: string) => cleanSpaces(s);
+  const cleanEmail = (s: string) =>
+    String(s ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '');
+  const cleanPhone = (s: string) =>
+    String(s ?? '')
+      .replace(/[\s\-().]/g, '')
+      .trim();
 
-  // remove all spaces (useful for emails)
-  const cleanEmail = (s: string) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
-
-  // phone: remove spaces and common separators
-  const cleanPhone = (s: string) => String(s ?? '').replace(/[\s\-().]/g, '').trim();
-
-  // stricter email validation:
-  // - local part must start with alnum (so "-1@gmail.com" fails)
-  // - no consecutive dots
-  // - no leading/trailing dot in local
-  // - domain labels can't start/end with hyphen
   const isValidEmailStrict = (emailRaw: string) => {
     const email = cleanEmail(emailRaw);
     if (!email || email.length > 254) return false;
@@ -92,11 +97,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     const local = email.slice(0, at);
     const domain = email.slice(at + 1);
 
-    // local: must start with letter/number; allowed: letters, numbers, ._%+-
     if (!/^[a-z0-9][a-z0-9._%+-]*$/i.test(local)) return false;
     if (local.endsWith('.')) return false;
 
-    // domain basic checks
     if (domain.length < 3) return false;
     if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return false;
 
@@ -107,13 +110,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     return true;
   };
 
-  // Name validation (supports accents): letters + spaces + apostrophe/hyphen
-  // examples ok: "Anne-Marie", "O'Connor", "Jean Claude"
   const isValidHumanName = (nameRaw: string) => {
     const name = cleanName(nameRaw);
     if (!name) return false;
     if (name.length < 2) return false;
-
     const re = /^[\p{L}\p{M}]+(?:[ '\-][\p{L}\p{M}]+)*$/u;
     return re.test(name);
   };
@@ -151,6 +151,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       phone: '',
       specialisation: [],
       clinic: [],
+      projects: [], // ✅ NEW
       researcherInfo: '',
       adminInfo: '',
       function: [],
@@ -167,15 +168,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     setLoading(false);
   }, []);
 
-  // ✅ same keyboard exit behavior: Esc should close using the same logic
   const confirmClose = useCallback(() => {
     const hasAny = Object.entries(formData).some(([k, v]) => {
-      if (k === 'repeatPassword') return false; // ignore repeatPassword for "unsaved"
+      if (k === 'repeatPassword') return false;
       if (Array.isArray(v)) return v.length > 0;
       return !!String(v ?? '').trim();
     });
 
-    // If already successful, close without prompting
     if (successMsg) {
       resetForm();
       handleRegShow();
@@ -183,7 +182,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     }
 
     if (loading) {
-      // avoid exiting mid-submit without confirmation
       if (!window.confirm(t('A request is in progress. Do you want to close?'))) return;
       setLoading(false);
     } else if (hasAny) {
@@ -212,11 +210,37 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [show, confirmClose]);
 
+  // ✅ NEW: derive allowed projects from selected clinics
+  const allowedProjectsForSelectedClinics = useMemo(() => {
+    const clinics = Array.isArray(formData.clinic) ? (formData.clinic as string[]) : [];
+    if (!clinics.length) return [];
+
+    const set = new Set<string>();
+    clinics.forEach((c) => {
+      (clinicProjectsMap[c] || []).forEach((p) => set.add(p));
+    });
+
+    // keep stable order based on global project list
+    return allProjects.filter((p) => set.has(p));
+  }, [allProjects, clinicProjectsMap, formData.clinic]);
+
+  // ✅ NEW: whenever clinics change, prune projects that are no longer allowed
+  useEffect(() => {
+    if (!Array.isArray(formData.projects)) return;
+
+    const allowed = new Set(allowedProjectsForSelectedClinics);
+    const next = (formData.projects as string[]).filter((p) => allowed.has(p));
+
+    if (next.length !== (formData.projects as string[]).length) {
+      setFormData((prev) => ({ ...prev, projects: next }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedProjectsForSelectedClinics]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id } = e.target;
     let value = e.target.value;
 
-    // ---- normalize values immediately (prevents whitespace issues) ----
     if (id === 'email') value = cleanEmail(value);
     else if (id === 'phone') value = cleanPhone(value);
     else if (id === 'firstName' || id === 'lastName') value = cleanName(value);
@@ -237,11 +261,11 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         setErrors((prevErr) => ({ ...prevErr, [id]: '' }));
       }
 
-      // Adjust dependent fields based on user type
       if (id === 'userType') {
         if (value === 'Therapist') {
           updated.specialisation = [];
           updated.clinic = [];
+          updated.projects = []; // ✅ reset dependent field
         } else if (value === 'Researcher') {
           updated.researcherInfo = '';
         } else if (value === 'admin') {
@@ -258,7 +282,19 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     fieldName: string
   ) => {
     const selectedValues = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
-    setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
+
+    setFormData((prev) => {
+      const updated = { ...prev, [fieldName]: selectedValues };
+
+      // ✅ if clinic changes, projects will be auto-pruned by effect above
+      // But we can also clear projects when clinic becomes empty
+      if (fieldName === 'clinic' && selectedValues.length === 0) {
+        updated.projects = [];
+      }
+
+      return updated;
+    });
+
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
     if (formError) setFormError(null);
     setServerDetail(null);
@@ -275,15 +311,14 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     const newErrors: Record<string, string> = {};
     const fields = formSteps[step]?.fields || [];
 
-    // required fields
     fields.forEach((field: any) => {
       const val = formData[field.name];
+
       if (field.required && (!val || (Array.isArray(val) && val.length === 0))) {
         newErrors[field.name] = t('This field is required.');
       }
     });
 
-    // phone (if visible in this step)
     if (fields.some((f: any) => f.name === 'phone')) {
       const phone = String(formData.phone || '');
       if (phone && !/^\d{8,15}$/.test(phone)) {
@@ -291,7 +326,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     }
 
-    // email strict
     if (fields.some((f: any) => f.name === 'email')) {
       const email = String(formData.email || '');
       if (email && !isValidEmailStrict(email)) {
@@ -299,13 +333,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     }
 
-    // names
     if (fields.some((f: any) => f.name === 'firstName')) {
       const fn = String(formData.firstName || '');
       if (fn && !isValidHumanName(fn)) {
         newErrors.firstName = t('Please enter a valid first name.');
       }
     }
+
     if (fields.some((f: any) => f.name === 'lastName')) {
       const ln = String(formData.lastName || '');
       if (ln && !isValidHumanName(ln)) {
@@ -313,7 +347,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     }
 
-    // password policy (if visible in this step)
     if (fields.some((f: any) => f.name === 'password')) {
       const pwd = String(formData.password || '');
       if (!pwdRegex.test(pwd)) {
@@ -326,6 +359,20 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     }
 
+    // ✅ NEW: projects validation only when field is present in step
+    if (fields.some((f: any) => f.name === 'projects')) {
+      const clinics = Array.isArray(formData.clinic) ? (formData.clinic as string[]) : [];
+      const projects = Array.isArray(formData.projects) ? (formData.projects as string[]) : [];
+
+      if (clinics.length > 0) {
+        const allowed = new Set(allowedProjectsForSelectedClinics);
+        const invalid = projects.filter((p) => !allowed.has(p));
+        if (invalid.length) {
+          newErrors.projects = t('Selected projects are not allowed for the selected clinic(s).');
+        }
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -333,7 +380,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const nextStep = () => validateStep() && step < formSteps.length - 1 && setStep(step + 1);
   const prevStep = () => step > 0 && setStep(step - 1);
 
-  /** Extract a single message string from arbitrary server payload */
   const extractServerMessage = (data: any, fallback: string) => {
     if (typeof data === 'string') return data;
 
@@ -361,7 +407,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
     if (!validateStep()) return;
 
-    // final sanitize before submit (guarantees no hidden whitespace)
     const cleanedPayload: FormDataShape = {
       ...formData,
       email: cleanEmail(String(formData.email || '')),
@@ -406,10 +451,27 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
   const currentFields = formSteps[step]?.fields || [];
 
+  // ✅ helper: build options for known dynamic fields
+  const getOptionsForField = (fieldName: string): Option[] => {
+    if (fieldName === 'specialisation')
+      return therapistSpecializations.map((s) => ({ value: s, label: t(s) }));
+    if (fieldName === 'clinic') return therapistClinics.map((c) => ({ value: c, label: t(c) }));
+    if (fieldName === 'projects') {
+      const source = allowedProjectsForSelectedClinics.length
+        ? allowedProjectsForSelectedClinics
+        : allProjects;
+      return source.map((p) => ({ value: p, label: p }));
+    }
+    return [];
+  };
+
+  const projectsDisabled =
+    Array.isArray(formData.clinic) && (formData.clinic as string[]).length === 0;
+
   return (
     <Modal
       show={show}
-      onHide={handleCloseForm} // ✅ X button uses confirmClose too
+      onHide={handleCloseForm}
       onEscapeKeyDown={(e) => {
         e.preventDefault();
         confirmClose();
@@ -417,14 +479,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       centered
       size="lg"
       backdrop="static"
-      keyboard // ✅ enable Esc -> onHide
+      keyboard
     >
       <Modal.Header closeButton>
         <Modal.Title>{t('Register')}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {/* Top banners */}
         {formError && (
           <div className="alert alert-danger">
             <div className="d-flex justify-content-between align-items-center">
@@ -443,7 +504,11 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
             {serverDetail && (
               <div className="mt-2">
-                <button type="button" className="btn btn-link p-0" onClick={() => setShowDetails((v) => !v)}>
+                <button
+                  type="button"
+                  className="btn btn-link p-0"
+                  onClick={() => setShowDetails((v) => !v)}
+                >
                   {t('Additional information')}
                 </button>
                 {showDetails && (
@@ -461,12 +526,16 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         {successMsg && (
           <div className="alert alert-success d-flex justify-content-between align-items-center">
             <span>{successMsg}</span>
-            <button type="button" className="btn-close" aria-label={t('Close')} onClick={() => setSuccessMsg(null)} />
+            <button
+              type="button"
+              className="btn-close"
+              aria-label={t('Close')}
+              onClick={() => setSuccessMsg(null)}
+            />
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Disable the fieldset while loading or after success */}
           <fieldset disabled={loading || !!successMsg}>
             <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
 
@@ -478,6 +547,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                 </>
               );
 
+              const valueArr: string[] = Array.isArray(formData[field.name])
+                ? (formData[field.name] as string[])
+                : [];
+
               return (
                 <div key={field.name} className="mb-3">
                   <label htmlFor={field.name} className="form-label">
@@ -485,19 +558,43 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                   </label>
 
                   {field.type === 'multi-select' ? (
-                    <Select
-                      id={field.name}
-                      isMulti
-                      value={(formData[field.name] as string[]).map((val: string) => ({ value: val, label: t(val) }))}
-                      options={
-                        field.name === 'diagnosis' && (formData.function || []).length > 0
-                          ? (formData.function as string[]).flatMap((spec: string) =>
-                              (specialityDiagnosisMap[spec] || []).map((diag) => ({ value: diag, label: t(diag) }))
-                            )
-                          : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }))
-                      }
-                      onChange={(options) => handleMultiSelectChange(options, field.name)}
-                    />
+                    <>
+                      <Select
+                        id={field.name}
+                        isMulti
+                        isDisabled={field.name === 'projects' ? projectsDisabled : false}
+                        placeholder={
+                          field.name === 'projects' && projectsDisabled
+                            ? t('Select clinic(s) first...')
+                            : t('Select...')
+                        }
+                        value={valueArr.map((val) => ({ value: val, label: t(val) }))}
+                        options={
+                          field.name === 'diagnosis' && (formData.function || []).length > 0
+                            ? (formData.function as string[]).flatMap((spec: string) =>
+                                (specialityDiagnosisMap[spec] || []).map((diag) => ({
+                                  value: diag,
+                                  label: t(diag),
+                                }))
+                              )
+                            : field.name === 'specialisation' ||
+                                field.name === 'clinic' ||
+                                field.name === 'projects'
+                              ? getOptionsForField(field.name)
+                              : (field.options || []).map((opt: string) => ({
+                                  value: opt,
+                                  label: t(opt),
+                                }))
+                        }
+                        onChange={(options) => handleMultiSelectChange(options, field.name)}
+                      />
+
+                      {field.name === 'projects' && !projectsDisabled && (
+                        <div className="text-muted small mt-1">
+                          {t('Available projects based on selected clinic(s).')}
+                        </div>
+                      )}
+                    </>
                   ) : field.type === 'dropdown' ? (
                     <select
                       id={field.name}
@@ -530,8 +627,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                               ? 'text'
                               : 'password'
                             : showRepeatPassword
-                            ? 'text'
-                            : 'password'
+                              ? 'text'
+                              : 'password'
                         }
                         className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                         id={field.name}
@@ -544,7 +641,9 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                         className="position-absolute end-0 top-50 translate-middle-y me-3"
                         role="button"
                         tabIndex={0}
-                        onClick={() => togglePassword(field.name === 'password' ? 'main' : 'repeat')}
+                        onClick={() =>
+                          togglePassword(field.name === 'password' ? 'main' : 'repeat')
+                        }
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
@@ -553,17 +652,25 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                         }}
                         aria-label={t('Toggle password visibility')}
                       >
-                        {field.name === 'password'
-                          ? showPassword
-                            ? <FaEye />
-                            : <FaEyeSlash />
-                          : showRepeatPassword
-                          ? <FaEye />
-                          : <FaEyeSlash />}
+                        {field.name === 'password' ? (
+                          showPassword ? (
+                            <FaEye />
+                          ) : (
+                            <FaEyeSlash />
+                          )
+                        ) : showRepeatPassword ? (
+                          <FaEye />
+                        ) : (
+                          <FaEyeSlash />
+                        )}
                       </span>
 
                       {errors[field.name] && (
-                        <div id={`${field.name}-help`} className="mt-1 small text-danger" aria-live="polite">
+                        <div
+                          id={`${field.name}-help`}
+                          className="mt-1 small text-danger"
+                          aria-live="polite"
+                        >
                           {errors[field.name]}
                         </div>
                       )}
@@ -580,11 +687,15 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                           const next = { ...prev };
 
                           if (field.name === 'email' && formData.email) {
-                            if (!isValidEmailStrict(formData.email)) next.email = t('Invalid email address.');
+                            if (!isValidEmailStrict(formData.email))
+                              next.email = t('Invalid email address.');
                             else delete next.email;
                           }
 
-                          if ((field.name === 'firstName' || field.name === 'lastName') && formData[field.name]) {
+                          if (
+                            (field.name === 'firstName' || field.name === 'lastName') &&
+                            formData[field.name]
+                          ) {
                             if (!isValidHumanName(String(formData[field.name])))
                               next[field.name] = t('Please enter a valid name (letters only).');
                             else delete next[field.name];
@@ -602,7 +713,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     />
                   )}
 
-                  {/* Non-password field errors */}
                   {field.type !== 'password' && errors[field.name] && (
                     <div className="text-danger mt-1" aria-live="polite">
                       {errors[field.name]}
@@ -613,7 +723,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
             })}
           </fieldset>
 
-          {/* Footer buttons */}
           <div className="d-flex justify-content-between mt-4">
             {successMsg ? (
               <div className="ms-auto">

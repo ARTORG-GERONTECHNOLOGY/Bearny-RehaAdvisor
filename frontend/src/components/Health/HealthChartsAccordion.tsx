@@ -47,7 +47,13 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
         <Accordion.Header>{t('Adherence')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
-            <AdherenceLine ref={svgRefs.adherence} data={store.adherenceData} res={store.chartRes} start={start} end={end} />
+            <AdherenceLine
+              ref={svgRefs.adherence}
+              data={store.adherenceData}
+              res={store.chartRes}
+              start={start}
+              end={end}
+            />
           </div>
         </Accordion.Body>
       </Accordion.Item>
@@ -56,7 +62,13 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
         <Accordion.Header>{t('Summary of Questionaire Scores')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
-            <QuestionnaireTotal ref={svgRefs.totalScore} data={store.questionnaireData} res={store.chartRes} start={start} end={end} />
+            <QuestionnaireTotal
+              ref={svgRefs.totalScore}
+              data={store.questionnaireData}
+              res={store.chartRes}
+              start={start}
+              end={end}
+            />
           </div>
         </Accordion.Body>
       </Accordion.Item>
@@ -207,7 +219,12 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
         <Accordion.Header>{t('Blood Pressure')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
-            <BloodPressureChart ref={svgRefs.bloodPressure} data={store.fitbitData} start={start} end={end} />
+            <BloodPressureChart
+              ref={svgRefs.bloodPressure}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+            />
           </div>
         </Accordion.Body>
       </Accordion.Item>
@@ -217,7 +234,12 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
         <Accordion.Body className="p-2 p-md-3">
           <Row className="g-3">
             <Col xs={12} lg={7}>
-              <ExerciseSessionsChart ref={svgRefs.exercise} data={store.fitbitData} start={start} end={end} />
+              <ExerciseSessionsChart
+                ref={svgRefs.exercise}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </Col>
             <Col xs={12} lg={5}>
               <ExerciseSessionsTable data={store.fitbitData} start={start} end={end} />

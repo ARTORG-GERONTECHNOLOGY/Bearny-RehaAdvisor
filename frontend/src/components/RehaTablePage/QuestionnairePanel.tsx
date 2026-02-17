@@ -1,12 +1,6 @@
 // src/components/RehaTablePage/QuestionnairePanel.tsx
 import React from 'react';
-import {
-  Row,
-  Col,
-  Card,
-  ButtonGroup,
-  Button,
-} from 'react-bootstrap';
+import { Row, Col, Card, ButtonGroup, Button } from 'react-bootstrap';
 import { TFunction } from 'i18next';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 
@@ -44,11 +38,7 @@ interface QuestionnairePanelProps {
   t: TFunction;
 }
 
-const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
-  data,
-  actions,
-  t,
-}) => {
+const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
   const { openAddQ, openModifyQ, removeQ } = actions;
 
@@ -61,14 +51,10 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
           <Card.Body className="p-2 flex-1 min-h-0">
             <div className="scroll-y">
               {questionnaires.length === 0 && (
-                <div className="text-muted">
-                  {t('No questionnaires found')}
-                </div>
+                <div className="text-muted">{t('No questionnaires found')}</div>
               )}
               {questionnaires.map((q) => {
-                const isAlready = !!assignedQuestionnaires.find(
-                  (a) => a._id === q._id
-                );
+                const isAlready = !!assignedQuestionnaires.find((a) => a._id === q._id);
                 return (
                   <div
                     key={q._id}
@@ -86,24 +72,15 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
                       <ButtonGroup size="sm" vertical>
                         {isAlready ? (
                           <>
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => openModifyQ(q)}
-                            >
+                            <Button variant="outline-secondary" onClick={() => openModifyQ(q)}>
                               <FaEdit />
                             </Button>
-                            <Button
-                              variant="outline-danger"
-                              onClick={() => removeQ(q._id)}
-                            >
+                            <Button variant="outline-danger" onClick={() => removeQ(q._id)}>
                               <FaTrash />
                             </Button>
                           </>
                         ) : (
-                          <Button
-                            variant="outline-success"
-                            onClick={() => openAddQ(q)}
-                          >
+                          <Button variant="outline-success" onClick={() => openAddQ(q)}>
                             <FaPlus />
                           </Button>
                         )}
@@ -124,9 +101,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
           <Card.Body className="p-2 flex-1 min-h-0">
             <div className="scroll-y">
               {assignedQuestionnaires.length === 0 && (
-                <div className="text-muted">
-                  {t('No questionnaires assigned')}
-                </div>
+                <div className="text-muted">{t('No questionnaires assigned')}</div>
               )}
               {assignedQuestionnaires.map((a) => (
                 <div
@@ -140,8 +115,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
                     </div>
                     {a.dates?.length ? (
                       <div className="small text-muted">
-                        {t('Next on')}:{' '}
-                        {new Date(a.dates[0]).toLocaleDateString()}
+                        {t('Next on')}: {new Date(a.dates[0]).toLocaleDateString()}
                       </div>
                     ) : null}
                   </div>
@@ -159,10 +133,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({
                       >
                         <FaEdit />
                       </Button>
-                      <Button
-                        variant="outline-danger"
-                        onClick={() => removeQ(a._id)}
-                      >
+                      <Button variant="outline-danger" onClick={() => removeQ(a._id)}>
                         <FaTrash />
                       </Button>
                     </ButtonGroup>

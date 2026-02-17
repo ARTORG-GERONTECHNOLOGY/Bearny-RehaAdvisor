@@ -76,13 +76,7 @@ type Props = {
   date?: string;
 };
 
-const FeedbackPopup: React.FC<Props> = ({
-  show,
-  interventionId,
-  questions,
-  onClose,
-  date,
-}) => {
+const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
   const privacyNote = PRIVACY_NOTE[currentLang] || PRIVACY_NOTE.en;
@@ -192,9 +186,7 @@ const FeedbackPopup: React.FC<Props> = ({
 
     if (!multiple) {
       setTimeout(() => {
-        setCurrentQuestionIndex((idx) =>
-          idx + 1 < normalizedQuestions.length ? idx + 1 : idx
-        );
+        setCurrentQuestionIndex((idx) => (idx + 1 < normalizedQuestions.length ? idx + 1 : idx));
       }, 120);
     }
   };
@@ -407,9 +399,7 @@ const FeedbackPopup: React.FC<Props> = ({
                   key={i}
                   variant={active ? 'primary' : 'outline-primary'}
                   className="answer-btn"
-                  onClick={() =>
-                    handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)
-                  }
+                  onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
                   aria-pressed={active}
                   aria-label={label}
                   title={label}
@@ -517,9 +507,7 @@ const FeedbackPopup: React.FC<Props> = ({
                           </div>
                         )}
 
-                        <p className="text-muted small mt-auto mb-0 text-center">
-                          {privacyNote}
-                        </p>
+                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
                       </div>
                     )}
                   </>
@@ -533,9 +521,7 @@ const FeedbackPopup: React.FC<Props> = ({
                         <Button variant="warning" onClick={deleteVideo} className="mt-2">
                           <FaTrash /> {t('Delete')}
                         </Button>
-                        <p className="text-muted small mt-auto mb-0 text-center">
-                          {privacyNote}
-                        </p>
+                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
                       </>
                     ) : (
                       <>
@@ -561,13 +547,16 @@ const FeedbackPopup: React.FC<Props> = ({
 
                             <Form.Label className="btn btn-outline-secondary mb-0">
                               <FaUpload className="me-1" /> {t('Upload')}
-                              <Form.Control type="file" accept="video/*" hidden onChange={handleUpload} />
+                              <Form.Control
+                                type="file"
+                                accept="video/*"
+                                hidden
+                                onChange={handleUpload}
+                              />
                             </Form.Label>
                           </div>
                         )}
-                        <p className="text-muted small mt-auto mb-0 text-center">
-                          {privacyNote}
-                        </p>
+                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
                       </>
                     )}
                   </div>
@@ -577,9 +566,7 @@ const FeedbackPopup: React.FC<Props> = ({
           </div>
         </div>
 
-        {error && (
-          <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />
-        )}
+        {error && <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />}
       </Modal.Body>
 
       <Modal.Footer>

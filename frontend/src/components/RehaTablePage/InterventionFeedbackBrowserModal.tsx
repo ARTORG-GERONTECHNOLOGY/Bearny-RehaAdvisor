@@ -106,7 +106,8 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
             <div className="d-flex align-items-center justify-content-between mb-2">
               <div className="fw-semibold">{t('Entries')}</div>
               <div className="small text-muted">
-                {t('Total')}: {summary.total} • {t('With feedback')}: {summary.withFeedback} • {t('Completed')}: {summary.completed}
+                {t('Total')}: {summary.total} • {t('With feedback')}: {summary.withFeedback} •{' '}
+                {t('Completed')}: {summary.completed}
               </div>
             </div>
 
@@ -118,16 +119,32 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
               </div>
               <div className="d-flex flex-wrap gap-2 mb-2">
                 <ButtonGroup>
-                  <Button size="sm" variant={range === 'all' ? 'primary' : 'outline-secondary'} onClick={() => setRange('all')}>
+                  <Button
+                    size="sm"
+                    variant={range === 'all' ? 'primary' : 'outline-secondary'}
+                    onClick={() => setRange('all')}
+                  >
                     {t('All')}
                   </Button>
-                  <Button size="sm" variant={range === '7' ? 'primary' : 'outline-secondary'} onClick={() => setRange('7')}>
+                  <Button
+                    size="sm"
+                    variant={range === '7' ? 'primary' : 'outline-secondary'}
+                    onClick={() => setRange('7')}
+                  >
                     7d
                   </Button>
-                  <Button size="sm" variant={range === '30' ? 'primary' : 'outline-secondary'} onClick={() => setRange('30')}>
+                  <Button
+                    size="sm"
+                    variant={range === '30' ? 'primary' : 'outline-secondary'}
+                    onClick={() => setRange('30')}
+                  >
                     30d
                   </Button>
-                  <Button size="sm" variant={range === '90' ? 'primary' : 'outline-secondary'} onClick={() => setRange('90')}>
+                  <Button
+                    size="sm"
+                    variant={range === '90' ? 'primary' : 'outline-secondary'}
+                    onClick={() => setRange('90')}
+                  >
                     90d
                   </Button>
                 </ButtonGroup>
@@ -168,14 +185,34 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                       <div>
                         <div className="fw-semibold">{dateOnly(e.datetime)}</div>
                         <div className="small">
-                          <Badge bg={e.status === 'completed' ? 'success' : 'secondary'}>{e.status}</Badge>{' '}
-                          {hasFb && <Badge bg="info"><FaCommentDots className="me-1" />{t('Feedback')}</Badge>}{' '}
-                          {hasAudio && <Badge bg="dark"><FaMicrophone className="me-1" />{t('Audio')}</Badge>}{' '}
-                          {hasVideo && <Badge bg="warning"><FaVideo className="me-1" />{t('Video')}</Badge>}
+                          <Badge bg={e.status === 'completed' ? 'success' : 'secondary'}>
+                            {e.status}
+                          </Badge>{' '}
+                          {hasFb && (
+                            <Badge bg="info">
+                              <FaCommentDots className="me-1" />
+                              {t('Feedback')}
+                            </Badge>
+                          )}{' '}
+                          {hasAudio && (
+                            <Badge bg="dark">
+                              <FaMicrophone className="me-1" />
+                              {t('Audio')}
+                            </Badge>
+                          )}{' '}
+                          {hasVideo && (
+                            <Badge bg="warning">
+                              <FaVideo className="me-1" />
+                              {t('Video')}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <div className="small text-muted">
-                        {new Date(e.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(e.datetime).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </div>
                     </div>
                   </button>
@@ -193,7 +230,9 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <div className="fw-semibold">
                     {dateOnly(current.datetime)} • {t('Status')}:&nbsp;
-                    <Badge bg={current.status === 'completed' ? 'success' : 'secondary'}>{t(current.status)}</Badge>
+                    <Badge bg={current.status === 'completed' ? 'success' : 'secondary'}>
+                      {t(current.status)}
+                    </Badge>
                   </div>
                   <div className="small text-muted">
                     {t('Feedback items')}: {current.feedback?.length || 0}
@@ -203,11 +242,21 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                 {/* Optional video */}
                 {(current as any).video && (
                   <section className="mb-3">
-                    <div className="fw-semibold mb-1"><FaVideo className="me-2" />{t('Video feedback')}</div>
-                    {(current as any).video?.comment && <div className="fst-italic mb-2">{(current as any).video.comment}</div>}
+                    <div className="fw-semibold mb-1">
+                      <FaVideo className="me-2" />
+                      {t('Video feedback')}
+                    </div>
+                    {(current as any).video?.comment && (
+                      <div className="fst-italic mb-2">{(current as any).video.comment}</div>
+                    )}
                     {!(current as any).video?.video_expired ? (
                       <div className="rounded shadow-sm overflow-hidden">
-                        <ReactPlayer url={(current as any).video.video_url} width="100%" height="320px" controls />
+                        <ReactPlayer
+                          url={(current as any).video.video_url}
+                          width="100%"
+                          height="320px"
+                          controls
+                        />
                       </div>
                     ) : (
                       <div className="text-muted">{t('Video feedback has expired.')}</div>
@@ -228,7 +277,12 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                         {f.audio_url && (
                           <div className="my-1">
                             <div className="small text-muted">{t('Original audio')}</div>
-                            <audio controls preload="none" src={f.audio_url || ''} style={{ width: '100%' }} />
+                            <audio
+                              controls
+                              preload="none"
+                              src={f.audio_url || ''}
+                              style={{ width: '100%' }}
+                            />
                           </div>
                         )}
 
@@ -242,9 +296,11 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                         )}
 
                         {/* fallback to comment if no answers/audio */}
-                        {(!answers || answers.length === 0) && !f.audio_url && (f.comment?.trim()?.length ?? 0) > 0 && (
-                          <div className="mt-1">{f.comment}</div>
-                        )}
+                        {(!answers || answers.length === 0) &&
+                          !f.audio_url &&
+                          (f.comment?.trim()?.length ?? 0) > 0 && (
+                            <div className="mt-1">{f.comment}</div>
+                          )}
                       </section>
                     );
                   })

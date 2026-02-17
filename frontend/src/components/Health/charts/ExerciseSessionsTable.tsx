@@ -18,23 +18,18 @@ const formatDurationHM = (ms?: number | null): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-const getPeakZone = (
-  zones?: any[]
-): { range: string | null; minutes: number | null } => {
+const getPeakZone = (zones?: any[]): { range: string | null; minutes: number | null } => {
   if (!Array.isArray(zones)) return { range: null, minutes: null };
 
   const peak = zones.find((z) => z.name?.toLowerCase() === 'peak');
   if (!peak) return { range: null, minutes: null };
 
   const range =
-    typeof peak.min === 'number' && typeof peak.max === 'number'
-      ? `${peak.min}–${peak.max}`
-      : null;
+    typeof peak.min === 'number' && typeof peak.max === 'number' ? `${peak.min}–${peak.max}` : null;
 
   return {
     range,
-    minutes:
-      typeof peak.minutes === 'number' ? peak.minutes : null,
+    minutes: typeof peak.minutes === 'number' ? peak.minutes : null,
   };
 };
 
@@ -63,14 +58,10 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
             date: dateStr,
             name: s.name || '-',
             duration: formatDurationHM(s.duration),
-            avgHR:
-              typeof s.averageHeartRate === 'number'
-                ? s.averageHeartRate
-                : null,
+            avgHR: typeof s.averageHeartRate === 'number' ? s.averageHeartRate : null,
             peakRange: peak.range,
             peakMinutes: peak.minutes,
-            calories:
-              typeof s.calories === 'number' ? s.calories : null,
+            calories: typeof s.calories === 'number' ? s.calories : null,
           });
         });
       });
@@ -80,11 +71,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
   }, [data, start, end]);
 
   if (!rows.length) {
-    return (
-      <div className="text-muted small">
-        No exercise sessions in this period.
-      </div>
-    );
+    return <div className="text-muted small">No exercise sessions in this period.</div>;
   }
 
   return (
@@ -99,13 +86,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
 
             {/* HEADLINE shows peak zone range */}
             <th>
-              <OverlayTrigger
-                overlay={
-                  <Tooltip>
-                    Fitbit Peak heart-rate zone range (bpm)
-                  </Tooltip>
-                }
-              >
+              <OverlayTrigger overlay={<Tooltip>Fitbit Peak heart-rate zone range (bpm)</Tooltip>}>
                 <span>Peak zone (bpm)</span>
               </OverlayTrigger>
             </th>
