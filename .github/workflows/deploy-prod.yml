@@ -1,0 +1,375 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'nginx/**'
+      - 'docker-compose.prod.reha-advisor.yml'
+      - '.github/workflows/deploy-prod.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Tests Before Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          echo "Running frontend tests..."
+          cd frontend && npm ci && npm test -- --coverage --watchAll=false || exit 1
+          cd ..
+          
+          echo "Running backend tests..."
+          cd backend && pip install -r requirements.txt && pytest -v || exit 1
+
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod.reha-advisor
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata (backend)
+        id: meta-backend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.reha-advisor.ch
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USERNAME }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/reha-advisor-staging
+            
+            # Pull latest code
+            git pull origin main
+            
+            # Stop current services
+            docker compose -f docker-compose.prod.reha-advisor.yml down || true
+            
+            # Pull latest images
+            docker compose -f docker-compose.prod.reha-advisor.yml pull
+            
+            # Start services
+            docker compose -f docker-compose.prod.reha-advisor.yml up -d
+            
+            # Run migrations
+            docker exec django-prod python manage.py migrate
+            
+            # Collect static files
+            docker exec django-prod python manage.py collectstatic --noinput
+            
+            # Verify health
+            sleep 10
+            docker compose -f docker-compose.prod.reha-advisor.yml ps
+
+      - name: Health check
+        run: |
+          max_attempts=30
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f https://staging.reha-advisor.ch/health; then
+              echo "✅ Staging deployment successful"
+              exit 0
+            fi
+            attempt=$((attempt + 1))
+            sleep 2
+          done
+          
+          echo "❌ Health check failed"
+          exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-prod]'))
+    environment:
+      name: production
+      url: https://reha-advisor.ch
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify production readiness
+        run: |
+          echo "🔍 Verifying production readiness..."
+          
+          # Check if all tests passed
+          if [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "❌ Build failed - cannot deploy to production"
+            exit 1
+          fi
+          
+          echo "✅ All checks passed - ready for production deployment"
+
+      - name: Create backup
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/reha-advisor
+            
+            # Create backup before deployment
+            echo "Creating database backup..."
+            ./scripts/backup.sh
+            
+            # Upload backup to S3 if configured
+            if [ ! -z "${{ secrets.AWS_S3_BUCKET }}" ]; then
+              ./scripts/backup.sh --upload-s3 --s3-bucket ${{ secrets.AWS_S3_BUCKET }}
+            fi
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/reha-advisor
+            
+            echo "🚀 Starting production deployment..."
+            
+            # Pull latest code
+            git pull origin main
+            
+            # Backup current state
+            docker compose -f docker-compose.prod.reha-advisor.yml ps > /tmp/before-deploy.txt
+            
+            # Pull latest images
+            echo "📦 Pulling latest Docker images..."
+            docker compose -f docker-compose.prod.reha-advisor.yml pull
+            
+            # Perform zero-downtime deployment
+            echo "⚙️  Starting new services..."
+            docker compose -f docker-compose.prod.reha-advisor.yml up -d
+            
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 15
+            
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            docker exec django-prod python manage.py migrate
+            
+            # Collect static files
+            echo "📁 Collecting static files..."
+            docker exec django-prod python manage.py collectstatic --noinput
+            
+            # Verify deployment
+            echo "✅ Verifying deployment..."
+            docker compose -f docker-compose.prod.reha-advisor.yml ps
+
+      - name: Production health check
+        run: |
+          echo "🏥 Running production health checks..."
+          max_attempts=60
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/health)
+            
+            if [ "$http_code" = "200" ]; then
+              echo "✅ Production health check passed (HTTP $http_code)"
+              exit 0
+            fi
+            
+            echo "⏳ Attempt $((attempt + 1))/$max_attempts - HTTP $http_code"
+            attempt=$((attempt + 1))
+            sleep 2
+          done
+          
+          echo "❌ Production health check failed"
+          exit 1
+
+      - name: Verify database
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/reha-advisor
+            
+            echo "🗄️  Verifying database..."
+            docker exec db-prod mongosh admin --eval 'db.adminCommand("ping")' || exit 1
+            
+            echo "✅ Database verification passed"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "🌍 Service available at: https://reha-advisor.ch"
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/reha-advisor
+            
+            echo "❌ Production deployment failed - rolling back..."
+            
+            # Rollback to previous state
+            docker compose -f docker-compose.prod.reha-advisor.yml down
+            git checkout HEAD~1
+            docker compose -f docker-compose.prod.reha-advisor.yml up -d
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+            echo "status=✅ Production deployment successful" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ Production deployment failed" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: secrets.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            ${{ steps.status.outputs.status }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            
+            URL: https://reha-advisor.ch
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+
+      - name: Create GitHub deployment status
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const deployment_status = '${{ needs.deploy-production.result }}' === 'success' ? 'success' : 'failure';
+            
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment.id,
+              state: deployment_status,
+              description: 'Production deployment ${{ needs.deploy-production.result }}',
+              environment_url: 'https://reha-advisor.ch'
+            });
