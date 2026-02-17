@@ -128,11 +128,14 @@ export class InterventionRepeatModalStore {
     if (!this.startTime) errs.startTime = i18nT('Please choose a start time.');
     if (this.interval < 1) errs.interval = i18nT('Interval must be >= 1.');
 
-    if (!this.isModify && !this.startDateCreate) errs.startDateCreate = i18nT('Please choose a start date.');
-    if (this.isModify && !this.effectiveFrom) errs.effectiveFrom = i18nT('Please choose an effective date.');
+    if (!this.isModify && !this.startDateCreate)
+      errs.startDateCreate = i18nT('Please choose a start date.');
+    if (this.isModify && !this.effectiveFrom)
+      errs.effectiveFrom = i18nT('Please choose an effective date.');
 
     if (!(this.isModify && this.keepCurrent)) {
-      if (this.unit === 'week' && this.selectedDays.length === 0) errs.selectedDays = i18nT('Select at least one weekday.');
+      if (this.unit === 'week' && this.selectedDays.length === 0)
+        errs.selectedDays = i18nT('Select at least one weekday.');
       if (this.endOption === 'date' && !this.endDate) errs.endDate = i18nT('Pick an end date.');
       if (this.endOption === 'count' && (!this.occurrenceCount || this.occurrenceCount < 1))
         errs.occurrenceCount = i18nT('Number of occurrences must be >= 1.');
@@ -155,7 +158,8 @@ export class InterventionRepeatModalStore {
     this.error = '';
 
     try {
-      const intId = typeof params.intervention === 'string' ? params.intervention : params.intervention._id;
+      const intId =
+        typeof params.intervention === 'string' ? params.intervention : params.intervention._id;
 
       if (this.isModify) {
         const payload: any = {
@@ -212,7 +216,9 @@ export class InterventionRepeatModalStore {
         ],
       };
 
-      const path = params.isDiagnosis ? 'interventions/assign-to-patient-types/' : 'interventions/add-to-patient/';
+      const path = params.isDiagnosis
+        ? 'interventions/assign-to-patient-types/'
+        : 'interventions/add-to-patient/';
       const res = await apiClient.post(path, payload);
 
       if (res.status === 200 || res.status === 201) {
@@ -225,13 +231,18 @@ export class InterventionRepeatModalStore {
     } catch (err: any) {
       const api = err?.response?.data;
       const fErrs = api?.field_errors
-        ? Object.entries(api.field_errors).flatMap(([field, arr]) => (arr as string[]).map((msg) => `${field}: ${msg}`))
+        ? Object.entries(api.field_errors).flatMap(([field, arr]) =>
+            (arr as string[]).map((msg) => `${field}: ${msg}`)
+          )
         : [];
       const nfErrs = api?.non_field_errors || [];
       const message = api?.message || api?.error || err.message;
       const all = [...fErrs, ...nfErrs];
 
-      this.error = all.length > 0 ? `${message}\n• ${all.join('\n• ')}` : message || i18nT('Something went wrong.');
+      this.error =
+        all.length > 0
+          ? `${message}\n• ${all.join('\n• ')}`
+          : message || i18nT('Something went wrong.');
     } finally {
       this.submitting = false;
     }

@@ -12,10 +12,9 @@ const TermsAndConditions: React.FC = () => {
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-useEffect(() => {
-  authStore.checkAuthentication();
-}, []);
-
+  useEffect(() => {
+    authStore.checkAuthentication();
+  }, []);
 
   return (
     <div className="d-flex flex-column min-vh-100">

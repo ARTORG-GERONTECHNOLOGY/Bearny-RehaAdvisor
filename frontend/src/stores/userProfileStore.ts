@@ -6,6 +6,20 @@ import { UserType } from '../types';
 
 type Mode = 'view' | 'editProfile' | 'changePassword';
 
+// ---- typed error helpers (no `any`) ----
+type ApiErrorResponse = {
+  data?: {
+    error?: string;
+    message?: string;
+    detail?: string;
+  };
+};
+
+type ApiErrorLike = {
+  response?: ApiErrorResponse;
+  message?: string;
+};
+
 class UserProfileStore {
   mode: Mode = 'view';
   showDeletePopup = false;
@@ -72,9 +86,9 @@ class UserProfileStore {
     try {
       const res = await apiClient.get(`/users/${id}/profile`);
       runInAction(() => {
-        this.userData = res.data;
+        this.userData = res.data as UserType;
       });
-    } catch (err) {
+    } catch (err: unknown) {
       // keep console for dev visibility
       console.error('Profile load failed:', err);
       runInAction(() => {
@@ -101,11 +115,11 @@ class UserProfileStore {
 
       const refreshed = await apiClient.get(`/users/${id}/profile`);
       runInAction(() => {
-        this.userData = refreshed.data;
+        this.userData = refreshed.data as UserType;
         this.setSuccess('Profile updated successfully');
         this.mode = 'view';
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Update failed:', err);
       runInAction(() => {
         this.setError('Failed to update profile');
@@ -136,9 +150,18 @@ class UserProfileStore {
         this.setSuccess('Password updated successfully');
         this.mode = 'view';
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as ApiErrorLike;
+
+      const msg =
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        e?.response?.data?.detail ||
+        e?.message ||
+        'Update failed';
+
       runInAction(() => {
-        this.setError(err?.response?.data?.error || err?.message || 'Update failed');
+        this.setError(msg);
       });
     } finally {
       runInAction(() => {
@@ -164,7 +187,7 @@ class UserProfileStore {
       });
 
       await authStore.logout();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Delete failed:', err);
       runInAction(() => {
         this.setError('Failed to delete account');

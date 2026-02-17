@@ -68,7 +68,9 @@ class PatientQuestionnairesStore {
 
   async loadHealthQuestionnaire(patientId: string, uiLang: string) {
     try {
-      const { data: res } = await apiClient.get(`/patients/get-questions/Healthstatus/${patientId}/`);
+      const { data: res } = await apiClient.get(
+        `/patients/get-questions/Healthstatus/${patientId}/`
+      );
       if (!res?.questions?.length) return;
 
       const lang = (uiLang || 'en').slice(0, 2);
@@ -88,8 +90,15 @@ class PatientQuestionnairesStore {
     }
   }
 
-  async openInterventionFeedback(patientId: string, interventionId: string, dateKey: string, uiLang: string) {
-    const { data: res } = await apiClient.get(`/patients/get-questions/Intervention/${patientId}/${interventionId}/`);
+  async openInterventionFeedback(
+    patientId: string,
+    interventionId: string,
+    dateKey: string,
+    uiLang: string
+  ) {
+    const { data: res } = await apiClient.get(
+      `/patients/get-questions/Intervention/${patientId}/${interventionId}/`
+    );
     const lang = (uiLang || 'en').slice(0, 2);
 
     const formatted: NormalizedQuestion[] = (res.questions || []).map((q: any) => ({

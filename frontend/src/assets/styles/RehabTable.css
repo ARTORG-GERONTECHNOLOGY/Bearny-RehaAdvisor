@@ -140,8 +140,8 @@
 /* ✅ THE SCROLL AREA */
 .rehaLeftListScroll {
   flex: 1 1 auto;
-  min-height: 0;           /* CRITICAL */
-  overflow-y: auto;        /* CRITICAL */
+  min-height: 0; /* CRITICAL */
+  overflow-y: auto; /* CRITICAL */
   overflow-x: hidden;
   padding: 0 8px 8px 8px;
   -webkit-overflow-scrolling: touch;
@@ -247,10 +247,22 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
-.rehaLegend__item--completed { background: rgba(25, 135, 84, 0.18); border-color: rgba(25, 135, 84, 0.35); }
-.rehaLegend__item--missed    { background: rgba(220, 53, 69, 0.14); border-color: rgba(220, 53, 69, 0.30); }
-.rehaLegend__item--today     { background: rgba(13, 110, 253, 0.14); border-color: rgba(13, 110, 253, 0.30); }
-.rehaLegend__item--upcoming  { background: rgba(108, 117, 125, 0.12); border-color: rgba(108, 117, 125, 0.28); }
+.rehaLegend__item--completed {
+  background: rgba(25, 135, 84, 0.18);
+  border-color: rgba(25, 135, 84, 0.35);
+}
+.rehaLegend__item--missed {
+  background: rgba(220, 53, 69, 0.14);
+  border-color: rgba(220, 53, 69, 0.3);
+}
+.rehaLegend__item--today {
+  background: rgba(13, 110, 253, 0.14);
+  border-color: rgba(13, 110, 253, 0.3);
+}
+.rehaLegend__item--upcoming {
+  background: rgba(108, 117, 125, 0.12);
+  border-color: rgba(108, 117, 125, 0.28);
+}
 
 .rehaLegend__item--benefit {
   background: hsl(calc(var(--benefit-bucket) * 36) 70% 92%);
@@ -269,10 +281,22 @@
   padding: 2px 6px;
 }
 
-.rehaEvent--completed { background: rgba(25, 135, 84, 0.25) !important; border: 1px solid rgba(25, 135, 84, 0.45) !important; }
-.rehaEvent--missed    { background: rgba(220, 53, 69, 0.20) !important; border: 1px solid rgba(220, 53, 69, 0.40) !important; }
-.rehaEvent--today     { background: rgba(13, 110, 253, 0.22) !important; border: 1px solid rgba(13, 110, 253, 0.45) !important; }
-.rehaEvent--upcoming  { background: rgba(108, 117, 125, 0.18) !important; border: 1px solid rgba(108, 117, 125, 0.35) !important; }
+.rehaEvent--completed {
+  background: rgba(25, 135, 84, 0.25) !important;
+  border: 1px solid rgba(25, 135, 84, 0.45) !important;
+}
+.rehaEvent--missed {
+  background: rgba(220, 53, 69, 0.2) !important;
+  border: 1px solid rgba(220, 53, 69, 0.4) !important;
+}
+.rehaEvent--today {
+  background: rgba(13, 110, 253, 0.22) !important;
+  border: 1px solid rgba(13, 110, 253, 0.45) !important;
+}
+.rehaEvent--upcoming {
+  background: rgba(108, 117, 125, 0.18) !important;
+  border: 1px solid rgba(108, 117, 125, 0.35) !important;
+}
 
 .rehaEvent--benefit {
   background: hsl(calc(var(--benefit-bucket) * 36) 70% 92%) !important;

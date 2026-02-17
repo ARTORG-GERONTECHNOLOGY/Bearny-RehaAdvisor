@@ -4,17 +4,23 @@
 // Custom Theme Colors (override)
 // Color-blind friendly (Okabe–Ito inspired) + accessible neutrals
 // ------------------------------
-$primary:   #0072B2; // blue
-$secondary: #6C757D; // neutral gray
-$success:   #009E73; // bluish green
-$info:      #56B4E9; // sky blue
-$warning:   #E69F00; // orange
-$danger:    #D55E00; // vermillion
-$light:     #F8F9FA; // light gray
-$dark:      #212529; // deep for contrast
+$primary: #0072b2; // blue
+$secondary: #6c757d; // neutral gray
+$success: #009e73; // bluish green
+$info: #56b4e9; // sky blue
+$warning: #e69f00; // orange
+$danger: #d55e00; // vermillion
+$light: #f8f9fa; // light gray
+$dark: #212529; // deep for contrast
 
 // Typography
-$font-family-sans-serif: 'Roboto', system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+$font-family-sans-serif:
+  'Roboto',
+  system-ui,
+  -apple-system,
+  'Segoe UI',
+  Arial,
+  sans-serif;
 $font-size-base: 1rem;
 
 // Spacing
@@ -85,4 +91,4 @@ $navbar-light-brand-color: $primary;
 // ------------------------------
 // Import Bootstrap (once)
 // ------------------------------
-@import "bootstrap/scss/bootstrap";
+@import 'bootstrap/scss/bootstrap';

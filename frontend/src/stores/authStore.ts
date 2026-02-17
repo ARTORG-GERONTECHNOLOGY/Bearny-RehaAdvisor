@@ -264,7 +264,10 @@ class AuthStore {
 
       const specs = localStorage.getItem('specialisations');
       this.specialisations = specs
-        ? specs.split(',').map((s) => s.trim()).filter(Boolean)
+        ? specs
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
         : [];
 
       this.partialLogin = false;

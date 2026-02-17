@@ -2,260 +2,415 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
 import authStore from './authStore';
-import config from '../config/config.json';
 
+export type ValueSource = 'manual' | 'redcap' | 'empty';
 export type SelectOption = { value: string; label: string };
 
-export const toDateInput = (v?: any) => {
+// -------------------------
+// Date helpers
+// -------------------------
+export const toDateInput = (v: any) => {
   if (!v) return '';
-  // already yyyy-mm-dd
-  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-  // ISO string -> yyyy-mm-dd
-  if (typeof v === 'string' && v.includes('T')) return v.split('T')[0];
-  // Date object
-  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().split('T')[0];
-  // fallback
-  return String(v).slice(0, 10);
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
 };
 
-export const toDisplayDate = (v?: any) => {
+export const toDisplayDate = (v: any) => {
   if (!v) return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString();
+};
+
+// datetime-local helpers (Europe/Zurich-friendly)
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toLocalDatetimeInput = (isoOrDate: any) => {
+  if (!isoOrDate) return '';
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+const localDatetimeInputToISO = (v: string) => {
+  // "YYYY-MM-DDTHH:mm" interpreted as local time by Date()
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+};
+
+// -------------------------
+// Threshold types
+// -------------------------
+export type PatientThresholds = {
+  steps_goal: number;
+
+  active_minutes_green: number;
+  active_minutes_yellow: number;
+
+  sleep_green_min: number;
+  sleep_yellow_min: number;
+
+  bp_sys_green_max: number;
+  bp_sys_yellow_max: number;
+  bp_dia_green_max: number;
+  bp_dia_yellow_max: number;
+};
+
+export type ThresholdHistoryItem = {
+  effective_from: string | null; // ISO
+  changed_at?: string | null; // ISO (optional)
+  changed_by?: string | null;
+  reason?: string | null;
+  thresholds: Partial<PatientThresholds>;
+};
+
+const DEFAULT_THRESHOLDS: PatientThresholds = {
+  steps_goal: 10000,
+  active_minutes_green: 30,
+  active_minutes_yellow: 20,
+  sleep_green_min: 7 * 60,
+  sleep_yellow_min: 6 * 60,
+  bp_sys_green_max: 129,
+  bp_sys_yellow_max: 139,
+  bp_dia_green_max: 84,
+  bp_dia_yellow_max: 89,
+};
+
+const isEmptyValue = (v: any) =>
+  v === undefined ||
+  v === null ||
+  (typeof v === 'string' && v.trim() === '') ||
+  (Array.isArray(v) && v.length === 0);
+
+const deepEqualJSON = (a: any, b: any) => {
   try {
-    const d = new Date(v);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch {}
-  return String(v);
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  } catch {
+    return false;
+  }
 };
 
-const isMeaningful = (v: any) => {
-  if (v === null || v === undefined) return false;
-  if (typeof v === 'string') return v.trim() !== '' && v.trim() !== '—';
-  if (Array.isArray(v)) return v.filter(x => isMeaningful(x)).length > 0;
-  return true;
+const normalizeNum = (v: any, fallback: number) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return n;
 };
 
-const normalizeKey = (k: string) => (k || '').trim();
+const normalizeThresholds = (t: any): PatientThresholds => {
+  const src = t || {};
+  return {
+    steps_goal: normalizeNum(src.steps_goal, DEFAULT_THRESHOLDS.steps_goal),
 
-const safeString = (v: any) => {
-  if (v === null || v === undefined) return '';
-  if (Array.isArray(v)) return v.join(', ');
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
+    active_minutes_green: normalizeNum(
+      src.active_minutes_green,
+      DEFAULT_THRESHOLDS.active_minutes_green
+    ),
+    active_minutes_yellow: normalizeNum(
+      src.active_minutes_yellow,
+      DEFAULT_THRESHOLDS.active_minutes_yellow
+    ),
+
+    sleep_green_min: normalizeNum(src.sleep_green_min, DEFAULT_THRESHOLDS.sleep_green_min),
+    sleep_yellow_min: normalizeNum(src.sleep_yellow_min, DEFAULT_THRESHOLDS.sleep_yellow_min),
+
+    bp_sys_green_max: normalizeNum(src.bp_sys_green_max, DEFAULT_THRESHOLDS.bp_sys_green_max),
+    bp_sys_yellow_max: normalizeNum(src.bp_sys_yellow_max, DEFAULT_THRESHOLDS.bp_sys_yellow_max),
+    bp_dia_green_max: normalizeNum(src.bp_dia_green_max, DEFAULT_THRESHOLDS.bp_dia_green_max),
+    bp_dia_yellow_max: normalizeNum(src.bp_dia_yellow_max, DEFAULT_THRESHOLDS.bp_dia_yellow_max),
+  };
 };
 
-type RedcapResponse = {
-  ok: boolean;
-  project: string;
-  patient_code: string;
-  count: number;
-  rows: Record<string, any>[];
+const mergeThresholds = (base: PatientThresholds, patch: Partial<PatientThresholds>) => {
+  const next = { ...base, ...(patch || {}) };
+  return normalizeThresholds(next);
+};
+
+// -------------------------
+// Profile dirty-check helpers
+// -------------------------
+const stripVolatileProfileFields = (obj: any) => {
+  const o: any = { ...(obj || {}) };
+
+  // server-managed / volatile
+  delete o.updatedAt;
+  delete o.createdAt;
+  delete o.__v;
+
+  // runtime-only
+  delete o.redcapRows;
+  delete o.redcapFlat;
+
+  // keep thresholds separate (do NOT count as profile changes)
+  delete o.thresholds;
+  delete o.thresholds_history;
+  delete o.thresholdsHistory;
+
+  return o;
+};
+
+const stableJSON = (obj: any) => {
+  try {
+    return JSON.stringify(obj ?? null);
+  } catch {
+    return String(obj);
+  }
 };
 
 export class PatientPopupStore {
   patientId: string;
 
-  loading = true;
+  // UI
+  loading = false;
   saving = false;
   error = '';
-
-  isEditing = false;
-  activeTab: 'profile' | 'characteristics' | 'redcap' = 'profile';
-
   showConfirmDelete = false;
+  isEditing = false;
+  activeTab: 'profile' | 'characteristics' | 'redcap' | 'thresholds' = 'profile';
 
-  // manual data from MongoDB (platform)
-  manualData: Record<string, any> = {};
-  // the data used by your existing form bindings (edit target)
-  formData: Record<string, any> = {};
+  // patient data
+  rawPatient: any = null;
 
-  // REDCap live data
+  // manualData = what is stored in Mongo (manual / editable)
+  manualData: any = {};
+  // formData = editing buffer
+  formData: any = {};
+
+  // REDCap
   redcapLoading = false;
   redcapError: string | null = null;
-  redcapProject: string | null = null;
-  redcapRows: Record<string, any>[] = [];
 
-  // ---- maps you already had
+  redcapProject: string | null = null;
+  redcapIdentifier: string | null = null; // pat_id or record_id fallback (identifier)
+  redcapRecordId: string | null = null;
+  redcapPatId: string | null = null;
+  redcapDag: string | null = null;
+
+  // redcap rows fetched live
+  redcapRows: any[] = [];
+  // flattened view for table
+  redcapFlat: Record<string, any> = {};
+
+  // computed helpers for your diagnosis-specialisation logic (keep if you already use it)
   specialityDiagnosisMap: Record<string, string[]> = {};
+
+  // -------------------------
+  // Thresholds (NEW)
+  // -------------------------
+  thresholdsLoading = false;
+  thresholdsError: string | null = null;
+
+  thresholds: PatientThresholds | null = null;
+  thresholdsHistory: ThresholdHistoryItem[] = [];
+
+  thresholdDraft: Partial<PatientThresholds> = {}; // edits only
+  thresholdReason = '';
+  thresholdEffectiveFromISO: string | null = null; // ISO (optional backdate)
 
   constructor(patientId: string) {
     this.patientId = patientId;
     makeAutoObservable(this, {}, { autoBind: true });
-
-    // keep your existing specialty->diagnosis map if you already populate it elsewhere
-    // (left empty here intentionally)
   }
 
+  // -------------------------
+  // UI setters
+  // -------------------------
   setError(v: string) {
     this.error = v;
-  }
-
-  setEditing(v: boolean) {
-    this.isEditing = v;
-
-    // optional convenience: if entering edit mode and manual fields are empty but REDCap has values,
-    // you can keep them as placeholders (display-only). We do NOT auto-copy into manual by default.
-  }
-
-  setActiveTab(v: any) {
-    this.activeTab = v;
   }
 
   setShowConfirmDelete(v: boolean) {
     this.showConfirmDelete = v;
   }
 
-  setField(key: string, value: any) {
-    this.formData = { ...this.formData, [key]: value };
+  setEditing(v: boolean) {
+    this.isEditing = v;
+    if (!v) {
+      // reset editing buffer
+      this.formData = { ...(this.manualData || {}) };
+      // reset thresholds draft fields too
+      this.thresholdDraft = {};
+      this.thresholdReason = '';
+      this.thresholdEffectiveFromISO = null;
+    }
   }
 
-  setMultiSelect(key: string, selected: SelectOption[] | null) {
-    const values = (selected || []).map(s => s.value);
-    this.setField(key, values);
+  setActiveTab(v: 'profile' | 'characteristics' | 'redcap' | 'thresholds') {
+    this.activeTab = v;
   }
 
-  arrayToDisplay(arr?: any[]) {
-    if (!arr || !Array.isArray(arr)) return '';
-    return arr.filter(x => isMeaningful(x)).join(', ');
+  // -------------------------
+  // Dirty checks
+  // -------------------------
+  get profileDirty(): boolean {
+    // only allow saving profile when in editing mode
+    if (!this.isEditing) return false;
+    const base = stripVolatileProfileFields(this.manualData);
+    const curr = stripVolatileProfileFields(this.formData);
+    return stableJSON(base) !== stableJSON(curr);
   }
 
-  setCommaSeparated(key: string, input: string) {
-    const values = (input || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    this.setField(key, values);
+  // -------------------------
+  // Threshold setters / helpers
+  // -------------------------
+  setThresholdField<K extends keyof PatientThresholds>(key: K, value: number) {
+    const v = Number(value);
+    this.thresholdDraft = { ...(this.thresholdDraft || {}), [key]: Number.isFinite(v) ? v : value };
   }
 
-  // --------- SOURCE SELECTION / FALLBACK ---------
-
-  /** True if manual has ANY useful patient info besides identifiers */
-  get hasManualInfo() {
-    // ignore these when deciding whether manual is “filled”
-    const ignore = new Set([
-      'patient_code',
-      'clinic',
-      'last_online',
-      'last_online_contact',
-      'userId',
-      'id',
-      '_id',
-      'therapist',
-      'username',
-      'email',
-      'phone',
-      'createdAt',
-      'updatedAt',
-    ]);
-
-    return Object.entries(this.manualData || {}).some(([k, v]) => {
-      if (ignore.has(k)) return false;
-      return isMeaningful(v);
-    });
+  setThresholdReason(v: string) {
+    this.thresholdReason = String(v || '').slice(0, 500);
   }
 
-  /** Choose which value to display (manual preferred; otherwise REDCap fallback if present) */
-  getDisplayValue(key: string): any {
-    const k = normalizeKey(key);
-    const manualVal = this.manualData?.[k];
-
-    if (isMeaningful(manualVal)) return manualVal;
-
-    // fallback to REDCap-derived
-    const rcVal = this.redcapDerived?.[k];
-    if (isMeaningful(rcVal)) return rcVal;
-
-    return manualVal ?? '';
+  // bind to <input type="datetime-local">
+  get thresholdEffectiveFromLocal(): string {
+    return toLocalDatetimeInput(this.thresholdEffectiveFromISO);
   }
 
-  /** Returns where the displayed value came from */
-  getValueSource(key: string): 'manual' | 'redcap' | 'empty' {
-    const k = normalizeKey(key);
-    const manualVal = this.manualData?.[k];
-    if (isMeaningful(manualVal)) return 'manual';
+  setThresholdEffectiveFromLocal(v: string) {
+    this.thresholdEffectiveFromISO = localDatetimeInputToISO(v);
+  }
 
-    const rcVal = this.redcapDerived?.[k];
-    if (isMeaningful(rcVal)) return 'redcap';
+  get mergedThresholds(): PatientThresholds {
+    const base = normalizeThresholds(this.thresholds || DEFAULT_THRESHOLDS);
+    return mergeThresholds(base, this.thresholdDraft || {});
+  }
 
+  get thresholdsDirty(): boolean {
+    if (!this.thresholds) {
+      return Object.keys(this.thresholdDraft || {}).length > 0;
+    }
+    return !deepEqualJSON(normalizeThresholds(this.thresholds), this.mergedThresholds);
+  }
+
+  // -------------------------
+  // Field source helpers
+  // -------------------------
+  hasManualInfoForKey(key: string): boolean {
+    const v = this.manualData?.[key];
+    if (v === null || v === undefined) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'string') return v.trim().length > 0;
+    return true;
+  }
+
+  getValueSource(key: string): ValueSource {
+    const manual = this.manualData?.[key];
+    const redcap = this.redcapFlat?.[key];
+
+    const hasManual =
+      manual !== undefined &&
+      manual !== null &&
+      !(typeof manual === 'string' && manual.trim() === '') &&
+      !(Array.isArray(manual) && manual.length === 0);
+
+    const hasRedcap =
+      redcap !== undefined &&
+      redcap !== null &&
+      !(typeof redcap === 'string' && String(redcap).trim() === '') &&
+      !(Array.isArray(redcap) && redcap.length === 0);
+
+    if (hasManual) return 'manual';
+    if (hasRedcap) return 'redcap';
     return 'empty';
   }
 
-  /** Flatten “best” REDCap row into a simple object */
-  get redcapFlat(): Record<string, any> {
-    if (!this.redcapRows?.length) return {};
-    // pick first row; you can improve later (e.g., pick latest event)
-    return this.redcapRows[0] || {};
+  get hasManualInfo(): boolean {
+    const keys = Object.keys(this.manualData || {});
+    return keys.some((k) => this.hasManualInfoForKey(k));
   }
 
   /**
-   * REDCap -> platform-like keys (light mapping).
-   * You said connector is pat_id (patient_code), and you do NOT want to store RC details in Mongo.
-   * Here we only map a few “nice to show” fields if present.
+   * Manual preferred, fallback to REDCap.
    */
-  get redcapDerived(): Record<string, any> {
-    const rc = this.redcapFlat;
-    if (!rc || !Object.keys(rc).length) return {};
+  getDisplayValue(key: string): any {
+    const manual = this.manualData?.[key];
+    const hasManual =
+      manual !== undefined &&
+      manual !== null &&
+      !(typeof manual === 'string' && manual.trim() === '') &&
+      !(Array.isArray(manual) && manual.length === 0);
 
-    // Common field names in BOTH projects include pat_id and rehab_end (per codebooks).
-    // Keep this conservative and safe:
-    const out: Record<string, any> = {};
-
-    // connector
-    if (isMeaningful(rc.pat_id)) out.patient_code = rc.pat_id;
-
-    // rehab dates (strings, not saved unless user chooses to copy)
-    if (isMeaningful(rc.rehab_start)) out.rehab_start = rc.rehab_start;
-    if (isMeaningful(rc.rehab_end)) out.reha_end_date = rc.rehab_end; // use your platform key for display
-
-    // Example: sometimes you may have age/sex etc in RC; only map if present
-    if (isMeaningful(rc.age)) out.age = rc.age;
-    if (isMeaningful(rc.sex)) out.sex = rc.sex;
-
-    // You can extend mapping later:
-    // out.first_name = rc.firstname || rc.first_name || ...
-    // out.name = rc.lastname || rc.name || ...
-
-    return out;
+    if (hasManual) return manual;
+    return this.redcapFlat?.[key];
   }
 
-  // --------- PROJECT SELECTION (clinic -> project) ---------
-
-  /** get a recommended project for this patient based on clinic_projects mapping */
-  getProjectForClinic(clinic?: string): string | null {
-    const clinicProjects = (config as any)?.clinic_projects || {};
-    const projects: string[] = clinic && clinicProjects[clinic] ? clinicProjects[clinic] : [];
-    if (projects?.length) return projects[0];
-
-    // fallback: if config.projects exists
-    const allProjects: string[] = (config as any)?.projects || [];
-    return allProjects[0] || null;
+  // -------------------------
+  // Form editing helpers
+  // -------------------------
+  setField(key: string, value: any) {
+    this.formData = { ...(this.formData || {}), [key]: value };
   }
 
-  // --------- FETCHING ---------
+  setMultiSelect(key: string, selected: SelectOption[] | null) {
+    const vals = (selected || []).map((x) => x.value);
+    this.formData = { ...(this.formData || {}), [key]: vals };
+  }
 
+  setCommaSeparated(key: string, v: string) {
+    const arr = (v || '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    this.formData = { ...(this.formData || {}), [key]: arr };
+  }
+
+  arrayToDisplay(v: any) {
+    if (!v) return '';
+    if (Array.isArray(v)) return v.filter(Boolean).join(', ');
+    return String(v);
+  }
+
+  // -------------------------
+  // Load patient (Mongo) + REDCap + Thresholds
+  // -------------------------
   async fetchPatientData(t: (k: string) => string) {
     this.loading = true;
     this.error = '';
     this.redcapError = null;
 
     try {
-      // 1) Manual platform patient info (MongoDB)
-      // Adjust endpoint if yours is different:
-      const res = await apiClient.get(`/profile/${this.patientId}`);
+      const res = await apiClient.get(`/users/${this.patientId}/profile`);
+      const data = res.data || {};
 
       runInAction(() => {
-        this.manualData = res.data || {};
-        // Keep your existing edit bindings:
-        this.formData = { ...(res.data || {}) };
+        this.rawPatient = data;
+        this.manualData = data || {};
+        this.formData = { ...(data || {}) };
+
+        this.redcapProject =
+          data.redcap_project || data.redcapProject || null
+            ? String(data.redcap_project || data.redcapProject)
+            : null;
+        this.redcapIdentifier =
+          data.redcap_identifier || data.redcapIdentifier || null
+            ? String(data.redcap_identifier || data.redcapIdentifier)
+            : null;
+        this.redcapRecordId =
+          data.redcap_record_id || data.redcapRecordId || null
+            ? String(data.redcap_record_id || data.redcapRecordId)
+            : null;
+        this.redcapPatId =
+          data.redcap_pat_id || data.redcapPatId || null
+            ? String(data.redcap_pat_id || data.redcapPatId)
+            : null;
+        this.redcapDag =
+          data.redcap_dag || data.redcapDag || null
+            ? String(data.redcap_dag || data.redcapDag)
+            : null;
+
+        if (!this.redcapIdentifier) {
+          const pc = data.patient_code || data.patientCode || '';
+          this.redcapIdentifier = pc ? String(pc) : null;
+        }
       });
 
-      // 2) Decide whether to fetch REDCap:
-      // - fetch if manual is empty OR you want to always show RC tab
-      // I recommend: always fetch, but don’t block UI if RC fails.
       await this.fetchRedcapIfPossible(t);
-
-    } catch (e: any) {
+      await this.fetchThresholds(t);
+    } catch (err: any) {
+      const api = err?.response?.data;
       runInAction(() => {
-        this.error = t('Failed to load patient data.');
+        this.error = api?.error || api?.message || err?.message || t('Failed to load patient.');
       });
     } finally {
       runInAction(() => {
@@ -264,52 +419,56 @@ export class PatientPopupStore {
     }
   }
 
+  /**
+   * Fetch REDCap record(s) live using:
+   *   GET /api/redcap/patient/?patient_code=<identifier>&project=<optional>
+   */
   async fetchRedcapIfPossible(t: (k: string) => string) {
+    const identifier = (this.redcapIdentifier || '').trim();
+    if (!identifier) {
+      runInAction(() => {
+        this.redcapRows = [];
+        this.redcapFlat = {};
+      });
+      return;
+    }
+
     this.redcapLoading = true;
     this.redcapError = null;
 
     try {
-      const patientCode =
-        (this.manualData?.patient_code || this.manualData?.username || '').toString().trim();
+      const params: any = { patient_code: identifier, therapistUserId: authStore.id };
+      if (this.redcapProject) params.project = this.redcapProject;
 
-      if (!patientCode) {
-        runInAction(() => {
-          this.redcapRows = [];
-          this.redcapProject = null;
-          this.redcapError = t('No patient_code available to query REDCap.');
-        });
-        return;
-      }
+      const res = await apiClient.get('/redcap/patient/', { params });
+      const payload = res.data || {};
 
-      const clinic = (this.manualData?.clinic || '').toString().trim();
-      const project = this.getProjectForClinic(clinic);
+      const matches = Array.isArray(payload.matches) ? payload.matches : [];
+      const firstMatch = matches[0] || null;
 
-      if (!project) {
-        runInAction(() => {
-          this.redcapRows = [];
-          this.redcapProject = null;
-          this.redcapError = t('No REDCap project configured for this clinic.');
-        });
-        return;
-      }
+      const rows: any[] = firstMatch?.rows && Array.isArray(firstMatch.rows) ? firstMatch.rows : [];
+      const project = firstMatch?.project ? String(firstMatch.project) : this.redcapProject || null;
+
+      const flat = rows.length ? { ...(rows[0] || {}) } : {};
 
       runInAction(() => {
         this.redcapProject = project;
+        this.redcapRows = rows;
+        this.redcapFlat = flat;
+
+        const rec = flat?.record_id ? String(flat.record_id) : null;
+        const pid = flat?.pat_id ? String(flat.pat_id) : null;
+
+        this.redcapRecordId = rec || this.redcapRecordId;
+        this.redcapPatId = pid || this.redcapPatId;
       });
-
-      const rcRes = await apiClient.get<RedcapResponse>(
-        `/redcap/patient/?patient_code=${encodeURIComponent(patientCode)}&project=${encodeURIComponent(project)}`
-      );
-
-      runInAction(() => {
-        this.redcapRows = rcRes.data?.rows || [];
-        this.redcapError = null;
-      });
-
-    } catch (e: any) {
+    } catch (err: any) {
+      const api = err?.response?.data;
       runInAction(() => {
         this.redcapRows = [];
-        this.redcapError = t('Failed to load REDCap data.');
+        this.redcapFlat = {};
+        this.redcapError =
+          api?.error || api?.message || err?.message || t('Failed to fetch REDCap data.');
       });
     } finally {
       runInAction(() => {
@@ -318,59 +477,171 @@ export class PatientPopupStore {
     }
   }
 
-  // --------- ACTIONS ---------
-
-  /** Copy currently derived REDCap values into manual form fields (does NOT save yet) */
-  copyRedcapIntoManual() {
-    const derived = this.redcapDerived || {};
-    if (!Object.keys(derived).length) return;
-
-    // only copy into fields that are currently empty in formData
-    const next = { ...this.formData };
-    Object.entries(derived).forEach(([k, v]) => {
-      if (!isMeaningful(next[k]) && isMeaningful(v)) next[k] = v;
-    });
-
-    this.formData = next;
-    this.isEditing = true;
-  }
-
-  async save(t: (k: string) => string) {
-    this.saving = true;
-    this.error = '';
+  /**
+   * Threshold endpoint:
+   *   GET    /api/patients/:id/thresholds/
+   *   PATCH  /api/patients/:id/thresholds/
+   */
+  async fetchThresholds(t: (k: string) => string) {
+    this.thresholdsLoading = true;
+    this.thresholdsError = null;
 
     try {
-      // PUT to your existing profile endpoint
-      await apiClient.put(`/profile/${this.patientId}`, this.formData);
+      const res = await apiClient.get(`/patients/${this.patientId}/thresholds/`);
+      const data = res.data || {};
 
       runInAction(() => {
-        this.manualData = { ...this.formData };
-        this.isEditing = false;
+        const th = data.thresholds ?? data;
+        this.thresholds = normalizeThresholds(th);
+        this.thresholdsHistory = Array.isArray(data.history || data.thresholds_history)
+          ? data.history || data.thresholds_history
+          : [];
+        this.thresholdDraft = {};
+        this.thresholdReason = '';
+        this.thresholdEffectiveFromISO = null;
       });
-
-      return true;
-    } catch (e: any) {
+    } catch (err: any) {
+      const api = err?.response?.data;
       runInAction(() => {
-        this.error = t('Failed to save changes.');
+        this.thresholds = this.thresholds || normalizeThresholds(DEFAULT_THRESHOLDS);
+        this.thresholdsHistory = this.thresholdsHistory || [];
+        this.thresholdsError =
+          api?.error || api?.message || err?.message || t('Failed to load thresholds.');
+      });
+    } finally {
+      runInAction(() => {
+        this.thresholdsLoading = false;
+      });
+    }
+  }
+
+  /**
+   * Save thresholds only (PATCH). No-op if nothing changed.
+   */
+  async saveThresholds(t: (k: string) => string) {
+    if (!this.thresholdsDirty) return true;
+
+    const alreadySaving = this.saving;
+    if (!alreadySaving) this.saving = true;
+
+    this.thresholdsError = null;
+
+    try {
+      const payload: any = { thresholds: this.mergedThresholds };
+      if (this.thresholdReason && this.thresholdReason.trim())
+        payload.reason = this.thresholdReason.trim();
+      if (this.thresholdEffectiveFromISO) payload.effective_from = this.thresholdEffectiveFromISO;
+
+      await apiClient.post(`/patients/${this.patientId}/thresholds/`, payload);
+
+      await this.fetchThresholds(t);
+      return true;
+    } catch (err: any) {
+      const api = err?.response?.data;
+      runInAction(() => {
+        this.thresholdsError =
+          api?.error || api?.message || err?.message || t('Failed to save thresholds.');
       });
       return false;
+    } finally {
+      if (!alreadySaving) {
+        runInAction(() => {
+          this.saving = false;
+        });
+      }
+    }
+  }
+
+  /**
+   * Wrapper called by popup "SaveChanges".
+   * Saves profile only if changed; thresholds only if changed.
+   */
+  async saveAll(t: (k: string) => string) {
+    // no network calls if nothing changed
+    if (!this.profileDirty && !this.thresholdsDirty) {
+      this.isEditing = false;
+      return true;
+    }
+
+    this.saving = true;
+    this.error = '';
+    this.thresholdsError = null;
+
+    try {
+      // 1) save profile ONLY if dirty
+      if (this.profileDirty) {
+        const okProfile = await this.save(t);
+        if (!okProfile) return false;
+      }
+
+      // 2) save thresholds ONLY if dirty
+      if (this.thresholdsDirty) {
+        const okThresholds = await this.saveThresholds(t);
+        if (!okThresholds) return false;
+      }
+
+      // if only thresholds were saved, exit edit mode here
+      if (this.isEditing) this.isEditing = false;
+
+      return true;
     } finally {
       runInAction(() => {
         this.saving = false;
       });
+    }
+  }
+
+  // -------------------------
+  // Save / Delete
+  // -------------------------
+  async save(t: (k: string) => string) {
+    // If someone calls save() directly, still prevent unnecessary PUT.
+    if (!this.profileDirty) return true;
+
+    const alreadySaving = this.saving;
+    if (!alreadySaving) {
+      this.saving = true;
+      this.error = '';
+    }
+
+    try {
+      // ✅ match your existing GET (and trailing slash)
+      const res = await apiClient.put(`/users/${this.patientId}/profile/`, this.formData);
+      const updated = res.data || {};
+
+      runInAction(() => {
+        this.manualData = updated;
+        this.formData = { ...(updated || {}) };
+        this.isEditing = false;
+      });
+
+      return true;
+    } catch (err: any) {
+      const api = err?.response?.data;
+      runInAction(() => {
+        this.error = api?.error || api?.message || err?.message || t('Failed to save patient.');
+      });
+      return false;
+    } finally {
+      if (!alreadySaving) {
+        runInAction(() => {
+          this.saving = false;
+        });
+      }
     }
   }
 
   async deletePatient(t: (k: string) => string) {
     this.saving = true;
     this.error = '';
-
     try {
-      await apiClient.delete(`/profile/${this.patientId}`);
+      // NOTE: adjust endpoint if yours differs
+      await apiClient.delete(`/patients/${this.patientId}/`);
       return true;
-    } catch (e: any) {
+    } catch (err: any) {
+      const api = err?.response?.data;
       runInAction(() => {
-        this.error = t('Failed to delete patient.');
+        this.error = api?.error || api?.message || err?.message || t('Failed to delete patient.');
       });
       return false;
     } finally {
@@ -378,5 +649,22 @@ export class PatientPopupStore {
         this.saving = false;
       });
     }
+  }
+
+  // -------------------------
+  // Optional helper: copy missing values from REDCap
+  // -------------------------
+  copyRedcapIntoManual() {
+    const next = { ...(this.formData || {}) };
+
+    Object.entries(this.redcapFlat || {}).forEach(([k, v]) => {
+      const cur = next[k];
+      const empty = isEmptyValue(cur);
+      const redcapEmpty = isEmptyValue(v);
+
+      if (empty && !redcapEmpty) next[k] = v;
+    });
+
+    this.formData = next;
   }
 }

@@ -50,11 +50,15 @@ export const router = createBrowserRouter([
   },
   {
     path: '/unauthorized',
-    element: withSuspense(createElement(RootLayout, { children: createElement(UnauthorizedAccess) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(UnauthorizedAccess) })
+    ),
   },
   {
     path: '/forgottenpwd',
-    element: withSuspense(createElement(RootLayout, { children: createElement(ForgottenPassword) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(ForgottenPassword) })
+    ),
   },
   {
     path: '/userprofile',
@@ -70,7 +74,9 @@ export const router = createBrowserRouter([
   },
   {
     path: '/addcontent',
-    element: withSuspense(createElement(RootLayout, { children: createElement(AddRecomendations) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(AddRecomendations) })
+    ),
   },
   {
     path: '/addpatient',
@@ -82,7 +88,9 @@ export const router = createBrowserRouter([
   },
   {
     path: '/interventions',
-    element: withSuspense(createElement(RootLayout, { children: createElement(TherapistRecomendations) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(TherapistRecomendations) })
+    ),
   },
   {
     path: '/eva',
@@ -121,14 +129,13 @@ export const router = createBrowserRouter([
     element: withSuspense(createElement(HealthSliderDownloadsPage)),
   },
   {
-  path: '/patient-interventions',
-  element: createElement(
-    Suspense,
-    { fallback: createElement(LoadingFallback) },
-    createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) })
-  ),
-},
-
+    path: '/patient-interventions',
+    element: createElement(
+      Suspense,
+      { fallback: createElement(LoadingFallback) },
+      createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) })
+    ),
+  },
 
   // ✅ Catch-all (must be last)
   {

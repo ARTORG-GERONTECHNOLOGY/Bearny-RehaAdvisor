@@ -32,16 +32,14 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const resolvedLabel =
-    label ?? (pagetype === 'patient' ? t('Patient Password') : t('Password'));
+  const resolvedLabel = label ?? (pagetype === 'patient' ? t('Patient Password') : t('Password'));
 
   const resolvedPlaceholder =
     placeholder ??
     (pagetype === 'patient' ? t('Enter patient password') : t('Enter your password'));
 
   const resolvedAutocomplete =
-    autoComplete ??
-    (id.toLowerCase().includes('new') ? 'new-password' : 'current-password');
+    autoComplete ?? (id.toLowerCase().includes('new') ? 'new-password' : 'current-password');
 
   return (
     <Form.Group className={`mb-3 ${className || ''}`} controlId={id}>

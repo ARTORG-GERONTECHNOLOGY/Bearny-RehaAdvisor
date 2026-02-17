@@ -4,7 +4,7 @@ export interface HeartRateZone {
 }
 
 export interface FitbitEntry {
-  date: string;                 // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   steps?: number;
   distance?: number;
   floors?: number;
@@ -17,7 +17,7 @@ export interface FitbitEntry {
 }
 
 export interface QuestionnaireEntry {
-  date: string;  // ISO
+  date: string; // ISO
   questionKey: string;
   answers: { key: string; translations?: { language: string; text: string }[] }[];
   questionTranslations: { language: string; text: string }[];
@@ -26,8 +26,8 @@ export interface QuestionnaireEntry {
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
 export type ViewMode = 'weekly' | 'monthly';
 export type AdherenceEntry = {
-  date: string;         // YYYY-MM-DD
-  scheduled: number;    // occurrences scheduled that day
-  completed: number;    // completed logs that day
-  pct: number | null;   // 0..100 or null if no schedule that day
+  date: string; // YYYY-MM-DD
+  scheduled: number; // occurrences scheduled that day
+  completed: number; // completed logs that day
+  pct: number | null; // 0..100 or null if no schedule that day
 };

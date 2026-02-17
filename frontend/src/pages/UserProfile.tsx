@@ -22,8 +22,14 @@ const UserProfile: React.FC = observer(() => {
   const navigate = useNavigate();
 
   // translate store banners at render-time (store keeps stable keys/messages)
-  const errorBanner = useMemo(() => (userProfileStore.errorBanner ? t(userProfileStore.errorBanner) : ''), [t, userProfileStore.errorBanner]);
-  const successBanner = useMemo(() => (userProfileStore.successBanner ? t(userProfileStore.successBanner) : ''), [t, userProfileStore.successBanner]);
+  const errorBanner = useMemo(
+    () => (userProfileStore.errorBanner ? t(userProfileStore.errorBanner) : ''),
+    [t, userProfileStore.errorBanner]
+  );
+  const successBanner = useMemo(
+    () => (userProfileStore.successBanner ? t(userProfileStore.successBanner) : ''),
+    [t, userProfileStore.successBanner]
+  );
 
   useEffect(() => {
     authStore.checkAuthentication();
@@ -56,7 +62,11 @@ const UserProfile: React.FC = observer(() => {
       <Header isLoggedIn={!!authStore.userType} />
 
       <StatusBanner type="danger" message={errorBanner} onClose={userProfileStore.clearError} />
-      <StatusBanner type="success" message={successBanner} onClose={userProfileStore.clearSuccess} />
+      <StatusBanner
+        type="success"
+        message={successBanner}
+        onClose={userProfileStore.clearSuccess}
+      />
 
       <Container className="my-5 flex-grow-1">
         <Row className="justify-content-center">
