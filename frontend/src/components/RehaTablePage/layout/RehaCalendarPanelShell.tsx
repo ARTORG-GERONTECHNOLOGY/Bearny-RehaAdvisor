@@ -16,9 +16,7 @@ const RehaCalendarPanelShell: React.FC<Props> = ({ title, children, className })
         </div>
       </Card.Header>
 
-      <Card.Body className="rehaPanel__body rehaPanel__body--calendar">
-        {children}
-      </Card.Body>
+      <Card.Body className="rehaPanel__body rehaPanel__body--calendar">{children}</Card.Body>
     </Card>
   );
 };

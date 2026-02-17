@@ -57,7 +57,12 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
       <Modal.Body>
         {store.error && (
-          <Alert variant="danger" dismissible onClose={() => (store.error = '')} style={{ whiteSpace: 'pre-wrap' }}>
+          <Alert
+            variant="danger"
+            dismissible
+            onClose={() => (store.error = '')}
+            style={{ whiteSpace: 'pre-wrap' }}
+          >
             {store.error}
           </Alert>
         )}
@@ -108,7 +113,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
           {(!store.isModify || !store.keepCurrent) && (
             <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={4}>{t('Start Time')}</Form.Label>
+              <Form.Label column sm={4}>
+                {t('Start Time')}
+              </Form.Label>
               <Col sm={8}>
                 <Form.Control
                   type="time"
@@ -122,7 +129,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
           {(!store.isModify || !store.keepCurrent) && (
             <>
               <Form.Group as={Row} className="mb-3">
-                <Form.Label column sm={4}>{t('Repeat every')}</Form.Label>
+                <Form.Label column sm={4}>
+                  {t('Repeat every')}
+                </Form.Label>
                 <Col sm={4}>
                   <Form.Control
                     type="number"
@@ -132,7 +141,10 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   />
                 </Col>
                 <Col sm={4}>
-                  <Form.Select value={store.unit} onChange={(e) => (store.unit = e.target.value as any)}>
+                  <Form.Select
+                    value={store.unit}
+                    onChange={(e) => (store.unit = e.target.value as any)}
+                  >
                     <option value="day">{t('Day')}</option>
                     <option value="week">{t('Week')}</option>
                     <option value="month">{t('Month')}</option>
@@ -162,8 +174,18 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
               <Form.Group className="mb-3">
                 <Form.Label>{t('Ends')}</Form.Label>
                 <div className="d-flex flex-column gap-2">
-                  <Form.Check type="radio" label={t('Never')} checked={store.endOption === 'never'} onChange={() => (store.endOption = 'never')} />
-                  <Form.Check type="radio" label={t('On date')} checked={store.endOption === 'date'} onChange={() => (store.endOption = 'date')} />
+                  <Form.Check
+                    type="radio"
+                    label={t('Never')}
+                    checked={store.endOption === 'never'}
+                    onChange={() => (store.endOption = 'never')}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label={t('On date')}
+                    checked={store.endOption === 'date'}
+                    onChange={() => (store.endOption = 'date')}
+                  />
                   {store.endOption === 'date' && (
                     <DatePicker
                       selected={store.endDate}
@@ -172,7 +194,12 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                       dateFormat="yyyy-MM-dd"
                     />
                   )}
-                  <Form.Check type="radio" label={t('After N times')} checked={store.endOption === 'count'} onChange={() => (store.endOption = 'count')} />
+                  <Form.Check
+                    type="radio"
+                    label={t('After N times')}
+                    checked={store.endOption === 'count'}
+                    onChange={() => (store.endOption = 'count')}
+                  />
                   {store.endOption === 'count' && (
                     <Form.Control
                       type="number"
@@ -192,7 +219,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
               rows={3}
               value={store.personalNote}
               onChange={(e) => (store.personalNote = e.target.value)}
-              placeholder={t('e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.')}
+              placeholder={t(
+                'e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.'
+              )}
             />
           </Form.Group>
 

@@ -21,8 +21,8 @@ import PatientInterventionPopUp from '../components/PatientPage/PatientIntervent
 import InterventionRepeatModal from '../components/RehaTablePage/InterventionRepeatModal';
 import InterventionStatsModal from '../components/RehaTablePage/InterventionStatsModal';
 import InterventionFeedbackModal from '../components/RehaTablePage/InterventionFeedbackModal';
-
 import '../assets/styles/RehabTable.css';
+import { generateTagColors, getTaxonomyTags } from '../utils/interventions';
 
 const safeT = (t: any, key: string, fallback: string) => {
   try {
@@ -78,7 +78,12 @@ const RehabTable: React.FC = observer(() => {
           ) : null}
 
           {store.error ? (
-            <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="mb-3">
+            <Alert
+              variant="danger"
+              onClose={() => store.setError(null)}
+              dismissible
+              className="mb-3"
+            >
               {store.error}
             </Alert>
           ) : null}
@@ -94,6 +99,7 @@ const RehabTable: React.FC = observer(() => {
                   </div>
                 ) : (
                   <InterventionLeftPanel
+                    tagColors={generateTagColors(getTaxonomyTags())}
                     selectedTab={store.selectedTab}
                     setSelectedTab={(tab) => {
                       store.setSelectedTab(tab);
@@ -171,7 +177,10 @@ const RehabTable: React.FC = observer(() => {
           defaults={store.modifyDefaults}
           onSubmitted={async () => {
             await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
-            store.patientData = (store as any).mergePlanWithCatalog(store.patientData, store.allInterventions);
+            store.patientData = (store as any).mergePlanWithCatalog(
+              store.patientData,
+              store.allInterventions
+            );
             await store.translateVisibleItems(store.userLang);
             store.closeRepeatModal();
           }}

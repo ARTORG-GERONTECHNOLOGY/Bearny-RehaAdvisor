@@ -3,11 +3,7 @@ import React, { useEffect, useRef, forwardRef } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '../../../types/health';
-import {
-  isInRange,
-  renderLegend,
-  getOrCreateTooltip,
-} from '../../../utils/healthCharts';
+import { isInRange, renderLegend, getOrCreateTooltip } from '../../../utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -22,10 +18,7 @@ const formatHM = (min?: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-const HRZonesStacked = (
-  { data, start, end }: Props,
-  ref: React.Ref<SVGSVGElement>
-) => {
+const HRZonesStacked = ({ data, start, end }: Props, ref: React.Ref<SVGSVGElement>) => {
   const { t } = useTranslation();
   const local = useRef<SVGSVGElement>(null);
   const svgRef = (ref as React.RefObject<SVGSVGElement>) ?? local;
@@ -59,7 +52,7 @@ const HRZonesStacked = (
     // Extract bpm ranges once
     // ─────────────────────────────────────────────────────────────
     const zoneRanges: Record<string, string> = {};
-    data.forEach(d =>
+    data.forEach((d) =>
       (d.heart_rate_zones || []).forEach((z: any) => {
         if (!zoneRanges[z.name] && z.min != null && z.max != null) {
           zoneRanges[z.name] = `${z.min}–${z.max} bpm`;
@@ -84,7 +77,7 @@ const HRZonesStacked = (
     // ─────────────────────────────────────────────────────────────
     renderLegend(
       svg as any,
-      keys.map(k => ({
+      keys.map((k) => ({
         label: `${t(k)} (${zoneRanges[k] ?? '—'})`,
         color: colors(k)!,
       })),
@@ -96,20 +89,20 @@ const HRZonesStacked = (
     // Prepare data
     // ─────────────────────────────────────────────────────────────
     const filtered = data
-      .filter(d => isInRange(d.date, start, end))
-      .filter(d => (d.heart_rate_zones || []).length > 0)
-      .map(d => {
+      .filter((d) => isInRange(d.date, start, end))
+      .filter((d) => (d.heart_rate_zones || []).length > 0)
+      .map((d) => {
         const zoneMap = Object.fromEntries(
-          (d.heart_rate_zones || []).map(z => [z.name, z.minutes])
+          (d.heart_rate_zones || []).map((z) => [z.name, z.minutes])
         );
         const base: Record<string, number | string> = { date: d.date };
-        keys.forEach(k => (base[k] = (zoneMap[k] as number) || 0));
+        keys.forEach((k) => (base[k] = (zoneMap[k] as number) || 0));
         return base;
       });
 
     const x = d3
       .scaleBand()
-      .domain(filtered.map(d => d.date as string))
+      .domain(filtered.map((d) => d.date as string))
       .range([0, width])
       .padding(0.2);
 
@@ -117,9 +110,7 @@ const HRZonesStacked = (
       .scaleLinear()
       .domain([
         0,
-        d3.max(filtered, (d: any) =>
-          keys.reduce((s, k) => s + (d[k] as number), 0)
-        ) || 0,
+        d3.max(filtered, (d: any) => keys.reduce((s, k) => s + (d[k] as number), 0)) || 0,
       ])
       .nice()
       .range([height, 0]);
@@ -127,16 +118,12 @@ const HRZonesStacked = (
     const stackGen = d3.stack<any>().keys(keys as unknown as string[]);
     const series = stackGen(filtered);
 
-    const g = svg
-      .append('g')
-      .attr('transform', `translate(${m.left},${m.top})`);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
     // Axes
     g.append('g')
       .attr('transform', `translate(0,${height})`)
-      .call(
-        d3.axisBottom(x).tickFormat((d: any) => (d as string).slice(5)) as any
-      )
+      .call(d3.axisBottom(x).tickFormat((d: any) => (d as string).slice(5)) as any)
       .selectAll('text')
       .attr('transform', 'rotate(-35)')
       .style('text-anchor', 'end');
@@ -152,14 +139,14 @@ const HRZonesStacked = (
       .data(series)
       .enter()
       .append('g')
-      .attr('fill', d => colors(d.key)!)
+      .attr('fill', (d) => colors(d.key)!)
       .selectAll('rect')
-      .data(d => d.map(p => ({ ...p, key: d.key })))
+      .data((d) => d.map((p) => ({ ...p, key: d.key })))
       .enter()
       .append('rect')
       .attr('x', (d: any) => x(d.data.date as string)!)
-      .attr('y', d => y(d[1]))
-      .attr('height', d => y(d[0]) - y(d[1]))
+      .attr('y', (d) => y(d[1]))
+      .attr('height', (d) => y(d[0]) - y(d[1]))
       .attr('width', x.bandwidth());
 
     // ─────────────────────────────────────────────────────────────
@@ -170,14 +157,14 @@ const HRZonesStacked = (
       .enter()
       .append('rect')
       .attr('class', 'hover-target')
-      .attr('x', d => x(d.date as string)!)
+      .attr('x', (d) => x(d.date as string)!)
       .attr('y', 0)
       .attr('width', x.bandwidth())
       .attr('height', height)
       .attr('fill', 'transparent')
       .on('mouseover', (ev, d: any) => {
         const rows = keys
-          .map(k => {
+          .map((k) => {
             const min = d[k] as number;
             if (!min) return null;
             return `
@@ -189,13 +176,9 @@ const HRZonesStacked = (
           .filter(Boolean)
           .join('');
 
-        tt
-          .style('opacity', 1)
-          .html(
-            `<strong>${d.date}</strong><hr style="margin:4px 0"/>${rows}`
-          );
+        tt.style('opacity', 1).html(`<strong>${d.date}</strong><hr style="margin:4px 0"/>${rows}`);
       })
-      .on('mousemove', ev =>
+      .on('mousemove', (ev) =>
         tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px')
       )
       .on('mouseout', () => tt.style('opacity', 0));

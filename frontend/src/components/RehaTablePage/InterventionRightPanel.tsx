@@ -37,13 +37,7 @@ const InterventionRightPanel: React.FC<InterventionRightPanelProps> = ({
   t,
 }) => {
   const { interventions } = data;
-  const {
-    exportStart,
-    exportEnd,
-    setExportStart,
-    setExportEnd,
-    exportScheduleCSV,
-  } = exportState;
+  const { exportStart, exportEnd, setExportStart, setExportEnd, exportScheduleCSV } = exportState;
   const { onSelectEvent } = actions;
 
   return (
@@ -53,9 +47,7 @@ const InterventionRightPanel: React.FC<InterventionRightPanelProps> = ({
         <Card.Body>
           <Row className="g-2 align-items-end">
             <Col xs={12} md={3}>
-              <Form.Label className="mb-1">
-                {t('Export start')}
-              </Form.Label>
+              <Form.Label className="mb-1">{t('Export start')}</Form.Label>
               <Form.Control
                 type="date"
                 value={exportStart}
@@ -64,9 +56,7 @@ const InterventionRightPanel: React.FC<InterventionRightPanelProps> = ({
               />
             </Col>
             <Col xs={12} md={3}>
-              <Form.Label className="mb-1">
-                {t('Export end')}
-              </Form.Label>
+              <Form.Label className="mb-1">{t('Export end')}</Form.Label>
               <Form.Control
                 type="date"
                 value={exportEnd}
@@ -81,24 +71,16 @@ const InterventionRightPanel: React.FC<InterventionRightPanelProps> = ({
                   size="sm"
                   onClick={() => {
                     const now = Date.now();
-                    const start = new Date(now - 30 * 86400000)
-                      .toISOString()
-                      .slice(0, 10);
-                    const end = new Date(now + 30 * 86400000)
-                      .toISOString()
-                      .slice(0, 10);
+                    const start = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
+                    const end = new Date(now + 30 * 86400000).toISOString().slice(0, 10);
                     setExportStart(start);
                     setExportEnd(end);
                   }}
                 >
                   {t('±30 days')}
                 </Button>
-                <Button
-                  variant="primary"
-                  onClick={exportScheduleCSV}
-                >
-                  <FaDownload className="me-2" />{' '}
-                  {t('Export schedule (CSV)')}
+                <Button variant="primary" onClick={exportScheduleCSV}>
+                  <FaDownload className="me-2" /> {t('Export schedule (CSV)')}
                 </Button>
               </div>
             </Col>
@@ -117,10 +99,7 @@ const InterventionRightPanel: React.FC<InterventionRightPanelProps> = ({
 
       {/* Calendar */}
       <div className="flex-1 min-h-0" style={{ overflow: 'auto' }}>
-        <InterventionCalendar
-          interventions={interventions}
-          onSelectEvent={onSelectEvent}
-        />
+        <InterventionCalendar interventions={interventions} onSelectEvent={onSelectEvent} />
       </div>
     </>
   );

@@ -30,10 +30,18 @@ const colorForSteps = (v: number, thr: any) =>
   v >= thr.steps_goal ? 'text-success' : v >= thr.steps_goal * 0.6 ? 'text-warning' : 'text-danger';
 
 const colorForActive = (v: number, thr: any) =>
-  v >= thr.active_minutes_green ? 'text-success' : v >= thr.active_minutes_yellow ? 'text-warning' : 'text-danger';
+  v >= thr.active_minutes_green
+    ? 'text-success'
+    : v >= thr.active_minutes_yellow
+      ? 'text-warning'
+      : 'text-danger';
 
 const colorForSleep = (minutes: number, thr: any) =>
-  minutes >= thr.sleep_green_min ? 'text-success' : minutes >= thr.sleep_yellow_min ? 'text-warning' : 'text-danger';
+  minutes >= thr.sleep_green_min
+    ? 'text-success'
+    : minutes >= thr.sleep_yellow_min
+      ? 'text-warning'
+      : 'text-danger';
 
 const colorForBP = (sys: number | null | undefined, dia: number | null | undefined, thr: any) => {
   if (sys == null && dia == null) return 'text-muted';
@@ -188,7 +196,9 @@ const TrendModal: React.FC<{
           { label: t('Goal'), value: goal, kind: 'goal' as const },
           { label: t('Warning'), value: warn, kind: 'warn' as const },
         ],
-        whatMeans: t('This chart shows your daily steps. Reaching your goal consistently supports physical activity targets.'),
+        whatMeans: t(
+          'This chart shows your daily steps. Reaching your goal consistently supports physical activity targets.'
+        ),
       };
     }
 
@@ -207,7 +217,9 @@ const TrendModal: React.FC<{
           { label: t('Green'), value: g, kind: 'green' as const },
           { label: t('Yellow'), value: y, kind: 'yellow' as const },
         ],
-        whatMeans: t('This chart shows minutes of activity per day. Higher values generally indicate more movement.'),
+        whatMeans: t(
+          'This chart shows minutes of activity per day. Higher values generally indicate more movement.'
+        ),
       };
     }
 
@@ -230,7 +242,9 @@ const TrendModal: React.FC<{
           { label: t('Green'), value: g, kind: 'green' as const },
           { label: t('Yellow'), value: y, kind: 'yellow' as const },
         ],
-        whatMeans: t('This chart shows your sleep duration per day. Meeting the green threshold suggests adequate sleep time.'),
+        whatMeans: t(
+          'This chart shows your sleep duration per day. Meeting the green threshold suggests adequate sleep time.'
+        ),
       };
     }
 
@@ -262,7 +276,9 @@ const TrendModal: React.FC<{
         { label: t('Green max DIA'), value: diaG, kind: 'green' as const },
         { label: t('Yellow max DIA'), value: diaY, kind: 'yellow' as const },
       ],
-      whatMeans: t('This chart shows systolic and diastolic blood pressure. Lower values are generally better, within your target ranges.'),
+      whatMeans: t(
+        'This chart shows systolic and diastolic blood pressure. Lower values are generally better, within your target ranges.'
+      ),
     };
   }, [metric, thr, nf, t, i18n.language]);
 
@@ -360,7 +376,10 @@ const TrendModal: React.FC<{
     for (let i = series.length - 1; i >= 0; i--) {
       const p = series[i];
       if (metric === 'bp') {
-        const ok = (metricMeta as any).meetsGreenBP(p.value as number | null, p.extra as number | null);
+        const ok = (metricMeta as any).meetsGreenBP(
+          p.value as number | null,
+          p.extra as number | null
+        );
         if (!ok) break;
         streak++;
       } else {
@@ -412,12 +431,21 @@ const TrendModal: React.FC<{
         : (metricMeta as any).thresholds || [];
     const thSecondary = metric === 'bp' ? (metricMeta as any).thresholdsDia || [] : [];
 
-    const thVals = [...thPrimary.map((x: any) => x.value), ...thSecondary.map((x: any) => x.value)].filter(
-      (v) => Number.isFinite(v)
-    );
+    const thVals = [
+      ...thPrimary.map((x: any) => x.value),
+      ...thSecondary.map((x: any) => x.value),
+    ].filter((v) => Number.isFinite(v));
 
-    let minY = Math.min(...(yValsPrimary.length ? yValsPrimary : [0]), ...(yValsSecondary.length ? yValsSecondary : [0]), ...(thVals.length ? thVals : [0]));
-    let maxY = Math.max(...(yValsPrimary.length ? yValsPrimary : [1]), ...(yValsSecondary.length ? yValsSecondary : [1]), ...(thVals.length ? thVals : [1]));
+    let minY = Math.min(
+      ...(yValsPrimary.length ? yValsPrimary : [0]),
+      ...(yValsSecondary.length ? yValsSecondary : [0]),
+      ...(thVals.length ? thVals : [0])
+    );
+    let maxY = Math.max(
+      ...(yValsPrimary.length ? yValsPrimary : [1]),
+      ...(yValsSecondary.length ? yValsSecondary : [1]),
+      ...(thVals.length ? thVals : [1])
+    );
 
     if (minY === maxY) {
       minY -= 1;
@@ -451,7 +479,9 @@ const TrendModal: React.FC<{
     const xLabelIdx =
       xs.length <= 1
         ? [0]
-        : [0, Math.floor((xs.length - 1) / 2), xs.length - 1].filter((v, i, arr) => arr.indexOf(v) === i);
+        : [0, Math.floor((xs.length - 1) / 2), xs.length - 1].filter(
+            (v, i, arr) => arr.indexOf(v) === i
+          );
 
     const buildPath = (getY: (p: any) => number | null) => {
       const pts = series
@@ -465,7 +495,13 @@ const TrendModal: React.FC<{
         .filter(Boolean) as { x: number; y: number }[];
 
       if (pts.length < 2) return '';
-      return `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ');
+      return (
+        `M ${pts[0].x} ${pts[0].y} ` +
+        pts
+          .slice(1)
+          .map((p) => `L ${p.x} ${p.y}`)
+          .join(' ')
+      );
     };
 
     const pathPrimary = buildPath((p) => p.value);
@@ -502,7 +538,8 @@ const TrendModal: React.FC<{
     const pct = insights.trend.pct;
     const dir = insights.trend.dir;
 
-    const cls = dir === 'up' ? 'trend-badge-up' : dir === 'down' ? 'trend-badge-down' : 'trend-badge-flat';
+    const cls =
+      dir === 'up' ? 'trend-badge-up' : dir === 'down' ? 'trend-badge-down' : 'trend-badge-flat';
     const label = dir === 'up' ? t('Up') : dir === 'down' ? t('Down') : t('Stable');
 
     return (
@@ -515,7 +552,10 @@ const TrendModal: React.FC<{
 
   const computeGoalInfo = (p: any) => {
     if (metric === 'bp') {
-      const met = (metricMeta as any).meetsGreenBP(p.value as number | null, p.extra as number | null);
+      const met = (metricMeta as any).meetsGreenBP(
+        p.value as number | null,
+        p.extra as number | null
+      );
       return { met, pctText: undefined };
     }
 
@@ -537,7 +577,9 @@ const TrendModal: React.FC<{
   };
 
   const onPointHover = (evt: React.MouseEvent, i: number) => {
-    const container = (evt.currentTarget as HTMLElement).closest('.trend-modal-chart') as HTMLElement | null;
+    const container = (evt.currentTarget as HTMLElement).closest(
+      '.trend-modal-chart'
+    ) as HTMLElement | null;
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
@@ -654,11 +696,21 @@ const TrendModal: React.FC<{
             </div>
           )}
 
-          <svg viewBox={`0 0 ${chart.w} ${chart.h}`} preserveAspectRatio="none" className="trend-svg">
+          <svg
+            viewBox={`0 0 ${chart.w} ${chart.h}`}
+            preserveAspectRatio="none"
+            className="trend-svg"
+          >
             {/* Grid + Y labels */}
             {chart.grid.map((g, idx) => (
               <g key={idx}>
-                <line x1={chart.padL} x2={chart.w - chart.padR} y1={g.y} y2={g.y} className="trend-grid-line" />
+                <line
+                  x1={chart.padL}
+                  x2={chart.w - chart.padR}
+                  y1={g.y}
+                  y2={g.y}
+                  className="trend-grid-line"
+                />
                 <text x={10} y={g.y + 5} className="trend-axis-label">
                   {Math.round(g.v)}
                 </text>
@@ -719,7 +771,11 @@ const TrendModal: React.FC<{
                       y2={y}
                       className={`trend-th-line trend-th-${th.kind} trend-th-secondary`}
                     />
-                    <text x={chart.w - chart.padR + 10} y={y + 5} className="trend-th-label trend-th-label-secondary">
+                    <text
+                      x={chart.w - chart.padR + 10}
+                      y={y + 5}
+                      className="trend-th-label trend-th-label-secondary"
+                    >
                       {th.label}: {nf.format(Math.round(th.value))} {(metricMeta as any).unit}
                     </text>
                   </g>
@@ -727,7 +783,13 @@ const TrendModal: React.FC<{
               })}
 
             {/* Axes */}
-            <line x1={chart.padL} x2={chart.padL} y1={chart.padT} y2={chart.h - chart.padB} className="trend-axis" />
+            <line
+              x1={chart.padL}
+              x2={chart.padL}
+              y1={chart.padT}
+              y2={chart.h - chart.padB}
+              className="trend-axis"
+            />
             <line
               x1={chart.padL}
               x2={chart.w - chart.padR}
@@ -738,7 +800,9 @@ const TrendModal: React.FC<{
 
             {/* Series */}
             {chart.pathPrimary && <path d={chart.pathPrimary} className="trend-line" fill="none" />}
-            {metric === 'bp' && chart.pathSecondary && <path d={chart.pathSecondary} className="trend-line-secondary" fill="none" />}
+            {metric === 'bp' && chart.pathSecondary && (
+              <path d={chart.pathSecondary} className="trend-line-secondary" fill="none" />
+            )}
 
             {/* X labels */}
             {chart.xLabelIdx.map((idx) => {
@@ -746,7 +810,13 @@ const TrendModal: React.FC<{
               if (!p) return null;
               const x = chart.xScale(idx);
               return (
-                <text key={`xl-${idx}`} x={x} y={chart.h - 18} textAnchor="middle" className="trend-x-label">
+                <text
+                  key={`xl-${idx}`}
+                  x={x}
+                  y={chart.h - 18}
+                  textAnchor="middle"
+                  className="trend-x-label"
+                >
                   {p.date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
                 </text>
               );
@@ -821,8 +891,8 @@ const TrendModal: React.FC<{
                 {insights.avg == null
                   ? '—'
                   : metric === 'bp'
-                  ? `${Math.round(insights.avg)} ${(metricMeta as any).unit}`
-                  : (metricMeta as any).format(insights.avg)}
+                    ? `${Math.round(insights.avg)} ${(metricMeta as any).unit}`
+                    : (metricMeta as any).format(insights.avg)}
               </div>
             </div>
 
@@ -832,8 +902,8 @@ const TrendModal: React.FC<{
                 {insights.med == null
                   ? '—'
                   : metric === 'bp'
-                  ? `${Math.round(insights.med)} ${(metricMeta as any).unit}`
-                  : (metricMeta as any).format(insights.med)}
+                    ? `${Math.round(insights.med)} ${(metricMeta as any).unit}`
+                    : (metricMeta as any).format(insights.med)}
               </div>
             </div>
 
@@ -901,7 +971,9 @@ const TrendModal: React.FC<{
                 ))}
                 {((metricMeta as any).thresholdsDia || []).map((th: any, idx: number) => (
                   <div key={`ctx-d-${idx}`} className="trend-threshold-row">
-                    <span className={`trend-legend-line trend-legend-${th.kind} trend-legend-secondary`} />
+                    <span
+                      className={`trend-legend-line trend-legend-${th.kind} trend-legend-secondary`}
+                    />
                     <span className="trend-legend-text">
                       {th.label}: {nf.format(Math.round(th.value))} {(metricMeta as any).unit}
                     </span>
@@ -913,7 +985,8 @@ const TrendModal: React.FC<{
 
           <div className="trend-data-quality mt-2">
             <div className="text-muted">
-              {t('Data quality')}: {missingness.missing}/{missingness.total} {t('days missing Fitbit data')}
+              {t('Data quality')}: {missingness.missing}/{missingness.total}{' '}
+              {t('days missing Fitbit data')}
             </div>
             {metric === 'bp' && hasManualBP && (
               <div className="text-muted">{t('Some BP values were entered manually.')}</div>
@@ -975,7 +1048,8 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedD
   // MANUAL MODE (not connected)
   if (patientFitbitStore.connected === false) {
     const daily = data?.period?.daily || [];
-    const focusRow = daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
+    const focusRow =
+      daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
 
     const steps = focusRow?.steps ?? null;
     const avgSteps = data?.period?.averages?.steps ?? null;
@@ -1018,7 +1092,9 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedD
             </Alert>
           )}
 
-          <Alert variant="warning">{t('Your Fitbit is not connected. Please enter your daily steps manually.')}</Alert>
+          <Alert variant="warning">
+            {t('Your Fitbit is not connected. Please enter your daily steps manually.')}
+          </Alert>
 
           <Row className="g-2 mb-3 align-items-end">
             <Col xs={6} md={4}>
@@ -1077,12 +1153,12 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedD
                   steps === null
                     ? '-'
                     : steps >= thr.steps_goal
-                    ? t('Excellent')
-                    : steps >= thr.steps_goal * 0.75
-                    ? t('Good')
-                    : steps >= thr.steps_goal * 0.5
-                    ? t('Fair')
-                    : t('Low')
+                      ? t('Excellent')
+                      : steps >= thr.steps_goal * 0.75
+                        ? t('Good')
+                        : steps >= thr.steps_goal * 0.5
+                          ? t('Fair')
+                          : t('Low')
                 }
               />
             </Col>
@@ -1103,7 +1179,8 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedD
 
   const thr = mergeThresholds(data.thresholds);
   const daily = data.period.daily || [];
-  const focusRow = daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
+  const focusRow =
+    daily.find((r) => isSameDay(new Date(r.date), selectedDate || new Date())) || null;
 
   const stepsToday = focusRow?.steps ?? 0;
   const activeToday = focusRow?.active_minutes ?? 0;
@@ -1178,7 +1255,11 @@ const ActivitySummary: React.FC<{ selectedDate?: Date }> = observer(({ selectedD
             <Col>
               <StatCard
                 label={t('Blood Pressure')}
-                value={bpSysToday == null && bpDiaToday == null ? '—' : `${bpSysToday ?? '—'}/${bpDiaToday ?? '—'}`}
+                value={
+                  bpSysToday == null && bpDiaToday == null
+                    ? '—'
+                    : `${bpSysToday ?? '—'}/${bpDiaToday ?? '—'}`
+                }
                 valueClassName={colorForBP(bpSysToday, bpDiaToday, thr)}
                 sub={
                   avgBpSys == null && avgBpDia == null

@@ -49,7 +49,10 @@ interface Props {
   defaults?: Defaults;
 }
 
-const extractApiError = (e: any, fallback: string): { message: string; fieldErrors: Record<string, string> } => {
+const extractApiError = (
+  e: any,
+  fallback: string
+): { message: string; fieldErrors: Record<string, string> } => {
   const api = e?.response?.data;
   if (!api) return { message: fallback, fieldErrors: {} };
 
@@ -60,7 +63,8 @@ const extractApiError = (e: any, fallback: string): { message: string; fieldErro
   if (typeof api.error === 'string' && api.error.trim()) pieces.push(api.error.trim());
   if (typeof api.details === 'string' && api.details.trim()) pieces.push(api.details.trim());
 
-  if (Array.isArray(api.non_field_errors)) pieces.push(...api.non_field_errors.map((x: any) => String(x)));
+  if (Array.isArray(api.non_field_errors))
+    pieces.push(...api.non_field_errors.map((x: any) => String(x)));
 
   if (api.field_errors && typeof api.field_errors === 'object') {
     Object.entries(api.field_errors).forEach(([field, msgs]) => {
@@ -84,8 +88,12 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
     const [interval, setInterval] = useState<number>(defaults?.interval ?? 1);
     const [unit, setUnit] = useState<'day' | 'week' | 'month'>(defaults?.unit ?? 'week');
     const [selectedDays, setSelectedDays] = useState<string[]>(defaults?.selectedDays ?? []);
-    const [endOption, setEndOption] = useState<'never' | 'date' | 'count'>(defaults?.end?.type ?? 'never');
-    const [endDate, setEndDate] = useState<Date | null>(defaults?.end?.date ? new Date(defaults.end.date) : null);
+    const [endOption, setEndOption] = useState<'never' | 'date' | 'count'>(
+      defaults?.end?.type ?? 'never'
+    );
+    const [endDate, setEndDate] = useState<Date | null>(
+      defaults?.end?.date ? new Date(defaults.end.date) : null
+    );
     const [occurrenceCount, setOccurrenceCount] = useState<number>(defaults?.end?.count ?? 8);
     const [startTime, setStartTime] = useState<string>(defaults?.startTime ?? '08:00');
 
@@ -121,7 +129,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
     }, [show, defaults, isModify]);
 
     const toggleDay = (day: string) => {
-      setSelectedDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+      setSelectedDays((prev) =>
+        prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+      );
     };
 
     const getCombinedStartISO = (): string | null => {
@@ -136,7 +146,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
 
     const summary = useMemo(() => {
       if (unit === 'day') {
-        return interval === 1 ? t('Occurs every day.') : t('Occurs every {{ord}} day.', { ord: toOrdinal(interval) });
+        return interval === 1
+          ? t('Occurs every day.')
+          : t('Occurs every {{ord}} day.', { ord: toOrdinal(interval) });
       }
       if (unit === 'week') {
         const days = joinDays(selectedDays);
@@ -144,7 +156,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
           ? t('Occurs weekly on {{days}}.', { days })
           : t('Occurs every {{ord}} week on {{days}}.', { ord: toOrdinal(interval), days });
       }
-      return interval === 1 ? t('Occurs monthly on the same date.') : t('Occurs every {{ord}} month on the same date.', { ord: toOrdinal(interval) });
+      return interval === 1
+        ? t('Occurs monthly on the same date.')
+        : t('Occurs every {{ord}} month on the same date.', { ord: toOrdinal(interval) });
     }, [interval, unit, selectedDays, t]);
 
     const validate = (): boolean => {
@@ -161,9 +175,11 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
         if (!startDateCreate) fe.startDateCreate = t('Please choose a start date.');
       }
 
-      if (unit === 'week' && selectedDays.length === 0) fe.selectedDays = t('Select at least one weekday.');
+      if (unit === 'week' && selectedDays.length === 0)
+        fe.selectedDays = t('Select at least one weekday.');
       if (endOption === 'date' && !endDate) fe.endDate = t('Pick an end date.');
-      if (endOption === 'count' && (!occurrenceCount || occurrenceCount < 1)) fe.occurrenceCount = t('Number of occurrences must be >= 1.');
+      if (endOption === 'count' && (!occurrenceCount || occurrenceCount < 1))
+        fe.occurrenceCount = t('Number of occurrences must be >= 1.');
 
       setFieldErrors(fe);
       return Object.keys(fe).length === 0;
@@ -181,7 +197,20 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
       if (endOption === 'date' && !endDate) return false;
       if (endOption === 'count' && (!occurrenceCount || occurrenceCount < 1)) return false;
       return true;
-    }, [patientId, questionnaire?._id, startTime, interval, isModify, effectiveFrom, startDateCreate, unit, selectedDays.length, endOption, endDate, occurrenceCount]);
+    }, [
+      patientId,
+      questionnaire?._id,
+      startTime,
+      interval,
+      isModify,
+      effectiveFrom,
+      startDateCreate,
+      unit,
+      selectedDays.length,
+      endOption,
+      endDate,
+      occurrenceCount,
+    ]);
 
     const handleSubmit = useCallback(async () => {
       if (submitting) return;
@@ -294,7 +323,12 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
         footer={footer}
       >
         {error && (
-          <Alert variant="danger" onClose={() => setError('')} dismissible style={{ whiteSpace: 'pre-wrap' }}>
+          <Alert
+            variant="danger"
+            onClose={() => setError('')}
+            dismissible
+            style={{ whiteSpace: 'pre-wrap' }}
+          >
             {error}
           </Alert>
         )}
@@ -336,7 +370,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 className="form-control"
                 dateFormat="yyyy-MM-dd"
               />
-              <Form.Text className="text-muted">{t('If unsure, start tomorrow at 08:00.')}</Form.Text>
+              <Form.Text className="text-muted">
+                {t('If unsure, start tomorrow at 08:00.')}
+              </Form.Text>
             </Form.Group>
           )}
 
@@ -345,7 +381,11 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
               {t('Start Time')}
             </Form.Label>
             <Col sm={8}>
-              <Form.Control type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              <Form.Control
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
             </Col>
           </Form.Group>
 

@@ -84,21 +84,27 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   };
 
   const submit2FA = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
+    e.preventDefault();
+    setError('');
 
-  const res = await apiClient.post('/auth/verify-code/', {
-    userId: authStore.id,
-    verificationCode,
-  });
+    try {
+      const res = await apiClient.post('/auth/verify-code/', {
+        userId: authStore.id,
+        verificationCode,
+      });
 
-  if (res.status === 200) {
-  await authStore.complete2FA(res.data.access_token, res.data.refresh_token);
-  navigate('/therapist');
-}
-
-};
-
+      if (res?.status === 200 && res?.data?.access_token && res?.data?.refresh_token) {
+        await authStore.complete2FA(res.data.access_token, res.data.refresh_token);
+        navigate('/therapist');
+      } else {
+        setError(t('Verification failed. Please try again.'));
+      }
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.detail || err?.message || t('Verification failed. Please try again.')
+      );
+    }
+  };
 
   return (
     <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>
@@ -116,7 +122,11 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
               label={
                 <>
                   {t('Email or Patient ID')}
-                  <InfoBubble tooltip={t('Use your registered email (therapist/admin/researcher) or patient ID.')} />
+                  <InfoBubble
+                    tooltip={t(
+                      'Use your registered email (therapist/admin/researcher) or patient ID.'
+                    )}
+                  />
                 </>
               }
               type="text"

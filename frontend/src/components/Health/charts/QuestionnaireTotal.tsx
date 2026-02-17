@@ -36,7 +36,11 @@ const QuestionnaireTotal = forwardRef<SVGSVGElement, Props>(({ data, start, end,
       );
 
       // build full day domain
-      const s = start ? new Date(start) : (grouped.size ? new Date([...grouped.keys()].sort()[0]) : new Date());
+      const s = start
+        ? new Date(start)
+        : grouped.size
+          ? new Date([...grouped.keys()].sort()[0])
+          : new Date();
       const e = end ? new Date(end) : s;
       const days = d3.timeDay.range(
         new Date(s.getFullYear(), s.getMonth(), s.getDate()),
@@ -47,12 +51,11 @@ const QuestionnaireTotal = forwardRef<SVGSVGElement, Props>(({ data, start, end,
       // rows have y=null for missing days ➜ axis shows them, but no bar is drawn
       const rows = xDomain.map((k) => ({ x: k, y: grouped.get(k) ?? null }));
 
-      drawBarTimeseries(
-        svgRef,
-        rows,
-        t('Total Questionnaire Score Per Day'),
-        { xDomain, barColor: '#69b3a2', legendLabel: t('Total Score') }
-      );
+      drawBarTimeseries(svgRef, rows, t('Total Questionnaire Score Per Day'), {
+        xDomain,
+        barColor: '#69b3a2',
+        legendLabel: t('Total Score'),
+      });
     } else {
       const rows = groupToBoxes(
         data,

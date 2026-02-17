@@ -1,8 +1,8 @@
-import React from "react";
-import { Alert } from "react-bootstrap";
+import React from 'react';
+import { Alert } from 'react-bootstrap';
 
 interface Props {
-  type: "success" | "danger";
+  type: 'success' | 'danger';
   message: string;
   onClose: () => void;
 }
@@ -17,12 +17,12 @@ const StatusBanner: React.FC<Props> = ({ type, message, onClose }) => {
       onClose={onClose}
       className="text-center shadow-sm"
       style={{
-        position: "fixed",
-        top: "80px",
-        left: "50%",
-        transform: "translateX(-50%)",
+        position: 'fixed',
+        top: '80px',
+        left: '50%',
+        transform: 'translateX(-50%)',
         zIndex: 2000,
-        minWidth: "280px",
+        minWidth: '280px',
       }}
     >
       {message}
