@@ -1,3 +1,18 @@
+"""
+Utility Functions Tests
+
+This module tests utility functions used throughout the backend including:
+- Date and time handling (timezone awareness, parsing)
+- Text sanitization and cleaning
+- Data serialization and conversion
+- ID generation
+- Database utilities
+- Repeat date generation for interventions
+
+Framework: pytest with mongomock
+Tests: 20+ utility functions covering data manipulation and formatting
+"""
+
 from datetime import datetime, timedelta
 from unittest import mock
 
@@ -21,35 +36,128 @@ from utils.utils import (
 
 @pytest.fixture(autouse=True)
 def mongo_mock():
+    """
+    Fixture: Mock MongoDB for utility tests
+    
+    Sets up:
+    - In-memory MongoDB client for each test
+    - No external database dependency
+    - Cleanup after test completes
+    """
     conn = mongomock.MongoClient()
     yield conn
     conn.close()
 
 
 def test_ensure_aware_naive_datetime():
+    """
+    Scenario: Convert naive datetime to timezone-aware
+    
+    Setup:
+    - Naive datetime created with datetime.now()
+    - No timezone information
+    
+    Steps:
+    1. Call ensure_aware(naive_datetime)
+    2. Function adds UTC timezone info
+    
+    Expected Results:
+    - Returned datetime has tzinfo set (not None)
+    - Can be used for database storage
+    
+    Why Important: Ensures consistent timezone handling across system
+    """
     naive_dt = datetime.now()
     aware_dt = ensure_aware(naive_dt)
     assert aware_dt.tzinfo is not None
 
 
 def test_ensure_aware_already_aware_datetime():
+    """
+    Scenario: Handle already timezone-aware datetime
+    
+    Setup:
+    - Datetime already has timezone info
+    - Created with .astimezone()
+    
+    Steps:
+    1. Call ensure_aware(aware_datetime)
+    2. Function should preserve timezone
+    
+    Expected Results:
+    - Returned datetime still has tzinfo
+    - No modification needed
+    - Idempotent operation
+    """
     aware_dt = ensure_aware(datetime.now().astimezone())
     assert aware_dt.tzinfo is not None
 
 
 def test_sanitize_text_basic():
+    """
+    Scenario: Clean up text with extra whitespace
+    
+    Setup:
+    - Text: "   Hello   World   " (extra spaces)
+    
+    Steps:
+    1. Call sanitize_text(text)
+    2. Function removes extra whitespace
+    3. Trims leading/trailing spaces
+    
+    Expected Results:
+    - Returns: "Hello World"
+    - Extra spaces removed
+    - Ready for database storage
+    
+    Use Case: User input has trailing/leading spaces from copy-paste
+    """
     text = "   Hello   World   "
     result = sanitize_text(text)
     assert result == "Hello World"
 
 
 def test_sanitize_text_special_characters():
+    """
+    Scenario: Convert accented characters to ASCII equivalent
+    
+    Setup:
+    - Text: "Müller Straße" (German with umlauts)
+    
+    Steps:
+    1. Call sanitize_text(text)
+    2. Function converts special characters
+    3. ü → u, ß → ss
+    
+    Expected Results:
+    - Returns: "Mueller Strasse"
+    - ASCII-safe for compatibility
+    
+    Use Case: International names in form fields, ensure storage compatibility
+    """
     text = "Müller Straße"
     result = sanitize_text(text)
     assert result == "Mueller Strasse"
 
 
 def test_sanitize_text_accented():
+    """
+    Scenario: Remove accents from French characters
+    
+    Setup:
+    - Text: "Café Noël" (French with accents)
+    
+    Steps:
+    1. Call sanitize_text(text)
+    2. Function removes diacritics
+    3. é → e
+    
+    Expected Results:
+    - Returns: "Cafe Noel"
+    - International characters normalized
+    
+    Use Case: Multi-language support, normalize user names
+    """
     text = "Café Noël"
     result = sanitize_text(text)
     assert result == "Cafe Noel"

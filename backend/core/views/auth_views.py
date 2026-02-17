@@ -45,7 +45,7 @@ import uuid
 logger = logging.getLogger(__name__)
 from mongoengine.queryset.visitor import Q
 
-
+from utils.config import config
 from django.db import transaction, IntegrityError
 
 from django.core.validators import validate_email
