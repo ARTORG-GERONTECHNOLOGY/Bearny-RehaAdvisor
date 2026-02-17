@@ -12,7 +12,9 @@ const readSelectedDate = () => {
 const writeSelectedDate = (d: Date) => {
   try {
     localStorage.setItem(SELECTED_DATE_KEY, d.toISOString());
-  } catch {}
+  } catch (_e) {
+    // ignore storage write failures (e.g., privacy mode, quota exceeded)
+  }
 };
 
 class PatientUiStore {

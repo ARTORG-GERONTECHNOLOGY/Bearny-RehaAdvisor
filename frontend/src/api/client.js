@@ -41,7 +41,7 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
-          console.warn("No refresh token found.");
+          console.warn('No refresh token found.');
           return Promise.reject(error); // keep original error
         }
 
@@ -51,7 +51,7 @@ apiClient.interceptors.response.use(
 
         const newAccessToken = refreshRes.data?.access;
         if (!newAccessToken) {
-          console.warn("Refresh token response missing access token.");
+          console.warn('Refresh token response missing access token.');
           return Promise.reject(error);
         }
 
@@ -61,9 +61,8 @@ apiClient.interceptors.response.use(
 
         // Retry original request with updated token
         return apiClient(originalRequest);
-
       } catch (refreshError) {
-        console.error("🔒 Token refresh failed:", refreshError);
+        console.error('🔒 Token refresh failed:', refreshError);
 
         // Logout user, but DO NOT destroy Axios error structure
         localStorage.removeItem('authToken');
@@ -76,10 +75,7 @@ apiClient.interceptors.response.use(
     // -------------------------------
     // KEEP AXIOS ERROR — DO NOT WRAP IT
     // -------------------------------
-    console.error(
-      "❌ API Error Response:",
-      error.response?.data || error.message
-    );
+    console.error('❌ API Error Response:', error.response?.data || error.message);
 
     // IMPORTANT: return the ORIGINAL Axios error
     // so your app can use `err.response.data.field_errors`

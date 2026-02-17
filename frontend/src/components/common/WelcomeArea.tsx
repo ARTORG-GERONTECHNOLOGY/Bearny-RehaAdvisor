@@ -24,19 +24,14 @@ const WelcomeArea: React.FC<WelcomeAreaProps> = observer(({ user }) => {
     return t('You can manage patients and review recommendations.');
   };
 
-  const displayName =
-    authStore.firstName ||
-    authStore.email ||
-    t('User');
+  const displayName = authStore.firstName || authStore.email || t('User');
 
   return (
     <div className="welcome-area text-center my-4 px-2">
       <h2 className="fs-3 fs-md-2 fw-bold text-wrap text-break">
         {getWelcomeMessage()}, {displayName}
       </h2>
-      <h4 className="fs-6 fs-md-5 text-secondary">
-        {getUserMessage()}
-      </h4>
+      <h4 className="fs-6 fs-md-5 text-secondary">{getUserMessage()}</h4>
     </div>
   );
 });

@@ -117,7 +117,9 @@ class PatientInterventionsStore {
           r.intervention_id === rec.intervention_id
             ? {
                 ...r,
-                completion_dates: (r.completion_dates || []).filter((d) => !String(d).startsWith(dateKey)),
+                completion_dates: (r.completion_dates || []).filter(
+                  (d) => !String(d).startsWith(dateKey)
+                ),
               }
             : r
         );

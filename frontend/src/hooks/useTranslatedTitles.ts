@@ -22,7 +22,10 @@ export function useTranslatedTitles(items: InterventionTypeTh[], lang: string) {
       const pairs = await Promise.all(
         items.map(async (rec) => {
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rec.title, targetLang);
+            const { translatedText, detectedSourceLanguage } = await translateText(
+              rec.title,
+              targetLang
+            );
             return [
               rec._id,
               { title: translatedText || rec.title, lang: detectedSourceLanguage || null },

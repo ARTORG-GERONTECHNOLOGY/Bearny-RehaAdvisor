@@ -50,7 +50,10 @@ class PatientVitalsStore {
     }
   }
 
-  async submit(userId: string, payload: { weight_kg?: number | null; bp_sys?: number | null; bp_dia?: number | null }) {
+  async submit(
+    userId: string,
+    payload: { weight_kg?: number | null; bp_sys?: number | null; bp_dia?: number | null }
+  ) {
     this.posting = true;
     this.clearMessages();
     try {

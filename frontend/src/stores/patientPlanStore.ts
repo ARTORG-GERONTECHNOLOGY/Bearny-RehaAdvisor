@@ -28,9 +28,7 @@ export class PatientPlanStore {
     this.error = null;
 
     try {
-      const { data } = await apiClient.get(
-        `/patients/rehabilitation-plan/patient/${patientId}/`
-      );
+      const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`);
 
       runInAction(() => {
         this.items = Array.isArray(data) ? data : [];

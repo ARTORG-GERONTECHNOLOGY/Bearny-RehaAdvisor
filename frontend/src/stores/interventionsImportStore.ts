@@ -75,10 +75,7 @@ export class InterventionsImportStore {
       });
     } catch (e: any) {
       const backend =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        e?.message ||
-        'Import failed.';
+        e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Import failed.';
 
       runInAction(() => {
         this.error = String(backend);

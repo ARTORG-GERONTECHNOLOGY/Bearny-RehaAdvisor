@@ -52,7 +52,9 @@ const Home: React.FC = () => {
               </h1>
 
               <p className="home-lead text-muted mb-4 px-1 px-sm-0">
-                {t('Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.')}
+                {t(
+                  'Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.'
+                )}
               </p>
 
               {/* full-width on mobile, natural width on >=sm */}
@@ -89,15 +91,8 @@ const Home: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <LoginForm
-        show={showLoginModal}
-        handleClose={toggleLoginModal}
-        defaultRole="Therapist"
-      />
-      <FormRegister
-        show={showRegisterModal}
-        handleRegShow={toggleRegisterModal}
-      />
+      <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
+      <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
       <Footer />
     </div>
   );
