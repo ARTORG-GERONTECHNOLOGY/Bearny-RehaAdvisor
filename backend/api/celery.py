@@ -5,12 +5,14 @@ from mongoengine import connect
 import os
 
 connect(
-    db=os.environ.get("DB_NAME", "myappdb"),
-    host=os.environ.get("DB_HOST", "localhost"),
-    port=int(os.environ.get("DB_PORT", 27017)),
-    username=os.environ.get("MONGO_INITDB_ROOT_USERNAME", "root"),
-    password=os.environ.get("MONGO_INITDB_ROOT_PASSWORD", "example"),
-    authentication_source="admin",
+    db=os.environ.get("DB_NAME"),
+    host=os.environ.get("DB_HOST"),
+    port=int(os.environ.get("DB_PORT", "27017")),
+    username=os.environ.get("MONGO_INITDB_ROOT_USERNAME"),
+    password=os.environ.get("MONGO_INITDB_ROOT_PASSWORD"),
+    authentication_source=os.environ.get("MONGO_INITDB_AUTH_SOURCE", "admin"),
+    tls=True,
+    tlsCAFile="/etc/ssl/mongo/ca.crt",
 )
 # Must come before Celery starts
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings.base")

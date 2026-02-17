@@ -1,6 +1,7 @@
 
 coverage/
 mongo_data/
+mongo/tls/
 nginx/certs/
 nginx/logs/
 nginx/certbot/
