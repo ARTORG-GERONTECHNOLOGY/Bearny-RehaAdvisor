@@ -9,94 +9,128 @@ type FetchOptions = {
   mode: LibraryMode;
 
   /**
-   * Optional: if your backend supports "patient_id" to include private interventions
-   * (per your previous requirement: list_all_interventions(patientId) includes that patient's private items)
+   * If provided, backend can include that patient's private interventions.
+   * Your backend route may be:
+   *  - /api/interventions/all/<patient_id>/?lang=de
+   * or still:
+   *  - /api/interventions/all/?patientId=...
    */
   patientId?: string;
 
   /**
-   * Optional: if backend supports filtering.
-   * If not supported, store will still do client-side filtering.
+   * Optional: if backend supports filtering. If not, store still filters client-side.
    */
   includePrivate?: boolean;
+
+  /**
+   * Language preference used for "best variant" selection (grouped by external_id)
+   */
+  lang?: string;
 };
 
-/**
- * Robustly normalize different backend response shapes:
- * - array
- * - { data: [...] }
- * - { results: [...] }
- */
-const normalizeList = (data: any): any[] => {
+type UnknownRec = Record<string, unknown>;
+
+const isRecord = (v: unknown): v is UnknownRec => typeof v === 'object' && v !== null;
+
+const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+
+const normalizeList = (data: unknown): unknown[] => {
   if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.results)) return data.results;
+  if (isRecord(data)) {
+    const d = data.data;
+    if (Array.isArray(d)) return d;
+    const r = data.results;
+    if (Array.isArray(r)) return r;
+  }
   return [];
 };
 
-/**
- * Try multiple "private" flags because your API has used both in places:
- * - is_private (snake)
- * - isPrivate (camel)
- */
-const isPrivate = (x: any) => Boolean(x?.is_private ?? x?.isPrivate);
+const isPrivate = (x: unknown): boolean => {
+  if (!isRecord(x)) return false;
+  const v = x.is_private ?? x.isPrivate;
+  return Boolean(v);
+};
 
-/**
- * Normalize intervention object to match new model fields while keeping backwards compatibility.
- * This prevents UI breaks when some endpoints still return legacy keys.
- */
-const normalizeIntervention = (raw: any): any => {
-  if (!raw || typeof raw !== 'object') return raw;
+const normalizeIntervention = (raw: unknown): UnknownRec => {
+  if (!isRecord(raw)) return {};
 
-  const n: any = { ...raw };
+  // clone as UnknownRec
+  const n: UnknownRec = { ...raw };
 
   // unify id
-  n.id = n.id ?? n._id ?? n.pk;
+  const id = n.id ?? n._id ?? n.pk;
+  if (typeof id === 'string' || typeof id === 'number') n.id = String(id);
 
   // unify private flag
-  n.is_private = n.is_private ?? n.isPrivate ?? false;
+  n.is_private = Boolean(n.is_private ?? n.isPrivate ?? false);
 
-  // unify content type key variations (your FE submits "contentType")
-  n.content_type = n.content_type ?? n.contentType ?? n.type ?? '';
+  // unify content type variations
+  n.content_type = asString(n.content_type ?? n.contentType ?? n.type, '');
 
-  // unify language key variations (your FE submits "language")
-  n.language = n.language ?? n.lang ?? 'en';
+  // language + external id + provider
+  n.language = asString(n.language ?? n.lang, 'en');
+  n.external_id = asString(n.external_id ?? n.externalId, '');
+  n.provider = asString(n.provider ?? n.source, '');
 
-  // unify external id naming (your FE submits "external_id")
-  n.external_id = n.external_id ?? n.externalId ?? '';
+  // available languages list for globe hint + modal buttons
+  const al = n.available_languages;
+  const al2 = n.availableLanguages;
+  n.available_languages = Array.isArray(al)
+    ? al.map((x) => asString(x)).filter(Boolean)
+    : Array.isArray(al2)
+      ? al2.map((x) => asString(x)).filter(Boolean)
+      : [];
 
-  // unify provider (already consistent but just in case)
-  n.provider = n.provider ?? n.source ?? '';
+  // aims/tags split (backend sends these now)
+  const aims = n.aims;
+  const aim = n.aim;
+  n.aims = Array.isArray(aims)
+    ? aims.map((x) => asString(x)).filter(Boolean)
+    : Array.isArray(aim)
+      ? aim.map((x) => asString(x)).filter(Boolean)
+      : typeof aim === 'string' && aim.trim()
+        ? [aim.trim()]
+        : [];
 
-  // unify media: ensure array
-  n.media = Array.isArray(n.media) ? n.media : Array.isArray(n.media_items) ? n.media_items : [];
+  n.tags = Array.isArray(n.tags) ? n.tags.map((x) => asString(x)).filter(Boolean) : [];
 
-  // unify preview image field variations (img / image)
-  n.img_url = n.img_url ?? n.image_url ?? n.preview_image_url ?? n.img ?? '';
+  // media always array
+  const media = n.media;
+  const mediaItems = n.media_items;
+  n.media = Array.isArray(media) ? media : Array.isArray(mediaItems) ? mediaItems : [];
 
-  // unify patient targeting (public)
-  n.patientTypes = n.patientTypes ?? n.patient_types ?? [];
+  // preview image variations
+  n.preview_img = asString(
+    n.preview_img ??
+      n.previewImage ??
+      n.preview_image ??
+      n.preview_image_url ??
+      n.img_url ??
+      n.image_url ??
+      n.img,
+    ''
+  );
 
-  // unify taxonomy (optional new field)
-  n.taxonomy = n.taxonomy ?? null;
+  // patient targeting
+  n.patient_types = Array.isArray(n.patient_types)
+    ? n.patient_types
+    : Array.isArray(n.patientTypes)
+      ? n.patientTypes
+      : [];
+
+  // keep where/setting (backend sends these now)
+  n.where = Array.isArray(n.where) ? n.where : [];
+  n.setting = Array.isArray(n.setting) ? n.setting : [];
 
   return n;
 };
 
-/**
- * Shared store class for Patient + Therapist libraries.
- *
- * ✅ Updated for new model + resilient response parsing + normalization.
- * ✅ Supports optional patientId param so therapist can request private interventions for a specific patient.
- */
 export class InterventionsLibraryStore {
   items: InterventionTypeTh[] = [];
   loading = false;
   error = '';
 
   lastMode: LibraryMode | null = null;
-
-  // Optional: track last fetch args (useful for refresh buttons)
   lastFetch: FetchOptions | null = null;
 
   constructor() {
@@ -107,12 +141,9 @@ export class InterventionsLibraryStore {
     return this.items.length;
   }
 
-  /**
-   * Patient should not see private interventions.
-   * Therapist sees all.
-   */
   get visibleItemsForPatient() {
-    return (this.items as any[]).filter((x) => !isPrivate(x));
+    // no `any`: filter via unknown guard
+    return this.items.filter((x) => !isPrivate(x));
   }
 
   get visibleItemsForTherapist() {
@@ -132,21 +163,12 @@ export class InterventionsLibraryStore {
   }
 
   /**
-   * Fetch the intervention library.
-   *
-   * Backend expectations (supports any subset):
-   * - GET interventions/all/
-   * - Optional query params:
-   *   - patientId (or patient_id) to include that patient's private interventions
-   *   - includePrivate to include private interventions (therapist mode)
-   *
-   * Client-side behavior:
-   * - Always normalizes returned items to the "new model" shape used by the FE.
-   * - Patient mode filters private items out client-side, regardless of backend.
+   * Updated to match new backend behavior:
+   * - supports ?lang=xx which backend uses to pick best variant per external_id
+   * - supports private items by route /all/<patientId>/ when provided (preferred)
    */
   async fetchAll(opts: FetchOptions) {
-    const { mode, patientId, includePrivate } = opts;
-
+    const { mode, patientId, includePrivate, lang } = opts;
     if (this.loading) return;
 
     this.loading = true;
@@ -155,38 +177,40 @@ export class InterventionsLibraryStore {
     this.lastFetch = opts;
 
     try {
-      // query params (only if provided)
-      const params: Record<string, any> = {};
-      if (patientId) {
-        // support either param name depending on backend
-        params.patientId = patientId;
-      }
-      if (typeof includePrivate === 'boolean') {
-        params.includePrivate = includePrivate;
-      }
+      const params: Record<string, string | boolean> = {};
+      if (lang) params.lang = lang;
+      if (typeof includePrivate === 'boolean') params.includePrivate = includePrivate;
 
-      const res = await apiClient.get('interventions/all/', { params });
+      const endpoint = patientId ? `interventions/all/${patientId}/` : 'interventions/all/';
+      const res = await apiClient.get(endpoint, { params });
 
       const rawList = normalizeList(res.data);
-      const normalized = rawList.map(normalizeIntervention) as InterventionTypeTh[];
+      const normalized = rawList.map(normalizeIntervention) as unknown[];
+
+      // Cast to your app type after normalization; if the backend changes,
+      // you still won’t have `any` leaking through this file.
+      const asTyped = normalized as InterventionTypeTh[];
 
       runInAction(() => {
-        // patient mode: hide private
-        this.items =
-          mode === 'patient'
-            ? (normalized as any[]).filter((x) => !isPrivate(x)) as InterventionTypeTh[]
-            : normalized;
+        this.items = mode === 'patient' ? asTyped.filter((x) => !isPrivate(x)) : asTyped;
       });
-    } catch (e: any) {
-      const backend =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        'Failed to fetch interventions.';
+    } catch (e: unknown) {
+      // axios-like error shape without `any`
+      const msg =
+        isRecord(e) && isRecord(e.response) && isRecord(e.response.data)
+          ? asString(
+              e.response.data.message ??
+                e.response.data.error ??
+                e.response.data.detail ??
+                e.message,
+              'Failed to fetch interventions.'
+            )
+          : isRecord(e)
+            ? asString(e.message, 'Failed to fetch interventions.')
+            : 'Failed to fetch interventions.';
 
       runInAction(() => {
-        this.error = String(backend);
+        this.error = msg;
         this.items = [];
       });
     } finally {
@@ -196,15 +220,11 @@ export class InterventionsLibraryStore {
     }
   }
 
-  /**
-   * Convenience refresh using last fetch options (if available).
-   */
   async refresh() {
     if (!this.lastFetch) return;
     return this.fetchAll(this.lastFetch);
   }
 }
 
-// Separate instances so each page can load independently
 export const patientInterventionsLibraryStore = new InterventionsLibraryStore();
 export const therapistInterventionsLibraryStore = new InterventionsLibraryStore();

@@ -1,3 +1,4 @@
+// src/stores/rehabTableStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
 import authStore from './authStore';
@@ -9,32 +10,147 @@ import type { Intervention } from '../types';
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap = Record<string, string>;
 
-type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
+// -------------------- Typed “unknown-first” helpers (no any) --------------------
+
+type ApiErrorResponseData = {
+  message?: unknown;
+  error?: unknown;
+  detail?: unknown;
+  details?: unknown;
+  field_errors?: unknown;
+  non_field_errors?: unknown;
+};
+
+type ApiErrorLike = {
+  response?: { data?: ApiErrorResponseData };
+  message?: unknown;
+};
+
+const toStr = (v: unknown): string => {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+};
+
+const joinArray = (v: unknown): string =>
+  Array.isArray(v)
+    ? v
+        .map((x) => toStr(x))
+        .filter(Boolean)
+        .join(' ')
+    : '';
+
+const fieldErrorsToText = (v: unknown): string => {
+  if (!v || typeof v !== 'object') return '';
+  return Object.entries(v as Record<string, unknown>)
+    .map(([field, msgs]) => {
+      if (Array.isArray(msgs)) return msgs.map((m) => `${field}: ${toStr(m)}`).join(' ');
+      if (msgs) return `${field}: ${toStr(msgs)}`;
+      return '';
+    })
+    .filter(Boolean)
+    .join(' ');
+};
+
+export const extractApiError = (e: unknown, fallback: string): string => {
+  const err = e as ApiErrorLike;
+  const api = err?.response?.data;
+
+  if (!api) return fallback;
+
+  const pieces: string[] = [];
+
+  const msg = toStr(api.message).trim();
+  if (msg) pieces.push(msg);
+
+  const nonField = joinArray(api.non_field_errors).trim();
+  if (nonField) pieces.push(nonField);
+
+  const fieldText = fieldErrorsToText(api.field_errors).trim();
+  if (fieldText) pieces.push(fieldText);
+
+  const apiErr = toStr(api.error).trim();
+  if (apiErr) pieces.push(apiErr);
+
+  const details = toStr(api.details ?? api.detail).trim();
+  if (details) pieces.push(details);
+
+  const text = pieces.join(' ').trim();
+  return text || fallback;
+};
+
+// -------------------- Domain types --------------------
+
+type PatientPlan = {
+  interventions: Intervention[];
+} & Record<string, unknown>;
+
 const EMPTY_PLAN: PatientPlan = { interventions: [] };
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 
-export const extractApiError = (e: any, fallback: string): string => {
-  const api = e?.response?.data;
-  if (!api) return fallback;
+// Some plan/cat fields are not in the shared Intervention type yet (legacy/new model overlap)
+type PlanLike = {
+  _id?: string;
+  id?: string;
+  title?: string;
+  description?: string;
+  content_type?: string;
+  link?: string;
+  tags?: unknown;
+  benefitFor?: unknown;
+  preview_img?: string;
+  dates?: Array<{ datetime: string }>;
+  frequency?: unknown;
+  notes?: unknown;
+  require_video_feedback?: unknown;
+  media_url?: unknown;
+  media_file?: unknown;
+} & Record<string, unknown>;
 
-  const pieces: string[] = [];
-  if (typeof api.message === 'string' && api.message.trim()) pieces.push(api.message.trim());
-  if (Array.isArray(api.non_field_errors)) pieces.push(...api.non_field_errors.map((x: any) => String(x)));
-
-  if (api.field_errors && typeof api.field_errors === 'object') {
-    ObjectObject.entries(api.field_errors).forEach(([field, msgs]) => {
-      if (Array.isArray(msgs)) msgs.forEach((m) => pieces.push(`${field}: ${m}`));
-      else if (msgs) pieces.push(`${field}: ${msgs}`);
-    });
-  }
-
-  if (typeof api.error === 'string' && api.error.trim()) pieces.push(api.error.trim());
-  if (typeof api.details === 'string' && api.details.trim()) pieces.push(api.details.trim());
-
-  const text = pieces.join(' ');
-  return text || fallback;
+// Defaults passed into Repeat modal
+type ModifyDefaults = {
+  effectiveFrom: string; // YYYY-MM-DD
+  frequency: string;
+  notes: string;
+  require_video_feedback: boolean;
 };
+
+const getId = (x: unknown): string => {
+  if (!x || typeof x !== 'object') return '';
+  const o = x as { _id?: unknown; id?: unknown };
+  const v = o._id ?? o.id;
+  return typeof v === 'string' ? v : '';
+};
+
+const getContentType = (x: unknown): string => {
+  if (!x || typeof x !== 'object') return '';
+  const o = x as { content_type?: unknown; contentType?: unknown };
+  const v = o.content_type ?? o.contentType;
+  return typeof v === 'string' ? v : '';
+};
+
+const getDates = (x: unknown): Array<{ datetime: string }> => {
+  if (!x || typeof x !== 'object') return [];
+  const o = x as { dates?: unknown };
+  return Array.isArray(o.dates)
+    ? o.dates
+        .map((d) =>
+          d && typeof d === 'object' ? (d as { datetime?: unknown }).datetime : undefined
+        )
+        .filter((dt): dt is string => typeof dt === 'string')
+        .map((dt) => ({ datetime: dt }))
+    : [];
+};
+
+const isTruthy = (v: unknown): boolean => v === true || v === 'true' || v === 1 || v === '1';
+
+// -------------------- Store --------------------
 
 export class RehabTableStore {
   // ---------------------------------------------------------------------------
@@ -79,10 +195,10 @@ export class RehabTableStore {
   showInfoInterventionModal = false;
 
   showFeedbackBrowser = false;
-  feedbackBrowserIntervention: any = null;
+  feedbackBrowserIntervention: Intervention | null = null;
 
   repeatMode: 'create' | 'modify' = 'create';
-  modifyDefaults: any = null;
+  modifyDefaults: ModifyDefaults | null = null;
 
   // analytics
   private entryTime = 0;
@@ -105,85 +221,118 @@ export class RehabTableStore {
 
   get diagnoses(): string[] {
     const specs = this.specialisations;
+    const cfg = config as unknown as {
+      patientInfo?: { function?: Record<string, { diagnosis?: unknown }> };
+    };
+    const fn = cfg?.patientInfo?.function || {};
     return Array.isArray(specs)
-      ? specs.flatMap((spec) => (config as any)?.patientInfo?.function?.[spec]?.diagnosis || [])
+      ? specs.flatMap((spec) => {
+          const dx = fn?.[spec]?.diagnosis;
+          return Array.isArray(dx) ? dx.map(String) : [];
+        })
       : [];
   }
 
-  private buildCatalogMap() {
-    const m = new Map<string, Intervention>();
-    for (const it of this.allInterventions || []) m.set(it._id, it);
-    return m;
-  }
-
   /**
-   * Your therapist rehab-plan endpoint returns schedule + notes, but NOT media/description.
+   * Therapist rehab-plan endpoint returns schedule + notes, but NOT media/description.
    * We merge plan items with catalog details so the info popup can show media/desc again.
    */
   private mergePlanWithCatalog(plan: PatientPlan, catalog: Intervention[]): PatientPlan {
     const catalogMap = new Map<string, Intervention>();
     for (const it of catalog || []) catalogMap.set(it._id, it);
 
-    const merged = (plan?.interventions || []).map((p: any) => {
-      const full = catalogMap.get(p._id);
+    const merged: Intervention[] = (plan?.interventions || []).map((p0) => {
+      const p = (p0 as unknown as PlanLike) || {};
+      const full = catalogMap.get((p._id as string) || '') as unknown as PlanLike | undefined;
 
       // keep schedule fields from plan (dates/notes/frequency/etc)
       // keep media/desc/etc from catalog if plan doesn't have it
-      return {
+      const out: PlanLike = {
         ...(full || {}),
         ...(p || {}),
-        // make sure these exist even if plan overwrites them incorrectly
-        title: p?.title ?? full?.title ?? '',
-        description: p?.description ?? full?.description ?? '',
-        media_url: p?.media_url ?? (full as any)?.media_url ?? (full as any)?.media_file ?? '',
-        media_file: (p as any)?.media_file ?? (full as any)?.media_file ?? '',
-        link: p?.link ?? full?.link ?? '',
-        tags: p?.tags ?? full?.tags ?? [],
-        benefitFor: p?.benefitFor ?? (full as any)?.benefitFor ?? [],
-        content_type: p?.content_type ?? full?.content_type ?? '',
-        preview_img: (p as any)?.preview_img ?? (full as any)?.preview_img ?? '',
-      } as any;
+        title:
+          (typeof p.title === 'string' && p.title) ||
+          (typeof full?.title === 'string' ? full.title : '') ||
+          '',
+        description:
+          (typeof p.description === 'string' && p.description) ||
+          (typeof full?.description === 'string' ? full.description : '') ||
+          '',
+        media_url:
+          (typeof p.media_url === 'string' && p.media_url) ||
+          (typeof full?.media_url === 'string' ? full.media_url : '') ||
+          (typeof full?.media_file === 'string' ? full.media_file : '') ||
+          '',
+        media_file:
+          (typeof p.media_file === 'string' && p.media_file) ||
+          (typeof full?.media_file === 'string' ? full.media_file : '') ||
+          '',
+        link:
+          (typeof p.link === 'string' && p.link) ||
+          (typeof full?.link === 'string' ? full.link : '') ||
+          '',
+        tags: (Array.isArray(p.tags) && p.tags) || (Array.isArray(full?.tags) ? full.tags : []),
+        benefitFor:
+          (Array.isArray(p.benefitFor) && p.benefitFor) ||
+          (Array.isArray(full?.benefitFor) ? full.benefitFor : []),
+        content_type:
+          (typeof p.content_type === 'string' && p.content_type) ||
+          (typeof full?.content_type === 'string' ? full.content_type : '') ||
+          '',
+        preview_img:
+          (typeof p.preview_img === 'string' && p.preview_img) ||
+          (typeof full?.preview_img === 'string' ? full.preview_img : '') ||
+          '',
+      };
+
+      // Cast back to Intervention for the rest of the app. (We keep extra fields too.)
+      return out as unknown as Intervention;
     });
 
     return { ...(plan || {}), interventions: merged };
   }
 
   private hasFutureDates(interventionId: string) {
-    const p: any = this.patientData?.interventions?.find((i: any) => i._id === interventionId);
-    return p?.dates?.some((d: any) => new Date(d.datetime) > new Date()) || false;
+    const planItem = (this.patientData?.interventions || []).find(
+      (i) => i._id === interventionId
+    ) as unknown;
+    const dates = getDates(planItem);
+    return dates.some((d) => new Date(d.datetime) > new Date());
   }
 
   get patientAssignedItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x: any) => x._id));
+    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
     return (this.allInterventions || []).filter((it) => ids.has(it._id));
   }
 
   get activePatientItems(): Intervention[] {
-    // plan items already merged; this is fine for the left list
-    const ids = new Set((this.patientData?.interventions || []).map((x: any) => x._id));
+    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
     const items = (this.allInterventions || []).filter((it) => ids.has(it._id));
     return items.filter((it) => this.hasFutureDates(it._id));
   }
 
   get pastPatientItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x: any) => x._id));
+    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
     const items = (this.allInterventions || []).filter((it) => ids.has(it._id));
     return items.filter((it) => !this.hasFutureDates(it._id));
   }
 
-  get selectedExerciseFromPlan(): any | null {
+  get selectedExerciseFromPlan(): Intervention | null {
     if (!this.selectedExerciseId) return null;
-    // prefer merged plan item (has dates + notes + merged media/desc)
-    const planItem = (this.patientData?.interventions || []).find((x: any) => x._id === this.selectedExerciseId);
+
+    const planItem = (this.patientData?.interventions || []).find(
+      (x) => x._id === this.selectedExerciseId
+    );
     if (planItem) return planItem;
 
-    // fallback: catalog
     return (this.allInterventions || []).find((x) => x._id === this.selectedExerciseId) || null;
   }
 
-  get selectedAssignment(): any | null {
+  get selectedAssignment(): Intervention | null {
     if (!this.selectedExerciseId) return null;
-    return (this.patientData?.interventions || []).find((x: any) => x._id === this.selectedExerciseId) || null;
+    return (
+      (this.patientData?.interventions || []).find((x) => x._id === this.selectedExerciseId) || null
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -239,7 +388,7 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   // Init / cleanup
   // ---------------------------------------------------------------------------
-  async init(navigate: (path: string) => void, t: (k: string) => any) {
+  async init(navigate: (path: string) => void, t: (k: string) => unknown) {
     this.entryTime = Date.now();
 
     await authStore.checkAuthentication();
@@ -252,7 +401,8 @@ export class RehabTableStore {
     if (!sel) {
       runInAction(() => {
         this.loading = false;
-        this.error = typeof t === 'function' ? t('No patient selected.') : 'No patient selected.';
+        this.error =
+          typeof t === 'function' ? String(t('No patient selected.')) : 'No patient selected.';
       });
       return;
     }
@@ -264,16 +414,13 @@ export class RehabTableStore {
       this.error = null;
     });
 
-    // load everything via store (correct endpoints)
     await Promise.allSettled([this.fetchAll(t), this.fetchInts(t)]);
 
-    // merge plan with catalog so popups/calendar regain media/desc
     runInAction(() => {
       this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
       this.loading = false;
     });
 
-    // translate initial visible list
     await this.translateVisibleItems(this.userLang);
   }
 
@@ -301,39 +448,42 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   // Data loading (✅ correct backend URLs)
   // ---------------------------------------------------------------------------
-  async fetchAll(t: (k: string) => any) {
+  async fetchAll(t: (k: string) => unknown) {
     try {
       const pid = this.patientIdForCalls;
 
-      // ✅ correct URL from your urls.py:
       // /api/patients/rehabilitation-plan/therapist/<patient_id>/
       const res = await apiClient.get(`patients/rehabilitation-plan/therapist/${pid}/`);
-      const raw = (res.data ?? {}) as Record<string, any>;
+      const raw = (res.data ?? {}) as Record<string, unknown>;
 
-      if (raw.success === false && raw.message && !raw.interventions) {
+      const success = raw.success;
+      const message = raw.message;
+
+      if (success === false && typeof message === 'string' && !raw.interventions) {
         runInAction(() => {
           this.patientData = EMPTY_PLAN;
-          this.error = raw.message;
+          this.error = message;
         });
         return;
       }
 
-      const interventions = Array.isArray(raw.interventions) ? raw.interventions : [];
+      const interventions = Array.isArray(raw.interventions)
+        ? (raw.interventions as Intervention[])
+        : [];
       runInAction(() => {
-        this.patientData = { ...raw, interventions };
+        this.patientData = { ...raw, interventions } as PatientPlan;
       });
 
-      // if catalog already loaded, merge now
       if (this.allInterventions?.length) {
         runInAction(() => {
           this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       const msg = extractApiError(
         e,
         typeof t === 'function'
-          ? t('Error loading patients interventions. Reload the page or try again later.')
+          ? String(t('Error loading patients interventions. Reload the page or try again later.'))
           : 'Error loading patients interventions. Reload the page or try again later.'
       );
       runInAction(() => {
@@ -343,17 +493,24 @@ export class RehabTableStore {
     }
   }
 
-  async fetchInts(t: (k: string) => any) {
+  async fetchInts(t: (k: string) => unknown) {
     try {
       const pid = this.patientIdForCalls;
 
-      // ✅ correct URL from urls.py:
       // /api/interventions/all/<patient_id>/
       const res = await apiClient.get(`interventions/all/${pid}/`);
-      const list = Array.isArray(res.data) ? res.data : res.data?.interventions || [];
+      const data = res.data as unknown;
+
+      const list: Intervention[] = Array.isArray(data)
+        ? (data as Intervention[])
+        : data &&
+            typeof data === 'object' &&
+            Array.isArray((data as { interventions?: unknown }).interventions)
+          ? ((data as { interventions: Intervention[] }).interventions as Intervention[])
+          : [];
 
       const uniq = new Map<string, Intervention>();
-      (list || []).forEach((x: Intervention) => uniq.set(x._id, x));
+      (list || []).forEach((x) => uniq.set(x._id, x));
       const arr = [...uniq.values()];
 
       runInAction(() => {
@@ -364,16 +521,17 @@ export class RehabTableStore {
 
       this.applyAllFilters();
 
-      // if plan already loaded, merge now
       if (this.patientData?.interventions?.length) {
         runInAction(() => {
           this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       const msg = extractApiError(
         e,
-        typeof t === 'function' ? t('Error loading interventions. Reload the page or try again later.') : 'Error loading interventions.'
+        typeof t === 'function'
+          ? String(t('Error loading interventions. Reload the page or try again later.'))
+          : 'Error loading interventions.'
       );
       runInAction(() => {
         this.error = msg;
@@ -399,10 +557,10 @@ export class RehabTableStore {
   // Translations for left list (only the currently visible items)
   // ---------------------------------------------------------------------------
   async translateVisibleItems(userLang: string) {
-    const items =
+    const items: Intervention[] =
       this.selectedTab === 'patient'
-        ? (this.patientData?.interventions || []) // merged plan items
-        : (this.filteredRecommendations || []);
+        ? this.patientData?.interventions || []
+        : this.filteredRecommendations || [];
 
     if (!items.length) {
       runInAction(() => {
@@ -414,25 +572,32 @@ export class RehabTableStore {
 
     const newTitles: TitleMap = {};
     await Promise.all(
-      items.map(async (rec: any) => {
+      items.map(async (rec) => {
+        const id = rec._id;
+        const title = rec.title;
+
         try {
-          const { translatedText, detectedSourceLanguage } = await translateText(rec.title, userLang);
-          newTitles[rec._id] = { title: translatedText || rec.title, lang: detectedSourceLanguage || null };
+          const { translatedText, detectedSourceLanguage } = await translateText(title, userLang);
+          newTitles[id] = {
+            title: translatedText || title,
+            lang: detectedSourceLanguage || null,
+          };
         } catch {
-          newTitles[rec._id] = { title: rec.title, lang: null };
+          newTitles[id] = { title, lang: null };
         }
       })
     );
 
     const newTypes: TypeMap = {};
     await Promise.all(
-      items.map(async (rec: any) => {
-        const label = capitalize(rec.content_type || '');
+      items.map(async (rec) => {
+        const id = rec._id;
+        const label = capitalize(getContentType(rec));
         try {
           const { translatedText } = await translateText(label, userLang);
-          newTypes[rec._id] = translatedText || label;
+          newTypes[id] = translatedText || label;
         } catch {
-          newTypes[rec._id] = label;
+          newTypes[id] = label;
         }
       })
     );
@@ -444,14 +609,14 @@ export class RehabTableStore {
   }
 
   // ---------------------------------------------------------------------------
-  // Modal open/close + click handlers
+  // Modal open/close + click handlers (accept unknown, extract id safely)
   // ---------------------------------------------------------------------------
-  private setSelected(intervention: any) {
-    const id = intervention?._id || intervention?.id;
+  private setSelected(intervention: unknown) {
+    const id = getId(intervention);
     this.selectedExerciseId = id || null;
   }
 
-  handleExerciseClick(intervention: any) {
+  handleExerciseClick(intervention: unknown) {
     this.setSelected(intervention);
     this.showInfoInterventionModal = true;
   }
@@ -460,7 +625,7 @@ export class RehabTableStore {
     this.showInfoInterventionModal = false;
   }
 
-  showStats(intervention: any) {
+  showStats(intervention: unknown) {
     this.setSelected(intervention);
     this.showExerciseStats = true;
   }
@@ -469,12 +634,12 @@ export class RehabTableStore {
     this.showExerciseStats = false;
   }
 
-  openFeedbackBrowser(intervention: any) {
+  openFeedbackBrowser(intervention: unknown) {
     this.setSelected(intervention);
 
     // use merged plan item if possible (dates + feedback are there)
-    const planItem = this.selectedExerciseFromPlan || intervention;
-    this.feedbackBrowserIntervention = planItem;
+    const planItem = this.selectedExerciseFromPlan || null;
+    this.feedbackBrowserIntervention = planItem || (intervention as Intervention);
     this.showFeedbackBrowser = true;
   }
 
@@ -483,25 +648,44 @@ export class RehabTableStore {
     this.feedbackBrowserIntervention = null;
   }
 
-  openAddIntervention(intervention: any) {
+  openAddIntervention(intervention: unknown) {
     this.repeatMode = 'create';
     this.setSelected(intervention);
     this.modifyDefaults = null;
     this.showRepeatModal = true;
   }
 
-  openModifyIntervention(intervention: any) {
+  openModifyIntervention(intervention: unknown) {
     this.repeatMode = 'modify';
     this.setSelected(intervention);
 
-    const assigned: any = this.selectedAssignment;
-    const next = assigned?.dates?.map((d: any) => new Date(d.datetime)).find((d: Date) => d > new Date());
+    const assigned = this.selectedAssignment as unknown;
+    const dates = getDates(assigned)
+      .map((d) => new Date(d.datetime))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const now = new Date();
+    const next = dates.find((d) => d > now);
+
+    const freqRaw =
+      assigned && typeof assigned === 'object'
+        ? (assigned as { frequency?: unknown }).frequency
+        : undefined;
+    const notesRaw =
+      assigned && typeof assigned === 'object'
+        ? (assigned as { notes?: unknown }).notes
+        : undefined;
+    const rvfRaw =
+      assigned && typeof assigned === 'object'
+        ? (assigned as { require_video_feedback?: unknown }).require_video_feedback
+        : undefined;
 
     this.modifyDefaults = {
       effectiveFrom: (next ? next : new Date(Date.now() + 86400000)).toISOString().slice(0, 10),
-      frequency: assigned?.frequency || '',
-      notes: assigned?.notes || '',
-      require_video_feedback: !!assigned?.require_video_feedback,
+      frequency: typeof freqRaw === 'string' ? freqRaw : toStr(freqRaw),
+      notes: typeof notesRaw === 'string' ? notesRaw : toStr(notesRaw),
+      require_video_feedback: isTruthy(rvfRaw),
     };
 
     this.showRepeatModal = true;
@@ -511,14 +695,14 @@ export class RehabTableStore {
     this.showRepeatModal = false;
   }
 
-  async deleteExercise(interventionId: string, t: (k: string) => any) {
+  async deleteExercise(interventionId: string, t: (k: string) => unknown) {
     try {
-      // ✅ correct URL from urls.py:
       // POST /api/interventions/remove-from-patient/
       const res = await apiClient.post('interventions/remove-from-patient/', {
         patientId: this.patientIdForCalls,
         intervention: interventionId,
       });
+
       if (res.status === 200 || res.status === 201) {
         await Promise.all([this.fetchAll(t), this.fetchInts(t)]);
         runInAction(() => {
@@ -526,8 +710,13 @@ export class RehabTableStore {
         });
         await this.translateVisibleItems(this.userLang);
       }
-    } catch (err: any) {
-      const msg = extractApiError(err, typeof t === 'function' ? t('Failed to delete the intervention. Try again now or later.') : 'Failed to delete.');
+    } catch (err: unknown) {
+      const msg = extractApiError(
+        err,
+        typeof t === 'function'
+          ? String(t('Failed to delete the intervention. Try again now or later.'))
+          : 'Failed to delete.'
+      );
       runInAction(() => {
         this.error = msg;
       });

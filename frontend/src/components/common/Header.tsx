@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Button,
-  Container,
-  Dropdown,
-  OverlayTrigger,
-  Tooltip,
-  Navbar,
-  Nav,
-} from 'react-bootstrap';
+import { Button, Container, Dropdown, OverlayTrigger, Tooltip, Navbar, Nav } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { BsQuestionCircle } from 'react-icons/bs';
@@ -28,11 +20,7 @@ type HeaderProps = {
   onRegister?: () => void;
 };
 
-const Header: React.FC<HeaderProps> = ({
-  isLoggedIn,
-  showRegisterAction,
-  onRegister,
-}) => {
+const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegister }) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
 
@@ -40,12 +28,9 @@ const Header: React.FC<HeaderProps> = ({
   const [expanded, setExpanded] = React.useState(false);
 
   const getInitialLang = () =>
-    localStorage.getItem('i18nextLng')?.slice(0, 2) ||
-    i18n.language?.slice(0, 2) ||
-    'en';
+    localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
 
-  const [currentLanguage, setCurrentLanguage] =
-    React.useState(getInitialLang);
+  const [currentLanguage, setCurrentLanguage] = React.useState(getInitialLang);
 
   const languages = ['de', 'fr', 'en', 'it'] as const;
 
@@ -77,17 +62,17 @@ const Header: React.FC<HeaderProps> = ({
           { path: '/patient', label: t('Home') },
           { path: '/patient-interventions', label: t('Interventions') }, // ✅ NEW
         ]
-      : authStore.userType === 'Therapist' ||
-        authStore.userType === 'Researcher'
-      ? [
-          { path: `/${userType}`, label: t('Patients') },
-          { path: '/interventions', label: t('Interventions') },
-          { path: '/userprofile', label: t('Profile') },
-        ]
-      : [];
+      : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
+        ? [
+            { path: `/${userType}`, label: t('Patients') },
+            { path: '/interventions', label: t('Interventions') },
+            { path: '/userprofile', label: t('Profile') },
+          ]
+        : authStore.userType === 'Admin'
+          ? [] // ✅ Admin: no nav links, only logout button
+          : [];
 
-
-  const hasNav = isLoggedIn && navLinks.length > 0;
+  const hasNav = isLoggedIn && (navLinks.length > 0 || authStore.userType === 'Admin');
 
   return (
     <>
@@ -107,34 +92,20 @@ const Header: React.FC<HeaderProps> = ({
             {/* LOGOS LEFT */}
             <Navbar.Brand className="brand-zone d-flex align-items-center">
               <img src="/ARTORG_Logo.gif" className="brand-logo" />
-              <img
-                src="/insel.webp"
-                className="brand-logo d-none d-sm-inline"
-              />
-              <img
-                src="/brz_logo.png"
-                className="brand-logo d-none d-md-inline"
-              />
+              <img src="/insel.webp" className="brand-logo d-none d-sm-inline" />
+              <img src="/brz_logo.png" className="brand-logo d-none d-md-inline" />
             </Navbar.Brand>
 
             {/* ACTIONS RIGHT (Help, Lang, Register on md+) */}
             <div className="action-zone d-flex align-items-center gap-2 ms-auto justify-content-end">
-
               {/* REGISTER (tablet + desktop, logged out) */}
               {!isLoggedIn && showRegisterAction && (
-                <Button
-                  size="sm"
-                  onClick={onRegister}
-                  className="d-none d-md-inline-block"
-                >
+                <Button size="sm" onClick={onRegister} className="d-none d-md-inline-block">
                   {t('Register (Only for Therapists)')}
                 </Button>
               )}
               {/* HELP (tablet + desktop) */}
-              <OverlayTrigger
-                placement="bottom"
-                overlay={<Tooltip>{t('Help')}</Tooltip>}
-              >
+              <OverlayTrigger placement="bottom" overlay={<Tooltip>{t('Help')}</Tooltip>}>
                 <Button
                   variant="outline-secondary"
                   size="sm"
@@ -147,27 +118,18 @@ const Header: React.FC<HeaderProps> = ({
 
               {/* LANGUAGE (tablet + desktop) */}
               <Dropdown align="end" className="d-none d-md-inline">
-                <Dropdown.Toggle
-                  id="lang-tgl"
-                  className="lang-btn"
-                  variant="light"
-                  size="sm"
-                >
+                <Dropdown.Toggle id="lang-tgl" className="lang-btn" variant="light" size="sm">
                   <img src={flagMap[lang]} className="flag-icon" />
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
                   {languages.map((l) => (
-                    <Dropdown.Item
-                      key={l}
-                      onClick={() => handleLanguageChange(l)}
-                    >
+                    <Dropdown.Item key={l} onClick={() => handleLanguageChange(l)}>
                       <img src={flagMap[l]} className="flag-icon me-2" />
                       {l.toUpperCase()}
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Menu>
               </Dropdown>
-
 
               {/* BURGER (mobile only) */}
               <Navbar.Toggle
@@ -179,47 +141,41 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* ===================== ROW 2: NAV LINKS + LOGOUT (TABLET/DESKTOP) ===================== */}
-{hasNav && (
-  <div className="nav-second-row d-none d-md-flex w-100 mt-2 align-items-center">
-    <Nav className="flex-row nav-links w-100 align-items-center gap-3">
+          {hasNav && (
+            <div className="nav-second-row d-none d-md-flex w-100 mt-2 align-items-center">
+              <Nav className="flex-row nav-links w-100 align-items-center gap-3">
+                {navLinks.map((lnk) => (
+                  <Nav.Link
+                    key={lnk.path}
+                    as={Link}
+                    to={lnk.path}
+                    className={`nav-item-link ${location.pathname === lnk.path ? 'active' : ''}`}
+                  >
+                    {lnk.label}
+                  </Nav.Link>
+                ))}
 
-      {navLinks.map((lnk) => (
-        <Nav.Link
-          key={lnk.path}
-          as={Link}
-          to={lnk.path}
-          className={`nav-item-link ${
-            location.pathname === lnk.path ? 'active' : ''
-          }`}
-        >
-          {lnk.label}
-        </Nav.Link>
-      ))}
-
-      {/* Push logout to the far right, but keep it same style */}
-      <Nav.Link
-        as="button"
-        type="button"
-        onClick={handleLogout}
-        className="nav-item-link nav-logout ms-auto"
-      >
-        <i className="bi bi-box-arrow-right me-2" aria-hidden="true" />
-        {t('Logout')}
-      </Nav.Link>
-    </Nav>
-  </div>
-)}
-
+                {/* Admin: only logout is shown (no nav links) */}
+                {/* Push logout to the far right, but keep it same style */}
+                <Nav.Link
+                  as="button"
+                  type="button"
+                  onClick={handleLogout}
+                  className="nav-item-link nav-logout ms-auto"
+                >
+                  <i className="bi bi-box-arrow-right me-2" aria-hidden="true" />
+                  {t('Logout')}
+                </Nav.Link>
+              </Nav>
+            </div>
+          )}
 
           {/* ===================== MOBILE COLLAPSE ===================== */}
-          <Navbar.Collapse
-            id="main-nav"
-            className="w-100 d-md-none"
-          >
+          <Navbar.Collapse id="main-nav" className="w-100 d-md-none">
             <div className="w-100 mt-2 d-flex flex-column">
               <div className="ms-auto text-end d-flex flex-column gap-2 align-items-end">
                 {/* NAV LINKS (mobile, if any) */}
-                {hasNav &&
+                {isLoggedIn &&
                   navLinks.map((lnk) => (
                     <Button
                       key={lnk.path}
@@ -272,19 +228,12 @@ const Header: React.FC<HeaderProps> = ({
                     variant="light"
                     size="sm"
                   >
-                    <img src={flagMap[lang]} className="flag-icon" />{' '}
-                    {lang.toUpperCase()}
+                    <img src={flagMap[lang]} className="flag-icon" /> {lang.toUpperCase()}
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
                     {languages.map((l) => (
-                      <Dropdown.Item
-                        key={l}
-                        onClick={() => handleLanguageChange(l)}
-                      >
-                        <img
-                          src={flagMap[l]}
-                          className="flag-icon me-2"
-                        />
+                      <Dropdown.Item key={l} onClick={() => handleLanguageChange(l)}>
+                        <img src={flagMap[l]} className="flag-icon me-2" />
                         {l.toUpperCase()}
                       </Dropdown.Item>
                     ))}

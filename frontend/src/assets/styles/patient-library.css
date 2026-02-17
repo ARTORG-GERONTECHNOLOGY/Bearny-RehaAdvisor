@@ -2,8 +2,8 @@
 /* Fluid, accessible, cross-browser layout helpers for the Patient Interventions Library */
 
 .patient-lib-root {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
   overflow-x: hidden;
 }
 
@@ -36,5 +36,7 @@
 
 /* Respect reduced motion users */
 @media (prefers-reduced-motion: reduce) {
-  * { scroll-behavior: auto !important; }
+  * {
+    scroll-behavior: auto !important;
+  }
 }

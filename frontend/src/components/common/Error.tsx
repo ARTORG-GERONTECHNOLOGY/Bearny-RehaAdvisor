@@ -8,9 +8,7 @@ const Error: React.FC = () => {
       role="alert"
     >
       <h3 className="text-center text-danger fs-3 fw-semibold">Error</h3>
-      <p className="text-center text-muted fs-6">
-        Something went wrong. Please try again later.
-      </p>
+      <p className="text-center text-muted fs-6">Something went wrong. Please try again later.</p>
     </Container>
   );
 };

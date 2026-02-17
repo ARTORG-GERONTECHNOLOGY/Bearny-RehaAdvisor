@@ -1,12 +1,13 @@
-// utils/healthCharts.ts
+// src/utils/healthCharts.ts
 import * as d3 from 'd3';
 
 export const parseYMD = d3.timeParse('%Y-%m-%d');
-export const fmtYMD  = d3.timeFormat('%Y-%m-%d');
-export const fmtYM   = d3.timeFormat('%Y-%m');
+export const fmtYMD = d3.timeFormat('%Y-%m-%d');
+export const fmtYM = d3.timeFormat('%Y-%m');
 export const fmtNice = d3.timeFormat('%b %d');
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';
+
 type RangeLineOptions = {
   legend?: {
     personalRange?: string;
@@ -15,10 +16,10 @@ type RangeLineOptions = {
     note?: string;
   };
   colors?: {
-    band?: string;     // band/rect color
-    inDot?: string;    // in-range dot/line color
-    outDot?: string;   // out-of-range dot color
-    line?: string;     // line color
+    band?: string; // band/rect color
+    inDot?: string; // in-range dot/line color
+    outDot?: string; // out-of-range dot color
+    line?: string; // line color
   };
 };
 
@@ -72,8 +73,8 @@ export function personalRangeFromWindow<T>(
   const values: number[] = [];
   for (const d of data) {
     const iso = getDate(d);
-    const dt  = new Date(iso);
-    const v   = getVal(d);
+    const dt = new Date(iso);
+    const v = getVal(d);
     if (v == null) continue;
     if (dt >= start && dt <= end) values.push(v);
   }
@@ -96,55 +97,79 @@ export function drawRangeLineSeries(
 
   const legendLabels = {
     personalRange: opts.legend?.personalRange ?? 'Personal range',
-    inRange:       opts.legend?.inRange ?? 'In range',
-    outOfRange:    opts.legend?.outOfRange ?? 'Out of range',
-    note:          opts.legend?.note ?? 'In range = value within the personal band (P3–P97 over the last 30 days).',
+    inRange: opts.legend?.inRange ?? 'In range',
+    outOfRange: opts.legend?.outOfRange ?? 'Out of range',
+    note:
+      opts.legend?.note ??
+      'In range = value within the personal band (P3–P97 over the last 30 days).',
   };
 
   const colors = {
-    band:  opts.colors?.band ?? '#1f77b4',
+    band: opts.colors?.band ?? '#1f77b4',
     inDot: opts.colors?.inDot ?? '#2b83ba',
-    outDot:opts.colors?.outDot ?? '#d88997',
-    line:  opts.colors?.line ?? '#2b83ba',
+    outDot: opts.colors?.outDot ?? '#d88997',
+    line: opts.colors?.line ?? '#2b83ba',
   };
 
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();
 
-  const w = 900, h = 300;
+  const w = 900,
+    h = 300;
   const m = { top: 86, right: 24, bottom: 60, left: 60 };
   initSvg(svg, w, h);
 
-  svg.append('text')
-    .attr('x', w / 2).attr('y', 24).attr('text-anchor', 'middle')
-    .style('font-size', '16px').style('font-weight', 600).text(title);
+  svg
+    .append('text')
+    .attr('x', w / 2)
+    .attr('y', 24)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '16px')
+    .style('font-weight', 600)
+    .text(title);
 
   renderLegend(
     svg,
     [
-      { label: legendLabels.personalRange, color: colors.band,  symbol: 'area' },
-      { label: legendLabels.inRange,       color: colors.inDot, symbol: 'dot' },
-      { label: legendLabels.outOfRange,    color: colors.outDot, symbol: 'dot' },
+      { label: legendLabels.personalRange, color: colors.band, symbol: 'area' as const },
+      { label: legendLabels.inRange, color: colors.inDot, symbol: 'dot' as const },
+      { label: legendLabels.outOfRange, color: colors.outDot, symbol: 'dot' as const },
     ],
     40,
     legendLabels.note
   );
 
-  const width  = w - m.left - m.right;
+  const width = w - m.left - m.right;
   const height = h - m.top - m.bottom;
   const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
-  const x = d3.scaleBand().domain(rows.map((r) => r.key)).range([0, width]).padding(0.4);
+  const x = d3
+    .scaleBand<string>()
+    .domain(rows.map((r) => r.key))
+    .range([0, width])
+    .padding(0.4);
 
   const vals = rows.map((r) => r.mean).filter((v): v is number => v != null);
   const yMin = Math.min(band.lo ?? d3.min(vals) ?? 0, ...vals);
   const yMax = Math.max(band.hi ?? d3.max(vals) ?? 1, ...vals);
-  const y = d3.scaleLinear().domain([yMin * 0.98, yMax * 1.02]).nice().range([height, 0]);
+  const y = d3
+    .scaleLinear()
+    .domain([yMin * 0.98, yMax * 1.02])
+    .nice()
+    .range([height, 0]);
 
   // axes
-  const xAxis = d3.axisBottom(x).tickFormat((k: any) => (res === 'weekly' ? fmtNice(parseYMD(k)!) : k)) as any;
-  g.append('g').attr('transform', `translate(0,${height})`).call(xAxis)
-   .selectAll('text').attr('transform', 'rotate(-35)').style('text-anchor', 'end');
+  const xAxis = d3
+    .axisBottom(x)
+    .tickFormat((k: string) => (res === 'weekly' ? fmtNice(parseYMD(k)!) : k));
+
+  g.append('g')
+    .attr('transform', `translate(0,${height})`)
+    .call(xAxis)
+    .selectAll('text')
+    .attr('transform', 'rotate(-35)')
+    .style('text-anchor', 'end');
+
   g.append('g').call(d3.axisLeft(y).ticks(6));
 
   // personal band (full width)
@@ -167,7 +192,8 @@ export function drawRangeLineSeries(
     .map((r) => ({ x: r.key, y: r.mean }))
     .filter((p): p is { x: string; y: number } => p.y != null);
 
-  const line = d3.line<{ x: string; y: number }>()
+  const line = d3
+    .line<{ x: string; y: number }>()
     .x((d) => x(d.x)! + x.bandwidth() / 2)
     .y((d) => y(d.y));
 
@@ -176,10 +202,12 @@ export function drawRangeLineSeries(
     .attr('fill', 'none')
     .attr('stroke', colors.line)
     .attr('stroke-width', 2)
-    .attr('d', line as any);
+    .attr('d', line(pts) ?? '');
 
   g.selectAll('circle.dot')
-    .data(pts).enter().append('circle')
+    .data(pts)
+    .enter()
+    .append('circle')
     .attr('cx', (d) => x(d.x)! + x.bandwidth() / 2)
     .attr('cy', (d) => y(d.y))
     .attr('r', 4)
@@ -205,7 +233,7 @@ export const isInRange = (iso: string, start?: Date | null, end?: Date | null) =
 const periodKey = (iso: string, res: 'weekly' | 'monthly') => {
   const d = parseYMD(iso)!;
   if (res === 'weekly') {
-    const wk = d3.utcWeek.floor(d);  // week start
+    const wk = d3.utcWeek.floor(d); // week start
     return fmtYMD(wk);
   }
   return fmtYM(d);
@@ -276,30 +304,52 @@ export const getOrCreateTooltip = () => {
 };
 
 // Simple legend (placed below title, right-aligned)
-type LegendItem = { label: string; color: string; symbol?: 'rect' | 'line' | 'dot' };
+type LegendItem = { label: string; color: string; symbol?: 'rect' | 'line' | 'dot' | 'area' };
 export function renderLegend(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   items: LegendItem[],
-  y: number = 40
+  y: number = 40,
+  note?: string
 ) {
   if (!items.length) return;
+
   const g = svg.append('g').attr('class', 'chart-legend');
   let dx = 0;
 
   items.forEach((it) => {
     const item = g.append('g').attr('transform', `translate(${dx},${y})`);
-    // swatch
+
     if (it.symbol === 'line') {
-      item.append('line').attr('x1', 0).attr('x2', 18).attr('y1', 8).attr('y2', 8).attr('stroke', it.color).attr('stroke-width', 2);
+      item
+        .append('line')
+        .attr('x1', 0)
+        .attr('x2', 18)
+        .attr('y1', 8)
+        .attr('y2', 8)
+        .attr('stroke', it.color)
+        .attr('stroke-width', 2);
     } else if (it.symbol === 'dot') {
       item.append('circle').attr('cx', 9).attr('cy', 8).attr('r', 4).attr('fill', it.color);
     } else {
       item.append('rect').attr('width', 18).attr('height', 12).attr('fill', it.color);
     }
+
     const text = item.append('text').attr('x', 24).attr('y', 11).text(it.label);
     const w = 24 + (text.node()?.getBBox().width || 60);
     dx += w + 14;
   });
+
+  if (note) {
+    const noteText = svg
+      .append('text')
+      .attr('x', 60)
+      .attr('y', y + 26)
+      .style('font-size', '11px')
+      .style('opacity', 0.8)
+      .text(note);
+    // keep note from affecting legend alignment
+    noteText.attr('text-anchor', 'start');
+  }
 
   const vb = (svg.node() as SVGSVGElement).viewBox.baseVal;
   if (vb?.width) {
@@ -339,23 +389,13 @@ export const svgToImageDataUrl = (el: SVGSVGElement): Promise<string> =>
     img.src = url;
   });
 
-// ---------- band-axis helper (the missing export) ----------
-/**
- * A smarter bottom axis for scaleBand:
- * - Reduces the number of ticks to <= maxTicks
- * - Applies rotation & anchor so labels don’t overlap
- * - Optional formatter (e.g. d => d.slice(5))
- *
- * Usage:
- *   g.append('g')
- *    .attr('transform', `translate(0,${height})`)
- *    .call(smartBandAxisBottom(xBand, { maxTicks: 10, rotate: -35, format: d => d.slice(5) }));
- */
+// ---------- band-axis helper ----------
 export function smartBandAxisBottom(
   x: d3.ScaleBand<string>,
   opts: { maxTicks?: number; rotate?: number; format?: (d: string) => string } = {}
 ) {
   const { maxTicks = 12, rotate = -35, format = (d: string) => d } = opts;
+
   return (g: d3.Selection<SVGGElement, unknown, null, undefined>) => {
     const domain = x.domain();
     let ticks = domain;
@@ -365,8 +405,12 @@ export function smartBandAxisBottom(
       ticks = domain.filter((_, i) => i % step === 0);
     }
 
-    const axis = d3.axisBottom(x).tickValues(ticks).tickFormat((d: any) => format(String(d)) as any);
-    (g as any).call(axis);
+    const axis = d3
+      .axisBottom(x)
+      .tickValues(ticks)
+      .tickFormat((d: string) => format(d));
+
+    g.call(axis);
 
     if (rotate !== 0) {
       g.selectAll<SVGTextElement, string>('text')
@@ -389,7 +433,9 @@ export function drawBarTimeseries(
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();
 
-  const w = 720, h = 260, m = { top: 28, right: 24, bottom: 64, left: 52 };
+  const w = 720,
+    h = 260,
+    m = { top: 28, right: 24, bottom: 64, left: 52 };
   initSvg(svg, w, h);
 
   const width = w - m.left - m.right;
@@ -397,14 +443,27 @@ export function drawBarTimeseries(
   const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
   if (!rows.length) {
-    g.append('text').attr('x', width / 2).attr('y', height / 2).attr('text-anchor', 'middle').text('—');
+    g.append('text')
+      .attr('x', width / 2)
+      .attr('y', height / 2)
+      .attr('text-anchor', 'middle')
+      .text('—');
   } else {
-    const x = d3.scaleBand().domain(rows.map((d) => d.x)).range([0, width]).padding(0.2);
-    const y = d3.scaleLinear().domain([0, (d3.max(rows, (d) => d.y) || 0) * 1.1]).nice().range([height, 0]);
+    const x = d3
+      .scaleBand<string>()
+      .domain(rows.map((d) => d.x))
+      .range([0, width])
+      .padding(0.2);
+
+    const y = d3
+      .scaleLinear()
+      .domain([0, (d3.max(rows, (d) => d.y) || 0) * 1.1])
+      .nice()
+      .range([height, 0]);
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
-      .call(smartBandAxisBottom(x, { maxTicks: 10, rotate: -35, format: (d) => d.slice(5) }) as any);
+      .call(smartBandAxisBottom(x, { maxTicks: 10, rotate: -35, format: (d) => d.slice(5) }));
 
     g.append('g').call(d3.axisLeft(y).ticks(5));
 
@@ -422,7 +481,9 @@ export function drawBarTimeseries(
       .on('mouseover', (ev, d) => {
         tt.style('opacity', 1).html(`<strong>${d.x}</strong><br/>${d.y}`);
       })
-      .on('mousemove', (ev) => tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px'))
+      .on('mousemove', (ev) =>
+        tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px')
+      )
       .on('mouseout', () => tt.style('opacity', 0));
   }
 
@@ -447,7 +508,9 @@ export function drawBoxTimeseries(
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();
 
-  const w = 720, h = 260, m = { top: 28, right: 24, bottom: 64, left: 52 };
+  const w = 720,
+    h = 260,
+    m = { top: 28, right: 24, bottom: 64, left: 52 };
   initSvg(svg, w, h);
 
   const innerW = w - m.left - m.right;
@@ -455,11 +518,24 @@ export function drawBoxTimeseries(
   const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
   if (!rows.length) {
-    g.append('text').attr('x', innerW / 2).attr('y', innerH / 2).attr('text-anchor', 'middle').text('—');
+    g.append('text')
+      .attr('x', innerW / 2)
+      .attr('y', innerH / 2)
+      .attr('text-anchor', 'middle')
+      .text('—');
   } else {
     const yMax = d3.max(rows, (r) => r.stats.max)!;
-    const y = d3.scaleLinear().domain([0, yMax * 1.1]).nice().range([innerH, 0]);
-    const x = d3.scaleBand().domain(rows.map((r) => r.key)).range([0, innerW]).padding(0.3);
+    const y = d3
+      .scaleLinear()
+      .domain([0, yMax * 1.1])
+      .nice()
+      .range([innerH, 0]);
+
+    const x = d3
+      .scaleBand<string>()
+      .domain(rows.map((r) => r.key))
+      .range([0, innerW])
+      .padding(0.3);
 
     g.append('g')
       .attr('transform', `translate(0,${innerH})`)
@@ -468,7 +544,7 @@ export function drawBoxTimeseries(
           maxTicks: 10,
           rotate: -35,
           format: (k) => (res === 'weekly' ? fmtNice(parseYMD(k)!) : k),
-        }) as any
+        })
       );
 
     g.append('g').call(d3.axisLeft(y).ticks(5));
@@ -484,10 +560,34 @@ export function drawBoxTimeseries(
       .attr('transform', (d) => `translate(${x(d.key)! + x.bandwidth() / 2 - boxW / 2},0)`);
 
     // whiskers
-    groups.append('line').attr('x1', boxW / 2).attr('x2', boxW / 2).attr('y1', (d) => y(d.stats.max)).attr('y2', (d) => y(d.stats.q3)).attr('stroke', '#1f77b4');
-    groups.append('line').attr('x1', boxW / 2).attr('x2', boxW / 2).attr('y1', (d) => y(d.stats.min)).attr('y2', (d) => y(d.stats.q1)).attr('stroke', '#1f77b4');
-    groups.append('line').attr('x1', 0).attr('x2', boxW).attr('y1', (d) => y(d.stats.max)).attr('y2', (d) => y(d.stats.max)).attr('stroke', '#1f77b4');
-    groups.append('line').attr('x1', 0).attr('x2', boxW).attr('y1', (d) => y(d.stats.min)).attr('y2', (d) => y(d.stats.min)).attr('stroke', '#1f77b4');
+    groups
+      .append('line')
+      .attr('x1', boxW / 2)
+      .attr('x2', boxW / 2)
+      .attr('y1', (d) => y(d.stats.max))
+      .attr('y2', (d) => y(d.stats.q3))
+      .attr('stroke', '#1f77b4');
+    groups
+      .append('line')
+      .attr('x1', boxW / 2)
+      .attr('x2', boxW / 2)
+      .attr('y1', (d) => y(d.stats.min))
+      .attr('y2', (d) => y(d.stats.q1))
+      .attr('stroke', '#1f77b4');
+    groups
+      .append('line')
+      .attr('x1', 0)
+      .attr('x2', boxW)
+      .attr('y1', (d) => y(d.stats.max))
+      .attr('y2', (d) => y(d.stats.max))
+      .attr('stroke', '#1f77b4');
+    groups
+      .append('line')
+      .attr('x1', 0)
+      .attr('x2', boxW)
+      .attr('y1', (d) => y(d.stats.min))
+      .attr('y2', (d) => y(d.stats.min))
+      .attr('stroke', '#1f77b4');
 
     // box (IQR)
     groups
@@ -499,8 +599,7 @@ export function drawBoxTimeseries(
       .attr('fill', '#e6eefb')
       .attr('stroke', '#1f77b4')
       .on('mousemove', (ev, d) => {
-        tt
-          .style('opacity', 1)
+        tt.style('opacity', 1)
           .html(
             `<div><strong>${d.key}</strong></div>
              <div>min: ${d.stats.min.toFixed(2)}</div>
@@ -533,9 +632,13 @@ export function drawBoxTimeseries(
       .attr('r', 2.5)
       .attr('fill', '#d62728')
       .on('mouseover', (ev, d) => {
-        tt.style('opacity', 1).html(`<strong>${d.key}</strong><br/>mean: ${d.stats.mean.toFixed(2)}`);
+        tt.style('opacity', 1).html(
+          `<strong>${d.key}</strong><br/>mean: ${d.stats.mean.toFixed(2)}`
+        );
       })
-      .on('mousemove', (ev) => tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px'))
+      .on('mousemove', (ev) =>
+        tt.style('left', ev.pageX + 10 + 'px').style('top', ev.pageY - 24 + 'px')
+      )
       .on('mouseout', () => tt.style('opacity', 0));
   }
 

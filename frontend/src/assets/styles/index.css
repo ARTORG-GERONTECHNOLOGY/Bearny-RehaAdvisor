@@ -15,8 +15,12 @@
 
 /* Adjust Bootstrap ratios responsively */
 @media (min-width: 768px) {
-  .ratio-md-4x3 { --bs-aspect-ratio: calc(3 / 4 * 100%); }
+  .ratio-md-4x3 {
+    --bs-aspect-ratio: calc(3 / 4 * 100%);
+  }
 }
 @media (min-width: 992px) {
-  .ratio-lg-16x9 { --bs-aspect-ratio: calc(9 / 16 * 100%); }
+  .ratio-lg-16x9 {
+    --bs-aspect-ratio: calc(9 / 16 * 100%);
+  }
 }

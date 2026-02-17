@@ -28,7 +28,9 @@ const ForgotPassword: React.FC = observer(() => {
                 </Alert>
               )}
 
-              {store.error && <ErrorAlert message={store.error} onClose={() => (store.error = null)} />}
+              {store.error && (
+                <ErrorAlert message={store.error} onClose={() => (store.error = null)} />
+              )}
 
               <Form
                 onSubmit={(e) => {
@@ -49,10 +51,21 @@ const ForgotPassword: React.FC = observer(() => {
                   />
                 </Form.Group>
 
-                <Button type="submit" variant="primary" className="w-100 py-2" disabled={store.loading}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-100 py-2"
+                  disabled={store.loading}
+                >
                   {store.loading ? (
                     <>
-                      <Spinner size="sm" className="me-2" animation="border" role="status" aria-hidden="true" />
+                      <Spinner
+                        size="sm"
+                        className="me-2"
+                        animation="border"
+                        role="status"
+                        aria-hidden="true"
+                      />
                       {t('Loading...')}
                     </>
                   ) : (

@@ -8,15 +8,13 @@ import { Router } from './routes';
 import './assets/styles/index.css'; // Ensure this import is correct
 import './assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides
 
-
-
 const container = document.getElementById('root');
 const root = createRoot(container!);
 
 root.render(
   <React.StrictMode>
     <I18nextProvider i18n={i18n}>
-        <Router />
+      <Router />
     </I18nextProvider>
   </React.StrictMode>
 );

@@ -14,10 +14,9 @@ const PrivacyPolicy: React.FC = () => {
 
   const toggleLoginModal = () => setShowLoginModal((prev) => !prev);
 
-useEffect(() => {
-  authStore.checkAuthentication();
-}, []);
-
+  useEffect(() => {
+    authStore.checkAuthentication();
+  }, []);
 
   return (
     <div className="d-flex flex-column min-vh-100">
