@@ -100,3 +100,93 @@ $> lazydocker
 |[dev-]db    | db      | 27017     | 27017       |
 |[dev-]nginx | nginx   | 8080 443  | 80  443     |
 
+## Testing
+
+RehaAdvisor includes comprehensive test suites for both frontend and backend with continuous integration via GitHub Actions.
+
+### Quick Start
+
+```sh
+# Run all tests
+make dev_test
+
+# Frontend tests (Jest)
+cd frontend && npm test
+
+# Backend tests (Pytest)
+cd backend && pytest
+```
+
+### Test Documentation
+
+Complete testing documentation is available in these guides:
+
+- **[Master Testing Guide](MASTER_TESTING_GUIDE.md)** - Overview and quick reference for all testing
+- **[Frontend Testing Guide](FRONTEND_TEST_DOCUMENTATION.md)** - Jest, React Testing Library, component tests (45+ files)
+- **[Backend Testing Guide](BACKEND_TEST_DOCUMENTATION.md)** - Pytest, Django, model/view tests (40+ files)
+- **[CI/CD Testing Guide](CICD_TESTING_GUIDE.md)** - GitHub Actions, coverage reporting, deployment validation
+
+### Test Coverage
+
+| Framework | Target | Status |
+|-----------|--------|--------|
+| Frontend (Jest) | 70% | ✅ Active |
+| Backend (Pytest) | 75% | ✅ Active |
+| Overall Coverage | 72% | ✅ Tracked in Codecov |
+
+### Running Tests Locally
+
+**Frontend**
+```bash
+cd frontend
+
+# All tests with coverage
+npm test -- --coverage --watchAll=false
+
+# Watch mode (during development)
+npm test
+
+# Specific test file
+npm test -- LoginForm.test.tsx
+```
+
+**Backend**
+```bash
+cd backend
+
+# All tests
+pytest
+
+# With coverage report
+pytest --cov=. --cov-report=html
+
+# Specific test file
+pytest tests/models/test_patient.py
+
+# Verbose output
+pytest -vv
+```
+
+### CI/CD Pipeline
+
+Tests automatically run on GitHub Actions for:
+- Every push to `main` and `develop` branches
+- Every pull request
+- Triggered by changes to backend/, frontend/, or workflow files
+
+**Pipeline Steps**:
+1. Frontend tests (Jest) → Coverage upload
+2. Backend tests (Pytest) → Coverage upload
+3. Docker build validation
+4. Security scanning (Trivy)
+5. Test summary and reporting
+
+View detailed workflow: [.github/workflows/tests.yml](.github/workflows/tests.yml)
+
+### Coverage Reporting
+
+Coverage reports are automatically uploaded to [Codecov](https://codecov.io/) for:
+- Trend tracking over time
+- PR impact analysis
+- File-level coverage details
+- Coverage badges for README
