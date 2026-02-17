@@ -29,6 +29,7 @@ from core.views.therapist_projects import therapist_projects
 from core.views.redcap_patient_views import redcap_patient
 from core.views.therapist_access_views import therapist_access
 from core.views.intervention_import import import_interventions
+from core.views.patient_thresholds import patient_thresholds_view
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -178,6 +179,7 @@ urlpatterns = [
     path("api/admin/therapist/access/<str:therapistId>/", therapist_access, name="therapist_access_admin"),
     path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
     path("api/interventions/import/excel", import_interventions, name="import_interventions"),
+    path("api/patients/<str:patient_id>/thresholds/", patient_thresholds_view, name="patient-thresholds"),
 
 
 ]

@@ -12,7 +12,7 @@ import ErrorAlert from '../common/ErrorAlert';
 
 import StandardModal from '../common/StandardModal';
 import ConfirmModal from '../common/ConfirmModal';
-import { PatientPopupStore, toDateInput, toDisplayDate, SelectOption } from '../../stores/patientPopupStore';
+import { PatientPopupStore, toDateInput, toDisplayDate } from '../../stores/patientPopupStore';
 
 interface PatientPopupProps {
   patient_id: PatientType;
@@ -28,6 +28,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
   useEffect(() => {
     if (!show) return;
     store.fetchPatientData(t);
+    if (show) {
+      store.fetchPatientData(t);
+      store.fetchThresholds(t); // new
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, store]);
 
@@ -42,16 +47,32 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     handleClose();
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { id, value } = e.target;
     store.setField(id, value);
   };
 
   const SourceBadge = ({ fieldKey }: { fieldKey: string }) => {
     const src = store.getValueSource(fieldKey);
-    if (src === 'manual') return <Badge bg="success" className="ms-2">{t('Manual')}</Badge>;
-    if (src === 'redcap') return <Badge bg="info" className="ms-2">{t('REDCap')}</Badge>;
-    return <Badge bg="secondary" className="ms-2">{t('Empty')}</Badge>;
+    if (src === 'manual')
+      return (
+        <Badge bg="success" className="ms-2">
+          {t('Manual')}
+        </Badge>
+      );
+    if (src === 'redcap')
+      return (
+        <Badge bg="info" className="ms-2">
+          {t('REDCap')}
+        </Badge>
+      );
+    return (
+      <Badge bg="secondary" className="ms-2">
+        {t('Empty')}
+      </Badge>
+    );
   };
 
   const renderField = (field: any) => {
@@ -66,12 +87,17 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     const isDisabled = !store.isEditing || key === 'access_word';
 
     if (field.type === 'multi-select') {
-      const currentValues: string[] = (store.isEditing ? (manualValue || []) : (displayValue || [])) as any;
+      const currentValues: string[] = (
+        store.isEditing ? manualValue || [] : displayValue || []
+      ) as any;
 
       const options =
         key === 'diagnosis' && store.formData.function?.length
           ? store.formData.function.flatMap((spec: string) =>
-              (store.specialityDiagnosisMap[spec] || []).map((diag) => ({ value: diag, label: t(diag) }))
+              (store.specialityDiagnosisMap[spec] || []).map((diag: string) => ({
+                value: diag,
+                label: t(diag),
+              }))
             )
           : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }));
 
@@ -89,7 +115,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     }
 
     if (field.type === 'dropdown') {
-      const v = store.isEditing ? (manualValue || '') : (displayValue || '');
+      const v = store.isEditing ? manualValue || '' : displayValue || '';
 
       return (
         <Form.Select
@@ -125,7 +151,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     }
 
     const commonMaxLength = field.type === 'text' || !field.type ? 500 : undefined;
-    const v = store.isEditing ? (manualValue || '') : (displayValue || '');
+    const v = store.isEditing ? manualValue || '' : displayValue || '';
 
     return (
       <Form.Control
@@ -140,7 +166,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
     );
   };
 
-  const title = `${store.formData.first_name || store.manualData.first_name || ''} ${store.formData.name || store.manualData.name || t('Patient')}`.trim();
+  const title = `${store.formData.first_name || store.manualData.first_name || ''} ${
+    store.formData.name || store.manualData.name || t('Patient')
+  }`.trim();
 
   const hasRedcap = (store.redcapRows?.length || 0) > 0;
 
@@ -156,7 +184,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
         footer={
           store.isEditing ? (
             <>
-              <Button variant="secondary" onClick={() => store.setEditing(false)} disabled={store.saving}>
+              <Button
+                variant="secondary"
+                onClick={() => store.setEditing(false)}
+                disabled={store.saving}
+              >
                 <FaUndo className="me-2" />
                 {t('Cancel')}
               </Button>
@@ -173,14 +205,22 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 </Button>
               )}
 
-              <Button variant="success" onClick={() => store.save(t)} disabled={store.saving}>
+              <Button
+                variant="success"
+                onClick={() => store.saveAll(t)} // new wrapper
+                disabled={store.saving}
+              >
                 <FaDownload className="me-2" />
                 {store.saving ? t('Saving...') : t('SaveChanges')}
               </Button>
             </>
           ) : (
             <>
-              <Button variant="warning" onClick={() => store.setEditing(true)} disabled={store.loading || store.saving}>
+              <Button
+                variant="warning"
+                onClick={() => store.setEditing(true)}
+                disabled={store.loading || store.saving}
+              >
                 <FaEdit className="me-2" />
                 {t('Edit')}
               </Button>
@@ -219,11 +259,14 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
             {store.redcapError && (
               <div className="mb-3">
-                <ErrorAlert message={store.redcapError} onClose={() => (store.redcapError = null)} />
+                <ErrorAlert
+                  message={store.redcapError}
+                  onClose={() => (store.redcapError = null)}
+                />
               </div>
             )}
 
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
               <div className="text-muted">
                 {t('Data mode')}:&nbsp;
                 {store.hasManualInfo ? (
@@ -240,10 +283,38 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
               )}
             </div>
 
+            {(store.redcapIdentifier ||
+              store.redcapRecordId ||
+              store.redcapPatId ||
+              store.redcapDag) && (
+              <div className="text-muted mb-3">
+                {store.redcapIdentifier && (
+                  <span className="me-3">
+                    {t('Identifier')}: <Badge bg="secondary">{store.redcapIdentifier}</Badge>
+                  </span>
+                )}
+                {store.redcapRecordId && (
+                  <span className="me-3">
+                    {t('Record ID')}: <Badge bg="secondary">{store.redcapRecordId}</Badge>
+                  </span>
+                )}
+                {store.redcapPatId && (
+                  <span className="me-3">
+                    {t('pat_id')}: <Badge bg="secondary">{store.redcapPatId}</Badge>
+                  </span>
+                )}
+                {store.redcapDag && (
+                  <span className="me-3">
+                    {t('DAG')}: <Badge bg="secondary">{store.redcapDag}</Badge>
+                  </span>
+                )}
+              </div>
+            )}
+
             <Tabs
               id="patient-details-tabs"
               activeKey={store.activeTab}
-              onSelect={(k) => store.setActiveTab((k as any) || 'profile')}
+              onSelect={(k) => store.setActiveTab(((k as any) || 'profile') as any)}
               className="mb-3"
             >
               <Tab eventKey="profile" title={t('Profile')}>
@@ -263,7 +334,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                     <Col xs={12} md={6}>
                       <Form.Group controlId="last_clinic_visit">
-                        <Form.Label>{t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" /></Form.Label>
+                        <Form.Label>
+                          {t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" />
+                        </Form.Label>
                         {store.isEditing ? (
                           <Form.Control
                             id="last_clinic_visit"
@@ -283,11 +356,17 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                     <Col xs={12}>
                       <Form.Group controlId="clinic">
-                        <Form.Label>{t('Clinics')} <SourceBadge fieldKey="clinic" /></Form.Label>
+                        <Form.Label>
+                          {t('Clinics')} <SourceBadge fieldKey="clinic" />
+                        </Form.Label>
                         <Form.Control
                           id="clinic"
                           type="text"
-                          value={store.isEditing ? (store.formData.clinic || '') : (store.getDisplayValue('clinic') || '')}
+                          value={
+                            store.isEditing
+                              ? store.formData.clinic || ''
+                              : store.getDisplayValue('clinic') || ''
+                          }
                           onChange={handleChange}
                           disabled={!store.isEditing}
                           placeholder={t('e.g. Inselspital Bern')}
@@ -296,10 +375,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                       </Form.Group>
                     </Col>
 
-                    {/* Example showing reha_end_date which can come from REDCap rehab_end mapping */}
                     <Col xs={12} md={6}>
                       <Form.Group controlId="reha_end_date">
-                        <Form.Label>{t('Rehabilitation end date')} <SourceBadge fieldKey="reha_end_date" /></Form.Label>
+                        <Form.Label>
+                          {t('Rehabilitation end date')} <SourceBadge fieldKey="reha_end_date" />
+                        </Form.Label>
                         {store.isEditing ? (
                           <Form.Control
                             id="reha_end_date"
@@ -345,14 +425,16 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 <Row className="g-3">
                   <Col xs={12} md={6}>
                     <Form.Group controlId="level_of_education">
-                      <Form.Label>{t('Level of education')} <SourceBadge fieldKey="level_of_education" /></Form.Label>
+                      <Form.Label>
+                        {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
+                      </Form.Label>
                       <Form.Control
                         id="level_of_education"
                         type="text"
                         value={
                           store.isEditing
-                            ? (store.formData.level_of_education || '')
-                            : (store.getDisplayValue('level_of_education') || '')
+                            ? store.formData.level_of_education || ''
+                            : store.getDisplayValue('level_of_education') || ''
                         }
                         onChange={handleChange}
                         disabled={!store.isEditing}
@@ -363,14 +445,16 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="professional_status">
-                      <Form.Label>{t('Professional status')} <SourceBadge fieldKey="professional_status" /></Form.Label>
+                      <Form.Label>
+                        {t('Professional status')} <SourceBadge fieldKey="professional_status" />
+                      </Form.Label>
                       <Form.Control
                         id="professional_status"
                         type="text"
                         value={
                           store.isEditing
-                            ? (store.formData.professional_status || '')
-                            : (store.getDisplayValue('professional_status') || '')
+                            ? store.formData.professional_status || ''
+                            : store.getDisplayValue('professional_status') || ''
                         }
                         onChange={handleChange}
                         disabled={!store.isEditing}
@@ -381,14 +465,16 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="marital_status">
-                      <Form.Label>{t('Marital status')} <SourceBadge fieldKey="marital_status" /></Form.Label>
+                      <Form.Label>
+                        {t('Marital status')} <SourceBadge fieldKey="marital_status" />
+                      </Form.Label>
                       <Form.Control
                         id="marital_status"
                         type="text"
                         value={
                           store.isEditing
-                            ? (store.formData.marital_status || '')
-                            : (store.getDisplayValue('marital_status') || '')
+                            ? store.formData.marital_status || ''
+                            : store.getDisplayValue('marital_status') || ''
                         }
                         onChange={handleChange}
                         disabled={!store.isEditing}
@@ -399,7 +485,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="lifestyle">
-                      <Form.Label>{t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" /></Form.Label>
+                      <Form.Label>
+                        {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
+                      </Form.Label>
                       <Form.Control
                         id="lifestyle"
                         type="text"
@@ -418,7 +506,10 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="personal_goals">
-                      <Form.Label>{t('Personal goals (comma separated)')} <SourceBadge fieldKey="personal_goals" /></Form.Label>
+                      <Form.Label>
+                        {t('Personal goals (comma separated)')}{' '}
+                        <SourceBadge fieldKey="personal_goals" />
+                      </Form.Label>
                       <Form.Control
                         id="personal_goals"
                         type="text"
@@ -437,7 +528,10 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12} md={6}>
                     <Form.Group controlId="social_support">
-                      <Form.Label>{t('Social support (comma separated)')} <SourceBadge fieldKey="social_support" /></Form.Label>
+                      <Form.Label>
+                        {t('Social support (comma separated)')}{' '}
+                        <SourceBadge fieldKey="social_support" />
+                      </Form.Label>
                       <Form.Control
                         id="social_support"
                         type="text"
@@ -456,15 +550,17 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
 
                   <Col xs={12}>
                     <Form.Group controlId="restrictions">
-                      <Form.Label>{t('Restrictions')} <SourceBadge fieldKey="restrictions" /></Form.Label>
+                      <Form.Label>
+                        {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
+                      </Form.Label>
                       <Form.Control
                         id="restrictions"
                         as="textarea"
                         rows={3}
                         value={
                           store.isEditing
-                            ? (store.formData.restrictions || '')
-                            : (store.getDisplayValue('restrictions') || '')
+                            ? store.formData.restrictions || ''
+                            : store.getDisplayValue('restrictions') || ''
                         }
                         onChange={handleChange}
                         disabled={!store.isEditing}
@@ -474,6 +570,306 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                   </Col>
                 </Row>
               </Tab>
+              <Tab eventKey="thresholds" title={t('Goals & thresholds')}>
+                <div className="mb-3 text-muted">
+                  {t(
+                    'These goals affect how health charts are colored and how progress is interpreted.'
+                  )}
+                </div>
+
+                {/* CURRENT THRESHOLDS */}
+                <div className="mb-4">
+                  <h5 className="mb-3">{t('Current thresholds')}</h5>
+
+                  {!store.thresholds ? (
+                    <div className="text-muted">{t('No thresholds loaded.')}</div>
+                  ) : (
+                    <Row className="g-3">
+                      {/* Steps */}
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="steps_goal">
+                          <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('steps_goal', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={0}
+                            max={200000}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      {/* Active minutes */}
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="active_minutes_green">
+                          <Form.Label className="fw-semibold">
+                            {t('Active minutes (green)')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.active_minutes_green ??
+                              store.thresholds.active_minutes_green ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField(
+                                'active_minutes_green',
+                                Number(e.target.value)
+                              )
+                            }
+                            disabled={!store.isEditing}
+                            min={0}
+                            max={1440}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="active_minutes_yellow">
+                          <Form.Label className="fw-semibold">
+                            {t('Active minutes (yellow)')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.active_minutes_yellow ??
+                              store.thresholds.active_minutes_yellow ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField(
+                                'active_minutes_yellow',
+                                Number(e.target.value)
+                              )
+                            }
+                            disabled={!store.isEditing}
+                            min={0}
+                            max={1440}
+                          />
+                          <div className="text-muted small mt-1">
+                            {t('Green should be ≥ yellow')}
+                          </div>
+                        </Form.Group>
+                      </Col>
+
+                      {/* Sleep */}
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="sleep_green_min">
+                          <Form.Label className="fw-semibold">
+                            {t('Sleep min (green, minutes)')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.sleep_green_min ??
+                              store.thresholds.sleep_green_min ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('sleep_green_min', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={0}
+                            max={1440}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="sleep_yellow_min">
+                          <Form.Label className="fw-semibold">
+                            {t('Sleep min (yellow, minutes)')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.sleep_yellow_min ??
+                              store.thresholds.sleep_yellow_min ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('sleep_yellow_min', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={0}
+                            max={1440}
+                          />
+                          <div className="text-muted small mt-1">
+                            {t('Green should be ≥ yellow')}
+                          </div>
+                        </Form.Group>
+                      </Col>
+
+                      {/* BP */}
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="bp_sys_green_max">
+                          <Form.Label className="fw-semibold">
+                            {t('BP systolic green max')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.bp_sys_green_max ??
+                              store.thresholds.bp_sys_green_max ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('bp_sys_green_max', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={50}
+                            max={250}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="bp_sys_yellow_max">
+                          <Form.Label className="fw-semibold">
+                            {t('BP systolic yellow max')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.bp_sys_yellow_max ??
+                              store.thresholds.bp_sys_yellow_max ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('bp_sys_yellow_max', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={50}
+                            max={250}
+                          />
+                          <div className="text-muted small mt-1">
+                            {t('Green max should be ≤ yellow max')}
+                          </div>
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="bp_dia_green_max">
+                          <Form.Label className="fw-semibold">
+                            {t('BP diastolic green max')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.bp_dia_green_max ??
+                              store.thresholds.bp_dia_green_max ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('bp_dia_green_max', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={30}
+                            max={180}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="bp_dia_yellow_max">
+                          <Form.Label className="fw-semibold">
+                            {t('BP diastolic yellow max')}
+                          </Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={
+                              store.thresholdDraft.bp_dia_yellow_max ??
+                              store.thresholds.bp_dia_yellow_max ??
+                              0
+                            }
+                            onChange={(e) =>
+                              store.setThresholdField('bp_dia_yellow_max', Number(e.target.value))
+                            }
+                            disabled={!store.isEditing}
+                            min={30}
+                            max={180}
+                          />
+                          <div className="text-muted small mt-1">
+                            {t('Green max should be ≤ yellow max')}
+                          </div>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  )}
+
+                  {/* Effective date + reason (edit mode only) */}
+                  {store.isEditing && (
+                    <Row className="g-3 mt-2">
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="thresholdEffectiveFrom">
+                          <Form.Label className="fw-semibold">
+                            {t('Effective from (optional)')}
+                          </Form.Label>
+                          <Form.Control
+                            type="datetime-local"
+                            value={store.thresholdEffectiveFromLocal}
+                            onChange={(e) => store.setThresholdEffectiveFromLocal(e.target.value)}
+                          />
+                          <div className="text-muted small mt-1">
+                            {t('Leave empty to apply immediately.')}
+                          </div>
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="thresholdReason">
+                          <Form.Label className="fw-semibold">{t('Reason (optional)')}</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={store.thresholdReason}
+                            onChange={(e) => store.setThresholdReason(e.target.value)}
+                            maxLength={500}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  )}
+                </div>
+
+                {/* HISTORY */}
+                <div>
+                  <h5 className="mb-2">{t('Change history')}</h5>
+                  <div className="text-muted small mb-2">
+                    {t('Older thresholds are saved automatically when you update goals.')}
+                  </div>
+
+                  {(store.thresholdsHistory || []).length === 0 ? (
+                    <div className="text-muted">{t('No history yet.')}</div>
+                  ) : (
+                    <Table striped bordered hover responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 220 }}>{t('Effective from')}</th>
+                          <th style={{ width: 180 }}>{t('Changed by')}</th>
+                          <th>{t('Reason')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {store.thresholdsHistory.map((h, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              {h.effective_from ? new Date(h.effective_from).toLocaleString() : '—'}
+                            </td>
+                            <td>{h.changed_by || '—'}</td>
+                            <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  )}
+                </div>
+              </Tab>
 
               <Tab eventKey="redcap" title={t('REDCap')}>
                 <div className="d-flex align-items-center justify-content-between mb-2">
@@ -481,7 +877,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     {store.redcapProject ? (
                       <>
                         {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
-                        <span className="ms-2">{t('Records')}: {store.redcapRows?.length || 0}</span>
+                        <span className="ms-2">
+                          {t('Records')}: {store.redcapRows?.length || 0}
+                        </span>
                       </>
                     ) : (
                       <span>{t('No project selected')}</span>
@@ -505,11 +903,15 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     <p className="mt-3">{t('Loading')}...</p>
                   </div>
                 ) : !hasRedcap ? (
-                  <p className="text-muted mb-0">{t('No REDCap data available for this patient.')}</p>
+                  <p className="text-muted mb-0">
+                    {t('No REDCap data available for this patient.')}
+                  </p>
                 ) : (
                   <>
                     <p className="text-muted">
-                      {t('This data is fetched live from REDCap and is not stored in the platform database.')}
+                      {t(
+                        'This data is fetched live from REDCap and is not stored in the platform database.'
+                      )}
                     </p>
 
                     <Table striped bordered hover responsive size="sm">
@@ -520,10 +922,14 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(store.redcapFlat).map(([k, v]) => (
+                        {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
                           <tr key={k}>
-                            <td><code>{k}</code></td>
-                            <td style={{ whiteSpace: 'pre-wrap' }}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</td>
+                            <td>
+                              <code>{k}</code>
+                            </td>
+                            <td style={{ whiteSpace: 'pre-wrap' }}>
+                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

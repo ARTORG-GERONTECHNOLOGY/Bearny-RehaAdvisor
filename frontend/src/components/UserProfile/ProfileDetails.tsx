@@ -44,7 +44,7 @@ const ProfileDetails: React.FC<Props> = ({
             <span>
               {userData?.specializations?.length ? userData.specializations.join(', ') : t('None')}
             </span>
-            <InfoBubble tooltip={t("Therapist’s areas of clinical expertise")} />
+            <InfoBubble tooltip={t('Therapist’s areas of clinical expertise')} />
           </p>
 
           <p className="d-flex align-items-center gap-2 flex-wrap">

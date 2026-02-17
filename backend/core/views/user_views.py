@@ -17,8 +17,9 @@ import re
 from django.core.mail import send_mail
 from django.views.decorators.http import require_http_methods
 from mongoengine.queryset.visitor import Q
+
 # ----------------------------------------
-# Helper: should we update this field?
+# Helper
 # ----------------------------------------
 def valid_update_value(v):
     if v in ("", None, []):
@@ -477,10 +478,7 @@ def get_pending_users(request):
                             "name": f"{getattr(therapist, 'first_name', '')} {getattr(therapist, 'name', '')}".strip(),
                             "specializations": getattr(therapist, "specializations", []) or [],
                             "clinics": getattr(therapist, "clinics", []) or [],
-                            # ✅ FE shows badges from "projects"
                             "projects": projects_list,
-                            # optional: keep old field for compatibility
-                            "project": project_single,
                         }
                     )
                 else:
@@ -564,8 +562,6 @@ def accept_user(request):
 def decline_user(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
-
-
 
     try:
         data = json.loads(request.body or "{}")

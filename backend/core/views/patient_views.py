@@ -1258,12 +1258,14 @@ def add_intervention_to_patient(request):
     POST /api/interventions/add-to-patient/
 
     Adds or updates intervention assignments for a patient.
-    Includes:
-      - Input normalization (camelCase → snake_case)
-      - end{} flattening into end_type, end_date, count_limit
-      - Strict validation with detailed errors
-      - Graceful skipping of empty date schedules
-      - Full structured error output
+
+    ✅ Updated behavior (language + duplicate-safe):
+      - Accepts either interventionId (legacy) OR externalId (+ optional language)
+      - If externalId provided: picks the best Intervention variant by language fallback:
+          chosen_lang -> en -> de -> any
+      - Prevents duplicates by external_id:
+          if plan already contains ANY variant of that external_id, it updates that assignment
+          and (optionally) switches the assignment to the newly chosen language variant.
     """
 
     # Reject non-POST
@@ -1273,7 +1275,7 @@ def add_intervention_to_patient(request):
                 "success": False,
                 "message": "Method not allowed",
                 "field_errors": {},
-                "non_field_errors": ["Only POST requests allowed."]
+                "non_field_errors": ["Only POST requests allowed."],
             },
             status=405,
         )
@@ -1298,9 +1300,11 @@ def add_intervention_to_patient(request):
         Converts React schedule into backend shape:
           selectedDays → selected_days
           startDate → start_date
+          externalId/external_id preserved
+          language/lang preserved
           end = { type, date, count } → flattened
         """
-        out = dict(item)
+        out = dict(item or {})
 
         # camelCase → snake_case
         if "selectedDays" in out:
@@ -1329,7 +1333,7 @@ def add_intervention_to_patient(request):
         if not v:
             return None
         try:
-            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
             if timezone.is_naive(dt):
                 dt = make_aware(dt)
             return dt
@@ -1346,6 +1350,30 @@ def add_intervention_to_patient(request):
             return None
 
     # ---------------------------------------------------
+    # Helpers: language fallback + best-variant selection
+    # ---------------------------------------------------
+    def lang_fallback_chain(user_lang: str):
+        user_lang = (user_lang or "").strip().lower()
+        chain = [user_lang, "en", "de"]
+        out = []
+        seen = set()
+        for l in chain:
+            if l and l not in seen:
+                out.append(l)
+                seen.add(l)
+        return out or ["en", "de"]
+
+    def pick_best_variant(external_id: str, chain):
+        """
+        Return best matching intervention doc for external_id using fallback chain.
+        """
+        for l in chain:
+            doc = Intervention.objects(external_id=external_id, language=l).first()
+            if doc:
+                return doc
+        return Intervention.objects(external_id=external_id).first()
+
+    # ---------------------------------------------------
     # Parse JSON safely
     # ---------------------------------------------------
     try:
@@ -1356,14 +1384,17 @@ def add_intervention_to_patient(request):
                 "success": False,
                 "message": "Invalid JSON body.",
                 "field_errors": {},
-                "non_field_errors": ["The request body is not valid JSON."]
+                "non_field_errors": ["The request body is not valid JSON."],
             },
-            status=400
+            status=400,
         )
 
     therapistId = payload.get("therapistId")
     patientId = payload.get("patientId")
     items = payload.get("interventions") or []
+
+    # Optional: request-level language preference
+    request_lang = (payload.get("language") or payload.get("lang") or "").strip().lower()
 
     # Validate base fields
     if not therapistId:
@@ -1438,17 +1469,32 @@ def add_intervention_to_patient(request):
     for raw in items:
         item = normalize_schedule(raw)
 
-        # Validate intervention OID
-        int_oid = coerce_oid(item.get("interventionId"))
-        if not int_oid:
-            add_ferr("interventionId", "Invalid interventionId.")
-            continue
+        # ---------------------------------------------
+        # Resolve intervention:
+        #  - preferred: externalId + language
+        #  - fallback: interventionId (legacy)
+        # ---------------------------------------------
+        intervention = None
 
-        try:
-            intervention = Intervention.objects.get(id=int_oid)
-        except Intervention.DoesNotExist:
-            add_ferr("interventionId", f"Intervention {int_oid} not found.")
-            continue
+        external_id = (item.get("externalId") or item.get("external_id") or "").strip()
+        chosen_lang = (item.get("language") or item.get("lang") or request_lang or "").strip().lower()
+
+        if external_id:
+            chain = lang_fallback_chain(chosen_lang or "en")
+            intervention = pick_best_variant(external_id, chain)
+            if not intervention:
+                add_ferr("externalId", f"No intervention found for external_id={external_id}.")
+                continue
+        else:
+            int_oid = coerce_oid(item.get("interventionId"))
+            if not int_oid:
+                add_ferr("interventionId", "Invalid interventionId.")
+                continue
+            try:
+                intervention = Intervention.objects.get(id=int_oid)
+            except Intervention.DoesNotExist:
+                add_ferr("interventionId", f"Intervention {int_oid} not found.")
+                continue
 
         # Build schedule input for generator
         schedule_input = {
@@ -1465,8 +1511,8 @@ def add_intervention_to_patient(request):
         try:
             generated = generate_repeat_dates(patient.reha_end_date, schedule_input)
         except Exception as e:
-            logger.error(f"[add_intervention_to_patient] Date generation failed for {int_oid}: {e}")
-            add_ferr("interventionId", f"Could not generate dates for {int_oid}.")
+            logger.error(f"[add_intervention_to_patient] Date generation failed for {intervention.id}: {e}")
+            add_ferr("interventionId", f"Could not generate dates for {str(intervention.id)}.")
             continue
 
         dates = _strip_to_datetimes(generated)
@@ -1479,13 +1525,33 @@ def add_intervention_to_patient(request):
         require_video = bool(item.get("require_video_feedback"))
         note_txt = (item.get("notes") or "").strip()[:1000]
 
-        # Check if intervention already exists in plan
+        # ---------------------------------------------------
+        # Duplicate-safe lookup:
+        #   match existing assignment by external_id (preferred)
+        #   fallback to matching exact intervention id
+        # ---------------------------------------------------
+        new_ext = getattr(intervention, "external_id", None)
+
         existing = next(
-            (a for a in (plan.interventions or []) if str(a.interventionId.id) == str(intervention.id)),
-            None
+            (
+                a
+                for a in (plan.interventions or [])
+                if (
+                    new_ext
+                    and getattr(getattr(a, "interventionId", None), "external_id", None) == new_ext
+                )
+                or (
+                    str(getattr(getattr(a, "interventionId", None), "id", "")) == str(intervention.id)
+                )
+            ),
+            None,
         )
 
         if existing:
+            # If user chose a different language variant, switch the reference
+            if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
+                existing.interventionId = intervention
+
             merged, added_cnt = _merge_dates(existing.dates, dates)
             if added_cnt > 0:
                 existing.dates = merged
@@ -1513,10 +1579,10 @@ def add_intervention_to_patient(request):
             {
                 "success": True,
                 "message": "No new sessions to add for the selected intervention(s).",
-                "field_errors": {},
-                "non_field_errors": []
+                "field_errors": field_errors,      # keep any warnings/errors collected
+                "non_field_errors": non_field_errors,
             },
-            status=200
+            status=200,
         )
 
     # ---------------------------------------------------
@@ -1535,10 +1601,10 @@ def add_intervention_to_patient(request):
         {
             "success": True,
             "message": "Successfully " + " and ".join(msg) + ".",
-            "field_errors": {},
-            "non_field_errors": []
+            "field_errors": field_errors,
+            "non_field_errors": non_field_errors,
         },
-        status=201
+        status=201,
     )
 
 

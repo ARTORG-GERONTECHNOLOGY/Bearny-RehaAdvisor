@@ -137,7 +137,12 @@
 "projects": ["COPAIN", "COMPASS"],
   "clinic_projects": {
     "Berner Reha Centrum": ["COPAIN"],
-    "Inselspital": ["COMPASS"]
+    "Inselspital": ["COPAIN"],
+    "Leuven": ["COMPASS"],
+    "Bern": ["COMPASS"],
+    "Lisbon": ["COMPASS"],
+    "Lummezzane": ["COMPASS"],
+    "Milano": ["COMPASS"]
   }
   },
   "Users": ["Therapist"],
@@ -152,15 +157,8 @@
   "RecomendationInfo": {
     "frequency": ["Daily", "Every-2nd-day", "Weekly", "Once"],
     "frequencyDays": [1, 2, 7, 0],
-    "types": [
-      "Text",
-      "Video",
-      "Audio",
-      "Image",
-      "Video",
-      "Website",
-      "App"
-    ],
+"types": ["Text", "Video", "Audio", "Image", "PDF", "Website", "App", "Streaming"],
+
     "tags": [
       "Disease",
       "Symptoms",
@@ -357,38 +355,10 @@
       ]
     },
     {
-      "title": "Additional Information",
-      "fields": [
-        {
-          "name": "specialisation",
-          "label": "Specialisation",
-          "type": "multi-select",
-          "required": true,
-          "be_name": "specializations",
-          "options": [
-            "Cardiology",
-            "Neurology",
-            "Orthopedics",
-            "Pediatrics",
-            "Sports Medicine",
-            "Psychiatry",
-            "Dermatology",
-            "Oncology",
-            "Endocrinology",
-            "Physical Therapy"
-          ]
-        },
-        {
-          "name": "clinic",
-          "label": "Clinics",
-          "type": "multi-select",
-          "required": true,
-          "be_name": "clinics",
-          "options": [
-            "Berner Reha Centrum",
-            "Inselspital"
-          ]
-        }
+"fields": [
+        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "options": "fromConfig" },
+        { "name": "clinic", "label": "Clinics (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig" },
+        { "name": "projects", "label": "Projects (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig" }
       ]
     }
   ],
@@ -579,5 +549,53 @@
           "be_name": "personal_goals"
         
   }]
-    }]
+    }],
+    "RedCap_Characteristics": [
+"record_id",
+        "pat_id",
+        "language",
+        "secondary_languages",
+        "migrant",
+        "ethnicity",
+        "schooling_yrs",
+        "education",
+        "maritalstatus",
+        "form_of_living",
+        "workstatus",
+        "primarydiagnose",
+        "referral_diagnosis",
+        "referral_intervention",
+        "referral_diagnosis",
+        "referral_intervention",
+        "hypertension",
+        "arrhythmia",
+        "vhd",
+        "cvd",
+        "pad",
+        "chronic_pulm",
+        "pulm_circ",
+        "diabetes",
+        "obesity",
+        "dyslipidemia",
+        "ckd",
+        "cld",
+        "pepticulcer",
+        "movement_disorder",
+        "periph_neuropathy",
+        "other_neuro",
+        "osteoporosis",
+        "chronic_msk",
+        "solid_tumors",
+        "lymphona",
+        "cogn_imp",
+        "depression",
+        "other_mental_dis",
+        "malnutrition",
+        "sarcopenia",
+        "anemia",
+        "autoimmune_cond",
+        "aquired_immune_defficiency",
+        "thyroid_dis"
+    ]
+      
 }
