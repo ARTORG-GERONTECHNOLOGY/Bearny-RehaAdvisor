@@ -1,3 +1,21 @@
+"""
+Therapist Views API Tests
+
+This module tests therapist-facing API endpoints including intervention assignment,
+patient monitoring, custom intervention creation, and treatment plan management.
+
+Tests cover:
+- Assigning interventions to patients
+- Monitoring patient adherence and progress
+- Creating custom interventions
+- Managing rehabilitation plans
+- Error handling and validation
+
+Framework: Django Test Client with pytest
+Database: mongomock (in-memory MongoDB) for isolated testing
+Models: Therapist, Patient, Intervention, RehabilitationPlan, InterventionAssignment
+"""
+
 import json
 from datetime import datetime, timedelta
 
@@ -23,6 +41,15 @@ client = Client()
 
 @pytest.fixture(autouse=True, scope="function")
 def mongo_mock():
+    """
+    Fixture: Mock MongoDB for therapist view tests
+    
+    Sets up:
+    - In-memory MongoDB connection for each test
+    - Isolation: Each test has clean database
+    - Cleanup: Disconnect after test completes
+    - No risk of data pollution between tests
+    """
     import mongomock
     from mongoengine import connect, disconnect
 
