@@ -12,12 +12,24 @@ from core.models import Patient, Therapist, User, RehabilitationPlan, PatientInt
 logger = logging.getLogger(__name__)
 import re
 import unicodedata
-
+from typing import Any, Dict, List, Optional
 from django.utils.timezone import is_naive, make_aware
 import tempfile
 from pydub import AudioSegment
 import speech_recognition as sr
 import re
+
+def bad(message: str, field_errors: Optional[Dict[str, List[str]]] = None,
+        non_field_errors: Optional[List[str]] = None, status: int = 400, extra: Optional[Dict[str, Any]] = None):
+    payload: Dict[str, Any] = {
+        "success": False,
+        "message": message,
+        "field_errors": field_errors or {},
+        "non_field_errors": non_field_errors or [],
+    }
+    if extra:
+        payload.update(extra)
+    return JsonResponse(payload, status=status)
 
 def validate_password_strength(password: str):
     """

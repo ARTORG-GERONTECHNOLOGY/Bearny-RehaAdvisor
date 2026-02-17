@@ -28,7 +28,9 @@ const PatientTypeSection: React.FC<PatientTypeSectionProps> = ({ types, diagnose
             <Form.Group controlId={`patientType-${index}`}>
               <Form.Label>
                 {t('PatientType')}{' '}
-                <InfoBubble tooltip={t('Select the specialization this intervention applies to.')} />
+                <InfoBubble
+                  tooltip={t('Select the specialization this intervention applies to.')}
+                />
               </Form.Label>
               <Form.Control
                 as="select"

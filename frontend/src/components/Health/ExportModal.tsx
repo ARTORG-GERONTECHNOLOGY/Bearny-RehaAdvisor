@@ -43,14 +43,22 @@ const ExportModal: React.FC<Props> = ({
   }, [show, initialFrom, initialTo, selections]);
 
   const ids = [
-    'totalScore','questionnaire','restingHR','sleep','hrZones',
-    'floors','steps','distance','breathing','hrv'
+    'totalScore',
+    'questionnaire',
+    'restingHR',
+    'sleep',
+    'hrZones',
+    'floors',
+    'steps',
+    'distance',
+    'breathing',
+    'hrv',
   ];
 
   const allSelected = Object.values(chosen).every(Boolean);
   const toggleAll = () => {
     const next: Record<string, boolean> = {};
-    ids.forEach(id => (next[id] = !allSelected));
+    ids.forEach((id) => (next[id] = !allSelected));
     setChosen(next);
   };
 

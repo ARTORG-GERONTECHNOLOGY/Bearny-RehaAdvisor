@@ -33,9 +33,7 @@ const InterventionFormFileInputs: React.FC<InterventionFormFileInputsProps> = ({
         onChange={handleFileInputChange}
         aria-label={t('UploadMediaFile')}
       />
-      <Form.Text className="text-muted">
-        {t('SupportedFormats')}: JPG, PNG, MP4, MP3, PDF
-      </Form.Text>
+      <Form.Text className="text-muted">{t('SupportedFormats')}: JPG, PNG, MP4, MP3, PDF</Form.Text>
     </Form.Group>
   );
 };

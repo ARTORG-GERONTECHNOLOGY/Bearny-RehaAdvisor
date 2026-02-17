@@ -27,8 +27,6 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
   const [sheetName, setSheetName] = useState(defaultSheet);
   const [defaultLang, setDefaultLang] = useState(defaultLangFromCfg);
-  const [keepLegacy, setKeepLegacy] = useState(Boolean(defaultKeepLegacy));
-  const [dryRun, setDryRun] = useState(Boolean(defaultDryRun));
   const [limit, setLimit] = useState<string>(''); // keep as string for input UX
 
   // reset defaults if config changes while modal is open (rare but safe)
@@ -36,15 +34,16 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     if (!show) return;
     setSheetName(defaultSheet);
     setDefaultLang(defaultLangFromCfg);
-    setKeepLegacy(Boolean(defaultKeepLegacy));
-    setDryRun(Boolean(defaultDryRun));
     setLimit('');
     setFile(null);
     interventionsImportStore.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
-  const canSubmit = useMemo(() => !!file && !interventionsImportStore.loading, [file, interventionsImportStore.loading]);
+  const canSubmit = useMemo(
+    () => !!file && !interventionsImportStore.loading,
+    [file, interventionsImportStore.loading]
+  );
 
   const close = () => {
     if (interventionsImportStore.loading) return;
@@ -52,8 +51,6 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     setFile(null);
     setSheetName(defaultSheet);
     setDefaultLang(defaultLangFromCfg);
-    setKeepLegacy(Boolean(defaultKeepLegacy));
-    setDryRun(Boolean(defaultDryRun));
     setLimit('');
     onHide();
   };
@@ -69,8 +66,6 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
       // ✅ backend import service still expects these field names
       sheet_name: sheetName || defaultSheet || 'Content',
       default_lang: (defaultLang || defaultLangFromCfg || 'en').toLowerCase(),
-      keep_legacy_fields: Boolean(keepLegacy), // optional, but your backend supports it
-      dry_run: Boolean(dryRun),
       limit: limitOrNull,
     });
 
@@ -149,31 +144,6 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 <div className="text-muted small">{t('Import only first N rows')}</div>
               </Form.Group>
             </div>
-
-            <div className="mt-3 d-flex flex-wrap gap-4">
-              <Form.Check
-                type="checkbox"
-                id="keepLegacy"
-                label={t('Keep legacy fields (link/media_file)')}
-                checked={keepLegacy}
-                onChange={(e) => setKeepLegacy(e.target.checked)}
-                disabled={interventionsImportStore.loading}
-              />
-
-              <Form.Check
-                type="checkbox"
-                id="dryRun"
-                label={t('Dry run (no DB write)')}
-                checked={dryRun}
-                onChange={(e) => setDryRun(e.target.checked)}
-                disabled={interventionsImportStore.loading}
-              />
-            </div>
-
-            {/* ✅ new model hint */}
-            <div className="text-muted small mt-3">
-              {t('Import will populate the new media[] model. Legacy fields are optional.')}
-            </div>
           </div>
 
           {r && (
@@ -206,14 +176,17 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       <div key={idx} className="small mb-2">
                         <div>
                           <strong>{t('Row')}:</strong> {e.row ?? '-'}{' '}
-                          <strong className="ms-2">{t('ID')}:</strong> {e.intervention_id ?? e.external_id ?? '-'}
+                          <strong className="ms-2">{t('ID')}:</strong>{' '}
+                          {e.intervention_id ?? e.external_id ?? '-'}
                         </div>
                         <div className="text-danger">{e.error ?? '-'}</div>
                         <hr className="my-2" />
                       </div>
                     ))}
                     {(r.errors || []).length > 200 && (
-                      <div className="text-muted small">{t('Too many errors to display (showing first 200).')}</div>
+                      <div className="text-muted small">
+                        {t('Too many errors to display (showing first 200).')}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -224,7 +197,11 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
       </Modal.Body>
 
       <Modal.Footer className="d-flex justify-content-between">
-        <Button variant="outline-secondary" onClick={close} disabled={interventionsImportStore.loading}>
+        <Button
+          variant="outline-secondary"
+          onClick={close}
+          disabled={interventionsImportStore.loading}
+        >
           {t('Close')}
         </Button>
 

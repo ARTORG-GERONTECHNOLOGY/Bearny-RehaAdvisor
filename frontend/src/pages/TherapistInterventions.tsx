@@ -21,10 +21,11 @@ import authStore from '../stores/authStore';
 import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
 
 import config from '../config/config.json';
+import interventionsConfig from '../config/interventions.json';
 import apiClient from '../api/client';
 
 import { filterInterventions } from '../utils/filterUtils';
-import { generateTagColors } from '../utils/interventions';
+import { generateTagColors, getTaxonomyTags } from '../utils/interventions';
 import { translateText } from '../utils/translate';
 
 import type { TemplateItem, TemplatePayload } from '../types/templates';
@@ -137,7 +138,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     useState<TemplatesFiltersState>(defaultTemplatesFilters);
 
   // ─────────────────────────── computed data ───────────────────────────
-  const tagColors = useMemo(() => generateTagColors(config.RecomendationInfo.tags), []);
+  const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
   const patientTypes = authStore.specialisations; // observer() => reactive
 
   const diagnoses = useMemo(
@@ -267,7 +268,10 @@ const TherapistRecomendations: React.FC = observer(() => {
             );
             return [
               id,
-              { title: translatedText || it.intervention.title, lang: detectedSourceLanguage || null },
+              {
+                title: translatedText || it.intervention.title,
+                lang: detectedSourceLanguage || null,
+              },
             ] as const;
           } catch {
             return [id, { title: it.intervention.title, lang: null }] as const;
@@ -324,7 +328,11 @@ const TherapistRecomendations: React.FC = observer(() => {
     setAssignOpen(true);
   };
 
-  const removeTemplateItem = async (diagnosis: string, interventionId: string, startDay?: number) => {
+  const removeTemplateItem = async (
+    diagnosis: string,
+    interventionId: string,
+    startDay?: number
+  ) => {
     try {
       const payload: any = { intervention_id: interventionId, diagnosis };
       if (typeof startDay === 'number') payload.start_day = startDay;
@@ -356,7 +364,9 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   const findTemplateFor = (intId: string): TemplateItem | undefined => {
     if (templateDiag) {
-      return templateItems.find((it) => it.diagnosis === templateDiag && it.intervention._id === intId);
+      return templateItems.find(
+        (it) => it.diagnosis === templateDiag && it.intervention._id === intId
+      );
     }
     return templateItems.find((it) => it.intervention._id === intId);
   };
@@ -384,7 +394,10 @@ const TherapistRecomendations: React.FC = observer(() => {
   const handleTemplateItemClick = (it: TemplateItem) => {
     const full = recommendations.find((r) => r._id === it.intervention._id);
     if (full) handleItemClick(full);
-    else setError(t('Full details for this intervention are not loaded yet. Please refresh the page.'));
+    else
+      setError(
+        t('Full details for this intervention are not loaded yet. Please refresh the page.')
+      );
   };
 
   // ---- controls ----

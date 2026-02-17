@@ -1,23 +1,8 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import {
-  Button,
-  Card,
-  Row,
-  Col,
-  ToggleButtonGroup,
-  ToggleButton,
-  Badge,
-} from 'react-bootstrap';
+import { Button, Card, Row, Col, ToggleButtonGroup, ToggleButton, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import {
-  startOfWeek,
-  addDays,
-  format,
-  isToday,
-  isPast,
-  endOfWeek,
-} from 'date-fns';
+import { startOfWeek, addDays, format, isToday, isPast, endOfWeek } from 'date-fns';
 import { enUS, de, fr, it } from 'date-fns/locale';
 
 import authStore from '../../stores/authStore';
@@ -136,7 +121,11 @@ const InterventionList: React.FC = observer(() => {
       );
     }
 
-    return completed ? <Badge bg="success">{t('Done')}</Badge> : <Badge bg="info">{t('Upcoming')}</Badge>;
+    return completed ? (
+      <Badge bg="success">{t('Done')}</Badge>
+    ) : (
+      <Badge bg="info">{t('Upcoming')}</Badge>
+    );
   };
 
   const sortDayItems = (items: PatientRec[], date: Date) => {
@@ -217,7 +206,9 @@ const InterventionList: React.FC = observer(() => {
 
           if (isWeekView) {
             const aria = `${title}. ${t('Time')}: ${timeStr || t('Unknown')}. ${
-              typeof rec.duration === 'number' ? `${t('Duration')}: ${rec.duration} ${t('min')}.` : ''
+              typeof rec.duration === 'number'
+                ? `${t('Duration')}: ${rec.duration} ${t('min')}.`
+                : ''
             } ${completed ? t('Done') : ''}`;
 
             return (
@@ -233,7 +224,9 @@ const InterventionList: React.FC = observer(() => {
               >
                 {completed && (
                   <div className="done-strip" aria-hidden="true">
-                    <span className="check" aria-hidden="true">✓</span>
+                    <span className="check" aria-hidden="true">
+                      ✓
+                    </span>
                   </div>
                 )}
 
@@ -243,13 +236,17 @@ const InterventionList: React.FC = observer(() => {
 
                     <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
                       <span className="meta-inline">
-                        <span className="meta-icon" aria-hidden="true">🕒</span>
+                        <span className="meta-icon" aria-hidden="true">
+                          🕒
+                        </span>
                         <span aria-label={t('Time')}>{timeStr || '—'}</span>
                       </span>
 
                       {typeof rec.duration === 'number' && (
                         <span className="meta-inline">
-                          <span className="meta-icon" aria-hidden="true">⏱️</span>
+                          <span className="meta-icon" aria-hidden="true">
+                            ⏱️
+                          </span>
                           <span aria-label={t('Duration')}>{rec.duration}</span> {t('min')}
                         </span>
                       )}
@@ -277,7 +274,9 @@ const InterventionList: React.FC = observer(() => {
             >
               {completed && (
                 <div className="done-strip" aria-live="polite">
-                  <span className="check" aria-hidden="true">✓</span>{' '}
+                  <span className="check" aria-hidden="true">
+                    ✓
+                  </span>{' '}
                   {isToday(date) ? t('Completed today') : t('Completed')}
                 </div>
               )}
@@ -285,7 +284,11 @@ const InterventionList: React.FC = observer(() => {
               <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
                 <div className="preview-slot">
                   {rec.preview_img ? (
-                    <img src={rec.preview_img} alt={t('Preview') || 'Preview'} className="preview-img" />
+                    <img
+                      src={rec.preview_img}
+                      alt={t('Preview') || 'Preview'}
+                      className="preview-img"
+                    />
                   ) : (
                     <div className="preview-placeholder">{t('preview')}</div>
                   )}
@@ -315,7 +318,9 @@ const InterventionList: React.FC = observer(() => {
                 <Card.Footer className="d-flex justify-content-between align-items-center px-2 py-2 footer-meta">
                   <div className="d-flex align-items-center gap-2 text-muted small">
                     <span className="meta-inline">
-                      <span className="meta-icon" aria-hidden="true">🕒</span>
+                      <span className="meta-icon" aria-hidden="true">
+                        🕒
+                      </span>
                       <span aria-label={t('Time')}>{timeStr || '—'}</span>
                     </span>
                   </div>
@@ -325,7 +330,9 @@ const InterventionList: React.FC = observer(() => {
                   {typeof rec.duration === 'number' ? (
                     <div className="d-flex align-items-center gap-2 text-muted small">
                       <span className="meta-inline">
-                        <span className="meta-icon" aria-hidden="true">⏱️</span>
+                        <span className="meta-icon" aria-hidden="true">
+                          ⏱️
+                        </span>
                         <span aria-label={t('Duration')}>{rec.duration}</span> {t('min')}
                       </span>
                     </div>
@@ -350,7 +357,8 @@ const InterventionList: React.FC = observer(() => {
     return (
       <>
         <h5 className="text-center mb-3 week-title" aria-live="polite">
-          {format(start, 'dd.MM', { locale: currentLocale })} – {format(end, 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
+          {format(start, 'dd.MM', { locale: currentLocale })} –{' '}
+          {format(end, 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
         </h5>
 
         <div className="week-grid" role="grid" aria-label={t('Weekly interventions grid')}>
@@ -370,7 +378,9 @@ const InterventionList: React.FC = observer(() => {
 
     return (
       <>
-        <h5 className="text-center mb-3" aria-live="polite">{label}</h5>
+        <h5 className="text-center mb-3" aria-live="polite">
+          {label}
+        </h5>
         <Row className="g-3">
           <Col>{renderDayColumn(patientUiStore.selectedDate)}</Col>
         </Row>
@@ -380,7 +390,9 @@ const InterventionList: React.FC = observer(() => {
 
   const handleNavigate = (dir: 'prev' | 'next') => {
     const delta = patientUiStore.viewMode === 'day' ? 1 : 7;
-    patientUiStore.setSelectedDate(addDays(patientUiStore.selectedDate, dir === 'next' ? delta : -delta));
+    patientUiStore.setSelectedDate(
+      addDays(patientUiStore.selectedDate, dir === 'next' ? delta : -delta)
+    );
   };
 
   const isViewingToday =
@@ -412,7 +424,11 @@ const InterventionList: React.FC = observer(() => {
       )}
 
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        <Button onClick={() => handleNavigate('prev')} aria-label={t('Previous')} title={t('Go back')}>
+        <Button
+          onClick={() => handleNavigate('prev')}
+          aria-label={t('Previous')}
+          title={t('Go back')}
+        >
           {t('Previous')}
         </Button>
 
@@ -426,12 +442,21 @@ const InterventionList: React.FC = observer(() => {
           <ToggleButton id="day" value="day" variant="outline-primary" aria-label={t('Day view')}>
             {t('Day')}
           </ToggleButton>
-          <ToggleButton id="week" value="week" variant="outline-primary" aria-label={t('Week view')}>
+          <ToggleButton
+            id="week"
+            value="week"
+            variant="outline-primary"
+            aria-label={t('Week view')}
+          >
             {t('Week')}
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Button onClick={() => handleNavigate('next')} aria-label={t('Next')} title={t('Go forward')}>
+        <Button
+          onClick={() => handleNavigate('next')}
+          aria-label={t('Next')}
+          title={t('Go forward')}
+        >
           {t('Next')}
         </Button>
       </div>
@@ -452,7 +477,11 @@ const InterventionList: React.FC = observer(() => {
 
       {/* Popups */}
       {selectedItem && !patientQuestionnairesStore.showFeedbackPopup && (
-        <PatientInterventionPopUp show item={selectedItem} handleClose={() => setSelectedItem(null)} />
+        <PatientInterventionPopUp
+          show
+          item={selectedItem}
+          handleClose={() => setSelectedItem(null)}
+        />
       )}
 
       {patientQuestionnairesStore.showFeedbackPopup && (
