@@ -9,7 +9,6 @@ import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import ErrorAlert from '../components/common/ErrorAlert';
 
-// ✅ reuse therapist list UI (cards grid)
 import InterventionList from '../components/TherapistInterventionPage/InterventionList';
 
 import authStore from '../stores/authStore';
@@ -20,10 +19,9 @@ import { filterInterventions } from '../utils/filterUtils';
 import { translateText } from '../utils/translate';
 import type { InterventionTypeTh } from '../types';
 
-// ✅ NEW modular UI bits
-import LibraryTabs, { type MainTab } from './patient-library/LibraryTabs';
-import InterventionFiltersCard from './patient-library/InterventionFiltersCard';
-import PatientInterventionDetailsModal from './patient-library/PatientInterventionDetailsModal';
+import LibraryTabs, { type MainTab } from '../components/PatientLibrary/LibraryTabs';
+import InterventionFiltersCard from '../components/PatientLibrary/InterventionFiltersCard';
+import PatientInterventionDetailsModal from '../components/PatientLibrary/PatientInterventionDetailsModal';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
