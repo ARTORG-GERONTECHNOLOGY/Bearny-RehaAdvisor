@@ -138,12 +138,10 @@ describe('PWA Configuration', () => {
 
     it('should generate service worker after build', () => {
       const swPath = path.resolve(__dirname, '../../dist/sw.js');
-      // Only check if dist directory exists (build may not have run)
       const distPath = path.resolve(__dirname, '../../dist');
       if (fs.existsSync(distPath)) {
         expect(fs.existsSync(swPath)).toBe(true);
       } else {
-        // Skip this test if build hasn't run
         console.log('Skipping: dist/ not found. Run `npm run build` first.');
       }
     });
