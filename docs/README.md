@@ -30,7 +30,7 @@ Welcome to the RehaAdvisor technical documentation. This comprehensive guide is 
 **RehaAdvisor** is a comprehensive web application designed for rehabilitation management. It integrates multiple user roles including therapists, researchers, and administrators, providing a platform for managing rehabilitation programs, patient data, and research activities.
 
 ### Technology Stack
-- **Frontend**: React with Vite, TypeScript, MobX, Axios
+- **Frontend**: React with Vite, TypeScript, MobX, Axios, PWA
 - **Backend**: Django 5, Django REST Framework, PyTest
 - **Database**: MongoDB 8.0.3
 - **Infrastructure**: Docker, Docker Compose, NGINX, Celery
