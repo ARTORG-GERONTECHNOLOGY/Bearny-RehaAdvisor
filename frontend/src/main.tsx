@@ -5,8 +5,8 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import { StoreProvider } from './stores/StoreProvider';
 import { I18nextProvider } from 'react-i18next';
 import { Router } from './routes';
-import './assets/styles/index.css'; // Ensure this import is correct
-import './assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides
+import './assets/styles/index.css'; // Ensure this import is correct (TODO: link in index.html for global styles after fully removing Bootstrap)
+import './assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides (TODO: remove after redesign with Tailwind is complete)
 
 const container = document.getElementById('root');
 const root = createRoot(container!);
