@@ -1,4 +1,5 @@
 type Props = {
+  onClick?: () => void;
   icon: React.ComponentType<{ size: number }>;
   label: string;
   active?: boolean;
@@ -6,9 +7,10 @@ type Props = {
 };
 
 // TODO: move colors to config as soon as they are fixed
-export function NavItem({ icon: Icon, label, active = false, desktop = false }: Props) {
+export function NavItem({ onClick, icon: Icon, label, active = false, desktop = false }: Props) {
   return (
     <button
+      onClick={onClick}
       className={`
         flex items-center border-0
         text-[#565656] hover:text-black

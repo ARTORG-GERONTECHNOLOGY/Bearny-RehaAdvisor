@@ -11,7 +11,7 @@ export default function Layout({ children }: Props) {
       <Navigation />
       <main
         className="
-          pb-24
+          pb-28
           md:pt-28 md:pb-0
           transition-all
         "
