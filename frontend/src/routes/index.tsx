@@ -1,38 +1,42 @@
 import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
-const Home = lazy(() => import('../pages/Home'));
-const Therapist = lazy(() => import('../pages/Therapist'));
-const UnauthorizedAccess = lazy(() => import('../pages/UnauthorizedAccess'));
-const ForgottenPassword = lazy(() => import('../pages/ForgottenPassword'));
-const UserProfile = lazy(() => import('../pages/UserProfile'));
-const PatientView = lazy(() => import('../pages/Patient'));
-const AdminDashboard = lazy(() => import('../pages/AdminDashboard'));
-const AddRecomendations = lazy(() => import('../pages/AddInterventionView'));
-const AddPatient = lazy(() => import('../pages/AddPatient'));
-const RehabTable = lazy(() => import('../pages/RehabTable'));
-const TherapistRecomendations = lazy(() => import('../pages/TherapistInterventions'));
-const ErrorPages = lazy(() => import('../components/common/Error'));
-const HealthSlider = lazy(() => import('../pages/eva'));
-const TermsAndConditions = lazy(() => import('../pages/TermsAndConditions'));
-const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
-const SuccessPage = lazy(() => import('../pages/SuccessPage'));
-const ErrorPage = lazy(() => import('../pages/ErrorPage'));
-const HealthPage = lazy(() => import('../pages/HealthPage'));
-const HelpPage = lazy(() => import('../pages/Help'));
-const Eva = lazy(() => import('../pages/eva2'));
-const HealthSliderDownloadsPage = lazy(() => import('../pages/HealthSliderDownloadsPage'));
-const PatientInterventionsLibrary = lazy(() => import('../pages/PatientInterventionsLibrary'));
-import RootLayout from '../RootLayout';
+const Home = lazy(() => import('@/pages/Home'));
+const Therapist = lazy(() => import('@/pages/Therapist'));
+const UnauthorizedAccess = lazy(() => import('@/pages/UnauthorizedAccess'));
+const ForgottenPassword = lazy(() => import('@/pages/ForgottenPassword'));
+const UserProfile = lazy(() => import('@/pages/UserProfile'));
+const PatientView = lazy(() => import('@/pages/Patient'));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
+const AddRecomendations = lazy(() => import('@/pages/AddInterventionView'));
+const AddPatient = lazy(() => import('@/pages/AddPatient'));
+const RehabTable = lazy(() => import('@/pages/RehabTable'));
+const TherapistRecomendations = lazy(() => import('@/pages/TherapistInterventions'));
+const ErrorPages = lazy(() => import('@/components/common/Error'));
+const HealthSlider = lazy(() => import('@/pages/eva'));
+const TermsAndConditions = lazy(() => import('@/pages/TermsAndConditions'));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+const SuccessPage = lazy(() => import('@/pages/SuccessPage'));
+const ErrorPage = lazy(() => import('@/pages/ErrorPage'));
+const HealthPage = lazy(() => import('@/pages/HealthPage'));
+const HelpPage = lazy(() => import('@/pages/Help'));
+const Eva = lazy(() => import('@/pages/eva2'));
+const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
+const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
+import RootLayout from '@/RootLayout';
+import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
+import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
   return createElement('div', null, 'Loading...');
 }
 
-// helper to wrap lazy pages consistently
-const withSuspense = (el: React.ReactElement) =>
-  createElement(Suspense, { fallback: createElement(LoadingFallback) }, el);
+// helper to wrap lazy pages consistently (optionally pass a custom fallback)
+const withSuspense = (
+  el: React.ReactElement,
+  fallback: React.ReactElement = createElement(LoadingFallback)
+) => createElement(Suspense, { fallback }, el);
 
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
@@ -66,7 +70,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/patient',
-    element: withSuspense(createElement(RootLayout, { children: createElement(PatientView) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(PatientView) }),
+      createElement(PatientSkeleton)
+    ),
   },
   {
     path: '/admin',
@@ -130,10 +137,9 @@ export const router = createBrowserRouter([
   },
   {
     path: '/patient-interventions',
-    element: createElement(
-      Suspense,
-      { fallback: createElement(LoadingFallback) },
-      createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) })
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
+      createElement(PatientInterventionsSkeleton)
     ),
   },
 
