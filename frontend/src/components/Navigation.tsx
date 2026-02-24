@@ -51,7 +51,7 @@ export default function Navigation() {
               path: '/interventions',
               iconOutline: GridCircleOutline,
               iconFill: GridCircleFill,
-              label: t('Interventions'),
+              label: t('Bibliothek'),
             },
             {
               path: '/userprofile',
