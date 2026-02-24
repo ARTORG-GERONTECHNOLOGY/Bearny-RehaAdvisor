@@ -8,6 +8,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://dev.reha-advisor.ch",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 CORS_ALLOW_CREDENTIALS = True
 SECRET_KEY = os.environ.get('SECRET_KEY')
