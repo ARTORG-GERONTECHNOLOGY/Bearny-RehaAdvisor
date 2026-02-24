@@ -1,8 +1,13 @@
 import { useLocation } from 'react-router-dom';
-import { Home, Activity, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NavItem } from '@/components/NavItem';
 import authStore from '@/stores/authStore';
+import SunriseOutline from '@/assets/icons/sunrise-outline.svg?react';
+import SunriseFill from '@/assets/icons/sunrise-fill.svg?react';
+import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
+import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
+import UserOutline from '@/assets/icons/user-outline.svg?react';
+import UserFill from '@/assets/icons/user-fill.svg?react';
 
 // TODO:
 // - move colors to config as soon as they are fixed
@@ -21,14 +26,39 @@ export default function Navigation() {
   const navLinks =
     authStore.userType === 'Patient'
       ? [
-          { path: '/patient', icon: Home, label: t('Home') },
-          { path: '/patient-interventions', icon: Activity, label: t('Interventions') },
+          {
+            path: '/patient',
+            iconOutline: SunriseOutline,
+            iconFill: SunriseFill,
+            label: t('Home'),
+          },
+          {
+            path: '/patient-interventions',
+            iconOutline: GridCircleOutline,
+            iconFill: GridCircleFill,
+            label: t('Bibliothek'),
+          },
         ]
       : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
         ? [
-            { path: `/${authStore.userType?.toLowerCase()}`, icon: Home, label: t('Patients') },
-            { path: '/interventions', icon: Activity, label: t('Interventions') },
-            { path: '/userprofile', icon: User, label: t('Profile') },
+            {
+              path: `/${authStore.userType?.toLowerCase()}`,
+              iconOutline: SunriseOutline,
+              iconFill: SunriseFill,
+              label: t('Patients'),
+            },
+            {
+              path: '/interventions',
+              iconOutline: GridCircleOutline,
+              iconFill: GridCircleFill,
+              label: t('Interventions'),
+            },
+            {
+              path: '/userprofile',
+              iconOutline: UserOutline,
+              iconFill: UserFill,
+              label: t('Profile'),
+            },
           ]
         : authStore.userType === 'Admin'
           ? [] // Admin has no nav links, only logout button
@@ -53,7 +83,8 @@ export default function Navigation() {
               onClick={() => {
                 window.location.href = link.path;
               }}
-              icon={link.icon}
+              iconOutline={link.iconOutline}
+              iconFill={link.iconFill}
               label={link.label}
               active={location.pathname === link.path}
             />
@@ -63,7 +94,8 @@ export default function Navigation() {
               onClick={() => {
                 handleLogout();
               }}
-              icon={User}
+              iconOutline={UserOutline}
+              iconFill={UserFill}
               label={t('Logout')}
             />
           )}
@@ -87,7 +119,8 @@ export default function Navigation() {
                 onClick={() => {
                   window.location.href = link.path;
                 }}
-                icon={link.icon}
+                iconOutline={link.iconOutline}
+                iconFill={link.iconFill}
                 label={link.label}
                 active={location.pathname === link.path}
                 desktop
@@ -98,7 +131,8 @@ export default function Navigation() {
                 onClick={() => {
                   handleLogout();
                 }}
-                icon={User}
+                iconOutline={UserOutline}
+                iconFill={UserFill}
                 label={t('Logout')}
                 desktop
               />
@@ -107,8 +141,13 @@ export default function Navigation() {
           <button
             // TODO: unhide when profile page is implemented
             className="hidden bg-[#F2F2F2] border border-[#D4D4D4] p-2 aspect-square rounded-full text-[#565656] hover:text-black transition flex items-center justify-center"
+            style={{ color: location.pathname === '/userprofile' ? '#000000' : '#565656' }}
           >
-            <User size={20} />
+            {location.pathname === '/userprofile' ? (
+              <UserFill className="w-5 h-5" />
+            ) : (
+              <UserOutline className="w-5 h-5" />
+            )}
           </button>
         </div>
       </nav>
