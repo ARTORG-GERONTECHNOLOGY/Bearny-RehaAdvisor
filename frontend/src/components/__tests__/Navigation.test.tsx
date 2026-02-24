@@ -46,7 +46,7 @@ describe('Navigation - navLinks by user type', () => {
   it('shows Home + Interventions for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Interventions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
   });
 
@@ -54,7 +54,7 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Interventions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Interventions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
@@ -73,7 +73,7 @@ describe('Navigation - navLinks by user type', () => {
     renderNav('/admin');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
-    expect(screen.queryByText('Interventions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
   });
 
   it('shows no nav links for unauthenticated (null userType)', () => {
@@ -81,7 +81,7 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.isAuthenticated = false;
     renderNav('/');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
-    expect(screen.queryByText('Interventions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
   });
@@ -114,12 +114,10 @@ describe('Navigation - logout button', () => {
 describe('Navigation - active link', () => {
   it('marks the link whose path matches the current pathname as active', () => {
     renderNav('/patient-interventions');
-    // "Interventions" buttons should be active (standalone text-black class)
-    const interventionsBtns = screen
-      .getAllByText('Interventions')
-      .map((el) => el.closest('button')!);
+    // "Bibliothek" buttons should be active (standalone text-black class)
+    const bibliothekBtns = screen.getAllByText('Bibliothek').map((el) => el.closest('button')!);
 
-    interventionsBtns.forEach((btn) => {
+    bibliothekBtns.forEach((btn) => {
       expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
     });
   });
