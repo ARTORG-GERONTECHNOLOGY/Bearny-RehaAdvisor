@@ -12,6 +12,11 @@ export default function SettingsPage() {
           <GearFill className="w-6 h-6" />
           {t('Einstellungen')}
         </h1>
+
+        <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5 flex flex-col gap-[2px]">
+          <div className="text-[#565656] text-sm">{t('Mitteilungen')}</div>
+          <div className="text-base">{t('Ein')}</div>
+        </div>
       </div>
     </Layout>
   );
