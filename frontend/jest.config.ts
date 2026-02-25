@@ -9,9 +9,10 @@ const config: Config = {
     '^.+\\.(js|jsx)$': 'babel-jest',
   },
   moduleNameMapper: {
+    '\\.svg\\?react$': '<rootDir>/src/__mocks__/svgReactMock.js',
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/src/__mocks__/fileMock.js',
     '\\.(css|scss|sass)$': 'identity-obj-proxy',
-    '^@/(.*)$': '<rootDir>/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(@react|react-dom|mobx-react-lite)/)',

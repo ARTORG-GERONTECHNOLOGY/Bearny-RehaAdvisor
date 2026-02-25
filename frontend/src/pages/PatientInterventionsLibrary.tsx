@@ -5,23 +5,21 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
-import ErrorAlert from '../components/common/ErrorAlert';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
+import LibraryTabs, { type MainTab } from '@/components/PatientLibrary/LibraryTabs';
+import InterventionFiltersCard from '@/components/PatientLibrary/InterventionFiltersCard';
+import PatientInterventionDetailsModal from '@/components/PatientLibrary/PatientInterventionDetailsModal';
+import Layout from '@/components/Layout';
 
-import InterventionList from '../components/TherapistInterventionPage/InterventionList';
+import authStore from '@/stores/authStore';
+import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
-import authStore from '../stores/authStore';
-import { patientInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
+import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
+import { filterInterventions } from '@/utils/filterUtils';
+import { translateText } from '@/utils/translate';
 
-import { generateTagColors, getTaxonomyTags } from '../utils/interventions';
-import { filterInterventions } from '../utils/filterUtils';
-import { translateText } from '../utils/translate';
-import type { InterventionTypeTh } from '../types';
-
-import LibraryTabs, { type MainTab } from '../components/PatientLibrary/LibraryTabs';
-import InterventionFiltersCard from '../components/PatientLibrary/InterventionFiltersCard';
-import PatientInterventionDetailsModal from '../components/PatientLibrary/PatientInterventionDetailsModal';
+import type { InterventionTypeTh } from '@/types';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -171,91 +169,89 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, [sourceItems, contentType, tagFilter, aimsFilter, searchTerm]);
 
   return (
-    <div className="patient-library-page d-flex flex-column min-vh-100">
-      <Header isLoggedIn />
+    <Layout>
+      <div className="patient-library-page d-flex flex-column min-vh-100">
+        <main className="flex-grow-1">
+          <Container className="py-3 py-sm-4">
+            {/* Error */}
+            {storeError && (
+              <Row className="mb-3">
+                <Col>
+                  <ErrorAlert
+                    message={storeError}
+                    onClose={() => patientInterventionsLibraryStore.clearError()}
+                  />
+                </Col>
+              </Row>
+            )}
 
-      <main className="flex-grow-1">
-        <Container className="py-3 py-sm-4">
-          {/* Error */}
-          {storeError && (
+            {/* Tabs */}
             <Row className="mb-3">
               <Col>
-                <ErrorAlert
-                  message={storeError}
-                  onClose={() => patientInterventionsLibraryStore.clearError()}
+                <LibraryTabs value={mainTab} onChange={setMainTab} />
+              </Col>
+            </Row>
+
+            {/* Filters */}
+            <Row className="mb-3">
+              <Col>
+                <InterventionFiltersCard
+                  items={sourceItems as any}
+                  searchTerm={searchTerm}
+                  onSearchTerm={setSearchTerm}
+                  contentType={contentType}
+                  onContentType={setContentType}
+                  aimsFilter={aimsFilter}
+                  onAimsFilter={setAimsFilter}
+                  tagFilter={tagFilter}
+                  onTagFilter={setTagFilter}
+                  loading={storeLoading}
+                  resultCount={filteredItems.length}
+                  onReset={resetAllFilters}
                 />
               </Col>
             </Row>
-          )}
 
-          {/* Tabs */}
-          <Row className="mb-3">
-            <Col>
-              <LibraryTabs value={mainTab} onChange={setMainTab} />
-            </Col>
-          </Row>
+            {/* List */}
+            <Row>
+              <Col xs={12}>
+                <div className="patient-library-list">
+                  <InterventionList
+                    items={filteredItems as any}
+                    onClick={openDetails}
+                    t={t}
+                    tagColors={tagColors}
+                    translatedTitles={translatedTitles}
+                  />
+                </div>
+              </Col>
+            </Row>
+          </Container>
 
-          {/* Filters */}
-          <Row className="mb-3">
-            <Col>
-              <InterventionFiltersCard
-                items={sourceItems as any}
-                searchTerm={searchTerm}
-                onSearchTerm={setSearchTerm}
-                contentType={contentType}
-                onContentType={setContentType}
-                aimsFilter={aimsFilter}
-                onAimsFilter={setAimsFilter}
-                tagFilter={tagFilter}
-                onTagFilter={setTagFilter}
-                loading={storeLoading}
-                resultCount={filteredItems.length}
-                onReset={resetAllFilters}
-              />
-            </Col>
-          </Row>
+          {/* Details modal */}
+          <PatientInterventionDetailsModal
+            item={selectedItem}
+            show={showDetails}
+            onClose={closeDetails}
+          />
+        </main>
 
-          {/* List */}
-          <Row>
-            <Col xs={12}>
-              <div className="patient-library-list">
-                <InterventionList
-                  items={filteredItems as any}
-                  onClick={openDetails}
-                  t={t}
-                  tagColors={tagColors}
-                  translatedTitles={translatedTitles}
-                />
-              </div>
-            </Col>
-          </Row>
-        </Container>
+        {/* small page-only CSS helpers */}
+        <style>{`
+          .patient-library-page .nav-tabs .nav-link { font-weight: 700; }
 
-        {/* Details modal */}
-        <PatientInterventionDetailsModal
-          item={selectedItem}
-          show={showDetails}
-          onClose={closeDetails}
-        />
-      </main>
+          .patient-library-list {
+            width: 100%;
+            overflow: hidden;
+          }
 
-      <Footer />
-
-      {/* small page-only CSS helpers */}
-      <style>{`
-        .patient-library-page .nav-tabs .nav-link { font-weight: 700; }
-
-        .patient-library-list {
-          width: 100%;
-          overflow: hidden;
-        }
-
-        /* If your reused list has wide card grids, keep it nice on small screens */
-        @media (max-width: 576px) {
-          .patient-library-page .container { padding-left: 12px; padding-right: 12px; }
-        }
-      `}</style>
-    </div>
+          /* If your reused list has wide card grids, keep it nice on small screens */
+          @media (max-width: 576px) {
+            .patient-library-page .container { padding-left: 12px; padding-right: 12px; }
+          }
+        `}</style>
+      </div>
+    </Layout>
   );
 });
 
