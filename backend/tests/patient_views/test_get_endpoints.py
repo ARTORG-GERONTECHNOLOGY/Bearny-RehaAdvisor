@@ -45,7 +45,7 @@ def mongo_mock():
 def setup_basic_plan(with_plan=True):
     # Therapist
     therapist_user = User(
-        username="t1", email="t1@example.com", phone="123", createdAt=datetime.now()
+        username="t1", email="t1@example.com", phone="123", createdAt=datetime.now(), isActive=True
     )
     therapist_user.save()
     therapist = Therapist(
@@ -59,7 +59,7 @@ def setup_basic_plan(with_plan=True):
 
     # Patient
     patient_user = User(
-        username="p1", email="p1@example.com", phone="456", createdAt=datetime.now()
+        username="p1", email="p1@example.com", phone="456", createdAt=datetime.now(), isActive=True
     )
     patient_user.save()
     patient = Patient(
@@ -83,7 +83,7 @@ def setup_basic_plan(with_plan=True):
     patient.save()
 
     intervention = Intervention(
-        title="Stretching", description="desc", content_type="Video"
+        title="Stretching", description="desc", content_type="Video",external_id="TEST-EXT-001", language="en",
     )
     intervention.save()
 
