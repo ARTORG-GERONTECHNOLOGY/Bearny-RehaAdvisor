@@ -63,7 +63,7 @@ def mongo_mock():
 def setup_patient_with_plan():
     # Create User & Therapist
     therapist_user = User(
-        username="t1", email="t1@example.com", phone="123", createdAt=datetime.now()
+        username="t1", email="t1@example.com", phone="123", createdAt=datetime.now(), isActive=True
     )
     therapist_user.save()
     therapist = Therapist(
@@ -77,7 +77,7 @@ def setup_patient_with_plan():
 
     # Create Patient
     patient_user = User(
-        username="p1", email="p1@example.com", phone="456", createdAt=datetime.now()
+        username="p1", email="p1@example.com", phone="456", createdAt=datetime.now(), isActive=True
     )
     patient_user.save()
     patient = Patient(
@@ -102,7 +102,7 @@ def setup_patient_with_plan():
 
     # Create Intervention
     intervention = Intervention(
-        title="Stretching", description="Stretching exercises", content_type="Video"
+        title="Stretching", description="Stretching exercises", content_type="Video", external_id="INT_STRETCH_001",language="en",
     )
     intervention.save()
 
@@ -156,6 +156,7 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
     Use Case: Therapist reviews patient satisfaction and adjusts intervention if needed
     """
     patient, therapist, intervention, _ = setup_patient_with_plan()
+
     FeedbackQuestion.objects.create(
         questionSubject="Intervention",
         questionKey="how_did_it_go",
@@ -164,20 +165,21 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
         possibleAnswers=[],
     )
 
-    # Minimal feedback response
+    # IMPORTANT: send as FORM DATA (request.POST), not JSON
     payload = {
         "userId": str(patient.userId.id),
         "interventionId": str(intervention.id),
-        "responses": [{"question": "How did it go?", "answer": ["Great"]}],
+        # view does json.loads(val) if possible → send JSON string
+        "how_did_it_go": json.dumps(["Great"]),
     }
 
     resp = client.post(
         "/api/patients/feedback/questionaire/",
-        data=json.dumps(payload),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",  # Mocked auth
+        data=payload,  # <-- dict, NOT json.dumps
+        HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code in [201, 200]
+
+    assert resp.status_code in (200, 201)
     assert "Feedback submitted successfully" in resp.content.decode()
 
 
@@ -200,13 +202,18 @@ def test_submit_feedback_no_responses(mongo_mock):
     """
     patient, _, _, _ = setup_patient_with_plan()
 
-    payload = {"userId": str(patient.userId.id), "interventionId": "", "responses": []}
+    payload = {
+        "userId": str(patient.userId.id),
+        "interventionId": "",  # triggers Healthstatus path, but still no answers => should fail
+        # no other keys => answers stays empty
+    }
+
     resp = client.post(
         "/api/patients/feedback/questionaire/",
-        data=json.dumps(payload),
-        content_type="application/json",
+        data=payload,  # ✅ dict => goes into request.POST
         HTTP_AUTHORIZATION="Bearer test",
     )
+
     assert resp.status_code == 400
     assert "No feedback responses provided" in resp.content.decode()
 
@@ -238,16 +245,17 @@ def test_submit_feedback_patient_not_found(mongo_mock):
     )
 
     payload = {
-        "userId": str(ObjectId()),  # Non-existent user
-        "interventionId": str(ObjectId()),  # Valid ObjectId, but will fail
-        "responses": [{"question": "Q?", "answer": ["A"]}],
+        "userId": str(ObjectId()),          # non-existent
+        "interventionId": str(ObjectId()),  # valid format
+        "q_test": "A",                      # key must match questionKey
     }
+
     resp = client.post(
         "/api/patients/feedback/questionaire/",
-        data=json.dumps(payload),
-        content_type="application/json",
+        data=payload,  # <-- dict, not JSON
         HTTP_AUTHORIZATION="Bearer test",
     )
+
     assert resp.status_code == 404
     assert "Patient not found" in resp.content.decode()
 
