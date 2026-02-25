@@ -45,17 +45,12 @@ client = Client()
 
 def test_logout_success(mongo_mock):
     """
-    Scenario: User successfully logs out
     
     Setup:
     - User exists and is logged in (has valid session/token)
     - User ID: logoutuser
     
     Steps:
-    1. POST /api/auth/logout/ with userId
-    2. System invalidates user's tokens/sessions
-    3. System clears any cache for this user
-    4. System records logout event
     
     Expected Results:
     - HTTP 200 OK
@@ -86,25 +81,18 @@ def test_logout_success(mongo_mock):
 
 def test_logout_user_not_found(mongo_mock):
     """
-    Scenario: Logout attempted for non-existent user
     
     Setup:
     - User ID does not exist in database
     - User ID: 507f1f77bcf86cd799439011
     
     Steps:
-    1. POST /api/auth/logout/ with non-existent userId
-    2. System looks up user
     """
-    Scenario: Logout request missing required userId parameter
     
     Setup:
     - Request sent without userId field
     
     Steps:
-    1. POST /api/auth/logout/ with empty body
-    2. System validates request
-    3. Required parameter missing
     
     Expected Results:
     - HTTP 400 Bad Request
@@ -114,7 +102,6 @@ def test_logout_user_not_found(mongo_mock):
     
     Input Validation: Prevents incomplete requests
     """
-    3. User not found
     
     Expected Results:
     - HTTP 404 Not Found
