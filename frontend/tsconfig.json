@@ -22,7 +22,13 @@
     "noUnusedParameters": false,
     "skipLibCheck": true,
     "strict": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "types": ["node", "jest", "@testing-library/jest-dom"],
   "include": ["src"]
