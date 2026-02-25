@@ -81,7 +81,7 @@ def create_therapist_with_patients():
         name="Therapist",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
 
     patient_user = User(
@@ -89,6 +89,7 @@ def create_therapist_with_patients():
     ).save()
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Doe",
         first_name="Jane",
         access_word="word",

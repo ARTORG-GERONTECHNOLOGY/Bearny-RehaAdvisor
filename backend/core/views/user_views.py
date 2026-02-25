@@ -327,7 +327,7 @@ def user_profile_view(request, user_id):
                 therapist = Therapist.objects.get(userId=user.id)
 
                 # User fields
-                for field, expected_type in THERAPIST_ALLOWED_USER.items():
+                for field, expected_type in TH_ALLOWED_USER.items():
                     if field in raw:
                         raw_val = raw[field]
                         if not valid_update_value(raw_val):

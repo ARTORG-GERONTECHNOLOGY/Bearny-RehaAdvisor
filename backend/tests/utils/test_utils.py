@@ -307,4 +307,4 @@ def test_generate_repeat_dates_invalid_end_date_logs_warning(caplog):
     with caplog.at_level("WARNING"):
         dates = generate_repeat_dates(patient_end_date, repeat_data)
     assert len(dates) == 2  # fallback: no end_date_limit applied
-    assert "Failed to parse end date" in caplog.text
+    assert "Failed to parse end_date" in caplog.text
