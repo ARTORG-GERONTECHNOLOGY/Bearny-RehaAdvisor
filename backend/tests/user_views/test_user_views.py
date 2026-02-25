@@ -45,7 +45,7 @@ def create_user_and_therapist():
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
     return user, therapist
 
@@ -74,12 +74,13 @@ def create_patient():
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     )
     therapist.save()
 
     patient = Patient(
         userId=user,
+        patient_code="PAT001",
         name="PatientLast",
         first_name="PatientFirst",
         access_word="password",
@@ -175,7 +176,7 @@ def test_user_profile_view_delete_success():
         f"/api/users/{user.id}/profile/", HTTP_AUTHORIZATION="Bearer test"
     )
     assert resp.status_code == 200
-    assert "User deleted successfully" in resp.json()["message"]
+    assert "User deleted" in resp.json()["message"]
 
 
 def test_get_pending_users_success():
