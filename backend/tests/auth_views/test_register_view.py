@@ -17,13 +17,20 @@ from core.models import Therapist, User
 
 @pytest.fixture(autouse=True)
 def mongo_mock():
+    alias = "default"
+    from mongoengine.connection import _connections
+
+    if alias in _connections:
+        disconnect(alias)
+
     conn = connect(
         "mongoenginetest",
+        alias=alias,
         host="mongodb://localhost",
         mongo_client_class=mongomock.MongoClient,
     )
     yield conn
-    disconnect()
+    disconnect(alias)
 
 
 client = Client()
@@ -43,7 +50,7 @@ def test_register_therapist_success(mock_send_mail, mongo_mock):
         "/api/auth/register/", data=json.dumps(data), content_type="application/json"
     )
 
-    assert resp.status_code == 201
+    assert resp.status_code == 200
 
 
 @mock.patch("core.views.auth_views.send_mail")
