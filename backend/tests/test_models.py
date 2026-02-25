@@ -66,11 +66,8 @@ def mock_mongoengine():
 
 def test_create_user():
     """
-    Scenario: Create a new user account with therapist role
     
     Steps:
-    1. Create User object with username, email, phone, role
-    2. Save to database
     
     Expected Results:
     - User successfully persisted to database
@@ -93,12 +90,8 @@ def test_create_user():
 
 def test_sms_verification_create():
     """
-    Scenario: Generate SMS verification code for user account verification
     
     Steps:
-    1. Create SMSVerification with user ID and 6-digit code
-    2. Set expiration time (5 minutes from now)
-    3. Save to database
     
     Expected Results:
     - SMS verification record created and persisted
@@ -120,13 +113,8 @@ def test_sms_verification_create():
 
 def test_therapist_and_patient_relationship():
     """
-    Scenario: Establish therapist-patient relationship during patient registration
     
     Steps:
-    1. Create therapist user and therapist profile
-    2. Create patient user and patient profile
-    3. Link patient to therapist via patient.therapist field
-    4. Verify relationship is established
     
     Expected Results:
     - Both users created successfully
@@ -153,7 +141,7 @@ def test_therapist_and_patient_relationship():
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     )
     therapist.save()
 
@@ -167,6 +155,7 @@ def test_therapist_and_patient_relationship():
 
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Patient Last",
         first_name="Patient First",
         access_word="word",
@@ -190,13 +179,8 @@ def test_therapist_and_patient_relationship():
 
 def test_feedback_question_with_translations_and_answers():
     """
-    Scenario: Create multi-language feedback question with answer options
     
     Steps:
-    1. Create Translation object for English language
-    2. Create AnswerOption with translation (Yes/No style)
-    3. Create FeedbackQuestion linking translations and answer options
-    4. Save to database
     
     Expected Results:
     - FeedbackQuestion created with 1 translation entry
@@ -229,14 +213,9 @@ def test_feedback_question_with_translations_and_answers():
 
 def test_intervention_and_patient_icf_rating():
     """
-    Scenario: Patient receives ICF (International Classification of Functioning) rating
              for intervention feedback
     
     Steps:
-    1. Create FeedbackQuestion for health status (mobility)
-    2. Create therapist user and profile
-    3. Create patient linked to therapist
-    4. Create PatientICFRating linking patient to question with ICF code and score
     
     Expected Results:
     - PatientICFRating created with:
@@ -272,10 +251,11 @@ def test_intervention_and_patient_icf_rating():
         name="T",
         first_name="T",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
     patient = Patient(
         userId=user,
+        patient_code="PAT002",
         name="Pat",
         first_name="Test",
         access_word="pass",
@@ -308,11 +288,8 @@ def test_intervention_and_patient_icf_rating():
 
 def test_missing_required_field_should_fail():
     """
-    Scenario: Validate that required fields are enforced
     
     Steps:
-    1. Attempt to create User without email and phone
-    2. Try to save to database
     
     Expected Results:
     - Exception raised (ValidationError or ValidationFailure)
@@ -320,31 +297,25 @@ def test_missing_required_field_should_fail():
     - Database remains empty
     
     Validation Logic:
-    - Email: Required for user identification and communication
-    - Phone: Required for SMS verification and contact
-    - Username: Required (provided but other fields missing)
+    - Username: Required field
+    - CreatedAt: Required field
     
     Use Case: Prevent incomplete user records from being saved to database
     """
     with pytest.raises(Exception):
         User(
-            username="nouser",  # missing email and phone
-            createdAt=datetime.now(),
+            username="nouser",  # missing createdAt
         ).save()
 
 
 def test_intervention_with_patient_types():
     """
-    Scenario: Create intervention with patient type specifications
     
     Steps:
-    1. Create PatientType object with:
        - Medical specialty (Cardiology)
        - Specific diagnosis (Heart attack, Stroke)
        - Recommended frequency (Daily)
        - Include/exclude option flag
-    2. Create Intervention with nested PatientType list
-    3. Save to database
     
     Expected Results:
     - Intervention created with multiple patient types
@@ -368,6 +339,8 @@ def test_intervention_with_patient_types():
     )
 
     intervention = Intervention(
+        external_id="test_yoga_001",
+        language="en",
         title="Yoga",
         description="Test",
         content_type="Video",

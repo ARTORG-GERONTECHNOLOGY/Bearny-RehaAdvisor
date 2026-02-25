@@ -23,7 +23,7 @@ import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
-
+import pdb
 from core.models import (
     DefaultInterventions,
     Intervention,
@@ -75,20 +75,22 @@ def create_therapist_with_patients():
         email="t@example.com",
         phone="123",
         createdAt=datetime.now(),
+        isActive=True,
     ).save()
     therapist = Therapist(
         userId=user,
         name="Therapist",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
 
     patient_user = User(
-        username="patient", email="p@example.com", phone="456", createdAt=datetime.now()
+        username="patient", email="p@example.com", phone="456", createdAt=datetime.now(), isActive=True
     ).save()
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Doe",
         first_name="Jane",
         access_word="word",
@@ -113,6 +115,9 @@ def create_rehabilitation_plan(patient):
         title="Stretching",
         description="Stretching session",
         content_type="Video",
+        external_id="some-id",
+        language="en",
+        aim="Education",
         patient_types=[
             PatientType(
                 type="Cardiology",
@@ -141,7 +146,7 @@ def create_rehabilitation_plan(patient):
 def test_list_therapist_patients_success():
     therapist, patient = create_therapist_with_patients()
     resp = client.get(
-        f"/api/therapists/{therapist.userId.id}/patients/",
+        f"/api/therapists/{str(therapist.userId.id)}/patients/",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200

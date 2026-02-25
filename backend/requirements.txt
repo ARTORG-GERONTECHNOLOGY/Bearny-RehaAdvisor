@@ -10,6 +10,7 @@ django-multiselectfield
 djangorestframework
 SpeechRecognition
 mongoengine
+mongomock
 gunicorn
 django-cors-headers
 djangorestframework
