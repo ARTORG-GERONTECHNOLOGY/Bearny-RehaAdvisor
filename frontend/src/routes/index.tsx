@@ -23,9 +23,11 @@ const HelpPage = lazy(() => import('@/pages/Help'));
 const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 import RootLayout from '@/RootLayout';
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
@@ -140,6 +142,13 @@ export const router = createBrowserRouter([
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
       createElement(PatientInterventionsSkeleton)
+    ),
+  },
+  {
+    path: '/settings',
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(SettingsPage) }),
+      createElement(SettingsPageSkeleton)
     ),
   },
 
