@@ -42,12 +42,13 @@ def mongo_mock():
 
 def create_intervention():
     return Intervention(
+        external_id="test_stretch_001",
+        language="en",
         title="Stretching",
         description="Full body stretching session.",
         content_type="Video",
         patient_types=[],
-        benefitFor=["Mobility"],
-        tags=["Stretch"],
+        keywords=["Stretch"],
     ).save()
 
 
@@ -105,12 +106,13 @@ def test_get_intervention_detail_not_found(mongo_mock):
 
 def create_intervention():
     return Intervention(
+        external_id="test_stretch_002",
+        language="en",
         title="Stretching",
         description="Full body stretching session.",
         content_type="Video",
         patient_types=[],
-        benefitFor=["Mobility"],
-        tags=["Stretch"],
+        keywords=["Stretch"],
     ).save()
 
 
@@ -123,7 +125,7 @@ def create_therapist_and_intervention():
         name="Therapist",
         first_name="Test",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
         default_recommendations=[],
     )
     therapist.save()

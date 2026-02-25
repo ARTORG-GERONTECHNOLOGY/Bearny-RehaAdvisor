@@ -141,7 +141,7 @@ def test_therapist_and_patient_relationship():
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     )
     therapist.save()
 
@@ -155,6 +155,7 @@ def test_therapist_and_patient_relationship():
 
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Patient Last",
         first_name="Patient First",
         access_word="word",
@@ -250,10 +251,11 @@ def test_intervention_and_patient_icf_rating():
         name="T",
         first_name="T",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
     patient = Patient(
         userId=user,
+        patient_code="PAT002",
         name="Pat",
         first_name="Test",
         access_word="pass",
@@ -295,16 +297,14 @@ def test_missing_required_field_should_fail():
     - Database remains empty
     
     Validation Logic:
-    - Email: Required for user identification and communication
-    - Phone: Required for SMS verification and contact
-    - Username: Required (provided but other fields missing)
+    - Username: Required field
+    - CreatedAt: Required field
     
     Use Case: Prevent incomplete user records from being saved to database
     """
     with pytest.raises(Exception):
         User(
-            username="nouser",  # missing email and phone
-            createdAt=datetime.now(),
+            username="nouser",  # missing createdAt
         ).save()
 
 
@@ -339,6 +339,8 @@ def test_intervention_with_patient_types():
     )
 
     intervention = Intervention(
+        external_id="test_yoga_001",
+        language="en",
         title="Yoga",
         description="Test",
         content_type="Video",
