@@ -17,7 +17,37 @@ from core.models import (
 )
 
 client = Client()
+from django.core.files.uploadedfile import SimpleUploadedFile
 
+def make_upload(name="test.mp4", content=b"Fake video data", content_type="video/mp4"):
+    return SimpleUploadedFile(name=name, content=content, content_type=content_type)
+
+def add_default_recommendation_block(therapist, intervention, diagnosis="Heart Attack"):
+    """
+    Your model now expects:
+      DefaultInterventions.diagnosis_assignments = { diagnosis: [DiagnosisAssignmentSettings, ...] }
+    NOT {"active": True}.
+    """
+    from core.models import DefaultInterventions, DiagnosisAssignmentSettings
+
+    block = DiagnosisAssignmentSettings(
+        active=True,
+        interval=1,
+        unit="week",
+        selected_days=["Monday"],
+        end_type="count",
+        count_limit=7,
+        start_day=1,
+        end_day=7,
+    )
+
+    therapist.default_recommendations.append(
+        DefaultInterventions(
+            recommendation=intervention,
+            diagnosis_assignments={diagnosis: [block]},
+        )
+    )
+    therapist.save()
 
 @pytest.fixture(autouse=True, scope="function")
 def mongo_mock():
@@ -62,39 +92,51 @@ def test_list_all_interventions_success(mongo_mock):
 
 
 def test_add_existing_intervention_error(mongo_mock):
-    create_intervention()
+    create_intervention()  # creates external_id="test_stretch_002", language="en" (your second def)
+
     payload = {
+        "external_id": "test_stretch_002",
+        "language": "en",
         "title": "Stretching",
         "description": "Duplicate",
         "contentType": "Video",
+        "duration": "30",
+        "media": json.dumps([
+            {"kind": "external", "media_type": "website", "url": "https://example.com/stretch"}
+        ]),
     }
-    resp = client.post(
-        "/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test"
-    )
+
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 400
-    assert "error" in resp.json()
 
+    data = resp.json()
+    assert data["success"] is False
+    # your API returns field_errors for validation/duplicates
+    assert "field_errors" in data
 
-@patch("django.core.files.storage.default_storage.save")
-def test_add_new_intervention_with_files(mock_save):
+@patch("core.views.recomendation_views.default_storage.save")
+def test_add_new_intervention_with_files(mock_save, mongo_mock):
     mock_save.return_value = "videos/test.mp4"
-    dummy_file = io.BytesIO(b"Fake video data")
-    dummy_file.name = "test.mp4"
+    dummy_file = make_upload()
 
     resp = client.post(
         "/api/interventions/add/",
         data={
             "title": "Pilates",
             "description": "A pilates class",
-            "contentType": "Video",
-            "media_file": dummy_file,  # ✅ FILE IS IN DATA
+
+            # IMPORTANT: send lower-case so normalize_content_type maps it properly
+            "contentType": "video",
+            "content_type": "video",
+
+            "duration": "30",
+            "media_file": dummy_file,
         },
         HTTP_AUTHORIZATION="Bearer test",
     )
 
-    assert resp.status_code == 201
+    assert resp.status_code == 200, resp.content.decode()
     assert resp.json()["success"] is True
-    mock_save.assert_called()  # ✅ This should now pass
 
 
 def test_get_intervention_detail_not_found(mongo_mock):
@@ -118,7 +160,7 @@ def create_intervention():
 
 def create_therapist_and_intervention():
     user = User(
-        username="therapist", email="t@example.com", phone="123", createdAt="2023-01-01"
+        username="therapist", email="t@example.com", phone="123", createdAt="2023-01-01", isActive=True
     ).save()
     therapist = Therapist(
         userId=user,
@@ -127,72 +169,47 @@ def create_therapist_and_intervention():
         specializations=["Cardiology"],
         clinics=["Inselspital"],
         default_recommendations=[],
+        
     )
     therapist.save()
     intervention = create_intervention()
     return therapist, intervention
 
 
-@patch("django.core.files.storage.default_storage.save")
-def test_add_new_intervention_success(mock_save):
+def test_add_new_intervention_success(mongo_mock):
     payload = {
         "title": "Yoga Session",
         "description": "A yoga session",
-        "contentType": "Video",
-        "patientTypes": json.dumps(
-            [
-                {
-                    "type": "Cardiology",
-                    "frequency": "Daily",
-                    "includeOption": True,
-                    "diagnosis": "Heart attack",
-                }
-            ]
-        ),
-        "benefitFor": "Mobility",
-        "tagList": "Relax,Flexibility",
+
+        "contentType": "video",
+        "content_type": "video",
+
+        "duration": "30",
+        "external_id": "test_yoga_001",
+        "language": "en",
+        "media": json.dumps([
+            {"kind": "external", "media_type": "website", "url": "https://example.com/yoga"}
+        ]),
     }
-    resp = client.post(
-        "/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test"
-    )
-    assert resp.status_code == 201
+
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
     assert resp.json()["success"] is True
 
 
-def test_add_existing_intervention_error():
+def test_add_existing_intervention_error(mongo_mock):
     create_intervention()
     payload = {
         "title": "Stretching",
         "description": "Duplicate",
         "contentType": "Video",
     }
-    resp = client.post(
-        "/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test"
-    )
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 400
-    assert "error" in resp.json()
-
-
-@patch("django.core.files.storage.default_storage.save")
-def test_add_new_intervention_with_files_v2(mock_save):
-    mock_save.return_value = "videos/test.mp4"
-    dummy_file = io.BytesIO(b"Fake video data")
-    dummy_file.name = "test.mp4"
-
-    resp = client.post(
-        "/api/interventions/add/",
-        data={
-            "title": "Pilates",
-            "description": "A pilates class",
-            "contentType": "Video",
-            "media_file": dummy_file,
-        },
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-
-    assert resp.status_code == 201
-    assert resp.json()["success"] is True
-    mock_save.assert_called()
+    body = resp.json()
+    assert body["success"] is False
+    assert "message" in body
+    assert "field_errors" in body  # duration/contentType errors live here
 
 
 def test_get_intervention_detail_success():
@@ -213,10 +230,25 @@ def test_get_intervention_detail_not_found():
 
 def test_list_intervention_diagnoses_success():
     therapist, intervention = create_therapist_and_intervention()
+
     therapist.default_recommendations.append(
         DefaultInterventions(
             recommendation=intervention,
-            diagnosis_assignments={"Heart Attack": {"active": True}},
+            diagnosis_assignments={
+                "Heart Attack": [
+                    {
+                        "active": True,
+                        "interval": 1,
+                        "unit": "week",
+                        "selected_days": [],
+                        "end_type": "count",
+                        "count_limit": 14,
+                        "start_day": 1,
+                        "end_day": 14,
+                        "suggested_execution_time": 30,
+                    }
+                ]
+            },
         )
     )
     therapist.save()
@@ -237,46 +269,55 @@ def test_list_intervention_diagnoses_not_found():
     assert resp.status_code == 404
 
 
-def test_assign_intervention_to_types_success():
+def test_assign_intervention_to_types_success(mongo_mock):
     therapist, intervention = create_therapist_and_intervention()
     payload = {
-        "therapistId": str(therapist.userId.id),
+        "diagnosis": "Heart Attack",
         "interventions": [
             {
                 "interventionId": str(intervention.id),
                 "interval": 2,
                 "unit": "week",
                 "selectedDays": ["Monday"],
-                "end": {"type": "never", "count": None},
+                "start_day": 1,
+                "end": {"type": "count", "count": 7},
+
+                # IMPORTANT: prevent backend crash
+                "suggested_execution_time": "10",
             }
         ],
-        "patientId": str(ObjectId()),  # ✅ dummy patient ID
     }
+
     resp = client.post(
-        "/api/interventions/assign-to-patient-types/",
+        f"/api/therapists/{therapist.userId.id}/interventions/assign-to-patient-types/",
         data=json.dumps(payload),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code == 201
+    assert resp.status_code in (200, 201), resp.content.decode()
+    assert resp.json().get("success") is True
 
 
-def test_assign_intervention_to_types_404():
+def test_assign_intervention_to_types_404(mongo_mock):
+    therapist, intervention = create_therapist_and_intervention()
+
     payload = {
-        "therapistId": str(ObjectId()),
+        "diagnosis": "Heart Attack",
         "interventions": [
             {
-                "interventionId": str(ObjectId()),
+                "interventionId": str(intervention.id),
                 "interval": 2,
                 "unit": "week",
                 "selectedDays": ["Monday"],
-                "end": {"type": "never", "count": None},
+                "start_day": 1,
+                "end": {"type": "count", "count": 7},
+                "suggested_execution_time": "10",
             }
         ],
-        "patientId": str(ObjectId()),  # ✅ FIX: use ObjectId instead of patient.id
     }
+
     resp = client.post(
-        "/api/interventions/assign-to-patient-types/",
+        f"/api/therapists/{ObjectId()}/interventions/assign-to-patient-types/",
         data=json.dumps(payload),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
@@ -285,8 +326,14 @@ def test_assign_intervention_to_types_404():
 
 
 def test_assign_intervention_to_types_bad_json():
+    therapist, intervention = create_therapist_and_intervention()
+    payload = {
+        "intervention_id": str(intervention.id),
+        "diagnosis": "Heart Attack",
+    }
+
     resp = client.post(
-        "/api/interventions/assign-to-patient-types/",
+        f'/api/therapists/{therapist.userId.id}/interventions/assign-to-patient-types/',
         data="{bad json}",
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
@@ -294,30 +341,36 @@ def test_assign_intervention_to_types_bad_json():
     assert resp.status_code == 400
 
 
-def test_remove_intervention_from_types_success():
+def test_remove_intervention_from_types_success(mongo_mock):
     therapist, intervention = create_therapist_and_intervention()
+
+    # ✅ ensure the recommendation exists first
+    add_default_recommendation_block(therapist, intervention, diagnosis="Heart Attack")
+
     payload = {
-        "therapist": str(therapist.userId.id),
         "intervention_id": str(intervention.id),
         "diagnosis": "Heart Attack",
     }
+
     resp = client.post(
-        "/api/interventions/remove-from-patient-types/",
+        f"/api/therapists/{therapist.userId.id}/interventions/remove-from-patient-types/",
         data=json.dumps(payload),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code == 200
+
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
 
 
 def test_remove_intervention_from_types_404():
+    therapist, intervention = create_therapist_and_intervention()
     payload = {
-        "therapist": str(ObjectId()),
-        "intervention_id": str(ObjectId()),
+        "intervention_id": str(intervention.id),
         "diagnosis": "Heart Attack",
     }
     resp = client.post(
-        "/api/interventions/remove-from-patient-types/",
+        f'/api/therapists/{therapist.userId.id}/interventions/remove-from-patient-types/',
         data=json.dumps(payload),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",

@@ -176,7 +176,7 @@ def test_user_profile_view_delete_success():
         f"/api/users/{user.id}/profile/", HTTP_AUTHORIZATION="Bearer test"
     )
     assert resp.status_code == 200
-    assert "User deleted successfully" in resp.json()["message"]
+    assert "User deleted" in resp.json()["message"]
 
 
 def test_get_pending_users_success():

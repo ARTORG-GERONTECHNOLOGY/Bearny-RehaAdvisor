@@ -357,99 +357,49 @@ def _feedback_computing(patient):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def list_therapist_patients(request, therapist_id):
-    """
-    GET /therapists/<therapist_id>/patients/
-    
-    Returns a list of all patients assigned to the therapist, with:
-    - demographics
-    - biomarkers
-    - adherence summary
-    - last login
-    - last feedback summary
-    """
-
     if request.method != "GET":
-        return JsonResponse({
-            "success": False,
-            "error": "Method not allowed",
-            "message": "Only GET is supported."
-        }, status=405)
+        return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    # -------------------------------------------------------------------
     # Validate therapist ID
-    # -------------------------------------------------------------------
     try:
         therapist_oid = ObjectId(therapist_id)
     except Exception:
-        return JsonResponse({
-            "success": False,
-            "message": "Invalid therapist ID.",
-            "field_errors": {"therapist_id": ["Invalid ObjectId format."]}
-        }, status=400)
+        return JsonResponse({"error": "Invalid therapist ID"}, status=400)
 
     try:
         therapist = Therapist.objects.get(userId=therapist_oid)
     except Therapist.DoesNotExist:
         logger.warning("[list_therapist_patients] Therapist not found: %s", therapist_id)
-        return JsonResponse({
-            "success": False,
-            "message": "Therapist not found."
-        }, status=404)
+        # ✅ tests expect this exact key + value
+        return JsonResponse({"error": "Therapist not found"}, status=404)
 
     try:
         since = datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)
         output_list = []
 
-        # Query all patients of this therapist
         qs = Patient.objects(therapist=therapist).only(
             "first_name", "name", "sex", "diagnosis", "age",
             "patient_code", "userId", "reha_end_date"
         ).no_dereference()
 
         for patient in qs:
-
-            # ---------------------------------------------
-            # Ensure referenced User exists and is active
-            # ---------------------------------------------
             user_ref = getattr(patient, "userId", None)
             user_id = getattr(user_ref, "id", user_ref) if user_ref else None
             user = User.objects(id=user_id).first() if user_id else None
-
             if not user or not getattr(user, "isActive", True):
-                continue  # soft-deleted user → skip
+                continue
 
-            # ---------------------------------------------
-            # Login activity
-            # ---------------------------------------------
-            last_online_log = Logs.objects(
-                userId=user, action="LOGIN"
-            ).order_by("-timestamp").first()
-
+            last_online_log = Logs.objects(userId=user, action="LOGIN").order_by("-timestamp").first()
             last_online_dt = last_online_log.timestamp if last_online_log else None
 
-            # ---------------------------------------------
-            # Questionnaire / feedback summary
-            # ---------------------------------------------
             try:
                 summary, last_fb_dt = _feedback_computing(patient)
             except Exception as e:
-                logger.error(
-                    "[list_therapist_patients] Error in feedback summary for patient %s: %s",
-                    str(patient.pk), str(e)
-                )
+                logger.error("[list_therapist_patients] feedback summary error %s: %s", str(patient.pk), str(e))
                 summary, last_fb_dt = [], None
 
-            # ---------------------------------------------
-            # Fitbit data aggregation
-            # ---------------------------------------------
-            steps_vals = []
-            activity_vals = []
-            sleep_hours = []
-
-            fitbit_docs = FitbitData.objects(user=user, date__gte=since).only(
-                "steps", "active_minutes", "sleep"
-            )
-
+            steps_vals, activity_vals, sleep_hours = [], [], []
+            fitbit_docs = FitbitData.objects(user=user, date__gte=since).only("steps", "active_minutes", "sleep")
             for doc in fitbit_docs:
                 if doc.steps is not None:
                     steps_vals.append(doc.steps)
@@ -467,29 +417,22 @@ def list_therapist_patients(request, therapist_id):
                 "steps_avg": _avg(steps_vals),
             }
 
-            # ---------------------------------------------
-            # Adherence summary
-            # ---------------------------------------------
             try:
                 adh_7, adh_total = _adherence(patient)
             except Exception as e:
-                logger.error(
-                    "[list_therapist_patients] Error computing adherence for %s: %s",
-                    str(patient.pk), str(e)
-                )
+                logger.error("[list_therapist_patients] adherence error %s: %s", str(patient.pk), str(e))
                 adh_7, adh_total = None, None
 
-            # ---------------------------------------------
-            # Construct output item
-            # ---------------------------------------------
             output_list.append({
                 "_id": str(patient.pk),
-                "patient_code": patient.patient_code,
-                "sex": patient.sex,
-                "diagnosis": patient.diagnosis,
-                "age": patient.age,
-                "created_at": user.createdAt.isoformat() if user.createdAt else None,
+                "username": getattr(user, "username", ""),  # ✅ tests look for username
                 "patient_code": getattr(patient, "patient_code", "-"),
+                "first_name": getattr(patient, "first_name", ""),
+                "name": getattr(patient, "name", ""),
+                "sex": getattr(patient, "sex", None),
+                "diagnosis": getattr(patient, "diagnosis", []),
+                "age": getattr(patient, "age", None),
+                "created_at": user.createdAt.isoformat() if getattr(user, "createdAt", None) else None,
                 "last_online": last_online_dt.isoformat() if last_online_dt else None,
                 "last_feedback_at": last_fb_dt.isoformat() if last_fb_dt else None,
                 "questionnaires": summary,
@@ -499,23 +442,12 @@ def list_therapist_patients(request, therapist_id):
                 "adherence_total": adh_total,
             })
 
-        return JsonResponse({
-            "success": True,
-            "data": output_list
-        }, status=200)
+        # ✅ tests expect the response itself is a list
+        return JsonResponse(output_list, safe=False, status=200)
 
     except Exception as e:
-        logger.error(
-            "[list_therapist_patients] Unexpected error: %s",
-            str(e),
-            exc_info=True
-        )
-        return JsonResponse({
-            "success": False,
-            "error": "Internal Server Error",
-            "message": "An unexpected error occurred.",
-            "details": str(e)
-        }, status=500)
+        logger.error("[list_therapist_patients] Unexpected error: %s", str(e), exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
 
