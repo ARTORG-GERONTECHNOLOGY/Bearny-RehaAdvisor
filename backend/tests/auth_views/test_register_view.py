@@ -50,7 +50,6 @@ client = Client()
 @mock.patch("core.views.auth_views.send_mail")
 def test_register_therapist_success(mock_send_mail, mongo_mock):
     """
-    Scenario: New therapist successfully registers
     
     Setup:
     - No existing therapist with this email
@@ -65,13 +64,6 @@ def test_register_therapist_success(mock_send_mail, mongo_mock):
     - Clinic: ["Downtown Clinic"]
     
     Steps:
-    1. POST /api/auth/register/ with therapist data
-    2. System validates input (email format, password strength)
-    3. System checks email uniqueness
-    4. Create User object with role="Therapist"
-    5. Create Therapist profile with specialization and clinic
-    6. Save to database
-    7. Send verification email (mocked in test)
     
     Expected Results:
     - HTTP 201 Created
@@ -104,7 +96,6 @@ def test_register_therapist_success(mock_send_mail, mongo_mock):
 @mock.patch("core.views.auth_views.send_mail")
 def test_register_patient_missing_therapist(mock_send_mail, mongo_mock):
     """
-    Scenario: Patient registration fails - assigned therapist not found
     
     Setup:
     - Patient attempts to register
@@ -119,11 +110,6 @@ def test_register_patient_missing_therapist(mock_send_mail, mongo_mock):
     - Medical Info: diagnosis, function, etc.
     
     Steps:
-    1. POST /api/auth/register/ with patient data
-    2. System validates input
-    3. System looks up therapist by ID
-    4. Therapist not found
-    5. Registration fails
     
     Expected Results:
     - HTTP 404 Not Found
@@ -162,7 +148,6 @@ def test_register_patient_missing_therapist(mock_send_mail, mongo_mock):
 
 def test_register_existing_email(mongo_mock):
     """
-    Scenario: Registration fails - email already in use
     
     Setup:
     - User already exists with email: exist@example.com
@@ -175,11 +160,6 @@ def test_register_existing_email(mongo_mock):
     - Password: newpassword
     
     Steps:
-    1. POST /api/auth/register/ with email in use
-    2. System validates input
-    3. System checks email uniqueness
-    4. Email already exists in database
-    5. Registration rejected
     
     Expected Results:
     - HTTP 400 Bad Request

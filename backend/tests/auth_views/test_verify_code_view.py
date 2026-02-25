@@ -47,7 +47,6 @@ client = Client()
 
 def test_verify_code_success(mongo_mock):
     """
-    Scenario: User successfully verifies email with correct code
     
     Setup:
     - User exists and has pending email verification
@@ -56,13 +55,6 @@ def test_verify_code_success(mongo_mock):
     - SMSVerification record created
     
     Steps:
-    1. User receives verification code via email/SMS
-    2. User enters code in app: "123456"
-    3. POST /api/auth/verify-code/ with userId and code
-    4. System looks up SMSVerification record
-    5. Code matches and not expired
-    6. System marks email as verified
-    7. System deletes used code (security)
     
     Expected Results:
     - HTTP 200 OK
@@ -101,7 +93,6 @@ def test_verify_code_success(mongo_mock):
 
 def test_verify_code_wrong_code(mongo_mock):
     """
-    Scenario: User enters wrong verification code
     
     Setup:
     - User exists and code is pending
@@ -109,11 +100,6 @@ def test_verify_code_wrong_code(mongo_mock):
     - User enters: "123456" (wrong code)
     
     Steps:
-    1. User enters wrong verification code
-    2. POST /api/auth/verify-code/ with wrong code
-    3. System validates code
-    4. Code does not match stored code
-    5. Verification fails
     
     Expected Results:
     - HTTP 400 Bad Request or 401 Unauthorized

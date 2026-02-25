@@ -60,7 +60,6 @@ client = Client()
 
 def test_login_success(mongo_mock):
     """
-    Scenario: Therapist logs in with valid email and password
     
     Setup:
     - Therapist user exists in database
@@ -70,11 +69,6 @@ def test_login_success(mongo_mock):
     - Therapist profile created with specializations
     
     Steps:
-    1. POST /api/auth/login/ with email and password
-    2. Credentials validated against stored password hash
-    3. User type identified as "Therapist"
-    4. JWT access_token generated
-    5. Response includes user metadata
     
     Expected Results:
     - HTTP 200 OK
@@ -94,7 +88,6 @@ def test_login_success(mongo_mock):
         pwdhash=make_password("testpass123"),
         createdAt=datetime.now(),
     """
-    Scenario: User attempts login with incorrect password
     
     Setup:
     - User exists with email wrongpass@example.com
@@ -102,11 +95,6 @@ def test_login_success(mongo_mock):
     - User attempts: "badpass"
     
     Steps:
-    1. User enters email and wrong password
-    2. POST /api/auth/login/ with incorrect password
-    3. System retrieves user
-    4. Password hash comparison fails
-    5. Security: Generic error returned (doesn't reveal if email exists)
     
     Expected Results:
     - HTTP 401 Unauthorized
@@ -140,7 +128,6 @@ def test_login_success(mongo_mock):
     assert "access_token" in json_data
     assert json_data["user_type"] == "Therapist"
     """
-    Scenario: Inactive user attempts to log in
     
     Setup:
     - User exists but has isActive=False
@@ -150,11 +137,6 @@ def test_login_success(mongo_mock):
       * Account deleted (soft delete)
     
     Steps:
-    1. User enters correct email and password
-    2. POST /api/auth/login/
-    3. System validates password (correct)
-    4. System checks isActive flag
-    5. User is inactive, access denied
     
     Expected Results:
     - HTTP 403 Forbidden OR 401 Unauthorized

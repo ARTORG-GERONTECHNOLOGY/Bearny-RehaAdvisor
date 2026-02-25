@@ -48,7 +48,6 @@ client = Client()
 @mock.patch("core.views.auth_views.send_mail")
 def test_reset_password_success(mock_send_mail, mongo_mock):
     """
-    Scenario: User successfully resets forgotten password
     
     Setup:
     - User exists with email: reset@example.com
@@ -56,12 +55,6 @@ def test_reset_password_success(mock_send_mail, mongo_mock):
     - User forgot password
     
     Steps:
-    1. POST /api/auth/forgot-password/ with email
-    2. System finds user by email
-    3. System generates temporary password/reset code
-    4. System updates user.pwdhash with new temporary password
-    5. System sends reset link/code to email
-    6. User receives email with reset instructions
     
     Expected Results:
     - HTTP 200 OK
@@ -105,16 +98,12 @@ def test_reset_password_success(mock_send_mail, mongo_mock):
 
 def test_reset_password_non_existent_user(mongo_mock):
     """
-    Scenario: Password reset requested for non-existent user
     
     Setup:
     - Email does not exist in database
     - Email: nosuch@example.com
     
     Steps:
-    1. POST /api/auth/forgot-password/ with unknown email
-    2. System searches for user by email
-    3. User not found
     
     Expected Results:
     - HTTP 404 Not Found
@@ -136,15 +125,11 @@ def test_reset_password_non_existent_user(mongo_mock):
 
 def test_reset_password_missing_email(mongo_mock):
     """
-    Scenario: Password reset request missing required email parameter
     
     Setup:
     - Request sent without email field
     
     Steps:
-    1. POST /api/auth/forgot-password/ with empty body
-    2. System validates request parameters
-    3. Required email parameter missing
     
     Expected Results:
     - HTTP 400 Bad Request

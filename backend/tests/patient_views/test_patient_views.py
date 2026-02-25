@@ -128,7 +128,6 @@ def setup_patient_with_plan():
 @patch("core.views.patient_views.getattr", return_value="mocked")
 def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
     """
-    Scenario: Patient submits feedback after completing intervention
     
     Setup:
     - Patient enrolled with therapist
@@ -144,12 +143,6 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
       * Answer: ["Great"]
     
     Steps:
-    1. POST /api/patients/feedback/questionaire/ with feedback data
-    2. System validates patient exists
-    3. System validates intervention exists
-    4. System stores feedback responses
-    5. System records feedback timestamp
-    6. System may trigger follow-up recommendations
     
     Expected Results:
     - HTTP 201 Created or 200 OK
@@ -189,17 +182,12 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
 
 def test_submit_feedback_no_responses(mongo_mock):
     """
-    Scenario: Feedback submission with empty responses array
     
     Setup:
     - Patient exists
     - Request payload has empty responses: []
     
     Steps:
-    1. POST /api/patients/feedback/questionaire/ with no responses
-    2. System validates request
-    3. No feedback data provided
-    4. Request rejected
     
     Expected Results:
     - HTTP 400 Bad Request
@@ -224,7 +212,6 @@ def test_submit_feedback_no_responses(mongo_mock):
 
 def test_submit_feedback_patient_not_found(mongo_mock):
     """
-    Scenario: Feedback submission for non-existent patient
     
     Setup:
     - User ID provided does not exist in database
@@ -232,10 +219,6 @@ def test_submit_feedback_patient_not_found(mongo_mock):
     - Feedback data otherwise valid
     
     Steps:
-    1. POST /api/patients/feedback/questionaire/ with invalid userId
-    2. System looks up patient
-    3. Patient not found
-    4. Feedback submission fails
     
     Expected Results:
     - HTTP 404 Not Found
@@ -270,7 +253,6 @@ def test_submit_feedback_patient_not_found(mongo_mock):
 
 def test_mark_intervention_completed_success(mongo_mock):
     """
-    Scenario: Patient marks intervention as completed
     
     Setup:
     - Patient has intervention assigned
@@ -282,13 +264,6 @@ def test_mark_intervention_completed_success(mongo_mock):
     - intervention_id: Intervention being marked complete
     
     Steps:
-    1. POST /api/interventions/complete/ with patient and intervention IDs
-    2. System validates patient exists
-    3. System validates intervention exists
-    4. System validates patient is assigned this intervention
-    5. System records completion with timestamp
-    6. System updates intervention logs/history
-    7. System may trigger next intervention in sequence
     
     Expected Results:
     - HTTP 200 OK
@@ -317,7 +292,6 @@ def test_mark_intervention_completed_success(mongo_mock):
 
 def test_mark_intervention_completed_missing_params(mongo_mock):
     """
-    Scenario: Mark intervention complete request missing required parameters
     
     Setup:
     - Request payload is empty {}
@@ -325,9 +299,6 @@ def test_mark_intervention_completed_missing_params(mongo_mock):
     - Missing intervention_id
     
     Steps:
-    1. POST /api/interventions/complete/ with empty payload
-    2. System validates required parameters
-    3. Parameters missing
     
     Expected Results:
     - HTTP 400 Bad Request
@@ -349,7 +320,6 @@ def test_mark_intervention_completed_missing_params(mongo_mock):
 
 def test_mark_intervention_completed_patient_not_found(mongo_mock):
     """
-    Scenario: Mark intervention complete for non-existent patient
     
     Setup:
     - Intervention exists
@@ -357,9 +327,6 @@ def test_mark_intervention_completed_patient_not_found(mongo_mock):
     - Random ObjectId
     
     Steps:
-    1. POST /api/interventions/complete/ with non-existent patient_id
-    2. System looks up patient
-    3. Patient not found
     
     Expected Results:
     - HTTP 404 Not Found
@@ -386,7 +353,6 @@ def test_mark_intervention_completed_patient_not_found(mongo_mock):
 
 def test_remove_intervention_success(mongo_mock):
     """
-    Scenario: Therapist removes intervention from patient's plan
     
     Setup:
     - Patient has rehabilitation plan with intervention
@@ -398,13 +364,6 @@ def test_remove_intervention_success(mongo_mock):
     - patientId: Patient's ID
     
     Steps:
-    1. POST /api/interventions/remove-from-patient/ with intervention and patient IDs
-    2. System validates patient exists
-    3. System validates intervention exists
-    4. System validates patient has this intervention assigned
-    5. System removes intervention from rehabilitation plan
-    6. System clears scheduled dates for this intervention
-    7. System records removal in audit log
     
     Expected Results:
     - HTTP 200 OK
@@ -430,7 +389,6 @@ def test_remove_intervention_success(mongo_mock):
 
 def test_remove_intervention_missing_params(mongo_mock):
     """
-    Scenario: Remove intervention request missing required parameters
     
     Setup:
     - Request payload is empty {}
@@ -438,9 +396,6 @@ def test_remove_intervention_missing_params(mongo_mock):
     - Missing patientId field
     
     Steps:
-    1. POST /api/interventions/remove-from-patient/ with empty payload
-    2. System validates required parameters
-    3. Parameters missing
     
     Expected Results:
     - HTTP 400 Bad Request
@@ -462,16 +417,12 @@ def test_remove_intervention_missing_params(mongo_mock):
 
 def test_remove_intervention_patient_not_found(mongo_mock):
     """
-    Scenario: Remove intervention from non-existent patient
     
     Setup:
     - Intervention exists (random ObjectId)
     - Patient ID does not exist (random ObjectId)
     
     Steps:
-    1. POST /api/interventions/remove-from-patient/ with non-existent patientId
-    2. System looks up patient
-    3. Patient not found
     
     Expected Results:
     - HTTP 404 Not Found
