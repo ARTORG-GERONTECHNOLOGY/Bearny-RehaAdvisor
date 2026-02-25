@@ -49,7 +49,6 @@ client = Client()
 @mock.patch("core.views.auth_views.send_mail")
 def test_send_verification_code_success(mock_send_mail, mongo_mock):
     """
-    Scenario: Send verification code to user successfully
     
     Setup:
     - User exists: testuser (Patient)
@@ -57,11 +56,6 @@ def test_send_verification_code_success(mock_send_mail, mongo_mock):
     - User is active but not yet verified
     
     Steps:
-    1. POST /api/auth/send-verification-code/ with userId
-    2. System generates 6-digit verification code
-    3. System creates SMSVerification record
-    4. System sends code via email (mocked)
-    5. Code stored with 5-minute expiration
     
     Expected Results:
     - HTTP 200 OK
@@ -96,16 +90,12 @@ def test_send_verification_code_success(mock_send_mail, mongo_mock):
 
 def test_send_verification_code_user_not_found(mongo_mock):
     """
-    Scenario: Attempt to send verification code to non-existent user
     
     Setup:
     - User ID does not exist in database
     - User ID: 507f1f77bcf86cd799439011
     
     Steps:
-    1. POST /api/auth/send-verification-code/ with non-existent userId
-    2. System looks up user by ID
-    3. User not found
     
     Expected Results:
     - HTTP 404 Not Found
@@ -127,15 +117,11 @@ def test_send_verification_code_user_not_found(mongo_mock):
 
 def test_send_verification_code_missing_user_id(mongo_mock):
     """
-    Scenario: Send code request missing required userId parameter
     
     Setup:
     - Request sent without userId field
     
     Steps:
-    1. POST /api/auth/send-verification-code/ with empty body
-    2. System validates request parameters
-    3. Required userId parameter missing
     
     Expected Results:
     - HTTP 400 Bad Request
