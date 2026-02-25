@@ -246,10 +246,10 @@ def _normalize_segments(raw):
     for r in seq:
         d = as_dict(r)
         unit = (d.get("unit") or "week").strip().lower()
-        intrv = _as_int(d.get("interval", 1), 1)
+        intrv = int(d.get("interval", 1), 1)
         sdays = d.get("selected_days") or d.get("selectedDays") or []
-        sday = max(1, _as_int(d.get("start_day", 1), 1))
-        end_day = _as_int(
+        sday = max(1, int(d.get("start_day", 1), 1))
+        end_day = int(
             d.get("end_day") or (d.get("end") or {}).get("count") or d.get("count_limit") or 1,
             1,
         )

@@ -46,7 +46,23 @@ from utils.config import config
 from utils.utils import sanitize_text
 from utils.scheduling import _expand_dates  # you already use this
 from utils.interventions import (_as_str_or_none, _first_str_from_any, _list_of_str, _safe_title_slug, _abs_media_url, _media_key, _pick_variant, _parse_int, _parse_bool, _parse_str_list, _pick_best_variant, _available_language_variants, _serialize_media, normalize_content_type, _is_valid_url, _build_external_media, _build_file_media, _detect_file_media_type, _save_file, _split_taglist_into_fields, _lang_fallback_chain, _parse_bool)
-
+FILE_TYPE_FOLDERS = {
+    "mp4": "videos",
+    "mov": "videos",
+    "avi": "videos",
+    "mkv": "videos",
+    "webm": "videos",
+    "mp3": "audios",
+    "wav": "audios",
+    "m4a": "audios",
+    "ogg": "audios",
+    "pdf": "pdfs",
+    "png": "images",
+    "jpg": "images",
+    "jpeg": "images",
+    "gif": "images",
+    "webp": "images",
+}
 logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------
@@ -397,7 +413,11 @@ def add_new_intervention(request):
         duration = request.POST.get("duration")
 
         language = (request.POST.get("language") or "en").strip().lower()
+        
         external_id = (request.POST.get("external_id") or "").strip() or None
+        if external_id:
+            if Intervention.objects(external_id=external_id, language=language).first():
+                return JsonResponse({"error": "Intervention already exists"}, status=400)
         provider = (request.POST.get("provider") or "").strip() or None
 
         is_private = _parse_bool(request.POST.get("isPrivate"), False)
@@ -726,7 +746,7 @@ def add_new_intervention(request):
             if k not in seen:
                 merged.append(m)
                 seen.add(k)
-
+        
         # -------- create intervention (NOW SAVES ALL TAXONOMY FIELDS) --------
         intervention = Intervention(
             external_id=external_id,
@@ -766,7 +786,7 @@ def add_new_intervention(request):
 
         return JsonResponse(
             {"success": True, "message": "Intervention created successfully", "id": str(intervention.id)},
-            status=201,
+            status=200,
         )
 
     except Exception as e:
@@ -1018,8 +1038,8 @@ def assign_intervention_to_types(request, therapist_id):
         except Exception:
             add_error("interventions[0].interventionId", "Intervention not found or invalid ID.")
 
-    interval = _as_int(payload.get("interval"), None)
-    if interval is None:
+    interval = int(payload.get("interval", -99))
+    if interval is -99:
         add_error("interventions[0].interval", "Must be an integer.")
     elif interval <= 0:
         add_error("interventions[0].interval", "Must be greater than 0.")
@@ -1037,8 +1057,8 @@ def assign_intervention_to_types(request, therapist_id):
             if not isinstance(d, str):
                 add_error(f"interventions[0].selectedDays[{i}]", "Must be a string day name.")
 
-    start_day = _as_int(payload.get("start_day"), None)
-    if start_day is None:
+    start_day = int(payload.get("start_day", -99))
+    if start_day is -99:
         add_error("interventions[0].start_day", "Must be an integer.")
     elif start_day < 1:
         add_error("interventions[0].start_day", "Must be >= 1.")
@@ -1049,18 +1069,21 @@ def assign_intervention_to_types(request, therapist_id):
     if end_type not in {"count"}:
         add_error("interventions[0].end.type", "Only 'count' is currently supported.")
 
-    count_limit = _as_int(end_block.get("count"), None)
-    if count_limit is None:
+    count_limit = int(end_block.get("count", -99))
+    if count_limit is -99:
         add_error("interventions[0].end.count", "Must be an integer.")
     elif start_day is not None and count_limit < start_day:
         add_error("interventions[0].end.count", "Must be >= start_day.")
 
     setime = payload.get("suggested_execution_time")
     if setime is not None:
-        parsed = _as_int(setime, None)
-        if parsed is None or parsed <= 0:
-            add_error("interventions[0].suggested_execution_time", "Must be a positive integer.")
-
+        try:
+            parsed = int(setime)
+        except (ValueError, TypeError):
+            add_error("interventions[0].suggested_execution_time", "Must be a valid integer.")
+        else:
+            if parsed <= 0:
+                add_error("interventions[0].suggested_execution_time", "Must be a positive integer.")
     if field_errors:
         return JsonResponse({"success": False, "message": "Validation error", "field_errors": field_errors, "non_field_errors": non_field_errors}, status=400)
 
@@ -1073,7 +1096,7 @@ def assign_intervention_to_types(request, therapist_id):
         count_limit=count_limit,
         start_day=start_day,
         end_day=count_limit,
-        suggested_execution_time=_as_int(payload.get("suggested_execution_time"), None),
+        suggested_execution_time=int(payload.get("suggested_execution_time")) if payload.get("suggested_execution_time") is not None else None,
     )
 
     keep_previous = bool(payload.get("keep_previous", False))
@@ -1112,7 +1135,7 @@ def assign_intervention_to_types(request, therapist_id):
     except Exception as e:
         return JsonResponse({"success": False, "message": "Database error: could not update assignments.", "detail": str(e)}, status=500)
 
-    return JsonResponse({"success": True, "message": "Intervention assignment saved successfully.", "diagnosis": diagnosis, "blocks": len(coerced)}, status=201)
+    return JsonResponse({"success": True, "message": "Intervention assignment saved successfully.", "diagnosis": diagnosis, "blocks": len(coerced)}, status=200)
 
 
 # --------------------------------------------------------------------
@@ -1292,7 +1315,7 @@ def create_patient_group(request):
         logger.exception("[create_patient_group] Failed to save intervention")
         return JsonResponse({"success": False, "message": "Database error while saving patient group.", "detail": str(e)}, status=500)
 
-    return JsonResponse({"success": True, "message": "Diagnosis group added successfully."}, status=201)
+    return JsonResponse({"success": True, "message": "Diagnosis group added successfully."}, status=200)
 
 
 @csrf_exempt

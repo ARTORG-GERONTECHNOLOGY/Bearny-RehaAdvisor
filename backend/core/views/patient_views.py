@@ -60,10 +60,20 @@ logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
-    "mp3": "audio",
-    "jpg": "images",
+    "mov": "videos",
+    "avi": "videos",
+    "mkv": "videos",
+    "webm": "videos",
+    "mp3": "audios",
+    "wav": "audios",
+    "m4a": "audios",
+    "ogg": "audios",
+    "pdf": "pdfs",
     "png": "images",
-    "pdf": "documents",
+    "jpg": "images",
+    "jpeg": "images",
+    "gif": "images",
+    "webp": "images",
 }
 
 from utils.interventions import (_serialize_intervention_basic, _available_language_variants, _lang_fallback_chain, _pick_best_variant)
@@ -168,7 +178,7 @@ def submit_patient_feedback(request):
                 normalized_key = re.sub(r"_(video)$", "", key)
                 answers[normalized_key] = {"video_url": url, "uploaded_at": timezone.now()}
                 continue
-
+            
             # --- Audio (robust) ---
             ext = upload.name.rsplit(".", 1)[-1].lower()
             folder = FILE_TYPE_FOLDERS.get(ext, "audio")
@@ -240,6 +250,8 @@ def submit_patient_feedback(request):
                     answers[key] = val
 
         logger.info(f"[submit_patient_feedback] Collected answers: {answers}")
+        if not answers:
+            return JsonResponse({"error": "No feedback responses provided"}, status=400)
 
         # --- Lookup patient ---
         try:
@@ -384,7 +396,7 @@ def submit_patient_feedback(request):
                 )
                 rating.save()
 
-        return JsonResponse({"message": "Feedback submitted successfully"}, status=201)
+        return JsonResponse({"message": "Feedback submitted successfully"}, status=200)
 
     except Exception as e:
         logger.exception("Unexpected error in submit_patient_feedback")
@@ -719,8 +731,8 @@ def get_patient_plan(request, patient_id):
                 "dates": [d.isoformat() for d in assignment.dates],
                 "completion_dates": completion_dates,
                 "content_type": intervention.content_type,
-                "benefitFor": intervention.benefitFor,
-                "tags": intervention.tags,
+                "benefitFor": intervention.aim,
+                "tags": intervention.keywords,
                 "duration": intervention.duration,
                 "feedback": feedback_data,
                 "preview_img": (
@@ -730,11 +742,9 @@ def get_patient_plan(request, patient_id):
                 ),
             }
 
-            if intervention.link:
-                intervention_record["link"] = intervention.link
-            elif intervention.media_file:
-                intervention_record["media_file"] = (
-                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.media_file)}"
+            if intervention.media:
+                intervention_record["media"] = (
+                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.media)}"
                 )
 
             today_interventions.append(intervention_record)
@@ -2185,7 +2195,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                 {
                     "_id": str(intervention.id),
                     "title": intervention.title,
-                    "benefitFor": intervention.benefitFor,
+                    "aim": intervention.aim,
                     "frequency": assignment.frequency,
                     "notes": assignment.notes,
                     "dates": intervention_dates,
