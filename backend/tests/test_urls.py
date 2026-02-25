@@ -9,7 +9,7 @@ import core.views.views as core_views
 
 
 def test_index_url_resolves():
-    resolver = resolve("/")
+    resolver = resolve("/api/")
     assert resolver.func == core_views.index
 
 
@@ -75,8 +75,8 @@ def test_get_intervention_detail_url_resolves():
 
 def test_fetch_feedback_questions_url_resolves():
     path = reverse(
-        "get_feedback_questions",
+        "get_feedback_questions_no_intervention",
         kwargs={"questionaire_type": "health", "patient_id": "p123"},
     )
     resolver = resolve(path)
-    assert resolver.func == patient_views.fetch_feedback_questions
+    assert resolver.func == patient_views.get_feedback_questions

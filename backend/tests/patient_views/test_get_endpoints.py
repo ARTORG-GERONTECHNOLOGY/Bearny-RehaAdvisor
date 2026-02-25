@@ -53,7 +53,7 @@ def setup_basic_plan(with_plan=True):
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     )
     therapist.save()
 
@@ -64,6 +64,7 @@ def setup_basic_plan(with_plan=True):
     patient_user.save()
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Patient",
         first_name="One",
         access_word="pass",
