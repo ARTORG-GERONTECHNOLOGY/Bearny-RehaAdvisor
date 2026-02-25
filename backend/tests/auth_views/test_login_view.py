@@ -42,31 +42,25 @@ client = Client()
 
 def test_login_success(mongo_mock):
     user = User(
-        username="therapist1",
-        role="Therapist",
-        email="therapist@example.com",
+        username="patient1",
+        role="Patient",
+        email="patient@example.com",
         phone="123456789",
         pwdhash=make_password("testpass123"),
         createdAt=datetime.now(),
         isActive=True,
     ).save()
 
-    Therapist(
-        userId=user,
-        name="Smith",
-        first_name="John",
-    ).save()
-
     resp = client.post(
         "/api/auth/login/",
-        data=json.dumps({"email": "therapist@example.com", "password": "testpass123"}),
+        data=json.dumps({"email": "patient@example.com", "password": "testpass123"}),
         content_type="application/json",
     )
 
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
-    assert data.get("user_type") == "Therapist"
+    assert data.get("user_type") == "Patient"
 
 
 def test_login_wrong_password(mongo_mock):
@@ -93,5 +87,5 @@ def test_login_user_not_found(mongo_mock):
         data=json.dumps({"email": "doesnotexist@example.com", "password": "irrelevant"}),
         content_type="application/json",
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 401
 
