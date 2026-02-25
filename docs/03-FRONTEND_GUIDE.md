@@ -2,7 +2,7 @@
 
 ## Overview
 
-The RehaAdvisor frontend is a modern React application built with Vite, providing a fast development experience and optimized production builds. This guide covers development practices, component structure, state management, and best practices.
+The RehaAdvisor frontend is a modern React application built with Vite, providing a fast development experience and optimized production builds. The application is configured as a Progressive Web App (PWA), enabling installation on devices and offline functionality. This guide covers development practices, component structure, state management, PWA features, and best practices.
 
 ## Project Structure
 
@@ -65,8 +65,17 @@ frontend/
 │   └── vite-env.d.ts          # Vite environment types
 │
 ├── public/                    # Static files (copied as-is)
+│   ├── icons/                 # PWA icons (various sizes)
+│   ├── screenshots/           # PWA screenshots for app stores
+│   └── ...
+│
+├── dist/                      # Build output (generated)
+│   ├── sw.js                  # Service worker (auto-generated)
+│   ├── manifest.webmanifest   # PWA manifest (auto-generated)
+│   └── ...
+│
 ├── index.html                 # HTML entry point
-├── vite.config.js             # Vite configuration
+├── vite.config.js             # Vite configuration (includes PWA)
 ├── tsconfig.json              # TypeScript configuration
 ├── jest.config.ts             # Jest test configuration
 ├── jest.setup.ts              # Jest setup file
@@ -437,6 +446,114 @@ export const MyComponent = () => {
   );
 };
 ```
+
+## Progressive Web App (PWA)
+
+### Overview
+
+RehaAdvisor is configured as a Progressive Web App, allowing users to install it on their devices and use it offline. The PWA functionality is powered by `vite-plugin-pwa`.
+
+### Key Features
+
+1. **Installable**: Users can install the app on desktop and mobile devices
+2. **Offline Support**: Service worker caches assets for offline access
+3. **Auto-Update**: Automatically updates to new versions
+4. **App Icons**: Multiple icon sizes for different devices and contexts
+5. **Splash Screens**: Screenshots for app store listings
+
+### PWA Configuration
+
+The PWA is configured in [vite.config.js](../frontend/vite.config.js):
+
+```javascript
+import { VitePWA } from 'vite-plugin-pwa';
+
+export default defineConfig(() => {
+  
+  return {
+    plugins: [
+      react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        manifest: {
+          id: '/',
+          name: 'Bearny',
+          short_name: 'Bearny',
+          description: 'Beaready after Rehab',
+          theme_color: '#000000',
+          background_color: '#000000',
+          display: 'standalone',
+          start_url: '/',
+          icons: [
+            // Multiple icon sizes (48x48 to 512x512)
+          ],
+          screenshots: [
+            // Desktop and mobile screenshots
+          ],
+        },
+      }),
+    ],
+  };
+});
+```
+
+### Icon Requirements
+
+All PWA icons must be placed in `public/icons/`:
+
+- **favicon.ico**: Browser tab icon
+- **apple-touch-icon.png** (180x180): iOS home screen icon
+- **mask-icon.svg**: Safari pinned tab icon
+- **pwa-48x48.png** through **pwa-512x512.png**: Various sizes for different devices
+
+Required sizes: 48, 72, 96, 128, 144, 152, 192, 256, 384, 512 pixels
+
+### Service Worker
+
+The service worker is automatically generated during build:
+
+```bash
+npm run build
+# Generates dist/sw.js and dist/manifest.webmanifest
+```
+
+**Features**:
+- Caches static assets for offline access
+- Automatically updates when new version is deployed
+
+### Testing the PWA
+
+To test PWA functionality:
+
+```bash
+# Build the app
+npm run build
+
+# Preview the production build
+npm run preview
+
+# Test in Chrome DevTools
+# 1. Open Chrome DevTools (F12)
+# 2. Go to Application > Service Workers
+# 3. Go to Application > Manifest to verify PWA config
+```
+
+### Installing the App
+
+**Desktop (Chrome/Edge)**:
+1. Visit the app URL
+2. Look for the install icon in the address bar
+3. Click "Install" to add to desktop
+
+**Mobile (iOS Safari)**:
+1. Visit the app URL
+2. Tap the Share button
+3. Select "Add to Home Screen"
+
+**Mobile (Android Chrome)**:
+1. Visit the app URL
+2. Tap the menu button (⋮)
+3. Select "Install app" or "Add to Home Screen"
 
 ## Testing
 
