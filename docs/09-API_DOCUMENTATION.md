@@ -333,9 +333,63 @@ curl -X PATCH http://localhost:8001/api/patients/1/ \
 
 #### Get Therapist's Patients
 
-**Endpoint**: `GET /api/patients/my_patients/`
+**Endpoint**: `GET /api/patients/{id}/`
 
 Returns all patients assigned to the current therapist.
+
+#### Get Patients Plan for Patient
+
+**Endpoint**: `GET /https://dev.reha-advisor.ch/api/patients/rehabilitation-plan/patient/{id}}/`
+
+**Example Response**:
+
+```bash
+[
+  {"intervention": 
+    {"_id": "698de5deb2a641c5da612721", 
+      "external_id": "4001", 
+      "language": "de", 
+      "provider": "Zentrum f\u00fcr Rehabilitation und Sportmedizin", 
+      "title": "Steigerung des atmungsgekoppelten Gehtrainings von 90 auf 100 Schritte pro Minute", 
+      "description": "Erkl\u00e4rungsvideos zu unterschiedlichen Schrittfrequenzen f\u00fcr unterschiedliche St\u00e4rkeklassen. Hier starten wir mit einer Schrittfrequenz von 90 Schritten pro Minute. Daran koppeln wir eine Atemfrequenz von drei Schritten w\u00e4hrend dem Einatmen und drei Schritte w\u00e4hrend dem Ausatmen.", 
+      "content_type": "Video", 
+      "input_from": null, "lc9": ["physiscal activity"], 
+      "original_language": "de", "primary_diagnosis": null, 
+      "aim": "Instructions", "topic": ["physical aciticity", "breathing"], 
+      "cognitive_level": null, 
+      "physical_level": null, 
+      "frequency_time": null, 
+      "timing": null, 
+      "duration_bucket": "<5min", 
+      "sex_specific": null, 
+      "where": ["outside"], 
+      "setting": ["individual"], 
+      "keywords": [], "duration": 5, 
+      "patient_types": [], "is_private": false, 
+      "private_patient_id": null, 
+      "preview_img": "", 
+      "media": [{
+        "kind": "external", 
+        "media_type": "video", 
+        "provider": "vimeo", 
+        "title": "Steigerung des atmungsgekoppelten Gehtrainings von 90 auf 100 Schritte pro Minute", 
+        "url": "https://vimeo.com/822621731?share=copy", 
+        "embed_url": null, 
+        "file_path": null, 
+        "mime": null, 
+        "thumbnail": null
+      }]
+    },
+  }
+]
+```
+
+#### Get Therapist's Patients
+
+**Endpoint**: `GET /api/patients/{id}/`
+
+Returns all patients assigned to the current therapist.
+
 
 ### Sessions
 
