@@ -193,7 +193,7 @@ const InterventionList: React.FC = observer(() => {
           </div>
         )}
 
-        {sorted.length === 0 && isWeekView && (
+        {sorted.length === 0 && (
           <div className="empty-day" aria-label={t('No interventions')}>
             <span className="text-muted small">{t('No interventions')}</span>
           </div>
