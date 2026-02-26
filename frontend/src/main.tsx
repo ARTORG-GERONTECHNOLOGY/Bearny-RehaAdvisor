@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { StoreProvider } from './stores/StoreProvider';
 import { I18nextProvider } from 'react-i18next';
-import { Router } from '@/routes';
+import { Router } from '@/routes/index';
 import '@/assets/styles/index.css'; // TODO: link in index.html for global styles after fully removing Bootstrap
 import '@/assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides (TODO: remove after redesign with Tailwind is complete)
 

@@ -1,119 +1,194 @@
+// src/stores/patientQuestionnairesStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
 
 type Translation = { language: string; text: string };
 type PossibleAnswer = { key: string; translations: Translation[] };
 
+type RawQuestion = {
+  questionKey?: unknown;
+  answerType?: unknown; // backend uses answerType
+  answer_type?: unknown; // sometimes backend uses answer_type
+  translations?: unknown;
+  possibleAnswers?: unknown;
+};
+
 export type NormalizedQuestion = {
   questionKey: string;
-  label: string;
-  options: PossibleAnswer[];
-  type: 'dropdown' | 'multi-select' | 'text' | 'video';
+  answerType: 'dropdown' | 'multi-select' | 'text' | 'video';
+  translations: Translation[];
+  possibleAnswers: PossibleAnswer[];
 };
 
-const pickLabel = (translations: Translation[] = [], lang: string, fallback = '') => {
-  const base = (lang || 'en').slice(0, 2);
-  return (
-    translations.find((t) => t.language === base)?.text ||
-    translations.find((t) => t.language?.split('-')?.[0] === base)?.text ||
-    translations.find((t) => t.language === 'en')?.text ||
-    translations[0]?.text ||
-    fallback
-  );
+const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+const asTranslations = (v: unknown): Translation[] => {
+  const arr = asArray<any>(v);
+  return arr
+    .map((x) => ({
+      language: typeof x?.language === 'string' ? x.language : 'en',
+      text: typeof x?.text === 'string' ? x.text : '',
+    }))
+    .filter((t) => t.text);
 };
 
-class PatientQuestionnairesStore {
-  // Initial questionnaire popup
+const asPossibleAnswers = (v: unknown): PossibleAnswer[] => {
+  const arr = asArray<any>(v);
+  return arr
+    .map((x) => ({
+      key: typeof x?.key === 'string' ? x.key : String(x?.key ?? ''),
+      translations: asTranslations(x?.translations),
+    }))
+    .filter((o) => o.key);
+};
+
+const normalizeAnswerType = (raw: unknown): NormalizedQuestion['answerType'] => {
+  const s = String(raw ?? '').toLowerCase().trim();
+  if (s === 'select' || s === 'dropdown') return 'dropdown';
+  if (s === 'multi-select' || s === 'multiselect') return 'multi-select';
+  if (s === 'video') return 'video';
+  return 'text';
+};
+
+const normalizeQuestion = (q: RawQuestion): NormalizedQuestion => {
+  const questionKey = typeof q?.questionKey === 'string' ? q.questionKey : '';
+  const answerTypeRaw = q?.answerType ?? q?.answer_type;
+  const answerType = normalizeAnswerType(answerTypeRaw);
+
+  return {
+    questionKey,
+    answerType,
+    translations: asTranslations(q?.translations),
+    possibleAnswers: asPossibleAnswers(q?.possibleAnswers),
+  };
+};
+
+export class PatientQuestionnairesStore {
+  // ---- Intervention feedback modal ----
+  showFeedbackPopup = false;
+  feedbackInterventionId = '';
+  feedbackDateKey = ''; // YYYY-MM-DD
+  feedbackQuestions: NormalizedQuestion[] = [];
+
+  // ---- Health questionnaire modal ----
+  showHealthPopup = false;
+  healthQuestions: NormalizedQuestion[] = [];
+
+  // ---- Initial questionnaire modal ----
   showInitialPopup = false;
 
-  // Health questionnaire popup
-  healthQuestions: NormalizedQuestion[] = [];
-  showHealthPopup = false;
-
-  // Intervention feedback popup
-  feedbackQuestions: NormalizedQuestion[] = [];
-  showFeedbackPopup = false;
-  feedbackInterventionId: string | null = null;
-  feedbackDateKey: string = '';
+  // ---- Errors / loading ----
+  loadingFeedback = false;
+  feedbackError = '';
 
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  closeFeedback() {
+    this.showFeedbackPopup = false;
+    this.feedbackInterventionId = '';
+    this.feedbackDateKey = '';
+    this.feedbackQuestions = [];
+    this.loadingFeedback = false;
+    this.feedbackError = '';
+  }
+
+  closeHealth() {
+    this.showHealthPopup = false;
+    this.healthQuestions = [];
   }
 
   closeInitial() {
     this.showInitialPopup = false;
   }
 
-  closeHealth() {
-    this.showHealthPopup = false;
-  }
-
-  closeFeedback() {
-    this.showFeedbackPopup = false;
-    this.feedbackQuestions = [];
-    this.feedbackInterventionId = null;
-    this.feedbackDateKey = '';
-  }
-
-  async checkInitialQuestionnaire(patientId: string) {
-    try {
-      const { data: res } = await apiClient.get(`users/${patientId}/initial-questionaire/`);
-      runInAction(() => {
-        this.showInitialPopup = !!res?.data;
-      });
-    } catch {
-      // silent
-    }
-  }
-
-  async loadHealthQuestionnaire(patientId: string, uiLang: string) {
-    try {
-      const { data: res } = await apiClient.get(
-        `/patients/get-questions/Healthstatus/${patientId}/`
-      );
-      if (!res?.questions?.length) return;
-
-      const lang = (uiLang || 'en').slice(0, 2);
-      const formatted: NormalizedQuestion[] = (res.questions || []).map((q: any) => ({
-        questionKey: q.questionKey,
-        label: pickLabel(q.translations, lang, q.questionKey),
-        options: q.possibleAnswers || [],
-        type: q.answerType,
-      }));
-
-      runInAction(() => {
-        this.healthQuestions = formatted;
-        this.showHealthPopup = true;
-      });
-    } catch {
-      // silent
-    }
-  }
-
+  // ✅ Always end by setting showFeedbackPopup=true (even if 0 questions)
   async openInterventionFeedback(
     patientId: string,
     interventionId: string,
     dateKey: string,
-    uiLang: string
+    lang: string
   ) {
-    const { data: res } = await apiClient.get(
-      `/patients/get-questions/Intervention/${patientId}/${interventionId}/`
-    );
-    const lang = (uiLang || 'en').slice(0, 2);
-
-    const formatted: NormalizedQuestion[] = (res.questions || []).map((q: any) => ({
-      questionKey: q.questionKey,
-      label: pickLabel(q.translations, lang, q.questionKey),
-      options: q.possibleAnswers || [],
-      type: q.answerType,
-    }));
-
     runInAction(() => {
-      this.feedbackInterventionId = interventionId;
-      this.feedbackDateKey = dateKey;
-      this.feedbackQuestions = formatted;
-      this.showFeedbackPopup = true;
+      this.loadingFeedback = true;
+      this.feedbackError = '';
+      this.showFeedbackPopup = false;
+      this.feedbackInterventionId = interventionId || '';
+      this.feedbackDateKey = dateKey || '';
+      this.feedbackQuestions = [];
     });
+
+    try {
+      const res = await apiClient.get(`patients/get-questions/Intervention/${patientId}/`, {
+        params: { interventionId },
+        headers: lang ? { 'Accept-Language': lang } : undefined,
+      });
+
+      const data = res?.data ?? {};
+      const rawQuestions = Array.isArray((data as any)?.questions)
+        ? (data as any).questions
+        : Array.isArray(data)
+          ? data
+          : [];
+
+      const normalized = asArray<RawQuestion>(rawQuestions)
+        .map(normalizeQuestion)
+        .filter((q) => q.questionKey);
+
+      runInAction(() => {
+        this.feedbackQuestions = normalized;
+        this.showFeedbackPopup = true;
+      });
+    } catch (e: any) {
+      console.error('[openInterventionFeedback] failed:', e);
+      runInAction(() => {
+        this.feedbackError = 'Failed to load feedback questions';
+        // still open: popup can show the error state
+        this.showFeedbackPopup = true;
+      });
+    } finally {
+      runInAction(() => {
+        this.loadingFeedback = false;
+      });
+    }
+  }
+
+  async loadHealthQuestionnaire(patientId: string, lang: string) {
+    try {
+      const res = await apiClient.get(`patients/get-questions/Healthstatus/${patientId}/`, {
+        headers: lang ? { 'Accept-Language': lang } : undefined,
+      });
+
+      const data = res?.data ?? {};
+      const rawQuestions = Array.isArray((data as any)?.questions)
+        ? (data as any).questions
+        : Array.isArray(data)
+          ? data
+          : [];
+
+      const normalized = asArray<RawQuestion>(rawQuestions)
+        .map(normalizeQuestion)
+        .filter((q) => q.questionKey);
+
+      runInAction(() => {
+        this.healthQuestions = normalized;
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  async checkInitialQuestionnaire(patientId: string) {
+    try {
+      const res = await apiClient.get(`users/${patientId}/initial-questionaire/`);
+      const requires = Boolean((res?.data as any)?.requires_questionnaire);
+      runInAction(() => {
+        this.showInitialPopup = requires;
+      });
+    } catch {
+      // ignore
+    }
   }
 }
 

@@ -65,6 +65,13 @@ const RehabTable: React.FC = observer(() => {
 
   const calendarTitle = safeT(t, 'Calendar', 'Calendar');
 
+  // ✅ Central refresh function (used after successful submit)
+  const refreshAfterScheduleChange = async () => {
+    await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
+    store.patientData = (store as any).mergePlanWithCatalog(store.patientData, store.allInterventions);
+    await store.translateVisibleItems(store.userLang);
+  };
+
   return (
     <div className="rehaPage">
       <Header isLoggedIn={authStore.isAuthenticated} />
@@ -148,7 +155,6 @@ const RehabTable: React.FC = observer(() => {
                   <InterventionCalendar
                     patientData={store.patientData as any}
                     titleMap={store.titleMap}
-                    // clicking in calendar should open the same info modal
                     onSelectIntervention={store.handleExerciseClick}
                   />
                 </div>
@@ -158,7 +164,7 @@ const RehabTable: React.FC = observer(() => {
         </RehaPageLayout>
       </main>
 
-      {/* INFO POPUP (✅ now shows media + description because plan is merged with catalog) */}
+      {/* INFO POPUP */}
       {store.showInfoInterventionModal && store.selectedExerciseFromPlan ? (
         <PatientInterventionPopUp
           show
@@ -167,7 +173,7 @@ const RehabTable: React.FC = observer(() => {
         />
       ) : null}
 
-      {/* REPEAT MODAL */}
+      {/* ✅ REPEAT MODAL (UPDATED) */}
       {store.showRepeatModal && store.selectedExerciseFromPlan ? (
         <InterventionRepeatModal
           show
@@ -175,14 +181,10 @@ const RehabTable: React.FC = observer(() => {
           mode={store.repeatMode}
           intervention={store.selectedExerciseFromPlan as any}
           defaults={store.modifyDefaults}
-          onSubmitted={async () => {
-            await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
-            store.patientData = (store as any).mergePlanWithCatalog(
-              store.patientData,
-              store.allInterventions
-            );
-            await store.translateVisibleItems(store.userLang);
-            store.closeRepeatModal();
+          patient={store.patientIdForCalls}
+          therapistId={authStore.id || undefined}
+          onSuccess={async () => {
+            await refreshAfterScheduleChange();
           }}
         />
       ) : null}
@@ -194,7 +196,6 @@ const RehabTable: React.FC = observer(() => {
           onHide={store.closeStatsModal}
           intervention={store.selectedExerciseFromPlan as any}
           patientData={store.patientData as any}
-          // if your modal expects a t prop, this ensures it's a FUNCTION (fixes “t is not a function”)
           t={t as any}
         />
       ) : null}
