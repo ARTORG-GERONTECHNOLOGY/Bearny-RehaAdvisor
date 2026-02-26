@@ -1,6 +1,8 @@
 import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
+import RootLayout from '@/RootLayout';
+
 const Home = lazy(() => import('@/pages/Home'));
 const Therapist = lazy(() => import('@/pages/Therapist'));
 const UnauthorizedAccess = lazy(() => import('@/pages/UnauthorizedAccess'));
@@ -24,7 +26,7 @@ const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
-import RootLayout from '@/RootLayout';
+
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
 import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
@@ -152,7 +154,7 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // ✅ Catch-all (must be last)
+  // Catch-all (must be last)
   {
     path: '*',
     element: createElement(Navigate, { to: '/', replace: true }),
