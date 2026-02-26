@@ -14,7 +14,6 @@ from utils.utils import (
 )
 import datetime, json
 from urllib.parse import urljoin
-
 import speech_recognition as sr
 from bson import ObjectId
 from django.conf import settings
@@ -76,34 +75,7 @@ FILE_TYPE_FOLDERS = {
     "webp": "images",
 }
 
-from utils.interventions import (_serialize_intervention_basic, _available_language_variants, _lang_fallback_chain, _pick_best_variant)
-import os
-import json
-import tempfile
 
-from django.conf import settings
-from django.http import JsonResponse
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from django.core.files.storage import default_storage
-
-import speech_recognition as sr
-from pydub import AudioSegment
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
-
-from bson import ObjectId
-from core.models import (
-    Patient,
-    Intervention,
-    RehabilitationPlan,
-    PatientInterventionLogs,
-    PatientICFRating,
-    FeedbackQuestion,
-    FeedbackEntry,
-    AnswerOption,
-    Translation,
-)
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
     "mp3": "audio",
@@ -409,50 +381,65 @@ def submit_patient_feedback(request):
 def mark_intervention_completed(request):
     """
     POST /api/interventions/complete/
-    Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # 'date' optional; defaults to today
+    Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # date optional; defaults to TODAY (local)
     Ensures only ONE log per (patient, rehab_plan, intervention, day) exists.
+
+    ✅ Stores and queries by UTC-naive day boundaries to avoid timezone day-shifts.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
         patient_id = data.get("patient_id")
         intervention_id = data.get("intervention_id")
-        target_date_str = data.get("date")  # optional
+        target_date_str = data.get("date")  # optional YYYY-MM-DD
 
         if not patient_id or not intervention_id:
             return JsonResponse({"error": "Missing patient_id or intervention_id"}, status=400)
 
+        # Resolve entities
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
             return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
 
-        tz_now = timezone.localtime(timezone.now())
+        # -----------------------------
+        # 1) Resolve target DAY in LOCAL timezone (date-only)
+        # -----------------------------
         if target_date_str:
-            y, m, d = [int(x) for x in target_date_str.split('-')]
-            target = timezone.make_aware(datetime.datetime(y, m, d, 0, 0, 0), tz_now.tzinfo)
+            try:
+                target_day = datetime.date.fromisoformat(str(target_date_str))
+            except Exception:
+                return JsonResponse({"error": "Invalid date. Expected YYYY-MM-DD."}, status=400)
         else:
-            target = tz_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            target_day = timezone.localdate()
 
-        day_start = target
-        day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
+        tz = timezone.get_current_timezone()
 
-        # ✅ fetch ALL logs for the day
+        # Local day boundaries (aware)
+        local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
+        local_end   = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
+
+        # -----------------------------
+        # 2) Convert to UTC *naive* for MongoEngine storage/query consistency
+        # -----------------------------
+        utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        utc_end   = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+        # ✅ fetch ALL logs for that UTC day window
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
-            date__gte=day_start,
-            date__lte=day_end,
+            date__gte=utc_start,
+            date__lte=utc_end,
         ).order_by("-date")
 
         logs = list(logs_qs)
 
         if logs:
-            # ✅ keep the newest, merge others into it, delete old ones
             keep = logs[0]
             others = logs[1:]
 
@@ -460,16 +447,14 @@ def mark_intervention_completed(request):
             merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
             keep.status = merged_status
 
-            # merge feedback (simple concat; if you have IDs you can dedupe)
+            # merge feedback
             merged_feedback = (keep.feedback or [])
             for l in others:
                 if l.feedback:
                     merged_feedback.extend(l.feedback)
             keep.feedback = merged_feedback
 
-            # you may choose to merge comments too
-            # keep.comments = keep.comments or ""
-
+            # delete duplicates
             for l in others:
                 try:
                     l.delete()
@@ -477,12 +462,13 @@ def mark_intervention_completed(request):
                     pass
 
             # ensure completed
-            if "completed" not in keep.status:
-                keep.status.append("completed")
+            if "completed" not in (keep.status or []):
+                keep.status = (keep.status or []) + ["completed"]
+
             keep.updatedAt = timezone.now()
 
-            # (optional) normalize date to day_start to improve grouping
-            # keep.date = day_start
+            # ✅ normalize stored date to UTC day anchor (prevents drift)
+            keep.date = utc_start
 
             keep.save()
 
@@ -490,17 +476,17 @@ def mark_intervention_completed(request):
                 userId=patient.userId,
                 action="OTHER",
                 userAgent="Patient",
-                details=f"Marked intervention {intervention.title} as done on {day_start.date().isoformat()}",
+                details=f"Marked intervention {intervention.title} as done on {target_day.isoformat()}",
             ).save()
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
 
-        # ✅ no log yet -> create ONE canonical log for that day
+        # ✅ no log yet -> create ONE canonical log for that day (UTC anchor)
         log = PatientInterventionLogs(
             userId=patient,
             interventionId=intervention,
             rehabilitationPlanId=rehab_plan,
-            date=day_start,  # ✅ stable per day (prevents many 'now' variants)
+            date=utc_start,   # ✅ canonical per-day anchor
             status=["completed"],
             feedback=[],
             comments="",
@@ -511,7 +497,7 @@ def mark_intervention_completed(request):
             userId=patient.userId,
             action="OTHER",
             userAgent="Patient",
-            details=f"Marked intervention {intervention.title} as done on {day_start.date().isoformat()}",
+            details=f"Marked intervention {intervention.title} as done on {target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -524,26 +510,31 @@ def mark_intervention_completed(request):
         logger.error("[mark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def unmark_intervention_completed(request):
     """
     POST /api/interventions/uncomplete/
     Body: { patient_id, intervention_id, date: 'YYYY-MM-DD' }
+
     Removes 'completed' for that day and also cleans duplicates.
+
+    ✅ Uses LOCAL day -> UTC-naive window for consistent MongoEngine querying/storage.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
         patient_id = data.get("patient_id")
         intervention_id = data.get("intervention_id")
         target_date_str = data.get("date")
 
         if not patient_id or not intervention_id or not target_date_str:
-            return JsonResponse({"error": "Missing required fields (patient_id, intervention_id, date)"}, status=400)
+            return JsonResponse(
+                {"error": "Missing required fields (patient_id, intervention_id, date)"},
+                status=400,
+            )
 
         patient = Patient.objects.get(userId=ObjectId(patient_id))
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
@@ -551,18 +542,30 @@ def unmark_intervention_completed(request):
         if not rehab_plan:
             return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
 
-        tz_now = timezone.localtime(timezone.now())
-        y, m, d = [int(x) for x in target_date_str.split('-')]
-        target = timezone.make_aware(datetime.datetime(y, m, d, 0, 0, 0), tz_now.tzinfo)
-        day_start = target
-        day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
+        # -----------------------------
+        # 1) Parse target DAY (date-only) in local timezone
+        # -----------------------------
+        try:
+            target_day = datetime.date.fromisoformat(str(target_date_str))
+        except Exception:
+            return JsonResponse({"error": "Invalid date. Expected YYYY-MM-DD."}, status=400)
+
+        tz = timezone.get_current_timezone()
+        local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
+        local_end   = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
+
+        # -----------------------------
+        # 2) Convert to UTC *naive* for MongoEngine query consistency
+        # -----------------------------
+        utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        utc_end   = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
-            date__gte=day_start,
-            date__lte=day_end,
+            date__gte=utc_start,
+            date__lte=utc_end,
         ).order_by("-date")
 
         logs = list(logs_qs)
@@ -573,8 +576,10 @@ def unmark_intervention_completed(request):
         keep = logs[0]
         others = logs[1:]
 
-        merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
-        keep.status = [s for s in merged_status if s != "completed"]
+        merged_status = list(
+            dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], []))
+        )
+        keep.status = [s for s in merged_status if str(s).lower() != "completed"]
 
         merged_feedback = (keep.feedback or [])
         for l in others:
@@ -590,17 +595,19 @@ def unmark_intervention_completed(request):
             except Exception:
                 pass
 
-        # ✅ delete if empty after uncomplete
+        # ✅ delete if empty after uncomplete, else save
         if not keep.status and not keep.feedback:
             keep.delete()
         else:
+            # optional: normalize the anchor to utc_start for consistency
+            keep.date = utc_start
             keep.save()
 
         Logs(
             userId=patient.userId,
             action="OTHER",
             userAgent="Patient",
-            details=f"Unmarked intervention {intervention.title} as done on {day_start.date().isoformat()}",
+            details=f"Unmarked intervention {intervention.title} as done on {target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
@@ -612,7 +619,6 @@ def unmark_intervention_completed(request):
     except Exception as e:
         logger.error("[unmark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
 
 
 @csrf_exempt
@@ -641,12 +647,232 @@ def get_patient_recommendations(request, patient_id):
 
 
 
+# -----------------------------
+# Helpers
+# -----------------------------
+
+def _as_str(v, default=""):
+    return v if isinstance(v, str) else default
+
+def _as_list(v):
+    return v if isinstance(v, list) else []
+
+def _abs_media_url(path_or_url: str) -> str:
+    """
+    Convert relative media paths into absolute URLs.
+    Safely handles:
+      - None
+      - already-absolute URLs
+      - weird types (e.g., BaseList)
+    """
+    try:
+        s = _as_str(path_or_url, "").strip()
+        if not s:
+            return ""
+        if s.startswith("http://") or s.startswith("https://"):
+            return s
+
+        # MEDIA_URL might be "/media/" and MEDIA_HOST "https://dev..."
+        from django.conf import settings
+        base = getattr(settings, "MEDIA_HOST", "").rstrip("/") + "/"
+        media_url = getattr(settings, "MEDIA_URL", "/media/").lstrip("/")
+        # If the incoming string already contains media_url, don't double it
+        if s.startswith(media_url):
+            return urljoin(base, s)
+        return urljoin(base, f"{media_url.rstrip('/')}/{s.lstrip('/')}")
+    except Exception:
+        return ""
+
+def _serialize_media_list(intervention) -> list:
+    """
+    Supports new model: intervention.media is list of dicts/embedded docs
+    Also supports legacy: intervention.media_file / intervention.link / intervention.media_url
+    """
+    try:
+        media = getattr(intervention, "media", None)
+        out = []
+
+        # New list
+        if isinstance(media, list):
+            for m in media:
+                if not m:
+                    continue
+                # dict or embedded doc
+                kind = getattr(m, "kind", None) if not isinstance(m, dict) else m.get("kind")
+                media_type = getattr(m, "media_type", None) if not isinstance(m, dict) else m.get("media_type") or m.get("mediaType")
+                provider = getattr(m, "provider", None) if not isinstance(m, dict) else m.get("provider")
+                title = getattr(m, "title", None) if not isinstance(m, dict) else m.get("title")
+                url = getattr(m, "url", None) if not isinstance(m, dict) else m.get("url")
+                embed_url = getattr(m, "embed_url", None) if not isinstance(m, dict) else m.get("embed_url") or m.get("embedUrl")
+                file_path = getattr(m, "file_path", None) if not isinstance(m, dict) else m.get("file_path") or m.get("filePath")
+                mime = getattr(m, "mime", None) if not isinstance(m, dict) else m.get("mime")
+                thumbnail = getattr(m, "thumbnail", None) if not isinstance(m, dict) else m.get("thumbnail")
+
+                row = {
+                    "kind": _as_str(kind, ""),
+                    "media_type": _as_str(media_type, ""),
+                    "provider": provider if isinstance(provider, str) or provider is None else str(provider),
+                    "title": title if isinstance(title, str) or title is None else str(title),
+                    "url": _abs_media_url(url) if isinstance(url, str) else (url or None),
+                    "embed_url": embed_url if isinstance(embed_url, str) or embed_url is None else str(embed_url),
+                    "file_path": file_path if isinstance(file_path, str) or file_path is None else str(file_path),
+                    "mime": mime if isinstance(mime, str) or mime is None else str(mime),
+                    "thumbnail": _abs_media_url(thumbnail) if isinstance(thumbnail, str) else (thumbnail or None),
+                }
+                # keep only meaningful ones
+                if row["kind"] or row["url"] or row["file_path"]:
+                    out.append(row)
+
+        if out:
+            return out
+
+        # Legacy fallbacks
+        link = _as_str(getattr(intervention, "link", ""), "").strip()
+        media_file = _as_str(getattr(intervention, "media_file", ""), "").strip()
+        media_url = _as_str(getattr(intervention, "media_url", ""), "").strip()
+        legacy = []
+
+        if link:
+            legacy.append({"kind": "external", "media_type": "website", "provider": "website", "title": getattr(intervention, "title", ""), "url": link, "embed_url": None, "file_path": None, "mime": None, "thumbnail": None})
+        if media_url:
+            legacy.append({"kind": "external", "media_type": "website", "provider": "website", "title": getattr(intervention, "title", ""), "url": _abs_media_url(media_url), "embed_url": None, "file_path": None, "mime": None, "thumbnail": None})
+        if media_file:
+            legacy.append({"kind": "file", "media_type": "file", "provider": None, "title": getattr(intervention, "title", ""), "url": _abs_media_url(media_file), "embed_url": None, "file_path": media_file, "mime": None, "thumbnail": None})
+
+        return legacy
+    except Exception:
+        return []
+
+def _serialize_feedback_entry(fb) -> dict | None:
+    """
+    Serializes FeedbackEntry into FE-friendly format.
+    Handles answerKey stored as list[AnswerOption] or list[str] etc.
+    """
+    try:
+        q = getattr(fb, "questionId", None)
+        if not q:
+            return None
+
+        q_trans = [
+            {"language": tr.language, "text": tr.text}
+            for tr in (_as_list(getattr(q, "translations", None)))
+            if getattr(tr, "language", None) and getattr(tr, "text", None) is not None
+        ]
+
+        answers = []
+        ak = getattr(fb, "answerKey", None)
+
+        # ak could be list[AnswerOption] or list[str] or single
+        if isinstance(ak, list):
+            for opt in ak:
+                if hasattr(opt, "key"):
+                    answers.append({
+                        "key": opt.key,
+                        "translations": [
+                            {"language": tr.language, "text": tr.text}
+                            for tr in (_as_list(getattr(opt, "translations", None)))
+                            if getattr(tr, "language", None) and getattr(tr, "text", None) is not None
+                        ],
+                    })
+                else:
+                    answers.append({"key": str(opt), "translations": [{"language": "en", "text": str(opt)}]})
+        elif ak is not None:
+            answers.append({"key": str(ak), "translations": [{"language": "en", "text": str(ak)}]})
+
+        return {
+            "question": {"id": str(getattr(q, "id", "")), "translations": q_trans},
+            "answer": answers,
+            "comment": _as_str(getattr(fb, "comment", ""), ""),
+            "audio_url": getattr(fb, "audio_url", None),
+            "date": getattr(fb, "date", None).isoformat() if getattr(fb, "date", None) else None,
+        }
+    except Exception:
+        return None
+
+def _completion_day_keys_from_logs(logs) -> list[str]:
+    """
+    Return completion dates as local day keys YYYY-MM-DD (stable for UI).
+
+    Handles BOTH aware and naive datetimes:
+      - if naive: assume current timezone (Europe/Zurich on your server)
+      - then convert to localtime safely
+    """
+    out = set()
+    tz = timezone.get_current_timezone()
+
+    for lg in logs:
+        dt = getattr(lg, "date", None)
+        st = getattr(lg, "status", None)
+
+        if not isinstance(dt, datetime.datetime):
+            continue
+
+        is_completed = False
+        if isinstance(st, list):
+            is_completed = any(str(x).lower() == "completed" for x in (st or []))
+        elif isinstance(st, str):
+            is_completed = "completed" in st.lower()
+
+        if not is_completed:
+            continue
+
+        # ✅ make safe for localtime()
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, tz)
+
+        out.add(timezone.localtime(dt).date().isoformat())
+
+    return sorted(out)
+
+def _intervention_meta(intervention) -> dict:
+    """
+    Whitelisted full intervention fields (expand as needed).
+    """
+    return {
+        "_id": str(getattr(intervention, "id", "")),
+        "external_id": getattr(intervention, "external_id", None),
+        "language": getattr(intervention, "language", None),
+        "provider": getattr(intervention, "provider", None),
+        "title": _as_str(getattr(intervention, "title", ""), ""),
+        "description": _as_str(getattr(intervention, "description", ""), ""),
+        "content_type": getattr(intervention, "content_type", None),
+        "input_from": getattr(intervention, "input_from", None),
+        "lc9": _as_list(getattr(intervention, "lc9", None)),
+        "original_language": getattr(intervention, "original_language", None),
+        "primary_diagnosis": getattr(intervention, "primary_diagnosis", None),
+        "aim": getattr(intervention, "aim", None),
+        "topic": _as_list(getattr(intervention, "topic", None)),
+        "cognitive_level": getattr(intervention, "cognitive_level", None),
+        "physical_level": getattr(intervention, "physical_level", None),
+        "frequency_time": getattr(intervention, "frequency_time", None),
+        "timing": getattr(intervention, "timing", None),
+        "duration_bucket": getattr(intervention, "duration_bucket", None),
+        "sex_specific": getattr(intervention, "sex_specific", None),
+        "where": _as_list(getattr(intervention, "where", None)),
+        "setting": _as_list(getattr(intervention, "setting", None)),
+        "keywords": _as_list(getattr(intervention, "keywords", None)),
+        "duration": getattr(intervention, "duration", None),
+        "patient_types": _as_list(getattr(intervention, "patient_types", None)),
+        "is_private": bool(getattr(intervention, "is_private", False)),
+        "private_patient_id": str(getattr(getattr(intervention, "private_patient_id", None), "id", "")) if getattr(intervention, "private_patient_id", None) else None,
+        "preview_img": _abs_media_url(_as_str(getattr(intervention, "preview_img", ""), "")),
+        "media": _serialize_media_list(intervention),
+    }
+
+# -----------------------------
+# Endpoint
+# -----------------------------
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_patient_plan(request, patient_id):
     """
     GET /api/patients/rehabilitation-plan/patient/<patient_id>/
-    Fetches rehabilitation plan and today's feedback for the patient.
+    Returns plan interventions including:
+      - full intervention metadata
+      - assignment fields (dates/notes/frequency/require_video_feedback)
+      - completion_dates as YYYY-MM-DD
+      - today's feedback entries (same as before)
     """
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -656,16 +882,15 @@ def get_patient_plan(request, patient_id):
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
-            return JsonResponse(
-                {"rehab_plan": [], "message": "No rehabilitation plan found"},
-                status=200,
-            )
+            return JsonResponse({"rehab_plan": [], "message": "No rehabilitation plan found"}, status=200)
 
-        today = timezone.now().date()
-        today_interventions = []
+        today = timezone.localdate()
+        out = []
 
-        for assignment in rehab_plan.interventions:
-            intervention = assignment.interventionId
+        for assignment in (getattr(rehab_plan, "interventions", None) or []):
+            intervention = getattr(assignment, "interventionId", None)
+            if not intervention:
+                continue
 
             logs = PatientInterventionLogs.objects(
                 userId=patient,
@@ -673,95 +898,68 @@ def get_patient_plan(request, patient_id):
                 interventionId=intervention,
             )
 
-            completion_dates = [
-                log.date.isoformat() for log in logs if "completed" in log.status
-            ]
+            completion_dates = _completion_day_keys_from_logs(logs)
 
             feedback_data = []
-            for log in logs:
-                if log.date.date() != today:
+            tz = timezone.get_current_timezone()
+
+            for lg in logs:
+                lg_dt = getattr(lg, "date", None)
+                if not isinstance(lg_dt, datetime.datetime):
                     continue
 
-                for fb in log.feedback:
-                    if not fb.questionId:
-                        continue
+                # ✅ localtime() requires aware datetime
+                if timezone.is_naive(lg_dt):
+                    lg_dt = timezone.make_aware(lg_dt, tz)
 
-                    question_translations = [
-                        {"language": t.language, "text": t.text}
-                        for t in fb.questionId.translations
-                    ]
+                if timezone.localtime(lg_dt).date() != today:
+                    continue
 
-                    answer_output = []
-                    answer_keys = fb.answerKey if isinstance(fb.answerKey, list) else [fb.answerKey]
+                for fb in (getattr(lg, "feedback", None) or []):
+                    row = _serialize_feedback_entry(fb)
+                    if row:
+                        row["log_date"] = lg_dt.isoformat()
+                        feedback_data.append(row)
 
-                    for key in answer_keys:
-                        matched_option = next(
-                            (opt for opt in fb.questionId.possibleAnswers if opt.key == key),
-                            None,
-                        )
-                        if matched_option:
-                            answer_output.append(
-                                {
-                                    "key": matched_option.key,
-                                    "translations": [
-                                        {"language": t.language, "text": t.text}
-                                        for t in matched_option.translations
-                                    ],
-                                }
-                            )
+            # assignment dates -> keep as iso
+            dates_iso = []
+            for d in (getattr(assignment, "dates", None) or []):
+                try:
+                    dates_iso.append(d.isoformat())
+                except Exception:
+                    dates_iso.append(str(d))
 
-                    feedback_data.append(
-                        {
-                            "date": log.date.isoformat(),
-                            "question": {
-                                "id": str(fb.questionId.id),
-                                "translations": question_translations,
-                            },
-                            "answer": answer_output,
-                            "comment": fb.comment or "",
-                        }
-                    )
+            out.append(
+                {
+                    # ✅ full intervention doc (as requested)
+                    "intervention": _intervention_meta(intervention),
 
-            intervention_record = {
-                "intervention_id": str(intervention.id),
-                "intervention_title": intervention.title,
-                "description": intervention.description,
-                "frequency": assignment.frequency,
-                "notes": assignment.notes or "",  # ← NEW: therapist’s personal instruction for the patient
-                "dates": [d.isoformat() for d in assignment.dates],
-                "completion_dates": completion_dates,
-                "content_type": intervention.content_type,
-                "benefitFor": intervention.aim,
-                "tags": intervention.keywords,
-                "duration": intervention.duration,
-                "feedback": feedback_data,
-                "preview_img": (
-                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.preview_img)}"
-                    if intervention.preview_img
-                    else ""
-                ),
-            }
+                    # ✅ keep the older flat fields too (so you don't have to refactor all FE at once)
+                    "intervention_id": str(getattr(intervention, "id", "")),
+                    "intervention_title": _as_str(getattr(intervention, "title", ""), ""),
+                    "description": _as_str(getattr(intervention, "description", ""), ""),
+                    "content_type": getattr(intervention, "content_type", "") or "",
 
-            if intervention.media:
-                intervention_record["media"] = (
-                    f"{settings.MEDIA_HOST}{os.path.join(settings.MEDIA_URL, intervention.media)}"
-                )
+                    # assignment fields
+                    "frequency": _as_str(getattr(assignment, "frequency", ""), ""),
+                    "notes": _as_str(getattr(assignment, "notes", ""), ""),
+                    "require_video_feedback": bool(getattr(assignment, "require_video_feedback", False)),
+                    "dates": dates_iso,
 
-            today_interventions.append(intervention_record)
+                    # status + feedback
+                    "completion_dates": completion_dates,
+                    "feedback": feedback_data,
+                }
+            )
 
-        return JsonResponse(today_interventions, safe=False, status=200)
+        return JsonResponse(out, safe=False, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning(f"[get_patient_plan] Entity not found")
+        logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
-        logger.error(
-            f"[get_patient_plan] Error for patient {patient_id}: {str(e)}",
-            exc_info=True,
-        )
-        return JsonResponse(
-            {"error": "Internal Server Error", "details": str(e)}, status=500
-        )
+        logger.error("[get_patient_plan] Error for patient %s: %s", patient_id, str(e), exc_info=True)
+        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
 
@@ -1080,68 +1278,85 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         return JsonResponse({"error": "Invalid questionnaire type."}, status=400)
 
 
-
-
+# ---------------------------------------------------------------------
+# ID helpers
+# ---------------------------------------------------------------------
 def _as_oid(val):
+    """Best-effort ObjectId coercion."""
     try:
-        return ObjectId(val) if isinstance(val, str) and len(val) == 24 else val
+        if isinstance(val, ObjectId):
+            return val
+        if isinstance(val, str) and ObjectId.is_valid(val):
+            return ObjectId(val)
+        return val
     except Exception:
         return val
 
+
 def _normalize_intervention_id(raw):
     """
-    Accept "682ad3..." or {"_id":"682ad3..."} or {"id":"682ad3..."} -> hex string
+    Accept:
+      - "682ad3..."
+      - {"_id":"682ad3..."} / {"id":"..."} / {"pk":"..."}
+    Return:
+      - 24-hex string or None
     """
     if isinstance(raw, dict):
-        raw = raw.get("_id") or raw.get("id")
-    if not isinstance(raw, str) or len(raw) != 24:
+        raw = raw.get("_id") or raw.get("id") or raw.get("pk")
+    if isinstance(raw, ObjectId):
+        return str(raw)
+    if not isinstance(raw, str):
         return None
-    return raw
+    raw = raw.strip()
+    return raw if ObjectId.is_valid(raw) else None
 
-# --- helpers (replace the previous versions) ---
 
+# ---------------------------------------------------------------------
+# date normalization helpers
+# ---------------------------------------------------------------------
 def _to_iso(dt_or_str):
-    """Return ISO string for datetime/str/None (keeps 'Z' if provided)."""
+    """Return ISO string for datetime/str/None."""
     if isinstance(dt_or_str, dt.datetime):
         return dt_or_str.isoformat()
     if isinstance(dt_or_str, str):
         return dt_or_str
     return None
 
+
 def _parse_iso_maybe(iso):
     """Parse ISO -> datetime (best-effort)."""
     if not iso or not isinstance(iso, str):
         return None
     try:
-        s = iso.replace('Z', '+00:00') if iso.endswith('Z') else iso
+        s = iso.strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
         return dt.datetime.fromisoformat(s)
     except Exception:
         return None
+
 
 def _status_for(dt_iso):
     """Guess status for a date (used only if none provided)."""
     d = _parse_iso_maybe(dt_iso)
     now = timezone.now()
     try:
-        # align tz-awareness for comparison
         if d is None:
             return "upcoming"
-        if timezone.is_aware(now) and (d.tzinfo is None):
-            d = timezone.make_aware(d, timezone=timezone.utc)
-        if timezone.is_naive(now) and (d.tzinfo is not None):
-            now = now.astimezone(timezone.utc).replace(tzinfo=None)
+        # align tz-awareness for comparison
+        if timezone.is_aware(now) and d.tzinfo is None:
+            d = timezone.make_aware(d, timezone=dt.timezone.utc)
+        if timezone.is_naive(now) and d.tzinfo is not None:
+            now = now.astimezone(dt.timezone.utc).replace(tzinfo=None)
         return "upcoming" if d > now else "missed"
     except Exception:
         return "upcoming"
 
+
 def _normalize_dates_list(seq):
     """
     Normalize a sequence of dates into a list of dicts:
-    { "datetime": ISO, "status": "...", "feedback": [...] }
-    Handles:
-      - dict entries with 'datetime' as str or datetime
-      - bare datetime objects
-      - bare ISO strings
+      { "datetime": ISO, "status": "...", "feedback": [...] }
     """
     out = []
     for x in (seq or []):
@@ -1151,19 +1366,15 @@ def _normalize_dates_list(seq):
                 continue
             status = x.get("status") or _status_for(iso)
             fb = x.get("feedback", [])
-            nx = {**x, "datetime": iso, "status": status, "feedback": fb}
-            out.append(nx)
-
+            out.append({**x, "datetime": iso, "status": status, "feedback": fb})
         elif isinstance(x, (dt.datetime, str)):
             iso = _to_iso(x)
-            status = _status_for(iso)
-            out.append({"datetime": iso, "status": status, "feedback": []})
-
+            if not iso:
+                continue
+            out.append({"datetime": iso, "status": _status_for(iso), "feedback": []})
         else:
-            # unknown type -> ignore
             continue
 
-    # sort by datetime asc (robust to bad values)
     try:
         out.sort(key=lambda d: _to_iso(d.get("datetime")) or "")
     except Exception:
@@ -1172,45 +1383,37 @@ def _normalize_dates_list(seq):
 
 
 def _coerce_object_id(maybe):
-    """Accept string or dict {'_id'| 'id' | 'pk': '...'} and return ObjectId."""
-    if isinstance(maybe, dict):
-        maybe = maybe.get("_id") or maybe.get("id") or maybe.get("pk")
-    if not maybe:
+    """Accept string or dict {'_id'|'id'|'pk': '...'} and return ObjectId or None."""
+    try:
+        if isinstance(maybe, dict):
+            maybe = maybe.get("_id") or maybe.get("id") or maybe.get("pk")
+        if isinstance(maybe, ObjectId):
+            return maybe
+        if isinstance(maybe, str) and ObjectId.is_valid(maybe):
+            return ObjectId(maybe)
         return None
-    return ObjectId(str(maybe))
+    except Exception:
+        return None
 
-def _strip_to_datetimes(seq):
-    """Map a list of mixed items to a list[datetime], dropping unparseable ones."""
-    out = []
-    for x in (seq or []):
-        d = _as_datetime(x)
-        if d:
-            out.append(d)
-    return out
 
 def _as_datetime(value):
     """
     Accepts datetime/date/ISO string/dict {'datetime': ...}
     Returns tz-aware UTC datetime (seconds precision).
     """
-    # unwrap dicts like {'datetime': '...'}
     if isinstance(value, dict):
         value = value.get("datetime") or value.get("date") or value.get("dt") or value
 
-    # parse strings
     if isinstance(value, str):
         s = value.strip()
         if s.endswith("Z"):
-            s = s[:-1] + "+00:00"          # make fromisoformat() accept Zulu
+            s = s[:-1] + "+00:00"
         try:
             dtobj = dt.datetime.fromisoformat(s)
         except ValueError:
-            # try date-only
-            try:
-                d = dt.datetime.strptime(s, "%Y-%m-%d").date()
-                dtobj = dt.datetime(d.year, d.month, d.day)
-            except Exception as ex:
-                raise ValueError(f"Unsupported datetime format: {value!r}") from ex
+            # date-only
+            d = dt.datetime.strptime(s[:10], "%Y-%m-%d").date()
+            dtobj = dt.datetime(d.year, d.month, d.day)
 
     elif isinstance(value, dt.datetime):
         dtobj = value
@@ -1230,19 +1433,26 @@ def _as_datetime(value):
     return dtobj.replace(microsecond=0, tzinfo=dt.timezone.utc)
 
 
+def _strip_to_datetimes(seq):
+    """Map a list of mixed items to a list[datetime], dropping unparseable ones."""
+    out = []
+    for x in (seq or []):
+        try:
+            out.append(_as_datetime(x))
+        except Exception:
+            continue
+    return out
+
+
 def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     """
     Merge two date lists. Deduplicate by exact UTC second.
     Sort chronologically.
     Returns (merged_list, added_count).
-
-    existing/incoming may contain datetime/date/str/dict{'datetime':...}.
     """
-    # normalize both sides to aware UTC
     ex = [_as_datetime(d) for d in (existing or [])]
     inc = [_as_datetime(d) for d in (incoming or [])]
 
-    # dedupe while preserving all unique values
     seen = set(ex)
     merged = list(ex)
     added = 0
@@ -1252,33 +1462,23 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
             seen.add(n)
             added += 1
 
-    merged.sort()  # safe: all are aware-UTC
+    merged.sort()
 
-    # MongoEngine commonly stores naive UTC; strip tz if you need that
     if return_naive_for_storage:
         merged = [d.replace(tzinfo=None) for d in merged]
 
     return merged, added
 
 
+# ---------------------------------------------------------------------
+# endpoint
+# ---------------------------------------------------------------------
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient(request):
     """
     POST /api/interventions/add-to-patient/
-
-    Adds or updates intervention assignments for a patient.
-
-    ✅ Updated behavior (language + duplicate-safe):
-      - Accepts either interventionId (legacy) OR externalId (+ optional language)
-      - If externalId provided: picks the best Intervention variant by language fallback:
-          chosen_lang -> en -> de -> any
-      - Prevents duplicates by external_id:
-          if plan already contains ANY variant of that external_id, it updates that assignment
-          and (optionally) switches the assignment to the newly chosen language variant.
     """
-
-    # Reject non-POST
     if request.method != "POST":
         return JsonResponse(
             {
@@ -1290,78 +1490,56 @@ def add_intervention_to_patient(request):
             status=405,
         )
 
-    field_errors = {}
-    non_field_errors = []
+    field_errors: dict = {}
+    non_field_errors: list = []
 
-    # ---------------------------------------------------
-    # Helper: Add field-specific or global errors
-    # ---------------------------------------------------
     def add_ferr(field, msg):
         field_errors.setdefault(field, []).append(msg)
 
     def add_nerr(msg):
         non_field_errors.append(msg)
 
-    # ---------------------------------------------------
-    # Helper: Normalize schedule fields safely
-    # ---------------------------------------------------
     def normalize_schedule(item: dict):
         """
         Converts React schedule into backend shape:
           selectedDays → selected_days
           startDate → start_date
-          externalId/external_id preserved
-          language/lang preserved
-          end = { type, date, count } → flattened
+          end → end_type/end_date/count_limit
         """
         out = dict(item or {})
 
-        # camelCase → snake_case
         if "selectedDays" in out:
             out["selected_days"] = out.pop("selectedDays") or []
-
         if "startDate" in out:
             out["start_date"] = out.pop("startDate")
 
-        # Flatten "end" structure
         end = out.pop("end", None)
         if isinstance(end, dict):
             out["end_type"] = end.get("type") or "never"
             out["end_date"] = end.get("date")
             out["count_limit"] = end.get("count")
         else:
-            out["end_type"] = "never"
-            out["end_date"] = None
-            out["count_limit"] = None
+            out["end_type"] = out.get("end_type") or "never"
+            out["end_date"] = out.get("end_date")
+            out["count_limit"] = out.get("count_limit")
 
         return out
 
-    # ---------------------------------------------------
-    # Helper: ISO → aware datetime
-    # ---------------------------------------------------
     def to_dt(v):
+        """ISO str/datetime -> aware datetime (best-effort)."""
         if not v:
             return None
-        try:
-            dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
-            if timezone.is_naive(dt):
-                dt = make_aware(dt)
-            return dt
-        except Exception:
-            return None
+        if isinstance(v, dt.datetime):
+            dtx = v
+        else:
+            try:
+                dtx = dt.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+            except Exception:
+                return None
+        if timezone.is_naive(dtx):
+            dtx = make_aware(dtx)
+        return dtx
 
-    # ---------------------------------------------------
-    # Helper: Coerce ObjectId
-    # ---------------------------------------------------
-    def coerce_oid(v):
-        try:
-            return ObjectId(str(v))
-        except Exception:
-            return None
-
-    # ---------------------------------------------------
-    # Helpers: language fallback + best-variant selection
-    # ---------------------------------------------------
     def lang_fallback_chain(user_lang: str):
         user_lang = (user_lang or "").strip().lower()
         chain = [user_lang, "en", "de"]
@@ -1374,18 +1552,13 @@ def add_intervention_to_patient(request):
         return out or ["en", "de"]
 
     def pick_best_variant(external_id: str, chain):
-        """
-        Return best matching intervention doc for external_id using fallback chain.
-        """
         for l in chain:
             doc = Intervention.objects(external_id=external_id, language=l).first()
             if doc:
                 return doc
         return Intervention.objects(external_id=external_id).first()
 
-    # ---------------------------------------------------
-    # Parse JSON safely
-    # ---------------------------------------------------
+    # ---- Parse JSON ----
     try:
         payload = json.loads(request.body or "{}")
     except Exception:
@@ -1402,11 +1575,8 @@ def add_intervention_to_patient(request):
     therapistId = payload.get("therapistId")
     patientId = payload.get("patientId")
     items = payload.get("interventions") or []
-
-    # Optional: request-level language preference
     request_lang = (payload.get("language") or payload.get("lang") or "").strip().lower()
 
-    # Validate base fields
     if not therapistId:
         add_ferr("therapistId", "Therapist ID is required.")
     if not patientId:
@@ -1425,11 +1595,9 @@ def add_intervention_to_patient(request):
             status=400,
         )
 
-    # ---------------------------------------------------
-    # Resolve therapist/patient
-    # ---------------------------------------------------
+    # ---- Resolve therapist ----
     try:
-        therapist = Therapist.objects.get(userId=therapistId)
+        therapist = Therapist.objects.get(userId=_coerce_object_id(therapistId) or therapistId)
     except Therapist.DoesNotExist:
         return JsonResponse(
             {
@@ -1441,72 +1609,82 @@ def add_intervention_to_patient(request):
             status=404,
         )
 
-    try:
-        patient = Patient.objects.get(pk=patientId)
-    except Patient.DoesNotExist:
+    # ---- Resolve patient (pk first, then userId) ----
+    patient_oid = _coerce_object_id(patientId)
+    if not patient_oid:
         return JsonResponse(
             {
                 "success": False,
                 "message": "Patient not found",
-                "field_errors": {"patientId": ["Patient does not exist."]},
+                "field_errors": {"patientId": ["Invalid patient id."]},
                 "non_field_errors": [],
             },
             status=404,
         )
 
-    # ---------------------------------------------------
-    # Load or create plan
-    # ---------------------------------------------------
+    try:
+        patient = Patient.objects.get(pk=patient_oid)
+    except Patient.DoesNotExist:
+        try:
+            patient = Patient.objects.get(userId=patient_oid)
+        except Patient.DoesNotExist:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Patient not found",
+                    "field_errors": {"patientId": ["Patient does not exist."]},
+                    "non_field_errors": [],
+                },
+                status=404,
+            )
+
+    # ---- Load/create plan ----
     plan = RehabilitationPlan.objects(patientId=patient).first()
     if not plan:
         plan = RehabilitationPlan(
             patientId=patient,
             therapistId=therapist,
-            startDate=patient.userId.createdAt,
-            endDate=patient.reha_end_date,
+            startDate=getattr(patient.userId, "createdAt", timezone.now()),
+            # ✅ critical: never leave endDate None
+            endDate=patient.reha_end_date or (timezone.now() + timedelta(days=90)),
             status=payload.get("status", "active"),
             interventions=[],
             createdAt=timezone.now(),
             updatedAt=timezone.now(),
         )
 
+    # Use plan end as authoritative fallback (also non-null)
+    plan_end = plan.endDate or (timezone.now() + timedelta(days=90))
+    if timezone.is_naive(plan_end):
+        plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
+
     total_added = 0
     created_assignments = 0
 
-    # ---------------------------------------------------
-    # Process each intervention item
-    # ---------------------------------------------------
     for raw in items:
         item = normalize_schedule(raw)
 
-        # ---------------------------------------------
-        # Resolve intervention:
-        #  - preferred: externalId + language
-        #  - fallback: interventionId (legacy)
-        # ---------------------------------------------
+        # ---- resolve intervention ----
         intervention = None
-
         external_id = (item.get("externalId") or item.get("external_id") or "").strip()
         chosen_lang = (item.get("language") or item.get("lang") or request_lang or "").strip().lower()
 
         if external_id:
-            chain = lang_fallback_chain(chosen_lang or "en")
-            intervention = pick_best_variant(external_id, chain)
+            intervention = pick_best_variant(external_id, lang_fallback_chain(chosen_lang or "en"))
             if not intervention:
                 add_ferr("externalId", f"No intervention found for external_id={external_id}.")
                 continue
         else:
-            int_oid = coerce_oid(item.get("interventionId"))
+            int_oid = _coerce_object_id(item.get("interventionId"))
             if not int_oid:
                 add_ferr("interventionId", "Invalid interventionId.")
                 continue
-            try:
-                intervention = Intervention.objects.get(id=int_oid)
-            except Intervention.DoesNotExist:
-                add_ferr("interventionId", f"Intervention {int_oid} not found.")
+            intervention = Intervention.objects(id=int_oid).first()
+            if not intervention:
+                add_ferr("interventionId", f"Intervention {str(int_oid)} not found.")
                 continue
 
-        # Build schedule input for generator
+        # ---- schedule input ----
         schedule_input = {
             "interval": item.get("interval", 1),
             "unit": item.get("unit"),
@@ -1517,29 +1695,29 @@ def add_intervention_to_patient(request):
             "end_date": to_dt(item.get("end_date")),
         }
 
-        # Date generation (safe; generate_repeat_dates expects this shape)
+        # ✅ safe date generation:
+        # - never pass None end date
+        # - keep `generated` scoped inside try
         try:
-            generated = generate_repeat_dates(patient.reha_end_date, schedule_input)
+            generated = generate_repeat_dates(plan_end, schedule_input)
+            dates = _strip_to_datetimes(generated)
         except Exception as e:
-            logger.error(f"[add_intervention_to_patient] Date generation failed for {intervention.id}: {e}")
+            logger.error(
+                "[add_intervention_to_patient] Date generation failed for %s: %s",
+                str(getattr(intervention, "id", "")),
+                str(e),
+                exc_info=True,
+            )
             add_ferr("interventionId", f"Could not generate dates for {str(intervention.id)}.")
             continue
 
-        dates = _strip_to_datetimes(generated)
-
-        # No valid dates
         if not dates:
-            logger.info(f"No valid dates generated for {intervention.id}")
+            logger.info("[add_intervention_to_patient] No valid dates generated for %s", str(intervention.id))
             continue
 
         require_video = bool(item.get("require_video_feedback"))
         note_txt = (item.get("notes") or "").strip()[:1000]
 
-        # ---------------------------------------------------
-        # Duplicate-safe lookup:
-        #   match existing assignment by external_id (preferred)
-        #   fallback to matching exact intervention id
-        # ---------------------------------------------------
         new_ext = getattr(intervention, "external_id", None)
 
         existing = next(
@@ -1558,7 +1736,6 @@ def add_intervention_to_patient(request):
         )
 
         if existing:
-            # If user chose a different language variant, switch the reference
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
                 existing.interventionId = intervention
 
@@ -1581,23 +1758,17 @@ def add_intervention_to_patient(request):
             created_assignments += 1
             total_added += len(dates)
 
-    # ---------------------------------------------------
-    # Nothing new added
-    # ---------------------------------------------------
     if created_assignments == 0 and total_added == 0:
         return JsonResponse(
             {
                 "success": True,
                 "message": "No new sessions to add for the selected intervention(s).",
-                "field_errors": field_errors,      # keep any warnings/errors collected
+                "field_errors": field_errors,
                 "non_field_errors": non_field_errors,
             },
             status=200,
         )
 
-    # ---------------------------------------------------
-    # Save & respond
-    # ---------------------------------------------------
     plan.updatedAt = timezone.now()
     plan.save()
 
@@ -1616,9 +1787,6 @@ def add_intervention_to_patient(request):
         },
         status=201,
     )
-
-
-
 
 # Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
 WEEKDAY_MAP = {'Mon':0, 'Dien':1, 'Mitt':2, 'Don':3, 'Fre':4, 'Sam':5, 'Son':6}
