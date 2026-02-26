@@ -21,3 +21,4 @@ pydub
 celery
 django-celery-beat
 redis
+openpyxl
