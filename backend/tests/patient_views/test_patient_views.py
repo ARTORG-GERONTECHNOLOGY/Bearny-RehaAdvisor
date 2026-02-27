@@ -1,19 +1,38 @@
 """
-Patient Views API Tests
+Patient views tests — feedback, completion, plan, and assignment mutations
+==========================================================================
 
-This module tests patient-facing API endpoints including feedback submission,
-intervention completion tracking, and intervention removal.
+Endpoints covered
+-----------------
+``POST /api/patients/feedback/questionaire/``             → ``submit_patient_feedback``
+``POST /api/interventions/complete/``                     → ``mark_intervention_completed``
+``POST /api/interventions/remove-from-patient/``          → ``remove_intervention_from_patient``
+``POST /api/interventions/add-to-patient/``               → ``add_intervention_to_patient``
+``GET  /api/patients/rehabilitation-plan/patient/<id>/``  → ``get_patient_plan``
 
-Tests cover:
-- Feedback questionnaire submission for interventions
-- Marking interventions as completed with progress tracking
-- Removing interventions from patient's rehabilitation plan
-- Error handling for invalid patients, missing data, and malformed requests
-- Getting the rehabilitation plan for the patient
+Coverage goals
+--------------
+Happy-path
+  * Submitting intervention feedback (form-data, JSON answers).
+  * Marking an intervention completed for today and for an explicit past date.
+  * Removing future dates for a scheduled intervention.
+  * Adding an intervention with a new recurring schedule.
+  * Retrieving the rehabilitation plan in all shapes
+    (empty, flat fields, completion dates, today's feedback, multi-assignment).
 
-Framework: Django Test Client with pytest
-Database: mongomock (in-memory MongoDB) for isolated testing
-Models: Patient, Therapist, Intervention, InterventionAssignment, FeedbackQuestion, RehabilitationPlan
+Input validation (400)
+  * Missing ``userId`` / ``patient_id`` / required JSON fields.
+  * Invalid date format in feedback and completion endpoints.
+  * Empty feedback-response map.
+
+Resource not found (404)
+  * Unknown patient ObjectId across all write endpoints.
+  * Patient exists but has no ``RehabilitationPlan``.
+
+HTTP method enforcement (405)
+  * Each endpoint refuses wrong HTTP verbs.
+
+Framework: Django Test Client + pytest + mongomock
 """
 
 import json
@@ -24,9 +43,11 @@ import pytest
 from bson import ObjectId
 from django.test import Client
 from django.utils import timezone
-from core.models import FeedbackEntry, AnswerOption
+
 from core.models import (
+    AnswerOption,
     DefaultInterventions,
+    FeedbackEntry,
     FeedbackQuestion,
     Intervention,
     InterventionAssignment,
@@ -36,9 +57,9 @@ from core.models import (
     Therapist,
     Translation,
     User,
-    FeedbackEntry, 
-    AnswerOption
 )
+
+
 def _mk_dt_naive(days_offset=0, hour=6, minute=0):
     """
     Return naive datetime (no tzinfo) at local wall-clock time.
@@ -56,6 +77,8 @@ def _mk_dt_aware(days_offset=0, hour=6, minute=0):
     tz = timezone.get_current_timezone()
     naive = _mk_dt_naive(days_offset=days_offset, hour=hour, minute=minute)
     return timezone.make_aware(naive, tz)
+
+
 client = Client()
 
 
@@ -83,7 +106,11 @@ def mongo_mock():
 def setup_patient_with_plan():
     # Create User & Therapist
     therapist_user = User(
-        username="t1", email="t1@example.com", phone="123", createdAt=datetime.now(), isActive=True
+        username="t1",
+        email="t1@example.com",
+        phone="123",
+        createdAt=datetime.now(),
+        isActive=True,
     )
     therapist_user.save()
     therapist = Therapist(
@@ -97,7 +124,11 @@ def setup_patient_with_plan():
 
     # Create Patient
     patient_user = User(
-        username="p1", email="p1@example.com", phone="456", createdAt=datetime.now(), isActive=True
+        username="p1",
+        email="p1@example.com",
+        phone="456",
+        createdAt=datetime.now(),
+        isActive=True,
     )
     patient_user.save()
     patient = Patient(
@@ -122,7 +153,11 @@ def setup_patient_with_plan():
 
     # Create Intervention
     intervention = Intervention(
-        title="Stretching", description="Stretching exercises", content_type="Video", external_id="INT_STRETCH_001",language="en",
+        title="Stretching",
+        description="Stretching exercises",
+        content_type="Video",
+        external_id="INT_STRETCH_001",
+        language="en",
     )
     intervention.save()
 
@@ -149,29 +184,29 @@ def setup_patient_with_plan():
 @patch("core.views.patient_views.getattr", return_value="mocked")
 def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
     """
-    
+
     Setup:
     - Patient enrolled with therapist
     - Intervention assigned: "Stretching"
     - Rehabilitation plan active
     - FeedbackQuestion created: "How did it go?"
-    
+
     Input Data:
     - userId: patient's user ID
     - interventionId: intervention the patient completed
     - responses: Array of question-answer pairs
       * Question: "How did it go?"
       * Answer: ["Great"]
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 201 Created or 200 OK
     - Response message: "Feedback submitted successfully"
     - Feedback stored in database
     - Visible to therapist in patient dashboard
     - Can be used for outcome measurement
-    
+
     Business Flow: Patient completes exercise session, rates experience, provides comments
     Use Case: Therapist reviews patient satisfaction and adjusts intervention if needed
     """
@@ -205,19 +240,19 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
 
 def test_submit_feedback_no_responses(mongo_mock):
     """
-    
+
     Setup:
     - Patient exists
     - Request payload has empty responses: []
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 400 Bad Request
     - Error message: "No feedback responses provided"
     - No feedback stored
     - Patient prompted to provide responses
-    
+
     Input Validation: Prevents empty feedback submissions
     """
     patient, _, _, _ = setup_patient_with_plan()
@@ -240,20 +275,20 @@ def test_submit_feedback_no_responses(mongo_mock):
 
 def test_submit_feedback_patient_not_found(mongo_mock):
     """
-    
+
     Setup:
     - User ID provided does not exist in database
     - Random ObjectId: 507f1f77bcf86cd799439011
     - Feedback data otherwise valid
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 404 Not Found
     - Error message: "Patient not found"
     - No feedback stored
     - Database unchanged
-    
+
     Error Handling: Prevents feedback storage for non-existent patients
     """
     FeedbackQuestion.objects.create(
@@ -265,9 +300,9 @@ def test_submit_feedback_patient_not_found(mongo_mock):
     )
 
     payload = {
-        "userId": str(ObjectId()),          # non-existent
+        "userId": str(ObjectId()),  # non-existent
         "interventionId": str(ObjectId()),  # valid format
-        "q_test": "A",                      # key must match questionKey
+        "q_test": "A",  # key must match questionKey
     }
 
     resp = client.post(
@@ -282,18 +317,18 @@ def test_submit_feedback_patient_not_found(mongo_mock):
 
 def test_mark_intervention_completed_success(mongo_mock):
     """
-    
+
     Setup:
     - Patient has intervention assigned
     - Patient has completed the intervention
     - Intervention: "Stretching"
-    
+
     Input Data:
     - patient_id: Patient's user ID
     - intervention_id: Intervention being marked complete
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 200 OK
     - Response message: "Marked as completed successfully"
@@ -301,7 +336,7 @@ def test_mark_intervention_completed_success(mongo_mock):
     - Completion recorded in PatientInterventionLogs
     - Visible in patient's progress history
     - Therapist sees updated progress on dashboard
-    
+
     Use Case: Patient finishes session, clicks "mark complete", system records for adherence tracking
     """
     patient, _, intervention, _ = setup_patient_with_plan()
@@ -321,20 +356,20 @@ def test_mark_intervention_completed_success(mongo_mock):
 
 def test_mark_intervention_completed_missing_params(mongo_mock):
     """
-    
+
     Setup:
     - Request payload is empty {}
     - Missing patient_id
     - Missing intervention_id
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 400 Bad Request
     - Error message: "Missing patient_id or intervention_id"
     - No completion recorded
     - Database unchanged
-    
+
     Input Validation: Ensures required data provided before processing
     """
     resp = client.post(
@@ -349,20 +384,20 @@ def test_mark_intervention_completed_missing_params(mongo_mock):
 
 def test_mark_intervention_completed_patient_not_found(mongo_mock):
     """
-    
+
     Setup:
     - Intervention exists
     - Patient ID does not exist
     - Random ObjectId
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 404 Not Found
     - Error message: "Patient not found"
     - No completion recorded
     - No database changes
-    
+
     Error Handling: Prevents completion records for non-existent patients
     """
     _, _, intervention, _ = setup_patient_with_plan()
@@ -382,18 +417,18 @@ def test_mark_intervention_completed_patient_not_found(mongo_mock):
 
 def test_remove_intervention_success(mongo_mock):
     """
-    
+
     Setup:
     - Patient has rehabilitation plan with intervention
     - Intervention: "Stretching" assigned for next 5 days
     - Plan is active with scheduled dates
-    
+
     Input Data:
     - intervention: Intervention ID to remove
     - patientId: Patient's ID
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 200 OK
     - Response message: "Intervention dates removed successfully"
@@ -401,7 +436,7 @@ def test_remove_intervention_success(mongo_mock):
     - Future sessions cancelled
     - Therapist can view removal in history
     - Patient no longer sees intervention on dashboard
-    
+
     Use Case: Therapist completes plan, removes intervention before end date, or switches to different approach
     """
     patient, _, intervention, plan = setup_patient_with_plan()
@@ -418,20 +453,20 @@ def test_remove_intervention_success(mongo_mock):
 
 def test_remove_intervention_missing_params(mongo_mock):
     """
-    
+
     Setup:
     - Request payload is empty {}
     - Missing intervention field
     - Missing patientId field
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 400 Bad Request
     - Error message: "Missing required parameters"
     - No intervention removed
     - Plan unchanged
-    
+
     Input Validation: Prevents incomplete removal requests
     """
     resp = client.post(
@@ -446,19 +481,19 @@ def test_remove_intervention_missing_params(mongo_mock):
 
 def test_remove_intervention_patient_not_found(mongo_mock):
     """
-    
+
     Setup:
     - Intervention exists (random ObjectId)
     - Patient ID does not exist (random ObjectId)
-    
+
     Steps:
-    
+
     Expected Results:
     - HTTP 404 Not Found
     - Error message: "Patient not found"
     - No intervention removed
     - Database unchanged
-    
+
     Error Handling: Prevents removal operations on non-existent patients
     """
     payload = {"intervention": str(ObjectId()), "patientId": str(ObjectId())}
@@ -556,13 +591,30 @@ def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.
     """
     # create patient without plan
-    therapist_user = User(username="t2", email="t2@example.com", phone="111", createdAt=datetime.now(), isActive=True)
+    therapist_user = User(
+        username="t2",
+        email="t2@example.com",
+        phone="111",
+        createdAt=datetime.now(),
+        isActive=True,
+    )
     therapist_user.save()
     therapist = Therapist(userId=therapist_user, name="Doe", first_name="Jane").save()
 
-    patient_user = User(username="p2", email="p2@example.com", phone="222", createdAt=datetime.now(), isActive=True)
+    patient_user = User(
+        username="p2",
+        email="p2@example.com",
+        phone="222",
+        createdAt=datetime.now(),
+        isActive=True,
+    )
     patient_user.save()
-    patient = Patient(userId=patient_user, patient_code="PAT002", therapist=therapist, access_word="pass").save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="PAT002",
+        therapist=therapist,
+        access_word="pass",
+    ).save()
 
     resp = client.get(
         f"/api/patients/rehabilitation-plan/patient/{str(patient.userId.id)}/",
@@ -725,7 +777,12 @@ def test_get_patient_plan_feedback_only_for_today(mongo_mock):
         feedback=[
             FeedbackEntry(
                 questionId=q,
-                answerKey=[AnswerOption(key="good", translations=[Translation(language="en", text="Good")])],
+                answerKey=[
+                    AnswerOption(
+                        key="good",
+                        translations=[Translation(language="en", text="Good")],
+                    )
+                ],
                 comment="yesterday comment",
                 date=_mk_dt_naive(days_offset=-1, hour=8),
             )
@@ -744,7 +801,12 @@ def test_get_patient_plan_feedback_only_for_today(mongo_mock):
         feedback=[
             FeedbackEntry(
                 questionId=q,
-                answerKey=[AnswerOption(key="good", translations=[Translation(language="en", text="Good")])],
+                answerKey=[
+                    AnswerOption(
+                        key="good",
+                        translations=[Translation(language="en", text="Good")],
+                    )
+                ],
                 comment="today comment",
                 date=_mk_dt_naive(days_offset=0, hour=9),
             )
@@ -837,3 +899,233 @@ def test_get_patient_plan_multiple_assignments(mongo_mock):
     ids = {row["intervention_id"] for row in data}
     assert str(intervention1.id) in ids
     assert str(intervention2.id) in ids
+
+
+# ===========================================================================
+# Additional coverage — submit_patient_feedback
+# ===========================================================================
+
+
+def test_submit_feedback_missing_user_id(mongo_mock):
+    """
+    POST without a ``userId`` field returns 400 with 'Missing userId'.
+    The endpoint cannot look up the patient without this identifier.
+    """
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={"interventionId": str(ObjectId())},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "Missing userId" in resp.content.decode()
+
+
+def test_submit_feedback_invalid_date_format(mongo_mock):
+    """
+    POST with a ``date`` field that cannot be parsed as YYYY-MM-DD returns 400.
+    The date field allows patients to back-date feedback entries; an invalid
+    value must be rejected before any database writes occur.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "date": "not-a-date",
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "Invalid date format" in resp.content.decode()
+
+
+def test_submit_feedback_get_method_not_allowed(mongo_mock):
+    """
+    GET to the feedback submission endpoint returns 405.  Only POST is accepted.
+    """
+    resp = client.get(
+        "/api/patients/feedback/questionaire/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 405
+
+
+# ===========================================================================
+# Additional coverage — mark_intervention_completed
+# ===========================================================================
+
+
+def test_mark_intervention_completed_get_method_not_allowed(mongo_mock):
+    """
+    GET to the complete endpoint returns 405.  Only POST is accepted.
+    """
+    resp = client.get(
+        "/api/interventions/complete/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 405
+
+
+def test_mark_intervention_completed_no_rehab_plan(mongo_mock):
+    """
+    When the patient exists but has no ``RehabilitationPlan`` the endpoint
+    returns 404 with 'Rehabilitation plan not found'.  A completion log
+    without an associated plan would be an orphaned record.
+    """
+    # Create patient without a plan
+    therapist_user = User(
+        username="th_np",
+        email="th_np@example.com",
+        phone="999",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(userId=therapist_user, name="D", first_name="J").save()
+    patient_user = User(
+        username="p_np",
+        email="p_np@example.com",
+        phone="888",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="PAT_NP",
+        therapist=therapist,
+        access_word="pass",
+    ).save()
+    intervention = Intervention(
+        external_id="np_ext",
+        language="en",
+        title="Walk",
+        description="Walk",
+        content_type="Video",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "Rehabilitation plan not found" in resp.content.decode()
+
+
+def test_mark_intervention_completed_with_explicit_date(mongo_mock):
+    """
+    POST with an optional ``date`` (YYYY-MM-DD) marks the intervention as
+    completed for that specific day rather than today.  Back-dating is
+    required when patients log activity after the fact.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": yesterday,
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "Marked as completed successfully" in resp.content.decode()
+
+
+def test_mark_intervention_completed_invalid_date(mongo_mock):
+    """
+    POST with a ``date`` value that cannot be parsed as YYYY-MM-DD returns 400.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": "invalid-date",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+
+
+# ===========================================================================
+# Additional coverage — remove_intervention_from_patient
+# ===========================================================================
+
+
+def test_remove_intervention_get_method_not_allowed(mongo_mock):
+    """
+    GET to the remove-from-patient endpoint returns 405.  Only POST is accepted.
+    """
+    resp = client.get(
+        "/api/interventions/remove-from-patient/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 405
+
+
+# ===========================================================================
+# Additional coverage — add_intervention_to_patient
+# ===========================================================================
+
+
+def test_add_intervention_to_patient_get_method_not_allowed(mongo_mock):
+    """
+    GET to the add-to-patient endpoint returns 405.  Only POST is accepted.
+    """
+    resp = client.get(
+        "/api/interventions/add-to-patient/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 405
+
+
+def test_add_intervention_to_patient_missing_required_fields(mongo_mock):
+    """
+    POST with an empty body returns 400 with ``field_errors`` identifying
+    the missing required fields (``patientId``, ``therapistId``,
+    ``interventions``).
+    """
+    resp = client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps({}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    errors = resp.json().get("field_errors", {})
+    # At minimum patientId must be flagged
+    assert len(errors) >= 1
+
+
+# ===========================================================================
+# Additional coverage — get_patient_plan
+# ===========================================================================
+
+
+def test_get_patient_plan_post_method_not_allowed(mongo_mock):
+    """
+    POST to the patient rehabilitation-plan endpoint returns 405.  Only GET
+    is accepted for plan retrieval.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+    resp = client.post(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        data="{}",
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 405

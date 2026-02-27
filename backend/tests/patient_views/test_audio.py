@@ -35,9 +35,7 @@ def mongo_mock():
 
 def setup_patient():
     # First create User for Therapist
-    therapist_user = User(
-        username="t1", email="t1@example.com", phone="111", createdAt=datetime.now()
-    )
+    therapist_user = User(username="t1", email="t1@example.com", phone="111", createdAt=datetime.now())
     therapist_user.save()
 
     therapist = Therapist(
@@ -50,9 +48,7 @@ def setup_patient():
     therapist.save()
 
     # Now create Patient
-    user = User(
-        username="p1", email="p1@example.com", phone="123", createdAt=datetime.now()
-    )
+    user = User(username="p1", email="p1@example.com", phone="123", createdAt=datetime.now())
     user.save()
 
     patient = Patient(
@@ -80,9 +76,7 @@ def setup_patient():
 @patch("speech_recognition.Recognizer.recognize_google")
 @patch("speech_recognition.Recognizer.record")
 @patch("speech_recognition.AudioFile")
-def test_audio_upload_and_recognition(
-    mock_audio_file, mock_record, mock_recognize, mongo_mock
-):
+def test_audio_upload_and_recognition(mock_audio_file, mock_record, mock_recognize, mongo_mock):
     # Setup patient
     patient = setup_patient()
 

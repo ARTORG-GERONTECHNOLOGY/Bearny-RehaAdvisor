@@ -41,13 +41,13 @@ from core.models import (
 def mock_mongoengine():
     """
     Pytest fixture that sets up in-memory MongoDB for each test.
-    
+
     Scope: function (fresh database for each test)
     Behavior:
     - Disconnects any existing DB connections
     - Connects to mongomock in-memory database
     - Cleans up after test completes
-    
+
     Why mongomock:
     - No real MongoDB installation required
     - Tests run fast (~10ms each)
@@ -66,9 +66,9 @@ def mock_mongoengine():
 
 def test_create_user():
     """
-    
+
     Steps:
-    
+
     Expected Results:
     - User successfully persisted to database
     - User.objects.count() == 1
@@ -90,15 +90,15 @@ def test_create_user():
 
 def test_sms_verification_create():
     """
-    
+
     Steps:
-    
+
     Expected Results:
     - SMS verification record created and persisted
     - Code stored correctly
     - Expiration time set correctly
     - String representation includes user ID
-    
+
     Use Case: User verifies their phone number during registration
     """
     sms = SMSVerification(
@@ -113,19 +113,19 @@ def test_sms_verification_create():
 
 def test_therapist_and_patient_relationship():
     """
-    
+
     Steps:
-    
+
     Expected Results:
     - Both users created successfully
     - Therapist has specialization (Cardiology) and clinic (Downtown Clinic)
     - Patient linked to therapist via foreign key reference
     - Patient.therapist.userId.username returns therapist's username
     - Patient model has all required medical fields (diagnosis, function, etc.)
-    
+
     Data Flow:
     User → Therapist/Patient → Patient.therapist reference
-    
+
     Use Case: When a new patient joins a therapist's caseload
     """
     user = User(
@@ -179,25 +179,23 @@ def test_therapist_and_patient_relationship():
 
 def test_feedback_question_with_translations_and_answers():
     """
-    
+
     Steps:
-    
+
     Expected Results:
     - FeedbackQuestion created with 1 translation entry
     - Translation language correctly set to 'en'
     - Answer options properly nested
     - Question type set to 'select' (multiple choice)
-    
+
     Multi-Language Support:
     - Questions: English text stored
     - Answers: Localized options available for all supported languages
-    
+
     Use Case: Patient answers feedback questions in their preferred language
     """
     translations = [Translation(language="en", text="How do you feel?")]
-    options = [
-        AnswerOption(key="yes", translations=[Translation(language="en", text="Yes")])
-    ]
+    options = [AnswerOption(key="yes", translations=[Translation(language="en", text="Yes")])]
     question = FeedbackQuestion(
         questionSubject="Intervention",
         questionKey="feel_question",
@@ -214,9 +212,9 @@ def test_feedback_question_with_translations_and_answers():
 def test_intervention_and_patient_icf_rating():
     """
              for intervention feedback
-    
+
     Steps:
-    
+
     Expected Results:
     - PatientICFRating created with:
       - Reference to feedback question
@@ -224,12 +222,12 @@ def test_intervention_and_patient_icf_rating():
       - ICF code (b28013 = cardiovascular function)
       - Numeric rating (0-10 scale)
       - Empty feedback entries initially
-    
+
     ICF Integration:
     - Standardized codes for functional health measurements
     - Tracks patient's physical/cognitive capabilities
     - Used by therapists to document treatment progress
-    
+
     Use Case: After patient completes intervention, therapist records functional improvement
     """
     # Create FeedbackQuestion
@@ -242,9 +240,7 @@ def test_intervention_and_patient_icf_rating():
     ).save()
 
     # Create Patient
-    user = User(
-        username="pat", email="pat@example.com", phone="3333", createdAt=datetime.now()
-    )
+    user = User(username="pat", email="pat@example.com", phone="3333", createdAt=datetime.now())
     user.save()
     therapist = Therapist(
         userId=user,
@@ -288,18 +284,18 @@ def test_intervention_and_patient_icf_rating():
 
 def test_missing_required_field_should_fail():
     """
-    
+
     Steps:
-    
+
     Expected Results:
     - Exception raised (ValidationError or ValidationFailure)
     - User not saved to database
     - Database remains empty
-    
+
     Validation Logic:
     - Username: Required field
     - CreatedAt: Required field
-    
+
     Use Case: Prevent incomplete user records from being saved to database
     """
     with pytest.raises(Exception):
@@ -310,24 +306,24 @@ def test_missing_required_field_should_fail():
 
 def test_intervention_with_patient_types():
     """
-    
+
     Steps:
        - Medical specialty (Cardiology)
        - Specific diagnosis (Heart attack, Stroke)
        - Recommended frequency (Daily)
        - Include/exclude option flag
-    
+
     Expected Results:
     - Intervention created with multiple patient types
     - Patient type nested correctly within intervention
     - Type field contains correct medical specialty
     - Diagnosis and frequency properly stored
-    
+
     Patient Type Structure:
     - Multiple types can be assigned to one intervention
     - Allows therapists to restrict intervention to specific diagnoses
     - Enables automated recommendation based on patient profile
-    
+
     Use Case: "Yoga" exercise assigned to Cardiology and Orthopedic patients
              but with different frequencies based on diagnosis
     """

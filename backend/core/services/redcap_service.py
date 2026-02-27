@@ -2,9 +2,11 @@ import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
-from utils.config import config
+
 import requests
 from django.conf import settings
+
+from utils.config import config
 
 logger = logging.getLogger(__name__)
 

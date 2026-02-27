@@ -1,6 +1,7 @@
 # core/redcap.py
 import requests
 
+
 def redcap_export_record(api_url: str, token: str, record_id: str, fields: list[str]):
     payload = {
         "token": token,

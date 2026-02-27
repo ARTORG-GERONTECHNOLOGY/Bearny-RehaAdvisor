@@ -50,7 +50,7 @@ export type PatientRec = {
   descLang?: string;
 };
 
-const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];

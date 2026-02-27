@@ -45,6 +45,25 @@ Four comprehensive workflows are configured for continuous integration and deplo
 
 **Timeout:** 30 minutes
 
+#### Frontend E2E (Playwright)
+- **Node.js:** 18.x
+- **Python:** 3.10 (starts Django backend for FE↔BE E2E)
+- **Services:** MongoDB 8.0, Redis 7
+- **Steps:**
+  1. Install backend dependencies and start Django on `127.0.0.1:8001`
+  2. Install frontend dependencies
+  3. Install Playwright Chromium
+  4. Run base login E2E test (`home-login.spec.ts`)
+  5. Run seeded redirect E2E tests when secrets are configured
+
+**Timeout:** 40 minutes
+
+Artifacts:
+- `playwright-e2e-artifacts` (uploaded on every run)
+  - `frontend/playwright-report`
+  - `frontend/test-results`
+  - `/tmp/django-e2e.log`
+
 #### Docker Build Check
 - **Depends on:** Frontend & Backend tests pass
 - **Steps:**
@@ -64,11 +83,31 @@ Four comprehensive workflows are configured for continuous integration and deplo
 ### Environment Variables
 
 ```yaml
-MONGODB_URI: mongodb://admin:password@localhost:27017/reha_advisor_test?authSource=admin
+DB_HOST: localhost
+DB_PORT: '27017'
+DB_NAME: reha_advisor_test
+MONGO_TLS: 'false'
+DISABLE_MONGO_CONNECT: '1'
 REDIS_URL: redis://localhost:6379/0
 SECRET_KEY: test-secret-key-for-ci-cd
 DEBUG: 'False'
 ```
+
+### Optional E2E Secrets (recommended)
+
+Configure these in **GitHub repository settings -> Secrets and variables -> Actions**:
+
+- `E2E_PATIENT_LOGIN`
+- `E2E_PATIENT_PASSWORD`
+- `E2E_ADMIN_LOGIN`
+- `E2E_ADMIN_PASSWORD`
+- `E2E_THERAPIST_LOGIN` (optional, enables therapist 2FA login E2E)
+- `E2E_THERAPIST_PASSWORD` (optional, enables therapist 2FA login E2E)
+
+If these secrets are missing, only the base login E2E test runs and seeded redirect tests are skipped.
+With `E2E_PATIENT_LOGIN`/`E2E_PATIENT_PASSWORD`, patient-scoped E2E tests are also executed:
+- `e2e/patient-page.spec.ts`
+- `e2e/patient-interventions-page.spec.ts`
 
 ### Artifacts
 

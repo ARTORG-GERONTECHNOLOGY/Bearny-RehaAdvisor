@@ -1,11 +1,10 @@
 import json
-import mimetypes
-from typing import Optional, List, Dict, Any, Tuple 
-
-
 import logging
+import mimetypes
 import os
-from mongoengine.queryset.visitor import Q
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
 from bson import ObjectId
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -13,29 +12,28 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
-from datetime import datetime, timedelta
 from rest_framework.permissions import IsAuthenticated
-from typing import Any, Dict, List
+
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
     Intervention,
     InterventionAssignment,
+    InterventionMedia,
     Patient,
     PatientInterventionLogs,
     PatientType,
     Therapist,
-    InterventionMedia,
 )
 from utils.config import config
-from utils.utils import generate_custom_id, get_labels, sanitize_text
 from utils.scheduling import _merge_date_and_time
+from utils.utils import generate_custom_id, get_labels, sanitize_text
 
-
-DIRECT_AUDIO_EXT = {"mp3","wav","m4a","aac","ogg","opus","flac"}
-DIRECT_VIDEO_EXT = {"mp4","webm","mov","m4v","mkv"}
+DIRECT_AUDIO_EXT = {"mp3", "wav", "m4a", "aac", "ogg", "opus", "flac"}
+DIRECT_VIDEO_EXT = {"mp4", "webm", "mov", "m4v", "mkv"}
 
 EMBED_HINTS = [
     r"/embed(?:/|$)",
@@ -44,13 +42,15 @@ EMBED_HINTS = [
     r"[?&]embed=1\b",
 ]
 
+
 def _url_ext(u: str) -> str:
     try:
         path = urlparse((u or "").strip()).path or ""
         m = re.search(r"\.([a-zA-Z0-9]{2,5})$", path)
-        return (m.group(1).lower() if m else "")
+        return m.group(1).lower() if m else ""
     except Exception:
         return ""
+
 
 def _is_direct_media(u: str) -> Optional[str]:
     ext = _url_ext(u)
@@ -60,9 +60,11 @@ def _is_direct_media(u: str) -> Optional[str]:
         return "video"
     return None
 
+
 def _looks_like_embed(u: str) -> bool:
     s = (u or "").strip().lower()
     return any(re.search(p, s) for p in EMBED_HINTS)
+
 
 def _lang_fallback_chain(user_lang: str) -> List[str]:
     """
@@ -96,7 +98,14 @@ def _available_language_variants(external_id: str) -> List[dict]:
     Return all variants for UI dropdown.
     """
     variants = Intervention.objects(external_id=external_id).only("id", "language", "title")
-    return [{"_id": str(v.id), "language": getattr(v, "language", None), "title": getattr(v, "title", None)} for v in variants]
+    return [
+        {
+            "_id": str(v.id),
+            "language": getattr(v, "language", None),
+            "title": getattr(v, "title", None),
+        }
+        for v in variants
+    ]
 
 
 def _serialize_intervention_basic(item):
@@ -104,6 +113,7 @@ def _serialize_intervention_basic(item):
     Use your existing serialize(item) body or call it from here if you prefer.
     This helper is optional; you can inline it.
     """
+
     def serialize_media(m):
         out = {
             "kind": getattr(m, "kind", None),
@@ -129,7 +139,7 @@ def _serialize_intervention_basic(item):
         "description": getattr(item, "description", None),
         "content_type": getattr(item, "content_type", None),
         "media": [serialize_media(m) for m in (getattr(item, "media", None) or [])],
-        "preview_img": _abs_media_url(item.preview_img) if getattr(item, "preview_img", None) else "",
+        "preview_img": (_abs_media_url(item.preview_img) if getattr(item, "preview_img", None) else ""),
         "duration": getattr(item, "duration", None),
         "patient_types": [
             {
@@ -142,6 +152,7 @@ def _serialize_intervention_basic(item):
         ],
         "is_private": bool(getattr(item, "is_private", False)),
     }
+
 
 def _pick_variant(docs, preferred: str, fallback_order=None):
     """
@@ -168,8 +179,6 @@ def _pick_variant(docs, preferred: str, fallback_order=None):
     # fallback: any
     any_doc = docs[0]
     return any_doc, sorted(set(langs))
-
-
 
 
 # --------------------------------------------------------------------
@@ -202,6 +211,7 @@ def _serialize_media(m):
 # --------------------------------------------------------------------
 # Template scheduling helpers (yours, kept + cleaned)
 # --------------------------------------------------------------------
+
 
 def _clip_before(blocks: List[DiagnosisAssignmentSettings], new_start_day: int):
     out: List[DiagnosisAssignmentSettings] = []
@@ -246,27 +256,32 @@ def _normalize_segments(raw):
     for r in seq:
         d = as_dict(r)
         unit = (d.get("unit") or "week").strip().lower()
-        intrv = int(d.get("interval", 1), 1)
+        intrv = _parse_int(d.get("interval", 1), 1)
         sdays = d.get("selected_days") or d.get("selectedDays") or []
-        sday = max(1, int(d.get("start_day", 1), 1))
-        end_day = int(
+        sday = max(1, _parse_int(d.get("start_day", 1), 1))
+        end_day = _parse_int(
             d.get("end_day") or (d.get("end") or {}).get("count") or d.get("count_limit") or 1,
             1,
         )
         end_day = max(end_day, sday)
         stime = (d.get("start_time") or d.get("startTime") or "08:00").strip()
 
-        items.append({
-            "unit": unit,
-            "interval": max(1, intrv),
-            "selected_days": sdays,
-            "start_day": sday,
-            "end_day": end_day,
-            "start_time": stime,
-        })
+        items.append(
+            {
+                "unit": unit,
+                "interval": max(1, intrv),
+                "selected_days": sdays,
+                "start_day": sday,
+                "end_day": end_day,
+                "start_time": stime,
+            }
+        )
 
     items.sort(key=lambda x: (x["start_day"], x["end_day"]))
     return items
+
+
+BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 
 
 def _occ_count_for_day_range(start_day, end_day, interval):
@@ -290,9 +305,17 @@ def _dedup_dates(dt_list):
     return out
 
 
-def _upsert_intervention(plan, intervention, dates, notes="", require_video=False, overwrite=False, effective_from=None):
+def _upsert_intervention(
+    plan,
+    intervention,
+    dates,
+    notes="",
+    require_video=False,
+    overwrite=False,
+    effective_from=None,
+):
     found = None
-    for ia in (plan.interventions or []):
+    for ia in plan.interventions or []:
         if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
             found = ia
             break
@@ -323,25 +346,32 @@ def _upsert_intervention(plan, intervention, dates, notes="", require_video=Fals
                 require_video_feedback=bool(require_video),
             )
         )
+
+
 def normalize_content_type(raw: str) -> str:
     k = (raw or "").strip()
     if not k:
         return ""
     return settings.CONTENT_TYPE_CANONICAL_MAP.get(k, k.lower())
 
+
 import unicodedata
 from urllib.parse import urlparse
+
+
 def _safe_title_slug(s: str) -> str:
     """
     Safe filename-ish slug, max 80 chars.
     """
     s = (s or "").strip().lower().replace(" ", "_")
     s = "".join(c for c in s if c.isalnum() or c in ("_", "-"))
-    return (s[:80] or "intervention")
+    return s[:80] or "intervention"
+
 
 def _strip_invisible(s: str) -> str:
     # remove control/format chars (Cc/Cf), keeps normal chars
     return "".join(ch for ch in (s or "") if unicodedata.category(ch) not in ("Cc", "Cf"))
+
 
 def _is_valid_url(u: str) -> bool:
     u0 = u
@@ -355,14 +385,15 @@ def _is_valid_url(u: str) -> bool:
 
     ok = (p.scheme in ("http", "https")) and bool(p.netloc)
 
-    print(
-        ok
-        
-    )
+    print(ok)
     return ok
 
+
 def _safe_title_slug(s: str) -> str:
-    return "".join(c for c in (s or "").lower().replace(" ", "_") if c.isalnum() or c in ("_", "-"))[:80] or "intervention"
+    return (
+        "".join(c for c in (s or "").lower().replace(" ", "_") if c.isalnum() or c in ("_", "-"))[:80] or "intervention"
+    )
+
 
 def _parse_bool(val, default=False) -> bool:
     if isinstance(val, bool):
@@ -371,6 +402,7 @@ def _parse_bool(val, default=False) -> bool:
         return val.lower() in {"1", "true", "yes", "y", "on"}
     return bool(val) if val is not None else default
 
+
 def _parse_int(val, default=None):
     if val in (None, ""):
         return default
@@ -378,6 +410,7 @@ def _parse_int(val, default=None):
         return int(val)
     except Exception:
         return default
+
 
 def _parse_str_list(val) -> List[str]:
     if val is None:
@@ -403,6 +436,7 @@ def _parse_str_list(val) -> List[str]:
     items = items[:MAX_LIST_ITEMS]
     return [x[:MAX_ITEM_LEN] for x in items if x]
 
+
 def _abs_media_url(path: str) -> str:
     if not path:
         return ""
@@ -412,12 +446,14 @@ def _abs_media_url(path: str) -> str:
     media_url = getattr(settings, "MEDIA_URL", "/media/")
     return f"{media_host}{media_url.rstrip('/')}/{path.lstrip('/')}"
 
+
 def _save_file(file_obj, folder: str, title: str) -> str:
     ts = timezone.now().strftime("%Y%m%d_%H%M%S")
     ext = (os.path.splitext(file_obj.name)[1] or "").lower().lstrip(".") or "bin"
     safe_title = _safe_title_slug(title)
     filename = f"{ts}_{safe_title}.{ext}"
     return default_storage.save(f"{folder}/{filename}", file_obj)
+
 
 def spotify_embed(url: str) -> Optional[str]:
     if not url:
@@ -428,6 +464,7 @@ def spotify_embed(url: str) -> Optional[str]:
     typ, sid = m.group(1), m.group(2)
     return f"https://open.spotify.com/embed/{typ}/{sid}"
 
+
 def youtube_embed(url: str) -> Optional[str]:
     if not url:
         return None
@@ -436,6 +473,7 @@ def youtube_embed(url: str) -> Optional[str]:
         return None
     vid = m.group(1)
     return f"https://www.youtube.com/embed/{vid}"
+
 
 def _guess_provider(url: str) -> Optional[str]:
     u = (url or "").lower()
@@ -448,6 +486,7 @@ def _guess_provider(url: str) -> Optional[str]:
     if "vimeo.com" in u:
         return "vimeo"
     return "website"
+
 
 def _detect_file_media_type(ext: str, content_type_hint: str = "") -> str:
     e = (ext or "").lower().lstrip(".")
@@ -464,6 +503,8 @@ def _detect_file_media_type(ext: str, content_type_hint: str = "") -> str:
     if hint in ALLOWED_CONTENT_TYPES:
         return hint
     return "text"
+
+
 def _build_external_media(url: str, title: Optional[str] = None, media_type: Optional[str] = None) -> InterventionMedia:
     clean_url = (url or "").strip()
     prov = _guess_provider(clean_url)
@@ -510,7 +551,6 @@ def _build_external_media(url: str, title: Optional[str] = None, media_type: Opt
     )
 
 
-
 def _build_file_media(file_path: str, mime: Optional[str], title: Optional[str], media_type: str) -> InterventionMedia:
     return InterventionMedia(
         kind="file",
@@ -524,12 +564,14 @@ def _build_file_media(file_path: str, mime: Optional[str], title: Optional[str],
         thumbnail=None,
     )
 
+
 # -------------------------
 # Taxonomy mapping
 # -------------------------
 
+
 def _taxonomy_allowed_sets():
-    tx = (config.get("interventionsTaxonomy") or config.get("interventionsTaxonomy".lower()) or {})  # just in case
+    tx = config.get("interventionsTaxonomy") or config.get("interventionsTaxonomy".lower()) or {}  # just in case
     # if your taxonomy is in interventions.json instead of config, replace this accordingly
     return {
         "input_from": set((tx.get("input_from") or [])),
@@ -548,6 +590,7 @@ def _taxonomy_allowed_sets():
         "setting": set((tx.get("setting") or [])),
         "content_types": set((tx.get("content_types") or [])),
     }
+
 
 def _split_taglist_into_fields(tag_list: List[str]) -> Dict[str, Any]:
     """
@@ -611,6 +654,8 @@ def _split_taglist_into_fields(tag_list: List[str]) -> Dict[str, Any]:
     out["setting"] = dedup(out["setting"])
     out["keywords"] = dedup(out["keywords"])
     return out
+
+
 def ard_embed(url: str) -> str | None:
     """
     Accepts either:
@@ -646,7 +691,6 @@ def _guess_provider(url: str) -> str | None:
     if "vimeo.com" in u:
         return "vimeo"
     return "website"
-
 
 
 def _as_str_or_none(v):

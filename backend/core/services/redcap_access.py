@@ -3,6 +3,7 @@ import logging
 from typing import List
 
 from django.utils import timezone
+
 from core.models import Therapist
 from utils.config import config
 
@@ -48,8 +49,8 @@ def get_allowed_redcap_projects_for_therapist(therapist: Therapist) -> List[str]
     clinic_projects = config.get("clinic_projects", {}) or {}
     allowed = set()
 
-    for clinic in (therapist.clinics or []):
-        for p in (clinic_projects.get(clinic) or []):
+    for clinic in therapist.clinics or []:
+        for p in clinic_projects.get(clinic) or []:
             allowed.add(p)
 
     # Optional: if therapist.projects is set, you can intersect to narrow down.

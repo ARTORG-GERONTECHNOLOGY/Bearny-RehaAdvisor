@@ -1,18 +1,19 @@
 import json
 import logging
 import os
-from typing import Optional, List, Dict, Any, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
 from bson import ObjectId
+from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
-from django.contrib.auth.hashers import make_password
 
-from core.models import Therapist, Patient, User  # MongoEngine models (as in your project)
+from core.models import Patient  # MongoEngine models (as in your project)
+from core.models import Therapist, User
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,10 @@ def redcap_export_minimal(
         raise RedcapError("Failed to reach REDCap API.", detail=str(e))
 
     if r.status_code != 200:
-        raise RedcapError("REDCap API returned non-200.", detail={"status": r.status_code, "text": r.text[:400]})
+        raise RedcapError(
+            "REDCap API returned non-200.",
+            detail={"status": r.status_code, "text": r.text[:400]},
+        )
 
     try:
         rows = r.json()
@@ -273,7 +277,9 @@ def available_redcap_patients(request):
     therapist_user_id = _norm(request.GET.get("therapistUserId"))
 
     # Allow both: (A) therapistUserId param OR (B) derive from request.user
-    therapist = get_therapist_by_user_id(therapist_user_id) if therapist_user_id else get_therapist_for_user(request.user)
+    therapist = (
+        get_therapist_by_user_id(therapist_user_id) if therapist_user_id else get_therapist_for_user(request.user)
+    )
     if not therapist:
         return _bad("Therapist profile not found.", status=404)
 
@@ -288,7 +294,11 @@ def available_redcap_patients(request):
     projects_to_check = allowed_projects
     if project_q:
         if project_q not in allowed_projects:
-            return _bad("Project not allowed.", status=403, extra={"allowedProjects": allowed_projects})
+            return _bad(
+                "Project not allowed.",
+                status=403,
+                extra={"allowedProjects": allowed_projects},
+            )
         projects_to_check = [project_q]
 
     candidates: List[dict] = []
@@ -343,7 +353,13 @@ def available_redcap_patients(request):
             errors.append({"project": project, "error": str(e), "detail": e.detail})
         except Exception as e:
             logger.exception("available_redcap_patients failed project=%s", project)
-            errors.append({"project": project, "error": "Unexpected server error.", "detail": str(e)})
+            errors.append(
+                {
+                    "project": project,
+                    "error": "Unexpected server error.",
+                    "detail": str(e),
+                }
+            )
 
     # Deduplicate across (project, identifier)
     seen: Set[Tuple[str, str]] = set()
@@ -392,7 +408,11 @@ def import_patient_from_redcap(request):
     project = _norm(payload.get("project"))
     identifier = _norm(payload.get("patient_code"))  # FE sends identifier here
     password = _norm(payload.get("password"))
-    therapist = get_therapist_by_user_id(payload.get("therapistUserId")) if payload.get("therapistUserId") else get_therapist_for_user(request.user)
+    therapist = (
+        get_therapist_by_user_id(payload.get("therapistUserId"))
+        if payload.get("therapistUserId")
+        else get_therapist_for_user(request.user)
+    )
 
     if not project:
         return _bad("project is required.", status=400)
@@ -401,13 +421,20 @@ def import_patient_from_redcap(request):
     if not password:
         return _bad("password is required.", status=400)
     if not _is_strong_password(password):
-        return _bad("Weak password: 8+ chars with upper, lower, number, special char.", status=400)
+        return _bad(
+            "Weak password: 8+ chars with upper, lower, number, special char.",
+            status=400,
+        )
     if not therapist:
         return _bad("Therapist profile not found.", status=404)
 
     allowed_projects = get_allowed_redcap_projects_for_therapist(therapist) or []
     if project not in allowed_projects:
-        return _bad("Project not allowed for this therapist.", status=403, extra={"allowedProjects": allowed_projects})
+        return _bad(
+            "Project not allowed for this therapist.",
+            status=403,
+            extra={"allowedProjects": allowed_projects},
+        )
 
     # Already imported?
     existing_ids = _get_existing_identifiers_for_project(project)
@@ -461,13 +488,21 @@ def import_patient_from_redcap(request):
             return JsonResponse({"ok": False, "error": str(e), "detail": e.detail}, status=502)
 
     if rc_row is None:
-        return _bad("No REDCap record found for this identifier in this project.", status=404, extra={"project": project, "identifier": identifier})
+        return _bad(
+            "No REDCap record found for this identifier in this project.",
+            status=404,
+            extra={"project": project, "identifier": identifier},
+        )
 
     # DAG rule (specific GABs)
     allowed_dags = allowed_dags_by_project(therapist, project)
     dag = _norm(rc_row.get("redcap_data_access_group"))
     if allowed_dags is not None and dag not in allowed_dags:
-        return _bad("Forbidden: record DAG not allowed for this therapist.", status=403, extra={"dag": dag})
+        return _bad(
+            "Forbidden: record DAG not allowed for this therapist.",
+            status=403,
+            extra={"dag": dag},
+        )
 
     record_id = _norm(rc_row.get("record_id"))
     pat_id = _norm(rc_row.get("pat_id"))
@@ -585,4 +620,7 @@ def import_patient_from_redcap(request):
                 user.delete()
         except Exception:
             pass
-        return JsonResponse({"ok": False, "error": "Failed to import patient.", "detail": str(e)}, status=500)
+        return JsonResponse(
+            {"ok": False, "error": "Failed to import patient.", "detail": str(e)},
+            status=500,
+        )

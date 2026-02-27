@@ -88,7 +88,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     const src = Array.isArray(questions) ? questions : [];
     return src
       .map((q: any) =>
-        q?.label && q?.type && q?.options ? (q as NormalizedQuestion) : toNormalized(q as RawQuestion, currentLang)
+        q?.label && q?.type && q?.options
+          ? (q as NormalizedQuestion)
+          : toNormalized(q as RawQuestion, currentLang)
       )
       .filter((q) => typeof q?.questionKey === 'string' && q.questionKey.trim().length > 0);
   }, [questions, currentLang]);
@@ -292,7 +294,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       if (sec === 0) {
         window.clearInterval(interval);
 
-        const mimeCandidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+        const mimeCandidates = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+        ];
         const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
 
         const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -585,7 +591,12 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
                             <Form.Label className="btn btn-outline-secondary mb-0">
                               <FaUpload className="me-1" /> {t('Upload')}
-                              <Form.Control type="file" accept="video/*" hidden onChange={handleUpload} />
+                              <Form.Control
+                                type="file"
+                                accept="video/*"
+                                hidden
+                                onChange={handleUpload}
+                              />
                             </Form.Label>
                           </div>
                         )}

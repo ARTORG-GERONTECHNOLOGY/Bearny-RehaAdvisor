@@ -1,19 +1,21 @@
 # core/views/redcap_patient_views.py
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
+
 from core.services.redcap_access import (
-    get_therapist_for_user,
     get_allowed_redcap_projects_for_therapist,
+    get_therapist_for_user,
 )
-from core.views.redcap_import_views import get_therapist_by_user_id, _norm
-from core.services.redcap_service import export_record_by_pat_id, RedcapError
+from core.services.redcap_service import RedcapError, export_record_by_pat_id
+from core.views.redcap_import_views import _norm, get_therapist_by_user_id
 
 logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -35,14 +37,23 @@ def redcap_patient(request):
     therapist_user_id = _norm(request.GET.get("therapistUserId"))
 
     # Allow both: (A) therapistUserId param OR (B) derive from request.user
-    therapist = get_therapist_by_user_id(therapist_user_id) if therapist_user_id else get_therapist_for_user(request.user)
+    therapist = (
+        get_therapist_by_user_id(therapist_user_id) if therapist_user_id else get_therapist_for_user(request.user)
+    )
     if not therapist:
         return JsonResponse({"ok": False, "error": "Therapist profile not found."}, status=404)
 
     allowed = therapist.projects
     print("Allowed REDCap projects for therapist:", allowed)
     if not allowed:
-        return JsonResponse({"ok": False, "error": "No REDCap projects configured for your clinic.", "project": project}, status=403)
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "No REDCap projects configured for your clinic.",
+                "project": project,
+            },
+            status=403,
+        )
 
     # Decide which projects to search
     if project:
@@ -87,7 +98,7 @@ def redcap_patient(request):
                 },
                 status=502,
             )
-        
+
         return JsonResponse(
             {
                 "ok": False,

@@ -1,19 +1,36 @@
 # api/celery.py
 import os
+
 from celery import Celery
 from mongoengine import connect
-import os
 
-connect(
-    db=os.environ.get("DB_NAME"),
-    host=os.environ.get("DB_HOST"),
-    port=int(os.environ.get("DB_PORT", "27017")),
-    username=os.environ.get("MONGO_INITDB_ROOT_USERNAME"),
-    password=os.environ.get("MONGO_INITDB_ROOT_PASSWORD"),
-    authentication_source=os.environ.get("MONGO_INITDB_AUTH_SOURCE", "admin"),
-    tls=True,
-    tlsCAFile="/etc/ssl/mongo/ca.crt",
-)
+
+def _as_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+if not _as_bool(os.environ.get("DISABLE_MONGO_CONNECT"), default=False):
+    kwargs = {
+        "db": os.environ.get("DB_NAME"),
+        "host": os.environ.get("DB_HOST") or os.environ.get("MONGODB_URI"),
+        "port": int(os.environ.get("DB_PORT", "27017")),
+        "username": os.environ.get("MONGO_INITDB_ROOT_USERNAME"),
+        "password": os.environ.get("MONGO_INITDB_ROOT_PASSWORD"),
+        "authentication_source": os.environ.get("MONGO_INITDB_AUTH_SOURCE", "admin"),
+    }
+
+    if _as_bool(os.environ.get("MONGO_TLS"), default=True):
+        kwargs["tls"] = True
+        ca_file = os.environ.get("MONGO_TLS_CA_FILE", "/etc/ssl/mongo/ca.crt")
+        if os.path.exists(ca_file):
+            kwargs["tlsCAFile"] = ca_file
+    else:
+        kwargs["tls"] = False
+
+    connect(**kwargs)
+
 # Must come before Celery starts
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings.base")
 
