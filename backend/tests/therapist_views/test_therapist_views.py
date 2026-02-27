@@ -1,19 +1,30 @@
 """
-Therapist Views API Tests
+Therapist views tests
+=====================
 
-This module tests therapist-facing API endpoints including intervention assignment,
-patient monitoring, custom intervention creation, and treatment plan management.
+Endpoints covered
+-----------------
+``GET  /api/therapists/<therapist_id>/patients/`` → ``list_therapist_patients``
+``POST /api/analytics/log``                        → ``create_log``
 
-Tests cover:
-- Assigning interventions to patients
-- Monitoring patient adherence and progress
-- Creating custom interventions
-- Managing rehabilitation plans
-- Error handling and validation
+Coverage goals
+--------------
+Happy-path
+  * Therapist can list active assigned patients.
+  * Response includes profile fields used by the therapist UI.
+  * Analytics log entries can be created for a valid user.
 
-Framework: Django Test Client with pytest
-Database: mongomock (in-memory MongoDB) for isolated testing
-Models: Therapist, Patient, Intervention, RehabilitationPlan, InterventionAssignment
+Input validation / branch coverage
+  * Invalid therapist ObjectId returns HTTP 400.
+  * Non-existent therapist returns HTTP 404.
+  * Wrong method on patient list returns HTTP 405.
+  * Inactive patients are excluded from therapist list.
+  * Invalid analytics payloads return HTTP 500 with error response.
+
+Test setup
+----------
+The ``mongo_mock`` autouse fixture provides an isolated in-memory mongomock
+connection for every test function.
 """
 
 import json
@@ -23,17 +34,31 @@ import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
-import pdb
+
 from core.models import (
-    DefaultInterventions,
+    AnswerOption,
+    FeedbackEntry,
+    FeedbackQuestion,
+    FitbitData,
+    HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    Logs,
     Patient,
+    PatientICFRating,
     PatientInterventionLogs,
-    PatientType,
+    QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
+    Translation,
     User,
+)
+from core.views.therapist_views import (
+    _adherence,
+    _avg,
+    _day_key,
+    _feedback_computing,
+    _sum_points_for_day,
 )
 
 client = Client()
@@ -41,21 +66,11 @@ client = Client()
 
 @pytest.fixture(autouse=True, scope="function")
 def mongo_mock():
-    """
-    Fixture: Mock MongoDB for therapist view tests
-    
-    Sets up:
-    - In-memory MongoDB connection for each test
-    - Isolation: Each test has clean database
-    - Cleanup: Disconnect after test completes
-    - No risk of data pollution between tests
-    """
-    import mongomock
+    """Isolated in-memory MongoDB for every test."""
     from mongoengine import connect, disconnect
-
-    alias = "default"
     from mongoengine.connection import _connections
 
+    alias = "default"
     if alias in _connections:
         disconnect(alias)
 
@@ -69,8 +84,8 @@ def mongo_mock():
     disconnect(alias)
 
 
-def create_therapist_with_patients():
-    user = User(
+def create_therapist_with_patient(*, patient_active=True):
+    therapist_user = User(
         username="therapist",
         email="t@example.com",
         phone="123",
@@ -78,7 +93,7 @@ def create_therapist_with_patients():
         isActive=True,
     ).save()
     therapist = Therapist(
-        userId=user,
+        userId=therapist_user,
         name="Therapist",
         first_name="John",
         specializations=["Cardiology"],
@@ -86,11 +101,15 @@ def create_therapist_with_patients():
     ).save()
 
     patient_user = User(
-        username="patient", email="p@example.com", phone="456", createdAt=datetime.now(), isActive=True
+        username="patient",
+        email="p@example.com",
+        phone="456",
+        createdAt=datetime.now(),
+        isActive=patient_active,
     ).save()
     patient = Patient(
         userId=patient_user,
-        patient_code="PAT001",
+        patient_code=f"PAT-{str(ObjectId())[-6:]}",
         name="Doe",
         first_name="Jane",
         access_word="word",
@@ -110,45 +129,14 @@ def create_therapist_with_patients():
     return therapist, patient
 
 
-def create_rehabilitation_plan(patient):
-    intervention = Intervention(
-        title="Stretching",
-        description="Stretching session",
-        content_type="Video",
-        external_id="some-id",
-        language="en",
-        aim="Education",
-        patient_types=[
-            PatientType(
-                type="Cardiology",
-                diagnosis="Stroke",
-                frequency="Daily",
-                include_option=True,
-            )
-        ],
-    ).save()
-
-    plan = RehabilitationPlan(
-        patientId=patient,
-        therapistId=patient.therapist,
-        startDate=datetime.now() - timedelta(days=10),
-        endDate=datetime.now() + timedelta(days=20),
-        status="active",
-        interventions=[],
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
-    )
-    plan.save()
-
-    return plan, intervention
-
-
 def test_list_therapist_patients_success():
-    therapist, patient = create_therapist_with_patients()
+    therapist, patient = create_therapist_with_patient()
+
     resp = client.get(
-        f"/api/therapists/{str(therapist.userId.id)}/patients/",
+        f"/api/therapists/{therapist.userId.id}/patients/",
         HTTP_AUTHORIZATION="Bearer test",
     )
+
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
@@ -156,63 +144,392 @@ def test_list_therapist_patients_success():
 
 
 def test_list_therapist_patients_not_found():
-    resp = client.get(
-        f"/api/therapists/{ObjectId()}/patients/", HTTP_AUTHORIZATION="Bearer test"
-    )
+    resp = client.get(f"/api/therapists/{ObjectId()}/patients/", HTTP_AUTHORIZATION="Bearer test")
+
     assert resp.status_code == 404
     assert resp.json()["error"] == "Therapist not found"
 
 
-def test_get_rehabilitation_plan_success():
-    therapist, patient = create_therapist_with_patients()
-    plan, intervention = create_rehabilitation_plan(patient)
-
-    # Simulate adding intervention assignment to the plan
-    plan.interventions.append(
-        InterventionAssignment(
-            interventionId=intervention,
-            frequency="Daily",
-            notes="Stretch daily",
-            dates=[
-                datetime.now() - timedelta(days=5),
-                datetime.now(),
-                datetime.now() + timedelta(days=5),
-            ],
-        )
-    )
-
-    plan.save()
-
+def test_list_therapist_patients_invalid_id_returns_400():
     resp = client.get(
-        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        "/api/therapists/not-an-object-id/patients/",
         HTTP_AUTHORIZATION="Bearer test",
     )
+
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "Invalid therapist ID"
+
+
+def test_list_therapist_patients_method_not_allowed():
+    therapist, _ = create_therapist_with_patient()
+
+    resp = client.post(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        data={},
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 405
+    assert resp.json()["error"] == "Method not allowed"
+
+
+def test_list_therapist_patients_excludes_inactive_users():
+    therapist, patient = create_therapist_with_patient(patient_active=False)
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
     assert resp.status_code == 200
     data = resp.json()
-    assert "startDate" in data
-    assert "interventions" in data
-    # Or other keys you expect
+    assert isinstance(data, list)
+    assert all(row["_id"] != str(patient.id) for row in data)
 
 
-def test_get_rehabilitation_plan_no_plans():
-    therapist, patient = create_therapist_with_patients()
+def test_list_therapist_patients_includes_login_and_biomarker_fields():
+    therapist, patient = create_therapist_with_patient()
+
+    Logs(userId=patient.userId, action="LOGIN", userAgent="pytest").save()
+    FitbitData(
+        user=patient.userId,
+        date=datetime.now() - timedelta(days=1),
+        steps=1000,
+        active_minutes=20,
+    ).save()
+
     resp = client.get(
-        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        f"/api/therapists/{therapist.userId.id}/patients/",
         HTTP_AUTHORIZATION="Bearer test",
     )
+
     assert resp.status_code == 200
-    data = resp.json()
-    assert "rehab_plan" in data
-    assert data["rehab_plan"] == []
-    assert data["message"] == "No rehabilitation plan found"
+    payload = resp.json()
+    patient_row = next(row for row in payload if row["_id"] == str(patient.id))
+    assert patient_row["last_online"] is not None
+    assert "biomarker" in patient_row
+    assert patient_row["biomarker"]["steps_avg"] == 1000.0
+    assert patient_row["biomarker"]["activity_min"] == 20.0
 
 
-def test_get_rehabilitation_plan_patient_not_found():
-    resp = client.get(
-        f"/api/patients/rehabilitation-plan/therapist/{ObjectId()}/",
+def test_create_log_success_for_existing_user():
+    user = User(
+        username="logger",
+        email="logger@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    long_details = "x" * 700
+    resp = client.post(
+        "/api/analytics/log",
+        data=json.dumps(
+            {
+                "user": str(user.id),
+                "action": "REHATABLE",
+                "started": datetime.now().isoformat(),
+                "ended": datetime.now().isoformat(),
+                "details": long_details,
+                "userAgent": "pytest-agent",
+            }
+        ),
+        content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code == 404
-    assert resp.json()["error"] == "Patient not found"
-    data = resp.json()
-    assert "error" in data
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["status"] == "ok"
+    log = Logs.objects.get(id=ObjectId(body["log_id"]))
+    assert log.userId.id == user.id
+    assert len(log.details) == 500
+
+
+def test_create_log_with_patient_reference():
+    therapist, patient = create_therapist_with_patient()
+
+    resp = client.post(
+        "/api/analytics/log",
+        data=json.dumps(
+            {
+                "user": str(therapist.userId.id),
+                "patient": str(patient.id),
+                "action": "HEALTH_PAGE",
+                "userAgent": "pytest-agent",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    log = Logs.objects.get(id=ObjectId(body["log_id"]))
+    assert log.patient is not None
+    assert str(log.patient.id) == str(patient.id)
+
+
+def test_create_log_invalid_json_returns_500():
+    resp = client.post(
+        "/api/analytics/log",
+        data="not-json",
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 500
+    assert resp.json()["error"] == "Failed to create log"
+
+
+def test_create_log_unknown_user_returns_500():
+    resp = client.post(
+        "/api/analytics/log",
+        data=json.dumps(
+            {
+                "user": str(ObjectId()),
+                "action": "OTHER",
+                "userAgent": "pytest-agent",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 500
+    assert resp.json()["error"] == "Failed to create log"
+
+
+def _build_q(question_key):
+    return FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey=question_key,
+        translations=[Translation(language="en", text=question_key)],
+        possibleAnswers=[
+            AnswerOption(key="1", translations=[Translation(language="en", text="1")]),
+            AnswerOption(key="2", translations=[Translation(language="en", text="2")]),
+        ],
+        answer_type="select",
+    ).save()
+
+
+def test_helper_avg_filters_non_numeric_values():
+    assert _avg([1, 2, "x", None]) == 1.5
+    assert _avg(["x", None]) is None
+
+
+def test_helper_day_key_returns_date_component():
+    dt = datetime(2026, 1, 1, 12, 30)
+    assert _day_key(dt).isoformat() == "2026-01-01"
+
+
+def test_sum_points_for_day_ignores_non_numeric_zero_and_other_questions():
+    q = _build_q(f"qk-{ObjectId()}")
+    other_q = _build_q(f"qk-{ObjectId()}")
+
+    rating_doc = type("DummyRating", (), {})()
+    rating_doc.feedback_entries = [
+        FeedbackEntry(questionId=q, answerKey=[AnswerOption(key="2")]),
+        FeedbackEntry(questionId=q, answerKey=[AnswerOption(key="0")]),
+        FeedbackEntry(questionId=q, answerKey=[AnswerOption(key="bad")]),
+        FeedbackEntry(questionId=other_q, answerKey=[AnswerOption(key="4")]),
+    ]
+
+    points = _sum_points_for_day([rating_doc], {str(q.id)})
+    assert points == 2
+
+
+def test_adherence_uses_schedule_when_plan_exists():
+    therapist, patient = create_therapist_with_patient()
+    intervention = Intervention(
+        external_id=f"e-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="Breathing exercise",
+        content_type="Video",
+    ).save()
+
+    now = datetime.now()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=now - timedelta(days=10),
+        endDate=now + timedelta(days=10),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention,
+                dates=[
+                    now - timedelta(days=1),
+                    now - timedelta(days=2),
+                    now + timedelta(days=1),
+                ],
+            )
+        ],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=now - timedelta(days=1),
+        status=["completed"],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=now - timedelta(days=2),
+        status=["skipped"],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=now - timedelta(days=20),
+        status=["completed"],
+    ).save()
+
+    adherence_7, adherence_total = _adherence(patient)
+    assert adherence_7 == 50
+    assert adherence_total == 100
+
+
+def test_adherence_falls_back_to_logs_when_no_schedule():
+    therapist, patient = create_therapist_with_patient()
+    intervention = Intervention(
+        external_id=f"e-{ObjectId()}",
+        language="en",
+        title="Relaxation",
+        description="Relaxation exercise",
+        content_type="Audio",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=5),
+        endDate=datetime.now() + timedelta(days=5),
+        status="active",
+        interventions=[],
+    ).save()
+
+    # No scheduled denominator: fallback to completed/(completed+skipped).
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=1),
+        status=["completed"],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=2),
+        status=["skipped"],
+    ).save()
+
+    adherence_7, adherence_total = _adherence(patient)
+    assert adherence_7 == 50
+    assert adherence_total == 50
+
+
+def test_adherence_returns_none_when_no_logs_and_no_schedule():
+    _, patient = create_therapist_with_patient()
+    adherence_7, adherence_total = _adherence(patient)
+    assert adherence_7 is None
+    assert adherence_total is None
+
+
+def test_feedback_computing_returns_empty_without_assignments():
+    _, patient = create_therapist_with_patient()
+    summary, last = _feedback_computing(patient)
+    assert summary == []
+    assert last is None
+
+
+def test_feedback_computing_handles_questionnaire_without_questions():
+    therapist, patient = create_therapist_with_patient()
+    qn = HealthQuestionnaire(key=f"HN-{ObjectId()}", title="No Questions", questions=[]).save()
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        questionnaires=[
+            QuestionnaireAssignment(
+                questionnaireId=qn,
+                dates=[datetime.now() - timedelta(days=1)],
+            )
+        ],
+    ).save()
+
+    summary, last = _feedback_computing(patient)
+    assert len(summary) == 1
+    assert summary[0]["title"] == "No Questions"
+    assert summary[0]["expected_total"] == 0
+    assert summary[0]["answered_total"] == 0
+    assert summary[0]["low_score"] is False
+    assert last is None
+
+
+def test_feedback_computing_scores_and_adherence_for_two_answer_days():
+    therapist, patient = create_therapist_with_patient()
+    q1 = _build_q(f"qk-{ObjectId()}")
+    q2 = _build_q(f"qk-{ObjectId()}")
+    qn = HealthQuestionnaire(
+        key=f"HN-{ObjectId()}",
+        title="Health Weekly",
+        questions=[q1, q2],
+    ).save()
+
+    now = datetime.now()
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=now - timedelta(days=10),
+        endDate=now + timedelta(days=10),
+        status="active",
+        questionnaires=[
+            QuestionnaireAssignment(
+                questionnaireId=qn,
+                dates=[now - timedelta(days=2), now - timedelta(days=1)],
+            )
+        ],
+    ).save()
+
+    PatientICFRating(
+        questionId=q1,
+        patientId=patient,
+        icfCode="b280",
+        date=now - timedelta(days=1),
+        feedback_entries=[
+            FeedbackEntry(questionId=q1, answerKey=[AnswerOption(key="1")]),
+            FeedbackEntry(questionId=q2, answerKey=[AnswerOption(key="1")]),
+        ],
+    ).save()
+    PatientICFRating(
+        questionId=q1,
+        patientId=patient,
+        icfCode="b280",
+        date=now - timedelta(days=2),
+        feedback_entries=[FeedbackEntry(questionId=q1, answerKey=[AnswerOption(key="2")])],
+    ).save()
+
+    summary, last = _feedback_computing(patient)
+    assert len(summary) == 1
+    item = summary[0]
+    assert item["title"] == "Health Weekly"
+    assert item["expected_total"] == 2
+    assert item["expected_7"] == 2
+    assert item["answered_total"] == 2
+    assert item["answered_7"] == 2
+    assert item["adherence_total"] == 100
+    assert item["adherence_7"] == 100
+    assert item["last_score"] == 2
+    assert item["prev_score"] == 2
+    assert item["delta_score"] == 0
+    assert item["low_score"] is True
+    assert item["last_answered_at"] is not None
+    assert last is not None

@@ -1,12 +1,12 @@
 import datetime
+import io
 import mimetypes
 import os
 import re
-import io
 import zipfile
 
-from django.http import HttpResponse, FileResponse, JsonResponse
 from django.core.files.storage import default_storage
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -144,17 +144,19 @@ def list_healthslider_items(request):
         if it.has_audio and it.audio_file and default_storage.exists(it.audio_file):
             size = default_storage.size(it.audio_file)
 
-        out.append({
-            "id": str(it.id),
-            "questionIndex": it.question_index,
-            "questionText": it.question_text,
-            "answerValue": it.answer_value,
-            "hasAudio": it.has_audio,
-            "audioSize": size,
-            "audioName": it.audio_name,
-            "audioMime": it.audio_mime,  # ✅ include to help UI if needed
-            "answeredAt": it.answered_at.isoformat() if it.answered_at else None,
-        })
+        out.append(
+            {
+                "id": str(it.id),
+                "questionIndex": it.question_index,
+                "questionText": it.question_text,
+                "answerValue": it.answer_value,
+                "hasAudio": it.has_audio,
+                "audioSize": size,
+                "audioName": it.audio_name,
+                "audioMime": it.audio_mime,  # ✅ include to help UI if needed
+                "answeredAt": it.answered_at.isoformat() if it.answered_at else None,
+            }
+        )
 
     return JsonResponse({"items": out})
 
@@ -176,7 +178,10 @@ def download_healthslider_audio(request, item_id: str):
         return JsonResponse({"error": "No audio on this item", "item_id": item_id}, status=404)
 
     if not default_storage.exists(entry.audio_file):
-        return JsonResponse({"error": "Audio file missing on server storage", "path": entry.audio_file}, status=404)
+        return JsonResponse(
+            {"error": "Audio file missing on server storage", "path": entry.audio_file},
+            status=404,
+        )
 
     filename = _safe_filename(entry.audio_name or os.path.basename(entry.audio_file) or "healthslider_audio.webm")
 
@@ -219,16 +224,16 @@ def download_healthslider_session_zip(request):
         return JsonResponse({"error": "No audio files found for this criteria"}, status=404)
 
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for entry in qs:
             if entry.audio_file and default_storage.exists(entry.audio_file):
-                with default_storage.open(entry.audio_file, 'rb') as f:
+                with default_storage.open(entry.audio_file, "rb") as f:
                     zf.writestr(entry.audio_name or os.path.basename(entry.audio_file), f.read())
 
     buffer.seek(0)
     zip_filename = f"HealthSlider_{_safe_slug(participant_id)}_{timezone.now().strftime('%Y%m%d')}.zip"
-    response = HttpResponse(buffer, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+    response = HttpResponse(buffer, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{zip_filename}"'
     return response
 
 
@@ -260,7 +265,9 @@ def delete_healthslider_session(request):
 
     qs.delete()
 
-    return JsonResponse({
-        "ok": True,
-        "message": f"Successfully deleted {count} items and their associated files."
-    })
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": f"Successfully deleted {count} items and their associated files.",
+        }
+    )

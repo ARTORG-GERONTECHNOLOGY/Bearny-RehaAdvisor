@@ -52,7 +52,12 @@ jobs:
       - name: Generate test coverage (Backend)
         working-directory: backend
         env:
-          MONGODB_URI: mongodb://localhost:27017/test
+          DJANGO_SETTINGS_MODULE: api.settings.dev
+          DB_HOST: localhost
+          DB_PORT: '27017'
+          DB_NAME: reha_advisor_test
+          MONGO_TLS: 'false'
+          DISABLE_MONGO_CONNECT: '1'
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-key
         run: |
@@ -139,19 +144,19 @@ jobs:
         working-directory: backend
         run: |
           pip install black
-          black --check . --diff || echo "Run: black ."
+          black --check . --diff
 
       - name: Check Python imports (isort)
         working-directory: backend
         run: |
           pip install isort
-          isort --check-only . --diff || echo "Run: isort ."
+          isort --check-only . --diff
 
       - name: Check JavaScript formatting (Prettier)
         working-directory: frontend
         run: |
           npm ci
-          npx prettier --check . || echo "Run: npm run format"
+          npx prettier --check .
 
       - name: Lint JavaScript (ESLint)
         working-directory: frontend

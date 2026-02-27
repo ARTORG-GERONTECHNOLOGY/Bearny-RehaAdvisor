@@ -2,34 +2,38 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from core.views.redcap_views import redcap_projects, redcap_record
-from core.views.redcap_import_views import available_redcap_patients,import_patient_from_redcap
+
 import core.views.auth_views as auth_views
+import core.views.fitbit_view as fitbit_views
 import core.views.patient_views as patient_views
 import core.views.recomendation_views as recomendation_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
-import core.views.fitbit_view as fitbit_views
-from core.views.questionaires_view import (
-    list_health_questionnaires,
-    list_patient_questionnaires,
-    assign_questionnaire,
-    remove_questionnaire,
-    list_dynamic_questionnaires
-)
 from core.views.eva_view import (
-    list_healthslider_items,
-    download_healthslider_audio,
-    submit_healthslider_item,
     delete_healthslider_session,
+    download_healthslider_audio,
     download_healthslider_session_zip,
+    list_healthslider_items,
+    submit_healthslider_item,
 )
-from core.views.therapist_projects import therapist_projects
-from core.views.redcap_patient_views import redcap_patient
-from core.views.therapist_access_views import therapist_access
 from core.views.intervention_import import import_interventions
 from core.views.patient_thresholds import patient_thresholds_view
+from core.views.questionaires_view import (
+    assign_questionnaire,
+    list_dynamic_questionnaires,
+    list_health_questionnaires,
+    list_patient_questionnaires,
+    remove_questionnaire,
+)
+from core.views.redcap_import_views import (
+    available_redcap_patients,
+    import_patient_from_redcap,
+)
+from core.views.redcap_patient_views import redcap_patient
+from core.views.redcap_views import redcap_projects, redcap_record
+from core.views.therapist_access_views import therapist_access
+from core.views.therapist_projects import therapist_projects
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -92,31 +96,61 @@ urlpatterns = [
         patient_views.remove_intervention_from_patient,
         name="del_rehabilitation_plan_intervention",
     ),
-    path("api/therapists/<str:therapist_id>/template-plan", recomendation_views.template_plan_preview),
-    path("api/therapists/<str:therapist_id>/templates/apply", recomendation_views.apply_template_to_patient),
+    path(
+        "api/therapists/<str:therapist_id>/template-plan",
+        recomendation_views.template_plan_preview,
+    ),
+    path(
+        "api/therapists/<str:therapist_id>/templates/apply",
+        recomendation_views.apply_template_to_patient,
+    ),
     # Questionnaires
-    path('api/questionnaires/health/', list_health_questionnaires),
-    path('api/questionnaires/patient/<str:patient_id>/', list_patient_questionnaires),
-    path('api/questionnaires/assign/', assign_questionnaire),
-    path('api/questionnaires/remove/', remove_questionnaire),
-    path('api/questionnaires/dynamic/',list_dynamic_questionnaires, name='get_dynamic_questionnaires'),
+    path("api/questionnaires/health/", list_health_questionnaires),
+    path("api/questionnaires/patient/<str:patient_id>/", list_patient_questionnaires),
+    path("api/questionnaires/assign/", assign_questionnaire),
+    path("api/questionnaires/remove/", remove_questionnaire),
+    path(
+        "api/questionnaires/dynamic/",
+        list_dynamic_questionnaires,
+        name="get_dynamic_questionnaires",
+    ),
     # Feedback
-    path("api/interventions/complete/", patient_views.mark_intervention_completed, name="mark_intervention_done_by_patient"),
-    path("api/interventions/uncomplete/", patient_views.unmark_intervention_completed, name="unmark_intervention_done_by_patient"),
-
+    path(
+        "api/interventions/complete/",
+        patient_views.mark_intervention_completed,
+        name="mark_intervention_done_by_patient",
+    ),
+    path(
+        "api/interventions/uncomplete/",
+        patient_views.unmark_intervention_completed,
+        name="unmark_intervention_done_by_patient",
+    ),
     path(
         "api/patients/feedback/questionaire/",
         patient_views.submit_patient_feedback,
         name="patient_post_feedback",
     ),
-    path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/', patient_views.get_feedback_questions, name='get_feedback_questions_no_intervention'),
-    path('api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/<str:intervention_id>/', patient_views.get_feedback_questions, name='get_feedback_questions'),
-
-    path("api/users/<str:patient_id>/initial-questionaire/", patient_views.initial_patient_questionaire, name="initial_questionaire"),
-
+    path(
+        "api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/",
+        patient_views.get_feedback_questions,
+        name="get_feedback_questions_no_intervention",
+    ),
+    path(
+        "api/patients/get-questions/<str:questionaire_type>/<str:patient_id>/<str:intervention_id>/",
+        patient_views.get_feedback_questions,
+        name="get_feedback_questions",
+    ),
+    path(
+        "api/users/<str:patient_id>/initial-questionaire/",
+        patient_views.initial_patient_questionaire,
+        name="initial_questionaire",
+    ),
     #  Intervention Management
     path("api/interventions/all/", recomendation_views.list_all_interventions),
-    path("api/interventions/all/<str:patient_id>/", recomendation_views.list_all_interventions),
+    path(
+        "api/interventions/all/<str:patient_id>/",
+        recomendation_views.list_all_interventions,
+    ),
     path(
         "api/interventions/add/",
         recomendation_views.add_new_intervention,
@@ -150,20 +184,64 @@ urlpatterns = [
         recomendation_views.create_patient_group,
         name="post_add_new_patient_group",
     ),
-    path('api/fitbit/callback/', fitbit_views.fitbit_callback, name='fitbit_callback'),
-    path('api/fitbit/status/<str:patient_id>/', fitbit_views.fitbit_status, name='fitbit_status'),  # API endpoint to check connection
-    path("api/fitbit/health-data/<str:patient_id>/", fitbit_views.get_fitbit_health_data, name="fitbit_health_data"),
-    path("api/therapists/<str:therapist_id>/patients/", therapist_views.get_patients_by_therapist, name="get_patients_by_therapist"),
-    path("api/patients/healthstatus-history/<str:patient_id>/", patient_views.get_patient_healthstatus_history, name="get_patient_healthstatus_history"),
-    path("api/patients/health-combined-history/<str:patient_id>/", patient_views.get_combined_health_data, name="get_combined_health_data"),
+    path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
+    path(
+        "api/fitbit/status/<str:patient_id>/",
+        fitbit_views.fitbit_status,
+        name="fitbit_status",
+    ),  # API endpoint to check connection
+    path(
+        "api/fitbit/health-data/<str:patient_id>/",
+        fitbit_views.get_fitbit_health_data,
+        name="fitbit_health_data",
+    ),
+    path(
+        "api/therapists/<str:therapist_id>/patients/",
+        therapist_views.get_patients_by_therapist,
+        name="get_patients_by_therapist",
+    ),
+    path(
+        "api/patients/healthstatus-history/<str:patient_id>/",
+        patient_views.get_patient_healthstatus_history,
+        name="get_patient_healthstatus_history",
+    ),
+    path(
+        "api/patients/health-combined-history/<str:patient_id>/",
+        patient_views.get_combined_health_data,
+        name="get_combined_health_data",
+    ),
     path("api/analytics/log", therapist_views.create_log, name="create_log"),
     path("api/fitbit/summary/", fitbit_views.fitbit_summary, name="fitbit-summary-me"),
-    path("api/fitbit/summary/<str:patient_id>/", fitbit_views.fitbit_summary, name="fitbit-summary"),
-    path("api/patients/vitals/manual/<str:patient_id>/", patient_views.add_manual_vitals, name="add_manual_vitals"),
-    path("api/patients/vitals/exists/<str:patient_id>/", patient_views.vitals_exists_for_day, name="vitals_exists_for_day"),
-    path("api/fitbit/manual_steps/<str:patient_id>/", fitbit_views.manual_steps, name="manual-steps"),
-    path("api/users/<str:therapist_id>/change-password/", user_views.change_password, name="change_password"),
-    path("api/patients/health-combined-history/<str:patient_id>/",fitbit_views.health_combined_history,name="health_combined_history"),
+    path(
+        "api/fitbit/summary/<str:patient_id>/",
+        fitbit_views.fitbit_summary,
+        name="fitbit-summary",
+    ),
+    path(
+        "api/patients/vitals/manual/<str:patient_id>/",
+        patient_views.add_manual_vitals,
+        name="add_manual_vitals",
+    ),
+    path(
+        "api/patients/vitals/exists/<str:patient_id>/",
+        patient_views.vitals_exists_for_day,
+        name="vitals_exists_for_day",
+    ),
+    path(
+        "api/fitbit/manual_steps/<str:patient_id>/",
+        fitbit_views.manual_steps,
+        name="manual-steps",
+    ),
+    path(
+        "api/users/<str:therapist_id>/change-password/",
+        user_views.change_password,
+        name="change_password",
+    ),
+    path(
+        "api/patients/health-combined-history/<str:patient_id>/",
+        fitbit_views.health_combined_history,
+        name="health_combined_history",
+    ),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
     # ICF/EVA Healthslider
     path("api/healthslider/items/", list_healthslider_items),
@@ -173,15 +251,28 @@ urlpatterns = [
     # REDCap Integration
     path("api/redcap/projects/", redcap_projects),
     path("api/redcap/patient/", redcap_patient),
-    path("api/redcap/available-patients/", available_redcap_patients, name="available-redcap-patients"),
-
+    path(
+        "api/redcap/available-patients/",
+        available_redcap_patients,
+        name="available-redcap-patients",
+    ),
     path("api/admin/therapist/access/", therapist_access, name="therapist_access"),
-    path("api/admin/therapist/access/<str:therapistId>/", therapist_access, name="therapist_access_admin"),
+    path(
+        "api/admin/therapist/access/<str:therapistId>/",
+        therapist_access,
+        name="therapist_access_admin",
+    ),
     path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
-    path("api/interventions/import/excel", import_interventions, name="import_interventions"),
-    path("api/patients/<str:patient_id>/thresholds/", patient_thresholds_view, name="patient-thresholds"),
-
-
+    path(
+        "api/interventions/import/excel",
+        import_interventions,
+        name="import_interventions",
+    ),
+    path(
+        "api/patients/<str:patient_id>/thresholds/",
+        patient_thresholds_view,
+        name="patient-thresholds",
+    ),
 ]
 
 # Only add this if DEBUG=True, which is typical in development

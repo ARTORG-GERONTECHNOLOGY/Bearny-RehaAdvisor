@@ -1,14 +1,26 @@
+import json
+from datetime import datetime, timedelta
+from statistics import mean
+
 from bson import ObjectId
 from django.http import JsonResponse
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-import json
-from core.models import Patient, Therapist, User, Logs, PatientICFRating, FitbitData, PatientInterventionLogs, GeneralFeedback
-from django.utils.dateparse import parse_datetime
-from datetime import datetime, timedelta
-from statistics import mean
+
+from core.models import (
+    FitbitData,
+    GeneralFeedback,
+    Logs,
+    Patient,
+    PatientICFRating,
+    PatientInterventionLogs,
+    Therapist,
+    User,
+)
 from utils.utils import _adherence, resolve_patient
+
 LOOKBACK_DAYS = 7
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -18,19 +30,25 @@ FILE_TYPE_FOLDERS = {
     "pdf": "documents",
 }
 
+
 def _avg(lst):
     lst = [x for x in lst if isinstance(x, (int, float))]
     return round(mean(lst), 1) if lst else None
+
+
 import logging
 
 from django.utils import timezone
+
 LOOKBACK_DAYS_7 = 7
 from core.models import PatientInterventionLogs, RehabilitationPlan
 
 logger = logging.getLogger(__name__)
 
 from datetime import datetime, timedelta
+
 from django.utils import timezone
+
 
 def _adherence(patient, lookback_days: int = 7):
     """
@@ -42,7 +60,7 @@ def _adherence(patient, lookback_days: int = 7):
     - All datetimes (schedule + logs) are normalized to timezone-aware before comparison.
     - Falls back to completed/(completed+skipped) if no schedule was created for the window.
     """
-    now = timezone.now()                       # aware
+    now = timezone.now()  # aware
     since = now - timedelta(days=lookback_days)
 
     # ---- helpers ------------------------------------------------------------
@@ -76,8 +94,8 @@ def _adherence(patient, lookback_days: int = 7):
     denom_7 = 0
     plan = RehabilitationPlan.objects(patientId=patient).first()
     if plan:
-        for ia in (getattr(plan, "interventions", []) or []):
-            for d in (getattr(ia, "dates", []) or []):
+        for ia in getattr(plan, "interventions", []) or []:
+            for d in getattr(ia, "dates", []) or []:
                 dt = _aware(_to_dt(d))
                 if not dt:
                     continue
@@ -98,18 +116,26 @@ def _adherence(patient, lookback_days: int = 7):
         is_skipped = "skipped" in statuses
 
         if dt <= now:
-            if is_completed: comp_total += 1
-            if is_skipped:   skip_total += 1
+            if is_completed:
+                comp_total += 1
+            if is_skipped:
+                skip_total += 1
         if since <= dt <= now:
-            if is_completed: comp_7 += 1
-            if is_skipped:   skip_7 += 1
+            if is_completed:
+                comp_7 += 1
+            if is_skipped:
+                skip_7 += 1
 
     # ---- adherence (fallback to completed/(completed+skipped) when no schedule)
-    adh_total = round(100 * comp_total / denom_total) if denom_total else (
-        round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None
+    adh_total = (
+        round(100 * comp_total / denom_total)
+        if denom_total
+        else (round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None)
     )
-    adh_7 = round(100 * comp_7 / denom_7) if denom_7 else (
-        round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None
+    adh_7 = (
+        round(100 * comp_7 / denom_7)
+        if denom_7
+        else (round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None)
     )
 
     return adh_7, adh_total
@@ -118,17 +144,25 @@ def _adherence(patient, lookback_days: int = 7):
 now = timezone.now()
 since7 = now - timedelta(days=LOOKBACK_DAYS_7)
 
+
 def _day_key(dt):
     # compare by calendar day; tolerant to time-of-day differences
     return dt.date()
 
+
 # core/views/therapist_views.py  (helpers)
 
 from datetime import datetime, timedelta
-from django.utils import timezone
-from bson import ObjectId
 
-from core.models import RehabilitationPlan, PatientICFRating, GeneralFeedback  # GeneralFeedback unused here but OK to import
+from bson import ObjectId
+from django.utils import timezone
+
+from core.models import (  # GeneralFeedback unused here but OK to import
+    GeneralFeedback,
+    PatientICFRating,
+    RehabilitationPlan,
+)
+
 
 def _sum_points_for_day(rating_docs, question_ids_set):
     """
@@ -139,7 +173,7 @@ def _sum_points_for_day(rating_docs, question_ids_set):
     """
     total = 0
     for r in rating_docs:
-        for fe in (getattr(r, "feedback_entries", None) or []):
+        for fe in getattr(r, "feedback_entries", None) or []:
             qid = getattr(fe, "questionId", None)
             if not qid:
                 continue
@@ -148,7 +182,7 @@ def _sum_points_for_day(rating_docs, question_ids_set):
             if qid_str not in question_ids_set:
                 continue
 
-            for ak in (getattr(fe, "answerKey", None) or []):
+            for ak in getattr(fe, "answerKey", None) or []:
                 key = ak if isinstance(ak, str) else getattr(ak, "key", None)
                 try:
                     v = int(str(key).strip())
@@ -174,7 +208,7 @@ def _feedback_computing(patient):
       }
     All datetimes returned ISO formatted strings (aware).
     """
-    now = timezone.now()                 # aware
+    now = timezone.now()  # aware
     since7 = now - timedelta(days=7)
 
     def _to_dt(val):
@@ -221,7 +255,7 @@ def _feedback_computing(patient):
 
         # ---- set of question ids (strings) this questionnaire contains ----
         question_ids_set = set()
-        for q in (getattr(qdoc, "questions", []) or []):
+        for q in getattr(qdoc, "questions", []) or []:
             try:
                 question_ids_set.add(str(q.id if hasattr(q, "id") else ObjectId(str(q))))
             except Exception:
@@ -229,22 +263,24 @@ def _feedback_computing(patient):
 
         if not question_ids_set:
             # Nothing to compute for this assignment
-            summary.append({
-                "questionnaireId": str(getattr(qdoc, "id", "")),
-                "key": getattr(qdoc, "key", None),
-                "title": getattr(qdoc, "title", None),
-                "expected_total": 0,
-                "expected_7": 0,
-                "answered_total": 0,
-                "answered_7": 0,
-                "adherence_total": None,
-                "adherence_7": None,
-                "last_answered_at": None,
-                "last_score": None,
-                "prev_score": None,
-                "delta_score": None,
-                "low_score": False,
-            })
+            summary.append(
+                {
+                    "questionnaireId": str(getattr(qdoc, "id", "")),
+                    "key": getattr(qdoc, "key", None),
+                    "title": getattr(qdoc, "title", None),
+                    "expected_total": 0,
+                    "expected_7": 0,
+                    "answered_total": 0,
+                    "answered_7": 0,
+                    "adherence_total": None,
+                    "adherence_7": None,
+                    "last_answered_at": None,
+                    "last_score": None,
+                    "prev_score": None,
+                    "delta_score": None,
+                    "low_score": False,
+                }
+            )
             continue
 
         # ---- normalize scheduled dates for this questionnaire ----
@@ -280,7 +316,7 @@ def _feedback_computing(patient):
 
             # skip docs that don't contain any entry for this questionnaire
             contains_relevant = False
-            for fe in (getattr(r, "feedback_entries", None) or []):
+            for fe in getattr(r, "feedback_entries", None) or []:
                 qid = getattr(fe, "questionId", None)
                 qid_str = str(getattr(qid, "id", qid))
                 if qid_str in question_ids_set:
@@ -293,10 +329,7 @@ def _feedback_computing(patient):
             day_to_docs.setdefault(dkey, []).append(r)
 
         # answered counts
-        all_answer_days_sorted = sorted(
-            [d for d in day_to_docs.keys() if d <= now.date()],
-            reverse=True
-        )
+        all_answer_days_sorted = sorted([d for d in day_to_docs.keys() if d <= now.date()], reverse=True)
         answered_total = len(all_answer_days_sorted)
         answered_7 = sum(1 for d in all_answer_days_sorted if since7.date() <= d <= now.date())
 
@@ -310,7 +343,7 @@ def _feedback_computing(patient):
             # pick the max datetime within that day as "last answered at"
             last_dt = max(
                 (_aware(getattr(doc, "date", None)) for doc in day_to_docs[last_day] if getattr(doc, "date", None)),
-                default=None
+                default=None,
             )
             last_score = _sum_points_for_day(day_to_docs[last_day], question_ids_set)
 
@@ -332,14 +365,12 @@ def _feedback_computing(patient):
                 "questionnaireId": str(getattr(qdoc, "id", "")),
                 "key": getattr(qdoc, "key", None),
                 "title": getattr(qdoc, "title", None),
-
                 "expected_total": expected_total,
                 "expected_7": expected_7,
                 "answered_total": answered_total,
                 "answered_7": answered_7,
                 "adherence_total": adherence_total,
                 "adherence_7": adherence_7,
-
                 "last_answered_at": (last_dt.isoformat() if last_dt else None),
                 "last_score": last_score,
                 "prev_score": prev_score,
@@ -349,9 +380,6 @@ def _feedback_computing(patient):
         )
 
     return summary, global_last
-
-
-
 
 
 @csrf_exempt
@@ -377,10 +405,20 @@ def list_therapist_patients(request, therapist_id):
         since = datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)
         output_list = []
 
-        qs = Patient.objects(therapist=therapist).only(
-            "first_name", "name", "sex", "diagnosis", "age",
-            "patient_code", "userId", "reha_end_date"
-        ).no_dereference()
+        qs = (
+            Patient.objects(therapist=therapist)
+            .only(
+                "first_name",
+                "name",
+                "sex",
+                "diagnosis",
+                "age",
+                "patient_code",
+                "userId",
+                "reha_end_date",
+            )
+            .no_dereference()
+        )
 
         for patient in qs:
             user_ref = getattr(patient, "userId", None)
@@ -395,7 +433,11 @@ def list_therapist_patients(request, therapist_id):
             try:
                 summary, last_fb_dt = _feedback_computing(patient)
             except Exception as e:
-                logger.error("[list_therapist_patients] feedback summary error %s: %s", str(patient.pk), str(e))
+                logger.error(
+                    "[list_therapist_patients] feedback summary error %s: %s",
+                    str(patient.pk),
+                    str(e),
+                )
                 summary, last_fb_dt = [], None
 
             steps_vals, activity_vals, sleep_hours = [], [], []
@@ -420,27 +462,33 @@ def list_therapist_patients(request, therapist_id):
             try:
                 adh_7, adh_total = _adherence(patient)
             except Exception as e:
-                logger.error("[list_therapist_patients] adherence error %s: %s", str(patient.pk), str(e))
+                logger.error(
+                    "[list_therapist_patients] adherence error %s: %s",
+                    str(patient.pk),
+                    str(e),
+                )
                 adh_7, adh_total = None, None
 
-            output_list.append({
-                "_id": str(patient.pk),
-                "username": getattr(user, "username", ""),  # ✅ tests look for username
-                "patient_code": getattr(patient, "patient_code", "-"),
-                "first_name": getattr(patient, "first_name", ""),
-                "name": getattr(patient, "name", ""),
-                "sex": getattr(patient, "sex", None),
-                "diagnosis": getattr(patient, "diagnosis", []),
-                "age": getattr(patient, "age", None),
-                "created_at": user.createdAt.isoformat() if getattr(user, "createdAt", None) else None,
-                "last_online": last_online_dt.isoformat() if last_online_dt else None,
-                "last_feedback_at": last_fb_dt.isoformat() if last_fb_dt else None,
-                "questionnaires": summary,
-                "feedback_low": any(it.get("low_score") for it in summary),
-                "biomarker": biomarker,
-                "adherence_rate": adh_7,
-                "adherence_total": adh_total,
-            })
+            output_list.append(
+                {
+                    "_id": str(patient.pk),
+                    "username": getattr(user, "username", ""),  # ✅ tests look for username
+                    "patient_code": getattr(patient, "patient_code", "-"),
+                    "first_name": getattr(patient, "first_name", ""),
+                    "name": getattr(patient, "name", ""),
+                    "sex": getattr(patient, "sex", None),
+                    "diagnosis": getattr(patient, "diagnosis", []),
+                    "age": getattr(patient, "age", None),
+                    "created_at": (user.createdAt.isoformat() if getattr(user, "createdAt", None) else None),
+                    "last_online": (last_online_dt.isoformat() if last_online_dt else None),
+                    "last_feedback_at": last_fb_dt.isoformat() if last_fb_dt else None,
+                    "questionnaires": summary,
+                    "feedback_low": any(it.get("low_score") for it in summary),
+                    "biomarker": biomarker,
+                    "adherence_rate": adh_7,
+                    "adherence_total": adh_total,
+                }
+            )
 
         # ✅ tests expect the response itself is a list
         return JsonResponse(output_list, safe=False, status=200)
@@ -448,7 +496,6 @@ def list_therapist_patients(request, therapist_id):
     except Exception as e:
         logger.error("[list_therapist_patients] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
 
 
 @csrf_exempt
@@ -471,13 +518,14 @@ def get_patients_by_therapist(request, therapist_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def create_log(request):
     try:
         data = json.loads(request.body)
-        user = data.get('user')
-      
+        user = data.get("user")
+
         # Parse datetime safely
         started = parse_datetime(data.get("started")) if data.get("started") else None
         ended = parse_datetime(data.get("ended")) if data.get("ended") else None

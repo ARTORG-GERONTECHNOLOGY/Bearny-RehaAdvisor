@@ -38,7 +38,7 @@ from utils.utils import (
 def mongo_mock():
     """
     Fixture: Mock MongoDB for utility tests
-    
+
     Sets up:
     - In-memory MongoDB client for each test
     - No external database dependency
@@ -51,17 +51,17 @@ def mongo_mock():
 
 def test_ensure_aware_naive_datetime():
     """
-    
+
     Setup:
     - Naive datetime created with datetime.now()
     - No timezone information
-    
+
     Steps:
-    
+
     Expected Results:
     - Returned datetime has tzinfo set (not None)
     - Can be used for database storage
-    
+
     Why Important: Ensures consistent timezone handling across system
     """
     naive_dt = datetime.now()
@@ -71,13 +71,13 @@ def test_ensure_aware_naive_datetime():
 
 def test_ensure_aware_already_aware_datetime():
     """
-    
+
     Setup:
     - Datetime already has timezone info
     - Created with .astimezone()
-    
+
     Steps:
-    
+
     Expected Results:
     - Returned datetime still has tzinfo
     - No modification needed
@@ -89,17 +89,17 @@ def test_ensure_aware_already_aware_datetime():
 
 def test_sanitize_text_basic():
     """
-    
+
     Setup:
     - Text: "   Hello   World   " (extra spaces)
-    
+
     Steps:
-    
+
     Expected Results:
     - Returns: "Hello World"
     - Extra spaces removed
     - Ready for database storage
-    
+
     Use Case: User input has trailing/leading spaces from copy-paste
     """
     text = "   Hello   World   "
@@ -109,16 +109,16 @@ def test_sanitize_text_basic():
 
 def test_sanitize_text_special_characters():
     """
-    
+
     Setup:
     - Text: "Müller Straße" (German with umlauts)
-    
+
     Steps:
-    
+
     Expected Results:
     - Returns: "Mueller Strasse"
     - ASCII-safe for compatibility
-    
+
     Use Case: International names in form fields, ensure storage compatibility
     """
     text = "Müller Straße"
@@ -128,16 +128,16 @@ def test_sanitize_text_special_characters():
 
 def test_sanitize_text_accented():
     """
-    
+
     Setup:
     - Text: "Café Noël" (French with accents)
-    
+
     Steps:
-    
+
     Expected Results:
     - Returns: "Cafe Noel"
     - International characters normalized
-    
+
     Use Case: Multi-language support, normalize user names
     """
     text = "Café Noël"
@@ -214,9 +214,7 @@ def test_get_db_handle_returns_db_and_client(mock_mongo):
 
     assert result_db == db
     assert result_client == mock_client
-    mock_mongo.assert_called_with(
-        host=host, port=port, username=username, password=password
-    )
+    mock_mongo.assert_called_with(host=host, port=port, username=username, password=password)
 
 
 def test_convert_to_serializable_objectid():

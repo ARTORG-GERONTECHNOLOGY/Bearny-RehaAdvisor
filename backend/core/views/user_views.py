@@ -1,30 +1,40 @@
 import json
 import logging
-from django.conf import settings
+
 from bson import ObjectId
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
-from core.models import Logs, Patient, Therapist, User, PasswordAttempt
-from utils.utils import convert_to_serializable, sanitize_text, check_rate_limit, validate_password_strength
+
+from core.models import Logs, PasswordAttempt, Patient, Therapist, User
+from utils.utils import (
+    check_rate_limit,
+    convert_to_serializable,
+    sanitize_text,
+    validate_password_strength,
+)
 
 logger = logging.getLogger(__name__)
-from datetime import datetime, timedelta, date
 import re
+from datetime import date, datetime, timedelta
+
 from django.core.mail import send_mail
 from django.views.decorators.http import require_http_methods
 from mongoengine.queryset.visitor import Q
+
 
 # ----------------------------------------
 # Helper
 # ----------------------------------------
 def valid_update_value(v):
     if v in ("", None, []):
-        return False     # skip completely
-    return True          # update stored value
+        return False  # skip completely
+    return True  # update stored value
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -60,10 +70,13 @@ def change_password(request, therapist_id):
     if attempt.count >= max_attempts:
         if now - attempt.last_attempt < window:
             remaining = int((window - (now - attempt.last_attempt)).total_seconds() / 60)
-            return JsonResponse({
-                "error": "Too many failed attempts.",
-                "minutes_remaining": remaining,
-            }, status=429)
+            return JsonResponse(
+                {
+                    "error": "Too many failed attempts.",
+                    "minutes_remaining": remaining,
+                },
+                status=429,
+            )
         else:
             attempt.count = 0
             attempt.save()
@@ -106,16 +119,18 @@ def change_password(request, therapist_id):
 
     # Strong password check
     import re
+
     if (
-        len(new_password) < 8 or
-        not re.search(r"[A-Z]", new_password) or
-        not re.search(r"[a-z]", new_password) or
-        not re.search(r"[0-9]", new_password) or
-        not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password)
+        len(new_password) < 8
+        or not re.search(r"[A-Z]", new_password)
+        or not re.search(r"[a-z]", new_password)
+        or not re.search(r"[0-9]", new_password)
+        or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password)
     ):
-        return JsonResponse({
-            "error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"
-        }, status=400)
+        return JsonResponse(
+            {"error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"},
+            status=400,
+        )
 
     # Save new password
     user.pwdhash = make_password(new_password)
@@ -125,11 +140,10 @@ def change_password(request, therapist_id):
         userId=user,
         action="UPDATE_PROFILE",
         userAgent="Therapist",
-        details="Password changed securely"
+        details="Password changed securely",
     )
 
     return JsonResponse({"message": "Password changed successfully"}, status=200)
-
 
 
 @csrf_exempt
@@ -188,13 +202,7 @@ def user_profile_view(request, user_id):
             return [sanitize(x) for x in v if x not in ("", None)]
 
         if isinstance(v, str):
-            cleaned = (
-                v.replace("<", "")
-                .replace(">", "")
-                .replace("{", "")
-                .replace("}", "")
-                .strip()
-            )
+            cleaned = v.replace("<", "").replace(">", "").replace("{", "").replace("}", "").strip()
             return cleaned[:500]
 
         if isinstance(v, (int, float, bool)) or v is None:
@@ -266,7 +274,13 @@ def user_profile_view(request, user_id):
                     return JsonResponse({"error": "Patient profile not found"}, status=404)
 
                 excluded_user = {"pwdhash", "createdAt", "updatedAt", "id"}
-                excluded_patient = {"pwdhash", "access_word", "therapist", "userId", "id"}
+                excluded_patient = {
+                    "pwdhash",
+                    "access_word",
+                    "therapist",
+                    "userId",
+                    "id",
+                }
 
                 obj = {}
 
@@ -282,11 +296,7 @@ def user_profile_view(request, user_id):
                     if isinstance(obj.get(dkey), datetime):
                         obj[dkey] = obj[dkey].date().isoformat()
 
-                last_login = (
-                    Logs.objects(userId=user, action="LOGIN")
-                    .order_by("-timestamp")
-                    .first()
-                )
+                last_login = Logs.objects(userId=user, action="LOGIN").order_by("-timestamp").first()
                 if last_login:
                     obj["last_online"] = last_login.timestamp.date().isoformat()
 
@@ -330,7 +340,10 @@ def user_profile_view(request, user_id):
                 )
 
                 # test expects substring "Profile updated"
-                return JsonResponse({"message": "Profile updated", "updated": {"pwdhash": True}}, status=200)
+                return JsonResponse(
+                    {"message": "Profile updated", "updated": {"pwdhash": True}},
+                    status=200,
+                )
 
             # ---------------------------------------------------------
             # Overposting protection
@@ -416,7 +429,10 @@ def user_profile_view(request, user_id):
                             val = parsed
                         except Exception:
                             # ✅ tests expect "Invalid date format" substring
-                            return JsonResponse({"error": f"Invalid date format for {field}"}, status=400)
+                            return JsonResponse(
+                                {"error": f"Invalid date format for {field}"},
+                                status=400,
+                            )
                     else:
                         val = sanitize(raw_val)
 
@@ -449,7 +465,7 @@ def user_profile_view(request, user_id):
             Logs.objects.create(
                 userId=user,
                 action="DELETE_ACCOUNT",
-                userAgent='Patient',
+                userAgent="Patient",
                 details=f"Soft-deleted {user_id}",
             )
 
@@ -467,7 +483,6 @@ def user_profile_view(request, user_id):
 def get_pending_users(request):
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
-
 
     try:
         pending_users = User.objects(isActive=False)
@@ -542,7 +557,6 @@ def get_pending_users(request):
 def accept_user(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
-
 
     try:
         data = json.loads(request.body or "{}")

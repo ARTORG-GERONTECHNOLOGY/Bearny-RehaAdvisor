@@ -68,7 +68,10 @@ const RehabTable: React.FC = observer(() => {
   // ✅ Central refresh function (used after successful submit)
   const refreshAfterScheduleChange = async () => {
     await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
-    store.patientData = (store as any).mergePlanWithCatalog(store.patientData, store.allInterventions);
+    store.patientData = (store as any).mergePlanWithCatalog(
+      store.patientData,
+      store.allInterventions
+    );
     await store.translateVisibleItems(store.userLang);
   };
 

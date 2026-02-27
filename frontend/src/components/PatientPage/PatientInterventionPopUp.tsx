@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Col, Modal, Row, Badge, Button, Container, OverlayTrigger, Tooltip, ButtonGroup } from 'react-bootstrap';
+import {
+  Col,
+  Modal,
+  Row,
+  Badge,
+  Button,
+  Container,
+  OverlayTrigger,
+  Tooltip,
+  ButtonGroup,
+} from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Document, Page } from 'react-pdf';
 import { FaLock } from 'react-icons/fa';
@@ -174,7 +184,8 @@ const getAllMedia = (item: any): InterventionMedia[] => {
 };
 
 const getPlayableUrl = (m: InterventionMedia): string => {
-  if (m.media_type === 'streaming' && lower(m.provider) === 'spotify' && m.embed_url) return m.embed_url;
+  if (m.media_type === 'streaming' && lower(m.provider) === 'spotify' && m.embed_url)
+    return m.embed_url;
   if (m.kind === 'external') return norm(m.url || '');
   if (m.kind === 'file') return norm(m.file_url || m.file_path || '');
   return '';
@@ -265,7 +276,10 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   }, [i18n?.language]);
 
   const currentLang = useMemo(
-    () => String(effectiveItem?.language || '').trim().toLowerCase(),
+    () =>
+      String(effectiveItem?.language || '')
+        .trim()
+        .toLowerCase(),
     [effectiveItem?.language]
   );
 
@@ -277,7 +291,8 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     const seeded = toLangList(effectiveItem?.available_languages);
 
     const seedOpts: LangOpt[] = seeded.map((l) => ({ language: l, title: null }));
-    if (currentLang && !seeded.includes(currentLang)) seedOpts.unshift({ language: currentLang, title: null });
+    if (currentLang && !seeded.includes(currentLang))
+      seedOpts.unshift({ language: currentLang, title: null });
     if (seedOpts.length) setLangOptions(seedOpts);
 
     try {
@@ -285,14 +300,22 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
       if (externalId) {
         // if your apiClient already prefixes /api, remove "/api" here
-        const res = await apiClient.get('/api/interventions/all/', { params: { external_id: externalId } });
-        const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        const res = await apiClient.get('/api/interventions/all/', {
+          params: { external_id: externalId },
+        });
+        const arr = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+            ? res.data.data
+            : [];
 
         const map: Record<string, any> = {};
         const opts: LangOpt[] = [];
 
         for (const v of arr) {
-          const l = String(v?.language || '').trim().toLowerCase();
+          const l = String(v?.language || '')
+            .trim()
+            .toLowerCase();
           if (!l) continue;
           map[l] = v;
           opts.push({ language: l, title: v?.title ?? null });
@@ -336,12 +359,16 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
     return [...(langOptions || [])]
       .filter((x) => x?.language)
-      .sort((a, b) => score(a.language) - score(b.language) || a.language.localeCompare(b.language));
+      .sort(
+        (a, b) => score(a.language) - score(b.language) || a.language.localeCompare(b.language)
+      );
   }, [langOptions, preferredLang]);
 
   const switchVariantByLang = useCallback(
     async (lang: string) => {
-      const nextLang = String(lang || '').toLowerCase().trim();
+      const nextLang = String(lang || '')
+        .toLowerCase()
+        .trim();
       if (!nextLang || nextLang === currentLang) return;
 
       if (variantsByLang[nextLang]) {
@@ -358,7 +385,11 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
           params: { external_id: externalId, lang: nextLang },
         });
 
-        const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        const arr = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+            ? res.data.data
+            : [];
         const next = arr?.[0];
         if (next) setLocalOverride(next);
       } catch {
@@ -406,8 +437,14 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     run();
   }, [show, effectiveItem]);
 
-  const effectiveMediaList: InterventionMedia[] = useMemo(() => getAllMedia(effectiveItem), [effectiveItem]);
-  const effectiveMediaBadge = useMemo(() => getMediaBadge(effectiveMediaList), [effectiveMediaList]);
+  const effectiveMediaList: InterventionMedia[] = useMemo(
+    () => getAllMedia(effectiveItem),
+    [effectiveItem]
+  );
+  const effectiveMediaBadge = useMemo(
+    () => getMediaBadge(effectiveMediaList),
+    [effectiveMediaList]
+  );
 
   // media badge color same logic as therapist list
   const interventionForBadges = (effectiveItem?.intervention ?? effectiveItem) as any;
@@ -429,7 +466,12 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                 <Page pageNumber={1} width={320} />
               </Document>
             </div>
-            <a href={playable} className="btn btn-outline-primary btn-sm mt-2" target="_blank" rel="noreferrer">
+            <a
+              href={playable}
+              className="btn btn-outline-primary btn-sm mt-2"
+              target="_blank"
+              rel="noreferrer"
+            >
               {t('Open PDF')}
             </a>
           </>
@@ -484,7 +526,8 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   };
 
   const renderMediaContent = () => {
-    if (!effectiveMediaList.length) return <div className="text-muted">{t('No media available.')}</div>;
+    if (!effectiveMediaList.length)
+      return <div className="text-muted">{t('No media available.')}</div>;
     return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
   };
 
@@ -501,7 +544,15 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const titleRaw = effectiveItem?.title || effectiveItem?.intervention_title || '';
 
   return (
-    <Modal show={show} onHide={confirmClose} centered size="lg" scrollable backdrop="static" keyboard>
+    <Modal
+      show={show}
+      onHide={confirmClose}
+      centered
+      size="lg"
+      scrollable
+      backdrop="static"
+      keyboard
+    >
       <Modal.Header closeButton>
         <Modal.Title as="h2" className="d-flex align-items-center gap-2 flex-wrap">
           {effectiveIsPrivate && (
@@ -595,7 +646,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             <Col xs={12} md={6}>
               <div className="d-flex align-items-center justify-content-between">
                 <h5 className="mb-0">{t('Media')}</h5>
-                <Badge bg={effectiveMediaBadge.variant as any}>{t(effectiveMediaBadge.label)}</Badge>
+                <Badge bg={effectiveMediaBadge.variant as any}>
+                  {t(effectiveMediaBadge.label)}
+                </Badge>
               </div>
               <div className="mt-2">{renderMediaContent()}</div>
             </Col>
