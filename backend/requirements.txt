@@ -22,3 +22,6 @@ celery
 django-celery-beat
 redis
 openpyxl
+pytest-cov
+black
+isort

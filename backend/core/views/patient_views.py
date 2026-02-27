@@ -1,19 +1,14 @@
+import datetime
+import datetime as dt
 import json
 import logging
+import os
 import random
-import datetime as dt
-import re, tempfile, os
-from pydub import AudioSegment
-from pydub.utils import which as pd_which
+import re
+import tempfile
 from datetime import timedelta
-from utils.utils import (
-    generate_custom_id,
-    generate_repeat_dates,
-    get_labels,
-    sanitize_text,
-)
-import datetime, json
 from urllib.parse import urljoin
+
 import speech_recognition as sr
 from bson import ObjectId
 from django.conf import settings
@@ -23,38 +18,43 @@ from django.utils import timezone
 from django.utils.timezone import now as dj_now
 from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
+from pydub import AudioSegment
+from pydub.utils import which as pd_which
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from pydub import AudioSegment   
+
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from core.models import (
     AnswerOption,
     FeedbackEntry,
     FeedbackQuestion,
+    FitbitData,
     GeneralFeedback,
     Intervention,
     InterventionAssignment,
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
+    PatientVitals,
     RehabilitationPlan,
     Therapist,
     Translation,
     User,
-    FitbitData,
-    PatientVitals
 )
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.utils import (
+    _adherence,
     convert_to_serializable,
     ensure_aware,
+    generate_custom_id,
     generate_repeat_dates,
+    get_labels,
+    resolve_patient,
     sanitize_text,
     serialize_datetime,
     transcribe_file,
-    resolve_patient,
-    _adherence
 )
-from core.views.fitbit_sync import fetch_fitbit_today_for_user
+
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 FILE_TYPE_FOLDERS = {
@@ -86,6 +86,7 @@ FILE_TYPE_FOLDERS = {
 FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -148,9 +149,12 @@ def submit_patient_feedback(request):
                 logger.info(f"[submit_patient_feedback] Saved video to {path}")
 
                 normalized_key = re.sub(r"_(video)$", "", key)
-                answers[normalized_key] = {"video_url": url, "uploaded_at": timezone.now()}
+                answers[normalized_key] = {
+                    "video_url": url,
+                    "uploaded_at": timezone.now(),
+                }
                 continue
-            
+
             # --- Audio (robust) ---
             ext = upload.name.rsplit(".", 1)[-1].lower()
             folder = FILE_TYPE_FOLDERS.get(ext, "audio")
@@ -186,17 +190,23 @@ def submit_patient_feedback(request):
                     except Exception as e:
                         logger.error(
                             "[submit_patient_feedback] ffmpeg/pydub conversion failed for %s: %s",
-                            key, e, exc_info=True
+                            key,
+                            e,
+                            exc_info=True,
                         )
                     finally:
-                        try: os.remove(tmp_in_path)
-                        except Exception: pass
-                        try: os.remove(wav_path)
-                        except Exception: pass
+                        try:
+                            os.remove(tmp_in_path)
+                        except Exception:
+                            pass
+                        try:
+                            os.remove(wav_path)
+                        except Exception:
+                            pass
                 else:
                     logger.warning(
                         "[submit_patient_feedback] ffmpeg not available; skipping transcription for %s",
-                        key
+                        key,
                     )
             except (ValueError, sr.UnknownValueError, sr.RequestError) as e:
                 logger.warning("[submit_patient_feedback] Transcription failed for %s: %s", key, e)
@@ -257,7 +267,7 @@ def submit_patient_feedback(request):
                     userId=patient,
                     interventionId=intervention,
                     rehabilitationPlanId=plan,
-                    date=day_start,   # keep consistent day anchor
+                    date=day_start,  # keep consistent day anchor
                     status=[],
                     feedback=[],
                     comments="",
@@ -273,7 +283,10 @@ def submit_patient_feedback(request):
 
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
                 if not qobj:
-                    logger.warning("[submit_patient_feedback] No FeedbackQuestion found for key: %s", qkey)
+                    logger.warning(
+                        "[submit_patient_feedback] No FeedbackQuestion found for key: %s",
+                        qkey,
+                    )
                     continue
 
                 entry_kwargs = {
@@ -293,7 +306,7 @@ def submit_patient_feedback(request):
                     opts = [
                         AnswerOption(
                             key="text",
-                            translations=[Translation(language="en", text=text_ans or " ")]
+                            translations=[Translation(language="en", text=text_ans or " ")],
                         )
                     ]
                     entry_kwargs["audio_url"] = answer_val.get("audio_url")
@@ -302,14 +315,17 @@ def submit_patient_feedback(request):
                     for v in answer_val:
                         opt = next((o for o in qobj.possibleAnswers if o.key == v), None)
                         opts.append(
-                            opt if opt else AnswerOption(key=str(v), translations=[Translation(language="en", text=str(v))])
+                            opt
+                            if opt
+                            else AnswerOption(
+                                key=str(v),
+                                translations=[Translation(language="en", text=str(v))],
+                            )
                         )
                 else:
                     v = str(answer_val)
                     opt = next((o for o in qobj.possibleAnswers if o.key == v), None)
-                    opts = [
-                        opt if opt else AnswerOption(key=v, translations=[Translation(language="en", text=v)])
-                    ]
+                    opts = [opt if opt else AnswerOption(key=v, translations=[Translation(language="en", text=v)])]
 
                 entry_kwargs["answerKey"] = opts
                 entry_kwargs["comment"] = comment
@@ -323,9 +339,7 @@ def submit_patient_feedback(request):
         # =========================
         else:
             for qkey, answer_val in answers.items():
-                qobj = FeedbackQuestion.objects.filter(
-                    questionKey=qkey, questionSubject="Healthstatus"
-                ).first()
+                qobj = FeedbackQuestion.objects.filter(questionKey=qkey, questionSubject="Healthstatus").first()
                 if not qobj:
                     continue
 
@@ -375,7 +389,6 @@ def submit_patient_feedback(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
@@ -420,13 +433,13 @@ def mark_intervention_completed(request):
 
         # Local day boundaries (aware)
         local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
-        local_end   = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
+        local_end = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
 
         # -----------------------------
         # 2) Convert to UTC *naive* for MongoEngine storage/query consistency
         # -----------------------------
         utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        utc_end   = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        utc_end = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
         # ✅ fetch ALL logs for that UTC day window
         logs_qs = PatientInterventionLogs.objects(
@@ -448,7 +461,7 @@ def mark_intervention_completed(request):
             keep.status = merged_status
 
             # merge feedback
-            merged_feedback = (keep.feedback or [])
+            merged_feedback = keep.feedback or []
             for l in others:
                 if l.feedback:
                     merged_feedback.extend(l.feedback)
@@ -486,7 +499,7 @@ def mark_intervention_completed(request):
             userId=patient,
             interventionId=intervention,
             rehabilitationPlanId=rehab_plan,
-            date=utc_start,   # ✅ canonical per-day anchor
+            date=utc_start,  # ✅ canonical per-day anchor
             status=["completed"],
             feedback=[],
             comments="",
@@ -509,6 +522,7 @@ def mark_intervention_completed(request):
     except Exception as e:
         logger.error("[mark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -552,13 +566,13 @@ def unmark_intervention_completed(request):
 
         tz = timezone.get_current_timezone()
         local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
-        local_end   = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
+        local_end = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
 
         # -----------------------------
         # 2) Convert to UTC *naive* for MongoEngine query consistency
         # -----------------------------
         utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        utc_end   = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        utc_end = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
@@ -576,12 +590,10 @@ def unmark_intervention_completed(request):
         keep = logs[0]
         others = logs[1:]
 
-        merged_status = list(
-            dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], []))
-        )
+        merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
         keep.status = [s for s in merged_status if str(s).lower() != "completed"]
 
-        merged_feedback = (keep.feedback or [])
+        merged_feedback = keep.feedback or []
         for l in others:
             if l.feedback:
                 merged_feedback.extend(l.feedback)
@@ -617,7 +629,11 @@ def unmark_intervention_completed(request):
     except Intervention.DoesNotExist:
         return JsonResponse({"error": "Intervention not found"}, status=404)
     except Exception as e:
-        logger.error("[unmark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
+        logger.error(
+            "[unmark_intervention_completed] Unexpected error: %s",
+            str(e),
+            exc_info=True,
+        )
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
@@ -633,29 +649,25 @@ def get_patient_recommendations(request, patient_id):
 
     try:
         recommendations = PatientIntervention.get_todays_recommendations(patient_id)
-        return JsonResponse(
-            {"recommendations": recommendations}, safe=False, status=200
-        )
+        return JsonResponse({"recommendations": recommendations}, safe=False, status=200)
 
     except Exception as e:
-        logger.error(
-            f"[get_patient_recommendations] Unexpected error: {str(e)}", exc_info=True
-        )
-        return JsonResponse(
-            {"error": "Internal server error", "details": str(e)}, status=500
-        )
-
+        logger.error(f"[get_patient_recommendations] Unexpected error: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Internal server error", "details": str(e)}, status=500)
 
 
 # -----------------------------
 # Helpers
 # -----------------------------
 
+
 def _as_str(v, default=""):
     return v if isinstance(v, str) else default
 
+
 def _as_list(v):
     return v if isinstance(v, list) else []
+
 
 def _abs_media_url(path_or_url: str) -> str:
     """
@@ -674,6 +686,7 @@ def _abs_media_url(path_or_url: str) -> str:
 
         # MEDIA_URL might be "/media/" and MEDIA_HOST "https://dev..."
         from django.conf import settings
+
         base = getattr(settings, "MEDIA_HOST", "").rstrip("/") + "/"
         media_url = getattr(settings, "MEDIA_URL", "/media/").lstrip("/")
         # If the incoming string already contains media_url, don't double it
@@ -682,6 +695,7 @@ def _abs_media_url(path_or_url: str) -> str:
         return urljoin(base, f"{media_url.rstrip('/')}/{s.lstrip('/')}")
     except Exception:
         return ""
+
 
 def _serialize_media_list(intervention) -> list:
     """
@@ -699,25 +713,37 @@ def _serialize_media_list(intervention) -> list:
                     continue
                 # dict or embedded doc
                 kind = getattr(m, "kind", None) if not isinstance(m, dict) else m.get("kind")
-                media_type = getattr(m, "media_type", None) if not isinstance(m, dict) else m.get("media_type") or m.get("mediaType")
+                media_type = (
+                    getattr(m, "media_type", None)
+                    if not isinstance(m, dict)
+                    else m.get("media_type") or m.get("mediaType")
+                )
                 provider = getattr(m, "provider", None) if not isinstance(m, dict) else m.get("provider")
                 title = getattr(m, "title", None) if not isinstance(m, dict) else m.get("title")
                 url = getattr(m, "url", None) if not isinstance(m, dict) else m.get("url")
-                embed_url = getattr(m, "embed_url", None) if not isinstance(m, dict) else m.get("embed_url") or m.get("embedUrl")
-                file_path = getattr(m, "file_path", None) if not isinstance(m, dict) else m.get("file_path") or m.get("filePath")
+                embed_url = (
+                    getattr(m, "embed_url", None)
+                    if not isinstance(m, dict)
+                    else m.get("embed_url") or m.get("embedUrl")
+                )
+                file_path = (
+                    getattr(m, "file_path", None)
+                    if not isinstance(m, dict)
+                    else m.get("file_path") or m.get("filePath")
+                )
                 mime = getattr(m, "mime", None) if not isinstance(m, dict) else m.get("mime")
                 thumbnail = getattr(m, "thumbnail", None) if not isinstance(m, dict) else m.get("thumbnail")
 
                 row = {
                     "kind": _as_str(kind, ""),
                     "media_type": _as_str(media_type, ""),
-                    "provider": provider if isinstance(provider, str) or provider is None else str(provider),
-                    "title": title if isinstance(title, str) or title is None else str(title),
-                    "url": _abs_media_url(url) if isinstance(url, str) else (url or None),
-                    "embed_url": embed_url if isinstance(embed_url, str) or embed_url is None else str(embed_url),
-                    "file_path": file_path if isinstance(file_path, str) or file_path is None else str(file_path),
-                    "mime": mime if isinstance(mime, str) or mime is None else str(mime),
-                    "thumbnail": _abs_media_url(thumbnail) if isinstance(thumbnail, str) else (thumbnail or None),
+                    "provider": (provider if isinstance(provider, str) or provider is None else str(provider)),
+                    "title": (title if isinstance(title, str) or title is None else str(title)),
+                    "url": (_abs_media_url(url) if isinstance(url, str) else (url or None)),
+                    "embed_url": (embed_url if isinstance(embed_url, str) or embed_url is None else str(embed_url)),
+                    "file_path": (file_path if isinstance(file_path, str) or file_path is None else str(file_path)),
+                    "mime": (mime if isinstance(mime, str) or mime is None else str(mime)),
+                    "thumbnail": (_abs_media_url(thumbnail) if isinstance(thumbnail, str) else (thumbnail or None)),
                 }
                 # keep only meaningful ones
                 if row["kind"] or row["url"] or row["file_path"]:
@@ -733,15 +759,52 @@ def _serialize_media_list(intervention) -> list:
         legacy = []
 
         if link:
-            legacy.append({"kind": "external", "media_type": "website", "provider": "website", "title": getattr(intervention, "title", ""), "url": link, "embed_url": None, "file_path": None, "mime": None, "thumbnail": None})
+            legacy.append(
+                {
+                    "kind": "external",
+                    "media_type": "website",
+                    "provider": "website",
+                    "title": getattr(intervention, "title", ""),
+                    "url": link,
+                    "embed_url": None,
+                    "file_path": None,
+                    "mime": None,
+                    "thumbnail": None,
+                }
+            )
         if media_url:
-            legacy.append({"kind": "external", "media_type": "website", "provider": "website", "title": getattr(intervention, "title", ""), "url": _abs_media_url(media_url), "embed_url": None, "file_path": None, "mime": None, "thumbnail": None})
+            legacy.append(
+                {
+                    "kind": "external",
+                    "media_type": "website",
+                    "provider": "website",
+                    "title": getattr(intervention, "title", ""),
+                    "url": _abs_media_url(media_url),
+                    "embed_url": None,
+                    "file_path": None,
+                    "mime": None,
+                    "thumbnail": None,
+                }
+            )
         if media_file:
-            legacy.append({"kind": "file", "media_type": "file", "provider": None, "title": getattr(intervention, "title", ""), "url": _abs_media_url(media_file), "embed_url": None, "file_path": media_file, "mime": None, "thumbnail": None})
+            legacy.append(
+                {
+                    "kind": "file",
+                    "media_type": "file",
+                    "provider": None,
+                    "title": getattr(intervention, "title", ""),
+                    "url": _abs_media_url(media_file),
+                    "embed_url": None,
+                    "file_path": media_file,
+                    "mime": None,
+                    "thumbnail": None,
+                }
+            )
 
         return legacy
     except Exception:
         return []
+
 
 def _serialize_feedback_entry(fb) -> dict | None:
     """
@@ -766,16 +829,23 @@ def _serialize_feedback_entry(fb) -> dict | None:
         if isinstance(ak, list):
             for opt in ak:
                 if hasattr(opt, "key"):
-                    answers.append({
-                        "key": opt.key,
-                        "translations": [
-                            {"language": tr.language, "text": tr.text}
-                            for tr in (_as_list(getattr(opt, "translations", None)))
-                            if getattr(tr, "language", None) and getattr(tr, "text", None) is not None
-                        ],
-                    })
+                    answers.append(
+                        {
+                            "key": opt.key,
+                            "translations": [
+                                {"language": tr.language, "text": tr.text}
+                                for tr in (_as_list(getattr(opt, "translations", None)))
+                                if getattr(tr, "language", None) and getattr(tr, "text", None) is not None
+                            ],
+                        }
+                    )
                 else:
-                    answers.append({"key": str(opt), "translations": [{"language": "en", "text": str(opt)}]})
+                    answers.append(
+                        {
+                            "key": str(opt),
+                            "translations": [{"language": "en", "text": str(opt)}],
+                        }
+                    )
         elif ak is not None:
             answers.append({"key": str(ak), "translations": [{"language": "en", "text": str(ak)}]})
 
@@ -784,10 +854,11 @@ def _serialize_feedback_entry(fb) -> dict | None:
             "answer": answers,
             "comment": _as_str(getattr(fb, "comment", ""), ""),
             "audio_url": getattr(fb, "audio_url", None),
-            "date": getattr(fb, "date", None).isoformat() if getattr(fb, "date", None) else None,
+            "date": (getattr(fb, "date", None).isoformat() if getattr(fb, "date", None) else None),
         }
     except Exception:
         return None
+
 
 def _completion_day_keys_from_logs(logs) -> list[str]:
     """
@@ -824,6 +895,7 @@ def _completion_day_keys_from_logs(logs) -> list[str]:
 
     return sorted(out)
 
+
 def _intervention_meta(intervention) -> dict:
     """
     Whitelisted full intervention fields (expand as needed).
@@ -854,14 +926,20 @@ def _intervention_meta(intervention) -> dict:
         "duration": getattr(intervention, "duration", None),
         "patient_types": _as_list(getattr(intervention, "patient_types", None)),
         "is_private": bool(getattr(intervention, "is_private", False)),
-        "private_patient_id": str(getattr(getattr(intervention, "private_patient_id", None), "id", "")) if getattr(intervention, "private_patient_id", None) else None,
+        "private_patient_id": (
+            str(getattr(getattr(intervention, "private_patient_id", None), "id", ""))
+            if getattr(intervention, "private_patient_id", None)
+            else None
+        ),
         "preview_img": _abs_media_url(_as_str(getattr(intervention, "preview_img", ""), "")),
         "media": _serialize_media_list(intervention),
     }
 
+
 # -----------------------------
 # Endpoint
 # -----------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -882,12 +960,15 @@ def get_patient_plan(request, patient_id):
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
-            return JsonResponse({"rehab_plan": [], "message": "No rehabilitation plan found"}, status=200)
+            return JsonResponse(
+                {"rehab_plan": [], "message": "No rehabilitation plan found"},
+                status=200,
+            )
 
         today = timezone.localdate()
         out = []
 
-        for assignment in (getattr(rehab_plan, "interventions", None) or []):
+        for assignment in getattr(rehab_plan, "interventions", None) or []:
             intervention = getattr(assignment, "interventionId", None)
             if not intervention:
                 continue
@@ -915,7 +996,7 @@ def get_patient_plan(request, patient_id):
                 if timezone.localtime(lg_dt).date() != today:
                     continue
 
-                for fb in (getattr(lg, "feedback", None) or []):
+                for fb in getattr(lg, "feedback", None) or []:
                     row = _serialize_feedback_entry(fb)
                     if row:
                         row["log_date"] = lg_dt.isoformat()
@@ -923,7 +1004,7 @@ def get_patient_plan(request, patient_id):
 
             # assignment dates -> keep as iso
             dates_iso = []
-            for d in (getattr(assignment, "dates", None) or []):
+            for d in getattr(assignment, "dates", None) or []:
                 try:
                     dates_iso.append(d.isoformat())
                 except Exception:
@@ -933,19 +1014,16 @@ def get_patient_plan(request, patient_id):
                 {
                     # ✅ full intervention doc (as requested)
                     "intervention": _intervention_meta(intervention),
-
                     # ✅ keep the older flat fields too (so you don't have to refactor all FE at once)
                     "intervention_id": str(getattr(intervention, "id", "")),
                     "intervention_title": _as_str(getattr(intervention, "title", ""), ""),
                     "description": _as_str(getattr(intervention, "description", ""), ""),
                     "content_type": getattr(intervention, "content_type", "") or "",
-
                     # assignment fields
                     "frequency": _as_str(getattr(assignment, "frequency", ""), ""),
                     "notes": _as_str(getattr(assignment, "notes", ""), ""),
                     "require_video_feedback": bool(getattr(assignment, "require_video_feedback", False)),
                     "dates": dates_iso,
-
                     # status + feedback
                     "completion_dates": completion_dates,
                     "feedback": feedback_data,
@@ -958,9 +1036,13 @@ def get_patient_plan(request, patient_id):
         logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
-        logger.error("[get_patient_plan] Error for patient %s: %s", patient_id, str(e), exc_info=True)
+        logger.error(
+            "[get_patient_plan] Error for patient %s: %s",
+            patient_id,
+            str(e),
+            exc_info=True,
+        )
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
 
 
 @csrf_exempt
@@ -981,18 +1063,16 @@ def create_patient_intervention_log(request):
         log = PatientInterventionLogs(
             userId=patient,
             interventionId=intervention,
-            rehabilitationPlanId=rehab_plan,  
+            rehabilitationPlanId=rehab_plan,
             date=timezone.now(),
-            status=['completed'],
+            status=["completed"],
             feedback=[],
             comments="",
         )
 
         log.save()
 
-        return JsonResponse(
-            {"message": "Patient Intervention Log created successfully"}, status=201
-        )
+        return JsonResponse({"message": "Patient Intervention Log created successfully"}, status=201)
 
     except (Patient.DoesNotExist, Intervention.DoesNotExist) as e:
         logger.warning(f"[create_patient_intervention_log] Entity not found: {e}")
@@ -1004,6 +1084,7 @@ def create_patient_intervention_log(request):
             exc_info=True,
         )
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
 
 TYPE_PREFIX_MAP = {
     "articles": "articles_",
@@ -1017,6 +1098,7 @@ TYPE_PREFIX_MAP = {
     "apps": "app_",
     "games": "game_",
 }
+
 
 def _serialize_questions(qs):
     return [
@@ -1034,6 +1116,8 @@ def _serialize_questions(qs):
         }
         for q in qs
     ]
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
@@ -1090,9 +1174,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # 2) Every ~14 days ask the full "16_profile_*" block
         fourteen_days_ago = now - timedelta(days=14)
 
-        profile_q_ids = [q.id for q in FeedbackQuestion.objects(
-            questionKey__startswith="16_profile_"
-        ).only("id")]
+        profile_q_ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="16_profile_").only("id")]
 
         profile_recent = (
             PatientICFRating.objects(
@@ -1101,7 +1183,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                 feedback_entries__exists=True,
                 feedback_entries__ne=[],
                 # any entry whose inner questionId is one of the profile block:
-                **{"feedback_entries__questionId__in": profile_q_ids}
+                **{"feedback_entries__questionId__in": profile_q_ids},
             )
             .only("id")
             .first()
@@ -1116,17 +1198,11 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                 {
                     "questionKey": q.questionKey,
                     "answerType": q.answer_type,
-                    "translations": [
-                        {"language": tr.language, "text": tr.text}
-                        for tr in q.translations
-                    ],
+                    "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
                     "possibleAnswers": [
                         {
                             "key": opt.key,
-                            "translations": [
-                                {"language": t2.language, "text": t2.text}
-                                for t2 in opt.translations
-                            ],
+                            "translations": [{"language": t2.language, "text": t2.text} for t2 in opt.translations],
                         }
                         for opt in (q.possibleAnswers or [])
                     ],
@@ -1164,17 +1240,11 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             {
                 "questionKey": q.questionKey,
                 "answerType": q.answer_type,
-                "translations": [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in q.translations
-                ],
+                "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
                 "possibleAnswers": [
                     {
                         "key": opt.key,
-                        "translations": [
-                            {"language": t2.language, "text": t2.text}
-                            for t2 in opt.translations
-                        ],
+                        "translations": [{"language": t2.language, "text": t2.text} for t2 in opt.translations],
                     }
                     for opt in (q.possibleAnswers or [])
                 ],
@@ -1194,7 +1264,8 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             if plan:
                 assignment = next(
                     (
-                        a for a in (plan.interventions or [])
+                        a
+                        for a in (plan.interventions or [])
                         if str(getattr(a.interventionId, "id", a.interventionId)) == str(intervention_id)
                     ),
                     None,
@@ -1208,9 +1279,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         #    We accept two ways to mark "core":
         #       - No applicable_types field
         #       - OR applicable_types explicitly contains "All"
-        core_q = FeedbackQuestion.objects(
-            questionSubject="Intervention"
-        ).filter(
+        core_q = FeedbackQuestion.objects(questionSubject="Intervention").filter(
             Q(applicable_types__exists=False) | Q(applicable_types__size=0) | Q(applicable_types__icontains="all")
         )
 
@@ -1220,17 +1289,14 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             # Prefer explicit tagging via applicable_types
             tagged = FeedbackQuestion.objects(
                 questionSubject="Intervention",
-                applicable_types__icontains=intervention_type
+                applicable_types__icontains=intervention_type,
             )
 
             # Fallback: prefix convention on questionKey if your DB doesn’t use applicable_types yet
             prefix = TYPE_PREFIX_MAP.get(intervention_type, "")
             prefixed = []
             if prefix:
-                prefixed = FeedbackQuestion.objects(
-                    questionSubject="Intervention",
-                    questionKey__istartswith=prefix
-                )
+                prefixed = FeedbackQuestion.objects(questionSubject="Intervention", questionKey__istartswith=prefix)
 
             # Merge (avoid duplicates by key)
             seen = set()
@@ -1359,7 +1425,7 @@ def _normalize_dates_list(seq):
       { "datetime": ISO, "status": "...", "feedback": [...] }
     """
     out = []
-    for x in (seq or []):
+    for x in seq or []:
         if isinstance(x, dict):
             iso = _to_iso(x.get("datetime"))
             if not iso:
@@ -1436,7 +1502,7 @@ def _as_datetime(value):
 def _strip_to_datetimes(seq):
     """Map a list of mixed items to a list[datetime], dropping unparseable ones."""
     out = []
-    for x in (seq or []):
+    for x in seq or []:
         try:
             out.append(_as_datetime(x))
         except Exception:
@@ -1672,7 +1738,10 @@ def add_intervention_to_patient(request):
         if external_id:
             intervention = pick_best_variant(external_id, lang_fallback_chain(chosen_lang or "en"))
             if not intervention:
-                add_ferr("externalId", f"No intervention found for external_id={external_id}.")
+                add_ferr(
+                    "externalId",
+                    f"No intervention found for external_id={external_id}.",
+                )
                 continue
         else:
             int_oid = _coerce_object_id(item.get("interventionId"))
@@ -1708,11 +1777,17 @@ def add_intervention_to_patient(request):
                 str(e),
                 exc_info=True,
             )
-            add_ferr("interventionId", f"Could not generate dates for {str(intervention.id)}.")
+            add_ferr(
+                "interventionId",
+                f"Could not generate dates for {str(intervention.id)}.",
+            )
             continue
 
         if not dates:
-            logger.info("[add_intervention_to_patient] No valid dates generated for %s", str(intervention.id))
+            logger.info(
+                "[add_intervention_to_patient] No valid dates generated for %s",
+                str(intervention.id),
+            )
             continue
 
         require_video = bool(item.get("require_video_feedback"))
@@ -1724,13 +1799,8 @@ def add_intervention_to_patient(request):
             (
                 a
                 for a in (plan.interventions or [])
-                if (
-                    new_ext
-                    and getattr(getattr(a, "interventionId", None), "external_id", None) == new_ext
-                )
-                or (
-                    str(getattr(getattr(a, "interventionId", None), "id", "")) == str(intervention.id)
-                )
+                if (new_ext and getattr(getattr(a, "interventionId", None), "external_id", None) == new_ext)
+                or (str(getattr(getattr(a, "interventionId", None), "id", "")) == str(intervention.id))
             ),
             None,
         )
@@ -1788,11 +1858,14 @@ def add_intervention_to_patient(request):
         status=201,
     )
 
+
 # Map your weekday short labels to Python weekday numbers (Mon=0..Sun=6)
-WEEKDAY_MAP = {'Mon':0, 'Dien':1, 'Mitt':2, 'Don':3, 'Fre':4, 'Sam':5, 'Son':6}
+WEEKDAY_MAP = {"Mon": 0, "Dien": 1, "Mitt": 2, "Don": 3, "Fre": 4, "Sam": 5, "Son": 6}
+
 
 def _tz_local():
     return timezone.get_current_timezone()
+
 
 def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
     """Return tz-aware datetime in local tz."""
@@ -1800,11 +1873,13 @@ def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
         return timezone.make_aware(d, _tz_local())
     return d.astimezone(_tz_local())
 
+
 def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
     """Return tz-aware datetime in UTC (uses datetime.timezone.utc)."""
     if timezone.is_naive(d):
         return timezone.make_aware(d, datetime.timezone.utc)
     return d.astimezone(datetime.timezone.utc)
+
 
 def _parse_iso(s: str) -> datetime.datetime:
     """
@@ -1826,23 +1901,55 @@ def _parse_iso(s: str) -> datetime.datetime:
         return _as_aware_local(dt)
     return dt.astimezone(_tz_local())
 
+
 def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
+
 # English + German short labels
 WEEKDAY_MAP = {
-    "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6,
-    "M": 0, "T": 1, "W": 2, "Th": 3, "F": 4, "Sa": 5, "Su": 6,
-    "Di": 1, "Mi": 2, "Do": 3, "Fr": 4, "Sa": 5, "So": 6,
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
+    "M": 0,
+    "T": 1,
+    "W": 2,
+    "Th": 3,
+    "F": 4,
+    "Sa": 5,
+    "Su": 6,
+    "Di": 1,
+    "Mi": 2,
+    "Do": 3,
+    "Fr": 4,
+    "Sa": 5,
+    "So": 6,
 }
+
 
 def _advance_month(dt: datetime.datetime, n: int = 1) -> datetime.datetime:
     y, m = dt.year, dt.month + n
     while m > 12:
         y += 1
         m -= 12
-    days_in_month = [31, 29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28,
-                     31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]
+    days_in_month = [
+        31,
+        29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ][m - 1]
     day = min(dt.day, days_in_month)
     return dt.replace(year=y, month=m, day=day)
 
@@ -1851,11 +1958,12 @@ def _advance_month(dt: datetime.datetime, n: int = 1) -> datetime.datetime:
 # Generator
 # -----------------------------
 
+
 def _generate_dates_from(
     schedule: dict,
     effective_from: datetime.datetime,
     plan_end: datetime.datetime,
-    max_count: int = 1000
+    max_count: int = 1000,
 ):
     """
     schedule = {
@@ -1868,15 +1976,15 @@ def _generate_dates_from(
     }
     Returns list[datetime.datetime] (aware, LOCAL TZ).
     """
-    interval = int(schedule.get('interval', 1))
-    unit = schedule.get('unit', 'week')
-    selected_days = schedule.get('selectedDays') or []
-    start_iso = schedule.get('startDate')
-    start_time = (schedule.get('startTime') or '08:00').strip()
-    end_cfg = schedule.get('end') or {'type': 'never', 'date': None, 'count': None}
+    interval = int(schedule.get("interval", 1))
+    unit = schedule.get("unit", "week")
+    selected_days = schedule.get("selectedDays") or []
+    start_iso = schedule.get("startDate")
+    start_time = (schedule.get("startTime") or "08:00").strip()
+    end_cfg = schedule.get("end") or {"type": "never", "date": None, "count": None}
 
     base_start = _parse_iso(start_iso) if start_iso else _as_aware_local(timezone.now())
-    hh, mm = (int(x) for x in (start_time or '08:00').split(':'))
+    hh, mm = (int(x) for x in (start_time or "08:00").split(":"))
     base_start = base_start.replace(hour=hh, minute=mm, second=0, microsecond=0)
 
     effective_from = _as_aware_local(effective_from)
@@ -1885,19 +1993,19 @@ def _generate_dates_from(
     cursor = max(base_start, effective_from)
 
     hard_stop = plan_end
-    if (end_cfg.get('type') == 'date') and end_cfg.get('date'):
-        hard_stop = min(hard_stop, _parse_iso(str(end_cfg['date'])))
+    if (end_cfg.get("type") == "date") and end_cfg.get("date"):
+        hard_stop = min(hard_stop, _parse_iso(str(end_cfg["date"])))
 
     out = []
 
-    if unit == 'day':
+    if unit == "day":
         while cursor <= hard_stop:
             out.append(cursor)
-            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+            if end_cfg.get("type") == "count" and len(out) >= int(end_cfg.get("count") or 0):
                 break
             cursor = cursor + datetime.timedelta(days=interval)
 
-    elif unit == 'week':
+    elif unit == "week":
         cursor_day = _ceil_to_day(cursor)
         count = 0
         while cursor_day <= hard_stop and count < max_count:
@@ -1909,16 +2017,16 @@ def _generate_dates_from(
                 candidate = candidate.replace(hour=hh, minute=mm, second=0, microsecond=0)
                 if candidate >= cursor and candidate <= hard_stop:
                     out.append(candidate)
-                    if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+                    if end_cfg.get("type") == "count" and len(out) >= int(end_cfg.get("count") or 0):
                         return out
             cursor_day = cursor_day + datetime.timedelta(weeks=interval)
             count += 1
 
-    elif unit == 'month':
+    elif unit == "month":
         cur = cursor
         while cur <= hard_stop:
             out.append(cur)
-            if end_cfg.get('type') == 'count' and len(out) >= int(end_cfg.get('count') or 0):
+            if end_cfg.get("type") == "count" and len(out) >= int(end_cfg.get("count") or 0):
                 break
             cur = _advance_month(cur, interval).replace(hour=hh, minute=mm, second=0, microsecond=0)
 
@@ -1928,6 +2036,7 @@ def _generate_dates_from(
 # -----------------------------
 # Modify endpoint
 # -----------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -1950,7 +2059,7 @@ def modify_intervention_from_date(request):
                 "success": False,
                 "message": "Method not allowed",
                 "field_errors": {},
-                "non_field_errors": ["Only POST allowed."]
+                "non_field_errors": ["Only POST allowed."],
             },
             status=405,
         )
@@ -2048,7 +2157,7 @@ def modify_intervention_from_date(request):
     # ----------------------
     target = next(
         (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
-        None
+        None,
     )
 
     if not target:
@@ -2171,13 +2280,10 @@ def modify_intervention_from_date(request):
             "message": "Updated schedule.",
             "updatedCount": len(target.dates),
             "field_errors": {},
-            "non_field_errors": []
+            "non_field_errors": [],
         },
         status=200,
     )
-
-
-
 
 
 @csrf_exempt
@@ -2270,13 +2376,9 @@ def get_patient_plan_for_therapist(request, patient_id):
 
         for assignment in plan.interventions:
             intervention = assignment.interventionId
-            logs = PatientInterventionLogs.objects(
-                userId=patient, interventionId=intervention
-            )
+            logs = PatientInterventionLogs.objects(userId=patient, interventionId=intervention)
 
-            completed_dates = {
-                log.date.date() for log in logs if "completed" in (log.status or [])
-            }
+            completed_dates = {log.date.date() for log in logs if "completed" in (log.status or [])}
 
             intervention_dates = []
             completed_count = 0
@@ -2308,18 +2410,14 @@ def get_patient_plan_for_therapist(request, patient_id):
                         question_data = {
                             "id": str(fb.questionId.id),
                             "translations": [
-                                {"language": tr.language, "text": tr.text}
-                                for tr in fb.questionId.translations
+                                {"language": tr.language, "text": tr.text} for tr in fb.questionId.translations
                             ],
                         }
 
                         answer_data = [
                             {
                                 "key": opt.key,
-                                "translations": [
-                                    {"language": tr.language, "text": tr.text}
-                                    for tr in opt.translations
-                                ],
+                                "translations": [{"language": tr.language, "text": tr.text} for tr in opt.translations],
                             }
                             for opt in (fb.answerKey or [])
                         ]
@@ -2370,9 +2468,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                     "totalCount": len(assignment.dates),
                     "currentTotalCount": current_total_count,
                     "completedCount": completed_count,
-                    "averageRating": (
-                        round(rating_sum / rating_count, 1) if rating_count > 0 else 0
-                    ),
+                    "averageRating": (round(rating_sum / rating_count, 1) if rating_count > 0 else 0),
                     "duration": getattr(intervention, "duration", 0),
                 }
             )
@@ -2394,7 +2490,9 @@ def get_patient_plan_for_therapist(request, patient_id):
         )
     except Exception as e:
         logger.error(
-            "[get_patient_plan_for_therapist] Unexpected error: %s", str(e), exc_info=True
+            "[get_patient_plan_for_therapist] Unexpected error: %s",
+            str(e),
+            exc_info=True,
         )
         return JsonResponse(
             {
@@ -2405,8 +2503,6 @@ def get_patient_plan_for_therapist(request, patient_id):
             },
             status=500,
         )
-
-
 
 
 @csrf_exempt
@@ -2487,9 +2583,7 @@ def remove_intervention_from_patient(request):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
     except Patient.DoesNotExist:
-        logger.warning(
-            "[remove_intervention_from_patient] Patient not found: %s", patient_id
-        )
+        logger.warning("[remove_intervention_from_patient] Patient not found: %s", patient_id)
         return JsonResponse(
             {
                 "success": False,
@@ -2523,9 +2617,7 @@ def remove_intervention_from_patient(request):
             if str(assignment.interventionId.pk) == str(intervention_id):
                 intervention_found = True
                 # Keep only past or today's dates
-                assignment.dates = [
-                    d for d in assignment.dates if ensure_aware(d) <= now
-                ]
+                assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
 
         if not intervention_found:
             return JsonResponse(
@@ -2552,8 +2644,7 @@ def remove_intervention_from_patient(request):
 
     except Exception as e:
         logger.error(
-            "[remove_intervention_from_patient] Unexpected error while removing "
-            "intervention %s from patient %s: %s",
+            "[remove_intervention_from_patient] Unexpected error while removing " "intervention %s from patient %s: %s",
             intervention_id,
             patient_id,
             str(e),
@@ -2581,6 +2672,7 @@ def initial_patient_questionaire(request, patient_id):
         → Saves questionnaire
         → Returns success or field_errors
     """
+
     def error_response(message, status=400, field_errors=None, non_field=None, details=None):
         resp = {
             "success": False,
@@ -2607,18 +2699,17 @@ def initial_patient_questionaire(request, patient_id):
     # GET → check if questionnaire is needed
     # ----------------------------
     if request.method == "GET":
-        missing = not all([
-            patient.level_of_education,
-            patient.professional_status,
-            patient.marital_status,
-            patient.lifestyle,
-            patient.personal_goals,
-        ])
+        missing = not all(
+            [
+                patient.level_of_education,
+                patient.professional_status,
+                patient.marital_status,
+                patient.lifestyle,
+                patient.personal_goals,
+            ]
+        )
 
-        return JsonResponse({
-            "success": True,
-            "requires_questionnaire": missing
-        }, status=200)
+        return JsonResponse({"success": True, "requires_questionnaire": missing}, status=200)
 
     # ----------------------------
     # POST → submit questionnaire
@@ -2632,7 +2723,7 @@ def initial_patient_questionaire(request, patient_id):
                 field_errors=None,
                 non_field=["Could not parse JSON."],
                 details=str(e),
-                status=400
+                status=400,
             )
 
         required_fields = [
@@ -2652,7 +2743,7 @@ def initial_patient_questionaire(request, patient_id):
             return error_response(
                 "Some required fields are missing.",
                 field_errors=field_errors,
-                status=400
+                status=400,
             )
 
         # Save values
@@ -2661,20 +2752,25 @@ def initial_patient_questionaire(request, patient_id):
 
         patient.save()
 
-        return JsonResponse({
-            "success": True,
-            "message": "Initial questionnaire submitted successfully."
-        }, status=201)
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Initial questionnaire submitted successfully.",
+            },
+            status=201,
+        )
 
     # ----------------------------
     # Invalid Method
     # ----------------------------
-    return JsonResponse({
-        "success": False,
-        "error": "Method not allowed",
-        "message": "This endpoint only supports GET and POST."
-    }, status=405)
-
+    return JsonResponse(
+        {
+            "success": False,
+            "error": "Method not allowed",
+            "message": "This endpoint only supports GET and POST.",
+        },
+        status=405,
+    )
 
 
 @csrf_exempt
@@ -2699,15 +2795,9 @@ def get_patient_healthstatus_history(request, patient_id):
                 "questionKey": q.questionKey,
                 "icfCode": q.icfCode,
                 "answerType": q.answer_type,
-                "translations": [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in q.translations
-                ],
+                "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
                 "answerMap": {
-                    opt.key: [
-                        {"language": tr.language, "text": tr.text}
-                        for tr in opt.translations
-                    ]
+                    opt.key: [{"language": tr.language, "text": tr.text} for tr in opt.translations]
                     for opt in (q.possibleAnswers or [])
                 },
             }
@@ -2721,29 +2811,28 @@ def get_patient_healthstatus_history(request, patient_id):
 
         for rating in ratings:
             for entry in rating.feedback_entries:
-                qid = str(entry.questionId.id) if entry.questionId and hasattr(entry.questionId, 'id') else None
+                qid = str(entry.questionId.id) if entry.questionId and hasattr(entry.questionId, "id") else None
                 if not qid or qid not in question_map:
                     continue
 
-
                 qmeta = question_map[qid]
-                result.append({
-                    "questionKey": qmeta["questionKey"],
-                    "icfCode": qmeta["icfCode"],
-                    "date": rating.date.isoformat(),
-                    "answers": [
-                        {
-                            "key": ans.key,
-                            "translations": [
-                                {"language": t.language, "text": t.text}
-                                for t in ans.translations
-                            ]
-                        } for ans in entry.answerKey
-                    ],
-                    "comment": entry.comment,
-                    "questionTranslations": qmeta["translations"],
-                    "answerType": qmeta["answerType"],
-                })
+                result.append(
+                    {
+                        "questionKey": qmeta["questionKey"],
+                        "icfCode": qmeta["icfCode"],
+                        "date": rating.date.isoformat(),
+                        "answers": [
+                            {
+                                "key": ans.key,
+                                "translations": [{"language": t.language, "text": t.text} for t in ans.translations],
+                            }
+                            for ans in entry.answerKey
+                        ],
+                        "comment": entry.comment,
+                        "questionTranslations": qmeta["translations"],
+                        "answerType": qmeta["answerType"],
+                    }
+                )
 
         return JsonResponse({"history": result}, safe=False)
 
@@ -2766,6 +2855,7 @@ def _iso(dt):
         dt = timezone.make_aware(dt, datetime.timezone.utc)
     return dt.isoformat()
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_combined_health_data(request, patient_id):
@@ -2781,33 +2871,43 @@ def get_combined_health_data(request, patient_id):
 
         # ---------- date window ----------
         from_str = request.GET.get("from")
-        to_str   = request.GET.get("to")
+        to_str = request.GET.get("to")
 
         if from_str and to_str:
             from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d")
-            to_date   = datetime.datetime.strptime(to_str, "%Y-%m-%d")
+            to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d")
         else:
-            to_date   = timezone.now()
+            to_date = timezone.now()
             from_date = to_date - datetime.timedelta(days=30)
 
         # normalize to full days (aware)
-        from_datetime = timezone.make_aware(
-            datetime.datetime.combine(from_date.date(), datetime.time.min), datetime.timezone.utc
-        ) if timezone.is_naive(from_date) else datetime.datetime.combine(from_date.date(), datetime.time.min).replace(tzinfo=from_date.tzinfo)
+        from_datetime = (
+            timezone.make_aware(
+                datetime.datetime.combine(from_date.date(), datetime.time.min),
+                datetime.timezone.utc,
+            )
+            if timezone.is_naive(from_date)
+            else datetime.datetime.combine(from_date.date(), datetime.time.min).replace(tzinfo=from_date.tzinfo)
+        )
 
-        to_datetime = timezone.make_aware(
-            datetime.datetime.combine(to_date.date(), datetime.time.max), datetime.timezone.utc
-        ) if timezone.is_naive(to_date) else datetime.datetime.combine(to_date.date(), datetime.time.max).replace(tzinfo=to_date.tzinfo)
+        to_datetime = (
+            timezone.make_aware(
+                datetime.datetime.combine(to_date.date(), datetime.time.max),
+                datetime.timezone.utc,
+            )
+            if timezone.is_naive(to_date)
+            else datetime.datetime.combine(to_date.date(), datetime.time.max).replace(tzinfo=to_date.tzinfo)
+        )
 
         # ---------- 1) Fitbit + Manual vitals merge ----------
-        fitbit_entries = FitbitData.objects(
-            user=patient.userId, date__gte=from_date, date__lte=to_date
-        ).order_by("date")
+        fitbit_entries = FitbitData.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
+            "date"
+        )
 
         # manual vitals in the same window (keep latest per day)
-        vitals = PatientVitals.objects(
-            patientId=patient, date__gte=from_datetime, date__lte=to_datetime
-        ).order_by("date")
+        vitals = PatientVitals.objects(patientId=patient, date__gte=from_datetime, date__lte=to_datetime).order_by(
+            "date"
+        )
 
         manual_by_day: dict[datetime.date, PatientVitals] = {}
         for v in vitals:
@@ -2825,7 +2925,11 @@ def get_combined_health_data(request, patient_id):
 
             bp_obj = None
             if man and (man.bp_sys is not None or man.bp_dia is not None):
-                bp_obj = {"systolic": man.bp_sys, "diastolic": man.bp_dia, "source": "manual"}
+                bp_obj = {
+                    "systolic": man.bp_sys,
+                    "diastolic": man.bp_dia,
+                    "source": "manual",
+                }
             else:
                 fb_bp = getattr(entry, "blood_pressure", None)
                 if fb_bp:
@@ -2850,11 +2954,17 @@ def get_combined_health_data(request, patient_id):
             if entry.sleep:
                 # if sleep start/end are datetimes, convert to strings
                 sleep_start = getattr(entry.sleep, "sleep_start", None)
-                sleep_end   = getattr(entry.sleep, "sleep_end", None)
+                sleep_end = getattr(entry.sleep, "sleep_end", None)
                 sleep_obj = {
                     "sleep_duration": getattr(entry.sleep, "sleep_duration", None),
-                    "sleep_start": _iso(sleep_start) if isinstance(sleep_start, (datetime.datetime, datetime.date)) else sleep_start,
-                    "sleep_end": _iso(sleep_end) if isinstance(sleep_end, (datetime.datetime, datetime.date)) else sleep_end,
+                    "sleep_start": (
+                        _iso(sleep_start)
+                        if isinstance(sleep_start, (datetime.datetime, datetime.date))
+                        else sleep_start
+                    ),
+                    "sleep_end": (
+                        _iso(sleep_end) if isinstance(sleep_end, (datetime.datetime, datetime.date)) else sleep_end
+                    ),
                     "awakenings": getattr(entry.sleep, "awakenings", None),
                 }
             else:
@@ -2874,11 +2984,9 @@ def get_combined_health_data(request, patient_id):
                     "breathing_rate": entry.breathing_rate,
                     "hrv": entry.hrv,
                     "exercise": entry.exercise,
-
                     # unified vitals
                     "weight": weight_val,
                     "blood_pressure": bp_obj,
-
                     # 🔥 ADD THESE FIELDS (frontend needs them)
                     "weight_kg": weight_val,
                     "bp_sys": bp_obj["systolic"] if bp_obj else None,
@@ -2886,26 +2994,38 @@ def get_combined_health_data(request, patient_id):
                 }
             )
 
-
         fitbit_days = {datetime.datetime.strptime(r["date"], "%Y-%m-%d").date() for r in fitbit_data}
 
         # add manual-only days (no Fitbit row that day)
         for day, man in manual_by_day.items():
             if day in fitbit_days:
                 continue
-            fitbit_data.append({
-                "date": day.strftime("%Y-%m-%d"),
-                "steps": None, "resting_heart_rate": None, "floors": None, "distance": None,
-                "calories": None, "active_minutes": None, "heart_rate_zones": [],
-                "sleep": None, "breathing_rate": None, "hrv": None, "exercise": None,
-                "weight": man.weight_kg,
-                "blood_pressure": (
-                    {"systolic": man.bp_sys, "diastolic": man.bp_dia, "source": "manual"}
-                    if (man.bp_sys is not None or man.bp_dia is not None)
-                    else None
-                ),
-            })
-
+            fitbit_data.append(
+                {
+                    "date": day.strftime("%Y-%m-%d"),
+                    "steps": None,
+                    "resting_heart_rate": None,
+                    "floors": None,
+                    "distance": None,
+                    "calories": None,
+                    "active_minutes": None,
+                    "heart_rate_zones": [],
+                    "sleep": None,
+                    "breathing_rate": None,
+                    "hrv": None,
+                    "exercise": None,
+                    "weight": man.weight_kg,
+                    "blood_pressure": (
+                        {
+                            "systolic": man.bp_sys,
+                            "diastolic": man.bp_dia,
+                            "source": "manual",
+                        }
+                        if (man.bp_sys is not None or man.bp_dia is not None)
+                        else None
+                    ),
+                }
+            )
 
         fitbit_data.sort(key=lambda r: r["date"])
 
@@ -2926,9 +3046,7 @@ def get_combined_health_data(request, patient_id):
         }
 
         feedback_result = []
-        ratings = PatientICFRating.objects(
-            patientId=patient, date__gte=from_date, date__lte=to_date
-        ).order_by("date")
+        ratings = PatientICFRating.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by("date")
 
         for rating in ratings:
             for ent in rating.feedback_entries:
@@ -2972,8 +3090,8 @@ def get_combined_health_data(request, patient_id):
         # buckets for scheduled/completed
         scheduled_by_day: dict[datetime.date, int] = {}
         if plan:
-            for ia in (getattr(plan, "interventions", []) or []):
-                for d in (getattr(ia, "dates", []) or []):
+            for ia in getattr(plan, "interventions", []) or []:
+                for d in getattr(ia, "dates", []) or []:
                     # convert each date to a timezone-aware datetime if possible
                     dt = None
                     if isinstance(d, datetime.datetime):
@@ -2995,9 +3113,7 @@ def get_combined_health_data(request, patient_id):
                         scheduled_by_day[day] = scheduled_by_day.get(day, 0) + 1
 
         completed_by_day: dict[datetime.date, int] = {}
-        logs = PatientInterventionLogs.objects(
-            userId=patient, date__gte=from_datetime, date__lte=to_datetime
-        )
+        logs = PatientInterventionLogs.objects(userId=patient, date__gte=from_datetime, date__lte=to_datetime)
         for lg in logs:
             dt = getattr(lg, "date", None)
             if not isinstance(dt, datetime.datetime):
@@ -3088,28 +3204,20 @@ def add_manual_vitals(request, patient_id: str):
             return None
 
     weight_kg = as_float(body.get("weight_kg"))
-    bp_sys    = as_float(body.get("bp_sys"))
-    bp_dia    = as_float(body.get("bp_dia"))
+    bp_sys = as_float(body.get("bp_sys"))
+    bp_dia = as_float(body.get("bp_dia"))
 
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
 
     # Upsert for same day
     day_start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end   = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+    day_end = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    rec = PatientVitals.objects(
-        patientId=patient,
-        date__gte=day_start,
-        date__lte=day_end
-    ).first()
+    rec = PatientVitals.objects(patientId=patient, date__gte=day_start, date__lte=day_end).first()
 
     if not rec:
-        rec = PatientVitals(
-            user       = patient.userId,
-            patientId  = patient,
-            date       = dt
-        )
+        rec = PatientVitals(user=patient.userId, patientId=patient, date=dt)
 
     # Save into actual fields
     if weight_kg is not None:
@@ -3123,11 +3231,7 @@ def add_manual_vitals(request, patient_id: str):
 
     rec.save()
 
-    return JsonResponse(
-        {"ok": True, "id": str(rec.id), "date": dt.isoformat()},
-        status=200
-    )
-
+    return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
 
 
 def _resolve_patient(patient_id: str) -> Patient:
@@ -3142,6 +3246,7 @@ def _resolve_patient(patient_id: str) -> Patient:
         except Exception:
             raise Patient.DoesNotExist()
 
+
 def _parse_day(date_str: str) -> tuple[datetime, datetime, datetime]:
     """
     YYYY-MM-DD -> (date_only, day_start_aware, day_end_aware)
@@ -3149,8 +3254,9 @@ def _parse_day(date_str: str) -> tuple[datetime, datetime, datetime]:
     d = datetime.strptime(date_str, "%Y-%m-%d")
     tz = timezone.get_current_timezone()
     start = timezone.make_aware(datetime.combine(d.date(), time.min), tz)
-    end   = timezone.make_aware(datetime.combine(d.date(), time.max), tz)
+    end = timezone.make_aware(datetime.combine(d.date(), time.max), tz)
     return d, start, end
+
 
 def _has_weight(row) -> bool:
     # Support several shapes/names
@@ -3161,6 +3267,7 @@ def _has_weight(row) -> bool:
     if isinstance(w, dict) and (w.get("kg") is not None or w.get("value") is not None):
         return True
     return False
+
 
 def _has_bp(row) -> bool:
     # Nested document or dict on row.blood_pressure
@@ -3178,6 +3285,7 @@ def _has_bp(row) -> bool:
     if getattr(row, "bp_sys", None) is not None or getattr(row, "bp_dia", None) is not None:
         return True
     return False
+
 
 def _parse_date_forgiving(s: str | None) -> datetime.date | None:
     """Accept 'YYYY-MM-DD', 'YYYY-MM-DDTHH:MM[:SS][Z]', or 'YYYY/MM/DD' (with spaces)."""
@@ -3212,9 +3320,6 @@ def _resolve_patient(patient_id: str):
             return None
 
 
-
-
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def vitals_exists_for_day(request, patient_id: str):
@@ -3235,27 +3340,20 @@ def vitals_exists_for_day(request, patient_id: str):
 
     # Day window (naive datetimes, consistent with your MongoEngine usage)
     start_dt = datetime.datetime.combine(day, datetime.time.min)
-    end_dt   = datetime.datetime.combine(day, datetime.time.max)
+    end_dt = datetime.datetime.combine(day, datetime.time.max)
 
     exists = False
 
     # 1) If you have a dedicated PatientVitals model, prefer that
     try:
         from core.models import PatientVitals  # optional
-        pv = PatientVitals.objects(
-            patientId=patient,
-            date__gte=start_dt,
-            date__lte=end_dt
-        ).only("id").first()
+
+        pv = PatientVitals.objects(patientId=patient, date__gte=start_dt, date__lte=end_dt).only("id").first()
         if pv:
             exists = True
     except Exception:
         # 2) Fallback: store/check inside FitbitData for the same day
-        fb = FitbitData.objects(
-            user=patient.userId,
-            date__gte=start_dt,
-            date__lte=end_dt
-        ).first()
+        fb = FitbitData.objects(user=patient.userId, date__gte=start_dt, date__lte=end_dt).first()
         if fb:
             # Adjust these field names to match your save_vitals implementation
             weight_present = getattr(fb, "weight_kg", None) is not None

@@ -142,7 +142,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   // diagnoses list: kept as you had it (config fallback)
   const diagnosesFromSpec = useMemo(() => {
     const tax = isRecord(interventionsConfig) ? (interventionsConfig as UnknownRecord) : {};
-    const itx = isRecord(tax.interventionsTaxonomy) ? (tax.interventionsTaxonomy as UnknownRecord) : {};
+    const itx = isRecord(tax.interventionsTaxonomy)
+      ? (tax.interventionsTaxonomy as UnknownRecord)
+      : {};
     const arr = itx.primary_diagnoses;
     return Array.isArray(arr) ? arr.map((x) => norm(x)).filter(Boolean) : [];
   }, []);
@@ -209,7 +211,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       return;
     }
 
-    const current = String(effectiveItem.language || '').trim().toLowerCase();
+    const current = String(effectiveItem.language || '')
+      .trim()
+      .toLowerCase();
     const raw = effectiveItem.available_languages ?? [];
     const opts = toLangOpts(raw, effectiveItem.title);
 
@@ -247,8 +251,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       if (!effectiveItem) return;
 
       const ext = String(effectiveItem.external_id || '').trim();
-      const nextLang = String(lang || '').toLowerCase().trim();
-      const current = String(effectiveItem.language || '').toLowerCase().trim();
+      const nextLang = String(lang || '')
+        .toLowerCase()
+        .trim();
+      const current = String(effectiveItem.language || '')
+        .toLowerCase()
+        .trim();
 
       if (!ext || !nextLang) return;
       if (nextLang === current) return;
@@ -334,8 +342,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       const res = await apiClient.get(`therapists/${authStore.id}/template-plan?${qs}`);
 
       const data = res.data;
-      const itemsRaw =
-        isRecord(data) && Array.isArray(data.items) ? (data.items as unknown[]) : [];
+      const itemsRaw = isRecord(data) && Array.isArray(data.items) ? (data.items as unknown[]) : [];
 
       const set = new Set<string>();
       for (const it of itemsRaw) {
@@ -378,11 +385,14 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       if (!interventionId) return;
 
       try {
-        await apiClient.post(`therapists/${authStore.id}/interventions/remove-from-patient-types/`, {
-          diagnosis: diag,
-          intervention_id: interventionId,
-          therapist: authStore.id,
-        });
+        await apiClient.post(
+          `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
+          {
+            diagnosis: diag,
+            intervention_id: interventionId,
+            therapist: authStore.id,
+          }
+        );
         await refreshAssignments();
       } catch (e: unknown) {
         const msg =
@@ -414,7 +424,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       return (
         <div key={idx} className="mb-3">
           <div className="fw-semibold mb-1">{label}</div>
-          <div className="text-muted small">{t('No playable URL provided for this media item.')}</div>
+          <div className="text-muted small">
+            {t('No playable URL provided for this media item.')}
+          </div>
         </div>
       );
     }
@@ -439,7 +451,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <Page pageNumber={1} width={320} />
               </Document>
             </div>
-            <a href={playable} className="btn btn-outline-primary mt-2" target="_blank" rel="noreferrer">
+            <a
+              href={playable}
+              className="btn btn-outline-primary mt-2"
+              target="_blank"
+              rel="noreferrer"
+            >
               {t('Open PDF')}
             </a>
           </div>
@@ -473,7 +490,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         return (
           <div key={idx} className="mb-3">
             <div className="fw-semibold mb-1">{label}</div>
-            <a href={playable} className="btn btn-outline-secondary" target="_blank" rel="noreferrer">
+            <a
+              href={playable}
+              className="btn btn-outline-secondary"
+              target="_blank"
+              rel="noreferrer"
+            >
               {t('Open Resource')}
             </a>
           </div>
@@ -482,7 +504,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   };
 
   const renderMediaContentEffective = () => {
-    if (!effectiveMediaList.length) return <div className="text-muted">{t('No media available.')}</div>;
+    if (!effectiveMediaList.length)
+      return <div className="text-muted">{t('No media available.')}</div>;
     return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
   };
 
@@ -582,7 +605,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <h5>{t('Description')}</h5>
                 <p className="text-muted mb-0">
                   {detectedLang ? (
-                    <OverlayTrigger overlay={<Tooltip>{String(effectiveItem.description || '')}</Tooltip>}>
+                    <OverlayTrigger
+                      overlay={<Tooltip>{String(effectiveItem.description || '')}</Tooltip>}
+                    >
                       <span>{translatedText}</span>
                     </OverlayTrigger>
                   ) : (
@@ -591,11 +616,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 </p>
 
                 <div className="mt-3 d-flex flex-wrap gap-2">
-                  {effectiveItem.external_id && <Badge bg="secondary">external_id: {effectiveItem.external_id}</Badge>}
-                  {effectiveItem.language && (
-                    <Badge bg="secondary">lang: {String(effectiveItem.language).toUpperCase()}</Badge>
+                  {effectiveItem.external_id && (
+                    <Badge bg="secondary">external_id: {effectiveItem.external_id}</Badge>
                   )}
-                  {effectiveItem.provider && <Badge bg="secondary">provider: {String(effectiveItem.provider)}</Badge>}
+                  {effectiveItem.language && (
+                    <Badge bg="secondary">
+                      lang: {String(effectiveItem.language).toUpperCase()}
+                    </Badge>
+                  )}
+                  {effectiveItem.provider && (
+                    <Badge bg="secondary">provider: {String(effectiveItem.provider)}</Badge>
+                  )}
                   {effectiveIsPrivate && <Badge bg="dark">{t('Private')}</Badge>}
                   {effectiveIsPrivate && effectivePrivatePatientId && (
                     <Badge bg="dark">patient: {String(effectivePrivatePatientId)}</Badge>
@@ -628,8 +659,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               <Col xs={12} md={6}>
                 <div className="d-flex align-items-center justify-content-between">
                   <h5 className="mb-0">{t('Media')}</h5>
-                  <Badge bg={String((effectiveMediaBadge as unknown as { variant?: unknown }).variant || 'secondary')}>
-                    {t(String((effectiveMediaBadge as unknown as { label?: unknown }).label || 'Media'))}
+                  <Badge
+                    bg={String(
+                      (effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
+                        'secondary'
+                    )}
+                  >
+                    {t(
+                      String(
+                        (effectiveMediaBadge as unknown as { label?: unknown }).label || 'Media'
+                      )
+                    )}
                   </Badge>
                 </div>
                 <div className="mt-2">{renderMediaContentEffective()}</div>
@@ -682,7 +722,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <Row className="mb-2">
                   <Col className="d-flex align-items-center justify-content-between">
                     <h5 className="mb-0">{t('Add/modify in template by diagnosis')}</h5>
-                    <small className="text-muted">{loadingAssignments ? t('Loading assignments…') : null}</small>
+                    <small className="text-muted">
+                      {loadingAssignments ? t('Loading assignments…') : null}
+                    </small>
                   </Col>
                 </Row>
 
@@ -726,12 +768,16 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                                       placement="top"
                                       overlay={
                                         <Tooltip>
-                                          {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
+                                          {isAssigned
+                                            ? t('Modify from day…')
+                                            : t('Add (Day S → N)')}
                                         </Tooltip>
                                       }
                                     >
                                       <Button
-                                        variant={isAssigned ? 'outline-secondary' : 'outline-success'}
+                                        variant={
+                                          isAssigned ? 'outline-secondary' : 'outline-success'
+                                        }
                                         onClick={() => openAssign(d)}
                                       >
                                         {isAssigned ? <FaEdit /> : <FaPlus />}
@@ -739,8 +785,14 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                                     </OverlayTrigger>
 
                                     {isAssigned && (
-                                      <OverlayTrigger placement="top" overlay={<Tooltip>{t('Delete from template')}</Tooltip>}>
-                                        <Button variant="outline-danger" onClick={() => void removeFromTemplate(d)}>
+                                      <OverlayTrigger
+                                        placement="top"
+                                        overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
+                                      >
+                                        <Button
+                                          variant="outline-danger"
+                                          onClick={() => void removeFromTemplate(d)}
+                                        >
                                           <FaTrash />
                                         </Button>
                                       </OverlayTrigger>
@@ -776,7 +828,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               <Row className="mt-2">
                 <Col>
                   <Alert variant="secondary" className="mb-0">
-                    {t('This is a private intervention. Template assignment by diagnosis is disabled.')}
+                    {t(
+                      'This is a private intervention. Template assignment by diagnosis is disabled.'
+                    )}
                   </Alert>
                 </Col>
               </Row>

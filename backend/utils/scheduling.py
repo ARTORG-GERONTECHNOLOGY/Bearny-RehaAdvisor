@@ -1,9 +1,10 @@
+import calendar
 import json
 import logging
 import re
-import calendar
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta,date, time
+from datetime import date, datetime, time, timedelta
+from typing import Any, Dict, List, Optional
+
 from bson import ObjectId
 from bson.errors import InvalidId
 from django.http import JsonResponse
@@ -13,7 +14,6 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 _WEEKDAY_IDX = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
-
 
 
 def _to_aware(dt: datetime) -> datetime:
@@ -26,6 +26,7 @@ def _merge_date_and_time(date_dt: datetime, hhmm: Optional[str]) -> datetime:
     hh, mm = (hhmm or "08:00").split(":")[:2]
     merged = datetime(date_dt.year, date_dt.month, date_dt.day, int(hh), int(mm), 0, 0)
     return _to_aware(merged)
+
 
 def _parse_yyyy_mm_dd(value, *, default_tz=None) -> datetime:
     """
@@ -61,15 +62,17 @@ def _parse_yyyy_mm_dd(value, *, default_tz=None) -> datetime:
         return dt if timezone.is_aware(dt) else timezone.make_aware(dt, tz)
     except Exception:
         return timezone.now()
+
+
 def _expand_dates(
     *,
     start_date: str | datetime,
     start_time: Optional[str] = "08:00",
-    unit: str = "week",                 # 'day' | 'week' | 'month'
+    unit: str = "week",  # 'day' | 'week' | 'month'
     interval: int = 1,
     selected_days: Optional[List[str]] = None,  # for 'week'
-    end: Optional[Dict[str, Any]] = None,       # {'type':'never'|'date'|'count', ...}
-    max_occurrences: int = 365
+    end: Optional[Dict[str, Any]] = None,  # {'type':'never'|'date'|'count', ...}
+    max_occurrences: int = 365,
 ) -> List[datetime]:
     end = end or {"type": "never", "date": None, "count": None}
     interval = max(1, int(interval or 1))
@@ -93,9 +96,12 @@ def _expand_dates(
     if unit == "day":
         while True:
             out.append(current)
-            if end_type == "count" and len(out) >= count_limit: break
-            if end_type == "date" and end_date_aware and current >= end_date_aware: break
-            if len(out) >= max_occurrences: break
+            if end_type == "count" and len(out) >= count_limit:
+                break
+            if end_type == "date" and end_date_aware and current >= end_date_aware:
+                break
+            if len(out) >= max_occurrences:
+                break
             current = current + timedelta(days=interval)
         return out
 
@@ -109,27 +115,43 @@ def _expand_dates(
             this_week_start = week_monday + timedelta(weeks=weeks_added * interval)
             for wd in sel:
                 dt = this_week_start + timedelta(days=wd)
-                dt = dt.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0, tzinfo=current.tzinfo)
+                dt = dt.replace(
+                    hour=current.hour,
+                    minute=current.minute,
+                    second=0,
+                    microsecond=0,
+                    tzinfo=current.tzinfo,
+                )
                 if dt < current:
                     continue
                 out.append(dt)
-                if end_type == "count" and len(out) >= count_limit: return sorted(out)[:count_limit]
-                if end_type == "date" and end_date_aware and dt >= end_date_aware: return sorted([d for d in out if d <= end_date_aware])
-                if len(out) >= max_occurrences: return sorted(out)[:max_occurrences]
+                if end_type == "count" and len(out) >= count_limit:
+                    return sorted(out)[:count_limit]
+                if end_type == "date" and end_date_aware and dt >= end_date_aware:
+                    return sorted([d for d in out if d <= end_date_aware])
+                if len(out) >= max_occurrences:
+                    return sorted(out)[:max_occurrences]
             weeks_added += 1
 
     if unit == "month":
         while True:
             out.append(current)
-            if end_type == "count" and len(out) >= count_limit: break
-            if end_type == "date" and end_date_aware and current >= end_date_aware: break
-            if len(out) >= max_occurrences: break
+            if end_type == "count" and len(out) >= count_limit:
+                break
+            if end_type == "date" and end_date_aware and current >= end_date_aware:
+                break
+            if len(out) >= max_occurrences:
+                break
             current = _add_months(current, interval)
         return out
 
     # Fallback: weekly on start weekday
     return _expand_dates(
-        start_date=start_date, start_time=start_time, unit="week",
-        interval=interval, selected_days=[["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][current.weekday()]],
-        end=end, max_occurrences=max_occurrences
+        start_date=start_date,
+        start_time=start_time,
+        unit="week",
+        interval=interval,
+        selected_days=[["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][current.weekday()]],
+        end=end,
+        max_occurrences=max_occurrences,
     )

@@ -4,6 +4,9 @@
 
 This document provides comprehensive documentation of the frontend test suite for RehaAdvisor. The frontend uses **Jest** as the test framework with **React Testing Library** for component testing and **TypeScript** for type safety.
 
+For browser-level end-to-end coverage (Playwright), see
+[FRONTEND_E2E_TEST_DOCUMENTATION.md](./FRONTEND_E2E_TEST_DOCUMENTATION.md).
+
 ## Test Architecture
 
 ### Directory Structure
