@@ -1,15 +1,15 @@
 # core/views.py
+from bson import ObjectId
+from django.conf import settings
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
-from bson import ObjectId
 
-from core.models import Therapist, User
-from core.models import RedcapParticipant
+from core.models import RedcapParticipant, Therapist, User
 from core.redcap import redcap_export_record
-from django.conf import settings
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -34,19 +34,17 @@ def import_redcap_participant(request):
             if str(existing.assigned_therapist.id) != str(therapist.id):
                 return JsonResponse(
                     {"error": "Participant already assigned to another therapist"},
-                    status=409
+                    status=409,
                 )
             # optionally refresh if old
-            return JsonResponse({"ok": True, "id": str(existing.id), "record_id": existing.record_id}, status=200)
+            return JsonResponse(
+                {"ok": True, "id": str(existing.id), "record_id": existing.record_id},
+                status=200,
+            )
 
         # fetch from REDCap
         fields = ["record_id", "gender", "primary_diagnosis", "clinic"]
-        rec = redcap_export_record(
-            settings.REDCAP_API_URL,
-            settings.REDCAP_API_TOKEN,
-            record_id,
-            fields
-        )
+        rec = redcap_export_record(settings.REDCAP_API_URL, settings.REDCAP_API_TOKEN, record_id, fields)
         if not rec:
             return JsonResponse({"error": "record_id not found in REDCap"}, status=404)
 
@@ -65,6 +63,7 @@ def import_redcap_participant(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -88,13 +87,15 @@ def list_my_redcap_participants(request):
 
     out = []
     for p in qs.order_by("-updated_at"):
-        out.append({
-            "id": str(p.id),
-            "record_id": p.record_id,
-            "gender": p.gender,
-            "primary_diagnosis": p.primary_diagnosis,
-            "clinic": p.clinic,
-            "last_synced_at": p.last_synced_at.isoformat() if p.last_synced_at else None,
-        })
+        out.append(
+            {
+                "id": str(p.id),
+                "record_id": p.record_id,
+                "gender": p.gender,
+                "primary_diagnosis": p.primary_diagnosis,
+                "clinic": p.clinic,
+                "last_synced_at": (p.last_synced_at.isoformat() if p.last_synced_at else None),
+            }
+        )
 
     return JsonResponse({"items": out}, status=200)

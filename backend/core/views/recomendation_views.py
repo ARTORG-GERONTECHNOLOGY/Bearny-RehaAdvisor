@@ -16,36 +16,60 @@ import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
-from utils.utils import sanitize_text, bad
-from bson import ObjectId
-from mongoengine.queryset.visitor import Q
 
+from bson import ObjectId
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 from django.views.decorators.csrf import csrf_exempt
-import utils.interventions  # for _save_file and other helpers
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
+import utils.interventions  # for _save_file and other helpers
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
     Intervention,
     InterventionAssignment,
+    InterventionMedia,
     Patient,
     PatientInterventionLogs,
     PatientType,
     Therapist,
-    InterventionMedia,
 )
-
 from utils.config import config
-from utils.utils import sanitize_text
+from utils.interventions import (
+    _abs_media_url,
+    _anchor_date_for_day,
+    _as_str_or_none,
+    _available_language_variants,
+    _build_external_media,
+    _build_file_media,
+    _detect_file_media_type,
+    _first_str_from_any,
+    _is_valid_url,
+    _lang_fallback_chain,
+    _list_of_str,
+    _media_key,
+    _normalize_segments,
+    _occ_count_for_day_range,
+    _parse_bool,
+    _parse_int,
+    _parse_str_list,
+    _pick_best_variant,
+    _pick_variant,
+    _safe_title_slug,
+    _save_file,
+    _serialize_media,
+    _split_taglist_into_fields,
+    normalize_content_type,
+)
 from utils.scheduling import _expand_dates  # you already use this
-from utils.interventions import (_as_str_or_none, _first_str_from_any, _list_of_str, _safe_title_slug, _abs_media_url, _media_key, _pick_variant, _parse_int, _parse_bool, _parse_str_list, _pick_best_variant, _available_language_variants, _serialize_media, normalize_content_type, _is_valid_url, _build_external_media, _build_file_media, _detect_file_media_type, _save_file, _split_taglist_into_fields, _lang_fallback_chain, _parse_bool)
+from utils.utils import bad, sanitize_text
+
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
     "mov": "videos",
@@ -83,10 +107,10 @@ MAX_ITEM_LEN = 80
 BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 
 
-
 # --------------------------------------------------------------------
 # VIEW: apply_template_to_patient
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -150,11 +174,18 @@ def apply_template_to_patient(request, therapist_id):
             else:
                 patient = Patient.objects.get(patient_code=patient_id)
         except Exception:
-            return bad("Validation error.", {"patientId": ["Patient not found."]}, [], status=404)
+            return bad(
+                "Validation error.",
+                {"patientId": ["Patient not found."]},
+                [],
+                status=404,
+            )
 
         # NOTE: you referenced RehabilitationPlan in your original code but it wasn't in your imports.
         # Keep as-is if it's available in core.models; if not, import it above.
-        from core.models import RehabilitationPlan  # local import to avoid breaking module if missing in some contexts
+        from core.models import (  # local import to avoid breaking module if missing in some contexts
+            RehabilitationPlan,
+        )
 
         plan = RehabilitationPlan.objects(patientId=patient).first()
         if not plan:
@@ -173,9 +204,9 @@ def apply_template_to_patient(request, therapist_id):
         applied = 0
         total_sessions = 0
 
-        for rec in (therapist.default_recommendations or []):
+        for rec in therapist.default_recommendations or []:
             inter = rec.recommendation
-            dx_map = (rec.diagnosis_assignments or {})
+            dx_map = rec.diagnosis_assignments or {}
             raw_segments = dx_map.get(diagnosis)
             segments = _normalize_segments(raw_segments)
             if not segments:
@@ -192,7 +223,10 @@ def apply_template_to_patient(request, therapist_id):
                     end_obj = {"type": "count", "count": count}
                     max_occ = count
                 else:
-                    end_obj = {"type": "date", "date": f"{seg_end.date().isoformat()}T23:59:59"}
+                    end_obj = {
+                        "type": "date",
+                        "date": f"{seg_end.date().isoformat()}T23:59:59",
+                    }
                     max_occ = 2000
 
                 occurrences = _expand_dates(
@@ -227,7 +261,10 @@ def apply_template_to_patient(request, therapist_id):
         plan.updatedAt = timezone.now()
         plan.save()
 
-        return JsonResponse({"success": True, "applied": applied, "sessions_created": total_sessions}, status=200)
+        return JsonResponse(
+            {"success": True, "applied": applied, "sessions_created": total_sessions},
+            status=200,
+        )
 
     except Exception as e:
         logger.exception("apply_template_to_patient failed")
@@ -238,6 +275,7 @@ def apply_template_to_patient(request, therapist_id):
 # VIEW: template_plan_preview
 # --------------------------------------------------------------------
 
+
 @permission_classes([IsAuthenticated])
 def template_plan_preview(request, therapist_id):
     try:
@@ -247,12 +285,12 @@ def template_plan_preview(request, therapist_id):
         th = Therapist.objects.get(userId=ObjectId(therapist_id))
         items = []
 
-        for rec in (th.default_recommendations or []):
+        for rec in th.default_recommendations or []:
             inter = rec.recommendation
             if not inter:
                 continue
 
-            dx_map = (rec.diagnosis_assignments or {})
+            dx_map = rec.diagnosis_assignments or {}
             for dx, raw in dx_map.items():
                 if diag_filter and dx != diag_filter:
                     continue
@@ -294,25 +332,27 @@ def template_plan_preview(request, therapist_id):
 
                 merged_occ.sort(key=lambda x: (x["day"], x["time"]))
 
-                items.append({
-                    "diagnosis": dx,
-                    "intervention": {
-                        "_id": str(inter.id),
-                        "title": inter.title,
-                        "duration": getattr(inter, "duration", 30),
-                        "content_type": getattr(inter, "content_type", ""),
-                        "tags": getattr(inter, "tags", []),
-                    },
-                    "schedule": {
-                        "unit": latest["unit"],
-                        "interval": latest["interval"],
-                        "selectedDays": latest["selected_days"],
-                        "start_day": latest["start_day"],
-                        "end_day": latest["end_day"],
-                    },
-                    "occurrences": merged_occ,
-                    "segments": segments,
-                })
+                items.append(
+                    {
+                        "diagnosis": dx,
+                        "intervention": {
+                            "_id": str(inter.id),
+                            "title": inter.title,
+                            "duration": getattr(inter, "duration", 30),
+                            "content_type": getattr(inter, "content_type", ""),
+                            "tags": getattr(inter, "tags", []),
+                        },
+                        "schedule": {
+                            "unit": latest["unit"],
+                            "interval": latest["interval"],
+                            "selectedDays": latest["selected_days"],
+                            "start_day": latest["start_day"],
+                            "end_day": latest["end_day"],
+                        },
+                        "occurrences": merged_occ,
+                        "segments": segments,
+                    }
+                )
 
         return JsonResponse({"horizon_days": horizon, "items": items}, status=200)
 
@@ -326,6 +366,7 @@ def template_plan_preview(request, therapist_id):
 # --------------------------------------------------------------------
 # VIEW: get_intervention_by_external_id
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -360,9 +401,11 @@ def get_intervention_by_external_id(request, external_id: str):
         "where": getattr(chosen, "where", []) or [],
         "setting": getattr(chosen, "setting", []) or [],
         "media": [_serialize_media(m) for m in (getattr(chosen, "media", None) or [])],
-        "preview_img": _abs_media_url(chosen.preview_img) if getattr(chosen, "preview_img", None) else "",
+        "preview_img": (_abs_media_url(chosen.preview_img) if getattr(chosen, "preview_img", None) else ""),
         "is_private": bool(getattr(chosen, "is_private", False)),
-        "private_patient_id": str(chosen.private_patient_id.id) if getattr(chosen, "private_patient_id", None) else None,
+        "private_patient_id": (
+            str(chosen.private_patient_id.id) if getattr(chosen, "private_patient_id", None) else None
+        ),
     }
     return JsonResponse({"recommendation": data}, status=200)
 
@@ -413,7 +456,7 @@ def add_new_intervention(request):
         duration = request.POST.get("duration")
 
         language = (request.POST.get("language") or "en").strip().lower()
-        
+
         external_id = (request.POST.get("external_id") or "").strip() or None
         if external_id:
             if Intervention.objects(external_id=external_id, language=language).first():
@@ -533,7 +576,10 @@ def add_new_intervention(request):
                     if not isinstance(patient_types_raw, list):
                         raise ValueError("patientTypes must be a list")
                 except Exception:
-                    return bad("Invalid patientTypes JSON", {"patientTypes": ["Invalid JSON or shape"]})
+                    return bad(
+                        "Invalid patientTypes JSON",
+                        {"patientTypes": ["Invalid JSON or shape"]},
+                    )
             else:
                 patient_types_raw = []
 
@@ -626,7 +672,16 @@ def add_new_intervention(request):
                         field_errors.setdefault(f"media[{i}].kind", []).append("Must be 'external' or 'file'.")
                         continue
 
-                    if mt not in {"audio", "video", "image", "pdf", "website", "app", "streaming", "text"}:
+                    if mt not in {
+                        "audio",
+                        "video",
+                        "image",
+                        "pdf",
+                        "website",
+                        "app",
+                        "streaming",
+                        "text",
+                    }:
                         field_errors.setdefault(f"media[{i}].media_type", []).append("Invalid media_type.")
                         continue
 
@@ -663,7 +718,9 @@ def add_new_intervention(request):
                             ext = (os.path.splitext(upload.name)[1] or "").lower().lstrip(".")
                             folder = FILE_TYPE_FOLDERS.get(ext, "others")
                             saved_media_path = _save_file(upload, folder, title)
-                            detected_mime = getattr(upload, "content_type", None) or mimetypes.guess_type(upload.name)[0]
+                            detected_mime = (
+                                getattr(upload, "content_type", None) or mimetypes.guess_type(upload.name)[0]
+                            )
                             detected_type = _detect_file_media_type(ext, content_type) or mt
 
                             media_items.append(
@@ -731,7 +788,10 @@ def add_new_intervention(request):
 
         dup_title = Intervention.objects(is_private=False, title__iexact=title).first()
         if dup_title and not is_private:
-            return bad("Duplicate intervention detected.", {"title": [f"Title already exists (ID: {dup_title.id})."]})
+            return bad(
+                "Duplicate intervention detected.",
+                {"title": [f"Title already exists (ID: {dup_title.id})."]},
+            )
 
         # -------- save preview --------
         preview_path = ""
@@ -746,37 +806,33 @@ def add_new_intervention(request):
             if k not in seen:
                 merged.append(m)
                 seen.add(k)
-        
+
         # -------- create intervention (NOW SAVES ALL TAXONOMY FIELDS) --------
         intervention = Intervention(
             external_id=external_id,
             language=language,
             provider=provider,
-
             title=title,
             description=description,
             content_type=content_type,
             duration=dur_int,
-
-            input_from=input_from,                 # ✅ FIX
-            lc9=lc9_list or [],                    # ✅ FIX
-            original_language=original_language,    # ✅ FIX
-            primary_diagnosis=primary_diagnosis,    # ✅ FIX
-            aim=aim_from_tax,                      # ✅ FIX
-            topic=topic_list or [],                # ✅ FIX
-            cognitive_level=cognitive_level,        # ✅ FIX
-            physical_level=physical_level,          # ✅ FIX
-            frequency_time=frequency_time,          # ✅ FIX
-            timing=timing,                          # ✅ FIX
-            duration_bucket=duration_bucket,        # ✅ FIX
-            sex_specific=sex_specific,              # ✅ FIX
-            where=where_list or [],                 # ✅ FIX
-            setting=setting_list or [],             # ✅ FIX
-            keywords=keywords_list or [],           # ✅ FIX
-
+            input_from=input_from,  # ✅ FIX
+            lc9=lc9_list or [],  # ✅ FIX
+            original_language=original_language,  # ✅ FIX
+            primary_diagnosis=primary_diagnosis,  # ✅ FIX
+            aim=aim_from_tax,  # ✅ FIX
+            topic=topic_list or [],  # ✅ FIX
+            cognitive_level=cognitive_level,  # ✅ FIX
+            physical_level=physical_level,  # ✅ FIX
+            frequency_time=frequency_time,  # ✅ FIX
+            timing=timing,  # ✅ FIX
+            duration_bucket=duration_bucket,  # ✅ FIX
+            sex_specific=sex_specific,  # ✅ FIX
+            where=where_list or [],  # ✅ FIX
+            setting=setting_list or [],  # ✅ FIX
+            keywords=keywords_list or [],  # ✅ FIX
             media=merged,
             preview_img=preview_path or "",
-
             is_private=is_private,
             private_patient_id=patient_obj if (is_private and patient_obj) else None,
             patient_types=patient_types if not is_private else [],
@@ -785,7 +841,11 @@ def add_new_intervention(request):
         intervention.save()
 
         return JsonResponse(
-            {"success": True, "message": "Intervention created successfully", "id": str(intervention.id)},
+            {
+                "success": True,
+                "message": "Intervention created successfully",
+                "id": str(intervention.id),
+            },
             status=200,
         )
 
@@ -794,10 +854,10 @@ def add_new_intervention(request):
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
-
 # --------------------------------------------------------------------
 # VIEW: get_intervention_detail
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -806,7 +866,9 @@ def get_intervention_detail(request, intervention_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        user_lang = (request.GET.get("lang") or request.headers.get("Accept-Language") or "en").split(",")[0].strip().lower()
+        user_lang = (
+            (request.GET.get("lang") or request.headers.get("Accept-Language") or "en").split(",")[0].strip().lower()
+        )
         lang_chain = _lang_fallback_chain(user_lang)
 
         base_doc = Intervention.objects.get(pk=intervention_id)
@@ -821,10 +883,10 @@ def get_intervention_detail(request, intervention_id):
         feedbacks = []
         patient_logs = PatientInterventionLogs.objects.filter(interventionId=intervention)
         for log in patient_logs:
-            for entry in (log.feedback or []):
+            for entry in log.feedback or []:
                 feedbacks.append(
                     {
-                        "date": entry.date.isoformat() if getattr(entry, "date", None) else None,
+                        "date": (entry.date.isoformat() if getattr(entry, "date", None) else None),
                         "comment": getattr(entry, "comment", None),
                         "rating": getattr(entry, "rating", None),
                     }
@@ -851,8 +913,14 @@ def get_intervention_detail(request, intervention_id):
             "media": [_serialize_media(m) for m in (intervention.media or [])],
             "preview_img": _abs_media_url(getattr(intervention, "preview_img", "") or ""),
             "is_private": bool(getattr(intervention, "is_private", False)),
-            "private_patient_id": str(intervention.private_patient_id.id) if getattr(intervention, "private_patient_id", None) else None,
-            "available_languages": _available_language_variants(getattr(intervention, "external_id", None)) if getattr(intervention, "external_id", None) else [],
+            "private_patient_id": (
+                str(intervention.private_patient_id.id) if getattr(intervention, "private_patient_id", None) else None
+            ),
+            "available_languages": (
+                _available_language_variants(getattr(intervention, "external_id", None))
+                if getattr(intervention, "external_id", None)
+                else []
+            ),
             "selected_language": getattr(intervention, "language", None),
         }
 
@@ -868,6 +936,7 @@ def get_intervention_detail(request, intervention_id):
 # --------------------------------------------------------------------
 # VIEW: list_all_interventions
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -932,7 +1001,7 @@ def list_all_interventions(request, patient_id=None):
                 "setting": setting,
                 "keywords": keywords,
                 "media": [_serialize_media(m) for m in (getattr(item, "media", None) or [])],
-                "preview_img": _abs_media_url(item.preview_img) if getattr(item, "preview_img", None) else "",
+                "preview_img": (_abs_media_url(item.preview_img) if getattr(item, "preview_img", None) else ""),
                 "duration": getattr(item, "duration", None),
                 "patient_types": [
                     {
@@ -986,6 +1055,7 @@ def list_all_interventions(request, patient_id=None):
 # VIEW: assign_intervention_to_types (your original kept mostly; only fixed diagnosis variable)
 # --------------------------------------------------------------------
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def assign_intervention_to_types(request, therapist_id):
@@ -1001,17 +1071,26 @@ def assign_intervention_to_types(request, therapist_id):
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({
-            "success": False,
-            "message": "Invalid JSON body.",
-            "field_errors": {"__root__": ["Malformed JSON"]},
-            "non_field_errors": []
-        }, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {"__root__": ["Malformed JSON"]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
 
     try:
         therapist_obj = Therapist.objects.get(userId=ObjectId(therapist_id))
     except Exception:
-        return JsonResponse({"success": False, "message": "Therapist not found or invalid therapist_id."}, status=404)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Therapist not found or invalid therapist_id.",
+            },
+            status=404,
+        )
 
     # NOTE: you named it diagnosis but pulled from patientId. That looked like a bug.
     diagnosis = (data.get("diagnosis") or data.get("patientId") or "").strip()
@@ -1025,7 +1104,15 @@ def assign_intervention_to_types(request, therapist_id):
         add_error("interventions", "Must be a list.")
 
     if field_errors:
-        return JsonResponse({"success": False, "message": "Validation error", "field_errors": field_errors, "non_field_errors": non_field_errors}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
 
     payload = interventions_raw[0]
 
@@ -1036,7 +1123,10 @@ def assign_intervention_to_types(request, therapist_id):
         try:
             inter_obj = Intervention.objects.get(id=ObjectId(intervention_id))
         except Exception:
-            add_error("interventions[0].interventionId", "Intervention not found or invalid ID.")
+            add_error(
+                "interventions[0].interventionId",
+                "Intervention not found or invalid ID.",
+            )
 
     interval = int(payload.get("interval", -99))
     if interval is -99:
@@ -1047,7 +1137,10 @@ def assign_intervention_to_types(request, therapist_id):
     unit = (payload.get("unit") or "").strip().lower()
     allowed_units = {"day", "week", "month"}
     if unit not in allowed_units:
-        add_error("interventions[0].unit", f"Invalid unit. Allowed: {', '.join(sorted(allowed_units))}")
+        add_error(
+            "interventions[0].unit",
+            f"Invalid unit. Allowed: {', '.join(sorted(allowed_units))}",
+        )
 
     selected_days = payload.get("selectedDays", [])
     if selected_days and not isinstance(selected_days, list):
@@ -1083,9 +1176,20 @@ def assign_intervention_to_types(request, therapist_id):
             add_error("interventions[0].suggested_execution_time", "Must be a valid integer.")
         else:
             if parsed <= 0:
-                add_error("interventions[0].suggested_execution_time", "Must be a positive integer.")
+                add_error(
+                    "interventions[0].suggested_execution_time",
+                    "Must be a positive integer.",
+                )
     if field_errors:
-        return JsonResponse({"success": False, "message": "Validation error", "field_errors": field_errors, "non_field_errors": non_field_errors}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
 
     new_block = DiagnosisAssignmentSettings(
         active=True,
@@ -1096,12 +1200,19 @@ def assign_intervention_to_types(request, therapist_id):
         count_limit=count_limit,
         start_day=start_day,
         end_day=count_limit,
-        suggested_execution_time=int(payload.get("suggested_execution_time")) if payload.get("suggested_execution_time") is not None else None,
+        suggested_execution_time=(
+            int(payload.get("suggested_execution_time"))
+            if payload.get("suggested_execution_time") is not None
+            else None
+        ),
     )
 
     keep_previous = bool(payload.get("keep_previous", False))
 
-    entry = next((rec for rec in therapist_obj.default_recommendations or [] if rec.recommendation == inter_obj), None)
+    entry = next(
+        (rec for rec in therapist_obj.default_recommendations or [] if rec.recommendation == inter_obj),
+        None,
+    )
 
     if not entry:
         entry = DefaultInterventions(recommendation=inter_obj, diagnosis_assignments={})
@@ -1133,14 +1244,30 @@ def assign_intervention_to_types(request, therapist_id):
     try:
         therapist_obj.save()
     except Exception as e:
-        return JsonResponse({"success": False, "message": "Database error: could not update assignments.", "detail": str(e)}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Database error: could not update assignments.",
+                "detail": str(e),
+            },
+            status=500,
+        )
 
-    return JsonResponse({"success": True, "message": "Intervention assignment saved successfully.", "diagnosis": diagnosis, "blocks": len(coerced)}, status=200)
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Intervention assignment saved successfully.",
+            "diagnosis": diagnosis,
+            "blocks": len(coerced),
+        },
+        status=200,
+    )
 
 
 # --------------------------------------------------------------------
 # VIEW: remove_intervention_from_types (unchanged except minor cleanup)
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -1157,12 +1284,26 @@ def remove_intervention_from_types(request, therapist_id):
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"success": False, "message": "Invalid JSON body.", "field_errors": {"__root__": ["Malformed JSON"]}, "non_field_errors": []}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {"__root__": ["Malformed JSON"]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
 
     try:
         therapist_obj = Therapist.objects.get(userId=ObjectId(therapist_id))
     except Exception:
-        return JsonResponse({"success": False, "message": "Therapist not found or invalid therapist_id."}, status=404)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Therapist not found or invalid therapist_id.",
+            },
+            status=404,
+        )
 
     intervention_id = data.get("intervention_id")
     if not intervention_id:
@@ -1188,7 +1329,15 @@ def remove_intervention_from_types(request, therapist_id):
             add_error("start_day", "start_day must be a valid integer.")
 
     if field_errors:
-        return JsonResponse({"success": False, "message": "Validation error", "field_errors": field_errors, "non_field_errors": non_field_errors}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
 
     entry = None
     for rec in therapist_obj.default_recommendations or []:
@@ -1197,11 +1346,23 @@ def remove_intervention_from_types(request, therapist_id):
             break
 
     if not entry:
-        return JsonResponse({"success": False, "message": "No default recommendation entry found for this intervention."}, status=404)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "No default recommendation entry found for this intervention.",
+            },
+            status=404,
+        )
 
     diag_map = entry.diagnosis_assignments or {}
     if diagnosis not in diag_map:
-        return JsonResponse({"success": False, "message": "No assignment found for the specified diagnosis."}, status=404)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "No assignment found for the specified diagnosis.",
+            },
+            status=404,
+        )
 
     blocks = diag_map.get(diagnosis) or []
 
@@ -1237,21 +1398,43 @@ def remove_intervention_from_types(request, therapist_id):
         diag_map[diagnosis] = new_list
 
         if removed_count == 0:
-            return JsonResponse({"success": False, "message": "No block found with the specified start_day."}, status=404)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "No block found with the specified start_day.",
+                },
+                status=404,
+            )
 
     entry.diagnosis_assignments = diag_map
 
     try:
         therapist_obj.save()
     except Exception as e:
-        return JsonResponse({"success": False, "message": "Database error while saving changes.", "detail": str(e)}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Database error while saving changes.",
+                "detail": str(e),
+            },
+            status=500,
+        )
 
-    return JsonResponse({"success": True, "message": "Intervention assignment removed successfully.", "removed_blocks": removed_count, "diagnosis": diagnosis}, status=200)
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Intervention assignment removed successfully.",
+            "removed_blocks": removed_count,
+            "diagnosis": diagnosis,
+        },
+        status=200,
+    )
 
 
 # --------------------------------------------------------------------
 # VIEW: create_patient_group (kept as-is; just minor cleanup on existing access)
 # --------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -1268,7 +1451,15 @@ def create_patient_group(request):
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"success": False, "message": "Invalid JSON body.", "field_errors": {"__root__": ["Malformed JSON"]}, "non_field_errors": []}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {"__root__": ["Malformed JSON"]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
 
     intervention_id = data.get("interventionId")
     diagnosis = (data.get("diagnosis") or "").strip()
@@ -1285,12 +1476,28 @@ def create_patient_group(request):
         add_error("frequency", "This field is required.")
 
     if field_errors:
-        return JsonResponse({"success": False, "message": "Validation error.", "field_errors": field_errors, "non_field_errors": non_field_errors}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
 
     try:
         oid = ObjectId(intervention_id)
     except Exception:
-        return JsonResponse({"success": False, "message": "Validation error.", "field_errors": {"interventionId": ["Invalid ObjectId format."]}, "non_field_errors": []}, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": {"interventionId": ["Invalid ObjectId format."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
 
     try:
         intervention_obj = Intervention.objects.get(pk=oid)
@@ -1302,7 +1509,13 @@ def create_patient_group(request):
         existing_diag = (getattr(pt, "diagnosis", "") or "").strip().lower()
         existing_type = (getattr(pt, "type", "") or "").strip().lower()
         if existing_diag == diagnosis.lower() and existing_type == spec_type.lower():
-            return JsonResponse({"success": False, "message": "A patient group with this diagnosis & speciality already exists."}, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "A patient group with this diagnosis & speciality already exists.",
+                },
+                status=400,
+            )
 
     new_entry = PatientType(type=spec_type, diagnosis=diagnosis, frequency=frequency, include_option=True)
 
@@ -1313,7 +1526,14 @@ def create_patient_group(request):
         intervention_obj.save()
     except Exception as e:
         logger.exception("[create_patient_group] Failed to save intervention")
-        return JsonResponse({"success": False, "message": "Database error while saving patient group.", "detail": str(e)}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Database error while saving patient group.",
+                "detail": str(e),
+            },
+            status=500,
+        )
 
     return JsonResponse({"success": True, "message": "Diagnosis group added successfully."}, status=200)
 
@@ -1336,20 +1556,14 @@ def list_intervention_diagnoses(request, intervention, specialisation, therapist
         specialisation_list = [s.strip() for s in specialisation.split(",")]
         all_diagnoses = []
         for spec in specialisation_list:
-            all_diagnoses.extend(
-                config["patientInfo"]["function"].get(spec, {}).get("diagnosis", [])
-            )
+            all_diagnoses.extend(config["patientInfo"]["function"].get(spec, {}).get("diagnosis", []))
 
         diagnosis_map = {d: False for d in all_diagnoses}
         all_flag = False
 
         # Match default recommendation
         default_rec = next(
-            (
-                r
-                for r in therapist.default_recommendations
-                if r.recommendation.id == intervention_id
-            ),
+            (r for r in therapist.default_recommendations if r.recommendation.id == intervention_id),
             None,
         )
 
@@ -1365,6 +1579,3 @@ def list_intervention_diagnoses(request, intervention, specialisation, therapist
     except Therapist.DoesNotExist as e:
         logger.warning(f"[list_intervention_diagnoses] Entity not found: {e}")
         return JsonResponse({"error": "Therapist not found"}, status=404)
-
-
-

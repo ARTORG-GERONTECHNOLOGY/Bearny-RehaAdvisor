@@ -2,16 +2,18 @@
 
 import datetime
 import logging
+
 import requests
 from django.core.management.base import BaseCommand
+
 from core.models import (
-    FitbitUserToken,
-    FitbitData,
-    HeartRateZone,
-    SleepData,
-    ExerciseSession,
     ActivityHeartRateZone,
     ActivityLevel,
+    ExerciseSession,
+    FitbitData,
+    FitbitUserToken,
+    HeartRateZone,
+    SleepData,
 )
 from core.views.fitbit_sync import get_valid_access_token
 
@@ -113,11 +115,7 @@ class Command(BaseCommand):
                     if resp.status_code != 200:
                         continue
 
-                    dataset = (
-                        resp.json()
-                        .get("activities-heart-intraday", {})
-                        .get("dataset", [])
-                    )
+                    dataset = resp.json().get("activities-heart-intraday", {}).get("dataset", [])
                     if dataset:
                         max_hr_map[d] = max(x.get("value", 0) for x in dataset)
 
@@ -172,16 +170,13 @@ class Command(BaseCommand):
                 # EXERCISE SESSIONS (FULL DETAIL)
                 # ---------------------------
                 act_url = (
-                    f"{FITBIT_API_URL}/activities/list.json?"
-                    f"afterDate={start_date}&sort=asc&limit=200&offset=0"
+                    f"{FITBIT_API_URL}/activities/list.json?" f"afterDate={start_date}&sort=asc&limit=200&offset=0"
                 )
                 act_resp = requests.get(act_url, headers=headers)
 
                 if act_resp.status_code == 200:
                     for act in act_resp.json().get("activities", []):
-                        dt = datetime.datetime.strptime(
-                            act["startTime"].split("T")[0], "%Y-%m-%d"
-                        ).date()
+                        dt = datetime.datetime.strptime(act["startTime"].split("T")[0], "%Y-%m-%d").date()
 
                         if not (start_date <= dt <= today):
                             continue
@@ -218,9 +213,7 @@ class Command(BaseCommand):
                             distance=act.get("distance"),
                             elevationGain=act.get("elevationGain"),
                             speed=act.get("speed"),
-                            activeZoneMinutes=(
-                                act.get("activeZoneMinutes") or {}
-                            ).get("totalMinutes"),
+                            activeZoneMinutes=(act.get("activeZoneMinutes") or {}).get("totalMinutes"),
                             heartRateZones=zones,
                             activityLevel=level,
                         )

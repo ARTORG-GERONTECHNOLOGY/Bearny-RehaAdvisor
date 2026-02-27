@@ -49,7 +49,25 @@ Key sections:
 
 **Read this** if you're working on React components or frontend features.
 
-### 3. [BACKEND_TEST_DOCUMENTATION.md](BACKEND_TEST_DOCUMENTATION.md) - BACKEND DETAILS
+### 3. [FRONTEND_E2E_TEST_DOCUMENTATION.md](FRONTEND_E2E_TEST_DOCUMENTATION.md) - FRONTEND E2E
+**6 KB | Playwright End-to-End Testing Guide**
+
+Best for:
+- Running browser E2E tests locally
+- Understanding FE -> BE -> FE login test flows
+- Configuring seeded credentials and CI secrets
+- Troubleshooting Playwright/runtime issues
+
+Key sections:
+- E2E file structure and current scope
+- Docker and host execution commands
+- Environment variable contract
+- GitHub Actions E2E behavior
+- Troubleshooting and extension guidelines
+
+**Read this** if you're running or extending Playwright tests.
+
+### 4. [BACKEND_TEST_DOCUMENTATION.md](BACKEND_TEST_DOCUMENTATION.md) - BACKEND DETAILS
 **24 KB | Comprehensive Pytest Testing Guide**
 
 Best for:
@@ -68,7 +86,7 @@ Key sections:
 
 **Read this** if you're working on Django models, views, or APIs.
 
-### 4. [CICD_TESTING_GUIDE.md](CICD_TESTING_GUIDE.md) - CI/CD AUTOMATION
+### 5. [CICD_TESTING_GUIDE.md](CICD_TESTING_GUIDE.md) - CI/CD AUTOMATION
 **12 KB | GitHub Actions and Automated Testing**
 
 Best for:
@@ -94,6 +112,7 @@ Key sections:
 | Task | Go To | Section |
 |------|-------|---------|
 | Run tests locally | [MASTER_TESTING_GUIDE](MASTER_TESTING_GUIDE.md#running-tests) | Running Tests |
+| Run frontend E2E tests | [FRONTEND_E2E_TEST_DOCUMENTATION](FRONTEND_E2E_TEST_DOCUMENTATION.md) | Run Locally |
 | Write frontend test | [FRONTEND_TEST_DOCUMENTATION](FRONTEND_TEST_DOCUMENTATION.md#writing-new-tests) | Testing Patterns |
 | Write backend test | [BACKEND_TEST_DOCUMENTATION](BACKEND_TEST_DOCUMENTATION.md#common-testing-patterns) | Common Patterns |
 | Fix failing test | [MASTER_TESTING_GUIDE](MASTER_TESTING_GUIDE.md#troubleshooting) | Troubleshooting |
@@ -131,7 +150,7 @@ Key sections:
 
 ## 📊 Test Organization
 
-### Frontend Tests (45+ files)
+### Frontend Tests (45+ files + E2E)
 Located: `frontend/src/__tests__/`
 - **Components** (24 files) - UI component testing
 - **Pages** (10 files) - Full page rendering
@@ -141,6 +160,10 @@ Located: `frontend/src/__tests__/`
 - **Routes** (1 file) - Navigation logic
 
 → Details: [Frontend Test Documentation](FRONTEND_TEST_DOCUMENTATION.md)
+
+Frontend E2E tests are located in `frontend/e2e/`.
+
+→ Details: [Frontend E2E Test Documentation](FRONTEND_E2E_TEST_DOCUMENTATION.md)
 
 ### Backend Tests (40+ files)
 Located: `backend/tests/`
@@ -199,7 +222,7 @@ make dev_up                                 # Start services
 | Unit | Test single functions | Jest/Pytest | 100+ |
 | Component | Test React components | React Testing Library | 24 |
 | Integration | Test features/workflows | Jest/Pytest | 50+ |
-| E2E | Test full workflows | (future) | - |
+| E2E | Test full workflows | Playwright | 2 specs (login scope) |
 | Performance | Test speed/efficiency | (future) | - |
 
 ### Key Tools
@@ -245,10 +268,11 @@ make dev_up                                 # Start services
 |------|------|---------|----------|
 | [MASTER_TESTING_GUIDE.md](MASTER_TESTING_GUIDE.md) | 13 KB | Central hub, quick reference | Everyone |
 | [FRONTEND_TEST_DOCUMENTATION.md](FRONTEND_TEST_DOCUMENTATION.md) | 24 KB | React testing details | Frontend devs |
+| [FRONTEND_E2E_TEST_DOCUMENTATION.md](FRONTEND_E2E_TEST_DOCUMENTATION.md) | 6 KB | Playwright E2E setup and flows | Frontend devs, QA, DevOps |
 | [BACKEND_TEST_DOCUMENTATION.md](BACKEND_TEST_DOCUMENTATION.md) | 24 KB | Django testing details | Backend devs |
 | [CICD_TESTING_GUIDE.md](CICD_TESTING_GUIDE.md) | 12 KB | GitHub Actions setup | DevOps, Leads |
 | [TESTING_INFRASTRUCTURE_SUMMARY.md](TESTING_INFRASTRUCTURE_SUMMARY.md) | 15 KB | Project completion summary | Tech leads |
-| **Total** | **88 KB** | **Complete testing docs** | **All teams** |
+| **Total** | **94 KB** | **Complete testing docs** | **All teams** |
 
 ## 🎓 Learning Path
 

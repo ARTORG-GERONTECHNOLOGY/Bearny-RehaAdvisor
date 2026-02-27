@@ -73,7 +73,6 @@ const InterventionList: React.FC = observer(() => {
   // key = `${interventionId}__${yyyy-MM-dd}`
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-
   const localeMap: Record<string, any> = { en: enUS, de, fr, it };
   const currentLocale = useMemo(
     () => localeMap[(i18n.language || 'en').slice(0, 2)] || enUS,
@@ -173,7 +172,11 @@ const InterventionList: React.FC = observer(() => {
       );
     }
 
-    return completed ? <Badge bg="success">{t('Done')}</Badge> : <Badge bg="info">{t('Upcoming')}</Badge>;
+    return completed ? (
+      <Badge bg="success">{t('Done')}</Badge>
+    ) : (
+      <Badge bg="info">{t('Upcoming')}</Badge>
+    );
   };
 
   const sortDayItems = (items: PatientRec[], date: Date) => {
@@ -229,7 +232,9 @@ const InterventionList: React.FC = observer(() => {
             </span>
           );
         })}
-        {tags.length > 6 ? <span className="meta-pill meta-pill--more">+{tags.length - 6}</span> : null}
+        {tags.length > 6 ? (
+          <span className="meta-pill meta-pill--more">+{tags.length - 6}</span>
+        ) : null}
       </div>
     );
   };
@@ -363,7 +368,11 @@ const InterventionList: React.FC = observer(() => {
               <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
                 <div className="preview-slot">
                   {rec.preview_img ? (
-                    <img src={rec.preview_img} alt={t('Preview') || 'Preview'} className="preview-img" />
+                    <img
+                      src={rec.preview_img}
+                      alt={t('Preview') || 'Preview'}
+                      className="preview-img"
+                    />
                   ) : (
                     <div className="preview-placeholder">{t('preview')}</div>
                   )}
@@ -427,8 +436,8 @@ const InterventionList: React.FC = observer(() => {
     return (
       <>
         <h5 className="text-center mb-3 week-title" aria-live="polite">
-          {format(start, 'dd.MM', { locale: currentLocale })} – {format(end, 'dd.MM', { locale: currentLocale })} (
-          {t('Week')} {weekNumber})
+          {format(start, 'dd.MM', { locale: currentLocale })} –{' '}
+          {format(end, 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
         </h5>
 
         <div className="week-grid" role="grid" aria-label={t('Weekly interventions grid')}>
@@ -460,7 +469,9 @@ const InterventionList: React.FC = observer(() => {
 
   const handleNavigate = (dir: 'prev' | 'next') => {
     const delta = patientUiStore.viewMode === 'day' ? 1 : 7;
-    patientUiStore.setSelectedDate(addDays(patientUiStore.selectedDate, dir === 'next' ? delta : -delta));
+    patientUiStore.setSelectedDate(
+      addDays(patientUiStore.selectedDate, dir === 'next' ? delta : -delta)
+    );
   };
 
   const isViewingToday =
@@ -484,7 +495,11 @@ const InterventionList: React.FC = observer(() => {
   return (
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        <Button onClick={() => handleNavigate('prev')} aria-label={t('Previous')} title={t('Go back')}>
+        <Button
+          onClick={() => handleNavigate('prev')}
+          aria-label={t('Previous')}
+          title={t('Go back')}
+        >
           {t('Previous')}
         </Button>
 
@@ -498,12 +513,21 @@ const InterventionList: React.FC = observer(() => {
           <ToggleButton id="day" value="day" variant="outline-primary" aria-label={t('Day view')}>
             {t('Day')}
           </ToggleButton>
-          <ToggleButton id="week" value="week" variant="outline-primary" aria-label={t('Week view')}>
+          <ToggleButton
+            id="week"
+            value="week"
+            variant="outline-primary"
+            aria-label={t('Week view')}
+          >
             {t('Week')}
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Button onClick={() => handleNavigate('next')} aria-label={t('Next')} title={t('Go forward')}>
+        <Button
+          onClick={() => handleNavigate('next')}
+          aria-label={t('Next')}
+          title={t('Go forward')}
+        >
           {t('Next')}
         </Button>
       </div>
@@ -524,7 +548,11 @@ const InterventionList: React.FC = observer(() => {
 
       {/* Popups */}
       {selectedItem && !patientQuestionnairesStore.showFeedbackPopup && (
-        <PatientInterventionPopUp show item={selectedItem} handleClose={() => setSelectedItem(null)} />
+        <PatientInterventionPopUp
+          show
+          item={selectedItem}
+          handleClose={() => setSelectedItem(null)}
+        />
       )}
 
       {patientQuestionnairesStore.showFeedbackPopup && (

@@ -1,6 +1,8 @@
 # utils/media.py
 from urllib.parse import urljoin
+
 from django.conf import settings
+
 
 def _abs_media_url(path: str) -> str:
     """

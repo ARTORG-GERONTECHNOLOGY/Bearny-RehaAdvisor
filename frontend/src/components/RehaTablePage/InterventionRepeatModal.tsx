@@ -242,7 +242,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
               rows={3}
               value={store.personalNote}
               onChange={(e) => (store.personalNote = e.target.value)}
-              placeholder={t('e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.')}
+              placeholder={t(
+                'e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.'
+              )}
             />
           </Form.Group>
 

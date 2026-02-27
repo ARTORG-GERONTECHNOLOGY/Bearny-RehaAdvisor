@@ -43,7 +43,9 @@ const asPossibleAnswers = (v: unknown): PossibleAnswer[] => {
 };
 
 const normalizeAnswerType = (raw: unknown): NormalizedQuestion['answerType'] => {
-  const s = String(raw ?? '').toLowerCase().trim();
+  const s = String(raw ?? '')
+    .toLowerCase()
+    .trim();
   if (s === 'select' || s === 'dropdown') return 'dropdown';
   if (s === 'multi-select' || s === 'multiselect') return 'multi-select';
   if (s === 'video') return 'video';

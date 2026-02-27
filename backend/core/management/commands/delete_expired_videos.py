@@ -143,7 +143,10 @@ class Command(BaseCommand):
 
                 # Mark expired in DB (even if delete fails; change if you prefer strictness)
                 if dry_run:
-                    logger.info("[DRY RUN] Would mark video_expired=True for log=%s", getattr(log, "id", "unknown"))
+                    logger.info(
+                        "[DRY RUN] Would mark video_expired=True for log=%s",
+                        getattr(log, "id", "unknown"),
+                    )
                 else:
                     log.video_expired = True
                     # Optional: also blank the URL after expiry (uncomment if desired)
@@ -155,7 +158,10 @@ class Command(BaseCommand):
 
             except Exception:
                 errors += 1
-                logger.exception("Unexpected error processing log id=%s", getattr(log, "id", "unknown"))
+                logger.exception(
+                    "Unexpected error processing log id=%s",
+                    getattr(log, "id", "unknown"),
+                )
 
         # --- OPTIONAL: legacy cleanup (only if older embedded structures exist) ---
         # If you previously stored embedded entry.video with uploadedAt/expired/url,
@@ -170,7 +176,7 @@ class Command(BaseCommand):
 
             for log in legacy_qs:
                 updated = False
-                for entry in (getattr(log, "feedback", None) or []):
+                for entry in getattr(log, "feedback", None) or []:
                     video = getattr(entry, "video", None)
                     if not video:
                         continue
@@ -183,7 +189,10 @@ class Command(BaseCommand):
 
                         if storage_path and not no_delete:
                             if dry_run:
-                                logger.info("[DRY RUN] Would delete legacy file: %s", storage_path)
+                                logger.info(
+                                    "[DRY RUN] Would delete legacy file: %s",
+                                    storage_path,
+                                )
                             else:
                                 try:
                                     if hasattr(default_storage, "exists"):
@@ -200,7 +209,10 @@ class Command(BaseCommand):
                                     logger.exception("Failed to delete legacy file: %s", storage_path)
 
                         if dry_run:
-                            logger.info("[DRY RUN] Would mark legacy video expired for log=%s", getattr(log, "id", "unknown"))
+                            logger.info(
+                                "[DRY RUN] Would mark legacy video expired for log=%s",
+                                getattr(log, "id", "unknown"),
+                            )
                         else:
                             video.expired = True
                             updated = True

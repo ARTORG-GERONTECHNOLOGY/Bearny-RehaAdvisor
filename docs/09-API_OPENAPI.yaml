@@ -1,0 +1,1744 @@
+openapi: 3.0.3
+info:
+  title: RehaAdvisor Backend API
+  version: 2026-02-27
+  description: |
+    Machine-readable API spec generated from `backend/core/urls.py`.
+    Notes:
+    - Some endpoints use legacy path spellings (e.g. `questionaire`, `recomendation`).
+    - `GET /api/patients/health-combined-history/{patient_id}/` is declared twice in URL config;
+      Django resolves the first declaration at runtime.
+servers:
+  - url: http://localhost:8001
+security:
+  - bearerAuth: []
+tags:
+  - name: Core
+  - name: Auth
+  - name: Users
+  - name: Admin
+  - name: Therapists
+  - name: Patients
+  - name: Interventions
+  - name: Questionnaires
+  - name: Fitbit
+  - name: REDCap
+  - name: Healthslider
+paths:
+  /api/:
+    get:
+      tags: [Core]
+      summary: API index
+      responses:
+        '200':
+          $ref: '#/components/responses/OK'
+
+  /api/auth/login/:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login accepted
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginSuccessTherapist2FA'
+                  - $ref: '#/components/schemas/LoginSuccessToken'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/auth/logout/:
+    post:
+      tags: [Auth]
+      summary: Logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogoutRequest' }
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/auth/forgot-password/:
+    post:
+      tags: [Auth]
+      summary: Reset password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/auth/register/:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/auth/send-verification-code/:
+    post:
+      tags: [Auth]
+      summary: Send verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationCodeRequest'
+      responses:
+        '200':
+          description: Verification code sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/auth/verify-code/:
+    post:
+      tags: [Auth]
+      summary: Verify login code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCodeRequest'
+      responses:
+        '200':
+          description: Verification accepted, JWT issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyCodeSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/auth/token/refresh/:
+    post:
+      tags: [Auth]
+      summary: Refresh JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectBody'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/auth/get-user-info/{user_id}/:
+    get:
+      tags: [Auth]
+      summary: Get user info
+      parameters:
+        - $ref: '#/components/parameters/user_id'
+      responses:
+        '200':
+          description: User role profile summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GetUserInfoResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/users/{user_id}/profile/:
+    get:
+      tags: [Users]
+      summary: Get user profile
+      parameters:
+        - $ref: '#/components/parameters/user_id'
+      responses:
+        '200':
+          description: Profile document
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/UserProfileTherapist'
+                  - $ref: '#/components/schemas/UserProfilePatient'
+    put:
+      tags: [Users]
+      summary: Update user profile
+      parameters:
+        - $ref: '#/components/parameters/user_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdateRequest' }
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileUpdateResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [Users]
+      summary: Deactivate user profile
+      parameters:
+        - $ref: '#/components/parameters/user_id'
+      responses:
+        '200':
+          description: User soft-deleted (deactivated)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+
+  /api/users/{therapist_id}/change-password/:
+    put:
+      tags: [Users]
+      summary: Change password
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/admin/pending-users/:
+    get:
+      tags: [Admin]
+      summary: List pending users
+      responses:
+        '200':
+          description: Pending users list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingUsersResponse' }
+
+  /api/admin/accept-user/:
+    post:
+      tags: [Admin]
+      summary: Accept pending user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserIdRequest' }
+      responses:
+        '200':
+          description: User accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/decline-user/:
+    post:
+      tags: [Admin]
+      summary: Decline pending user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserIdRequest' }
+      responses:
+        '200':
+          description: User declined
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/therapist/access/:
+    get:
+      tags: [Admin]
+      summary: Get therapist access settings
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+    put:
+      tags: [Admin]
+      summary: Update therapist access settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/admin/therapist/access/{therapistId}/:
+    get:
+      tags: [Admin]
+      summary: Get one therapist access setting
+      parameters:
+        - $ref: '#/components/parameters/therapistId'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin]
+      summary: Update one therapist access setting
+      parameters:
+        - $ref: '#/components/parameters/therapistId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/therapists/{therapist_id}/patients/:
+    get:
+      tags: [Therapists]
+      summary: List therapist patients
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/analytics/log:
+    post:
+      tags: [Therapists]
+      summary: Create analytics log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/patients/rehabilitation-plan/patient/{patient_id}/:
+    get:
+      tags: [Patients]
+      summary: Get rehabilitation plan for patient app view
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Patient rehabilitation plan entries
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RehabPlanPatientResponse'
+                  - $ref: '#/components/schemas/RehabPlanPatientNoPlanResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/patients/rehabilitation-plan/therapist/{patient_id}/:
+    get:
+      tags: [Patients]
+      summary: Get rehabilitation plan for therapist view
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Therapist rehabilitation plan view
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RehabPlanTherapistResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/interventions/add-to-patient/:
+    post:
+      tags: [Patients]
+      summary: Add intervention to patient plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddInterventionToPatientRequest' }
+      responses:
+        '201':
+          description: Sessions created/merged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutatePlanResponse' }
+        '200':
+          description: No new sessions, but request handled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutatePlanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/interventions/modify-patient/:
+    post:
+      tags: [Patients]
+      summary: Modify intervention occurrences from date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModifyInterventionFromDateRequest' }
+      responses:
+        '200':
+          description: Schedule updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutatePlanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/interventions/remove-from-patient/:
+    post:
+      tags: [Patients]
+      summary: Remove intervention from patient plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RemoveInterventionFromPatientRequest' }
+      responses:
+        '200':
+          description: Future dates removed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MutatePlanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/interventions/complete/:
+    post:
+      tags: [Patients]
+      summary: Mark intervention completed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/interventions/uncomplete/:
+    post:
+      tags: [Patients]
+      summary: Unmark intervention completed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/feedback/questionaire/:
+    post:
+      tags: [Patients]
+      summary: Submit patient feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/get-questions/{questionaire_type}/{patient_id}/:
+    get:
+      tags: [Patients]
+      summary: Get feedback questions (without intervention)
+      parameters:
+        - $ref: '#/components/parameters/questionaire_type'
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/get-questions/{questionaire_type}/{patient_id}/{intervention_id}/:
+    get:
+      tags: [Patients]
+      summary: Get feedback questions (with intervention)
+      parameters:
+        - $ref: '#/components/parameters/questionaire_type'
+        - $ref: '#/components/parameters/patient_id'
+        - $ref: '#/components/parameters/intervention_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/users/{patient_id}/initial-questionaire/:
+    post:
+      tags: [Patients]
+      summary: Submit initial questionnaire
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InitialQuestionnaireSubmitRequest' }
+      responses:
+        '201':
+          description: Questionnaire submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessBooleanMessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [Patients]
+      summary: Check if initial questionnaire is required
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Requirement check result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InitialQuestionnaireRequiredResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/patients/healthstatus-history/{patient_id}/:
+    get:
+      tags: [Patients]
+      summary: Health status history
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/health-combined-history/{patient_id}/:
+    get:
+      tags: [Patients, Fitbit]
+      summary: Combined health history (effective mapping)
+      description: Runtime mapping resolves to `patient_views.get_combined_health_data` due to first-match URL order.
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/vitals/manual/{patient_id}/:
+    post:
+      tags: [Patients]
+      summary: Add manual vitals
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/vitals/exists/{patient_id}/:
+    get:
+      tags: [Patients]
+      summary: Check if vitals exist for day
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/patients/{patient_id}/thresholds/:
+    get:
+      tags: [Patients]
+      summary: Get patient thresholds
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Thresholds and history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThresholdGetResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Patients]
+      summary: Update patient thresholds (POST)
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ThresholdUpdateRequest' }
+      responses:
+        '200':
+          description: Thresholds updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThresholdUpdateResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    patch:
+      tags: [Patients]
+      summary: Update patient thresholds (PATCH)
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ThresholdUpdateRequest' }
+      responses:
+        '200':
+          description: Thresholds updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThresholdUpdateResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/interventions/all/:
+    get:
+      tags: [Interventions]
+      summary: List interventions
+      parameters:
+        - in: query
+          name: lang
+          schema: { type: string }
+        - in: query
+          name: external_id
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/interventions/all/{patient_id}/:
+    get:
+      tags: [Interventions]
+      summary: List interventions including patient-private entries
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+        - in: query
+          name: lang
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/interventions/add/:
+    post:
+      tags: [Interventions]
+      summary: Create intervention
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddInterventionRequest' }
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/AddInterventionRequest' }
+      responses:
+        '200':
+          description: Intervention created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AddInterventionResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/interventions/{intervention_id}/:
+    get:
+      tags: [Interventions]
+      summary: Get intervention detail
+      parameters:
+        - $ref: '#/components/parameters/intervention_id'
+        - in: query
+          name: lang
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/interventions/{intervention}/assigned-diagnoses/{specialisation}/therapist/{therapist_id}/:
+    get:
+      tags: [Interventions]
+      summary: Get assigned diagnoses for intervention
+      parameters:
+        - $ref: '#/components/parameters/intervention'
+        - $ref: '#/components/parameters/specialisation'
+        - $ref: '#/components/parameters/therapist_id'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/recomendation/add/patientgroup/:
+    post:
+      tags: [Interventions]
+      summary: Create patient group for intervention
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/therapists/{therapist_id}/interventions/assign-to-patient-types/:
+    post:
+      tags: [Interventions]
+      summary: Assign intervention schedule to diagnosis
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/therapists/{therapist_id}/interventions/remove-from-patient-types/:
+    post:
+      tags: [Interventions]
+      summary: Remove diagnosis assignment from intervention
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/therapists/{therapist_id}/template-plan:
+    get:
+      tags: [Interventions]
+      summary: Template plan preview
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+        - in: query
+          name: diagnosis
+          schema: { type: string }
+        - in: query
+          name: horizon
+          schema: { type: integer }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/therapists/{therapist_id}/templates/apply:
+    post:
+      tags: [Interventions]
+      summary: Apply template to patient
+      parameters:
+        - $ref: '#/components/parameters/therapist_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/interventions/import/excel:
+    post:
+      tags: [Interventions]
+      summary: Import interventions from Excel
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/ObjectBody' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/questionnaires/health/:
+    get:
+      tags: [Questionnaires]
+      summary: List health questionnaires
+      responses:
+        '200':
+          description: Questionnaire catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HealthQuestionnaireListItem' }
+
+  /api/questionnaires/patient/{patient_id}/:
+    get:
+      tags: [Questionnaires]
+      summary: List questionnaires assigned to patient
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Assigned questionnaires for patient
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PatientQuestionnaireAssignment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/questionnaires/assign/:
+    post:
+      tags: [Questionnaires]
+      summary: Assign questionnaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignQuestionnaireRequest' }
+      responses:
+        '200':
+          description: Assigned or updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssignQuestionnaireResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/questionnaires/remove/:
+    post:
+      tags: [Questionnaires]
+      summary: Remove questionnaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RemoveQuestionnaireRequest' }
+      responses:
+        '200':
+          description: Removed/no-op
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/questionnaires/dynamic/:
+    get:
+      tags: [Questionnaires]
+      summary: List dynamic questionnaires by subject
+      parameters:
+        - in: query
+          name: subject
+          schema: { type: string }
+      responses:
+        '200':
+          description: Dynamic questionnaire groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DynamicQuestionnaireGroup' }
+
+  /api/fitbit/callback/:
+    get:
+      tags: [Fitbit]
+      summary: Fitbit OAuth callback
+      parameters:
+        - in: query
+          name: code
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '302':
+          description: Redirect response
+
+  /api/fitbit/status/{patient_id}/:
+    get:
+      tags: [Fitbit]
+      summary: Fitbit connection status
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Fitbit connectivity status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FitbitStatusResponse' }
+
+  /api/fitbit/health-data/{patient_id}/:
+    get:
+      tags: [Fitbit]
+      summary: Fitbit health data history
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      responses:
+        '200':
+          description: Fitbit health data
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FitbitHealthDataResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/fitbit/summary/:
+    get:
+      tags: [Fitbit]
+      summary: Fitbit summary for current user
+      parameters:
+        - in: query
+          name: days
+          schema: { type: integer }
+        - in: query
+          name: patientId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Fitbit summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FitbitSummaryResponse' }
+
+  /api/fitbit/summary/{patient_id}/:
+    get:
+      tags: [Fitbit]
+      summary: Fitbit summary for selected patient
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+        - in: query
+          name: days
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Fitbit summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FitbitSummaryResponse' }
+
+  /api/fitbit/manual_steps/{patient_id}/:
+    post:
+      tags: [Fitbit]
+      summary: Store manual step count
+      parameters:
+        - $ref: '#/components/parameters/patient_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FitbitManualStepsRequest' }
+      responses:
+        '200':
+          description: Manual steps stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FitbitManualStepsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/redcap/projects/:
+    get:
+      tags: [REDCap]
+      summary: List REDCap projects available to therapist
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+
+  /api/redcap/patient/:
+    get:
+      tags: [REDCap]
+      summary: Fetch REDCap patient data
+      parameters:
+        - in: query
+          name: patient_code
+          schema: { type: string }
+        - in: query
+          name: project
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/redcap/available-patients/:
+    get:
+      tags: [REDCap]
+      summary: List importable REDCap patients
+      parameters:
+        - in: query
+          name: therapistUserId
+          schema: { type: string }
+        - in: query
+          name: project
+          schema: { type: string }
+        - in: query
+          name: patientId
+          schema: { type: string }
+        - in: query
+          name: recordId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Import candidates per allowed project
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedcapAvailablePatientsResponse' }
+
+  /api/redcap/import-patient/:
+    post:
+      tags: [REDCap]
+      summary: Import one patient from REDCap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedcapImportPatientRequest' }
+      responses:
+        '201':
+          description: Patient imported
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedcapImportPatientSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: Upstream REDCap error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectBody' }
+
+  /api/healthslider/items/:
+    get:
+      tags: [Healthslider]
+      summary: List Healthslider items
+      parameters:
+        - in: query
+          name: participantId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Healthslider entries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthsliderItemsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/healthslider/audio/{item_id}/:
+    get:
+      tags: [Healthslider]
+      summary: Download Healthslider audio
+      parameters:
+        - $ref: '#/components/parameters/item_id'
+      responses:
+        '200':
+          description: Audio stream or file
+
+  /api/healthslider/submit-item/:
+    post:
+      tags: [Healthslider]
+      summary: Submit Healthslider item response
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/HealthsliderSubmitRequest' }
+      responses:
+        '201':
+          description: Item submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkBooleanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/healthslider/delete-session/:
+    get:
+      tags: [Healthslider]
+      summary: Download packaged Healthslider session ZIP
+      parameters:
+        - in: query
+          name: participantId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: sessionId
+          required: false
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    user_id:
+      in: path
+      name: user_id
+      required: true
+      schema: { type: string }
+    patient_id:
+      in: path
+      name: patient_id
+      required: true
+      schema: { type: string }
+    therapist_id:
+      in: path
+      name: therapist_id
+      required: true
+      schema: { type: string }
+    therapistId:
+      in: path
+      name: therapistId
+      required: true
+      schema: { type: string }
+    intervention_id:
+      in: path
+      name: intervention_id
+      required: true
+      schema: { type: string }
+    intervention:
+      in: path
+      name: intervention
+      required: true
+      schema: { type: string }
+    specialisation:
+      in: path
+      name: specialisation
+      required: true
+      schema: { type: string }
+    questionaire_type:
+      in: path
+      name: questionaire_type
+      required: true
+      schema: { type: string }
+    item_id:
+      in: path
+      name: item_id
+      required: true
+      schema: { type: string }
+  schemas:
+    SuccessBooleanMessageResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+    InitialQuestionnaireRequiredResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        requires_questionnaire: { type: boolean }
+    InitialQuestionnaireSubmitRequest:
+      type: object
+      required: [level_of_education, professional_status, marital_status, lifestyle, personal_goals]
+      properties:
+        level_of_education: { type: string }
+        professional_status: { type: string }
+        marital_status: { type: string }
+        lifestyle:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        personal_goals:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+    RehabPlanPatientEntry:
+      type: object
+      properties:
+        intervention:
+          type: object
+          additionalProperties: true
+        intervention_id: { type: string }
+        intervention_title: { type: string }
+        description: { type: string }
+        content_type: { type: string }
+        frequency: { type: string }
+        notes: { type: string }
+        require_video_feedback: { type: boolean }
+        dates:
+          type: array
+          items: { type: string }
+        completion_dates:
+          type: array
+          items: { type: string }
+        feedback:
+          type: array
+          items: { type: object, additionalProperties: true }
+    RehabPlanPatientResponse:
+      type: array
+      items: { $ref: '#/components/schemas/RehabPlanPatientEntry' }
+    RehabPlanPatientNoPlanResponse:
+      type: object
+      properties:
+        rehab_plan:
+          type: array
+          items: {}
+        message: { type: string }
+    RehabPlanTherapistResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        rehab_plan:
+          type: array
+          items: {}
+        interventions:
+          type: array
+          items: { type: object, additionalProperties: true }
+    AddInterventionToPatientRequest:
+      type: object
+      required: [therapistId, patientId, interventions]
+      properties:
+        therapistId: { type: string }
+        patientId: { type: string }
+        language: { type: string }
+        interventions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              interventionId: { type: string }
+              externalId: { type: string }
+              frequency: { type: string }
+              interval: { type: integer }
+              unit: { type: string }
+              startDate: { type: string }
+              startTime: { type: string }
+              selectedDays:
+                type: array
+                items: { type: string }
+              end:
+                type: object
+                additionalProperties: true
+              notes: { type: string }
+              require_video_feedback: { type: boolean }
+    ModifyInterventionFromDateRequest:
+      type: object
+      required: [patientId, interventionId, effectiveFrom]
+      properties:
+        patientId: { type: string }
+        interventionId: { type: string }
+        effectiveFrom: { type: string }
+        keep_current: { type: boolean }
+        require_video_feedback: { type: boolean }
+        notes: { type: string }
+        schedule:
+          type: object
+          additionalProperties: true
+    RemoveInterventionFromPatientRequest:
+      type: object
+      required: [patientId, intervention]
+      properties:
+        patientId: { type: string }
+        intervention: { type: string }
+    MutatePlanResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        field_errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+        non_field_errors:
+          type: array
+          items: { type: string }
+    HealthQuestionnaireListItem:
+      type: object
+      properties:
+        _id: { type: string }
+        key: { type: string }
+        title: { type: string }
+        description: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        question_count: { type: integer }
+    PatientQuestionnaireAssignment:
+      type: object
+      properties:
+        _id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        frequency: { type: string }
+        dates:
+          type: array
+          items: { type: string }
+    DynamicQuestionnaireGroup:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        count: { type: integer }
+        question_ids:
+          type: array
+          items: { type: string }
+    AssignQuestionnaireRequest:
+      type: object
+      required: [patientId]
+      properties:
+        patientId: { type: string }
+        therapistId: { type: string }
+        questionnaireId: { type: string }
+        questionnaireKey: { type: string }
+        groupKey: { type: string }
+        frequency: { type: string }
+        notes: { type: string }
+        effectiveFrom: { type: string }
+        subject: { type: string }
+        schedule:
+          type: object
+          additionalProperties: true
+    AssignQuestionnaireResponse:
+      type: object
+      properties:
+        message: { type: string }
+        questionnaireId: { type: string }
+    RemoveQuestionnaireRequest:
+      type: object
+      required: [patientId, questionnaireId]
+      properties:
+        patientId: { type: string }
+        questionnaireId: { type: string }
+    HealthsliderSubmitRequest:
+      type: object
+      required: [participantId, sessionId]
+      properties:
+        participantId: { type: string }
+        sessionId: { type: string }
+        questionIndex: { type: integer }
+        questionText: { type: string }
+        answerValue:
+          oneOf:
+            - type: number
+            - type: string
+        answeredAt: { type: string }
+        audioMime: { type: string }
+        audio:
+          type: string
+          format: binary
+    HealthsliderItem:
+      type: object
+      properties:
+        id: { type: string }
+        questionIndex: { type: integer }
+        questionText: { type: string }
+        answerValue: { type: number, nullable: true }
+        hasAudio: { type: boolean }
+        audioSize: { type: integer }
+        audioName: { type: string, nullable: true }
+        audioMime: { type: string, nullable: true }
+        answeredAt: { type: string, nullable: true }
+    HealthsliderItemsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/HealthsliderItem' }
+    OkBooleanResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        email: { type: string }
+        username: { type: string }
+        password: { type: string }
+    LoginSuccessTherapist2FA:
+      type: object
+      required: [user_type, id, require_2fa, request_id]
+      properties:
+        user_type: { type: string, example: Therapist }
+        id: { type: string }
+        require_2fa: { type: boolean, example: true }
+        request_id: { type: string }
+    LoginSuccessToken:
+      type: object
+      required: [user_type, id, access_token, refresh_token, require_2fa, request_id]
+      properties:
+        user_type: { type: string, example: Patient }
+        id: { type: string }
+        access_token: { type: string }
+        refresh_token: { type: string }
+        require_2fa: { type: boolean, example: false }
+        request_id: { type: string }
+    LogoutRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string }
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    RegisterRequest:
+      type: object
+      required: [userType, email, password]
+      properties:
+        userType: { type: string, enum: [Patient, Therapist, Admin] }
+        email: { type: string }
+        password: { type: string }
+        phone: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        therapist: { type: string, description: Required for patient registration }
+        rehaEndDate: { type: string, format: date }
+        clinic:
+          type: array
+          items: { type: string }
+        projects:
+          type: array
+          items: { type: string }
+    RegisterSuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        id: { type: string }
+    SendVerificationCodeRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string }
+    VerifyCodeRequest:
+      type: object
+      required: [userId, verificationCode]
+      properties:
+        userId: { type: string }
+        verificationCode: { type: string }
+    VerifyCodeSuccessResponse:
+      type: object
+      properties:
+        message: { type: string }
+        access_token: { type: string }
+        refresh_token: { type: string }
+    GetUserInfoResponse:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        specialisation:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        function:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        role: { type: string }
+    UserProfileTherapist:
+      type: object
+      properties:
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        name: { type: string }
+        first_name: { type: string }
+        specializations:
+          type: array
+          items: { type: string }
+        clinics:
+          type: array
+          items: { type: string }
+    UserProfilePatient:
+      type: object
+      additionalProperties: true
+      properties:
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        first_name: { type: string }
+        name: { type: string }
+        diagnosis:
+          type: array
+          items: { type: string }
+        function:
+          type: array
+          items: { type: string }
+        reha_end_date: { type: string }
+    ProfileUpdateRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        oldPassword: { type: string }
+        newPassword: { type: string }
+    ProfileUpdateResponse:
+      type: object
+      properties:
+        message: { type: string }
+        updated:
+          type: object
+          additionalProperties: true
+    ChangePasswordRequest:
+      type: object
+      properties:
+        old_password: { type: string }
+        new_password: { type: string }
+    UserIdRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string }
+    PendingUsersResponse:
+      type: object
+      properties:
+        pending_users:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ThresholdValues:
+      type: object
+      additionalProperties:
+        type: number
+    ThresholdHistoryItem:
+      type: object
+      properties:
+        effective_from: { type: string, nullable: true }
+        changed_by: { type: string, nullable: true }
+        reason: { type: string }
+        thresholds:
+          $ref: '#/components/schemas/ThresholdValues'
+    ThresholdGetResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        patient_id: { type: string }
+        thresholds:
+          $ref: '#/components/schemas/ThresholdValues'
+        history:
+          type: array
+          items: { $ref: '#/components/schemas/ThresholdHistoryItem' }
+    ThresholdUpdateRequest:
+      type: object
+      properties:
+        effective_from: { type: string, format: date-time }
+        reason: { type: string }
+        thresholds:
+          $ref: '#/components/schemas/ThresholdValues'
+      additionalProperties: true
+    ThresholdUpdateResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        patient_id: { type: string }
+        thresholds:
+          $ref: '#/components/schemas/ThresholdValues'
+    AddInterventionRequest:
+      type: object
+      required: [title, description, contentType, duration]
+      additionalProperties: true
+      properties:
+        title: { type: string }
+        description: { type: string }
+        contentType: { type: string }
+        duration: { type: integer }
+        media:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: object, additionalProperties: true }
+    AddInterventionResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        id: { type: string }
+    FitbitStatusResponse:
+      type: object
+      properties:
+        connected: { type: boolean }
+    FitbitManualStepsRequest:
+      type: object
+      required: [date, steps]
+      properties:
+        date: { type: string, description: ISO date string accepted by backend }
+        steps: { type: integer }
+    FitbitManualStepsResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        steps: { type: integer }
+        date: { type: string }
+    FitbitHealthDataEntry:
+      type: object
+      properties:
+        date: { type: string }
+        steps: { type: integer, nullable: true }
+        active_minutes: { type: integer, nullable: true }
+        resting_heart_rate: { type: integer, nullable: true }
+        floors: { type: integer, nullable: true }
+        distance: { type: number, nullable: true }
+        calories: { type: integer, nullable: true }
+        breathing_rate: { type: number, nullable: true }
+        hrv: { type: number, nullable: true }
+        sleep:
+          type: object
+          nullable: true
+          additionalProperties: true
+        heart_rate_zones:
+          type: array
+          items: { type: object, additionalProperties: true }
+        exercise:
+          type: object
+          additionalProperties: true
+        weight_kg: { type: number, nullable: true }
+        bp_sys: { type: integer, nullable: true }
+        bp_dia: { type: integer, nullable: true }
+    FitbitHealthDataResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/FitbitHealthDataEntry' }
+    FitbitSummaryResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        connected: { type: boolean }
+        days: { type: integer }
+        patient_id: { type: string }
+        daily:
+          type: array
+          items: { type: object, additionalProperties: true }
+    RedcapAvailableCandidate:
+      type: object
+      properties:
+        project: { type: string }
+        record_id: { type: string }
+        pat_id: { type: string }
+        identifier: { type: string }
+        dag: { type: string }
+    RedcapAvailablePatientsResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        projects:
+          type: array
+          items: { type: string }
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/RedcapAvailableCandidate' }
+        errors:
+          type: array
+          items: { type: object, additionalProperties: true }
+    RedcapImportPatientRequest:
+      type: object
+      required: [project, patient_code, password]
+      properties:
+        project: { type: string }
+        patient_code: { type: string, description: REDCap identifier (pat_id or record_id) }
+        password: { type: string }
+        therapistUserId: { type: string }
+    RedcapImportPatientSuccessResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        project: { type: string }
+        identifier: { type: string }
+        record_id: { type: string }
+        pat_id: { type: string }
+        dag: { type: string }
+        patientId: { type: string }
+        userId: { type: string }
+        username: { type: string }
+    MessageResponse:
+      type: object
+      properties:
+        message: { type: string }
+        error: { type: string }
+    ObjectBody:
+      type: object
+      additionalProperties: true
+  responses:
+    OK:
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    Created:
+      description: Resource created
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
+    TooManyRequests:
+      description: Too many requests / rate limit
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectBody'
