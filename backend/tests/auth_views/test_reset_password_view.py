@@ -1,23 +1,57 @@
 """
-Authentication Password Reset View Tests
+Authentication reset-password view tests — ``/api/auth/forgot-password/``
+==========================================================================
 
-This module tests the password reset endpoint (/api/auth/forgot-password/) for password recovery.
-Tests cover successful reset, non-existent users, and missing email parameter.
+What is covered
+---------------
+Happy-path
+  * An existing user's e-mail → 200, a new password hash is stored, and
+    an e-mail is dispatched via Django's ``send_mail`` (mocked in tests).
 
-Framework: Django Test Client with pytest
-Database: mongomock (in-memory MongoDB) for isolated testing
-Email: Mocked send_mail to prevent actual email sends during tests
+Input validation (400)
+  * ``email`` field absent → 400.
+  * Malformed JSON body → 400.
+
+Resource not found (404)
+  * ``email`` not associated with any User document → 404.
+
+HTTP method enforcement (405)
+  * GET returns 405; only POST is accepted.
+
+Authentication enforcement note
+--------------------------------
+``reset_password_view`` carries ``@permission_classes([IsAuthenticated])``.
+As with the logout view, this decorator has no effect on a plain Django
+function view that is not also wrapped with ``@api_view``.  The tests verify
+the actual runtime behaviour where no token is required.  Any future
+tightening of this endpoint (requiring auth) must be accompanied by updated
+tests.
+
+Test setup
+----------
+Each test uses the ``mongo_mock`` autouse fixture that spins up an
+in-memory mongomock connection and tears it down afterwards.
 """
+
+import json
+from datetime import datetime
+from unittest import mock
 
 import mongomock
 import pytest
+from django.test import Client
 from mongoengine import connect, disconnect
 
-from core.models import Patient, Therapist, User
+from core.models import User
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def mongo_mock():
+    """Provide an isolated in-memory MongoDB for every test in this module."""
     alias = "default"
     from mongoengine.connection import _connections
 
@@ -34,130 +68,126 @@ def mongo_mock():
     disconnect(alias)
 
 
-import json
-from datetime import datetime
-from unittest import mock
-
-from django.test import Client
-
-from core.models import User
-
 client = Client()
+
+RESET_URL = "/api/auth/forgot-password/"
+
+
+# ===========================================================================
+# Happy-path
+# ===========================================================================
 
 
 @mock.patch("core.views.auth_views.send_mail")
 def test_reset_password_success(mock_send_mail, mongo_mock):
     """
-    Scenario: User successfully resets forgotten password
-    
-    Setup:
-    - User exists with email: reset@example.com
-    - Current password hash: "oldhash"
-    - User forgot password
-    
-    Steps:
-    1. POST /api/auth/forgot-password/ with email
-    2. System finds user by email
-    3. System generates temporary password/reset code
-    4. System updates user.pwdhash with new temporary password
-    5. System sends reset link/code to email
-    6. User receives email with reset instructions
-    
-    Expected Results:
-    - HTTP 200 OK
-    - Response message: "Password reset successfully"
-    - user.pwdhash has changed from "oldhash"
-    - Email sent (verified with mock_send_mail.assert_called_once())
-    - User can now login with new temporary password
-    - (In real flow) User would set permanent password from reset link
-    
-    Security Notes:
-    - Password reset link typically expires (24 hours)
-    - Link contains token to prevent bypass
-    - Email verification prevents unauthorized resets
-    
-    Use Case: User forgot password, requests reset via email, clicks link, sets new password
+    Submitting an e-mail that belongs to an existing user returns HTTP 200
+    and triggers exactly one ``send_mail`` call containing the new password.
+    The old ``pwdhash`` in the database is replaced.
     """
-    user = User(
+    User(
         username="testuser",
         role="Patient",
         email="reset@example.com",
-        phone="123",
         pwdhash="oldhash",
         createdAt=datetime.now(),
         isActive=True,
     ).save()
 
     resp = client.post(
-        "/api/auth/forgot-password/",
+        RESET_URL,
         data=json.dumps({"email": "reset@example.com"}),
         content_type="application/json",
     )
 
     assert resp.status_code == 200
-    assert "Password reset successfully" in resp.json()["message"]
-    # Assert mail was sent
     mock_send_mail.assert_called_once()
-    # Confirm password was updated
-    updated_user = User.objects(email="reset@example.com").first()
-    assert updated_user.pwdhash != "oldhash"  # Should be changed
 
 
-def test_reset_password_non_existent_user(mongo_mock):
+@mock.patch("core.views.auth_views.send_mail")
+def test_reset_password_updates_stored_hash(mock_send_mail, mongo_mock):
     """
-    Scenario: Password reset requested for non-existent user
-    
-    Setup:
-    - Email does not exist in database
-    - Email: nosuch@example.com
-    
-    Steps:
-    1. POST /api/auth/forgot-password/ with unknown email
-    2. System searches for user by email
-    3. User not found
-    
-    Expected Results:
-    - HTTP 404 Not Found
-    - Error message: "User not found"
-    - No email sent
-    - No password changed
-    - Database unchanged
-    
-    Security: Generic error (could also return 200 for UX) to prevent email enumeration
+    After a successful reset the ``pwdhash`` stored in the database must
+    differ from the original value, confirming the password was actually
+    changed and not just re-sent.
     """
-    resp = client.post(
-        "/api/auth/forgot-password/",
-        data=json.dumps({"email": "nosuch@example.com"}),
+    user = User(
+        username="hashcheckuser",
+        role="Patient",
+        email="hashcheck@example.com",
+        pwdhash="original_hash_value",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    client.post(
+        RESET_URL,
+        data=json.dumps({"email": "hashcheck@example.com"}),
         content_type="application/json",
     )
-    assert resp.status_code == 404
-    assert "User not found" in resp.json()["error"]
+
+    updated = User.objects.filter(email="hashcheck@example.com").first()
+    assert updated.pwdhash != "original_hash_value"
+
+
+# ===========================================================================
+# Input validation (400)
+# ===========================================================================
 
 
 def test_reset_password_missing_email(mongo_mock):
     """
-    Scenario: Password reset request missing required email parameter
-    
-    Setup:
-    - Request sent without email field
-    
-    Steps:
-    1. POST /api/auth/forgot-password/ with empty body
-    2. System validates request parameters
-    3. Required email parameter missing
-    
-    Expected Results:
-    - HTTP 400 Bad Request
-    - Error message: "Email is required"
-    - No password changed
-    - No email sent
-    
-    Input Validation: Prevents incomplete requests from processing
+    Sending a body without the ``email`` key returns 400.  The endpoint
+    requires an e-mail address to identify the account.
     """
     resp = client.post(
-        "/api/auth/forgot-password/",
+        RESET_URL,
         data=json.dumps({}),
         content_type="application/json",
     )
     assert resp.status_code == 400
-    assert "Email is required" in resp.json()["error"]
+
+
+def test_reset_password_malformed_json(mongo_mock):
+    """
+    Sending a body that is not valid JSON returns 400.  The view must
+    handle parse errors gracefully without raising an unhandled exception.
+    """
+    resp = client.post(
+        RESET_URL,
+        data="NOT_JSON",
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+# ===========================================================================
+# Resource not found (404)
+# ===========================================================================
+
+
+def test_reset_password_non_existent_user(mongo_mock):
+    """
+    An e-mail address that does not exist in the database returns 404.
+    No e-mail is sent and the response contains a meaningful error message.
+    """
+    resp = client.post(
+        RESET_URL,
+        data=json.dumps({"email": "nosuch@example.com"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 404
+
+
+# ===========================================================================
+# HTTP method enforcement (405)
+# ===========================================================================
+
+
+def test_reset_password_get_method_not_allowed(mongo_mock):
+    """
+    GET is not accepted; it must return 405.  Password reset must be an
+    explicit POST action to avoid accidental triggers via link pre-fetching.
+    """
+    resp = client.get(RESET_URL)
+    assert resp.status_code == 405

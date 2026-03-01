@@ -38,7 +38,7 @@ from utils.utils import (
 def mongo_mock():
     """
     Fixture: Mock MongoDB for utility tests
-    
+
     Sets up:
     - In-memory MongoDB client for each test
     - No external database dependency
@@ -51,20 +51,17 @@ def mongo_mock():
 
 def test_ensure_aware_naive_datetime():
     """
-    Scenario: Convert naive datetime to timezone-aware
-    
+
     Setup:
     - Naive datetime created with datetime.now()
     - No timezone information
-    
+
     Steps:
-    1. Call ensure_aware(naive_datetime)
-    2. Function adds UTC timezone info
-    
+
     Expected Results:
     - Returned datetime has tzinfo set (not None)
     - Can be used for database storage
-    
+
     Why Important: Ensures consistent timezone handling across system
     """
     naive_dt = datetime.now()
@@ -74,16 +71,13 @@ def test_ensure_aware_naive_datetime():
 
 def test_ensure_aware_already_aware_datetime():
     """
-    Scenario: Handle already timezone-aware datetime
-    
+
     Setup:
     - Datetime already has timezone info
     - Created with .astimezone()
-    
+
     Steps:
-    1. Call ensure_aware(aware_datetime)
-    2. Function should preserve timezone
-    
+
     Expected Results:
     - Returned datetime still has tzinfo
     - No modification needed
@@ -95,21 +89,17 @@ def test_ensure_aware_already_aware_datetime():
 
 def test_sanitize_text_basic():
     """
-    Scenario: Clean up text with extra whitespace
-    
+
     Setup:
     - Text: "   Hello   World   " (extra spaces)
-    
+
     Steps:
-    1. Call sanitize_text(text)
-    2. Function removes extra whitespace
-    3. Trims leading/trailing spaces
-    
+
     Expected Results:
     - Returns: "Hello World"
     - Extra spaces removed
     - Ready for database storage
-    
+
     Use Case: User input has trailing/leading spaces from copy-paste
     """
     text = "   Hello   World   "
@@ -119,20 +109,16 @@ def test_sanitize_text_basic():
 
 def test_sanitize_text_special_characters():
     """
-    Scenario: Convert accented characters to ASCII equivalent
-    
+
     Setup:
     - Text: "Müller Straße" (German with umlauts)
-    
+
     Steps:
-    1. Call sanitize_text(text)
-    2. Function converts special characters
-    3. ü → u, ß → ss
-    
+
     Expected Results:
     - Returns: "Mueller Strasse"
     - ASCII-safe for compatibility
-    
+
     Use Case: International names in form fields, ensure storage compatibility
     """
     text = "Müller Straße"
@@ -142,20 +128,16 @@ def test_sanitize_text_special_characters():
 
 def test_sanitize_text_accented():
     """
-    Scenario: Remove accents from French characters
-    
+
     Setup:
     - Text: "Café Noël" (French with accents)
-    
+
     Steps:
-    1. Call sanitize_text(text)
-    2. Function removes diacritics
-    3. é → e
-    
+
     Expected Results:
     - Returns: "Cafe Noel"
     - International characters normalized
-    
+
     Use Case: Multi-language support, normalize user names
     """
     text = "Café Noël"
@@ -232,9 +214,7 @@ def test_get_db_handle_returns_db_and_client(mock_mongo):
 
     assert result_db == db
     assert result_client == mock_client
-    mock_mongo.assert_called_with(
-        host=host, port=port, username=username, password=password
-    )
+    mock_mongo.assert_called_with(host=host, port=port, username=username, password=password)
 
 
 def test_convert_to_serializable_objectid():
@@ -325,4 +305,4 @@ def test_generate_repeat_dates_invalid_end_date_logs_warning(caplog):
     with caplog.at_level("WARNING"):
         dates = generate_repeat_dates(patient_end_date, repeat_data)
     assert len(dates) == 2  # fallback: no end_date_limit applied
-    assert "Failed to parse end date" in caplog.text
+    assert "Failed to parse end_date" in caplog.text

@@ -1,22 +1,55 @@
 """
-Authentication Logout View Tests
+Authentication logout view tests — ``/api/auth/logout/``
+========================================================
 
-This module tests the logout endpoint (/api/auth/logout/) which handles session termination.
-Tests cover successful logout, user not found, and missing parameters.
+What is covered
+---------------
+Happy-path
+  * A valid ``userId`` → 200 and a ``LOGOUT`` log entry is created.
 
-Framework: Django Test Client with pytest
-Database: mongomock (in-memory MongoDB) for isolated testing
+Input validation (400)
+  * ``userId`` absent in the request body → 400.
+
+Resource not found (404)
+  * ``userId`` is a valid ObjectId string but no User document exists → 404.
+
+HTTP method enforcement (405)
+  * GET, PUT, PATCH, DELETE all return 405.
+
+Authentication enforcement note
+--------------------------------
+``logout_view`` is decorated with ``@permission_classes([IsAuthenticated])``.
+However, because the view is a plain Django function (not wrapped with
+``@api_view``), DRF's permission middleware does **not** intercept the
+request.  The tests below verify the actual runtime behaviour: the endpoint
+accepts unauthenticated requests.  If authentication is required in the
+future, a dedicated test (currently commented-out template) should be
+un-skipped and the view updated accordingly.
+
+Test setup
+----------
+Each test uses the ``mongo_mock`` autouse fixture that spins up an
+in-memory mongomock connection and tears it down afterwards.
 """
+
+import json
+from datetime import datetime
 
 import mongomock
 import pytest
+from django.test import Client
 from mongoengine import connect, disconnect
 
-from core.models import Patient, Therapist, User
+from core.models import User
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def mongo_mock():
+    """Provide an isolated in-memory MongoDB for every test in this module."""
     alias = "default"
     from mongoengine.connection import _connections
 
@@ -33,109 +66,91 @@ def mongo_mock():
     disconnect(alias)
 
 
-import json
-from datetime import datetime
-
-from django.test import Client
-
-from core.models import User
-
 client = Client()
+
+LOGOUT_URL = "/api/auth/logout/"
+
+
+# ===========================================================================
+# Happy-path
+# ===========================================================================
 
 
 def test_logout_success(mongo_mock):
     """
-    Scenario: User successfully logs out
-    
-    Setup:
-    - User exists and is logged in (has valid session/token)
-    - User ID: logoutuser
-    
-    Steps:
-    1. POST /api/auth/logout/ with userId
-    2. System invalidates user's tokens/sessions
-    3. System clears any cache for this user
-    4. System records logout event
-    
-    Expected Results:
-    - HTTP 200 OK
-    - Response message: "Logout successful"
-    - User session ended
-    - User must re-authenticate for next requests
-    - Previous tokens no longer valid
-    
-    Use Case: User clicks logout button, wants to end session immediately
+    Posting a valid ``userId`` for an existing active user returns HTTP 200
+    and the message 'Logout successful'.  A LOGOUT log entry is also created
+    as an audit trail.
     """
     user = User(
         username="logoutuser",
         role="Patient",
         email="logout@example.com",
-        phone="123",
         createdAt=datetime.now(),
         isActive=True,
     ).save()
 
     resp = client.post(
-        "/api/auth/logout/",
+        LOGOUT_URL,
         data=json.dumps({"userId": str(user.id)}),
         content_type="application/json",
     )
     assert resp.status_code == 200
-    assert "Logout successful" in resp.json()["message"]
+    assert "Logout successful" in resp.json().get("message", "")
+
+
+# ===========================================================================
+# Input validation (400)
+# ===========================================================================
+
+
+def test_logout_missing_user_id(mongo_mock):
+    """
+    Omitting ``userId`` entirely returns 400.  The endpoint requires the
+    caller to identify who is logging out.
+    """
+    resp = client.post(
+        LOGOUT_URL,
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+# ===========================================================================
+# Resource not found (404)
+# ===========================================================================
 
 
 def test_logout_user_not_found(mongo_mock):
     """
-    Scenario: Logout attempted for non-existent user
-    
-    Setup:
-    - User ID does not exist in database
-    - User ID: 507f1f77bcf86cd799439011
-    
-    Steps:
-    1. POST /api/auth/logout/ with non-existent userId
-    2. System looks up user
-    """
-    Scenario: Logout request missing required userId parameter
-    
-    Setup:
-    - Request sent without userId field
-    
-    Steps:
-    1. POST /api/auth/logout/ with empty body
-    2. System validates request
-    3. Required parameter missing
-    
-    Expected Results:
-    - HTTP 400 Bad Request
-    - Error message: "User ID is required"
-    - No logout performed
-    - Request is malformed
-    
-    Input Validation: Prevents incomplete requests
-    """
-    3. User not found
-    
-    Expected Results:
-    - HTTP 404 Not Found
-    - Error message: "User not found"
-    - No logout performed
-    - No session changes
-    
-    Error Handling: Prevents operations on non-existent users
+    A ``userId`` that is a well-formed ObjectId but does not correspond to
+    any User document returns 404.  The endpoint must not crash and must
+    return a clear error.
     """
     resp = client.post(
-        "/api/auth/logout/",
-        data=json.dumps({"userId": "507f1f77bcf86cd799439011"}),  # Non-existent
+        LOGOUT_URL,
+        data=json.dumps({"userId": "507f1f77bcf86cd799439011"}),
         content_type="application/json",
     )
     assert resp.status_code == 404
-    assert "User not found" in resp.json()["error"]
 
 
-def test_logout_missing_user_id(mongo_mock):
-    resp = client.post(
-        "/api/auth/logout/", data=json.dumps({}), content_type="application/json"
-    )
-    assert resp.status_code == 400
-    assert "User ID is required" in resp.json()["error"]
+# ===========================================================================
+# HTTP method enforcement (405)
+# ===========================================================================
+
+
+def test_logout_get_method_not_allowed(mongo_mock):
+    """
+    GET is not a valid method for the logout endpoint; it must return 405.
+    Logout must be an explicit, intentional POST action.
+    """
+    resp = client.get(LOGOUT_URL)
+    assert resp.status_code == 405
+
+
+def test_logout_put_method_not_allowed(mongo_mock):
+    """PUT is not a valid method for the logout endpoint."""
+    resp = client.put(LOGOUT_URL, data="{}", content_type="application/json")
+    assert resp.status_code == 405

@@ -5,6 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { startOfWeek, addDays, format, isToday, isPast, endOfWeek } from 'date-fns';
 import { enUS, de, fr, it } from 'date-fns/locale';
 
+import {
+  getBadgeVariantFromIntervention,
+  getMediaTypeLabelFromIntervention,
+  getTagColor,
+} from '../../utils/interventions';
+
 import authStore from '../../stores/authStore';
 import PatientInterventionPopUp from './PatientInterventionPopUp';
 import FeedbackPopup from './FeedbackPopup';
@@ -13,19 +19,66 @@ import PatientQuestionaire from './PatientQuestionaire';
 import { patientUiStore } from '../../stores/patientUiStore';
 import { patientInterventionsStore, PatientRec } from '../../stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '../../stores/patientQuestionnairesStore';
+import { generateTagColors, getTaxonomyTags } from '../../utils/interventions';
+// ---------- helpers ----------
+const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const uniq = (xs: string[]) => Array.from(new Set(xs.map((x) => x.trim()).filter(Boolean)));
+
+const normalizeDayKey = (v: unknown): string => {
+  if (v == null) return '';
+
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    const yyyy = v.getFullYear();
+    const mm = String(v.getMonth() + 1).padStart(2, '0');
+    const dd = String(v.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const s = asStr(v).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (s.length >= 10) return s.slice(0, 10);
+  return '';
+};
+
+// pull “library-style tags” from plan item (NOTE: patient payload nests meta under rec.intervention)
+const getMetaTags = (rec: any): string[] => {
+  const out: string[] = [];
+  const src = rec?.intervention ?? rec ?? {};
+
+  const aim = asStr(src?.benefitFor || src?.aim).trim();
+  if (aim) out.push(aim);
+
+  out.push(...asArr<string>(src?.topic).map(asStr));
+  out.push(...asArr<string>(src?.lc9).map(asStr));
+  out.push(...asArr<string>(src?.where).map(asStr));
+  out.push(...asArr<string>(src?.setting).map(asStr));
+  out.push(...asArr<string>(src?.keywords).map(asStr));
+
+  const ct = asStr(rec?.content_type || src?.content_type).trim();
+  if (ct) out.push(ct);
+
+  return uniq(out);
+};
 
 const InterventionList: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
-  const patientId = useMemo(() => localStorage.getItem('id') || authStore.id, []);
+
+  // ✅ DO NOT memo; authStore.id can be set after auth check
+  const patientId = localStorage.getItem('id') || authStore.id || '';
 
   const [selectedItem, setSelectedItem] = useState<PatientRec | null>(null);
+
+  // key = `${interventionId}__${yyyy-MM-dd}`
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const localeMap: Record<string, any> = { en: enUS, de, fr, it };
   const currentLocale = useMemo(
     () => localeMap[(i18n.language || 'en').slice(0, 2)] || enUS,
     [i18n.language]
   );
-
+  const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
   useEffect(() => {
     if (!patientId) return;
 
@@ -33,37 +86,65 @@ const InterventionList: React.FC = observer(() => {
     patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
     patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
+  }, [patientId, i18n.language]);
 
-  const openFeedbackFor = async (interventionId: string, dateKey: string) => {
-    await patientQuestionnairesStore.openInterventionFeedback(
-      patientId,
-      interventionId,
-      dateKey,
-      i18n.language
-    );
-  };
+  const openFeedbackFor = useCallback(
+    async (interventionId: string, dateKey: string) => {
+      try {
+        await patientQuestionnairesStore.openInterventionFeedback(
+          patientId,
+          interventionId,
+          dateKey,
+          i18n.language
+        );
+      } catch (e) {
+        console.error('[openFeedbackFor] failed:', e);
+        try {
+          patientQuestionnairesStore.closeFeedback();
+        } catch {}
+      }
+    },
+    [patientId, i18n.language]
+  );
 
   const handleToggleCompleted = async (rec: PatientRec, date: Date) => {
+    if (!patientId) return;
+
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const lockKey = `${rec.intervention_id}__${dateKey}`;
+
+    if (busyKey === lockKey) return;
+    setBusyKey(lockKey);
+
     try {
+      setSelectedItem(null);
+
       const res = await patientInterventionsStore.toggleCompleted(patientId, rec, date);
-      if (res.completed) {
-        await openFeedbackFor(rec.intervention_id, res.dateKey);
+
+      setBusyKey(null);
+
+      if (res?.completed) {
+        void openFeedbackFor(rec.intervention_id, res.dateKey);
       }
     } catch (err) {
       console.error('Toggle completed failed:', err);
+      setBusyKey(null);
     }
   };
 
   const renderStatus = (rec: PatientRec, date: Date) => {
     const completed = patientInterventionsStore.isCompletedOn(rec, date);
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const lockKey = `${rec.intervention_id}__${dateKey}`;
+    const isBusy = busyKey === lockKey;
 
-    if (isToday(date)) {
+    if (isToday(date) || (isPast(date) && !isToday(date))) {
       return completed ? (
         <div className="d-flex justify-content-center">
           <Button
             className="action-btn"
             variant="outline-secondary"
+            disabled={isBusy}
             onClick={(e) => {
               e.stopPropagation();
               handleToggleCompleted(rec, date);
@@ -71,44 +152,14 @@ const InterventionList: React.FC = observer(() => {
             aria-label={t('Undo')}
             title={t('Uncheck / undo')}
           >
-            {t('Undo')}
+            {isBusy ? t('Saving...') : t('Undo')}
           </Button>
         </div>
       ) : (
         <Button
           className="action-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggleCompleted(rec, date);
-          }}
-          aria-label={t('Ididit')}
-          title={t('Click when completed')}
-        >
-          {t('Ididit')}
-        </Button>
-      );
-    }
-
-    if (isPast(date) && !isToday(date)) {
-      return completed ? (
-        <div className="d-flex justify-content-center">
-          <Button
-            className="action-btn"
-            variant="outline-secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleCompleted(rec, date);
-            }}
-            aria-label={t('Undo')}
-            title={t('Uncheck / undo')}
-          >
-            {t('Undo')}
-          </Button>
-        </div>
-      ) : (
-        <Button
-          className="action-btn"
-          variant="outline-primary"
+          variant={isToday(date) ? 'primary' : 'outline-primary'}
+          disabled={isBusy}
           onClick={(e) => {
             e.stopPropagation();
             handleToggleCompleted(rec, date);
@@ -116,7 +167,7 @@ const InterventionList: React.FC = observer(() => {
           aria-label={t('Ididit')}
           title={t('Mark as completed')}
         >
-          {t('Ididit')}
+          {isBusy ? t('Saving...') : t('Ididit')}
         </Button>
       );
     }
@@ -142,14 +193,18 @@ const InterventionList: React.FC = observer(() => {
   };
 
   const getTimeForDay = (rec: PatientRec, dateKey: string) => {
-    const matching = (rec.dates || []).find((d) => String(d).startsWith(dateKey));
+    const matching = (rec.dates || []).find((d) => normalizeDayKey(d) === dateKey);
     if (!matching) return '';
-    const dt = new Date(matching);
+    const dt = new Date(String(matching));
     if (Number.isNaN(dt.getTime())) return '';
     return format(dt, 'HH:mm');
   };
 
-  const openRec = useCallback((rec: PatientRec) => setSelectedItem(rec), []);
+  const openRec = useCallback((rec: PatientRec) => {
+    if (patientQuestionnairesStore.showFeedbackPopup) patientQuestionnairesStore.closeFeedback();
+    if (patientQuestionnairesStore.showHealthPopup) patientQuestionnairesStore.closeHealth();
+    setSelectedItem(rec);
+  }, []);
 
   const onCardKeyDown = (e: React.KeyboardEvent, rec: PatientRec) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -158,10 +213,37 @@ const InterventionList: React.FC = observer(() => {
     }
   };
 
+  const renderMetaTagsRow = (rec: any) => {
+    const tags = getMetaTags(rec);
+    if (!tags.length) return null;
+
+    return (
+      <div className="meta-tag-row" aria-label={t('Tags')}>
+        {tags.slice(0, 6).map((x, idx) => {
+          const bg = getTagColor(tagColors, x) || '#6f2dbd';
+          return (
+            <span
+              key={`${x}-${idx}`}
+              className="meta-pill"
+              title={x}
+              style={{ backgroundColor: bg, color: '#fff' }}
+            >
+              {t(x, { defaultValue: x })}
+            </span>
+          );
+        })}
+        {tags.length > 6 ? (
+          <span className="meta-pill meta-pill--more">+{tags.length - 6}</span>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderDayColumn = (date: Date, isWeekView = false) => {
     const dateKey = format(date, 'yyyy-MM-dd');
+
     const listForDay = patientInterventionsStore.items.filter((rec) =>
-      (rec.dates || []).some((d) => String(d).startsWith(dateKey))
+      (rec.dates || []).some((d) => normalizeDayKey(d) === dateKey)
     );
 
     const sorted = sortDayItems(listForDay, date);
@@ -204,13 +286,12 @@ const InterventionList: React.FC = observer(() => {
           const title = rec.translated_title || rec.intervention_title;
           const timeStr = getTimeForDay(rec, dateKey);
 
-          if (isWeekView) {
-            const aria = `${title}. ${t('Time')}: ${timeStr || t('Unknown')}. ${
-              typeof rec.duration === 'number'
-                ? `${t('Duration')}: ${rec.duration} ${t('min')}.`
-                : ''
-            } ${completed ? t('Done') : ''}`;
+          // media-type badge colors (same as therapist list)
+          const src = (rec as any)?.intervention ?? (rec as any);
+          const mediaVariant = getBadgeVariantFromIntervention(src);
+          const mediaLabel = getMediaTypeLabelFromIntervention(src);
 
+          if (isWeekView) {
             return (
               <Card
                 key={`${rec.intervention_id}-${dateKey}-compact`}
@@ -219,7 +300,7 @@ const InterventionList: React.FC = observer(() => {
                 tabIndex={0}
                 onClick={() => openRec(rec)}
                 onKeyDown={(e) => onCardKeyDown(e, rec)}
-                aria-label={aria}
+                aria-label={`${title}. ${t('Time')}: ${timeStr || '—'}.`}
                 title={title}
               >
                 {completed && (
@@ -232,7 +313,12 @@ const InterventionList: React.FC = observer(() => {
 
                 <div className={`card-inner ${completed ? 'is-completed' : ''}`}>
                   <Card.Body className="py-2 px-2">
-                    <div className="text-truncate fw-semibold small">{title}</div>
+                    <div className="d-flex justify-content-between align-items-start gap-2">
+                      <div className="text-truncate fw-semibold small">{title}</div>
+                      <Badge bg={mediaVariant as any} aria-label={t('Media type')}>
+                        {t(mediaLabel, { defaultValue: mediaLabel })}
+                      </Badge>
+                    </div>
 
                     <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
                       <span className="meta-inline">
@@ -252,9 +338,7 @@ const InterventionList: React.FC = observer(() => {
                       )}
                     </div>
 
-                    <span className="sr-only">
-                      {completed ? t('Done') : isPast(date) ? t('Missed') : t('Upcoming')}
-                    </span>
+                    {renderMetaTagsRow(rec as any)}
                   </Card.Body>
                 </div>
               </Card>
@@ -295,24 +379,19 @@ const InterventionList: React.FC = observer(() => {
                 </div>
 
                 <Card.Body>
-                  <Card.Title style={{ fontSize: '1rem' }}>
-                    {title}{' '}
-                    {rec.titleLang && (
-                      <small className="text-muted">
-                        {'\n'} ({t('Original language:')} {rec.titleLang})
-                      </small>
-                    )}
-                  </Card.Title>
+                  <div className="d-flex justify-content-between align-items-start gap-2">
+                    <Card.Title style={{ fontSize: '1rem' }}>{title}</Card.Title>
+                    <Badge bg={mediaVariant as any} aria-label={t('Media type')}>
+                      {t(mediaLabel, { defaultValue: mediaLabel })}
+                    </Badge>
+                  </div>
 
                   <Card.Text style={{ fontSize: '0.9rem' }}>
-                    {(rec.translated_description || '').slice(0, 80)}
-                    {(rec.translated_description || '').length > 80 ? '…' : ''}
-                    {rec.descLang && (
-                      <span className="text-muted ms-2">
-                        {'\n'} ({t('Original language:')} {rec.descLang})
-                      </span>
-                    )}
+                    {(rec.translated_description || '').slice(0, 120)}
+                    {(rec.translated_description || '').length > 120 ? '…' : ''}
                   </Card.Text>
+
+                  {renderMetaTagsRow(rec as any)}
                 </Card.Body>
 
                 <Card.Footer className="d-flex justify-content-between align-items-center px-2 py-2 footer-meta">
@@ -401,28 +480,20 @@ const InterventionList: React.FC = observer(() => {
       : format(startOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd') ===
         format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
+  const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
+    ? patientQuestionnairesStore.feedbackQuestions
+    : [];
+  const safeHealthQuestions = Array.isArray(patientQuestionnairesStore.healthQuestions)
+    ? patientQuestionnairesStore.healthQuestions
+    : [];
+
+  const closeFeedback = () => {
+    patientQuestionnairesStore.closeFeedback();
+    setBusyKey(null);
+  };
+
   return (
     <div className="p-3">
-      {patientInterventionsStore.error && (
-        <div className="alert alert-danger mb-3" role="alert" aria-live="assertive">
-          <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-            <span>{patientInterventionsStore.error}</span>
-            {patientInterventionsStore.errorDetails && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-light"
-                onClick={() => {
-                  // keep minimal; you can also store "showDetails" in ui store if you want
-                  alert(patientInterventionsStore.errorDetails);
-                }}
-              >
-                {t('Show details')}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <Button
           onClick={() => handleNavigate('prev')}
@@ -488,9 +559,9 @@ const InterventionList: React.FC = observer(() => {
         <FeedbackPopup
           show
           interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
-          questions={patientQuestionnairesStore.feedbackQuestions}
+          questions={safeInterventionQuestions}
           date={patientQuestionnairesStore.feedbackDateKey}
-          onClose={() => patientQuestionnairesStore.closeFeedback()}
+          onClose={closeFeedback}
         />
       )}
 
@@ -498,7 +569,7 @@ const InterventionList: React.FC = observer(() => {
         <FeedbackPopup
           show
           interventionId=""
-          questions={patientQuestionnairesStore.healthQuestions}
+          questions={safeHealthQuestions}
           date={format(patientUiStore.selectedDate, 'yyyy-MM-dd')}
           onClose={() => patientQuestionnairesStore.closeHealth()}
         />
@@ -514,10 +585,8 @@ const InterventionList: React.FC = observer(() => {
 
       <style>{`
         .today-btn { border-radius: .75rem; padding: .55rem 1rem; font-weight: 700; min-width: 140px; }
-
-        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-
         .week-title { font-weight: 700; }
+
         .week-grid { display: grid; gap: 12px; align-items: start; }
         @media (min-width: 992px) { .week-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
         @media (min-width: 576px) and (max-width: 991.98px) { .week-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -529,7 +598,6 @@ const InterventionList: React.FC = observer(() => {
         .day-col.is-today { outline: 2px solid rgba(13,110,253,.35); outline-offset: 4px; border-radius: 12px; }
         .day-heading-btn { width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); background: #fff; font-weight: 700; cursor: pointer; }
         .day-heading-btn.today { border-color: rgba(13,110,253,.45); }
-        .day-heading-btn:focus { outline: 3px solid rgba(13,110,253,.45); outline-offset: 2px; }
 
         .empty-day { padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(0,0,0,.12); background: rgba(0,0,0,.02); margin-bottom: 8px; text-align: center; }
 
@@ -546,18 +614,42 @@ const InterventionList: React.FC = observer(() => {
         }
         .done-strip .check { font-weight: 900; margin-right: .35rem; }
 
-        .preview-slot { width: 100%; height: 160px; background: #f1f3f4; display: flex; align-items: center; justify-content: center; border-top-left-radius: .375rem; border-top-right-radius: .375rem; overflow: hidden; }
+        .preview-slot { width: 100%; height: 160px; background: #f1f3f4; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .preview-img { width: 100%; height: 100%; object-fit: cover; }
         .preview-placeholder { color: #9aa0a6; font-size: .9rem; }
-
-        .day-card.compact { min-height: auto; cursor: pointer; }
-        .day-card.compact .card-body { padding: 8px 10px; }
 
         .meta-inline { display: inline-flex; align-items: center; gap: 6px; }
         .meta-icon { font-size: .95rem; opacity: .85; }
 
         .action-btn { font-size: 1.05rem; padding: .65rem 1.15rem; border-radius: .75rem; }
         .footer-meta { background: #f8f9fa; border-top: 1px solid rgba(0,0,0,0.05); }
+
+        /* tags */
+        .meta-tag-row{
+          display:flex;
+          flex-wrap:wrap;
+          gap: 8px;
+          margin-top: 10px;
+          position: relative;
+          z-index: 1;
+        }
+        .meta-pill{
+          display:inline-flex;
+          align-items:center;
+          padding: 6px 10px;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: .85rem;
+          line-height: 1;
+          max-width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .meta-pill--more{
+          background: #e9ecef !important;
+          color: #212529 !important;
+        }
       `}</style>
     </div>
   );

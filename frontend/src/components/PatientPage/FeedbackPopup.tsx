@@ -23,7 +23,7 @@ type Translation = { language: string; text: string };
 type PossibleAnswer = { key: string; translations: Translation[] };
 type RawQuestion = {
   questionKey: string;
-  answerType: 'dropdown' | 'multi-select' | 'text' | 'video';
+  answerType: 'select' | 'multi-select' | 'text' | 'video' | 'dropdown';
   translations: Translation[];
   possibleAnswers?: PossibleAnswer[];
 };
@@ -48,14 +48,20 @@ const pickText = (trs: Translation[] | undefined, lang: string, fallbackKey?: st
   return fallbackKey || trs[0].text || '';
 };
 
+const normalizeType = (t: RawQuestion['answerType']): NormalizedQuestion['type'] => {
+  if (t === 'select' || t === 'dropdown') return 'dropdown';
+  if (t === 'multi-select') return 'multi-select';
+  if (t === 'video') return 'video';
+  return 'text';
+};
+
 const toNormalized = (q: RawQuestion, lang: string): NormalizedQuestion => ({
   questionKey: q.questionKey,
-  type: q.answerType,
+  type: normalizeType(q.answerType),
   label: pickText(q.translations, lang, q.questionKey),
   options: q.possibleAnswers || [],
 });
 
-/** Localized privacy note shown in audio/video sections */
 const PRIVACY_NOTE: Record<string, string> = {
   de: 'Hinweis: Aufnahmen und Videos sind nur für Ihre Therapeutin/Ihren Therapeuten sichtbar und werden nach 14 Tagen gelöscht.',
   fr: 'Remarque : les enregistrements et vidéos ne sont visibles que par votre thérapeute et seront supprimés après 14 jours.',
@@ -63,17 +69,14 @@ const PRIVACY_NOTE: Record<string, string> = {
   en: 'Note: Recordings and videos are only visible to your therapist and will be deleted after 14 days.',
 };
 
-const GAP_PX = 12; // keep in sync with CSS .answer-grid gap
+const GAP_PX = 12;
 
 type Props = {
   show: boolean;
   interventionId: string;
   questions: Array<RawQuestion | NormalizedQuestion>;
   onClose: () => void;
-
-  // ✅ NEW: allows saving feedback for past completions
-  // Expected format: 'YYYY-MM-DD'
-  date?: string;
+  date?: string; // YYYY-MM-DD
 };
 
 const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date }) => {
@@ -81,16 +84,35 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const currentLang = normalizeLang(i18n.language);
   const privacyNote = PRIVACY_NOTE[currentLang] || PRIVACY_NOTE.en;
 
-  // Normalize questions to a single shape for rendering
-  const normalizedQuestions: NormalizedQuestion[] = useMemo(
-    () =>
-      questions.map((q: any) =>
-        q.label && q.type && q.options
+  const normalizedQuestions: NormalizedQuestion[] = useMemo(() => {
+    const src = Array.isArray(questions) ? questions : [];
+    return src
+      .map((q: any) =>
+        q?.label && q?.type && q?.options
           ? (q as NormalizedQuestion)
           : toNormalized(q as RawQuestion, currentLang)
-      ),
-    [questions, currentLang]
-  );
+      )
+      .filter((q) => typeof q?.questionKey === 'string' && q.questionKey.trim().length > 0);
+  }, [questions, currentLang]);
+
+  // ✅ IMPORTANT: show a safe modal even if there are 0 questions
+  if (show && normalizedQuestions.length === 0) {
+    return (
+      <Modal show={show} onHide={onClose} centered backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Feedback')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info" className="mb-0">
+            {t('No feedback questions available.')}
+          </Alert>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={onClose}>{t('Close')}</Button>
+        </Modal.Footer>
+      </Modal>
+    );
+  }
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -99,7 +121,6 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioURL, setAudioURL] = useState<string | null>(null);
   const [videoURL, setVideoURL] = useState<string | null>(null);
-  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,12 +130,19 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const audioChunks = useRef<BlobPart[]>([]);
   const videoChunks = useRef<BlobPart[]>([]);
   const previewRef = useRef<HTMLVideoElement | null>(null);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<number | null>(null);
+
   const userId = localStorage.getItem('id') || '';
 
   const currentQuestion = normalizedQuestions[currentQuestionIndex];
 
-  // ✅ stop any active recording/stream when closing/unmounting
+  const stopTimer = () => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const forceStopAllMedia = () => {
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -132,7 +160,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
     setRecording(false);
     setCountdown(null);
-    clearInterval(timerRef.current);
+    stopTimer();
   };
 
   const resetAll = () => {
@@ -140,7 +168,6 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     setAnswers({});
     setAudioURL(null);
     setVideoURL(null);
-    setUploadVideoFile(null);
     setRecording(false);
     setRecordingTime(0);
     setCountdown(null);
@@ -148,25 +175,29 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     setInputMode('text');
     setError(null);
     setIsSubmitting(false);
-    clearInterval(timerRef.current);
+    stopTimer();
   };
 
-  // Reset when fully closed
   useEffect(() => {
     if (!show) resetAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
-  // Safety cleanup if component unmounts while open
   useEffect(() => {
     return () => {
       forceStopAllMedia();
-      try {
-        clearInterval(timerRef.current);
-      } catch {}
+      stopTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If questions changed while modal open, clamp index
+  useEffect(() => {
+    if (currentQuestionIndex >= normalizedQuestions.length) {
+      setCurrentQuestionIndex(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedQuestions.length]);
 
   const handleChangeText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: e.target.value }));
@@ -175,7 +206,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const handleOptionSelect = (optionKey: string, fieldKey: string, multiple = false) => {
     setAnswers((prev) => {
       if (multiple) {
-        const current: string[] = prev[fieldKey] || [];
+        const current: string[] = Array.isArray(prev[fieldKey]) ? prev[fieldKey] : [];
         const next = current.includes(optionKey)
           ? current.filter((k) => k !== optionKey)
           : [...current, optionKey];
@@ -206,29 +237,38 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
   const startRecording = async () => {
     if (!(await requestMicrophonePermission())) return;
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
+
+    const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     mediaRecorderRef.current = recorder;
     audioChunks.current = [];
 
     recorder.ondataavailable = (e) => audioChunks.current.push(e.data);
     recorder.onstop = () => {
       stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(audioChunks.current, { type: 'audio/wav' });
+
+      const blob = new Blob(audioChunks.current, { type: mimeType || 'audio/webm' });
       setAudioURL(URL.createObjectURL(blob));
       setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: blob }));
       setRecording(false);
-      clearInterval(timerRef.current);
+      stopTimer();
     };
 
     recorder.start();
     setRecording(true);
     setRecordingTime(0);
-    timerRef.current = setInterval(() => setRecordingTime((tt) => tt + 1), 1000);
+    stopTimer();
+    timerRef.current = window.setInterval(() => setRecordingTime((tt) => tt + 1), 1000);
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
     setRecording(false);
   };
 
@@ -240,19 +280,28 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
   const startVideoRecording = async () => {
     setError(null);
+
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     if (previewRef.current) previewRef.current.srcObject = stream as any;
 
     setCountdown(10);
     let sec = 10;
 
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       sec--;
       setCountdown(sec);
 
       if (sec === 0) {
-        clearInterval(interval);
-        const recorder = new MediaRecorder(stream);
+        window.clearInterval(interval);
+
+        const mimeCandidates = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+        ];
+        const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         mediaRecorderRef.current = recorder;
         videoChunks.current = [];
 
@@ -263,9 +312,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
             if (previewRef.current) previewRef.current.srcObject = null as any;
           } catch {}
 
-          const blob = new Blob(videoChunks.current, { type: 'video/webm' });
+          const blob = new Blob(videoChunks.current, { type: mimeType || 'video/webm' });
           if (blob.size > MAX_VIDEO_SIZE) {
-            setError(t('Video too large (max 50MB)'));
+            setError(String(t('Video too large (max 50MB)')));
             return;
           }
           setVideoURL(URL.createObjectURL(blob));
@@ -280,7 +329,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   };
 
   const stopVideoRecording = () => {
-    mediaRecorderRef.current?.stop();
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
     setRecording(false);
     setCountdown(null);
   };
@@ -294,11 +345,10 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_VIDEO_SIZE) {
-      setError(t('Video too large (max 50MB)'));
+      setError(String(t('Video too large (max 50MB)')));
       return;
     }
     setVideoURL(URL.createObjectURL(file));
-    setUploadVideoFile(file);
     setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: file }));
   };
 
@@ -316,7 +366,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       ? t('Are you sure you want to close? Unsaved data will be lost.')
       : t('Close this window?');
 
-    if ((hasAny || isBusy) && !window.confirm(msg)) return;
+    if ((hasAny || isBusy) && !window.confirm(String(msg))) return;
 
     forceStopAllMedia();
     onClose();
@@ -325,15 +375,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+
     try {
       const formData = new FormData();
       formData.append('userId', userId);
-
-      // For health questionnaires interventionId can be empty — keep behavior
       formData.append('interventionId', interventionId || '');
-
-      // ✅ NEW: submit the calendar day we are answering for (when available)
-      // Expected by backend: 'YYYY-MM-DD'
       if (date) formData.append('date', date);
 
       normalizedQuestions.forEach((q) => {
@@ -342,15 +388,10 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
         if (answer instanceof Blob) {
           const isVideo = (answer as any).type?.startsWith('video/');
-          formData.append(
-            isVideo ? `${key}_video` : key,
-            answer,
-            `${key}.${isVideo ? 'webm' : 'wav'}`
-          );
+          formData.append(isVideo ? `${key}_video` : key, answer, `${key}.webm`);
         } else if (typeof answer === 'string' || typeof answer === 'number') {
           formData.append(key, answer.toString());
         } else if (Array.isArray(answer)) {
-          // dropdown + multi-select send an array of optionKeys
           formData.append(key, JSON.stringify(answer));
         }
       });
@@ -363,14 +404,17 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       onClose();
     } catch (e) {
       console.error('Error submitting feedback:', e);
-      setError(t('Error submitting feedback. Please try again.'));
+      setError(String(t('Error submitting feedback. Please try again.')));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const renderOptions = (multiple = false) => {
-    const selected: string[] = answers[currentQuestion.questionKey] || [];
+    const selected: string[] = Array.isArray(answers[currentQuestion.questionKey])
+      ? (answers[currentQuestion.questionKey] as string[])
+      : [];
+
     const options = currentQuestion.options || [];
     const { cols, rows } = getGridLayout(options.length);
 

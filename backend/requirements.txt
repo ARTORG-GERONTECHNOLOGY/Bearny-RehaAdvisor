@@ -10,6 +10,7 @@ django-multiselectfield
 djangorestframework
 SpeechRecognition
 mongoengine
+mongomock
 gunicorn
 django-cors-headers
 djangorestframework
@@ -20,3 +21,7 @@ pydub
 celery
 django-celery-beat
 redis
+openpyxl
+pytest-cov
+black
+isort

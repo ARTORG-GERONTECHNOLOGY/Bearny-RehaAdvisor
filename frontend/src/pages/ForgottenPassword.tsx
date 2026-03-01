@@ -3,12 +3,12 @@ import { Alert, Button, Col, Container, Form, Row, Spinner } from 'react-bootstr
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
-import ErrorAlert from '../components/common/ErrorAlert';
-import AuthCard from '../components/Auth/AuthCard';
+import Header from '@/components/common/Header';
+import Footer from '@/components/common/Footer';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import AuthCard from '@/components/Auth/AuthCard';
 
-import { ForgotPasswordStore } from '../stores/forgotPasswordStore';
+import { ForgotPasswordStore } from '@/stores/forgotPasswordStore';
 
 const ForgotPassword: React.FC = observer(() => {
   const { t } = useTranslation();

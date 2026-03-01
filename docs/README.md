@@ -14,6 +14,7 @@ Welcome to the RehaAdvisor technical documentation. This comprehensive guide is 
 ### For System Administrators
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md) - Production deployment instructions
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md) - Configuration files and variables
+- [CI Environment Contract](./14-CI_ENVIRONMENT_CONTRACT.md) - Required CI test/runtime env rules
 - [Troubleshooting](./08-TROUBLESHOOTING.md) - Common issues and solutions
 
 ### For Users & API Consumers
@@ -24,6 +25,10 @@ Welcome to the RehaAdvisor technical documentation. This comprehensive guide is 
 ### For Contributors
 - [Contributing Guidelines](./12-CONTRIBUTING.md) - How to contribute to the project
 - [Code Standards](./13-CODE_STANDARDS.md) - Coding conventions and best practices
+
+### For Testing
+- [Testing Documentation Index](../TESTING_DOCUMENTATION_INDEX.md) - Central index for all testing guides
+- [Frontend E2E Test Documentation](../FRONTEND_E2E_TEST_DOCUMENTATION.md) - Playwright FE↔BE E2E setup and flows
 
 ## Project Overview
 
