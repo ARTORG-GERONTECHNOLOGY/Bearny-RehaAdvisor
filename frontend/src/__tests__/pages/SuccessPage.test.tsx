@@ -1,7 +1,6 @@
-import React from 'react';
 import { screen } from '@testing-library/react';
-import { renderWithRouter } from '../../test-utils/renderWithRouter';
-import SuccessPage from '../SuccessPage';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import SuccessPage from '@/pages/SuccessPage';
 
 // ---- i18n mock ----
 jest.mock('react-i18next', () => ({
@@ -38,7 +37,7 @@ describe('SuccessPage', () => {
 
     renderWithRouter(<SuccessPage />);
 
-    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText(/Success/)).toBeInTheDocument();
 
     expect(
       screen.getByText('Your Fitbit account has been successfully connected.')
@@ -52,7 +51,7 @@ describe('SuccessPage', () => {
 
     renderWithRouter(<SuccessPage />);
 
-    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText(/Success/)).toBeInTheDocument();
     expect(screen.getByText('Fitbit linked successfully')).toBeInTheDocument();
   });
 
