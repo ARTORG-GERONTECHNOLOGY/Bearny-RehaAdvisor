@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import InputField from '../../../../components/forms/input/InputField'; // Adjust path if needed
+import InputField from '@/components/forms/input/InputField';
 import '@testing-library/jest-dom';
 
 describe('InputField Component', () => {
