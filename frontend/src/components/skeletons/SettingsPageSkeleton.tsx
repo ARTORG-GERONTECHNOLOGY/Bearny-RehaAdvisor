@@ -2,11 +2,11 @@ import React from 'react';
 import Layout from '@/components/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const SettingsPageSkeleton: React.FC = () => (
-  <Layout>
-    <div className="container mx-auto max-w-[90%] md:max-w-screen-md">
+export default function SettingsPageSkeleton() {
+  return (
+    <Layout>
       {/* Title skeleton */}
-      <div className="pt-16 md:pt-0 flex items-center gap-[6px]">
+      <div className="flex items-center gap-[6px]">
         <Skeleton className="w-6 h-6 rounded" />
         <Skeleton className="h-7 w-32" />
       </div>
@@ -21,8 +21,6 @@ const SettingsPageSkeleton: React.FC = () => (
           <Skeleton className="h-6 w-11 rounded-full" />
         </div>
       </div>
-    </div>
-  </Layout>
-);
-
-export default SettingsPageSkeleton;
+    </Layout>
+  );
+}
