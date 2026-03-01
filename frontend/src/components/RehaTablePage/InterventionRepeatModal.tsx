@@ -14,7 +14,11 @@ type Mode = 'create' | 'modify';
 interface Props {
   show: boolean;
   onHide: () => void;
-  onSuccess?: () => void;
+
+  // ✅ called after successful submit (RehabTable triggers fetchAll/fetchInts/etc)
+  onSuccess?: () => void | Promise<void>;
+
+  // For store.submit() payload
   patient: string;
   intervention: string | { _id: string };
   mode?: Mode;
@@ -48,6 +52,25 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
     store.reset(show, mode, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, mode, defaults]);
+
+  // ✅ Close immediately after success + trigger refresh callback
+  useEffect(() => {
+    if (!show) return;
+    if (!store.success) return;
+
+    (async () => {
+      try {
+        await onSuccess?.();
+      } finally {
+        // close modal regardless of refresh outcome
+        onHide();
+
+        // prevent the effect from firing again if the component stays mounted
+        store.success = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.success, show]);
 
   return (
     <Modal show={show} onHide={onHide} centered>
@@ -237,32 +260,23 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
       </Modal.Body>
 
       <Modal.Footer>
-        {!store.success ? (
-          <>
-            <Button variant="secondary" onClick={onHide} disabled={store.submitting}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() =>
-                store.submit({
-                  patient,
-                  intervention,
-                  therapistId,
-                  onSuccess,
-                  isDiagnosis,
-                })
-              }
-              disabled={!store.canSubmit || store.submitting}
-            >
-              {store.submitting ? t('Saving...') : store.isModify ? t('Save changes') : t('Save')}
-            </Button>
-          </>
-        ) : (
-          <Alert variant="success" className="w-100 text-center m-0">
-            {t('Success!')}
-          </Alert>
-        )}
+        <Button variant="secondary" onClick={onHide} disabled={store.submitting}>
+          {t('Cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() =>
+            store.submit({
+              patient,
+              intervention,
+              therapistId,
+              isDiagnosis,
+            })
+          }
+          disabled={!store.canSubmit || store.submitting}
+        >
+          {store.submitting ? t('Saving...') : store.isModify ? t('Save changes') : t('Save')}
+        </Button>
       </Modal.Footer>
     </Modal>
   );

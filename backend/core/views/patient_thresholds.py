@@ -32,22 +32,26 @@
 # Plug this file into your urls.py accordingly.
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
+from bson import ObjectId
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-
+from mongoengine.errors import DoesNotExist
+from mongoengine.errors import ValidationError as MEValidationError
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from bson import ObjectId
-from mongoengine.errors import DoesNotExist, ValidationError as MEValidationError
-
-from core.models import Patient, User, PatientThresholds, PatientThresholdsSnapshot  # adjust import path
-import logging
+from core.models import PatientThresholds  # adjust import path
+from core.models import (
+    Patient,
+    PatientThresholdsSnapshot,
+    User,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,12 @@ def ok(data: Dict[str, Any], status: int = 200) -> JsonResponse:
     return JsonResponse({"success": True, **data}, status=status)
 
 
-def bad(message: str, field_errors: Optional[Dict[str, Any]] = None, non_field_errors=None, status: int = 400) -> JsonResponse:
+def bad(
+    message: str,
+    field_errors: Optional[Dict[str, Any]] = None,
+    non_field_errors=None,
+    status: int = 400,
+) -> JsonResponse:
     return JsonResponse(
         {
             "success": False,
@@ -146,15 +155,12 @@ class PatientThresholdsSerializer:
     INT_FIELDS = {
         # steps
         "steps_goal": (int, 0, 200000),
-
         # active minutes
         "active_minutes_green": (int, 0, 24 * 60),
         "active_minutes_yellow": (int, 0, 24 * 60),
-
         # sleep minutes
         "sleep_green_min": (int, 0, 24 * 60),
         "sleep_yellow_min": (int, 0, 24 * 60),
-
         # blood pressure sys/dia max thresholds
         "bp_sys_green_max": (int, 50, 250),
         "bp_sys_yellow_max": (int, 50, 250),
@@ -274,7 +280,10 @@ class ThresholdsUpdateSerializer:
         if errors:
             return None, errors
 
-        return ThresholdsUpdateValidated(thresholds=th_partial, effective_from=eff, reason=reason), {}
+        return (
+            ThresholdsUpdateValidated(thresholds=th_partial, effective_from=eff, reason=reason),
+            {},
+        )
 
 
 # ----------------------------
@@ -328,7 +337,9 @@ def _merge_thresholds(current: PatientThresholds, patch: PatientThresholds) -> P
         cur_d[k] = v
 
     # Build new thresholds embedded doc
-    return PatientThresholds(**{k: cur_d.get(k) for k in PatientThresholdsSerializer.ALLOWED_FIELDS if cur_d.get(k) is not None})
+    return PatientThresholds(
+        **{k: cur_d.get(k) for k in PatientThresholdsSerializer.ALLOWED_FIELDS if cur_d.get(k) is not None}
+    )
 
 
 def _thresholds_equal(a: PatientThresholds, b: PatientThresholds) -> bool:
@@ -392,12 +403,11 @@ def patient_thresholds_view(request, patient_id: str):
     POST /api/patients/<patient_id>/thresholds/
     """
     # ---- load patient ----
-    print('patient_thresholds_view called with patient_id:', patient_id)
+    print("patient_thresholds_view called with patient_id:", patient_id)
     try:
         pat = Patient.objects.get(pk=ObjectId(patient_id))
     except (DoesNotExist, Exception):
         return bad("Patient not found.", status=404)
-
 
     if request.method == "GET":
         # Patients can read only themselves
@@ -406,7 +416,11 @@ def patient_thresholds_view(request, patient_id: str):
         hist = list(getattr(pat, "thresholds_history", []) or [])
 
         # Sort history descending by effective_from
-        hist_sorted = sorted(hist, key=lambda x: getattr(x, "effective_from", timezone.now()), reverse=True)
+        hist_sorted = sorted(
+            hist,
+            key=lambda x: getattr(x, "effective_from", timezone.now()),
+            reverse=True,
+        )
 
         def hist_item(h: PatientThresholdsSnapshot) -> Dict[str, Any]:
             cb = getattr(h, "changed_by", None)

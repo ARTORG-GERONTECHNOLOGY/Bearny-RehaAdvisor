@@ -42,23 +42,14 @@ jest.mock('react-bootstrap', () => {
     Form: ({ children }: any) => <form>{children}</form>,
     // Form.Check is used as checkbox list in access modal
     FormCheck: undefined,
-    Form: Object.assign(
-      ({ children }: any) => <form>{children}</form>,
-      {
-        Check: ({ id, label, checked, onChange }: any) => (
-          <label htmlFor={id}>
-            <input
-              id={id}
-              type="checkbox"
-              aria-label={label}
-              checked={checked}
-              onChange={onChange}
-            />
-            {label}
-          </label>
-        ),
-      }
-    ),
+    Form: Object.assign(({ children }: any) => <form>{children}</form>, {
+      Check: ({ id, label, checked, onChange }: any) => (
+        <label htmlFor={id}>
+          <input id={id} type="checkbox" aria-label={label} checked={checked} onChange={onChange} />
+          {label}
+        </label>
+      ),
+    }),
   };
 });
 
@@ -279,7 +270,9 @@ describe('AdminDashboard', () => {
   });
 
   it('clicking Accept calls store.accept -> adminStore.acceptEntry', async () => {
-    seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
     renderWithRouter(<AdminDashboard />);
 
@@ -293,7 +286,9 @@ describe('AdminDashboard', () => {
   });
 
   it('Decline opens ConfirmModal; confirm triggers declineEntry and closes modal', async () => {
-    seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
     renderWithRouter(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
@@ -339,7 +334,9 @@ describe('AdminDashboard', () => {
     // modal opens and GET called
     await waitFor(() => {
       expect(screen.getByTestId('modal')).toBeInTheDocument();
-      expect(apiGet).toHaveBeenCalledWith('/admin/therapist/access/', { params: { therapistId: 'ther1' } });
+      expect(apiGet).toHaveBeenCalledWith('/admin/therapist/access/', {
+        params: { therapistId: 'ther1' },
+      });
     });
 
     // It should render project checkboxes
@@ -402,7 +399,9 @@ describe('AdminDashboard', () => {
   });
 
   it('Access modal: Save is disabled when no project selected', async () => {
-    seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
     apiGet.mockResolvedValueOnce({
       data: {
@@ -418,287 +417,294 @@ describe('AdminDashboard', () => {
     await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-
-    await waitFor(() => expect(screen.getByTestId('moda
-
-        it('Access modal: dismisses success and error alerts', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  // initial load ok
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: ['ClinicA'],
-      projects: ['P1'],
-      availableClinics: ['ClinicA'],
-      availableProjects: ['P1'],
-      clinicProjects: { ClinicA: ['P1'] },
-    },
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
-  // save ok -> success
-  apiPut.mockResolvedValueOnce({ status: 200, data: {} });
+  it('Access modal: dismisses success and error alerts', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-  await waitFor(() => {
-    expect(screen.getByRole('alert')).toHaveTextContent('Saved successfully.');
-  });
-
-  // dismiss success
-  fireEvent.click(screen.getByRole('button', { name: 'dismiss' }));
-  await waitFor(() => {
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  // Now simulate an error state by reopening modal with load error
-  // Close modal first
-  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-  await waitFor(() => expect(screen.queryByTestId('modal')).not.toBeInTheDocument());
-
-  apiGet.mockRejectedValueOnce({ response: { data: { error: 'Failed to load access' } } });
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => {
-    expect(screen.getByTestId('modal')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load access');
-  });
-
-  // dismiss error
-  fireEvent.click(screen.getByRole('button', { name: 'dismiss' }));
-  await waitFor(() => {
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-});
-
-it('Access modal: prunes selected clinics when selected projects change', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      // initial selected
-      clinics: ['ClinicA', 'ClinicB'],
-      projects: ['P1', 'P2'],
-      availableClinics: ['ClinicA', 'ClinicB'],
-      availableProjects: ['P1', 'P2'],
-      clinicProjects: {
-        // ClinicA supports both
-        ClinicA: ['P1', 'P2'],
-        // ClinicB supports only P2
-        ClinicB: ['P2'],
+    // initial load ok
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: ['ClinicA'],
+        projects: ['P1'],
+        availableClinics: ['ClinicA'],
+        availableProjects: ['P1'],
+        clinicProjects: { ClinicA: ['P1'] },
       },
-    },
-  });
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  // Initially both clinics checked
-  expect(screen.getByLabelText('ClinicA')).toBeChecked();
-  expect(screen.getByLabelText('ClinicB')).toBeChecked();
-
-  // Uncheck P2 -> ClinicB should become disallowed and be pruned
-  fireEvent.click(screen.getByLabelText('P2'));
-  expect(screen.getByLabelText('P2')).not.toBeChecked();
-
-  await waitFor(() => {
-    expect(screen.getByLabelText('ClinicA')).toBeChecked();
-    expect(screen.getByLabelText('ClinicB')).not.toBeChecked(); // pruned
-  });
-});
-
-it('Access modal: Save failure shows error alert and does not crash', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: ['ClinicA'],
-      projects: ['P1'],
-      availableClinics: ['ClinicA'],
-      availableProjects: ['P1'],
-      clinicProjects: { ClinicA: ['P1'] },
-    },
-  });
-
-  apiPut.mockRejectedValueOnce({ response: { data: { error: 'Failed to save access.' } } });
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-  await waitFor(() => {
-    expect(apiPut).toHaveBeenCalledWith('/admin/therapist/access/', {
-      therapistId: 'ther1',
-      clinics: expect.arrayContaining(['ClinicA']),
-      projects: expect.arrayContaining(['P1']),
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to save access.');
+    // save ok -> success
+    apiPut.mockResolvedValueOnce({ status: 200, data: {} });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Saved successfully.');
+    });
+
+    // dismiss success
+    fireEvent.click(screen.getByRole('button', { name: 'dismiss' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    // Now simulate an error state by reopening modal with load error
+    // Close modal first
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByTestId('modal')).not.toBeInTheDocument());
+
+    apiGet.mockRejectedValueOnce({ response: { data: { error: 'Failed to load access' } } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('modal')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to load access');
+    });
+
+    // dismiss error
+    fireEvent.click(screen.getByRole('button', { name: 'dismiss' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
   });
 
-  // should NOT refresh list on failure
-  expect(adminStoreMock.fetchPendingEntries).not.toHaveBeenCalled();
-});
-it('Decline confirm modal: Cancel closes modal and does not call declineEntry', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
+  it('Access modal: prunes selected clinics when selected projects change', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
-  expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
-
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-  await waitFor(() => {
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
-  });
-
-  expect(adminStoreMock.declineEntry).not.toHaveBeenCalled();
-});
-it('Decline confirm modal: Cancel closes modal and does not call declineEntry', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
-  expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
-
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-  await waitFor(() => {
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
-  });
-
-  expect(adminStoreMock.declineEntry).not.toHaveBeenCalled();
-});
-
-it('Access modal: shows "No projects configured" when availableProjects is empty', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: [],
-      projects: [],
-      availableClinics: ['ClinicA'],
-      availableProjects: [], // no projects
-      clinicProjects: { ClinicA: ['P1'] },
-    },
-  });
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  expect(screen.getByRole('alert')).toHaveTextContent('No projects configured on the server.');
-});
-
-it('Access modal: shows "Select a project..." when none selected', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: [],
-      projects: [], // none selected
-      availableClinics: ['ClinicA'],
-      availableProjects: ['P1'],
-      clinicProjects: { ClinicA: ['P1'] },
-    },
-  });
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  // clinics section info alert
-  expect(screen.getByRole('alert')).toHaveTextContent('Select a project to see available clinics.');
-  // save disabled
-  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-});
-
-it('Access modal: shows "No clinics configured..." when projects selected but none allowed', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: [],
-      projects: ['P1'], // selected project
-      availableClinics: ['ClinicA'],
-      availableProjects: ['P1'],
-      clinicProjects: {
-        // ClinicA has no P1 => no allowed clinics
-        ClinicA: ['P2'],
+    apiGet.mockResolvedValueOnce({
+      data: {
+        // initial selected
+        clinics: ['ClinicA', 'ClinicB'],
+        projects: ['P1', 'P2'],
+        availableClinics: ['ClinicA', 'ClinicB'],
+        availableProjects: ['P1', 'P2'],
+        clinicProjects: {
+          // ClinicA supports both
+          ClinicA: ['P1', 'P2'],
+          // ClinicB supports only P2
+          ClinicB: ['P2'],
+        },
       },
-    },
+    });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    // Initially both clinics checked
+    expect(screen.getByLabelText('ClinicA')).toBeChecked();
+    expect(screen.getByLabelText('ClinicB')).toBeChecked();
+
+    // Uncheck P2 -> ClinicB should become disallowed and be pruned
+    fireEvent.click(screen.getByLabelText('P2'));
+    expect(screen.getByLabelText('P2')).not.toBeChecked();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('ClinicA')).toBeChecked();
+      expect(screen.getByLabelText('ClinicB')).not.toBeChecked(); // pruned
+    });
   });
 
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+  it('Access modal: Save failure shows error alert and does not crash', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: ['ClinicA'],
+        projects: ['P1'],
+        availableClinics: ['ClinicA'],
+        availableProjects: ['P1'],
+        clinicProjects: { ClinicA: ['P1'] },
+      },
+    });
 
-  expect(screen.getByRole('alert')).toHaveTextContent('No clinics are configured for the selected project(s).');
+    apiPut.mockRejectedValueOnce({ response: { data: { error: 'Failed to save access.' } } });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(apiPut).toHaveBeenCalledWith('/admin/therapist/access/', {
+        therapistId: 'ther1',
+        clinics: expect.arrayContaining(['ClinicA']),
+        projects: expect.arrayContaining(['P1']),
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to save access.');
+    });
+
+    // should NOT refresh list on failure
+    expect(adminStoreMock.fetchPendingEntries).not.toHaveBeenCalled();
+  });
+
+  it('Decline confirm modal: Cancel closes modal and does not call declineEntry', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
+    });
+
+    expect(adminStoreMock.declineEntry).not.toHaveBeenCalled();
+  });
+
+  it('Access modal: shows "No projects configured" when availableProjects is empty', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
+
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: [],
+        projects: [],
+        availableClinics: ['ClinicA'],
+        availableProjects: [], // no projects
+        clinicProjects: { ClinicA: ['P1'] },
+      },
+    });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    expect(screen.getByRole('alert')).toHaveTextContent('No projects configured on the server.');
+  });
+
+  it('Access modal: shows "Select a project..." when none selected', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
+
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: [],
+        projects: [], // none selected
+        availableClinics: ['ClinicA'],
+        availableProjects: ['P1'],
+        clinicProjects: { ClinicA: ['P1'] },
+      },
+    });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    // clinics section info alert
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Select a project to see available clinics.'
+    );
+    // save disabled
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('Access modal: shows "No clinics configured..." when projects selected but none allowed', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
+
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: [],
+        projects: ['P1'], // selected project
+        availableClinics: ['ClinicA'],
+        availableProjects: ['P1'],
+        clinicProjects: {
+          // ClinicA has no P1 => no allowed clinics
+          ClinicA: ['P2'],
+        },
+      },
+    });
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No clinics are configured for the selected project(s).'
+    );
+  });
+
+  it('Access modal: Save disables Save/Close while request is pending and re-enables after', async () => {
+    seedPending([
+      { id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' },
+    ]);
+
+    apiGet.mockResolvedValueOnce({
+      data: {
+        clinics: ['ClinicA'],
+        projects: ['P1'],
+        availableClinics: ['ClinicA'],
+        availableProjects: ['P1'],
+        clinicProjects: { ClinicA: ['P1'] },
+      },
+    });
+
+    // Deferred promise for PUT to simulate in-flight state
+    let resolvePut: (v: any) => void = () => {};
+    const putPromise = new Promise((res) => {
+      resolvePut = res;
+    });
+    apiPut.mockReturnValueOnce(putPromise);
+
+    renderWithRouter(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+
+    const closeBtn = screen.getByRole('button', { name: 'Close' });
+    const saveBtn = screen.getByRole('button', { name: 'Save' });
+
+    fireEvent.click(saveBtn);
+
+    // while pending: both disabled
+    await waitFor(() => {
+      expect(closeBtn).toBeDisabled();
+      expect(saveBtn).toBeDisabled();
+    });
+
+    // resolve request
+    resolvePut({ status: 200, data: {} });
+
+    await waitFor(() => {
+      // after completion: buttons enabled again (save might show normal label again)
+      expect(closeBtn).not.toBeDisabled();
+    });
+  });
 });
-
-'it('Access modal: Save disables Save/Close while request is pending and re-enables after', async () => {
-  seedPending([{ id: '1', name: 'Therapist A', email: 't@x.com', role: 'Therapist', therapistId: 'ther1' }]);
-
-  apiGet.mockResolvedValueOnce({
-    data: {
-      clinics: ['ClinicA'],
-      projects: ['P1'],
-      availableClinics: ['ClinicA'],
-      availableProjects: ['P1'],
-      clinicProjects: { ClinicA: ['P1'] },
-    },
-  });
-
-  // Deferred promise for PUT to simulate in-flight state
-  let resolvePut: (v: any) => void = () => {};
-  const putPromise = new Promise((res) => (resolvePut = res));
-  apiPut.mockReturnValueOnce(putPromise);
-
-  renderWithRouter(<AdminDashboard />);
-  await waitFor(() => expect(screen.getByText('Therapist A')).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole('button', { name: 'Edit access' }));
-  await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
-
-  const closeBtn = screen.getByRole('button', { name: 'Close' });
-  const saveBtn = screen.getByRole('button', { name: 'Save' });
-
-  fireEvent.click(saveBtn);
-
-  // while pending: both disabled
-  await waitFor(() => {
-    expect(closeBtn).toBeDisabled();
-    expect(saveBtn).toBeDisabled();
-  });
-
-  // resolve request
-  resolvePut({ status: 200, data: {} });
-
-  await waitFor(() => {
-    // after completion: buttons enabled again (save might show normal label again)
-    expect(closeBtn).not.toBeDisabled();
-  });
-});
-

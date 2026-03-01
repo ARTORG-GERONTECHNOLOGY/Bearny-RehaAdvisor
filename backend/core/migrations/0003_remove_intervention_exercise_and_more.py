@@ -6,80 +6,80 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0002_exercise_user_created_at_user_custom_id_user_name_and_more'),
+        ("core", "0002_exercise_user_created_at_user_custom_id_user_name_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='intervention',
-            name='exercise',
+            model_name="intervention",
+            name="exercise",
         ),
         migrations.RemoveField(
-            model_name='exerciselog',
-            name='exercise',
+            model_name="exerciselog",
+            name="exercise",
         ),
         migrations.RemoveField(
-            model_name='exerciselog',
-            name='patient',
+            model_name="exerciselog",
+            name="patient",
         ),
         migrations.RemoveField(
-            model_name='intervention',
-            name='patient',
+            model_name="intervention",
+            name="patient",
         ),
         migrations.RemoveField(
-            model_name='intervention',
-            name='therapist',
+            model_name="intervention",
+            name="therapist",
         ),
         migrations.RemoveField(
-            model_name='patient',
-            name='therapist',
+            model_name="patient",
+            name="therapist",
         ),
         migrations.RemoveField(
-            model_name='patient',
-            name='user',
+            model_name="patient",
+            name="user",
         ),
         migrations.RemoveField(
-            model_name='researcher',
-            name='user',
+            model_name="researcher",
+            name="user",
         ),
         migrations.RemoveField(
-            model_name='smsverification',
-            name='user',
+            model_name="smsverification",
+            name="user",
         ),
         migrations.RemoveField(
-            model_name='therapist',
-            name='user',
+            model_name="therapist",
+            name="user",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='groups',
+            model_name="user",
+            name="groups",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='user_permissions',
+            model_name="user",
+            name="user_permissions",
         ),
         migrations.DeleteModel(
-            name='Exercise',
+            name="Exercise",
         ),
         migrations.DeleteModel(
-            name='ExerciseLog',
+            name="ExerciseLog",
         ),
         migrations.DeleteModel(
-            name='Intervention',
+            name="Intervention",
         ),
         migrations.DeleteModel(
-            name='Patient',
+            name="Patient",
         ),
         migrations.DeleteModel(
-            name='Researcher',
+            name="Researcher",
         ),
         migrations.DeleteModel(
-            name='SMSVerification',
+            name="SMSVerification",
         ),
         migrations.DeleteModel(
-            name='Therapist',
+            name="Therapist",
         ),
         migrations.DeleteModel(
-            name='User',
+            name="User",
         ),
     ]

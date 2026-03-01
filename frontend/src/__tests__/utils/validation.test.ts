@@ -3,7 +3,7 @@ import {
   validateForm,
   hasNonEmptyValue,
   validateCurrentStep,
-} from '../../utils/validation';
+} from '@/utils/validation';
 
 describe('Validation Utilities', () => {
   describe('isValidName', () => {

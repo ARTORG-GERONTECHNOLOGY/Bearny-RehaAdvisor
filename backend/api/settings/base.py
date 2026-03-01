@@ -2,7 +2,6 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-
 DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE = True
 BASE_DIR = Path(__file__).resolve().parent.parent
 # settings.py
@@ -13,13 +12,13 @@ DATABASES = {
     }
 }
 
-CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, 'celery_worker.state')
-#DATABASE_ROUTERS = ['core.routers.BeatRouter']
+CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, "celery_worker.state")
+# DATABASE_ROUTERS = ['core.routers.BeatRouter']
 
 # Redis broker
-CELERY_BROKER_URL = 'redis://redis:6379/0'
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 
 APPEND_SLASH = True
@@ -35,7 +34,7 @@ INSTALLED_APPS = [
     "core",
     "rest_framework.authtoken",
     "corsheaders",
-    "django_celery_beat"
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -49,11 +48,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR.parent / 'collected_static'  # or '/srv/static'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR.parent / "collected_static"  # or '/srv/static'
 
 STATICFILES_DIRS = [
-    BASE_DIR / 'frontend_static',
+    BASE_DIR / "frontend_static",
 ]
 
 
@@ -104,15 +103,15 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # or just []
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],  # or just []
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -129,10 +128,11 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #"nrk37CAYsTW&3sJ"
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # "nrk37CAYsTW&3sJ"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 import sys
+
 print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
 print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
 

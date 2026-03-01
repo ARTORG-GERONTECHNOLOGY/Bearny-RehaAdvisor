@@ -197,7 +197,7 @@ export class InterventionRepeatModalStore {
 
       const payload = {
         therapistId: params.therapistId || authStore.id,
-        patientId: params.patient,
+        patientId: localStorage.getItem('selectedPatient'),
         interventions: [
           {
             interval: this.interval,

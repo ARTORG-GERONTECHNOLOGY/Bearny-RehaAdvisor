@@ -41,13 +41,13 @@ from core.models import (
 def mock_mongoengine():
     """
     Pytest fixture that sets up in-memory MongoDB for each test.
-    
+
     Scope: function (fresh database for each test)
     Behavior:
     - Disconnects any existing DB connections
     - Connects to mongomock in-memory database
     - Cleans up after test completes
-    
+
     Why mongomock:
     - No real MongoDB installation required
     - Tests run fast (~10ms each)
@@ -66,12 +66,9 @@ def mock_mongoengine():
 
 def test_create_user():
     """
-    Scenario: Create a new user account with therapist role
-    
+
     Steps:
-    1. Create User object with username, email, phone, role
-    2. Save to database
-    
+
     Expected Results:
     - User successfully persisted to database
     - User.objects.count() == 1
@@ -93,19 +90,15 @@ def test_create_user():
 
 def test_sms_verification_create():
     """
-    Scenario: Generate SMS verification code for user account verification
-    
+
     Steps:
-    1. Create SMSVerification with user ID and 6-digit code
-    2. Set expiration time (5 minutes from now)
-    3. Save to database
-    
+
     Expected Results:
     - SMS verification record created and persisted
     - Code stored correctly
     - Expiration time set correctly
     - String representation includes user ID
-    
+
     Use Case: User verifies their phone number during registration
     """
     sms = SMSVerification(
@@ -120,24 +113,19 @@ def test_sms_verification_create():
 
 def test_therapist_and_patient_relationship():
     """
-    Scenario: Establish therapist-patient relationship during patient registration
-    
+
     Steps:
-    1. Create therapist user and therapist profile
-    2. Create patient user and patient profile
-    3. Link patient to therapist via patient.therapist field
-    4. Verify relationship is established
-    
+
     Expected Results:
     - Both users created successfully
     - Therapist has specialization (Cardiology) and clinic (Downtown Clinic)
     - Patient linked to therapist via foreign key reference
     - Patient.therapist.userId.username returns therapist's username
     - Patient model has all required medical fields (diagnosis, function, etc.)
-    
+
     Data Flow:
     User → Therapist/Patient → Patient.therapist reference
-    
+
     Use Case: When a new patient joins a therapist's caseload
     """
     user = User(
@@ -153,7 +141,7 @@ def test_therapist_and_patient_relationship():
         name="Doe",
         first_name="John",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     )
     therapist.save()
 
@@ -167,6 +155,7 @@ def test_therapist_and_patient_relationship():
 
     patient = Patient(
         userId=patient_user,
+        patient_code="PAT001",
         name="Patient Last",
         first_name="Patient First",
         access_word="word",
@@ -190,30 +179,23 @@ def test_therapist_and_patient_relationship():
 
 def test_feedback_question_with_translations_and_answers():
     """
-    Scenario: Create multi-language feedback question with answer options
-    
+
     Steps:
-    1. Create Translation object for English language
-    2. Create AnswerOption with translation (Yes/No style)
-    3. Create FeedbackQuestion linking translations and answer options
-    4. Save to database
-    
+
     Expected Results:
     - FeedbackQuestion created with 1 translation entry
     - Translation language correctly set to 'en'
     - Answer options properly nested
     - Question type set to 'select' (multiple choice)
-    
+
     Multi-Language Support:
     - Questions: English text stored
     - Answers: Localized options available for all supported languages
-    
+
     Use Case: Patient answers feedback questions in their preferred language
     """
     translations = [Translation(language="en", text="How do you feel?")]
-    options = [
-        AnswerOption(key="yes", translations=[Translation(language="en", text="Yes")])
-    ]
+    options = [AnswerOption(key="yes", translations=[Translation(language="en", text="Yes")])]
     question = FeedbackQuestion(
         questionSubject="Intervention",
         questionKey="feel_question",
@@ -229,15 +211,10 @@ def test_feedback_question_with_translations_and_answers():
 
 def test_intervention_and_patient_icf_rating():
     """
-    Scenario: Patient receives ICF (International Classification of Functioning) rating
              for intervention feedback
-    
+
     Steps:
-    1. Create FeedbackQuestion for health status (mobility)
-    2. Create therapist user and profile
-    3. Create patient linked to therapist
-    4. Create PatientICFRating linking patient to question with ICF code and score
-    
+
     Expected Results:
     - PatientICFRating created with:
       - Reference to feedback question
@@ -245,12 +222,12 @@ def test_intervention_and_patient_icf_rating():
       - ICF code (b28013 = cardiovascular function)
       - Numeric rating (0-10 scale)
       - Empty feedback entries initially
-    
+
     ICF Integration:
     - Standardized codes for functional health measurements
     - Tracks patient's physical/cognitive capabilities
     - Used by therapists to document treatment progress
-    
+
     Use Case: After patient completes intervention, therapist records functional improvement
     """
     # Create FeedbackQuestion
@@ -263,19 +240,18 @@ def test_intervention_and_patient_icf_rating():
     ).save()
 
     # Create Patient
-    user = User(
-        username="pat", email="pat@example.com", phone="3333", createdAt=datetime.now()
-    )
+    user = User(username="pat", email="pat@example.com", phone="3333", createdAt=datetime.now())
     user.save()
     therapist = Therapist(
         userId=user,
         name="T",
         first_name="T",
         specializations=["Cardiology"],
-        clinics=["Downtown Clinic"],
+        clinics=["Inselspital"],
     ).save()
     patient = Patient(
         userId=user,
+        patient_code="PAT002",
         name="Pat",
         first_name="Test",
         access_word="pass",
@@ -308,55 +284,46 @@ def test_intervention_and_patient_icf_rating():
 
 def test_missing_required_field_should_fail():
     """
-    Scenario: Validate that required fields are enforced
-    
+
     Steps:
-    1. Attempt to create User without email and phone
-    2. Try to save to database
-    
+
     Expected Results:
     - Exception raised (ValidationError or ValidationFailure)
     - User not saved to database
     - Database remains empty
-    
+
     Validation Logic:
-    - Email: Required for user identification and communication
-    - Phone: Required for SMS verification and contact
-    - Username: Required (provided but other fields missing)
-    
+    - Username: Required field
+    - CreatedAt: Required field
+
     Use Case: Prevent incomplete user records from being saved to database
     """
     with pytest.raises(Exception):
         User(
-            username="nouser",  # missing email and phone
-            createdAt=datetime.now(),
+            username="nouser",  # missing createdAt
         ).save()
 
 
 def test_intervention_with_patient_types():
     """
-    Scenario: Create intervention with patient type specifications
-    
+
     Steps:
-    1. Create PatientType object with:
        - Medical specialty (Cardiology)
        - Specific diagnosis (Heart attack, Stroke)
        - Recommended frequency (Daily)
        - Include/exclude option flag
-    2. Create Intervention with nested PatientType list
-    3. Save to database
-    
+
     Expected Results:
     - Intervention created with multiple patient types
     - Patient type nested correctly within intervention
     - Type field contains correct medical specialty
     - Diagnosis and frequency properly stored
-    
+
     Patient Type Structure:
     - Multiple types can be assigned to one intervention
     - Allows therapists to restrict intervention to specific diagnoses
     - Enables automated recommendation based on patient profile
-    
+
     Use Case: "Yoga" exercise assigned to Cardiology and Orthopedic patients
              but with different frequencies based on diagnosis
     """
@@ -368,6 +335,8 @@ def test_intervention_with_patient_types():
     )
 
     intervention = Intervention(
+        external_id="test_yoga_001",
+        language="en",
         title="Yoga",
         description="Test",
         content_type="Video",

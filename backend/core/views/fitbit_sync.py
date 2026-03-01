@@ -1,16 +1,19 @@
-
 # core/services/fitbit_sync.py
 import datetime
 import logging
-import requests
-from django.utils import timezone
-from core.models import FitbitUserToken, FitbitData
-from django.utils.timezone import is_naive, make_aware, now
-from django.conf import settings
 from datetime import timedelta
 
+import requests
+from django.conf import settings
+from django.utils import timezone
+from django.utils.timezone import is_naive, make_aware, now
+
+from core.models import FitbitData, FitbitUserToken
+
 logger = logging.getLogger(__name__)
-FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'
+FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
+
+
 def get_valid_access_token(user):
     token = FitbitUserToken.objects.get(user=user)
 
@@ -18,16 +21,16 @@ def get_valid_access_token(user):
         token.expires_at = make_aware(token.expires_at)
 
     if token.expires_at <= timezone.now():
-        refresh_url = 'https://api.fitbit.com/oauth2/token'
+        refresh_url = "https://api.fitbit.com/oauth2/token"
         client_id = settings.FITBIT_CLIENT_ID
         client_secret = settings.FITBIT_CLIENT_SECRET
         basic_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
 
         data = {
-            'grant_type': 'refresh_token',
-            'refresh_token': token.refresh_token,
+            "grant_type": "refresh_token",
+            "refresh_token": token.refresh_token,
         }
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
             response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers)
@@ -36,21 +39,24 @@ def get_valid_access_token(user):
 
             if response.status_code == 200:
                 token_data = response.json()
-                token.access_token = token_data['access_token']
-                token.refresh_token = token_data.get('refresh_token', token.refresh_token)
-                token.expires_at = timezone.now() + timedelta(seconds=token_data['expires_in'])
+                token.access_token = token_data["access_token"]
+                token.refresh_token = token_data.get("refresh_token", token.refresh_token)
+                token.expires_at = timezone.now() + timedelta(seconds=token_data["expires_in"])
                 token.save()
                 logger.info(f"[get_valid_access_token] Token refreshed for user {user.id}")
             else:
-                logger.error(f"[get_valid_access_token] Failed to refresh token. Status: {response.status_code}, Body: {response.text}")
-                raise Exception('Failed to refresh Fitbit token')
+                logger.error(
+                    f"[get_valid_access_token] Failed to refresh token. Status: {response.status_code}, Body: {response.text}"
+                )
+                raise Exception("Failed to refresh Fitbit token")
         except Exception as e:
             logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")
             raise
 
     return token.access_token
-def fetch_fitbit_today_for_user(user) -> int:
 
+
+def fetch_fitbit_today_for_user(user) -> int:
     """Fetch **today only** for a single user; returns upserted day-count (0|1)."""
     today = datetime.date.today()
     token = FitbitUserToken.objects(user=user).first()
@@ -60,14 +66,21 @@ def fetch_fitbit_today_for_user(user) -> int:
         return 0
 
     access_token = get_valid_access_token(user)
-    headers = {'Authorization': f'Bearer {access_token}'}
+    headers = {"Authorization": f"Bearer {access_token}"}
     date_str = today.strftime("%Y-%m-%d")
     date_range = f"{date_str}/{date_str}"
 
     series = {
-        "steps": {}, "floors": {}, "distance": {}, "calories": {},
-        "minutesVeryActive": {}, "minutesFairlyActive": {}, "minutesLightlyActive": {},
-        "minutesSedentary": {}, "activeZoneMinutes": {}, "resting_heart_rate": {},
+        "steps": {},
+        "floors": {},
+        "distance": {},
+        "calories": {},
+        "minutesVeryActive": {},
+        "minutesFairlyActive": {},
+        "minutesLightlyActive": {},
+        "minutesSedentary": {},
+        "activeZoneMinutes": {},
+        "resting_heart_rate": {},
         "heart_rate_zones": {},
     }
     breathing_data, hrv_data, sleep_data, exercise_data = {}, {}, {}, {}
@@ -156,11 +169,13 @@ def fetch_fitbit_today_for_user(user) -> int:
         for activity in act_resp.json().get("activities", []):
             dt = datetime.datetime.strptime(activity["startTime"].split("T")[0], "%Y-%m-%d").date()
             if dt == today:
-                exercise_data.setdefault(dt, []).append({
-                    "name": activity.get("activityName"),
-                    "duration": activity.get("duration"),
-                    "calories": activity.get("calories"),
-                })
+                exercise_data.setdefault(dt, []).append(
+                    {
+                        "name": activity.get("activityName"),
+                        "duration": activity.get("duration"),
+                        "calories": activity.get("calories"),
+                    }
+                )
 
     # Upsert just today if we have any data
     def sleep_minutes_for(dt: datetime.date) -> int:
@@ -202,11 +217,10 @@ def fetch_fitbit_today_for_user(user) -> int:
             set__breathing_rate=breathing_data.get(dt),
             set__hrv=hrv_data.get(dt),
             set__inactivity_minutes=inactivity_minutes,
-            upsert=True
+            upsert=True,
         )
         upserted += 1
 
     logger.info(f"[fitbit] stored {upserted} row for user={user} on {date_str}")
     print(f"[fitbit] stored {upserted} row for user={user} on {date_str}")
     return upserted
-
