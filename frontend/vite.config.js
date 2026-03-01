@@ -14,9 +14,20 @@ export default defineConfig(({ mode }) => {
       svgr(),
       VitePWA({
         registerType: 'autoUpdate',
+        includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png', 'screenshots/*.png'],
+
+        srcDir: 'public',
+        filename: 'sw.js',
+        strategies: 'injectManifest',
+        injectManifest: {
+          injectionPoint: undefined,
+        },
+
         devOptions: {
           enabled: isDev,
+          type: 'module',
         },
+
         manifest: {
           id: '/',
           name: isDev ? 'Bearny (Dev)' : 'Bearny',
