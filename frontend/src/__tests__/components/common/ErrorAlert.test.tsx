@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import ErrorAlert from './ErrorAlert';
+import ErrorAlert from '@/components/common/ErrorAlert';
 
 describe('ErrorAlert component', () => {
   const testMessage = 'Something went wrong';
