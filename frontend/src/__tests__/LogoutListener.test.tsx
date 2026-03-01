@@ -1,12 +1,12 @@
-import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import LogoutListener from '../../src/LogoutListener';
-import authStore from '../../src/stores/authStore';
+import LogoutListener from '@/LogoutListener';
+import authStore from '@/stores/authStore';
 import '@testing-library/jest-dom';
 
-jest.mock('../../src/api/client', () => require('../../src/__mocks__/api/client'));
-// ✅ Mock useNavigate
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+
+// Mock useNavigate
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
@@ -16,7 +16,7 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-// ✅ Clear mocks before each test
+// Clear mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -32,6 +32,6 @@ describe('LogoutListener', () => {
     // Simulate triggering the logout callback manually
     authStore.onLogoutCallback?.();
 
-    expect(mockNavigate).toHaveBeenCalledWith('/'); // ✅ This matches your component logic
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
