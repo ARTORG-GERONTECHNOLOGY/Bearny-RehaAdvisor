@@ -48,69 +48,67 @@ export default function SettingsPage() {
   return (
     <>
       <Layout>
-        <div className="container mx-auto max-w-[90%] md:max-w-screen-md">
-          <h1 className="pt-16 md:pt-0 font-bold text-xl flex items-center gap-[6px]">
-            <GearFill className="w-6 h-6" />
-            {t('Einstellungen')}
-          </h1>
+        <h1 className="font-bold text-xl flex items-center gap-[6px]">
+          <GearFill className="w-6 h-6" />
+          {t('Einstellungen')}
+        </h1>
 
-          <div className="mt-4 flex flex-col gap-2">
-            <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <div className="text-base font-medium">{t('Mitteilungen')}</div>
-                  <div className="text-[#565656] text-sm">
-                    {t('Receive daily reminders')}
-                    {supportsPeriodicSync && ' ' + t('(Works when app is closed)')}
-                  </div>
-                  {permission === 'denied' && (
-                    <div className="text-red-600 text-xs mt-1">
-                      {t('Notification permission denied. Please enable in browser settings.')}
-                    </div>
-                  )}
-                  {!supportsPeriodicSync && enabled && (
-                    <div className="text-amber-600 text-xs mt-1">
-                      {t('Install the app for background notifications')}
-                    </div>
-                  )}
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="text-base font-medium">{t('Mitteilungen')}</div>
+                <div className="text-[#565656] text-sm">
+                  {t('Receive daily reminders')}
+                  {supportsPeriodicSync && ' ' + t('(Works when app is closed)')}
                 </div>
-                <Switch checked={enabled} onCheckedChange={toggleNotifications} />
+                {permission === 'denied' && (
+                  <div className="text-red-600 text-xs mt-1">
+                    {t('Notification permission denied. Please enable in browser settings.')}
+                  </div>
+                )}
+                {!supportsPeriodicSync && enabled && (
+                  <div className="text-amber-600 text-xs mt-1">
+                    {t('Install the app for background notifications')}
+                  </div>
+                )}
               </div>
+              <Switch checked={enabled} onCheckedChange={toggleNotifications} />
             </div>
-
-            <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-              <div className="text-base font-medium">{t('Sprache')}</div>
-              <Dropdown>
-                <Dropdown.Toggle variant="light">
-                  <img src={flagMap[lang]} className="h-4 w-4 rounded-full mr-2" />
-                  {lang.toUpperCase()}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                  {languages.map((l) => (
-                    <Dropdown.Item key={l} onClick={() => handleLanguageChange(l)}>
-                      <img src={flagMap[l]} className="h-4 w-4 rounded-full mr-2" />
-                      {l.toUpperCase()}
-                    </Dropdown.Item>
-                  ))}
-                </Dropdown.Menu>
-              </Dropdown>
-            </div>
-
-            <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-              <Button onClick={() => setHelpOpen(true)}>{t('Help')}</Button>
-            </div>
-
-            {isLoggedIn && (
-              <Button
-                onClick={() => {
-                  handleLogout();
-                }}
-                className="w-full"
-              >
-                {t('Logout')}
-              </Button>
-            )}
           </div>
+
+          <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
+            <div className="text-base font-medium">{t('Sprache')}</div>
+            <Dropdown>
+              <Dropdown.Toggle variant="light">
+                <img src={flagMap[lang]} className="h-4 w-4 rounded-full mr-2" />
+                {lang.toUpperCase()}
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                {languages.map((l) => (
+                  <Dropdown.Item key={l} onClick={() => handleLanguageChange(l)}>
+                    <img src={flagMap[l]} className="h-4 w-4 rounded-full mr-2" />
+                    {l.toUpperCase()}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
+
+          <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
+            <Button onClick={() => setHelpOpen(true)}>{t('Help')}</Button>
+          </div>
+
+          {isLoggedIn && (
+            <Button
+              onClick={() => {
+                handleLogout();
+              }}
+              className="w-full"
+            >
+              {t('Logout')}
+            </Button>
+          )}
         </div>
       </Layout>
 
