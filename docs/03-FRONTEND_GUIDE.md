@@ -510,16 +510,18 @@ Required sizes: 48, 72, 96, 128, 144, 152, 192, 256, 384, 512 pixels
 
 ### Service Worker
 
-The service worker is automatically generated during build:
+The service worker (`public/sw.js`) handles PWA functionality and browser notifications:
 
 ```bash
 npm run build
-# Generates dist/sw.js and dist/manifest.webmanifest
+# Uses public/sw.js and generates dist/manifest.webmanifest
 ```
 
 **Features**:
 - Caches static assets for offline access
 - Automatically updates when new version is deployed
+- Handles notification display and click events
+- Manages 24-hour notification scheduling
 
 ### Testing the PWA
 

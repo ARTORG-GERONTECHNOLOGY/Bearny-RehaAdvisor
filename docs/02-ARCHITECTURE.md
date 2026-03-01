@@ -64,6 +64,8 @@ frontend/src/
 - Centralized state management via MobX stores
 - Internationalization support for multiple languages
 - Responsive design with mobile support
+- Progressive Web App (PWA) with offline capabilities
+- Daily notification reminders (frontend-only, browser-based)
 
 ### 2. Backend (Django + Django REST Framework)
 
