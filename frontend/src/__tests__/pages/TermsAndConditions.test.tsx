@@ -1,7 +1,6 @@
-import React from 'react';
 import { screen } from '@testing-library/react';
-import { renderWithRouter } from '../../test-utils/renderWithRouter';
-import TermsAndConditions from '../TermsAndConditions';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import TermsAndConditions from '@/pages/TermsAndConditions';
 
 // --- mocks ---
 const mockNavigate = jest.fn();
@@ -15,12 +14,12 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('../../components/common/Header', () => ({
+jest.mock('@/components/common/Header', () => ({
   __esModule: true,
   default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
 }));
 
-jest.mock('../../components/common/Footer', () => ({
+jest.mock('@/components/common/Footer', () => ({
   __esModule: true,
   default: () => <div data-testid="footer" />,
 }));
@@ -40,9 +39,11 @@ const authStoreMock = {
   checkAuthentication: jest.fn(),
 };
 
-jest.mock('../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: authStoreMock,
+  get default() {
+    return authStoreMock;
+  },
 }));
 
 describe('TermsAndConditions', () => {
