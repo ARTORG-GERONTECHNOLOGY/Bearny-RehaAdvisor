@@ -58,18 +58,15 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
                 <div className="text-base font-medium">{t('Mitteilungen')}</div>
-                <div className="text-[#565656] text-sm">
-                  {t('Receive daily reminders')}
-                  {supportsPeriodicSync && ' ' + t('(Works when app is closed)')}
-                </div>
+                <div className="text-[#565656] text-sm">{t('Receive daily reminders')}</div>
                 {permission === 'denied' && (
                   <div className="text-red-600 text-xs mt-1">
                     {t('Notification permission denied. Please enable in browser settings.')}
                   </div>
                 )}
-                {!supportsPeriodicSync && enabled && (
+                {!supportsPeriodicSync && (
                   <div className="text-amber-600 text-xs mt-1">
-                    {t('Install the app for background notifications')}
+                    {t('Background notifications not supported in this browser.')}
                   </div>
                 )}
               </div>
