@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import PasswordField from '../../../../components/forms/input/PasswordField'; // Adjust path as needed
+import PasswordField from '@/components/forms/input/PasswordField';
 import '@testing-library/jest-dom';
 
 describe('PasswordField Component', () => {
@@ -21,7 +20,7 @@ describe('PasswordField Component', () => {
     const input = screen.getByLabelText('Password');
     expect(input).toHaveAttribute('type', 'password');
     expect(input).toHaveValue('secret123');
-    expect(screen.getByLabelText('Toggle password visibility')).toBeInTheDocument();
+    expect(screen.getByLabelText('Show password')).toBeInTheDocument();
   });
 
   it('renders correctly for regular users with visible password', () => {
@@ -32,13 +31,13 @@ describe('PasswordField Component', () => {
     expect(input).toHaveValue('secret123');
   });
 
-  it('renders correctly for patient page with visible access word', () => {
+  it('renders correctly for patient page with hidden password', () => {
     render(<PasswordField {...baseProps} showPassword={false} pagetype="patient" />);
 
-    const input = screen.getByLabelText('Access Word');
-    expect(input).toHaveAttribute('type', 'text');
+    const input = screen.getByLabelText('Patient Password');
+    expect(input).toHaveAttribute('type', 'password');
     expect(input).toHaveValue('secret123');
-    expect(screen.queryByLabelText('Toggle password visibility')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Show password')).toBeInTheDocument();
   });
 
   it('fires onChange when user types', () => {
@@ -52,7 +51,7 @@ describe('PasswordField Component', () => {
   it('fires onToggle when eye icon is clicked', () => {
     render(<PasswordField {...baseProps} showPassword={false} pagetype="regular" />);
 
-    fireEvent.click(screen.getByLabelText('Toggle password visibility'));
+    fireEvent.click(screen.getByLabelText('Show password'));
     expect(baseProps.onToggle).toHaveBeenCalledTimes(1);
   });
 });
