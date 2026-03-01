@@ -1,6 +1,6 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import Footer from '../../../components/common/Footer';
+import { MemoryRouter } from 'react-router-dom';
+import Footer from '@/components/common/Footer';
 import '@testing-library/jest-dom';
 
 jest.mock('react-i18next', () => ({
@@ -11,7 +11,11 @@ jest.mock('react-i18next', () => ({
 
 describe('Footer component', () => {
   it('renders correctly', () => {
-    render(<Footer />);
+    render(
+      <MemoryRouter>
+        <Footer />
+      </MemoryRouter>
+    );
 
     const currentYear = new Date().getFullYear();
 
