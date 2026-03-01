@@ -47,8 +47,8 @@ const PatientView: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div className="d-flex flex-column min-vh-100 patient-root">
-        <main className="flex-grow-1 patient-main">
+      <div className="d-flex flex-column min-vh-100">
+        <div className="flex-grow-1">
           <Container fluid className="patient-container">
             <Row className="patient-section justify-content-center">
               <Col xs={12} sm={11} md={10} lg={8}>
@@ -88,7 +88,7 @@ const PatientView: React.FC = observer(() => {
               </Col>
             </Row>
           </Container>
-        </main>
+        </div>
       </div>
     </Layout>
   );
