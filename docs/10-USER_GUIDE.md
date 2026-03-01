@@ -199,9 +199,31 @@ During or after a session:
 2. Configure:
    - Notification settings
    - Language/Locale
-   - Time zone
-   - Email alerts
+   - Display preferences
 3. Click **Save Preferences**
+
+#### Notification Settings
+
+**Note**: Available for patients on supported browsers (Chrome, Edge, Opera, Samsung Internet). Not supported on Safari iOS/mobile.
+
+1. Navigate to **Settings** page (gear icon in navigation)
+2. Locate **Notifications** card
+3. Enable notifications:
+   - Toggle **Enable Notifications** switch
+   - Browser will prompt for permission (first time)
+   - Click **Allow** in browser prompt
+4. Settings persist across sessions
+
+**Daily Reminder Behavior**:
+- Notification appears every 24 hours
+- Reminds you to check daily interventions
+- Click notification to open RehaAdvisor
+- Disable anytime in Settings
+
+**Troubleshooting**:
+- If permission denied: Re-enable in browser settings
+- If not working: Check browser supports Notifications API
+- Safari users: Notification feature not available
 
 ## Common Tasks
 
