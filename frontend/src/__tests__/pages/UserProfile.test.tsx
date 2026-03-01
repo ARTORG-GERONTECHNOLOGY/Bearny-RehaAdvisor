@@ -1,7 +1,6 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithRouter } from '../../test-utils/renderWithRouter';
-import UserProfile from '../UserProfile';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import UserProfile from '@/pages/UserProfile';
 
 const mockNavigate = jest.fn();
 
@@ -14,17 +13,17 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('../../components/common/Header', () => ({
+jest.mock('@/components/common/Header', () => ({
   __esModule: true,
   default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
 }));
 
-jest.mock('../../components/common/Footer', () => ({
+jest.mock('@/components/common/Footer', () => ({
   __esModule: true,
   default: () => <div data-testid="footer" />,
 }));
 
-jest.mock('../../components/common/StatusBanner', () => ({
+jest.mock('@/components/common/StatusBanner', () => ({
   __esModule: true,
   default: ({ type, message, onClose }: any) =>
     message ? (
@@ -36,7 +35,7 @@ jest.mock('../../components/common/StatusBanner', () => ({
 }));
 
 // child components: keep minimal but interactive
-jest.mock('../../components/UserProfile/EditTherapistInfo', () => ({
+jest.mock('@/components/UserProfile/EditTherapistInfo', () => ({
   __esModule: true,
   default: ({ onCancel }: any) => (
     <div data-testid="edit-form">
@@ -45,7 +44,7 @@ jest.mock('../../components/UserProfile/EditTherapistInfo', () => ({
   ),
 }));
 
-jest.mock('../../components/UserProfile/ChangePasswordForm', () => ({
+jest.mock('@/components/UserProfile/ChangePasswordForm', () => ({
   __esModule: true,
   default: ({ onCancel }: any) => (
     <div data-testid="change-password-form">
@@ -54,7 +53,7 @@ jest.mock('../../components/UserProfile/ChangePasswordForm', () => ({
   ),
 }));
 
-jest.mock('../../components/UserProfile/ProfileDetails', () => ({
+jest.mock('@/components/UserProfile/ProfileDetails', () => ({
   __esModule: true,
   default: ({ onEdit, onChangePassword, onDelete, deleting }: any) => (
     <div data-testid="profile-details">
@@ -66,7 +65,7 @@ jest.mock('../../components/UserProfile/ProfileDetails', () => ({
   ),
 }));
 
-jest.mock('../../components/UserProfile/DeleteConfirmation', () => ({
+jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
   __esModule: true,
   default: ({ show, handleClose, handleConfirm, isLoading }: any) =>
     show ? (
@@ -102,11 +101,6 @@ const authStoreMock = {
   checkAuthentication: jest.fn(),
 };
 
-jest.mock('../../stores/authStore', () => ({
-  __esModule: true,
-  default: authStoreMock,
-}));
-
 const userProfileStoreMock = {
   mode: 'view' as 'view' | 'editProfile' | 'changePassword',
   showDeletePopup: false,
@@ -131,9 +125,18 @@ const userProfileStoreMock = {
   }),
 };
 
-jest.mock('../../stores/userProfileStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: userProfileStoreMock,
+  get default() {
+    return authStoreMock;
+  },
+}));
+
+jest.mock('@/stores/userProfileStore', () => ({
+  __esModule: true,
+  get default() {
+    return userProfileStoreMock;
+  },
 }));
 
 describe('UserProfile page', () => {
