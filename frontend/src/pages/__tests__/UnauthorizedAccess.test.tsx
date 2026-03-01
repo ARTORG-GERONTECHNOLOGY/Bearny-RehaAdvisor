@@ -1,7 +1,6 @@
-import React from 'react';
 import { screen, fireEvent } from '@testing-library/react';
-import { renderWithRouter } from '../../test-utils/renderWithRouter';
-import UnauthorizedAccess from '../UnauthorizedAccess';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import UnauthorizedAccess from '@/pages/UnauthorizedAccess';
 
 const mockNavigate = jest.fn();
 
