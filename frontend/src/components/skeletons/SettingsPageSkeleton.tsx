@@ -12,9 +12,14 @@ const SettingsPageSkeleton: React.FC = () => (
       </div>
 
       {/* Settings card skeleton */}
-      <div className="mt-4 bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5 flex flex-col gap-[2px]">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-6 w-16" />
+      <div className="mt-4 bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-6 w-11 rounded-full" />
+        </div>
       </div>
     </div>
   </Layout>
