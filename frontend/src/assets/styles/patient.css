@@ -1,16 +1,6 @@
 /* src/assets/styles/patient.css */
 /* Fluid, accessible layout helpers for Patient pages */
 
-.patient-root {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
-  overflow-x: hidden;
-}
-
-.patient-main {
-  padding-block: clamp(0.75rem, 2vh, 1.5rem);
-}
-
 .patient-container {
   padding-left: max(0.75rem, env(safe-area-inset-left));
   padding-right: max(0.75rem, env(safe-area-inset-right));

@@ -1,4 +1,5 @@
 import Navigation from '@/components/Navigation';
+import Container from '@/components/Container';
 
 type Props = {
   children: React.ReactNode;
@@ -9,15 +10,14 @@ export default function Layout({ children }: Props) {
   return (
     <div className="min-h-screen bg-[#ECECEC]">
       <Navigation />
-      <main
+      <Container
         className="
-          pb-28
-          md:pt-28 md:pb-0
+          py-28
           transition-all
         "
       >
         {children}
-      </main>
+      </Container>
     </div>
   );
 }
