@@ -2,8 +2,8 @@ import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PatientSkeleton: React.FC = () => (
-  <div className="flex flex-col min-h-screen patient-root">
-    <main className="flex-1 patient-main">
+  <div className="flex flex-col min-h-screen">
+    <main className="flex-1">
       <div className="w-full px-4 patient-container">
         {/* WelcomeArea */}
         <div className="flex flex-col items-center gap-2 py-6 patient-section">
