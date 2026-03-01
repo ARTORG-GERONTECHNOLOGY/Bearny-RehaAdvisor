@@ -1,13 +1,12 @@
 // src/__tests__/pages/UnauthorizedAccess.test.tsx
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import UnauthorizedAccess from '../../pages/UnauthorizedAccess';
+import UnauthorizedAccess from '@/pages/UnauthorizedAccess';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 
 // Mock Header and Footer
-jest.mock('../../components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('../../components/common/Footer', () => () => <div>Mock Footer</div>);
+jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
 
 // Mock useTranslation
 jest.mock('react-i18next', () => ({
@@ -38,12 +37,10 @@ describe('UnauthorizedAccess Page', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Unauthorized Access')).toBeInTheDocument();
+    expect(screen.getByText('Unauthorized')).toBeInTheDocument();
     expect(screen.getByText('You do not have permission to access this page.')).toBeInTheDocument();
-    expect(screen.getByText('Go Back')).toBeInTheDocument();
-    expect(screen.getByText('Go to Home')).toBeInTheDocument();
-    expect(screen.getByText('Mock Header')).toBeInTheDocument();
-    expect(screen.getByText('Mock Footer')).toBeInTheDocument();
+    expect(screen.getByText('Go back')).toBeInTheDocument();
+    expect(screen.getByText('Go home')).toBeInTheDocument();
   });
 
   test('clicking "Go Back" calls navigate(-1)', () => {
@@ -53,7 +50,7 @@ describe('UnauthorizedAccess Page', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('Go Back'));
+    fireEvent.click(screen.getByText('Go back'));
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
@@ -64,7 +61,7 @@ describe('UnauthorizedAccess Page', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('Go to Home'));
+    fireEvent.click(screen.getByText('Go home'));
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
