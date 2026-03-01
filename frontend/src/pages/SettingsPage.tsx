@@ -50,14 +50,14 @@ export default function SettingsPage() {
       <Layout>
         <h1 className="font-bold text-xl flex items-center gap-[6px]">
           <GearFill className="w-6 h-6" />
-          {t('Einstellungen')}
+          {t('Settings')}
         </h1>
 
         <div className="mt-4 flex flex-col gap-2">
           <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <div className="text-base font-medium">{t('Mitteilungen')}</div>
+                <div className="text-base font-medium">{t('Notifications')}</div>
                 <div className="text-[#565656] text-sm">{t('Receive daily reminders')}</div>
                 {permission === 'denied' && (
                   <div className="text-red-600 text-xs mt-1">
@@ -75,7 +75,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-            <div className="text-base font-medium">{t('Sprache')}</div>
+            <div className="text-base font-medium">{t('Language')}</div>
             <Dropdown>
               <Dropdown.Toggle variant="light">
                 <img src={flagMap[lang]} className="h-4 w-4 rounded-full mr-2" />
@@ -93,7 +93,10 @@ export default function SettingsPage() {
           </div>
 
           <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-            <Button onClick={() => setHelpOpen(true)}>{t('Help')}</Button>
+            <div className="text-base font-medium">{t('Help')}</div>
+            <Button onClick={() => setHelpOpen(true)} className="mt-2">
+              {t('Help')}
+            </Button>
           </div>
 
           {isLoggedIn && (
