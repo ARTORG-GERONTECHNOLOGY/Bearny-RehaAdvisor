@@ -41,7 +41,17 @@ jobs:
           cd ..
           
           echo "Running backend tests..."
-          cd backend && pip install -r requirements.txt && pytest -v || exit 1
+          cd backend && pip install -r requirements.txt && \
+          DJANGO_SETTINGS_MODULE=api.settings.dev \
+          SECRET_KEY=test-secret-key-for-ci-cd \
+          DEBUG=False \
+          DB_HOST=localhost \
+          DB_PORT=27017 \
+          DB_NAME=reha_advisor_test \
+          MONGO_TLS=false \
+          DISABLE_MONGO_CONNECT=1 \
+          REDIS_URL=redis://localhost:6379/0 \
+          pytest -v || exit 1
 
   build:
     name: Build Docker Images

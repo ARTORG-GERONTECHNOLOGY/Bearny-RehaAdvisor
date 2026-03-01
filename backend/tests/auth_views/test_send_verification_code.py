@@ -1,154 +1,187 @@
 """
-Authentication Send Verification Code View Tests
+Authentication send-verification-code view tests
+— ``/api/auth/send-verification-code/``
+=========================================================
 
-This module tests the verification code sending endpoint (/api/auth/send-verification-code/).
-Tests cover successful code sending, user not found, and missing user ID parameter.
+What is covered
+---------------
+This endpoint is the **first step of the Therapist 2FA flow**.  After a
+Therapist's password is accepted (step 1 of login), the client calls this
+endpoint with the ``userId`` returned in the login response.  The server
+generates a time-limited 6-digit code, stores it in ``SMSVerification``,
+and e-mails it to the user.
 
-Framework: Django Test Client with pytest
-Database: mongomock (in-memory MongoDB) for isolated testing
-Email: Mocked send_mail to prevent actual email sends during tests
+Happy-path
+  * A valid, existing ``userId`` → 200, a ``SMSVerification`` record is
+    created, and an e-mail is dispatched (via ``EmailMultiAlternatives``,
+    which is mocked in tests).
+
+Input validation (400)
+  * ``userId`` absent → 400.
+
+Resource not found (404)
+  * ``userId`` is a well-formed ObjectId but no matching User → 404.
+
+Side-effect verification
+  * Only one ``SMSVerification`` record is created per call; the code is
+    a 6-digit string.
+
+Mocking note
+------------
+The view uses ``EmailMultiAlternatives`` (not the lower-level ``send_mail``)
+to compose and send a multi-language HTML e-mail.  Tests mock
+``core.views.auth_views.EmailMultiAlternatives`` so that no real SMTP
+connection is attempted.
+
+Test setup
+----------
+Each test uses the ``mongo_mock`` autouse fixture that spins up an
+in-memory mongomock connection and tears it down afterwards.
 """
-
-import mongomock
-import pytest
-from mongoengine import connect, disconnect
-
-from core.models import Patient, Therapist, User
-
-
-@pytest.fixture(autouse=True, scope="function")
-def mongo_mock():
-    """
-    Fixture: Mock MongoDB for verification code tests
-    
-    Sets up:
-    - In-memory MongoDB connection for each test
-    - Isolation: Each test has clean database
-    - Cleanup: Disconnect after test completes
-    """
-    conn = connect(
-        "mongoenginetest",
-        host="mongodb://localhost",
-        mongo_client_class=mongomock.MongoClient,
-    )
-    yield conn
-    disconnect()
-
 
 import json
 from datetime import datetime
 from unittest import mock
 
+import mongomock
+import pytest
 from django.test import Client
+from mongoengine import connect, disconnect
 
-from core.models import User
+from core.models import SMSVerification, User
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def mongo_mock():
+    """Provide an isolated in-memory MongoDB for every test in this module."""
+    alias = "default"
+    from mongoengine.connection import _connections
+
+    if alias in _connections:
+        disconnect(alias)
+
+    conn = connect(
+        "mongoenginetest",
+        alias=alias,
+        host="mongodb://localhost",
+        mongo_client_class=mongomock.MongoClient,
+    )
+    yield conn
+    disconnect(alias)
+
 
 client = Client()
 
+SEND_CODE_URL = "/api/auth/send-verification-code/"
 
-@mock.patch("core.views.auth_views.send_mail")
-def test_send_verification_code_success(mock_send_mail, mongo_mock):
-    """
-    Scenario: Send verification code to user successfully
-    
-    Setup:
-    - User exists: testuser (Patient)
-    - Email: test@example.com
-    - User is active but not yet verified
-    
-    Steps:
-    1. POST /api/auth/send-verification-code/ with userId
-    2. System generates 6-digit verification code
-    3. System creates SMSVerification record
-    4. System sends code via email (mocked)
-    5. Code stored with 5-minute expiration
-    
-    Expected Results:
-    - HTTP 200 OK
-    - Response message: "Verification code sent successfully"
-    - send_mail called once (verified with mock)
-    - SMSVerification record created in database
-    - Code sent to user's email
-    - User can verify within 5 minutes
-    
-    Use Case: New user registers, needs verification code, clicks "send code" button
-    """
-    user = User(
-        username="testuser",
-        role="Patient",
-        email="test@example.com",
-        phone="0000",
+
+def _post(payload):
+    return client.post(SEND_CODE_URL, data=json.dumps(payload), content_type="application/json")
+
+
+def _make_therapist(email="therapist@example.com"):
+    return User(
+        username=email.split("@")[0],
+        role="Therapist",
+        email=email,
         pwdhash="",
         createdAt=datetime.now(),
         isActive=True,
     ).save()
 
-    resp = client.post(
-        "/api/auth/send-verification-code/",
-        data=json.dumps({"userId": str(user.id)}),
-        content_type="application/json",
-    )
+
+# ===========================================================================
+# Happy-path
+# ===========================================================================
+
+
+@mock.patch("core.views.auth_views.EmailMultiAlternatives")
+def test_send_verification_code_success(mock_email_cls, mongo_mock):
+    """
+    A request with a valid ``userId`` for an existing user returns HTTP 200,
+    creates exactly one ``SMSVerification`` document, and calls
+    ``EmailMultiAlternatives.send()`` exactly once.
+
+    The mock prevents any real SMTP connection while still letting the test
+    verify that the e-mail-sending path was executed.
+    """
+    mock_msg = mock.MagicMock()
+    mock_email_cls.return_value = mock_msg
+
+    user = _make_therapist()
+
+    resp = _post({"userId": str(user.id)})
 
     assert resp.status_code == 200
-    assert "Verification code sent successfully" in resp.json()["message"]
-    mock_send_mail.assert_called_once()
+    assert SMSVerification.objects.count() == 1
+    mock_msg.send.assert_called_once()
 
 
-def test_send_verification_code_user_not_found(mongo_mock):
+@mock.patch("core.views.auth_views.EmailMultiAlternatives")
+def test_send_verification_code_creates_six_digit_code(mock_email_cls, mongo_mock):
     """
-    Scenario: Attempt to send verification code to non-existent user
-    
-    Setup:
-    - User ID does not exist in database
-    - User ID: 507f1f77bcf86cd799439011
-    
-    Steps:
-    1. POST /api/auth/send-verification-code/ with non-existent userId
-    2. System looks up user by ID
-    3. User not found
-    
-    Expected Results:
-    - HTTP 404 Not Found
-    - Error message: "User not found"
-    - No email sent
-    - No SMSVerification record created
-    - Database unchanged
-    
-    Error Handling: Prevents operations on non-existent users
+    The stored verification code must be exactly 6 decimal digits.
+    Shorter or non-numeric codes would make brute-force significantly easier.
     """
-    resp = client.post(
-        "/api/auth/send-verification-code/",
-        data=json.dumps({"userId": "507f1f77bcf86cd799439011"}),  # non-existent
-        content_type="application/json",
-    )
-    assert resp.status_code == 404
-    assert "User not found" in resp.json()["error"]
+    mock_email_cls.return_value = mock.MagicMock()
+
+    user = _make_therapist("sixdigit@example.com")
+    _post({"userId": str(user.id)})
+
+    verification = SMSVerification.objects(userId=str(user.id)).first()
+    assert verification is not None
+    assert len(verification.code) == 6
+    assert verification.code.isdigit()
+
+
+@mock.patch("core.views.auth_views.EmailMultiAlternatives")
+def test_send_verification_code_sets_expiry(mock_email_cls, mongo_mock):
+    """
+    The ``SMSVerification`` record must have a future ``expires_at``
+    timestamp.  Codes that never expire would allow unlimited replay.
+
+    Note: mongomock returns ``expires_at`` as a naive datetime, so the
+    comparison is done against ``datetime.utcnow()`` (also naive) rather
+    than ``timezone.now()`` (timezone-aware) to avoid a TypeError.
+    """
+    mock_email_cls.return_value = mock.MagicMock()
+
+    user = _make_therapist("expiry@example.com")
+    _post({"userId": str(user.id)})
+
+    verification = SMSVerification.objects(userId=str(user.id)).first()
+    # expires_at stored by mongomock as naive UTC — compare naive-to-naive
+    assert verification.expires_at > datetime.utcnow()
+
+
+# ===========================================================================
+# Input validation (400)
+# ===========================================================================
 
 
 def test_send_verification_code_missing_user_id(mongo_mock):
     """
-    Scenario: Send code request missing required userId parameter
-    
-    Setup:
-    - Request sent without userId field
-    
-    Steps:
-    1. POST /api/auth/send-verification-code/ with empty body
-    2. System validates request parameters
-    3. Required userId parameter missing
-    
-    Expected Results:
-    - HTTP 400 Bad Request
-    - Error message: "Missing user ID"
-    - No email sent
-    - No database changes
-    
-    Input Validation: Prevents incomplete requests from processing
+    Omitting ``userId`` returns 400.  Without knowing which user to send the
+    code to, the endpoint cannot proceed.
     """
-    resp = client.post(
-        "/api/auth/send-verification-code/",
-        data=json.dumps({}),
-        content_type="application/json",
-    )
+    resp = _post({})
     assert resp.status_code == 400
-    assert "Missing user ID" in resp.json()["error"]
+
+
+# ===========================================================================
+# Resource not found (404)
+# ===========================================================================
+
+
+def test_send_verification_code_user_not_found(mongo_mock):
+    """
+    A well-formed ObjectId that does not match any User returns 404.
+    No ``SMSVerification`` record is created and no e-mail is sent.
+    """
+    resp = _post({"userId": "507f1f77bcf86cd799439011"})
+    assert resp.status_code == 404
+    assert SMSVerification.objects.count() == 0

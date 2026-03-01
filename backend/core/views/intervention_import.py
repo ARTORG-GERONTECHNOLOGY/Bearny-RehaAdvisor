@@ -3,7 +3,7 @@
 import os
 import re
 import tempfile
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import openpyxl
 from django.http import JsonResponse
@@ -14,8 +14,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
 
-
 # ---------------- view helpers ----------------
+
 
 def _parse_bool(v: Any, default: bool = False) -> bool:
     if v is None:
@@ -45,6 +45,7 @@ def _bad(message: str, status: int = 400, **extra: Any) -> JsonResponse:
 
 # ---------------- import endpoint ----------------
 
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def import_interventions(request):
@@ -64,7 +65,12 @@ def import_interventions(request):
     Returns:
       { created, updated, skipped, errors }
     """
-    print("Received intervention import request:", request.POST.dict(), "Files:", request.FILES)
+    print(
+        "Received intervention import request:",
+        request.POST.dict(),
+        "Files:",
+        request.FILES,
+    )
     if request.method != "POST":
         return _bad("Method not allowed", status=405)
 
@@ -120,6 +126,7 @@ def import_interventions(request):
 
 
 # ---------------- Excel parsing helpers ----------------
+
 
 def _norm(s: Any) -> str:
     return (str(s).strip() if s is not None else "").strip()
@@ -312,7 +319,9 @@ def _col_index_map(header_row: List[str]) -> Dict[str, int]:
         "aim": find_col(r"\baim\b|\bziel\b"),
         "topic": find_col(r"\btopic\b|\bthema\b"),
         # ✅ make content type very tolerant:
-        "content_type": find_col(r"\bcontent\s*type\b|\bcontent[-_\s]*type\b|\bformat\b|\btype\b|\bmedien[-_\s]*typ\b|\binhalts[-_\s]*typ\b"),
+        "content_type": find_col(
+            r"\bcontent\s*type\b|\bcontent[-_\s]*type\b|\bformat\b|\btype\b|\bmedien[-_\s]*typ\b|\binhalts[-_\s]*typ\b"
+        ),
         "duration": find_col(r"\bduration\b|\bdauer\b|\bmin\b|\bminutes\b"),
         "lc9": find_col(r"\blc9\b"),
         "where": find_col(r"^\s*where\s*$|\bwo\b|\bord\b"),
@@ -331,8 +340,8 @@ def _col_index_map(header_row: List[str]) -> Dict[str, int]:
     }
 
 
-
 # ---------------- main import service ----------------
+
 
 def import_interventions_from_excel(
     xlsm_path: str,
@@ -397,7 +406,14 @@ def import_interventions_from_excel(
         col["description"] = _find_header_fallback([r"\bdescription\b", r"\bbeschreibung\b", r"\bdesc\b"])
     if col.get("content_type") is None:
         col["content_type"] = _find_header_fallback(
-            [r"\bcontent\s*type\b", r"\bcontenttype\b", r"\bformat\b", r"\bmedium\b", r"\bmedien\b", r"\binhalts?\b"]
+            [
+                r"\bcontent\s*type\b",
+                r"\bcontenttype\b",
+                r"\bformat\b",
+                r"\bmedium\b",
+                r"\bmedien\b",
+                r"\binhalts?\b",
+            ]
         )
 
     # IMPORTANT FIXES (these headers are "where (multi-choice)" / "setting (multi-choice)" / "link (text input)")
@@ -451,9 +467,7 @@ def import_interventions_from_excel(
         try:
             external_id, lang_from_id = _parse_external_id_and_language(intervention_id_raw)
 
-            lang_from_col = (
-                _normalize_lang(row[col["language"]]) if col.get("language") is not None else None
-            )
+            lang_from_col = _normalize_lang(row[col["language"]]) if col.get("language") is not None else None
             language = (lang_from_id or lang_from_col or default_lang).lower()
 
             provider = _norm(row[col["provider"]]) if col.get("provider") is not None else ""
@@ -504,9 +518,9 @@ def import_interventions_from_excel(
             if lc9_list:
                 _set_if_exists(doc, "lc9", lc9_list)
             if where_list:
-                _set_if_exists(doc, "where", where_list)     # <-- should now fill: ["outside"]
+                _set_if_exists(doc, "where", where_list)  # <-- should now fill: ["outside"]
             if setting_list:
-                _set_if_exists(doc, "setting", setting_list) # <-- should now fill: ["individual"]
+                _set_if_exists(doc, "setting", setting_list)  # <-- should now fill: ["individual"]
             if keywords_list:
                 _set_if_exists(doc, "keywords", keywords_list)
 
@@ -521,9 +535,7 @@ def import_interventions_from_excel(
                     media_items.append(
                         InterventionMedia(
                             kind="file",
-                            media_type=_guess_file_media_type(
-                                link_val, mapped_ct.lower() if mapped_ct else "text"
-                            ),
+                            media_type=_guess_file_media_type(link_val, mapped_ct.lower() if mapped_ct else "text"),
                             provider=None,
                             title=title or None,
                             file_path=link_val,
@@ -545,7 +557,7 @@ def import_interventions_from_excel(
                             ),
                             provider=prov,
                             title=title or None,
-                            url=link_val,          # <-- correct: keep URL in url
+                            url=link_val,  # <-- correct: keep URL in url
                             embed_url=embed,
                         )
                     )
@@ -561,7 +573,7 @@ def import_interventions_from_excel(
             merged: List[InterventionMedia] = []
             seen_keys = set()
 
-            for m in (getattr(doc, "media", None) or []):
+            for m in getattr(doc, "media", None) or []:
                 k = _media_key(m)
                 if k not in seen_keys:
                     merged.append(m)
@@ -586,7 +598,18 @@ def import_interventions_from_excel(
                 created += 1
 
         except Exception as e:
-            errors.append({"row": row_idx, "intervention_id": intervention_id_raw, "error": str(e)})
+            errors.append(
+                {
+                    "row": row_idx,
+                    "intervention_id": intervention_id_raw,
+                    "error": str(e),
+                }
+            )
             skipped += 1
 
-    return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors,
+    }

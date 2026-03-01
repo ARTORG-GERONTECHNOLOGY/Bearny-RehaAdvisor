@@ -3,24 +3,37 @@ from datetime import datetime, timedelta
 
 from bson import ObjectId
 from dateutil.relativedelta import relativedelta
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 from pymongo import MongoClient
 
-from core.models import Patient, Therapist, User, RehabilitationPlan, PatientInterventionLogs
+from core.models import (
+    Patient,
+    PatientInterventionLogs,
+    RehabilitationPlan,
+    Therapist,
+    User,
+)
 
 logger = logging.getLogger(__name__)
 import re
+import tempfile
 import unicodedata
 from typing import Any, Dict, List, Optional
-from django.utils.timezone import is_naive, make_aware
-import tempfile
-from pydub import AudioSegment
-import speech_recognition as sr
-import re
 
-def bad(message: str, field_errors: Optional[Dict[str, List[str]]] = None,
-        non_field_errors: Optional[List[str]] = None, status: int = 400, extra: Optional[Dict[str, Any]] = None):
+import speech_recognition as sr
+from django.utils.timezone import is_naive, make_aware
+from pydub import AudioSegment
+
+
+def bad(
+    message: str,
+    field_errors: Optional[Dict[str, List[str]]] = None,
+    non_field_errors: Optional[List[str]] = None,
+    status: int = 400,
+    extra: Optional[Dict[str, Any]] = None,
+):
     payload: Dict[str, Any] = {
         "success": False,
         "message": message,
@@ -30,6 +43,7 @@ def bad(message: str, field_errors: Optional[Dict[str, List[str]]] = None,
     if extra:
         payload.update(extra)
     return JsonResponse(payload, status=status)
+
 
 def validate_password_strength(password: str):
     """
@@ -57,6 +71,7 @@ def validate_password_strength(password: str):
         return False, "Password must contain at least one symbol (e.g. !@#$%)."
 
     return True, None
+
 
 def check_rate_limit(user):
     record = PasswordAttempt.objects(user=user).first()
@@ -87,6 +102,7 @@ def increment_attempt(record):
     record.last_attempt = datetime.utcnow()
     record.save()
 
+
 def resolve_patient(identifier: str):
     """
     Accepts any of:
@@ -111,6 +127,7 @@ def resolve_patient(identifier: str):
     except Patient.DoesNotExist:
         return None
 
+
 def transcribe_file(input_path):
     # convert ANYTHING into a proper WAV
     wav_path = input_path + ".wav"
@@ -120,6 +137,7 @@ def transcribe_file(input_path):
     with sr.AudioFile(wav_path) as source:
         audio_data = recognizer.record(source)
         return recognizer.recognize_google(audio_data)
+
 
 def ensure_aware(dt):
     return make_aware(dt) if is_naive(dt) else dt
@@ -163,9 +181,7 @@ def parse_start_date(start_date):
     """
     try:
         if isinstance(start_date, str):
-            return datetime.fromisoformat(start_date.replace("Z", "+00:00")).replace(
-                tzinfo=None
-            )
+            return datetime.fromisoformat(start_date.replace("Z", "+00:00")).replace(tzinfo=None)
         elif isinstance(start_date, datetime):
             return start_date.replace(tzinfo=None)
     except Exception as e:
@@ -188,11 +204,7 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     interval = repeat_data.get("interval", 1)
     unit = repeat_data.get("unit")
 
-    selected_days = (
-        repeat_data.get("selected_days")
-        or repeat_data.get("selectedDays")
-        or []
-    )
+    selected_days = repeat_data.get("selected_days") or repeat_data.get("selectedDays") or []
 
     # ---- NEW FORMAT ----
     end_type = repeat_data.get("end_type")
@@ -232,24 +244,28 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     if is_naive(patient_end_date):
         patient_end_date = make_aware(patient_end_date)
 
-    final_end_date = (
-        min(end_date_limit, patient_end_date)
-        if end_date_limit else patient_end_date
-    )
+    final_end_date = min(end_date_limit, patient_end_date) if end_date_limit else patient_end_date
 
     # -----------------------------
     # Prepare weekday map
     # -----------------------------
     day_map = {
-        "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3,
-        "Fri": 4, "Sat": 5, "Sun": 6,
-        "Dien": 1, "Mitt": 2, "Don": 3, "Fre": 4,  # German fallback
-        "Sam": 5, "Son": 6,
+        "Mon": 0,
+        "Tue": 1,
+        "Wed": 2,
+        "Thu": 3,
+        "Fri": 4,
+        "Sat": 5,
+        "Sun": 6,
+        "Dien": 1,
+        "Mitt": 2,
+        "Don": 3,
+        "Fre": 4,  # German fallback
+        "Sam": 5,
+        "Son": 6,
     }
 
-    selected_day_indices = [
-        day_map[d] for d in selected_days if d in day_map
-    ]
+    selected_day_indices = [day_map[d] for d in selected_days if d in day_map]
 
     generated_dates = []
     occurrence = 0
@@ -267,10 +283,7 @@ def generate_repeat_dates(patient_end_date, repeat_data):
         elif unit == "week":
             for i in range(7):
                 day = current_date + timedelta(days=i)
-                if (
-                    day.weekday() in selected_day_indices
-                    and day <= final_end_date
-                ):
+                if day.weekday() in selected_day_indices and day <= final_end_date:
                     generated_dates.append(day)
                     occurrence += 1
 
@@ -291,14 +304,11 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     return generated_dates
 
 
-
 def get_db_handle(db_name, host, port, username, password):
     """
     Create a MongoDB client connection and return the database handle.
     """
-    client = MongoClient(
-        host=host, port=int(port), username=username, password=password
-    )
+    client = MongoClient(host=host, port=int(port), username=username, password=password)
     return client[db_name], client
 
 
@@ -331,9 +341,7 @@ def get_labels(data, key):
     items = data.get(key, [])
     if not isinstance(items, list):
         items = [items]
-    return [
-        item["label"] for item in items if isinstance(item, dict) and "label" in item
-    ]
+    return [item["label"] for item in items if isinstance(item, dict) and "label" in item]
 
 
 def generate_custom_id(user_type):
@@ -358,6 +366,7 @@ def generate_custom_id(user_type):
 
     return f"{prefix}{count}"
 
+
 def _adherence(patient, lookback_days: int = 7):
     """
     Returns (adherence_7d, adherence_total_until_now) for the patient.
@@ -368,7 +377,7 @@ def _adherence(patient, lookback_days: int = 7):
     - All datetimes (schedule + logs) are normalized to timezone-aware before comparison.
     - Falls back to completed/(completed+skipped) if no schedule was created for the window.
     """
-    now = timezone.now()                       # aware
+    now = timezone.now()  # aware
     since = now - timedelta(days=lookback_days)
 
     # ---- helpers ------------------------------------------------------------
@@ -402,8 +411,8 @@ def _adherence(patient, lookback_days: int = 7):
     denom_7 = 0
     plan = RehabilitationPlan.objects(patientId=patient).first()
     if plan:
-        for ia in (getattr(plan, "interventions", []) or []):
-            for d in (getattr(ia, "dates", []) or []):
+        for ia in getattr(plan, "interventions", []) or []:
+            for d in getattr(ia, "dates", []) or []:
                 dt = _aware(_to_dt(d))
                 if not dt:
                     continue
@@ -424,19 +433,26 @@ def _adherence(patient, lookback_days: int = 7):
         is_skipped = "skipped" in statuses
 
         if dt <= now:
-            if is_completed: comp_total += 1
-            if is_skipped:   skip_total += 1
+            if is_completed:
+                comp_total += 1
+            if is_skipped:
+                skip_total += 1
         if since <= dt <= now:
-            if is_completed: comp_7 += 1
-            if is_skipped:   skip_7 += 1
+            if is_completed:
+                comp_7 += 1
+            if is_skipped:
+                skip_7 += 1
 
     # ---- adherence (fallback to completed/(completed+skipped) when no schedule)
-    adh_total = round(100 * comp_total / denom_total) if denom_total else (
-        round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None
+    adh_total = (
+        round(100 * comp_total / denom_total)
+        if denom_total
+        else (round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None)
     )
-    adh_7 = round(100 * comp_7 / denom_7) if denom_7 else (
-        round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None
+    adh_7 = (
+        round(100 * comp_7 / denom_7)
+        if denom_7
+        else (round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None)
     )
 
     return adh_7, adh_total
-

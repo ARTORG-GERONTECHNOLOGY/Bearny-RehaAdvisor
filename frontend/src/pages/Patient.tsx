@@ -1,3 +1,4 @@
+// src/pages/PatientView.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -28,19 +29,27 @@ const PatientView: React.FC = observer(() => {
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
 
   useEffect(() => {
-    const check = async () => {
+    let alive = true;
+
+    const run = async () => {
       await authStore.checkAuthentication();
+
+      if (!alive) return;
 
       if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
         navigate('/');
         return;
       }
 
-      if (fitbitStatus === 'error') setPageError(t('Fitbit connection failed.'));
+      if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
       setLoading(false);
     };
 
-    check();
+    run();
+
+    return () => {
+      alive = false;
+    };
   }, [navigate, fitbitStatus, t]);
 
   if (loading) return null;
@@ -68,13 +77,13 @@ const PatientView: React.FC = observer(() => {
               </Col>
             </Row>
 
-            {pageError && (
+            {pageError ? (
               <Row className="patient-section justify-content-center">
                 <Col xs={12} sm={11} md={10} lg={8}>
                   <ErrorAlert message={pageError} onClose={() => setPageError('')} />
                 </Col>
               </Row>
-            )}
+            ) : null}
 
             <Row className="patient-section justify-content-center">
               <Col xs={12} sm={11} md={10} lg={8}>

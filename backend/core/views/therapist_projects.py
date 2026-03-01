@@ -1,12 +1,14 @@
 # core/views/therapist_projects_views.py
 import json
 import logging
+
 from bson import ObjectId
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.views.decorators.csrf import csrf_exempt
-from core.models import User, Therapist, Logs
+
+from core.models import Logs, Therapist, User
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -22,24 +24,22 @@ def _bad(message: str, status: int = 400, extra: dict | None = None):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def therapist_projects(request):
+    available_projects = list((config.get("therapistInfo") or {}).get("projects", []) or [])
+
     if request.method == "GET":
-        t_id = (request.GET.get("therapistId"))
+        t_id = request.GET.get("therapistId")
         if not t_id:
-                return _bad("therapistId is required.", status=400)
+            return _bad("therapistId is required.", status=400)
         try:
             th = Therapist.objects.get(pk=ObjectId(t_id))
-            mongo_user = th.userId
         except Exception:
             return _bad("Therapist not found.", status=404)
-
-        available_projects = list((config.get("therapistInfo") or {}).get("projects", []) or [])
-
 
         return JsonResponse(
             {
                 "ok": True,
                 "therapistId": str(th.id),
-                "therapistUserId": str(th.userId.id) if getattr(th, "userId", None) else None,
+                "therapistUserId": (str(th.userId.id) if getattr(th, "userId", None) else None),
                 "projects": getattr(th, "projects", []) or [],
                 "availableProjects": available_projects,
             },
@@ -71,7 +71,11 @@ def therapist_projects(request):
         if not p:
             continue
         if p not in available_projects:
-            return _bad("Invalid project value.", status=400, extra={"invalid": p, "availableProjects": available_projects})
+            return _bad(
+                "Invalid project value.",
+                status=400,
+                extra={"invalid": p, "availableProjects": available_projects},
+            )
         if p not in seen:
             seen.add(p)
             normalized.append(p)
@@ -87,7 +91,7 @@ def therapist_projects(request):
 
     try:
         Logs.objects.create(
-            userId=mongo_user,
+            userId=th.userId,
             action="UPDATE_PROFILE",
             userAgent="Admin",
             details=f"Updated therapist.projects for therapist={str(th.id)} old={old_projects} new={normalized}",

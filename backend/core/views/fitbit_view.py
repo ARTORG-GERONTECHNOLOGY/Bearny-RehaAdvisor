@@ -1,26 +1,25 @@
-
-
-import logging
-import requests
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 
-from django.shortcuts import redirect
-from django.conf import settings
-from django.utils import timezone
-from datetime import timedelta
-from core.models import FitbitUserToken, User, FitbitData, Patient
+import requests
 from bson import ObjectId
+from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.utils import timezone
+from django.utils.timezone import is_naive, make_aware
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.http import JsonResponse
-from django.utils.timezone import make_aware, is_naive
+
+from core.models import FitbitData, FitbitUserToken, Patient, User
+
 logger = logging.getLogger(__name__)
-FITBIT_API_URL = 'https://api.fitbit.com/1/user/-'
-from core.views.fitbit_sync import fetch_fitbit_today_for_user
+FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 from django.utils.timezone import is_naive, make_aware, now
 
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
 
 def _resolve_patient(patient_id: str):
@@ -32,7 +31,6 @@ def _resolve_patient(patient_id: str):
             return Patient.objects.get(userId=ObjectId(patient_id))
         except Exception:
             return None
-
 
 
 def _sleep_minutes(entry: FitbitData) -> int:
@@ -88,9 +86,11 @@ def _resolve_patient(request, patient_id: str | None):
 
     return None
 
+
 def avg_excluding_zero(values):
     non_zero = [v for v in values if v > 0]
     return sum(non_zero) // len(non_zero) if non_zero else 0
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -115,23 +115,15 @@ def fitbit_summary(request, patient_id=None):
         days = max(1, min(int(request.GET.get("days", 7)), 31))
 
         end = timezone.now()
-        start = (end - timedelta(days=days - 1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        start = (end - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        qs = FitbitData.objects(
-            user=patient.userId, date__gte=start, date__lte=end
-        ).order_by("date")
+        qs = FitbitData.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
 
         # -----------------------------
         # Pull patient vitals (BP) for range
         # Prefer latest entry per day (manual/device/provider)
         # -----------------------------
-        vitals_qs = PatientVitals.objects(
-            patientId=patient,
-            date__gte=start,
-            date__lte=end
-        ).order_by("-date")
+        vitals_qs = PatientVitals.objects(patientId=patient, date__gte=start, date__lte=end).order_by("-date")
 
         vitals_by_day = {}  # "YYYY-MM-DD" -> {"bp_sys":..., "bp_dia":..., "weight_kg":...}
         for v in vitals_qs:
@@ -177,14 +169,10 @@ def fitbit_summary(request, patient_id=None):
                 sleep_end_dt = sleep_end_raw
 
             if timezone.is_naive(sleep_end_dt):
-                sleep_end_dt = timezone.make_aware(
-                    sleep_end_dt, timezone.get_current_timezone()
-                )
+                sleep_end_dt = timezone.make_aware(sleep_end_dt, timezone.get_current_timezone())
 
             if timezone.is_naive(day_start_dt):
-                day_start_dt = timezone.make_aware(
-                    day_start_dt, timezone.get_current_timezone()
-                )
+                day_start_dt = timezone.make_aware(day_start_dt, timezone.get_current_timezone())
 
             wake_minute = int((sleep_end_dt - day_start_dt).total_seconds() // 60)
             wake_minute = max(0, min(1440, wake_minute))
@@ -237,11 +225,11 @@ def fitbit_summary(request, patient_id=None):
 
             # Valid day?
             has_real_data = (
-                (d.steps not in (None, 0)) or
-                (d.active_minutes not in (None, 0)) or
-                (sm not in (None, 0)) or
-                (bp_sys is not None) or
-                (bp_dia is not None)
+                (d.steps not in (None, 0))
+                or (d.active_minutes not in (None, 0))
+                or (sm not in (None, 0))
+                or (bp_sys is not None)
+                or (bp_dia is not None)
             )
 
             if has_real_data:
@@ -260,9 +248,7 @@ def fitbit_summary(request, patient_id=None):
         valid_days = max(1, valid_days)
 
         # ---------- Today payload ----------
-        today_qs = FitbitData.objects(
-            user=patient.userId, date__gte=today_start
-        ).order_by("-date")
+        today_qs = FitbitData.objects(user=patient.userId, date__gte=today_start).order_by("-date")
         today = today_qs.first() or qs.order_by("-date").first()
 
         today_payload = None
@@ -292,11 +278,7 @@ def fitbit_summary(request, patient_id=None):
                 "steps": int(today.steps or 0),
                 "active_minutes": am,
                 "sleep_minutes": sm,
-                "resting_heart_rate": (
-                    int(today.resting_heart_rate)
-                    if today.resting_heart_rate is not None
-                    else None
-                ),
+                "resting_heart_rate": (int(today.resting_heart_rate) if today.resting_heart_rate is not None else None),
                 "bp_sys": bp_sys_today,
                 "bp_dia": bp_dia_today,
             }
@@ -318,8 +300,8 @@ def fitbit_summary(request, patient_id=None):
                         "active_minutes": sum(act_tot),
                         "sleep_minutes": sum(sleep_tot),
                         # BP totals are not very meaningful; keep or remove as you prefer:
-                        "bp_sys": sum([int(x) for x in bp_sys_vals]) if bp_sys_vals else None,
-                        "bp_dia": sum([int(x) for x in bp_dia_vals]) if bp_dia_vals else None,
+                        "bp_sys": (sum([int(x) for x in bp_sys_vals]) if bp_sys_vals else None),
+                        "bp_dia": (sum([int(x) for x in bp_dia_vals]) if bp_dia_vals else None),
                     },
                     "averages": {
                         "steps": avg_excluding_zero(steps_tot),
@@ -338,6 +320,7 @@ def fitbit_summary(request, patient_id=None):
         logger.error("[fitbit_summary] %s", e, exc_info=True)
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
+
 def _default_thresholds():
     return {
         "steps_goal": 10000,
@@ -350,6 +333,7 @@ def _default_thresholds():
         "bp_dia_green_max": 84,
         "bp_dia_yellow_max": 89,
     }
+
 
 def _merge_thresholds(patient):
     """
@@ -375,14 +359,14 @@ def _merge_thresholds(patient):
 def fitbit_status(request, patient_id):
     connected = FitbitUserToken.objects.filter(user=ObjectId(patient_id)).count() > 0
     logger.info(f"[fitbit_status] Patient {patient_id} connected: {connected}")
-    return JsonResponse({'connected': connected})
+    return JsonResponse({"connected": connected})
 
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def fitbit_callback(request):
-    code = request.GET.get('code')
-    state = request.GET.get('state')  # carries patient_id from frontend
+    code = request.GET.get("code")
+    state = request.GET.get("state")  # carries patient_id from frontend
 
     if not code:
         logger.warning("[fitbit_callback] No code returned from Fitbit.")
@@ -401,20 +385,20 @@ def fitbit_callback(request):
 
     logger.info(f"[fitbit_callback] Received code: {code} for user {user.id}")
 
-    token_url = 'https://api.fitbit.com/oauth2/token'
+    token_url = "https://api.fitbit.com/oauth2/token"
     client_id = settings.FITBIT_CLIENT_ID
     client_secret = settings.FITBIT_CLIENT_SECRET
     redirect_uri = settings.FITBIT_REDIRECT_URI
     basic_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
 
     data = {
-        'client_id': client_id,
-        'grant_type': 'authorization_code',
-        'redirect_uri': redirect_uri,
-        'code': code,
+        "client_id": client_id,
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,
+        "code": code,
     }
 
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     try:
         response = requests.post(token_url, auth=basic_auth, data=data, headers=headers)
@@ -424,11 +408,11 @@ def fitbit_callback(request):
             token_data = response.json()
 
             FitbitUserToken.objects(user=user).update_one(
-                set__access_token=token_data['access_token'],
-                set__refresh_token=token_data['refresh_token'],
-                set__expires_at=timezone.now() + timedelta(seconds=token_data['expires_in']),
-                set__fitbit_user_id=token_data['user_id'],
-                upsert=True
+                set__access_token=token_data["access_token"],
+                set__refresh_token=token_data["refresh_token"],
+                set__expires_at=timezone.now() + timedelta(seconds=token_data["expires_in"]),
+                set__fitbit_user_id=token_data["user_id"],
+                upsert=True,
             )
 
             logger.info(f"[fitbit_callback] Fitbit token saved for user {user.id}")
@@ -441,10 +425,6 @@ def fitbit_callback(request):
     except Exception as e:
         logger.exception(f"[fitbit_callback] Exception during token exchange: {e}")
         return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=error")
-
-
-
-
 
 
 @csrf_exempt
@@ -469,18 +449,12 @@ def get_fitbit_health_data(request, patient_id):
             from_date = to_date - timedelta(days=30)
 
         # ---- Query FitbitData ----
-        fitbit_entries = FitbitData.objects(
-            user=patient.userId,
-            date__gte=from_date,
-            date__lte=to_date
-        ).order_by("date")
+        fitbit_entries = FitbitData.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
+            "date"
+        )
 
         # ---- Query Vitals ----
-        vitals_qs = PatientVitals.objects(
-            patientId=patient,
-            date__gte=from_date,
-            date__lte=to_date
-        ).order_by("date")
+        vitals_qs = PatientVitals.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by("date")
 
         vitals_by_date = {
             eu_date(v.date): {
@@ -539,34 +513,37 @@ def get_fitbit_health_data(request, patient_id):
             zones = []
             if entry.heart_rate_zones:
                 for z in entry.heart_rate_zones:
-                    zones.append({
-                        "name": z.name,
-                        "minutes": z.minutes,
-                        "min": z.min,
-                        "max": z.max,
-                        "range_str": f"{z.min}-{z.max} bpm" if z.min and z.max else None,
-                        "caloriesOut": getattr(z, "caloriesOut", None)
-                    })
+                    zones.append(
+                        {
+                            "name": z.name,
+                            "minutes": z.minutes,
+                            "min": z.min,
+                            "max": z.max,
+                            "range_str": (f"{z.min}-{z.max} bpm" if z.min and z.max else None),
+                            "caloriesOut": getattr(z, "caloriesOut", None),
+                        }
+                    )
 
-            out.append({
-                "date": key,
-                "steps": entry.steps,
-                "resting_heart_rate": entry.resting_heart_rate,
-                "floors": entry.floors,
-                "distance": entry.distance,
-                "calories": entry.calories,
-                "active_minutes": entry.active_minutes,
-                "breathing_rate": entry.breathing_rate,
-                "hrv": entry.hrv,
-                "sleep": sleep,
-                "heart_rate_zones": zones,
-                "exercise": exercise_out,
-
-                # Single-point vitals
-                "weight_kg": vitals.get("weight_kg"),
-                "bp_sys": vitals.get("bp_sys"),
-                "bp_dia": vitals.get("bp_dia"),
-            })
+            out.append(
+                {
+                    "date": key,
+                    "steps": entry.steps,
+                    "resting_heart_rate": entry.resting_heart_rate,
+                    "floors": entry.floors,
+                    "distance": entry.distance,
+                    "calories": entry.calories,
+                    "active_minutes": entry.active_minutes,
+                    "breathing_rate": entry.breathing_rate,
+                    "hrv": entry.hrv,
+                    "sleep": sleep,
+                    "heart_rate_zones": zones,
+                    "exercise": exercise_out,
+                    # Single-point vitals
+                    "weight_kg": vitals.get("weight_kg"),
+                    "bp_sys": vitals.get("bp_sys"),
+                    "bp_dia": vitals.get("bp_dia"),
+                }
+            )
 
         return JsonResponse({"data": out}, status=200)
 
@@ -575,8 +552,6 @@ def get_fitbit_health_data(request, patient_id):
     except Exception as e:
         logger.exception("[get_fitbit_health_data] error")
         return JsonResponse({"error": str(e)}, status=500)
-
-
 
 
 @csrf_exempt
@@ -606,12 +581,15 @@ def manual_steps(request, patient_id):
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
-    FitbitData.objects(user=patient.userId, date=date).update_one(
-        set__steps=steps,
-        upsert=True
-    )
+    FitbitData.objects(user=patient.userId, date=date).update_one(set__steps=steps, upsert=True)
 
     return JsonResponse({"success": True, "steps": steps, "date": date}, status=200)
+
+
+import datetime
+
+from bson import ObjectId
+from django.http import JsonResponse
 
 # --------------------------------------------
 # HEALTH-COMBINED-HISTORY ENDPOINT
@@ -620,18 +598,16 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.http import JsonResponse
-from bson import ObjectId
-import datetime
 
 from core.models import (
-    Patient,
-    User,
     FitbitData,
-    PatientVitals,
+    Patient,
     PatientInterventionLogs,
+    PatientVitals,
     RehabilitationPlan,
+    User,
 )
+
 
 # Helper
 def _date(d):
@@ -731,42 +707,40 @@ def health_combined_history(request, patient_id):
         fitbit_list = []
         for key in sorted(fitbit_map.keys()):
             f = fitbit_map[key]
-            fitbit_list.append({
-                "date": key,
-                "steps": f.steps,
-                "resting_heart_rate": f.resting_heart_rate,
-                "max_heart_rate": f.max_heart_rate,
-                "floors": f.floors,
-                "distance": f.distance,
-                "calories": f.calories,
-                "active_minutes": f.active_minutes,
-
-                "sleep": {
-                    "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
-                    "sleep_start": f.sleep.sleep_start if f.sleep else None,
-                    "sleep_end": f.sleep.sleep_end if f.sleep else None,
-                    "awakenings": f.sleep.awakenings if f.sleep else None,
-                },
-
-                "heart_rate_zones": [
-                    {
-                        "name": z.name,
-                        "min": z.min,
-                        "max": z.max,
-                        "minutes": z.minutes,
-                    }
-                    for z in (f.heart_rate_zones or [])
-                ],
-
-                "breathing_rate": f.breathing_rate,
-                "hrv": f.hrv,
-                "exercise": f.exercise or {},
-
-                # NEW vitals injected into FitbitEntry[]
-                "weight_kg": f.weight_kg,
-                "bp_sys": f.bp_sys,
-                "bp_dia": f.bp_dia,
-            })
+            fitbit_list.append(
+                {
+                    "date": key,
+                    "steps": f.steps,
+                    "resting_heart_rate": f.resting_heart_rate,
+                    "max_heart_rate": f.max_heart_rate,
+                    "floors": f.floors,
+                    "distance": f.distance,
+                    "calories": f.calories,
+                    "active_minutes": f.active_minutes,
+                    "sleep": {
+                        "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
+                        "sleep_start": f.sleep.sleep_start if f.sleep else None,
+                        "sleep_end": f.sleep.sleep_end if f.sleep else None,
+                        "awakenings": f.sleep.awakenings if f.sleep else None,
+                    },
+                    "heart_rate_zones": [
+                        {
+                            "name": z.name,
+                            "min": z.min,
+                            "max": z.max,
+                            "minutes": z.minutes,
+                        }
+                        for z in (f.heart_rate_zones or [])
+                    ],
+                    "breathing_rate": f.breathing_rate,
+                    "hrv": f.hrv,
+                    "exercise": f.exercise or {},
+                    # NEW vitals injected into FitbitEntry[]
+                    "weight_kg": f.weight_kg,
+                    "bp_sys": f.bp_sys,
+                    "bp_dia": f.bp_dia,
+                }
+            )
 
         # -------------------------
         # 5) Questionnaire history
@@ -779,12 +753,14 @@ def health_combined_history(request, patient_id):
 
         questionnaire_list = []
         for q in q_qs:
-            questionnaire_list.append({
-                "date": q.date.date().isoformat(),
-                "questionKey": q.icfCode,
-                "answers": q.feedback_entries,
-                "questionTranslations": q.question_translations,
-            })
+            questionnaire_list.append(
+                {
+                    "date": q.date.date().isoformat(),
+                    "questionKey": q.icfCode,
+                    "answers": q.feedback_entries,
+                    "questionTranslations": q.question_translations,
+                }
+            )
 
         # -------------------------
         # 6) Adherence data
@@ -797,21 +773,26 @@ def health_combined_history(request, patient_id):
 
         adherence_list = []
         for l in logs:
-            adherence_list.append({
-                "date": l.date.date().isoformat(),
-                "scheduled": l.scheduled_count,
-                "completed": l.completed_count,
-                "pct": l.adherence_percentage,
-            })
+            adherence_list.append(
+                {
+                    "date": l.date.date().isoformat(),
+                    "scheduled": l.scheduled_count,
+                    "completed": l.completed_count,
+                    "pct": l.adherence_percentage,
+                }
+            )
 
         # -------------------------
         # 7) Return everything
         # -------------------------
-        return JsonResponse({
-            "fitbit": fitbit_list,
-            "questionnaire": questionnaire_list,
-            "adherence": adherence_list,
-        }, status=200)
+        return JsonResponse(
+            {
+                "fitbit": fitbit_list,
+                "questionnaire": questionnaire_list,
+                "adherence": adherence_list,
+            },
+            status=200,
+        )
 
     except Exception as e:
         logger.exception("[health_combined_history] error")

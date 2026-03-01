@@ -35,9 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="user",
             name="created_at",
-            field=models.DateTimeField(
-                auto_now_add=True, default=django.utils.timezone.now
-            ),
+            field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now),
             preserve_default=False,
         ),
         migrations.AddField(
@@ -88,9 +86,7 @@ class Migration(migrations.Migration):
                 ("rating", models.IntegerField(blank=True, null=True)),
                 (
                     "exercise",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="core.exercise"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="core.exercise"),
                 ),
                 (
                     "patient",
@@ -118,9 +114,7 @@ class Migration(migrations.Migration):
                 ("notes", models.TextField(blank=True, null=True)),
                 (
                     "exercise",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="core.exercise"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="core.exercise"),
                 ),
                 (
                     "patient",

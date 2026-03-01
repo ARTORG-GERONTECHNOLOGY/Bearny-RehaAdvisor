@@ -1,15 +1,17 @@
 # core/views/therapist_access_views.py
 import json
 import logging
-from django.conf import settings
+
 from bson import ObjectId
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
-from core.models import Logs, Patient, Therapist, User, PasswordAttempt
+
+from core.models import Logs, PasswordAttempt, Patient, Therapist, User
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -23,8 +25,8 @@ def _bad(message: str, status: int = 400, extra: dict | None = None):
 
 
 def _cfg():
-    ti = (config.get("therapistInfo") or {})
-    clinic_projects = (ti.get("clinic_projects") or {})
+    ti = config.get("therapistInfo") or {}
+    clinic_projects = ti.get("clinic_projects") or {}
     available_clinics = list(clinic_projects.keys())
     available_projects = list(ti.get("projects") or [])
     return available_clinics, available_projects, clinic_projects
@@ -33,7 +35,7 @@ def _cfg():
 def _allowed_projects_for_clinics(clinics: list[str], clinic_projects: dict) -> set:
     allowed = set()
     for c in clinics:
-        for p in (clinic_projects.get(c) or []):
+        for p in clinic_projects.get(c) or []:
             allowed.add(p)
     return allowed
 
@@ -101,7 +103,11 @@ def therapist_access(request, therapistId: str | None = None):
         if not c:
             continue
         if c not in available_clinics:
-            return _bad("Invalid clinic value.", status=400, extra={"invalid": c, "availableClinics": available_clinics})
+            return _bad(
+                "Invalid clinic value.",
+                status=400,
+                extra={"invalid": c, "availableClinics": available_clinics},
+            )
         if c not in seen:
             seen.add(c)
             norm_clinics.append(c)
@@ -118,7 +124,11 @@ def therapist_access(request, therapistId: str | None = None):
         if not p:
             continue
         if p not in available_projects:
-            return _bad("Invalid project value.", status=400, extra={"invalid": p, "availableProjects": available_projects})
+            return _bad(
+                "Invalid project value.",
+                status=400,
+                extra={"invalid": p, "availableProjects": available_projects},
+            )
         if norm_clinics and p not in allowed:
             return _bad(
                 "Project not allowed for selected clinics.",

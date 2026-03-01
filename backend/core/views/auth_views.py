@@ -2,11 +2,11 @@ import json
 import logging
 import random
 import string
-from datetime import timezone as dt_timezone
 from datetime import datetime, timedelta
-from twilio.rest import Client
+from datetime import timezone as dt_timezone
+
 from bson import ObjectId
-from django.utils import timezone
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
 from django.db.models import Q
@@ -16,41 +16,48 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from core.views.fitbit_sync import fetch_fitbit_today_for_user
-from django.conf import settings
+from twilio.rest import Client
+
 from core.tasks import fetch_fitbit_data_async
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
+
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 email_user = settings.EMAIL_HOST_USER
-from utils.utils import convert_to_serializable, sanitize_text, check_rate_limit, validate_password_strength
-from django.utils.html import strip_tags
+import uuid
+
 from django.core.mail import EmailMultiAlternatives
+from django.utils.html import strip_tags
+
 from core.models import (
     InterventionAssignment,
     Logs,
+    PasswordAttempt,
     Patient,
     PatientInterventionLogs,
     RehabilitationPlan,
     SMSVerification,
     Therapist,
     User,
-    PasswordAttempt
 )
 from utils.utils import (
+    check_rate_limit,
+    convert_to_serializable,
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
     sanitize_text,
+    validate_password_strength,
 )
-import uuid
+
 logger = logging.getLogger(__name__)
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
 from mongoengine.queryset.visitor import Q
 
 from utils.config import config
-from django.db import transaction, IntegrityError
-
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
 from utils.scheduling import _expand_dates  # already in your project
+
 
 def _as_list_of_blocks(maybe_blocks):
     """
@@ -66,7 +73,11 @@ def _as_list_of_blocks(maybe_blocks):
     # Already a list?
     try:
         # MongoEngine BaseList behaves like list
-        if isinstance(maybe_blocks, list) or hasattr(maybe_blocks, "__iter__") and not hasattr(maybe_blocks, "to_mongo"):
+        if (
+            isinstance(maybe_blocks, list)
+            or hasattr(maybe_blocks, "__iter__")
+            and not hasattr(maybe_blocks, "to_mongo")
+        ):
             # If it's an iterable of embedded docs / dicts
             return list(maybe_blocks)
     except Exception:
@@ -75,6 +86,7 @@ def _as_list_of_blocks(maybe_blocks):
     # Single embedded document object
     return [maybe_blocks]
 
+
 def _safe_get(obj, key, default=None):
     """Read attribute or dict key safely."""
     if hasattr(obj, key):
@@ -82,6 +94,7 @@ def _safe_get(obj, key, default=None):
     if isinstance(obj, dict):
         return obj.get(key, default)
     return default
+
 
 def _make_count(unit, interval, selected_days, start_day, end_day, fallback=50):
     """
@@ -104,6 +117,7 @@ def _make_count(unit, interval, selected_days, start_day, end_day, fallback=50):
             return months
     return fallback
 
+
 def create_rehab_plan(patient, therapist):
     try:
         # 1) Anchor "Day 1" for initial schedule
@@ -114,7 +128,7 @@ def create_rehab_plan(patient, therapist):
         dates_by_intervention: dict[str, list[datetime]] = {}
 
         patient_diagnoses = patient.diagnosis or []
-        for rec in (therapist.default_recommendations or []):
+        for rec in therapist.default_recommendations or []:
             intervention = rec.recommendation
             if not intervention:
                 continue
@@ -146,7 +160,14 @@ def create_rehab_plan(patient, therapist):
                     # legacy 'count_limit' still respected; else derive from start/end days
                     count_limit = _safe_get(block, "count_limit", None)
                     if count_limit is None:
-                        count_limit = _make_count(unit, interval, selected_days, start_day, end_day, fallback=50)
+                        count_limit = _make_count(
+                            unit,
+                            interval,
+                            selected_days,
+                            start_day,
+                            end_day,
+                            fallback=50,
+                        )
                     else:
                         count_limit = int(count_limit or 1)
 
@@ -154,21 +175,22 @@ def create_rehab_plan(patient, therapist):
                     block_start_date = (plan_start_date + timedelta(days=max(0, start_day - 1))).isoformat()
 
                     # Expand to concrete datetimes
-                    occ = _expand_dates(
-                        start_date=block_start_date,       # 'YYYY-MM-DD'
-                        start_time=start_time,             # 'HH:MM'
-                        unit=unit,
-                        interval=interval,
-                        selected_days=selected_days,
-                        end={"type": "count", "count": count_limit},
-                        max_occurrences=count_limit,
-                    ) or []
+                    occ = (
+                        _expand_dates(
+                            start_date=block_start_date,  # 'YYYY-MM-DD'
+                            start_time=start_time,  # 'HH:MM'
+                            unit=unit,
+                            interval=interval,
+                            selected_days=selected_days,
+                            end={"type": "count", "count": count_limit},
+                            max_occurrences=count_limit,
+                        )
+                        or []
+                    )
 
                     # TZ-aware & collect
                     aware_dates = [
-                        (d if timezone.is_aware(d) else timezone.make_aware(d))
-                        for d in occ
-                        if isinstance(d, datetime)
+                        (d if timezone.is_aware(d) else timezone.make_aware(d)) for d in occ if isinstance(d, datetime)
                     ]
                     key = str(intervention.id)
                     dates_by_intervention.setdefault(key, []).extend(aware_dates)
@@ -194,7 +216,11 @@ def create_rehab_plan(patient, therapist):
             plan = RehabilitationPlan(
                 patientId=patient,
                 therapistId=therapist,
-                startDate=datetime.combine(plan_start_date, datetime.min.time(), tzinfo=timezone.get_current_timezone()),
+                startDate=datetime.combine(
+                    plan_start_date,
+                    datetime.min.time(),
+                    tzinfo=timezone.get_current_timezone(),
+                ),
                 endDate=patient.reha_end_date,
                 status="active",
                 interventions=[],
@@ -204,7 +230,7 @@ def create_rehab_plan(patient, therapist):
             )
 
         # merge each intervention’s dates
-        for rec in (therapist.default_recommendations or []):
+        for rec in therapist.default_recommendations or []:
             intervention = rec.recommendation
             if not intervention:
                 continue
@@ -214,7 +240,7 @@ def create_rehab_plan(patient, therapist):
             new_dates = dates_by_intervention[key]
 
             existing = None
-            for ia in (plan.interventions or []):
+            for ia in plan.interventions or []:
                 if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
                     existing = ia
                     break
@@ -245,16 +271,21 @@ def create_rehab_plan(patient, therapist):
         print(f"Error creating rehab plan: {e}")
         return False
 
+
 def make_aware(dt):
     if timezone.is_naive(dt):
         return timezone.make_aware(dt)
     return dt
 
+
 from datetime import datetime, timedelta
+
 from django.utils import timezone
 
-MAX_ATTEMPTS = 5            # allowed failed attempts
-LOCKOUT_MINUTES = 15        # lockout duration
+MAX_ATTEMPTS = 5  # allowed failed attempts
+LOCKOUT_MINUTES = 15  # lockout duration
+
+
 def _parse_body(request):
     """
     Parse JSON or form body without crashing.
@@ -274,6 +305,8 @@ def _parse_body(request):
         return json.loads((request.body or b"{}").decode("utf-8") or "{}")
     except Exception:
         return {}
+
+
 # ---------------------------------------------------------------------
 # LOGIN
 # ---------------------------------------------------------------------
@@ -307,22 +340,33 @@ def login_view(request):
         print(f"Found user: {user}")
         print(User.objects(Q(email=identifier) | Q(username=identifier)).first())
 
-
         # IMPORTANT: never touch user fields before checking user exists
         if not user:
-            return JsonResponse({"error": "Invalid credentials (username).", "request_id": request_id}, status=401)
+            return JsonResponse(
+                {"error": "Invalid credentials (username).", "request_id": request_id},
+                status=401,
+            )
 
         # If a user exists but pwdhash missing / empty
         pwdhash = getattr(user, "pwdhash", None)
         if not pwdhash:
             logger.warning(f"[LOGIN][{request_id}] User has no pwdhash user_id={user.id}")
-            return JsonResponse({"error": "Invalid credentials. Password is missing.", "request_id": request_id}, status=401)
+            return JsonResponse(
+                {
+                    "error": "Invalid credentials. Password is missing.",
+                    "request_id": request_id,
+                },
+                status=401,
+            )
 
         if not check_password(raw_password, pwdhash):
             return JsonResponse({"error": "Invalid credentials.", "request_id": request_id}, status=401)
 
         if not getattr(user, "isActive", False):
-            return JsonResponse({"error": "User is not yet accepted.", "request_id": request_id}, status=403)
+            return JsonResponse(
+                {"error": "User is not yet accepted.", "request_id": request_id},
+                status=403,
+            )
 
         user_id_str = str(user.id)
 
@@ -361,7 +405,6 @@ def login_view(request):
     except Exception as e:
         logger.exception(f"[LOGIN][{request_id}] Internal server error: {e}")
         return JsonResponse({"error": "Internal server error.", "request_id": request_id}, status=500)
-
 
 
 @csrf_exempt
@@ -434,9 +477,7 @@ def reset_password_view(request):
             fail_silently=False,
         )
 
-        return JsonResponse(
-            {"message": "Password reset successfully, email sent."}, status=200
-        )
+        return JsonResponse({"message": "Password reset successfully, email sent."}, status=200)
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
@@ -448,6 +489,7 @@ def _norm_email(raw: str) -> str:
     # Trim + collapse + lower
     return (raw or "").strip().lower()
 
+
 def _err(message: str, status: int = 400, field_errors=None, non_field_errors=None):
     payload = {"success": False, "message": message}
     if field_errors:
@@ -455,6 +497,7 @@ def _err(message: str, status: int = 400, field_errors=None, non_field_errors=No
     if non_field_errors:
         payload["non_field_errors"] = non_field_errors
     return JsonResponse(payload, status=status)
+
 
 @csrf_exempt
 def register_view(request):
@@ -622,9 +665,7 @@ def register_view(request):
                 first_name=sanitize_text(data.get("firstName"), True),
                 age=(data.get("age") or ""),
                 therapist=pat_therapist,
-                sex=(data.get("sex") or "").strip()
-                if isinstance(data.get("sex"), str)
-                else data.get("sex"),
+                sex=((data.get("sex") or "").strip() if isinstance(data.get("sex"), str) else data.get("sex")),
                 diagnosis=data.get("diagnosis"),
                 function=data.get("function"),
                 restrictions=sanitize_text(data.get("restrictions", "-")),
@@ -659,7 +700,11 @@ def register_view(request):
                 return _err("Rehabilitation plan creation failed.", status=500)
 
             return JsonResponse(
-                {"success": True, "message": "Patient registered successfully", "id": user.username},
+                {
+                    "success": True,
+                    "message": "Patient registered successfully",
+                    "id": user.username,
+                },
                 status=200,
             )
 
@@ -668,7 +713,7 @@ def register_view(request):
             clinics = data.get("clinic") or []
             projects = data.get("projects") or []
 
-            clinic_projects = (config.get("therapistInfo", {}).get("clinic_projects") or {})
+            clinic_projects = config.get("therapistInfo", {}).get("clinic_projects") or {}
 
             # allowed projects from selected clinics
             allowed = set()
@@ -702,10 +747,13 @@ def register_view(request):
                 return _err("Therapist creation failed.", status=400, non_field_errors=[str(e)])
 
             return JsonResponse(
-                {"success": True, "message": "Therapist registered successfully", "id": user.username},
+                {
+                    "success": True,
+                    "message": "Therapist registered successfully",
+                    "id": user.username,
+                },
                 status=200,
             )
-
 
         # ===================== Admin / other =====================
         # If you later create other docs here, follow the same rollback pattern.
@@ -717,12 +765,8 @@ def register_view(request):
         return _err("Internal server error", status=500, non_field_errors=[str(e)])
 
 
-
 def generate_code(length=6):
     return "".join(random.choices(string.digits, k=length))
-
-
-
 
 
 def send_sms(phone_number, message):
@@ -730,9 +774,7 @@ def send_sms(phone_number, message):
     auth_token = "your_twilio_auth_token"
     client = Client(account_sid, auth_token)
 
-    client.messages.create(
-        body=message, from_="+1234567890", to=phone_number  # Your Twilio number
-    )
+    client.messages.create(body=message, from_="+1234567890", to=phone_number)  # Your Twilio number
 
 
 # =============================
@@ -814,14 +856,10 @@ def send_verification_code(request):
         msg.attach_alternative(html_content, "text/html")
         msg.send(fail_silently=False)
 
-        return JsonResponse(
-            {"message": "Verification code sent successfully"}, status=200
-        )
+        return JsonResponse({"message": "Verification code sent successfully"}, status=200)
 
     except Exception as e:
-        logger.error(
-            f"[send_verification_code] Unexpected error: {str(e)}", exc_info=True
-        )
+        logger.error(f"[send_verification_code] Unexpected error: {str(e)}", exc_info=True)
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -835,11 +873,7 @@ def verify_code_view(request):
         if not user_id or not code:
             return JsonResponse({"error": "Missing user ID or verification code"}, status=400)
 
-        verification = (
-            SMSVerification.objects(userId=user_id, code=code)
-            .order_by("-created_at")
-            .first()
-        )
+        verification = SMSVerification.objects(userId=user_id, code=code).order_by("-created_at").first()
         if not verification:
             return JsonResponse({"error": "Invalid verification code"}, status=400)
 
@@ -873,6 +907,8 @@ def verify_code_view(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def get_user_info(request, user_id):

@@ -19,10 +19,12 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [07-ENVIRONMENT_CONFIG.md](./07-ENVIRONMENT_CONFIG.md) | Configuration and environment variables | DevOps, Developers | 12 KB |
 | [08-TROUBLESHOOTING.md](./08-TROUBLESHOOTING.md) | Common issues and solutions | Everyone | 12 KB |
 | [09-API_DOCUMENTATION.md](./09-API_DOCUMENTATION.md) | REST API reference | API Users, Integrators | 13 KB |
+| [09-API_OPENAPI.yaml](./09-API_OPENAPI.yaml) | OpenAPI 3 machine-readable API spec | API Users, Integrators | YAML |
 | [10-USER_GUIDE.md](./10-USER_GUIDE.md) | End-user application guide | End Users | 11 KB |
 | [11-FAQ.md](./11-FAQ.md) | Frequently asked questions | Everyone | 10 KB |
 | [12-CONTRIBUTING.md](./12-CONTRIBUTING.md) | Code contribution guidelines | Contributors | 11 KB |
 | [13-CODE_STANDARDS.md](./13-CODE_STANDARDS.md) | Code style and best practices | Developers | 15 KB |
+| [14-CI_ENVIRONMENT_CONTRACT.md](./14-CI_ENVIRONMENT_CONTRACT.md) | CI test environment and security contract | DevOps, Backend Developers | 3 KB |
 
 **Total**: ~192 KB of comprehensive documentation
 
@@ -47,8 +49,9 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 ### 🚀 For DevOps/System Admins
 1. [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
 2. [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)
-3. [Database Guide](./05-DATABASE_GUIDE.md) (Operations section)
-4. [Troubleshooting](./08-TROUBLESHOOTING.md)
+3. [CI Environment Contract](./14-CI_ENVIRONMENT_CONTRACT.md)
+4. [Database Guide](./05-DATABASE_GUIDE.md) (Operations section)
+5. [Troubleshooting](./08-TROUBLESHOOTING.md)
 
 ### 📚 For Product Managers/Users
 1. [User Guide](./10-USER_GUIDE.md) - How to use the application
@@ -86,6 +89,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 ### Deployment & Operations
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)
+- [CI Environment Contract](./14-CI_ENVIRONMENT_CONTRACT.md)
 - [Database Guide](./05-DATABASE_GUIDE.md) - Backup/Restore
 
 ### API & Integration

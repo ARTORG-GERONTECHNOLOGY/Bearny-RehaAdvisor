@@ -1,7 +1,6 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithRouter } from '../../test-utils/renderWithRouter';
-import ForgotPassword from '../ForgotPassword';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import ForgotPassword from '@/pages/ForgottenPassword';
 
 // i18n
 jest.mock('react-i18next', () => ({
@@ -9,18 +8,18 @@ jest.mock('react-i18next', () => ({
 }));
 
 // Header/Footer
-jest.mock('../../components/common/Header', () => ({
+jest.mock('@/components/common/Header', () => ({
   __esModule: true,
   default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
 }));
 
-jest.mock('../../components/common/Footer', () => ({
+jest.mock('@/components/common/Footer', () => ({
   __esModule: true,
   default: () => <div data-testid="footer" />,
 }));
 
 // ErrorAlert
-jest.mock('../../components/common/ErrorAlert', () => ({
+jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
   default: ({ message, onClose }: any) => (
     <div role="alert">
@@ -31,7 +30,7 @@ jest.mock('../../components/common/ErrorAlert', () => ({
 }));
 
 // AuthCard
-jest.mock('../../components/Auth/AuthCard', () => ({
+jest.mock('@/components/Auth/AuthCard', () => ({
   __esModule: true,
   default: ({ title, children }: any) => (
     <div data-testid="auth-card">
@@ -87,7 +86,7 @@ const storeMock = {
   submit: jest.fn(async () => {}),
 };
 
-jest.mock('../../stores/forgotPasswordStore', () => ({
+jest.mock('@/stores/forgotPasswordStore', () => ({
   __esModule: true,
   ForgotPasswordStore: function MockCtor() {
     return storeMock;
