@@ -170,8 +170,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div className="patient-library-page d-flex flex-column min-vh-100">
-        <main className="flex-grow-1">
+      <div className="d-flex flex-column min-vh-100">
+        <div className="flex-grow-1">
           <Container className="py-3 py-sm-4">
             {/* Error */}
             {storeError && (
@@ -215,7 +215,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             {/* List */}
             <Row>
               <Col xs={12}>
-                <div className="patient-library-list">
+                <div className="w-full overflow-hidden">
                   <InterventionList
                     items={filteredItems as any}
                     onClick={openDetails}
@@ -234,22 +234,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             show={showDetails}
             onClose={closeDetails}
           />
-        </main>
-
-        {/* small page-only CSS helpers */}
-        <style>{`
-          .patient-library-page .nav-tabs .nav-link { font-weight: 700; }
-
-          .patient-library-list {
-            width: 100%;
-            overflow: hidden;
-          }
-
-          /* If your reused list has wide card grids, keep it nice on small screens */
-          @media (max-width: 576px) {
-            .patient-library-page .container { padding-left: 12px; padding-right: 12px; }
-          }
-        `}</style>
+        </div>
       </div>
     </Layout>
   );
