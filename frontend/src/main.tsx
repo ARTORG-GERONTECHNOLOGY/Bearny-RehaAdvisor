@@ -2,7 +2,6 @@ import React from 'react';
 import i18n from '../i18n'; // Import the i18n config
 import { createRoot } from 'react-dom/client';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { StoreProvider } from './stores/StoreProvider';
 import { I18nextProvider } from 'react-i18next';
 import { Router } from '@/routes/index';
 import '@/assets/styles/index.css'; // TODO: link in index.html for global styles after fully removing Bootstrap
@@ -18,3 +17,13 @@ root.render(
     </I18nextProvider>
   </React.StrictMode>
 );
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/' })
+      .then((registration) => console.log('SW registered:', registration))
+      .catch((registrationError) => console.log('SW registration failed:', registrationError));
+  });
+}
