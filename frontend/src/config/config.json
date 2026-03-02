@@ -230,7 +230,14 @@
           "required": true,
           "be_name": "password"
         },
-        { "name": "repeatPassword", "label": "Confirm Password", "type": "text", "required": true }
+        { "name": "repeatPassword", "label": "Confirm Password", "type": "text", "required": true },
+        {
+          "name": "initialQuestionnaireEnabled",
+          "label": "Enable Initial Questionnaire",
+          "type": "checkbox",
+          "required": false,
+          "be_name": "initial_questionnaire_enabled"
+        }
       ]
     },
     {

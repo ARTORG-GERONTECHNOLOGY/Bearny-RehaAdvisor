@@ -710,6 +710,7 @@ def register_view(request):
                 reha_end_date=reha_end_date,
                 # ✅ FIX: correct key (your payload uses "careGiver")
                 care_giver=sanitize_text(data.get("careGiver", ""), True),
+                initial_questionnaire_enabled=bool(data.get("initialQuestionnaireEnabled", False)),
             )
 
             try:
