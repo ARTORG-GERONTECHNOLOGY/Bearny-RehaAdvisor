@@ -44,6 +44,7 @@ JWT refresh endpoint:
 - `POST /api/auth/logout/` -> `auth_views.logout_view`
 - `POST /api/auth/forgot-password/` -> `auth_views.reset_password_view`
 - `POST /api/auth/register/` -> `auth_views.register_view`
+  - **Side-effect (therapist only):** on successful therapist registration an e-mail notification is sent to every active Admin user so they can approve or decline the pending account via `POST /api/admin/accept-user/` or `POST /api/admin/decline-user/`. Newly registered therapists have `isActive=False` until approved. Mail failures are logged silently and do not affect the 200 response.
 - `POST /api/auth/send-verification-code/` -> `auth_views.send_verification_code`
 - `POST /api/auth/verify-code/` -> `auth_views.verify_code_view`
 - `POST /api/auth/token/refresh/` -> `TokenRefreshView`
@@ -56,6 +57,8 @@ JWT refresh endpoint:
 - `POST /api/admin/decline-user/` -> `user_views.decline_user`
 - `GET|PUT|DELETE /api/users/<user_id>/profile/` -> `user_views.user_profile_view`
 - `PUT /api/users/<therapist_id>/change-password/` -> `user_views.change_password`
+- `PUT /api/patients/<patient_id>/reset-password/` -> `user_views.reset_patient_password`
+  - Allows a therapist to set a new password for a patient without knowing the current password. Requires the new password to meet strength rules (8+ chars, upper, lower, digit, special character).
 
 ### Therapist
 
