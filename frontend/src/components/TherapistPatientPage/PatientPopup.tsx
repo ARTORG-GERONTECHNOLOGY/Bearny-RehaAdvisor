@@ -158,6 +158,21 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
       );
     }
 
+    if (field.type === 'checkbox') {
+      const checked = store.isEditing ? !!store.formData[key] : !!store.getDisplayValue(key);
+      return (
+        <Form.Check
+          type="checkbox"
+          id={key}
+          label=""
+          checked={checked}
+          onChange={(e) => store.setField(key, e.target.checked)}
+          disabled={isDisabled}
+          aria-label={t(field.label)}
+        />
+      );
+    }
+
     const commonMaxLength = field.type === 'text' || !field.type ? 500 : undefined;
     const v = store.isEditing ? manualValue || '' : displayValue || '';
 

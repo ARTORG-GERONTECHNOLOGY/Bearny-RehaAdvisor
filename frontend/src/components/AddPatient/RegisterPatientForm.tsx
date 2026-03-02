@@ -30,6 +30,7 @@ const initialFormData = (therapist: string): FormData => ({
   email: '',
   password: '',
   repeatPassword: '',
+  initialQuestionnaireEnabled: false,
   userType: 'Patient',
   patient_code: '',
   therapist,
@@ -372,6 +373,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                   </option>
                 ))}
               </Form.Control>
+            ) : field.type === 'checkbox' ? (
+              <Form.Check
+                type="checkbox"
+                id={field.name}
+                label=""
+                checked={!!formData[field.name]}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, [field.name]: e.target.checked }))
+                }
+              />
             ) : (
               <Form.Control
                 type={inputType}
