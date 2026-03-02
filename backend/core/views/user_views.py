@@ -238,6 +238,7 @@ def user_profile_view(request, user_id):
         "lifestyle": list,
         "personal_goals": list,
         "social_support": list,
+        "initial_questionnaire_enabled": bool,
     }
 
     TH_ALLOWED_USER = {"username": str, "email": str, "phone": str}
@@ -446,6 +447,11 @@ def user_profile_view(request, user_id):
                     old[field] = getattr(patient, field)
                     setattr(patient, field, val)
                     updated[field] = val
+
+                # Handle boolean fields explicitly (valid_update_value(False) would skip them)
+                if "initial_questionnaire_enabled" in raw:
+                    patient.initial_questionnaire_enabled = bool(raw["initial_questionnaire_enabled"])
+                    updated["initial_questionnaire_enabled"] = patient.initial_questionnaire_enabled
 
                 user.save()
                 patient.save()
