@@ -273,6 +273,11 @@ urlpatterns = [
         patient_thresholds_view,
         name="patient-thresholds",
     ),
+    path(
+        "api/patients/<str:patient_id>/reset-password/",
+        user_views.reset_patient_password,
+        name="reset-patient-password",
+    ),
 ]
 
 # Only add this if DEBUG=True, which is typical in development
