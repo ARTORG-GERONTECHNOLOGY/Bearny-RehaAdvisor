@@ -195,6 +195,16 @@ export class PatientPopupStore {
   specialityDiagnosisMap: Record<string, string[]> = {};
 
   // -------------------------
+  // Password reset (therapist → patient)
+  // -------------------------
+  showPasswordReset = false;
+  passwordNew = '';
+  passwordConfirm = '';
+  passwordSaving = false;
+  passwordError: string | null = null;
+  passwordSuccess = false;
+
+  // -------------------------
   // Thresholds (NEW)
   // -------------------------
   thresholdsLoading = false;
@@ -237,6 +247,69 @@ export class PatientPopupStore {
 
   setActiveTab(v: 'profile' | 'characteristics' | 'redcap' | 'thresholds') {
     this.activeTab = v;
+  }
+
+  // -------------------------
+  // Password reset setters
+  // -------------------------
+  setShowPasswordReset(v: boolean) {
+    this.showPasswordReset = v;
+    if (!v) {
+      this.passwordNew = '';
+      this.passwordConfirm = '';
+      this.passwordError = null;
+      this.passwordSuccess = false;
+    }
+  }
+
+  setPasswordNew(v: string) {
+    this.passwordNew = v;
+    this.passwordError = null;
+    this.passwordSuccess = false;
+  }
+
+  setPasswordConfirm(v: string) {
+    this.passwordConfirm = v;
+    this.passwordError = null;
+    this.passwordSuccess = false;
+  }
+
+  async resetPassword(t: (k: string) => string) {
+    if (!this.passwordNew) {
+      this.passwordError = t('NewPasswordRequired');
+      return false;
+    }
+    if (this.passwordNew !== this.passwordConfirm) {
+      this.passwordError = t('PasswordsDoNotMatch');
+      return false;
+    }
+
+    this.passwordSaving = true;
+    this.passwordError = null;
+    this.passwordSuccess = false;
+
+    try {
+      await apiClient.put(`/patients/${this.patientId}/reset-password/`, {
+        new_password: this.passwordNew,
+      });
+      runInAction(() => {
+        this.passwordSuccess = true;
+        this.passwordNew = '';
+        this.passwordConfirm = '';
+      });
+      return true;
+    } catch (err: any) {
+      const api = err?.response?.data;
+      runInAction(() => {
+        this.passwordError =
+          api?.error || api?.message || err?.message || t('Failed to reset password.');
+      });
+      return false;
+    } finally {
+      runInAction(() => {
+        this.passwordSaving = false;
+      });
+    }
   }
 
   // -------------------------
@@ -606,12 +679,15 @@ export class PatientPopupStore {
 
     try {
       // ✅ match your existing GET (and trailing slash)
-      const res = await apiClient.put(`/users/${this.patientId}/profile/`, this.formData);
-      const updated = res.data || {};
+      await apiClient.put(`/users/${this.patientId}/profile/`, this.formData);
+
+      // Re-fetch the full profile so the modal shows accurate server state
+      const profileRes = await apiClient.get(`/users/${this.patientId}/profile`);
+      const freshData = profileRes.data || {};
 
       runInAction(() => {
-        this.manualData = updated;
-        this.formData = { ...(updated || {}) };
+        this.manualData = freshData;
+        this.formData = { ...(freshData || {}) };
         this.isEditing = false;
       });
 
