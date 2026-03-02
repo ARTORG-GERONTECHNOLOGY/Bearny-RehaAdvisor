@@ -456,7 +456,8 @@ def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
         createdAt=datetime.now(),
         isActive=True,
     ).save()
-    from core.models import Patient, Therapist as TherapistModel
+    from core.models import Patient
+    from core.models import Therapist as TherapistModel
 
     TherapistModel(
         userId=therapist_user,
@@ -480,6 +481,7 @@ def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
     )
 
     from core.models import User as UserModel
+
     created_user = UserModel.objects.filter(email="pat_iq@example.com").first()
     assert created_user is not None, "Patient User must be created"
     patient = Patient.objects.filter(userId=created_user).first()
