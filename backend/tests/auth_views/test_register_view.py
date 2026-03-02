@@ -30,10 +30,21 @@ Role-based registration behaviour
     required); Patient is created with ``isActive=True``.
   * The response ``id`` is the generated system username, not the database id.
 
+Admin notification on therapist registration
+  * ``send_mail`` is called once per successful therapist registration.
+  * Recipient list contains every active Admin user's e-mail address.
+  * Multiple admins each receive the notification.
+  * No e-mail is sent when a patient registers (not a therapist).
+  * No e-mail is sent when there are no Admin users in the database.
+  * A mail-server failure (exception from ``send_mail``) does NOT prevent a
+    successful 200 response — registration is never blocked by mail errors.
+
 Test setup
 ----------
 Each test uses the ``mongo_mock`` autouse fixture that spins up an
 in-memory mongomock connection and tears it down afterwards.
+``send_mail`` is patched via ``@mock.patch`` to avoid real SMTP calls and to
+allow assertion on call arguments.
 """
 
 import json
@@ -290,3 +301,133 @@ def test_register_get_method_not_allowed(mongo_mock):
     """
     resp = client.get(REGISTER_URL)
     assert resp.status_code == 405
+
+
+# ===========================================================================
+# Admin notification on therapist registration
+# ===========================================================================
+
+_THERAPIST_PAYLOAD = {
+    "userType": "Therapist",
+    "email": "newtherapist@example.com",
+    "password": "strongpassword",
+    "firstName": "John",
+    "lastName": "Doe",
+}
+
+
+def _create_admin(email):
+    return User(
+        username=f"admin_{email.split('@')[0]}",
+        role="Admin",
+        email=email,
+        pwdhash="",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+
+@mock.patch("core.views.auth_views.send_mail")
+def test_register_therapist_notifies_single_admin(mock_send_mail, mongo_mock):
+    """
+    When exactly one Admin user exists, ``send_mail`` is called once after a
+    successful therapist registration and that admin's e-mail is in the
+    recipient list.
+    """
+    _create_admin("admin@example.com")
+
+    resp = _post(_THERAPIST_PAYLOAD)
+
+    assert resp.status_code == 200
+    mock_send_mail.assert_called_once()
+    _, kwargs = mock_send_mail.call_args
+    assert "admin@example.com" in kwargs.get("recipient_list", [])
+
+
+@mock.patch("core.views.auth_views.send_mail")
+def test_register_therapist_notifies_multiple_admins(mock_send_mail, mongo_mock):
+    """
+    When multiple Admin users exist, all of their e-mail addresses appear in
+    the ``recipient_list`` of the single ``send_mail`` call.
+    """
+    _create_admin("admin1@example.com")
+    _create_admin("admin2@example.com")
+
+    resp = _post({**_THERAPIST_PAYLOAD, "email": "therapist2@example.com"})
+
+    assert resp.status_code == 200
+    mock_send_mail.assert_called_once()
+    _, kwargs = mock_send_mail.call_args
+    recipients = kwargs.get("recipient_list", [])
+    assert "admin1@example.com" in recipients
+    assert "admin2@example.com" in recipients
+
+
+@mock.patch("core.views.auth_views.send_mail")
+def test_register_therapist_no_admins_no_email_sent(mock_send_mail, mongo_mock):
+    """
+    When there are no Admin users in the database, ``send_mail`` is never
+    called.  The registration itself still returns 200.
+    """
+    resp = _post({**_THERAPIST_PAYLOAD, "email": "therapist3@example.com"})
+
+    assert resp.status_code == 200
+    mock_send_mail.assert_not_called()
+
+
+@mock.patch("core.views.auth_views.send_mail")
+def test_register_patient_does_not_notify_admins(mock_send_mail, mongo_mock):
+    """
+    Registering a Patient must NOT trigger any admin notification e-mail.
+    Only therapist registrations require admin approval and therefore
+    notification.
+    """
+    _create_admin("admin@example.com")
+
+    admin_user = User(
+        username="therapistowner",
+        role="Therapist",
+        email="owner@example.com",
+        pwdhash="",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    from core.models import Therapist as TherapistModel
+    TherapistModel(
+        userId=admin_user,
+        name="Owner",
+        first_name="T",
+        specializations=["Cardiology"],
+        clinics=["Inselspital"],
+    ).save()
+
+    resp = _post(
+        {
+            "userType": "Patient",
+            "email": "patient@example.com",
+            "password": "pw",
+            "firstName": "P",
+            "lastName": "A",
+            "therapist": str(admin_user.id),
+            "rehaEndDate": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+        }
+    )
+
+    # Patient registration may succeed or fail depending on rehab plan; either
+    # way, the admin notification must never be triggered.
+    mock_send_mail.assert_not_called()
+
+
+@mock.patch("core.views.auth_views.send_mail", side_effect=Exception("SMTP error"))
+def test_register_therapist_mail_failure_does_not_block_registration(mock_send_mail, mongo_mock):
+    """
+    If ``send_mail`` raises an exception (e.g. SMTP server unreachable), the
+    therapist registration must still return HTTP 200.  Mail failures are
+    logged but must never prevent account creation.
+    """
+    _create_admin("admin@example.com")
+
+    resp = _post({**_THERAPIST_PAYLOAD, "email": "therapist4@example.com"})
+
+    assert resp.status_code == 200
+    assert resp.json().get("success") is True
