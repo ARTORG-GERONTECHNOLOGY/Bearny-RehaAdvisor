@@ -393,6 +393,7 @@ def test_register_patient_does_not_notify_admins(mock_send_mail, mongo_mock):
         isActive=True,
     ).save()
     from core.models import Therapist as TherapistModel
+
     TherapistModel(
         userId=admin_user,
         name="Owner",
