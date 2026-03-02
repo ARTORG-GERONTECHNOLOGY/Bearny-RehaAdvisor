@@ -2699,6 +2699,10 @@ def initial_patient_questionaire(request, patient_id):
     # GET → check if questionnaire is needed
     # ----------------------------
     if request.method == "GET":
+        # If the questionnaire is disabled for this patient, never prompt it
+        if not patient.initial_questionnaire_enabled:
+            return JsonResponse({"success": True, "requires_questionnaire": False}, status=200)
+
         missing = not all(
             [
                 patient.level_of_education,

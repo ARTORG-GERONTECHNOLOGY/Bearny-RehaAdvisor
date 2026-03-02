@@ -479,6 +479,7 @@ class Patient(Document):
     social_support = ListField(StringField(max_length=120), required=False, default=list)
     duration = IntField(required=False, null=True)
     care_giver = StringField(max_length=80, required=False, default="")
+    initial_questionnaire_enabled = BooleanField(default=False)
 
     reha_end_date = DateTimeField(required=False, null=True)
 
