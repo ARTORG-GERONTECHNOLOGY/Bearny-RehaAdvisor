@@ -363,11 +363,18 @@ def user_profile_view(request, user_id):
                 if k in forbidden:
                     del raw[k]
 
-            # Validate email + phone
-            if "email" in raw and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", raw["email"]):
+            # Validate email + phone — skip validation when value is None/empty
+            # (REDCap-imported patients have no email/phone set on their User record)
+            email_val = raw.get("email")
+            if email_val is not None and email_val != "" and not re.match(
+                r"^[^\s@]+@[^\s@]+\.[^\s@]+$", str(email_val)
+            ):
                 return JsonResponse({"error": "Invalid email"}, status=400)
 
-            if "phone" in raw and not re.match(r"^\+?[0-9]{7,15}$", raw["phone"]):
+            phone_val = raw.get("phone")
+            if phone_val is not None and phone_val != "" and not re.match(
+                r"^\+?[0-9]{7,15}$", str(phone_val)
+            ):
                 return JsonResponse({"error": "Invalid phone"}, status=400)
 
             updated = {}
@@ -476,6 +483,70 @@ def user_profile_view(request, user_id):
             return JsonResponse({"error": "Internal server error"}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def reset_patient_password(request, patient_id):
+    """
+    PUT /api/patients/<patient_id>/reset-password/
+
+    Allows a therapist to set a new password for a patient without knowing the
+    old one.  The caller must be authenticated; no old-password check is
+    performed because therapists legitimately lack the patient's current password.
+
+    Body: {"new_password": "..."}
+
+    Password rules (same as the self-service endpoint):
+      - at least 8 characters
+      - contains uppercase, lowercase, digit and special character
+    """
+    if request.method != "PUT":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    new_password = data.get("new_password") or data.get("newPassword")
+    if not new_password:
+        return JsonResponse({"error": "new_password is required"}, status=400)
+
+    # Strength check – same rules as the self-service change-password endpoint
+    if (
+        len(new_password) < 8
+        or not re.search(r"[A-Z]", new_password)
+        or not re.search(r"[a-z]", new_password)
+        or not re.search(r"[0-9]", new_password)
+        or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password)
+    ):
+        return JsonResponse(
+            {"error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"},
+            status=400,
+        )
+
+    # Resolve patient
+    try:
+        patient = Patient.objects.get(pk=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    except Exception:
+        return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+    user = patient.userId
+
+    user.pwdhash = make_password(new_password)
+    user.save()
+
+    Logs.objects.create(
+        userId=user,
+        action="UPDATE_PROFILE",
+        userAgent="Therapist",
+        details=f"Password reset by therapist for patient {patient_id}",
+    )
+
+    return JsonResponse({"message": "Password reset successfully"}, status=200)
 
 
 @csrf_exempt
