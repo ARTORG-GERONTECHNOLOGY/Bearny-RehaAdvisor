@@ -8,20 +8,14 @@ import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
 import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
 import UserFill from '@/assets/icons/user-fill.svg?react';
-
+import GearOutline from '@/assets/icons/gear-outline.svg?react';
+import GearFill from '@/assets/icons/gear-fill.svg?react';
 // TODO:
 // - move colors to config as soon as they are fixed
 // - handle all states and user types (see old Header component for reference)
 export default function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
-
-  const isLoggedIn = authStore.isAuthenticated;
-
-  const handleLogout = async () => {
-    await authStore.logout();
-    window.location.href = '/';
-  };
 
   const navLinks =
     authStore.userType === 'Patient'
@@ -37,6 +31,12 @@ export default function Navigation() {
             iconOutline: GridCircleOutline,
             iconFill: GridCircleFill,
             label: t('Bibliothek'),
+          },
+          {
+            path: '/settings',
+            iconOutline: GearOutline,
+            iconFill: GearFill,
+            label: t('Einstellungen'),
           },
         ]
       : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
@@ -59,10 +59,30 @@ export default function Navigation() {
               iconFill: UserFill,
               label: t('Profile'),
             },
+            {
+              path: '/settings',
+              iconOutline: GearOutline,
+              iconFill: GearFill,
+              label: t('Einstellungen'),
+            },
           ]
         : authStore.userType === 'Admin'
-          ? [] // Admin has no nav links, only logout button
-          : [];
+          ? [
+              {
+                path: '/settings',
+                iconOutline: GearOutline,
+                iconFill: GearFill,
+                label: t('Einstellungen'),
+              },
+            ]
+          : [
+              {
+                path: '/',
+                iconOutline: SunriseOutline,
+                iconFill: SunriseFill,
+                label: t('Home'),
+              },
+            ];
 
   return (
     <>
@@ -89,16 +109,6 @@ export default function Navigation() {
               active={location.pathname === link.path}
             />
           ))}
-          {isLoggedIn && (
-            <NavItem
-              onClick={() => {
-                handleLogout();
-              }}
-              iconOutline={UserOutline}
-              iconFill={UserFill}
-              label={t('Logout')}
-            />
-          )}
         </div>
       </nav>
 
@@ -126,17 +136,6 @@ export default function Navigation() {
                 desktop
               />
             ))}
-            {isLoggedIn && (
-              <NavItem
-                onClick={() => {
-                  handleLogout();
-                }}
-                iconOutline={UserOutline}
-                iconFill={UserFill}
-                label={t('Logout')}
-                desktop
-              />
-            )}
           </div>
           <button
             // TODO: unhide when profile page is implemented

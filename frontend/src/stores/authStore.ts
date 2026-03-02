@@ -230,10 +230,7 @@ class AuthStore {
 
     this.reset();
 
-    // preserve language
-    const lang = localStorage.getItem('i18nextLng');
-    localStorage.clear();
-    if (lang) localStorage.setItem('i18nextLng', lang);
+    this.clearStorage();
 
     this.removeInactivityListeners();
 
@@ -369,9 +366,12 @@ class AuthStore {
   }
 
   clearStorage() {
+    // preserve language and notification settings
     const lang = localStorage.getItem('i18nextLng');
+    const notificationsEnabled = localStorage.getItem('notifications-enabled');
     localStorage.clear();
     if (lang) localStorage.setItem('i18nextLng', lang);
+    if (notificationsEnabled) localStorage.setItem('notifications-enabled', notificationsEnabled);
   }
 
   reset() {

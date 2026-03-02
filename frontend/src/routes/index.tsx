@@ -1,6 +1,8 @@
 import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
+import RootLayout from '@/RootLayout';
+
 const Home = lazy(() => import('@/pages/Home'));
 const Therapist = lazy(() => import('@/pages/Therapist'));
 const UnauthorizedAccess = lazy(() => import('@/pages/UnauthorizedAccess'));
@@ -23,9 +25,11 @@ const HelpPage = lazy(() => import('@/pages/Help'));
 const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
-import RootLayout from '@/RootLayout';
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
@@ -142,8 +146,15 @@ export const router = createBrowserRouter([
       createElement(PatientInterventionsSkeleton)
     ),
   },
+  {
+    path: '/settings',
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(SettingsPage) }),
+      createElement(SettingsPageSkeleton)
+    ),
+  },
 
-  // ✅ Catch-all (must be last)
+  // Catch-all (must be last)
   {
     path: '*',
     element: createElement(Navigate, { to: '/', replace: true }),

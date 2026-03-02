@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import Navigation from '@/components/Navigation';
@@ -43,69 +43,51 @@ beforeEach(() => {
 // ── navLinks by user type ────────────────────────────────────────────────────
 
 describe('Navigation - navLinks by user type', () => {
-  it('shows Home + Interventions for Patient', () => {
+  it('shows Home + Interventions + Settings for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Patients')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
   });
 
-  it('shows Patients + Interventions + Profile for Therapist', () => {
+  it('shows Patients + Interventions + Profile + Settings for Therapist', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Patients + Interventions + Profile for Researcher', () => {
+  it('shows Patients + Interventions + Profile + Settings for Researcher', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows no nav links for Admin', () => {
+  it('shows Settings for Admin', () => {
     mockAuthStore.userType = 'Admin';
     renderNav('/admin');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
   });
 
-  it('shows no nav links for unauthenticated (null userType)', () => {
+  it('shows Home for unauthenticated (null userType)', () => {
     mockAuthStore.userType = null;
     mockAuthStore.isAuthenticated = false;
     renderNav('/');
-    expect(screen.queryByText('Home')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
     expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
-  });
-});
-
-// ── Logout button visibility ─────────────────────────────────────────────────
-
-describe('Navigation - logout button', () => {
-  it('shows Logout when authenticated', () => {
-    mockAuthStore.isAuthenticated = true;
-    renderNav();
-    expect(screen.getAllByText('Logout').length).toBeGreaterThan(0);
-  });
-
-  it('hides Logout when not authenticated', () => {
-    mockAuthStore.isAuthenticated = false;
-    renderNav();
-    expect(screen.queryByText('Logout')).not.toBeInTheDocument();
-  });
-
-  it('calls authStore.logout when Logout is clicked', async () => {
-    renderNav();
-    fireEvent.click(screen.getAllByText('Logout')[0]);
-    await waitFor(() => expect(mockAuthStore.logout).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Einstellungen')).not.toBeInTheDocument();
   });
 });
 

@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import '../assets/styles/home.css';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
-import LoginForm from '../components/HomePage/LoginForm';
-import FormRegister from '../components/HomePage/RegisteringForm';
-import authStore from '../stores/authStore';
+import '@/assets/styles/home.css';
+import Header from '@/components/common/Header';
+import Footer from '@/components/common/Footer';
+import LoginForm from '@/components/HomePage/LoginForm';
+import FormRegister from '@/components/HomePage/RegisteringForm';
+import authStore from '@/stores/authStore';
 
 const Home: React.FC = () => {
   const { t } = useTranslation();
@@ -29,12 +29,7 @@ const Home: React.FC = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100 home-root">
-      {/* Register action in header when logged out */}
-      <Header
-        isLoggedIn={authStore.isAuthenticated}
-        showRegisterAction={!authStore.isAuthenticated}
-        onRegister={toggleRegisterModal}
-      />
+      <Header isLoggedIn={authStore.isAuthenticated} />
 
       {/* HERO */}
       <main className="flex-grow-1 d-flex align-items-center home-main py-4 py-sm-5">
@@ -68,6 +63,17 @@ const Home: React.FC = () => {
                   {t('Login')}
                 </Button>
               </div>
+              {!authStore.isAuthenticated && (
+                <div className="mt-3 text-center text-md-start">
+                  <Button
+                    variant="link"
+                    className="p-0 text-decoration-none"
+                    onClick={toggleRegisterModal}
+                  >
+                    {t('Register (Only for Therapists)')}
+                  </Button>
+                </div>
+              )}
             </Col>
 
             {/* Image column */}
