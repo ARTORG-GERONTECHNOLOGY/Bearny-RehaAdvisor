@@ -26,6 +26,16 @@ Resource not found (404)
 HTTP method enforcement (405)
   * PUT (or any unsupported verb) returns 405.
 
+initial_questionnaire_enabled flag
+------------------------------------
+The ``Patient.initial_questionnaire_enabled`` boolean (default ``False``) acts
+as the master switch for the questionnaire prompt.
+
+  * When ``False`` (default), the GET endpoint always returns
+    ``requires_questionnaire: false`` regardless of whether demographics are
+    empty, so the patient is never prompted.
+  * When ``True``, the normal field-completeness check applies.
+
 Test setup
 ----------
 The ``mongo_mock`` autouse fixture provides an isolated in-memory mongomock
@@ -135,12 +145,14 @@ FULL_DEMOGRAPHICS = {
 
 def test_get_requires_questionnaire(mongo_mock):
     """
-    GET for a patient who has no demographic fields returns 200 with
-    ``requires_questionnaire: true``.  The mobile app uses this flag to route
-    new patients to the on-boarding questionnaire screen before showing the
-    main dashboard.
+    GET for a patient who has no demographic fields AND has the questionnaire
+    enabled returns 200 with ``requires_questionnaire: true``.  The mobile app
+    uses this flag to route new patients to the on-boarding questionnaire screen
+    before showing the main dashboard.
     """
     patient = create_patient(complete=False)
+    patient.initial_questionnaire_enabled = True
+    patient.save()
     resp = client.get(
         QUEST_URL.format(patient_id=str(patient.userId.id)),
         HTTP_AUTHORIZATION="Bearer test",
@@ -276,3 +288,46 @@ def test_method_not_allowed(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
+
+
+# ===========================================================================
+# initial_questionnaire_enabled flag
+# ===========================================================================
+
+
+def test_get_questionnaire_disabled_returns_not_required(mongo_mock):
+    """
+    When ``initial_questionnaire_enabled=False`` (the default), the GET
+    endpoint must return ``requires_questionnaire: false`` even when all five
+    demographic fields are empty.  The patient is never shown the on-boarding
+    modal when the flag is off.
+    """
+    patient = create_patient(complete=False)  # demographics empty, flag=False (default)
+    resp = client.get(
+        QUEST_URL.format(patient_id=str(patient.userId.id)),
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["requires_questionnaire"] is False
+
+
+def test_get_questionnaire_enabled_still_checks_fields(mongo_mock):
+    """
+    When ``initial_questionnaire_enabled=True`` and demographics are missing,
+    the GET endpoint must return ``requires_questionnaire: true``.  The flag
+    restores the normal completeness-check behaviour.
+    """
+    patient = create_patient(complete=False)
+    patient.initial_questionnaire_enabled = True
+    patient.save()
+
+    resp = client.get(
+        QUEST_URL.format(patient_id=str(patient.userId.id)),
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["requires_questionnaire"] is True

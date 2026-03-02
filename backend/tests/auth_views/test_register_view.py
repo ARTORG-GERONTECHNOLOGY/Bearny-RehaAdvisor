@@ -29,6 +29,8 @@ Role-based registration behaviour
   * Therapist is created with ``isActive=False`` by default (admin approval
     required); Patient is created with ``isActive=True``.
   * The response ``id`` is the generated system username, not the database id.
+  * ``initialQuestionnaireEnabled: true`` in the payload persists
+    ``initial_questionnaire_enabled=True`` on the Patient document.
 
 Admin notification on therapist registration
   * ``send_mail`` is called once per successful therapist registration.
@@ -432,3 +434,54 @@ def test_register_therapist_mail_failure_does_not_block_registration(mock_send_m
 
     assert resp.status_code == 200
     assert resp.json().get("success") is True
+
+
+# ===========================================================================
+# initial_questionnaire_enabled on patient registration
+# ===========================================================================
+
+
+def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
+    """
+    When ``initialQuestionnaireEnabled: true`` is included in the Patient
+    registration payload, the resulting Patient document must have
+    ``initial_questionnaire_enabled=True``.  The default is ``False``, so
+    this test confirms the flag is correctly read from the payload and saved.
+    """
+    therapist_user = User(
+        username="th_reg",
+        role="Therapist",
+        email="th_reg@example.com",
+        pwdhash="",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    from core.models import Patient, Therapist as TherapistModel
+
+    TherapistModel(
+        userId=therapist_user,
+        name="Reg",
+        first_name="T",
+        specializations=["Cardiology"],
+        clinics=["Inselspital"],
+    ).save()
+
+    _post(
+        {
+            "userType": "Patient",
+            "email": "pat_iq@example.com",
+            "password": "pw",
+            "firstName": "P",
+            "lastName": "A",
+            "therapist": str(therapist_user.id),
+            "rehaEndDate": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "initialQuestionnaireEnabled": True,
+        }
+    )
+
+    from core.models import User as UserModel
+    created_user = UserModel.objects.filter(email="pat_iq@example.com").first()
+    assert created_user is not None, "Patient User must be created"
+    patient = Patient.objects.filter(userId=created_user).first()
+    assert patient is not None, "Patient document must be created"
+    assert patient.initial_questionnaire_enabled is True

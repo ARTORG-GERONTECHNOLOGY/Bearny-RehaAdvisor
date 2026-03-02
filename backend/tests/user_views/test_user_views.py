@@ -22,6 +22,8 @@ Happy-path
     (hard-deletes + e-mail).
   * Therapist can reset a patient's password without knowing the old one via
     ``PUT /api/patients/<id>/reset-password/``.
+  * Therapist can toggle ``initial_questionnaire_enabled`` on a patient via
+    the profile PUT endpoint (``True`` → ``False`` and vice-versa).
 
 Input validation (400)
   * Missing required fields (userId, old password, etc.).
@@ -1236,3 +1238,51 @@ def test_reset_patient_password_works_for_regular_patient():
         )
 
     assert resp.status_code == 200
+
+
+# ===========================================================================
+# initial_questionnaire_enabled toggle via patient profile PUT
+# ===========================================================================
+
+
+def test_patient_profile_put_enables_initial_questionnaire():
+    """
+    A therapist can enable the initial questionnaire for a patient by sending
+    ``initial_questionnaire_enabled: true`` via the patient profile PUT.
+    The value must be persisted to the Patient document.
+    """
+    user, patient = create_patient()
+    assert patient.initial_questionnaire_enabled is False  # default
+
+    resp = client.put(
+        f"/api/users/{str(user.id)}/profile/",
+        data=json.dumps({"initial_questionnaire_enabled": True}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    refreshed = Patient.objects.get(pk=patient.id)
+    assert refreshed.initial_questionnaire_enabled is True
+
+
+def test_patient_profile_put_disables_initial_questionnaire():
+    """
+    A therapist can disable the initial questionnaire for a patient by sending
+    ``initial_questionnaire_enabled: false``.  Setting a boolean to ``False``
+    must not be dropped by the update logic.
+    """
+    user, patient = create_patient()
+    patient.initial_questionnaire_enabled = True
+    patient.save()
+
+    resp = client.put(
+        f"/api/users/{str(user.id)}/profile/",
+        data=json.dumps({"initial_questionnaire_enabled": False}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    refreshed = Patient.objects.get(pk=patient.id)
+    assert refreshed.initial_questionnaire_enabled is False
