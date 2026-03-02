@@ -366,15 +366,15 @@ def user_profile_view(request, user_id):
             # Validate email + phone — skip validation when value is None/empty
             # (REDCap-imported patients have no email/phone set on their User record)
             email_val = raw.get("email")
-            if email_val is not None and email_val != "" and not re.match(
-                r"^[^\s@]+@[^\s@]+\.[^\s@]+$", str(email_val)
+            if (
+                email_val is not None
+                and email_val != ""
+                and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", str(email_val))
             ):
                 return JsonResponse({"error": "Invalid email"}, status=400)
 
             phone_val = raw.get("phone")
-            if phone_val is not None and phone_val != "" and not re.match(
-                r"^\+?[0-9]{7,15}$", str(phone_val)
-            ):
+            if phone_val is not None and phone_val != "" and not re.match(r"^\+?[0-9]{7,15}$", str(phone_val)):
                 return JsonResponse({"error": "Invalid phone"}, status=400)
 
             updated = {}
