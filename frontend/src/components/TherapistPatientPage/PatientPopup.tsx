@@ -4,7 +4,15 @@ import { Button, Col, Form, Row, Spinner, Tabs, Tab, Badge, Table } from 'react-
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import { observer } from 'mobx-react-lite';
-import { FaEdit, FaTrash, FaUndo, FaDownload, FaCloudDownloadAlt, FaSyncAlt, FaKey } from 'react-icons/fa';
+import {
+  FaEdit,
+  FaTrash,
+  FaUndo,
+  FaDownload,
+  FaCloudDownloadAlt,
+  FaSyncAlt,
+  FaKey,
+} from 'react-icons/fa';
 
 import config from '../../config/config.json';
 import { PatientType } from '../../types';
