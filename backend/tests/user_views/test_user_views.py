@@ -4,11 +4,12 @@ User views tests
 
 Endpoints covered
 -----------------
-``GET/PUT/DELETE /api/users/<user_id>/profile/``  → ``user_profile_view``
-``GET            /api/admin/pending-users/``       → ``get_pending_users``
-``POST           /api/admin/accept-user/``         → ``accept_user``
-``POST           /api/admin/decline-user/``        → ``decline_user``
-``PUT            /api/users/<user_id>/change-password/`` → ``change_password``
+``GET/PUT/DELETE /api/users/<user_id>/profile/``           → ``user_profile_view``
+``GET            /api/admin/pending-users/``               → ``get_pending_users``
+``POST           /api/admin/accept-user/``                 → ``accept_user``
+``POST           /api/admin/decline-user/``                → ``decline_user``
+``PUT            /api/users/<user_id>/change-password/``   → ``change_password``
+``PUT            /api/patients/<patient_id>/reset-password/`` → ``reset_patient_password``
 
 Coverage goals
 --------------
@@ -19,6 +20,8 @@ Happy-path
     remains in the database.
   * Admin workflow: list pending users, accept (activates + e-mail), decline
     (hard-deletes + e-mail).
+  * Therapist can reset a patient's password without knowing the old one via
+    ``PUT /api/patients/<id>/reset-password/``.
 
 Input validation (400)
   * Missing required fields (userId, old password, etc.).
@@ -26,6 +29,8 @@ Input validation (400)
   * Invalid e-mail / phone format on profile update.
   * Invalid date format on patient profile update.
   * Password-change without old password.
+  * Weak new password on reset-password endpoint.
+  * Missing new_password on reset-password endpoint.
 
 Authorisation / access control (403)
   * Wrong old password on PUT password change.
@@ -41,12 +46,25 @@ Resource not found
   * Non-existent user/ObjectId returns 404 or 500 depending on the view's
     own documented behaviour (see individual tests).
 
+REDCap patient regression (email/phone = None)
+-----------------------------------------------
+REDCap-imported patients have no e-mail or phone.  Sending ``null`` for those
+fields in the PUT body used to trigger ``re.match(pattern, None)`` → TypeError
+→ HTTP 500.  Fixed by checking for None/empty before calling ``re.match``.
+
 change_password endpoint behaviour note
 ----------------------------------------
 ``change_password`` (``PUT /api/users/<id>/change-password/``) always
 returns HTTP 400 when ``old_password`` / ``new_password`` are supplied in the
 body; it redirects callers to the profile endpoint instead.  The tests below
 document this current runtime behaviour.
+
+reset_patient_password endpoint
+---------------------------------
+``PUT /api/patients/<patient_id>/reset-password/`` lets a therapist set a
+brand-new password for a patient without requiring the old password.  The same
+strength rules apply (8+ chars, upper, lower, digit, special char).  The
+patient is located by their Patient document ObjectId.
 
 Test setup
 ----------
@@ -157,6 +175,43 @@ def create_patient():
         lifestyle=["Sedentary"],
         personal_goals=["Improved Mobility"],
         reha_end_date=datetime.now() + timedelta(days=30),
+    ).save()
+
+    return user, patient
+
+
+def create_redcap_patient():
+    """
+    Creates a patient without e-mail or phone, mimicking a patient imported
+    from REDCap where only the bare minimum User fields are populated.
+    """
+    user = User(
+        username="redcap_1",
+        # intentionally no email / phone
+        createdAt=datetime.now(),
+        role="Patient",
+        isActive=True,
+    ).save()
+
+    therapist_user = User(
+        username="t_redcap",
+        email="t_redcap@example.com",
+        createdAt=datetime.now(),
+        role="Therapist",
+    ).save()
+
+    therapist = Therapist(
+        userId=therapist_user,
+        name="REDCapTherapist",
+        first_name="John",
+        specializations=["Cardiology"],
+        clinics=["Inselspital"],
+    ).save()
+
+    patient = Patient(
+        userId=user,
+        patient_code="REDCAP001",
+        therapist=therapist,
     ).save()
 
     return user, patient
@@ -847,3 +902,337 @@ def test_change_password_get_method_not_allowed():
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
+
+
+# ===========================================================================
+# REDCap patient profile — PUT (regression tests for email/phone=None bug)
+#
+# REDCap-imported patients are created with only a username; email and phone
+# are left unset (None).  When the frontend sends the full profile back as a
+# PUT body it includes ``"email": null`` and ``"phone": null``.  The original
+# validator called ``re.match(pattern, None)`` which raised TypeError → 500.
+# ===========================================================================
+
+
+def test_redcap_patient_put_with_null_email_and_phone_returns_200():
+    """
+    PUT for a REDCap-imported patient whose User has no email/phone must NOT
+    raise a TypeError when the body contains ``email: null`` / ``phone: null``.
+    The request must complete with HTTP 200.
+    """
+    user, patient = create_redcap_patient()
+
+    # Simulate what the frontend sends: the full profile with null email/phone
+    payload = {"email": None, "phone": None, "last_clinic_visit": "2026-03-02"}
+
+    resp = client.put(
+        f"/api/users/{str(patient.id)}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.json()
+
+
+def test_redcap_patient_put_updates_last_clinic_visit():
+    """
+    A REDCap patient (no email/phone) can have ``last_clinic_visit`` updated
+    via PUT on their Patient ID.  The ``updated`` dict in the response must
+    contain the ``last_clinic_visit`` key.
+    """
+    user, patient = create_redcap_patient()
+
+    payload = {"last_clinic_visit": "2026-03-02"}
+
+    resp = client.put(
+        f"/api/users/{str(patient.id)}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "last_clinic_visit" in resp.json().get("updated", {})
+
+
+def test_redcap_patient_put_persists_to_database():
+    """
+    After a successful PUT the ``last_clinic_visit`` stored in MongoDB must
+    match the value that was sent.  This verifies that the save actually
+    reached the database and is not just echoed from the payload.
+    """
+    user, patient = create_redcap_patient()
+
+    payload = {"last_clinic_visit": "2026-03-02"}
+
+    resp = client.put(
+        f"/api/users/{str(patient.id)}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    refreshed = Patient.objects.get(pk=patient.id)
+    assert refreshed.last_clinic_visit is not None
+    assert refreshed.last_clinic_visit.date().isoformat() == "2026-03-02"
+
+
+def test_redcap_patient_put_via_patient_id_resolves_correctly():
+    """
+    The profile PUT accepts either the User ID or the Patient ID.
+    For REDCap patients the frontend always sends the Patient (``_id``) as the
+    URL parameter.  The view must resolve it to the linked User and succeed.
+    """
+    user, patient = create_redcap_patient()
+
+    payload = {"name": "TestSurname"}
+
+    resp = client.put(
+        f"/api/users/{str(patient.id)}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "name" in resp.json().get("updated", {})
+
+
+def test_redcap_patient_get_after_put_reflects_updated_value():
+    """
+    A GET immediately after a successful PUT must return the newly saved
+    value.  This covers the frontend "modal not updated" symptom end-to-end
+    at the API level: the server does persist and serve the fresh data.
+    """
+    user, patient = create_redcap_patient()
+
+    client.put(
+        f"/api/users/{str(patient.id)}/profile/",
+        data=json.dumps({"last_clinic_visit": "2026-03-02"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    resp = client.get(
+        f"/api/users/{str(patient.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data.get("last_clinic_visit", "").startswith("2026-03-02")
+
+
+def test_profile_put_password_change_succeeds_for_redcap_patient():
+    """
+    Password change via ``PUT /api/users/<id>/profile/`` with
+    ``oldPassword`` / ``newPassword`` must work for REDCap patients too.
+    The password-change path runs before the email/phone validation so it
+    must not be affected by the None-email bug.
+    """
+    user, patient = create_redcap_patient()
+    user.pwdhash = "oldhash"
+    user.save()
+
+    payload = {"oldPassword": "oldhash", "newPassword": "New!Secure1"}
+
+    with (
+        mock.patch("core.views.user_views.check_password", return_value=True),
+        mock.patch("core.views.user_views.make_password", return_value="new_hashed"),
+    ):
+        resp = client.put(
+            f"/api/users/{str(patient.id)}/profile/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+    assert resp.status_code == 200
+    assert "Profile updated" in resp.json().get("message", "")
+
+
+def test_profile_put_null_email_is_skipped_not_saved():
+    """
+    When the body contains ``email: null`` the view must skip the field
+    (``valid_update_value(None)`` returns False) and must NOT overwrite a
+    previously stored email with None.
+    """
+    user, patient = create_patient()
+    original_email = user.email  # "p1@example.com"
+
+    # Send null email alongside a valid update
+    payload = {"email": None, "name": "UpdatedName"}
+
+    resp = client.put(
+        f"/api/users/{str(user.id)}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    refreshed = User.objects.get(pk=user.id)
+    assert refreshed.email == original_email, "null email in PUT must not overwrite existing email"
+
+
+# ===========================================================================
+# reset_patient_password  (PUT /api/patients/<patient_id>/reset-password/)
+#
+# Lets a therapist set a brand-new password for a patient without needing to
+# know the old password.  Identical strength rules as the self-service flow.
+# ===========================================================================
+
+
+def test_reset_patient_password_success():
+    """
+    PUT with a strong new password returns HTTP 200 with 'Password reset
+    successfully' in the response body.
+    """
+    _, patient = create_redcap_patient()
+
+    with mock.patch("core.views.user_views.make_password", return_value="hashed_new"):
+        resp = client.put(
+            f"/api/patients/{str(patient.id)}/reset-password/",
+            data=json.dumps({"new_password": "NewPass1!"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 200
+    assert "Password reset successfully" in resp.json().get("message", "")
+
+
+def test_reset_patient_password_persists_new_hash():
+    """
+    After a successful reset the User document's ``pwdhash`` must be updated.
+    The test mocks ``make_password`` so we can assert the exact stored value.
+    """
+    _, patient = create_redcap_patient()
+
+    with mock.patch("core.views.user_views.make_password", return_value="hashed_new"):
+        client.put(
+            f"/api/patients/{str(patient.id)}/reset-password/",
+            data=json.dumps({"new_password": "NewPass1!"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    refreshed_patient = Patient.objects.get(pk=patient.id)
+    refreshed_user = refreshed_patient.userId
+    assert refreshed_user.pwdhash == "hashed_new", "pwdhash must be updated after reset"
+
+
+def test_reset_patient_password_accepts_camel_case_key():
+    """
+    The endpoint accepts both ``new_password`` (snake_case) and
+    ``newPassword`` (camelCase) to be consistent with the profile endpoint.
+    """
+    _, patient = create_redcap_patient()
+
+    with mock.patch("core.views.user_views.make_password", return_value="hashed_new"):
+        resp = client.put(
+            f"/api/patients/{str(patient.id)}/reset-password/",
+            data=json.dumps({"newPassword": "NewPass1!"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 200
+
+
+def test_reset_patient_password_missing_new_password_returns_400():
+    """
+    PUT with an empty body (no ``new_password``) returns 400 with
+    'new_password is required'.
+    """
+    _, patient = create_redcap_patient()
+
+    resp = client.put(
+        f"/api/patients/{str(patient.id)}/reset-password/",
+        data=json.dumps({}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 400
+    assert "new_password is required" in resp.json().get("error", "")
+
+
+def test_reset_patient_password_weak_password_returns_400():
+    """
+    PUT with a password that fails the strength rules (no uppercase, no
+    special character, fewer than 8 chars, etc.) returns 400 with 'Weak
+    password' in the error.
+    """
+    _, patient = create_redcap_patient()
+
+    resp = client.put(
+        f"/api/patients/{str(patient.id)}/reset-password/",
+        data=json.dumps({"new_password": "weakpw"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 400
+    assert "Weak password" in resp.json().get("error", "")
+
+
+def test_reset_patient_password_patient_not_found_returns_404():
+    """
+    Using a valid ObjectId that matches no Patient document returns 404 with
+    'Patient not found'.
+    """
+    resp = client.put(
+        f"/api/patients/{ObjectId()}/reset-password/",
+        data=json.dumps({"new_password": "NewPass1!"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 404
+    assert "Patient not found" in resp.json().get("error", "")
+
+
+def test_reset_patient_password_invalid_objectid_returns_400():
+    """
+    Sending a malformed ObjectId as the patient_id returns 400.
+    """
+    resp = client.put(
+        "/api/patients/not-an-objectid/reset-password/",
+        data=json.dumps({"new_password": "NewPass1!"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 400
+    assert "Invalid patient ID" in resp.json().get("error", "")
+
+
+def test_reset_patient_password_method_not_allowed():
+    """
+    GET to the reset-password endpoint returns 405.  Only PUT is accepted.
+    """
+    _, patient = create_redcap_patient()
+
+    resp = client.get(
+        f"/api/patients/{str(patient.id)}/reset-password/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 405
+    assert "Method not allowed" in resp.json().get("error", "")
+
+
+def test_reset_patient_password_works_for_regular_patient():
+    """
+    The endpoint must also work for manually-created (non-REDCap) patients
+    that have a full User record with e-mail and phone.
+    """
+    _, patient = create_patient()
+
+    with mock.patch("core.views.user_views.make_password", return_value="hashed_new"):
+        resp = client.put(
+            f"/api/patients/{str(patient.id)}/reset-password/",
+            data=json.dumps({"new_password": "NewPass1!"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 200
