@@ -78,7 +78,11 @@ JWT refresh endpoint:
 - `POST /api/patients/feedback/questionaire/` -> `patient_views.submit_patient_feedback`
 - `GET /api/patients/get-questions/<questionaire_type>/<patient_id>/` -> `patient_views.get_feedback_questions`
 - `GET /api/patients/get-questions/<questionaire_type>/<patient_id>/<intervention_id>/` -> `patient_views.get_feedback_questions`
+- `GET /api/users/<patient_id>/initial-questionaire/` -> `patient_views.initial_patient_questionaire`
+  - Returns `{ requires_questionnaire: true|false }`. Returns `false` immediately when `Patient.initial_questionnaire_enabled` is `False` (default). When `True`, returns `true` only if any of the five demographic fields are still empty.
 - `POST /api/users/<patient_id>/initial-questionaire/` -> `patient_views.initial_patient_questionaire`
+  - Saves the five demographic fields (`level_of_education`, `professional_status`, `marital_status`, `lifestyle`, `personal_goals`).
+- **`initial_questionnaire_enabled` flag**: Defaults to `False` (opt-in). Set via `POST /api/auth/register/` (`initialQuestionnaireEnabled` field) or toggled at any time via `PUT /api/users/<patient_id>/profile/` (`initial_questionnaire_enabled` field).
 - `GET /api/patients/healthstatus-history/<patient_id>/` -> `patient_views.get_patient_healthstatus_history`
 - `GET /api/patients/health-combined-history/<patient_id>/` -> `patient_views.get_combined_health_data` (effective mapping)
 - `POST /api/patients/vitals/manual/<patient_id>/` -> `patient_views.add_manual_vitals`
