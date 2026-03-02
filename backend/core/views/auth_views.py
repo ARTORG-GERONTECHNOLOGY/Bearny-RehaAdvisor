@@ -499,6 +499,42 @@ def _err(message: str, status: int = 400, field_errors=None, non_field_errors=No
     return JsonResponse(payload, status=status)
 
 
+def _notify_admins_new_therapist(user, therapist):
+    """
+    Send a notification e-mail to every active Admin user when a new therapist
+    registers.  Failures are logged but never surface to the caller so that a
+    misconfigured mail server cannot block registration.
+    """
+    try:
+        admins = User.objects.filter(role="Admin", isActive=True)
+        admin_emails = [u.email for u in admins if u.email]
+        if not admin_emails:
+            return
+
+        first = getattr(therapist, "first_name", "") or ""
+        last = getattr(therapist, "name", "") or ""
+        full_name = f"{first} {last}".strip() or user.username
+
+        subject = "New therapist registration pending approval"
+        message = (
+            f"A new therapist has registered and is awaiting approval.\n\n"
+            f"Name:     {full_name}\n"
+            f"Email:    {user.email}\n"
+            f"Username: {user.username}\n\n"
+            f"Please log in to the admin panel to accept or decline the account."
+        )
+
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=admin_emails,
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception("Failed to notify admins of new therapist registration")
+
+
 @csrf_exempt
 def register_view(request):
     """
@@ -745,6 +781,9 @@ def register_view(request):
                 logger.exception("Therapist save failed.")
                 rollback()
                 return _err("Therapist creation failed.", status=400, non_field_errors=[str(e)])
+
+            # Notify all admin users that a new therapist is awaiting approval
+            _notify_admins_new_therapist(user, therapist)
 
             return JsonResponse(
                 {
