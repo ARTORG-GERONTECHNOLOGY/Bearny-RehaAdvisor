@@ -137,6 +137,7 @@ def _get_username_from_request(request) -> str:
     """Extract 'username' claim from Bearer JWT, or return '' on any error."""
     try:
         from rest_framework_simplejwt.tokens import AccessToken
+
         auth = request.META.get("HTTP_AUTHORIZATION", "")
         if not auth.startswith("Bearer "):
             return ""

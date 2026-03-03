@@ -275,17 +275,11 @@ class Command(BaseCommand):
         updated_count = 0
 
         for q in FEEDBACK_QUESTIONS:
-            translations = [
-                Translation(language=t["language"], text=t["text"])
-                for t in q["translations"]
-            ]
+            translations = [Translation(language=t["language"], text=t["text"]) for t in q["translations"]]
             possible_answers = [
                 AnswerOption(
                     key=a["key"],
-                    translations=[
-                        Translation(language=t["language"], text=t["text"])
-                        for t in a["translations"]
-                    ],
+                    translations=[Translation(language=t["language"], text=t["text"]) for t in a["translations"]],
                 )
                 for a in q["possibleAnswers"]
             ]
@@ -318,8 +312,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"seed_feedback_questions complete: "
-                f"{created_count} created, {updated_count} updated."
+                f"seed_feedback_questions complete: " f"{created_count} created, {updated_count} updated."
             )
         )
 

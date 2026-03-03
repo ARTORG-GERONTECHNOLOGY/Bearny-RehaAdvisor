@@ -20,7 +20,12 @@ import ErrorAlert from '../common/ErrorAlert';
 
 import StandardModal from '../common/StandardModal';
 import ConfirmModal from '../common/ConfirmModal';
-import { PatientPopupStore, PatientThresholds, toDateInput, toDisplayDate } from '../../stores/patientPopupStore';
+import {
+  PatientPopupStore,
+  PatientThresholds,
+  toDateInput,
+  toDisplayDate,
+} from '../../stores/patientPopupStore';
 
 function formatThresholdSnapshot(th: Partial<PatientThresholds>): string {
   if (!th || Object.keys(th).length === 0) return '—';
