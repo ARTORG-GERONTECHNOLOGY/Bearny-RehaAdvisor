@@ -370,11 +370,11 @@ def login_view(request):
 
         user_id_str = str(user.id)
 
-        # Therapists: require 2FA
-        if user.role == "Therapist":
+        # Therapists and Admins: require 2FA
+        if user.role in ("Therapist", "Admin"):
             return JsonResponse(
                 {
-                    "user_type": "Therapist",
+                    "user_type": user.role,
                     "id": user_id_str,
                     "require_2fa": True,
                     "request_id": request_id,

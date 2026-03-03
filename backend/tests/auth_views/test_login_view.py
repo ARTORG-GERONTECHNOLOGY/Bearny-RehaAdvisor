@@ -5,7 +5,7 @@ Authentication login view tests — ``/api/auth/login/``
 What is covered
 ---------------
 Happy-path
-  * Patient (or Admin) credentials → 200 with JWT access + refresh tokens.
+  * Patient credentials → 200 with JWT access + refresh tokens.
   * Response always contains the ``request_id`` audit field.
   * ``user_type`` field reflects the user's role.
 
@@ -23,12 +23,12 @@ Authorisation failures (403)
   * User is inactive (``isActive=False``) → 403, regardless of role.
 
 Role-based authorisation (200 – special paths)
-  * Therapist with valid credentials → 200 **without** JWT tokens;
+  * Therapist or Admin with valid credentials → 200 **without** JWT tokens;
     the response instead sets ``require_2fa: true``.  This enforces
     the mandatory two-factor authentication flow before a session is
-    issued to the higher-privilege role.
-  * Inactive Therapist is denied with 403 before reaching the 2FA
-    branch — the inactive check is applied to every role.
+    issued to these higher-privilege roles.
+  * Inactive Therapist / Admin is denied with 403 before reaching the
+    2FA branch — the inactive check is applied to every role.
 
 Alternative identifiers
   * ``username`` can be supplied instead of ``email``; the endpoint
@@ -337,6 +337,69 @@ def test_login_therapist_response_contains_user_id(mongo_mock):
     resp = _post({"email": "therapist3@example.com", "password": "pw3"})
 
     assert "id" in resp.json()
+
+
+# ===========================================================================
+# Role-based authorisation — Admin 2FA gate
+# ===========================================================================
+
+
+def test_login_admin_redirected_to_2fa(mongo_mock):
+    """
+    An active Admin with correct credentials receives HTTP 200 but
+    ``require_2fa: true`` instead of JWT tokens.  Admins hold
+    elevated privileges; they must complete a second factor (e-mail code)
+    before a session is issued — the same requirement as Therapists.
+    """
+    _make_user("admin@example.com", "adminpass", role="Admin")
+
+    resp = _post({"email": "admin@example.com", "password": "adminpass"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data.get("require_2fa") is True
+    assert data.get("user_type") == "Admin"
+
+
+def test_login_admin_does_not_receive_tokens(mongo_mock):
+    """
+    The 2FA redirect response must NOT contain ``access_token`` or
+    ``refresh_token`` for Admins.  Issuing tokens before 2FA is complete
+    would bypass the second-factor requirement entirely.
+    """
+    _make_user("admin2@example.com", "adminpass2", role="Admin")
+
+    resp = _post({"email": "admin2@example.com", "password": "adminpass2"})
+
+    data = resp.json()
+    assert "access_token" not in data, "Admins must not receive tokens before 2FA"
+    assert "refresh_token" not in data, "Admins must not receive tokens before 2FA"
+
+
+def test_login_admin_response_contains_user_id(mongo_mock):
+    """
+    The 2FA redirect response includes the ``id`` field so the client can
+    pass it to the ``/send-verification-code/`` endpoint in the next step
+    of the 2FA flow.
+    """
+    _make_user("admin3@example.com", "pw3", role="Admin")
+
+    resp = _post({"email": "admin3@example.com", "password": "pw3"})
+
+    assert "id" in resp.json()
+
+
+def test_login_inactive_admin_is_forbidden(mongo_mock):
+    """
+    Even an Admin role is denied with 403 when ``isActive=False``.
+    The active-check is applied uniformly before the 2FA branch, so an
+    inactive Admin cannot initiate the 2FA flow.
+    """
+    _make_user("inactive_admin@example.com", "pw", role="Admin", is_active=False)
+
+    resp = _post({"email": "inactive_admin@example.com", "password": "pw"})
+
+    assert resp.status_code == 403
 
 
 # ===========================================================================

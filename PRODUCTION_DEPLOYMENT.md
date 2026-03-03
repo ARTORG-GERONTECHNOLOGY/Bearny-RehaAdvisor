@@ -9,7 +9,7 @@ This guide provides step-by-step instructions for deploying RehaAdvisor to produ
 - [ ] Server prepared with Docker and Docker Compose
 - [ ] Domain `reha-advisor.ch` DNS configured
 - [ ] SSL certificates ready or Let's Encrypt configured
-- [ ] Production environment variables configured
+- [ ] Production environment variables configured (including `ADMIN_EMAIL` and `ADMIN_PASSWORD`)
 - [ ] Database backup strategy planned
 - [ ] Monitoring and logging configured
 - [ ] Security review completed
@@ -151,6 +151,16 @@ sed -i "s/change-this-to-secure-redis-password/$REDIS_PASSWORD/g" .env.prod
 sed -i "s/change-this-to-secure-password/$MONGODB_PASSWORD/g" .env.prod
 ```
 
+**Admin account credentials** (required before first deploy):
+
+```bash
+# Edit ADMIN_EMAIL and ADMIN_PASSWORD in .env.prod
+# These are used by `seed_admin` to create the application admin user.
+# The password is never stored in the DB in plain text — only the bcrypt hash.
+ADMIN_EMAIL=admin@reha-advisor.ch
+ADMIN_PASSWORD=<strong-random-password>
+```
+
 **Email Configuration (example with Gmail):**
 
 ```bash
@@ -246,15 +256,35 @@ make prod_migrate
 
 # Or manually:
 docker exec django-prod python manage.py migrate
-
-# Create superuser for admin access
-make prod_superuser
-
-# Or manually:
-docker exec -it django-prod python manage.py createsuperuser
 ```
 
-### 5. Collect Static Files
+### 5. Seed Database (admin user + feedback questions)
+
+Two management commands run automatically on every deployment (via `deploy-prod.yml`). You can also run them manually on a fresh install:
+
+```bash
+# Create the admin user from ADMIN_EMAIL / ADMIN_PASSWORD in .env.prod.
+# Safe to re-run — skips silently if the admin already exists.
+docker exec django-prod python manage.py seed_admin
+
+# To rotate the admin password (e.g. after a security incident):
+docker exec django-prod python manage.py seed_admin --force
+
+# Seed canonical FeedbackQuestion records (upsert — safe to re-run).
+docker exec django-prod python manage.py seed_feedback_questions
+```
+
+**Security notes for `seed_admin`:**
+- Credentials are read from environment variables (`ADMIN_EMAIL`, `ADMIN_PASSWORD`) — never from CLI arguments (prevents exposure in shell history / process lists).
+- Without `--force` the command is a no-op when the admin already exists, so a routine re-deploy **never** silently resets the password.
+- Only the bcrypt hash is stored; the plain-text password is never written to the database or logs.
+
+**`seed_feedback_questions` behaviour:**
+- Upserts 4 canonical questions (rating stars for education content, rating stars for exercises, difficulty scale, open text feedback) in 5 languages (en, de, fr, nl, pt).
+- Questions not in the seed list (e.g. custom questions added via the admin panel) are left untouched.
+- Pass `--clean` to reset only the seeded questions during development.
+
+### 6. Collect Static Files
 
 ```bash
 # Collect Django static files
@@ -264,7 +294,7 @@ make prod_collectstatic
 docker exec django-prod python manage.py collectstatic --noinput
 ```
 
-### 6. Test SSL Certificate
+### 7. Test SSL Certificate
 
 ```bash
 # Test certificate with curl
@@ -407,8 +437,14 @@ docker compose -f docker-compose.prod.reha-advisor.yml restart django-prod
 # Run migrations
 make prod_migrate
 
-# Create superuser
-make prod_superuser
+# Seed admin user (reads ADMIN_EMAIL / ADMIN_PASSWORD from .env.prod)
+docker exec django-prod python manage.py seed_admin
+
+# Rotate admin credentials (update ADMIN_EMAIL/ADMIN_PASSWORD first)
+docker exec django-prod python manage.py seed_admin --force
+
+# Seed feedback questions (upsert — safe to re-run)
+docker exec django-prod python manage.py seed_feedback_questions
 
 # Collect static files
 make prod_collectstatic
@@ -450,13 +486,17 @@ docker exec -it db-prod mongosh
 ### Update Application
 
 ```bash
-# Pull latest code
+# Pull latest code (production uses the Prod branch)
 cd /opt/reha-advisor
-git pull origin main
+git pull origin Prod
 
 # Rebuild and restart
 make build_prod
 make prod_restart
+
+# Re-run seeding commands after any update
+docker exec django-prod python manage.py seed_admin
+docker exec django-prod python manage.py seed_feedback_questions
 
 # Verify deployment
 make prod_health
@@ -551,6 +591,16 @@ docker exec django-prod ps aux
    - Limit SSH access
    - Use firewall rules
 
+7. **Admin two-factor authentication**
+   - The admin account is protected by two-factor authentication (email code, same mechanism as therapists).
+   - On every login the admin receives a 6-digit verification code at `ADMIN_EMAIL`; the code expires after 5 minutes.
+   - Ensure the `ADMIN_EMAIL` inbox is accessible before the first login — without it the admin cannot complete authentication.
+
+8. **Threshold change audit trail**
+   - Every threshold update is stored as a history snapshot including the previous threshold values, the effective date, the reason, and the username of the therapist who made the change (`changed_by`).
+   - The history is visible in the Patient Popup → Thresholds tab → "Change history" table.
+   - `changed_by` is extracted from the JWT access token; it will be empty for requests made without a valid token (e.g. programmatic API calls).
+
 ## Support
 
 For issues or questions:
@@ -561,6 +611,6 @@ For issues or questions:
 
 ---
 
-**Last Updated**: February 17, 2026
+**Last Updated**: March 3, 2026
 **Version**: 1.0
 **Domain**: reha-advisor.ch

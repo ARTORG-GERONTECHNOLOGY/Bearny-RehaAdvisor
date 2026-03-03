@@ -1,8 +1,11 @@
 name: Production Deployment
 
+# Triggers only on the `prod` branch (kept separate from main so CI tests
+# on main never accidentally kick off a production deploy).
+# Manual runs via workflow_dispatch are also supported.
 on:
   push:
-    branches: [main]
+    branches: [Prod]
     paths:
       - 'frontend/**'
       - 'backend/**'
@@ -14,7 +17,7 @@ on:
       environment:
         description: 'Deployment environment'
         required: true
-        default: 'staging'
+        default: 'production'
         type: choice
         options:
           - staging
@@ -25,34 +28,77 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Tests — same pattern as tests.yml so secrets / coverage work correctly
+  # ---------------------------------------------------------------------------
   test:
     name: Run Tests Before Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run tests
-        run: |
-          echo "Running frontend tests..."
-          cd frontend && npm ci && npm test -- --coverage --watchAll=false || exit 1
-          cd ..
-          
-          echo "Running backend tests..."
-          cd backend && pip install -r requirements.txt && \
-          DJANGO_SETTINGS_MODULE=api.settings.dev \
-          SECRET_KEY=test-secret-key-for-ci-cd \
-          DEBUG=False \
-          DB_HOST=localhost \
-          DB_PORT=27017 \
-          DB_NAME=reha_advisor_test \
-          MONGO_TLS=false \
-          DISABLE_MONGO_CONNECT=1 \
-          REDIS_URL=redis://localhost:6379/0 \
-          pytest -v || exit 1
+      - name: Write env file
+        run: echo "${{ secrets.ENV_FILE_DEV }}" > .env
 
+      - name: Load env file and apply CI overrides
+        run: |
+          while IFS= read -r line; do
+            [[ "$line" =~ ^\s*# ]] && continue
+            [[ -z "${line//[[:space:]]/}" ]] && continue
+            echo "$line" >> "$GITHUB_ENV"
+          done < .env
+          echo "DB_HOST=localhost"                    >> "$GITHUB_ENV"
+          echo "DISABLE_MONGO_CONNECT=1"             >> "$GITHUB_ENV"
+          echo "MONGO_TLS=false"                     >> "$GITHUB_ENV"
+          echo "REDIS_URL=redis://localhost:6379/0"  >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        run: pytest --tb=short -q
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test -- --watchAll=false --testTimeout=10000
+
+  # ---------------------------------------------------------------------------
+  # 2. Build — push images to GHCR
+  # ---------------------------------------------------------------------------
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
@@ -100,6 +146,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -126,11 +174,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ---------------------------------------------------------------------------
+  # 3. Deploy to staging (optional — only fires on push to prod branch)
+  #    Production deploy does NOT depend on this job succeeding.
+  # ---------------------------------------------------------------------------
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prod'
     environment:
       name: staging
       url: https://staging.reha-advisor.ch
@@ -147,26 +199,14 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             cd /opt/reha-advisor-staging
-            
-            # Pull latest code
-            git pull origin main
-            
-            # Stop current services
+            git pull origin prod
             docker compose -f docker-compose.prod.reha-advisor.yml down || true
-            
-            # Pull latest images
             docker compose -f docker-compose.prod.reha-advisor.yml pull
-            
-            # Start services
             docker compose -f docker-compose.prod.reha-advisor.yml up -d
-            
-            # Run migrations
             docker exec django-prod python manage.py migrate
-            
-            # Collect static files
             docker exec django-prod python manage.py collectstatic --noinput
-            
-            # Verify health
+            docker exec django-prod python manage.py seed_admin
+            docker exec django-prod python manage.py seed_feedback_questions
             sleep 10
             docker compose -f docker-compose.prod.reha-advisor.yml ps
 
@@ -174,7 +214,6 @@ jobs:
         run: |
           max_attempts=30
           attempt=0
-          
           while [ $attempt -lt $max_attempts ]; do
             if curl -f https://staging.reha-advisor.ch/health; then
               echo "✅ Staging deployment successful"
@@ -183,15 +222,21 @@ jobs:
             attempt=$((attempt + 1))
             sleep 2
           done
-          
           echo "❌ Health check failed"
           exit 1
 
+  # ---------------------------------------------------------------------------
+  # 4. Deploy to production
+  #    Depends only on `build` so it can run even when staging is skipped.
+  # ---------------------------------------------------------------------------
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build, deploy-staging]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-prod]'))
+    needs: [build]
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/prod' &&
+       contains(github.event.head_commit.message, '[deploy-prod]'))
     environment:
       name: production
       url: https://reha-advisor.ch
@@ -206,14 +251,11 @@ jobs:
       - name: Verify production readiness
         run: |
           echo "🔍 Verifying production readiness..."
-          
-          # Check if all tests passed
           if [[ "${{ needs.build.result }}" != "success" ]]; then
-            echo "❌ Build failed - cannot deploy to production"
+            echo "❌ Build failed — cannot deploy to production"
             exit 1
           fi
-          
-          echo "✅ All checks passed - ready for production deployment"
+          echo "✅ All checks passed — ready for production deployment"
 
       - name: Create backup
         uses: appleboy/ssh-action@master
@@ -223,15 +265,8 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             cd /opt/reha-advisor
-            
-            # Create backup before deployment
             echo "Creating database backup..."
             ./scripts/backup.sh
-            
-            # Upload backup to S3 if configured
-            if [ ! -z "${{ secrets.AWS_S3_BUCKET }}" ]; then
-              ./scripts/backup.sh --upload-s3 --s3-bucket ${{ secrets.AWS_S3_BUCKET }}
-            fi
 
       - name: Deploy to production
         uses: appleboy/ssh-action@master
@@ -241,36 +276,23 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             cd /opt/reha-advisor
-            
             echo "🚀 Starting production deployment..."
-            
-            # Pull latest code
-            git pull origin main
-            
-            # Backup current state
+            git pull origin prod
             docker compose -f docker-compose.prod.reha-advisor.yml ps > /tmp/before-deploy.txt
-            
-            # Pull latest images
             echo "📦 Pulling latest Docker images..."
             docker compose -f docker-compose.prod.reha-advisor.yml pull
-            
-            # Perform zero-downtime deployment
             echo "⚙️  Starting new services..."
             docker compose -f docker-compose.prod.reha-advisor.yml up -d
-            
-            # Wait for services to be healthy
             echo "⏳ Waiting for services to be healthy..."
             sleep 15
-            
-            # Run database migrations
             echo "🗄️  Running database migrations..."
             docker exec django-prod python manage.py migrate
-            
-            # Collect static files
             echo "📁 Collecting static files..."
             docker exec django-prod python manage.py collectstatic --noinput
-            
-            # Verify deployment
+            echo "🌱 Seeding admin user..."
+            docker exec django-prod python manage.py seed_admin
+            echo "🌱 Seeding feedback questions..."
+            docker exec django-prod python manage.py seed_feedback_questions
             echo "✅ Verifying deployment..."
             docker compose -f docker-compose.prod.reha-advisor.yml ps
 
@@ -279,20 +301,16 @@ jobs:
           echo "🏥 Running production health checks..."
           max_attempts=60
           attempt=0
-          
           while [ $attempt -lt $max_attempts ]; do
             http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/health)
-            
             if [ "$http_code" = "200" ]; then
               echo "✅ Production health check passed (HTTP $http_code)"
               exit 0
             fi
-            
-            echo "⏳ Attempt $((attempt + 1))/$max_attempts - HTTP $http_code"
+            echo "⏳ Attempt $((attempt + 1))/$max_attempts — HTTP $http_code"
             attempt=$((attempt + 1))
             sleep 2
           done
-          
           echo "❌ Production health check failed"
           exit 1
 
@@ -304,10 +322,8 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             cd /opt/reha-advisor
-            
             echo "🗄️  Verifying database..."
             docker exec db-prod mongosh admin --eval 'db.adminCommand("ping")' || exit 1
-            
             echo "✅ Database verification passed"
 
       - name: Notify deployment success
@@ -316,7 +332,7 @@ jobs:
           echo "✅ Production deployment successful!"
           echo "🌍 Service available at: https://reha-advisor.ch"
 
-      - name: Notify deployment failure
+      - name: Rollback on failure
         if: failure()
         uses: appleboy/ssh-action@master
         with:
@@ -325,19 +341,21 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             cd /opt/reha-advisor
-            
-            echo "❌ Production deployment failed - rolling back..."
-            
-            # Rollback to previous state
+            echo "❌ Production deployment failed — rolling back..."
             docker compose -f docker-compose.prod.reha-advisor.yml down
             git checkout HEAD~1
             docker compose -f docker-compose.prod.reha-advisor.yml up -d
 
+  # ---------------------------------------------------------------------------
+  # 5. Notify — Slack + GitHub deployment status
+  # ---------------------------------------------------------------------------
   notify:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
     needs: [deploy-production]
     if: always()
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
       - name: Determine status
@@ -352,18 +370,18 @@ jobs:
           fi
 
       - name: Send Slack notification
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: |
             ${{ steps.status.outputs.status }}
-            
+
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref }}
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
-            
+
             URL: https://reha-advisor.ch
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           fields: repo,message,commit,author,action,eventName,ref,workflow
@@ -374,11 +392,10 @@ jobs:
         with:
           script: |
             const deployment_status = '${{ needs.deploy-production.result }}' === 'success' ? 'success' : 'failure';
-            
             github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              deployment_id: context.payload.deployment.id,
+              deployment_id: context.payload.deployment?.id,
               state: deployment_status,
               description: 'Production deployment ${{ needs.deploy-production.result }}',
               environment_url: 'https://reha-advisor.ch'

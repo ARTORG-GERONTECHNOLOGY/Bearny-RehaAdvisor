@@ -431,6 +431,7 @@ class PatientThresholds(EmbeddedDocument):
 class PatientThresholdsSnapshot(EmbeddedDocument):
     effective_from = DateTimeField(required=True, default=timezone.now)
     reason = StringField(default="")
+    changed_by = StringField(default="")
     thresholds = EmbeddedDocumentField("PatientThresholds", required=True)
 
 

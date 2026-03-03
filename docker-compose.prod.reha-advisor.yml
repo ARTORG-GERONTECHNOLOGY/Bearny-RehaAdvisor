@@ -164,6 +164,7 @@ services:
       args:
         - VITE_API_URL=https://reha-advisor.ch/api
         - VITE_APP_NAME=RehaAdvisor
+        - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
     container_name: react-prod
     restart: always
     ports:
