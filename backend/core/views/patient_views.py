@@ -397,7 +397,16 @@ def mark_intervention_completed(request):
     Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # date optional; defaults to TODAY (local)
     Ensures only ONE log per (patient, rehab_plan, intervention, day) exists.
 
-    ✅ Stores and queries by UTC-naive day boundaries to avoid timezone day-shifts.
+    Date storage:
+    - Logs are stored with a *naive local* datetime (no UTC conversion).
+      Storing UTC midnight of a local day would shift the date backward for
+      positive-offset timezones (e.g. UTC+2: local midnight = 22:00 UTC the
+      *previous* day), causing an off-by-one-day bug.
+    - When the target day matches a scheduled datetime in the rehabilitation
+      plan the exact scheduled time is used so back-dated completions align
+      with the original session time.
+    - Querying uses the naive local day window [00:00, 23:59:59] to remain
+      consistent with the stored values.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -431,23 +440,41 @@ def mark_intervention_completed(request):
 
         tz = timezone.get_current_timezone()
 
-        # Local day boundaries (aware)
-        local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
-        local_end = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
+        # Naive local day boundaries — no UTC conversion to avoid day-shift.
+        day_start = datetime.datetime.combine(target_day, datetime.time.min)
+        day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         # -----------------------------
-        # 2) Convert to UTC *naive* for MongoEngine storage/query consistency
+        # 2) Determine the log date to store.
+        #    Prefer the exact scheduled datetime from the rehabilitation plan
+        #    so that back-dated completions preserve the original session time.
+        #    Fall back to local midnight of target_day when no scheduled entry
+        #    matches (e.g. ad-hoc completion not on the planned calendar).
         # -----------------------------
-        utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        utc_end = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        log_date = day_start  # default: local midnight of target_day
+        for assignment in rehab_plan.interventions:
+            if str(assignment.interventionId.pk) == str(intervention.pk):
+                for sched_dt in assignment.dates:
+                    if not isinstance(sched_dt, datetime.datetime):
+                        continue
+                    # Normalise to naive local time for date comparison and storage
+                    sched_local = (
+                        sched_dt.astimezone(tz).replace(tzinfo=None)
+                        if sched_dt.tzinfo is not None
+                        else sched_dt
+                    )
+                    if sched_local.date() == target_day:
+                        log_date = sched_local
+                        break
+                break
 
-        # ✅ fetch ALL logs for that UTC day window
+        # Fetch ALL logs for the naive local day window
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
-            date__gte=utc_start,
-            date__lte=utc_end,
+            date__gte=day_start,
+            date__lte=day_end,
         ).order_by("-date")
 
         logs = list(logs_qs)
@@ -480,8 +507,8 @@ def mark_intervention_completed(request):
 
             keep.updatedAt = timezone.now()
 
-            # ✅ normalize stored date to UTC day anchor (prevents drift)
-            keep.date = utc_start
+            # Normalise stored date to the canonical log_date for this day
+            keep.date = log_date
 
             keep.save()
 
@@ -494,12 +521,12 @@ def mark_intervention_completed(request):
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
 
-        # ✅ no log yet -> create ONE canonical log for that day (UTC anchor)
+        # No log yet → create ONE canonical log for that day
         log = PatientInterventionLogs(
             userId=patient,
             interventionId=intervention,
             rehabilitationPlanId=rehab_plan,
-            date=utc_start,  # ✅ canonical per-day anchor
+            date=log_date,  # naive local datetime (scheduled time or midnight)
             status=["completed"],
             feedback=[],
             comments="",
@@ -533,7 +560,8 @@ def unmark_intervention_completed(request):
 
     Removes 'completed' for that day and also cleans duplicates.
 
-    ✅ Uses LOCAL day -> UTC-naive window for consistent MongoEngine querying/storage.
+    Uses a naive local day window [00:00, 23:59:59] to find logs, consistent
+    with how mark_intervention_completed stores them (no UTC conversion).
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -564,22 +592,16 @@ def unmark_intervention_completed(request):
         except Exception:
             return JsonResponse({"error": "Invalid date. Expected YYYY-MM-DD."}, status=400)
 
-        tz = timezone.get_current_timezone()
-        local_start = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.min), tz)
-        local_end = timezone.make_aware(datetime.datetime.combine(target_day, datetime.time.max), tz)
-
-        # -----------------------------
-        # 2) Convert to UTC *naive* for MongoEngine query consistency
-        # -----------------------------
-        utc_start = local_start.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        utc_end = local_end.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        # Naive local day boundaries — consistent with mark_intervention_completed storage
+        day_start = datetime.datetime.combine(target_day, datetime.time.min)
+        day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
             interventionId=intervention,
-            date__gte=utc_start,
-            date__lte=utc_end,
+            date__gte=day_start,
+            date__lte=day_end,
         ).order_by("-date")
 
         logs = list(logs_qs)
@@ -607,12 +629,10 @@ def unmark_intervention_completed(request):
             except Exception:
                 pass
 
-        # ✅ delete if empty after uncomplete, else save
+        # Delete log if nothing remains after uncomplete, else save as-is
         if not keep.status and not keep.feedback:
             keep.delete()
         else:
-            # optional: normalize the anchor to utc_start for consistency
-            keep.date = utc_start
             keep.save()
 
         Logs(
