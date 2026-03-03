@@ -1098,8 +1098,7 @@ def test_mark_completed_stores_local_date_not_utc(mongo_mock):
     log = PatientInterventionLogs.objects(userId=patient).first()
     assert log is not None, "No log was created"
     assert log.date.date() == today, (
-        f"Log date {log.date.date()} != local date {today}. "
-        "Timezone off-by-one-day bug still present."
+        f"Log date {log.date.date()} != local date {today}. " "Timezone off-by-one-day bug still present."
     )
 
 
@@ -1184,8 +1183,7 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
     assert log is not None, "No log was created"
     # The stored datetime should be the scheduled 08:30, not midnight
     assert log.date == sched_time, (
-        f"Expected scheduled time {sched_time}, got {log.date}. "
-        "Scheduled datetime from plan not used for storage."
+        f"Expected scheduled time {sched_time}, got {log.date}. " "Scheduled datetime from plan not used for storage."
     )
 
 
