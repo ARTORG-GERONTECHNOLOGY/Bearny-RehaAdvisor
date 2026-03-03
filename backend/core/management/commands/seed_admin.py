@@ -72,19 +72,14 @@ class Command(BaseCommand):
         password = os.environ.get("ADMIN_PASSWORD", "").strip()
 
         if not email or not password:
-            self.stdout.write(
-                self.style.WARNING(
-                    "  seed_admin: ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping."
-                )
-            )
+            self.stdout.write(self.style.WARNING("  seed_admin: ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping."))
             return
 
         existing = User.objects(username=_ADMIN_USERNAME).first()
 
         if existing and not options["force"]:
             self.stdout.write(
-                f"  Admin user already exists ({existing.email}) — skipping. "
-                "Pass --force to overwrite credentials."
+                f"  Admin user already exists ({existing.email}) — skipping. " "Pass --force to overwrite credentials."
             )
             return
 
