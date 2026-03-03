@@ -10,6 +10,7 @@ import UserOutline from '@/assets/icons/user-outline.svg?react';
 import UserFill from '@/assets/icons/user-fill.svg?react';
 import GearOutline from '@/assets/icons/gear-outline.svg?react';
 import GearFill from '@/assets/icons/gear-fill.svg?react';
+
 // TODO:
 // - move colors to config as soon as they are fixed
 // - handle all states and user types (see old Header component for reference)
@@ -30,13 +31,13 @@ export default function Navigation() {
             path: '/patient-interventions',
             iconOutline: GridCircleOutline,
             iconFill: GridCircleFill,
-            label: t('Bibliothek'),
+            label: t('Library'),
           },
           {
             path: '/settings',
             iconOutline: GearOutline,
             iconFill: GearFill,
-            label: t('Einstellungen'),
+            label: t('Settings'),
           },
         ]
       : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
@@ -51,7 +52,7 @@ export default function Navigation() {
               path: '/interventions',
               iconOutline: GridCircleOutline,
               iconFill: GridCircleFill,
-              label: t('Bibliothek'),
+              label: t('Library'),
             },
             {
               path: '/userprofile',
@@ -63,7 +64,7 @@ export default function Navigation() {
               path: '/settings',
               iconOutline: GearOutline,
               iconFill: GearFill,
-              label: t('Einstellungen'),
+              label: t('Settings'),
             },
           ]
         : authStore.userType === 'Admin'
@@ -72,7 +73,7 @@ export default function Navigation() {
                 path: '/settings',
                 iconOutline: GearOutline,
                 iconFill: GearFill,
-                label: t('Einstellungen'),
+                label: t('Settings'),
               },
             ]
           : [

@@ -46,17 +46,17 @@ describe('Navigation - navLinks by user type', () => {
   it('shows Home + Interventions + Settings for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
 
   it('shows Patients + Interventions + Profile + Settings for Therapist', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
@@ -64,9 +64,9 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Bibliothek').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
@@ -75,8 +75,8 @@ describe('Navigation - navLinks by user type', () => {
     renderNav('/admin');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
-    expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Library')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
 
   it('shows Home for unauthenticated (null userType)', () => {
@@ -84,10 +84,10 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.isAuthenticated = false;
     renderNav('/');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Bibliothek')).not.toBeInTheDocument();
+    expect(screen.queryByText('Library')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
-    expect(screen.queryByText('Einstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 });
 
@@ -96,10 +96,10 @@ describe('Navigation - navLinks by user type', () => {
 describe('Navigation - active link', () => {
   it('marks the link whose path matches the current pathname as active', () => {
     renderNav('/patient-interventions');
-    // "Bibliothek" buttons should be active (standalone text-black class)
-    const bibliothekBtns = screen.getAllByText('Bibliothek').map((el) => el.closest('button')!);
+    // "Library" buttons should be active (standalone text-black class)
+    const libraryBtns = screen.getAllByText('Library').map((el) => el.closest('button')!);
 
-    bibliothekBtns.forEach((btn) => {
+    libraryBtns.forEach((btn) => {
       expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
     });
   });
