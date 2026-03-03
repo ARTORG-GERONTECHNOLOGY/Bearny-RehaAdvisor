@@ -2,16 +2,22 @@
 # This workflow runs tests on all components (frontend, backend) and performs
 # security scanning and Docker build validation on every push and PR.
 #
+# Secrets required:
+#   ENV_FILE_DEV   — full contents of .env.dev (all Django / MongoDB / external-service config)
+#   E2E_*          — optional credentials for seeded E2E flows (see frontend-e2e job)
+#
 # Coverage Requirements:
 # - Frontend (Jest): Minimum 70% line coverage
 # - Backend (Pytest): Minimum 75% line coverage
-# 
+#
 # Workflow Steps:
-# 1. Frontend Tests: JavaScript/TypeScript tests with Jest and coverage reporting
-# 2. Backend Tests: Python tests with pytest and coverage reporting
-# 3. Docker Build: Validates Docker images can build successfully
-# 4. Security Scanning: Trivy filesystem scanning for vulnerabilities
-# 5. Test Summary: Consolidates results and reports final status
+# 1. Style Checks: Black + isort (Python), Prettier (TypeScript)
+# 2. Frontend Tests: JavaScript/TypeScript tests with Jest and coverage reporting
+# 3. Backend Tests: Python tests with pytest and coverage reporting
+# 4. Frontend E2E: Playwright browser tests against a live Django dev server
+# 5. Docker Build: Validates Docker images can build successfully
+# 6. Security Scanning: Trivy filesystem scanning for vulnerabilities
+# 7. Test Summary: Consolidates results and reports final status
 
 name: Tests
 
@@ -31,6 +37,11 @@ on:
       - '.github/workflows/tests.yml'
       - 'docker-compose*.yml'
 
+# ---------------------------------------------------------------------------
+# Reusable step templates (referenced via YAML anchors where supported,
+# but written out explicitly below for maximum GitHub Actions compatibility)
+# ---------------------------------------------------------------------------
+
 jobs:
   style-checks:
     name: Style Checks (FE + BE)
@@ -44,7 +55,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'backend/requirements.txt'
 
@@ -111,29 +122,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [style-checks]
-    
-    env:
-      DJANGO_SETTINGS_MODULE: api.settings.dev
-      SECRET_KEY: test-secret-key-for-ci-cd
-      DEBUG: 'False'
-      DB_HOST: localhost
-      DB_PORT: '27017'
-      DB_NAME: reha_advisor_test
-      MONGO_TLS: 'false'
-      DISABLE_MONGO_CONNECT: '1'
-      REDIS_URL: redis://localhost:6379/0
 
+    # All backend tests use mongomock — no real MongoDB connection is made.
+    # DISABLE_MONGO_CONNECT=1 prevents Django's CoreConfig.ready() from
+    # attempting a startup connection, so no mongo service is needed here.
     services:
-      mongo:
-        image: mongo:8.0
-        options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 27017:27017
-
       redis:
         image: redis:7-alpine
         options: >-
@@ -148,10 +141,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Write env file
+        run: echo "${{ secrets.ENV_FILE_DEV }}" > .env
+
+      - name: Load env file and apply CI overrides
+        run: |
+          # Export every non-comment, non-blank line from the env file
+          while IFS= read -r line; do
+            [[ "$line" =~ ^\s*# ]] && continue
+            [[ -z "${line//[[:space:]]/}" ]] && continue
+            echo "$line" >> "$GITHUB_ENV"
+          done < .env
+          # CI-specific overrides — these take precedence over env file values
+          # because GITHUB_ENV entries set later win over earlier ones.
+          echo "DB_HOST=localhost"                    >> "$GITHUB_ENV"
+          echo "DISABLE_MONGO_CONNECT=1"             >> "$GITHUB_ENV"
+          echo "MONGO_TLS=false"                     >> "$GITHUB_ENV"
+          echo "REDIS_URL=redis://localhost:6379/0"  >> "$GITHUB_ENV"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'backend/requirements.txt'
 
@@ -184,25 +195,24 @@ jobs:
     timeout-minutes: 40
     needs: [frontend-tests, backend-tests]
 
+    # E2E credentials for seeded login flows — kept as explicit secret refs
+    # because they are not part of the ENV_FILE_DEV env file.
     env:
-      DJANGO_SETTINGS_MODULE: api.settings.dev
-      SECRET_KEY: test-secret-key-for-ci-cd
-      DEBUG: 'False'
-      DB_HOST: localhost
-      DB_PORT: '27017'
-      DB_NAME: reha_advisor_test
-      MONGO_TLS: 'false'
-      DISABLE_MONGO_CONNECT: '1'
-      REDIS_URL: redis://localhost:6379/0
       E2E_API_URL: http://127.0.0.1:8001/api
-      E2E_PATIENT_LOGIN: ${{ secrets.E2E_PATIENT_LOGIN }}
+      # Logins are non-sensitive — stored as Actions Variables (vars context)
+      E2E_PATIENT_LOGIN: ${{ vars.E2E_PATIENT_LOGIN }}
+      E2E_ADMIN_LOGIN: ${{ vars.E2E_ADMIN_LOGIN }}
+      E2E_THERAPIST_LOGIN: ${{ vars.E2E_THERAPIST_LOGIN }}
+      # Passwords are sensitive — stored as Actions Secrets (secrets context)
       E2E_PATIENT_PASSWORD: ${{ secrets.E2E_PATIENT_PASSWORD }}
-      E2E_ADMIN_LOGIN: ${{ secrets.E2E_ADMIN_LOGIN }}
       E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      E2E_THERAPIST_LOGIN: ${{ secrets.E2E_THERAPIST_LOGIN }}
       E2E_THERAPIST_PASSWORD: ${{ secrets.E2E_THERAPIST_PASSWORD }}
 
     services:
+      # MongoDB with auth — credentials from ENV_FILE_DEV are loaded in steps
+      # below and passed to the connection string used by the Django server.
+      # The service itself starts without credentials; the app connects using
+      # the username/password from the loaded env file.
       mongo:
         image: mongo:8.0
         options: >-
@@ -227,10 +237,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Write env file
+        run: echo "${{ secrets.ENV_FILE_DEV }}" > .env
+
+      - name: Load env file and apply CI overrides
+        run: |
+          # Export every non-comment, non-blank line from the env file
+          while IFS= read -r line; do
+            [[ "$line" =~ ^\s*# ]] && continue
+            [[ -z "${line//[[:space:]]/}" ]] && continue
+            echo "$line" >> "$GITHUB_ENV"
+          done < .env
+          # CI-specific overrides — take precedence over env file values.
+          # DB_HOST: Docker Compose uses "db"; GitHub Actions runner uses localhost.
+          # MONGO auth: the CI MongoDB service starts with no credentials, so
+          #   clear username/password to avoid a connection-refused on auth.
+          # MONGO_TLS: no TLS in the CI runner environment.
+          # REDIS_URL: point at the service started above.
+          # NOTE: DISABLE_MONGO_CONNECT is intentionally NOT set here so that
+          #   the Django server can connect to MongoDB and serve real API responses
+          #   for the Playwright tests.
+          echo "DB_HOST=localhost"                       >> "$GITHUB_ENV"
+          echo "MONGO_INITDB_ROOT_USERNAME="             >> "$GITHUB_ENV"
+          echo "MONGO_INITDB_ROOT_PASSWORD="             >> "$GITHUB_ENV"
+          echo "MONGO_TLS=false"                         >> "$GITHUB_ENV"
+          echo "REDIS_URL=redis://localhost:6379/0"      >> "$GITHUB_ENV"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'backend/requirements.txt'
 
@@ -239,6 +275,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+
+      - name: Seed E2E test users
+        working-directory: backend
+        run: python manage.py seed_e2e
 
       - name: Start backend server
         working-directory: backend
@@ -276,40 +316,39 @@ jobs:
         run: npm run test:e2e -- e2e/home-login.spec.ts
 
       - name: Run seeded redirect E2E flow
-        if: ${{ secrets.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' && secrets.E2E_ADMIN_LOGIN != '' && secrets.E2E_ADMIN_PASSWORD != '' }}
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' && vars.E2E_ADMIN_LOGIN != '' && secrets.E2E_ADMIN_PASSWORD != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/home-login-success-redirects.spec.ts
 
       - name: Run seeded therapist 2FA E2E flow
-        if: ${{ secrets.E2E_THERAPIST_LOGIN != '' && secrets.E2E_THERAPIST_PASSWORD != '' }}
+        if: ${{ vars.E2E_THERAPIST_LOGIN != '' && secrets.E2E_THERAPIST_PASSWORD != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/home-login-therapist.spec.ts
 
       - name: Run seeded patient page E2E flow
-        if: ${{ secrets.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' }}
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/patient-page.spec.ts
 
       - name: Run seeded patient interventions page E2E flow
-        if: ${{ secrets.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' }}
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/patient-interventions-page.spec.ts
 
       - name: Skip note when E2E seeded secrets are missing
-        if: ${{ !(secrets.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' && secrets.E2E_ADMIN_LOGIN != '' && secrets.E2E_ADMIN_PASSWORD != '') }}
+        if: ${{ !(vars.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '' && vars.E2E_ADMIN_LOGIN != '' && secrets.E2E_ADMIN_PASSWORD != '') }}
         run: |
-          echo "Seeded redirect E2E tests skipped because one or more E2E_* secrets are missing."
-          echo "Expected secrets: E2E_PATIENT_LOGIN, E2E_PATIENT_PASSWORD, E2E_ADMIN_LOGIN, E2E_ADMIN_PASSWORD."
+          echo "Seeded redirect E2E tests skipped — E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD / E2E_ADMIN_LOGIN / E2E_ADMIN_PASSWORD not set."
 
       - name: Skip note when patient-page E2E secrets are missing
-        if: ${{ !(secrets.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '') }}
+        if: ${{ !(vars.E2E_PATIENT_LOGIN != '' && secrets.E2E_PATIENT_PASSWORD != '') }}
         run: |
-          echo "Patient-page E2E test skipped because E2E_PATIENT_LOGIN/E2E_PATIENT_PASSWORD are missing."
+          echo "Patient-page E2E tests skipped — E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD not set."
 
       - name: Skip note when therapist E2E secrets are missing
-        if: ${{ !(secrets.E2E_THERAPIST_LOGIN != '' && secrets.E2E_THERAPIST_PASSWORD != '') }}
+        if: ${{ !(vars.E2E_THERAPIST_LOGIN != '' && secrets.E2E_THERAPIST_PASSWORD != '') }}
         run: |
-          echo "Therapist 2FA E2E test skipped because E2E_THERAPIST_LOGIN/E2E_THERAPIST_PASSWORD are missing."
+          echo "Therapist 2FA E2E test skipped — E2E_THERAPIST_LOGIN / E2E_THERAPIST_PASSWORD not set."
 
       - name: Upload Playwright artifacts
         if: always()
@@ -388,7 +427,7 @@ jobs:
       - name: Check test results
         run: |
           if [[ "${{ needs.style-checks.result }}" == "failure" ||
-                "${{ needs.frontend-tests.result }}" == "failure" || 
+                "${{ needs.frontend-tests.result }}" == "failure" ||
                 "${{ needs.backend-tests.result }}" == "failure" ||
                 "${{ needs.frontend-e2e.result }}" == "failure" ||
                 "${{ needs.docker-build.result }}" == "failure" ]]; then
