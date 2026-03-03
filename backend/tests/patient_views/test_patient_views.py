@@ -1062,6 +1062,134 @@ def test_mark_intervention_completed_invalid_date(mongo_mock):
 
 
 # ===========================================================================
+# Date-storage correctness (bug fix: off-by-one timezone day-shift)
+# ===========================================================================
+
+
+def test_mark_completed_stores_local_date_not_utc(mongo_mock):
+    """
+    Regression test for the timezone off-by-one-day bug.
+
+    Before the fix ``mark_intervention_completed`` converted the local midnight
+    to UTC and stripped the tzinfo.  For UTC+ timezones this produced a naive
+    datetime whose *date* component was the *previous* day (e.g. local
+    2025-01-01 00:00 UTC+2 → stored as 2024-12-31 22:00 UTC-naive).
+
+    After the fix the naive local midnight is stored directly, so
+    ``log.date.date()`` must equal ``timezone.localdate()`` (today's local
+    date), never yesterday's.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    today = timezone.localdate()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    assert log.date.date() == today, (
+        f"Log date {log.date.date()} != local date {today}. "
+        "Timezone off-by-one-day bug still present."
+    )
+
+
+def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
+    """
+    When ``target_day`` matches a scheduled date in the patient's
+    rehabilitation plan, the stored log datetime should be the exact
+    scheduled datetime from the plan (converted to naive local time), not
+    midnight of that day.
+
+    This ensures that back-dated completions preserve the session time from
+    the original plan rather than defaulting to 00:00:00.
+    """
+    therapist_user = User(
+        username="th_sched",
+        email="th_sched@example.com",
+        phone="111",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(
+        userId=therapist_user,
+        name="Sched",
+        first_name="Dr",
+        specializations=["Cardiology"],
+        clinics=["Inselspital"],
+    ).save()
+    patient_user = User(
+        username="p_sched",
+        email="p_sched@example.com",
+        phone="222",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="PAT_SCHED",
+        therapist=therapist,
+        access_word="pass",
+    ).save()
+    intervention = Intervention(
+        external_id="sched_test_001",
+        language="en",
+        title="Scheduled Yoga",
+        description="Yoga",
+        content_type="Video",
+    ).save()
+
+    # Schedule the intervention for a specific time on a fixed past date
+    target_day = datetime(2026, 1, 15, 0, 0, 0).date()
+    sched_time = datetime(2026, 1, 15, 8, 30, 0)  # 08:30 naive local
+
+    assignment = InterventionAssignment(
+        interventionId=intervention,
+        frequency="Daily",
+        dates=[sched_time],
+    )
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime(2026, 1, 1),
+        endDate=datetime(2026, 2, 1),
+        status="active",
+        interventions=[assignment],
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient_user.id),
+                "intervention_id": str(intervention.id),
+                "date": target_day.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    # The stored datetime should be the scheduled 08:30, not midnight
+    assert log.date == sched_time, (
+        f"Expected scheduled time {sched_time}, got {log.date}. "
+        "Scheduled datetime from plan not used for storage."
+    )
+
+
+# ===========================================================================
 # Additional coverage — remove_intervention_from_patient
 # ===========================================================================
 

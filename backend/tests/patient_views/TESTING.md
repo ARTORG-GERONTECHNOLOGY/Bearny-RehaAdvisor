@@ -12,7 +12,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | Endpoint | HTTP verb(s) | View function | Tests |
 |---|---|---|---|
 | `/api/patients/feedback/questionaire/` | POST | `submit_patient_feedback` | 6 |
-| `/api/interventions/complete/` | POST | `mark_intervention_completed` | 7 |
+| `/api/interventions/complete/` | POST | `mark_intervention_completed` | 9 |
 | `/api/interventions/uncomplete/` | POST | `unmark_intervention_completed` | 6 |
 | `/api/interventions/remove-from-patient/` | POST | `remove_intervention_from_patient` | 4 |
 | `/api/interventions/add-to-patient/` | POST | `add_intervention_to_patient` | 3 |
@@ -26,7 +26,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/patients/healthstatus-history/<id>/` | GET | `get_patient_healthstatus_history` | 3 |
 | `/api/patients/feedback/questionaire/` (audio) | POST | `submit_patient_feedback` | 1 |
 
-**Total: 89 tests**
+**Total: 93 tests**
 
 ---
 
@@ -91,6 +91,23 @@ Accepts `multipart/form-data`.  Required field: `userId`.  Optional: `interventi
 
 JSON body: `{ patient_id, intervention_id, date? }`.  Ensures at most one log per (patient, plan, intervention, day).  Optional `date` (YYYY-MM-DD) defaults to today.
 
+### Date storage behaviour
+
+Logs are stored with a **naive local datetime** — no UTC conversion.  The old
+code converted local midnight to UTC (e.g. local 00:00 UTC+2 → stored as
+previous-day 22:00 UTC), causing the stored date's `.date()` to be one day
+before the target day.
+
+The fix stores:
+1. If the target day matches a scheduled entry in `InterventionAssignment.dates`:
+   the exact scheduled datetime, converted to naive local time (preserves the
+   original session time for back-dated completions).
+2. Otherwise: `datetime.datetime.combine(target_day, datetime.time.min)` —
+   local midnight, no timezone conversion.
+
+`unmark_intervention_completed` uses the same naive local day window
+`[00:00, 23:59:59]` for querying, keeping both operations consistent.
+
 ### Tests (`test_patient_views.py`)
 
 | Test | Scenario | Expected |
@@ -102,6 +119,8 @@ JSON body: `{ patient_id, intervention_id, date? }`.  Ensures at most one log pe
 | `test_mark_intervention_completed_no_rehab_plan` | Patient exists but no plan | 404, 'Rehabilitation plan not found' |
 | `test_mark_intervention_completed_with_explicit_date` | Valid `date` (yesterday) | 200, 'Marked as completed successfully' |
 | `test_mark_intervention_completed_invalid_date` | `date = "invalid-date"` | 400 |
+| `test_mark_completed_stores_local_date_not_utc` | Mark today — verify `log.date.date() == today` | 200, stored date == local today (regression) |
+| `test_mark_completed_uses_scheduled_datetime_from_plan` | Target day matches plan entry at 08:30 — verify stored time is 08:30, not midnight | 200, `log.date == scheduled datetime` |
 
 ---
 
