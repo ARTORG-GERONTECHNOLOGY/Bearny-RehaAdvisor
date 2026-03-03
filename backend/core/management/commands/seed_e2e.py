@@ -115,9 +115,7 @@ class Command(BaseCommand):
 
     def _seed_therapist(self):
         """Returns the saved Therapist doc, or None if creds are absent."""
-        login, password = self._creds(
-            "E2E_THERAPIST_LOGIN", "E2E_THERAPIST_PASSWORD", "Therapist"
-        )
+        login, password = self._creds("E2E_THERAPIST_LOGIN", "E2E_THERAPIST_PASSWORD", "Therapist")
         if not login:
             return None
         user = User(
@@ -167,9 +165,7 @@ class Command(BaseCommand):
         return therapist
 
     def _seed_patient(self, therapist):
-        login, password = self._creds(
-            "E2E_PATIENT_LOGIN", "E2E_PATIENT_PASSWORD", "Patient"
-        )
+        login, password = self._creds("E2E_PATIENT_LOGIN", "E2E_PATIENT_PASSWORD", "Patient")
         if not login:
             return None
         user = User(
@@ -201,10 +197,6 @@ class Command(BaseCommand):
         login = os.environ.get(login_var, "").strip()
         password = os.environ.get(password_var, "").strip()
         if not login or not password:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"  Skipping {role}: {login_var} / {password_var} not set"
-                )
-            )
+            self.stdout.write(self.style.WARNING(f"  Skipping {role}: {login_var} / {password_var} not set"))
             return None, None
         return login, password
