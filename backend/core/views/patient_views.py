@@ -459,9 +459,7 @@ def mark_intervention_completed(request):
                         continue
                     # Normalise to naive local time for date comparison and storage
                     sched_local = (
-                        sched_dt.astimezone(tz).replace(tzinfo=None)
-                        if sched_dt.tzinfo is not None
-                        else sched_dt
+                        sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
                     )
                     if sched_local.date() == target_day:
                         log_date = sched_local
