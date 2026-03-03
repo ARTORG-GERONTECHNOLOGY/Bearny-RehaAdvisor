@@ -25,6 +25,7 @@ import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client, RequestFactory
+from django.utils import timezone
 
 from core.models import (
     FitbitData,
@@ -314,14 +315,15 @@ def test_fitbit_summary_success_minimal(mock_fetch):
 @patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
 def test_fitbit_summary_with_daily_data_and_vitals_merge(mock_fetch):
     _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
     FitbitData(
         user=patient_user,
-        date=datetime.now(),
+        date=now,
         steps=1000,
         active_minutes=30,
-        sleep=SleepData(sleep_duration=3600000, sleep_end=datetime.now().isoformat()),
+        sleep=SleepData(sleep_duration=3600000, sleep_end=now.isoformat()),
     ).save()
-    PatientVitals(patientId=patient, user=patient_user, date=datetime.now(), bp_sys=120, bp_dia=80).save()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=120, bp_dia=80).save()
 
     resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 200

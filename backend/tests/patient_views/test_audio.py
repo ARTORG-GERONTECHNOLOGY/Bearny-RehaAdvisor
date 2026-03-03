@@ -1,11 +1,12 @@
 import io
 import json
+import tempfile
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.files.storage import default_storage
-from django.test import Client
+from django.test import Client, override_settings
 
 from core.models import Patient, Therapist, User
 
@@ -73,6 +74,7 @@ def setup_patient():
     return patient
 
 
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 @patch("speech_recognition.Recognizer.recognize_google")
 @patch("speech_recognition.Recognizer.record")
 @patch("speech_recognition.AudioFile")
