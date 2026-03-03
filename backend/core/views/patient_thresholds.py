@@ -133,6 +133,20 @@ def _user_is_patient(user: User) -> bool:
     return getattr(user, "role", "") == "Patient"
 
 
+def _get_username_from_request(request) -> str:
+    """Extract 'username' claim from Bearer JWT, or return '' on any error."""
+    try:
+        from rest_framework_simplejwt.tokens import AccessToken
+        auth = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth.startswith("Bearer "):
+            return ""
+        raw = auth.split(" ", 1)[1]
+        token = AccessToken(raw)
+        return str(token.get("username", ""))
+    except Exception:
+        return ""
+
+
 # -----------------------------------
 # “Serializer-style” validation layer
 # -----------------------------------
@@ -342,6 +356,16 @@ def _merge_thresholds(current: PatientThresholds, patch: PatientThresholds) -> P
     )
 
 
+def _hist_item(h: PatientThresholdsSnapshot) -> Dict[str, Any]:
+    cb = getattr(h, "changed_by", "") or ""
+    return {
+        "effective_from": (h.effective_from.isoformat() if getattr(h, "effective_from", None) else None),
+        "changed_by": cb or None,
+        "reason": getattr(h, "reason", "") or "",
+        "thresholds": _thresholds_to_dict(getattr(h, "thresholds", PatientThresholds())),
+    }
+
+
 def _thresholds_equal(a: PatientThresholds, b: PatientThresholds) -> bool:
     a_d = _thresholds_to_dict(a)
     b_d = _thresholds_to_dict(b)
@@ -357,6 +381,7 @@ def update_patient_thresholds_with_history(
     new_partial: PatientThresholds,
     effective_from: datetime,
     reason: str,
+    changed_by: str = "",
     create_history_if_noop: bool = False,
 ) -> Patient:
     """
@@ -377,6 +402,7 @@ def update_patient_thresholds_with_history(
     snapshot = PatientThresholdsSnapshot(
         effective_from=effective_from,
         reason=reason or "",
+        changed_by=changed_by or "",
         thresholds=current,
     )
 
@@ -422,20 +448,11 @@ def patient_thresholds_view(request, patient_id: str):
             reverse=True,
         )
 
-        def hist_item(h: PatientThresholdsSnapshot) -> Dict[str, Any]:
-            cb = getattr(h, "changed_by", None)
-            return {
-                "effective_from": (h.effective_from.isoformat() if getattr(h, "effective_from", None) else None),
-                "changed_by": (str(cb.id) if cb else None),
-                "reason": getattr(h, "reason", "") or "",
-                "thresholds": _thresholds_to_dict(getattr(h, "thresholds", PatientThresholds())),
-            }
-
         return ok(
             {
                 "patient_id": str(pat.id),
                 "thresholds": _thresholds_to_dict(current),
-                "history": [hist_item(h) for h in hist_sorted[:200]],  # cap
+                "history": [_hist_item(h) for h in hist_sorted[:200]],  # cap
             }
         )
 
@@ -462,6 +479,7 @@ def patient_thresholds_view(request, patient_id: str):
             new_partial=validated.thresholds,
             effective_from=validated.effective_from,
             reason=validated.reason,
+            changed_by=_get_username_from_request(request),
             create_history_if_noop=False,
         )
     except MEValidationError as e:
@@ -471,11 +489,19 @@ def patient_thresholds_view(request, patient_id: str):
         logger.exception("Error updating thresholds")
         return bad("Unexpected error.", non_field_errors=[str(e)], status=500)
 
+    hist = list(getattr(updated, "thresholds_history", []) or [])
+    hist_sorted = sorted(
+        hist,
+        key=lambda x: getattr(x, "effective_from", timezone.now()),
+        reverse=True,
+    )
+
     return ok(
         {
             "message": "Thresholds updated.",
             "patient_id": str(updated.id),
             "thresholds": _thresholds_to_dict(_ensure_patient_thresholds(updated)),
+            "history": [_hist_item(h) for h in hist_sorted[:200]],
         },
         status=200,
     )

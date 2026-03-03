@@ -193,3 +193,63 @@ def test_thresholds_post_uses_same_update_logic():
 
     assert resp.status_code == 200
     assert resp.json()["thresholds"]["steps_goal"] == 9000
+
+
+# ===========================================================================
+# History values + changed_by
+# ===========================================================================
+
+def _make_jwt(username: str) -> str:
+    """Generate a real simplejwt AccessToken with a username claim."""
+    from rest_framework_simplejwt.tokens import AccessToken
+
+    token = AccessToken()
+    token["username"] = username
+    return str(token)
+
+
+def test_thresholds_history_includes_threshold_values():
+    """GET history snapshots include the previous threshold values dict."""
+    patient = create_patient()
+    # PATCH: sets steps_goal to 5000 (snapshot stores the old default values)
+    client.patch(
+        f"/api/patients/{patient.id}/thresholds/",
+        data=json.dumps({"thresholds": {"steps_goal": 5000}}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    resp = client.get(f"/api/patients/{patient.id}/thresholds/", HTTP_AUTHORIZATION="Bearer test")
+    body = resp.json()
+    assert len(body["history"]) == 1
+    snap = body["history"][0]
+    assert "thresholds" in snap
+    assert "steps_goal" in snap["thresholds"]
+
+
+def test_thresholds_patch_returns_history():
+    """PATCH response includes a history field."""
+    patient = create_patient()
+    resp = client.patch(
+        f"/api/patients/{patient.id}/thresholds/",
+        data=json.dumps({"thresholds": {"steps_goal": 7777}}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    body = resp.json()
+    assert "history" in body
+    assert isinstance(body["history"], list)
+
+
+def test_thresholds_changed_by_stored_in_snapshot():
+    """changed_by is populated from the JWT username claim."""
+    patient = create_patient()
+    jwt = _make_jwt("dr.house")
+    client.patch(
+        f"/api/patients/{patient.id}/thresholds/",
+        data=json.dumps({"thresholds": {"steps_goal": 8000}}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {jwt}",
+    )
+    patient.reload()
+    assert len(patient.thresholds_history) == 1
+    assert patient.thresholds_history[0].changed_by == "dr.house"
