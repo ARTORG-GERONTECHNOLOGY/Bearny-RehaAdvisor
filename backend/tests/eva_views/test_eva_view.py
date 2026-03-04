@@ -70,6 +70,7 @@ def _dl_token() -> str:
     """Generate a valid (unexpired) download token for tests."""
     return signing.dumps({"ok": True}, salt=_DL_SALT)
 
+
 client = Client()
 rf = RequestFactory()
 
@@ -236,6 +237,7 @@ def test_download_audio_success_stream_headers():
 # Download auth endpoints
 # ===========================================================================
 
+
 def test_download_auth_wrong_password():
     with patch.dict("os.environ", {"HEALTHSLIDER_DOWNLOAD_PASSWORD": "secret123"}):
         r = client.post(
@@ -273,8 +275,9 @@ def test_download_verify_invalid_code():
 
 
 def test_download_verify_valid_code_returns_token():
-    from django.utils import timezone
     from datetime import timedelta
+
+    from django.utils import timezone
 
     SMSVerification(
         userId="healthslider_download",

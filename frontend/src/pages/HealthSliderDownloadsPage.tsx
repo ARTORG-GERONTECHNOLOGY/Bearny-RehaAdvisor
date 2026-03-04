@@ -37,7 +37,9 @@ import apiClient from '../api/client';
 
 export default function DownloadsPage() {
   // --- auth gate ---
-  const [hlsToken, setHlsToken] = useState(() => sessionStorage.getItem('healthslider_token') || '');
+  const [hlsToken, setHlsToken] = useState(
+    () => sessionStorage.getItem('healthslider_token') || ''
+  );
   const [step, setStep] = useState<'password' | 'code'>('password');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -179,7 +181,10 @@ export default function DownloadsPage() {
 
   if (!hlsToken) {
     return (
-      <Container className="py-5" style={{ maxWidth: 480, fontFamily: 'Atkinson Hyperlegible, sans-serif' }}>
+      <Container
+        className="py-5"
+        style={{ maxWidth: 480, fontFamily: 'Atkinson Hyperlegible, sans-serif' }}
+      >
         <h3 className="mb-4">ICF Monitor — Secure Access</h3>
         {step === 'password' ? (
           <>

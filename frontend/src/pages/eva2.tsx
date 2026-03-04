@@ -583,8 +583,13 @@ export default function HealthSlider() {
           <input
             type="text"
             value={patientIdInput}
-            onChange={(e) => { setPatientIdInput(e.target.value); setPatientIdError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') submitPatientId(); }}
+            onChange={(e) => {
+              setPatientIdInput(e.target.value);
+              setPatientIdError('');
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitPatientId();
+            }}
             placeholder="P01"
             autoFocus
             style={{
@@ -599,7 +604,11 @@ export default function HealthSlider() {
             }}
           />
           {patientIdError && <p style={{ color: '#b00020', marginBottom: 10 }}>{patientIdError}</p>}
-          <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={submitPatientId}>
+          <button
+            type="button"
+            style={{ ...styles.btn, ...styles.btnPrimary }}
+            onClick={submitPatientId}
+          >
             Weiter
           </button>
         </div>

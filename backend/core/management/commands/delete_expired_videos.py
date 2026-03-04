@@ -240,8 +240,9 @@ class Command(BaseCommand):
             (GeneralFeedback, "feedback_entries"),
         ]:
             try:
-                audio_qs = doc_class.objects(**{f"{list_field}__audio_url__ne": None,
-                                                f"{list_field}__audio_url__ne": ""})
+                audio_qs = doc_class.objects(
+                    **{f"{list_field}__audio_url__ne": None, f"{list_field}__audio_url__ne": ""}
+                )
                 if limit:
                     audio_qs = audio_qs[:limit]
 
