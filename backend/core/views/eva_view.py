@@ -36,7 +36,8 @@ import random
 import re
 import string
 import zipfile
-from datetime import timedelta, timezone as dt_timezone
+from datetime import timedelta
+from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.core import signing
@@ -123,9 +124,7 @@ def healthslider_download_verify(request):
             return JsonResponse({"error": "Code required"}, status=400)
 
         verification = (
-            SMSVerification.objects(userId="healthslider_download", code=code)
-            .order_by("-created_at")
-            .first()
+            SMSVerification.objects(userId="healthslider_download", code=code).order_by("-created_at").first()
         )
         if not verification:
             return JsonResponse({"error": "Invalid code"}, status=400)
