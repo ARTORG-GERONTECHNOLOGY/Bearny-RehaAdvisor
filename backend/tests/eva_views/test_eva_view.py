@@ -1,3 +1,48 @@
+"""
+ICF Monitor / HealthSlider — view tests
+========================================
+
+Test areas
+----------
+submit_healthslider_item
+    - Method enforcement (POST only)
+    - Required-field validation (participantId, sessionId)
+    - Happy-path without audio (HTTP 201, document created in MongoDB)
+    - Happy-path with audio (storage.save mocked, has_audio flag set)
+
+Helper utilities
+    - _safe_slug, _safe_filename, _guess_ext (MIME → file extension)
+
+list_healthslider_items
+    - 401 without X-Healthslider-Token header
+    - 400 without participantId query param
+    - 200 with valid token + participantId
+
+download_healthslider_audio
+    - 401 without token
+    - 405 on non-GET method
+    - 404 when item or storage file missing
+    - 200 with correct Content-Disposition: inline header
+
+Download auth (2FA gate)
+    - Wrong password → 401
+    - Correct password → 200 + SMSVerification record created + email sent (mocked)
+    - Invalid code → 400
+    - Valid code → 200 + signed token verifiable with _DL_SALT
+
+Session management
+    - download_healthslider_session_zip  (called directly, storage mocked, returns ZIP)
+    - delete_healthslider_session        (GET → 405, missing param → 400, not found → 404,
+                                          success → 200 + DB records deleted + storage.delete called)
+
+Auth setup
+----------
+All list/audio endpoints require X-Healthslider-Token.
+Tests generate a valid token with ``_dl_token()`` which calls
+``signing.dumps({"ok": True}, salt=_DL_SALT)``.
+Each test gets a fresh in-memory MongoDB via the ``mongo_mock`` autouse fixture.
+"""
+
 import io
 import json
 from datetime import datetime
@@ -6,17 +51,24 @@ from unittest.mock import patch
 import mongomock
 import pytest
 from bson import ObjectId
+from django.core import signing
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, RequestFactory
 
-from core.models import HealthSliderEntry
+from core.models import HealthSliderEntry, SMSVerification
 from core.views.eva_view import (
+    _DL_SALT,
     _guess_ext,
     _safe_filename,
     _safe_slug,
     delete_healthslider_session,
     download_healthslider_session_zip,
 )
+
+
+def _dl_token() -> str:
+    """Generate a valid (unexpired) download token for tests."""
+    return signing.dumps({"ok": True}, salt=_DL_SALT)
 
 client = Client()
 rf = RequestFactory()
@@ -101,30 +153,45 @@ def test_eva_helpers_slug_filename_and_ext():
     assert _guess_ext("", ".bin") == ".bin"
 
 
-def test_list_items_requires_participant_id():
+def test_list_items_no_token_returns_401():
     r = client.get("/api/healthslider/items/")
+    assert r.status_code == 401
+
+
+def test_list_items_requires_participant_id():
+    tok = _dl_token()
+    r = client.get("/api/healthslider/items/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r.status_code == 400
 
 
 def test_list_items_success():
     HealthSliderEntry(participant_id="P1", session_id="S1", question_index=0, question_text="Q").save()
-    r = client.get("/api/healthslider/items/?participantId=P1")
+    tok = _dl_token()
+    r = client.get("/api/healthslider/items/?participantId=P1", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r.status_code == 200
     assert len(r.json()["items"]) == 1
 
 
-def test_download_audio_method_and_not_found():
+def test_download_audio_no_token_returns_401():
     missing_id = str(ObjectId())
-    r1 = client.post(f"/api/healthslider/audio/{missing_id}/")
+    r = client.get(f"/api/healthslider/audio/{missing_id}/")
+    assert r.status_code == 401
+
+
+def test_download_audio_method_and_not_found():
+    tok = _dl_token()
+    missing_id = str(ObjectId())
+    r1 = client.post(f"/api/healthslider/audio/{missing_id}/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r1.status_code == 405
 
-    r2 = client.get(f"/api/healthslider/audio/{missing_id}/")
+    r2 = client.get(f"/api/healthslider/audio/{missing_id}/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r2.status_code == 404
 
 
 def test_download_audio_no_audio_on_item():
     e = HealthSliderEntry(participant_id="P1", session_id="S1", question_index=0, question_text="Q").save()
-    r = client.get(f"/api/healthslider/audio/{e.id}/")
+    tok = _dl_token()
+    r = client.get(f"/api/healthslider/audio/{e.id}/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r.status_code == 404
 
 
@@ -137,8 +204,9 @@ def test_download_audio_missing_file_on_storage():
         audio_file="healthslider/P1/a.webm",
         has_audio=True,
     ).save()
+    tok = _dl_token()
     with patch("core.views.eva_view.default_storage.exists", return_value=False):
-        r = client.get(f"/api/healthslider/audio/{e.id}/")
+        r = client.get(f"/api/healthslider/audio/{e.id}/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r.status_code == 404
 
 
@@ -153,14 +221,76 @@ def test_download_audio_success_stream_headers():
         audio_mime="",
         has_audio=True,
     ).save()
+    tok = _dl_token()
     with (
         patch("core.views.eva_view.default_storage.exists", return_value=True),
         patch("core.views.eva_view.default_storage.open", return_value=io.BytesIO(b"abc")),
         patch("core.views.eva_view.default_storage.size", return_value=3),
     ):
-        r = client.get(f"/api/healthslider/audio/{e.id}/")
+        r = client.get(f"/api/healthslider/audio/{e.id}/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
     assert r.status_code == 200
     assert "inline;" in r["Content-Disposition"]
+
+
+# ===========================================================================
+# Download auth endpoints
+# ===========================================================================
+
+def test_download_auth_wrong_password():
+    with patch.dict("os.environ", {"HEALTHSLIDER_DOWNLOAD_PASSWORD": "secret123"}):
+        r = client.post(
+            "/api/healthslider/auth/",
+            data=json.dumps({"password": "wrong", "email": "x@example.com"}),
+            content_type="application/json",
+        )
+    assert r.status_code == 401
+    assert "Invalid password" in r.json()["error"]
+
+
+def test_download_auth_correct_password_sends_code():
+    with (
+        patch.dict("os.environ", {"HEALTHSLIDER_DOWNLOAD_PASSWORD": "secret123"}),
+        patch("core.views.eva_view.EmailMultiAlternatives.send"),
+    ):
+        r = client.post(
+            "/api/healthslider/auth/",
+            data=json.dumps({"password": "secret123", "email": "researcher@example.com"}),
+            content_type="application/json",
+        )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert SMSVerification.objects(userId="healthslider_download").count() == 1
+
+
+def test_download_verify_invalid_code():
+    r = client.post(
+        "/api/healthslider/auth/verify/",
+        data=json.dumps({"code": "999999"}),
+        content_type="application/json",
+    )
+    assert r.status_code == 400
+    assert "Invalid code" in r.json()["error"]
+
+
+def test_download_verify_valid_code_returns_token():
+    from django.utils import timezone
+    from datetime import timedelta
+
+    SMSVerification(
+        userId="healthslider_download",
+        code="123456",
+        expires_at=timezone.now() + timedelta(minutes=10),
+    ).save()
+    r = client.post(
+        "/api/healthslider/auth/verify/",
+        data=json.dumps({"code": "123456"}),
+        content_type="application/json",
+    )
+    assert r.status_code == 200
+    token = r.json()["token"]
+    assert token
+    # Token must be valid for the download endpoints
+    assert signing.loads(token, salt=_DL_SALT) == {"ok": True}
 
 
 def test_download_session_zip_requires_participant_and_no_files():

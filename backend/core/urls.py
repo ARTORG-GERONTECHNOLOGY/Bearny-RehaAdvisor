@@ -14,6 +14,8 @@ from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_audio,
     download_healthslider_session_zip,
+    healthslider_download_auth,
+    healthslider_download_verify,
     list_healthslider_items,
     submit_healthslider_item,
 )
@@ -244,6 +246,8 @@ urlpatterns = [
     ),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
     # ICF/EVA Healthslider
+    path("api/healthslider/auth/", healthslider_download_auth),
+    path("api/healthslider/auth/verify/", healthslider_download_verify),
     path("api/healthslider/items/", list_healthslider_items),
     path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
     path("api/healthslider/submit-item/", submit_healthslider_item),

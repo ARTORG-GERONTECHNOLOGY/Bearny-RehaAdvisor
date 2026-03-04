@@ -1,3 +1,77 @@
+"""
+User / Therapist profile views
+================================
+
+Endpoints
+---------
+GET    /api/users/<user_id>/profile/
+    Return the profile for a Therapist or Patient.  Accepts either a User ObjectId
+    or a Patient ObjectId (the view resolves the Patient → linked User).
+    Sensitive fields (``pwdhash``, ``access_word``) are never returned.
+    Therapist response: username, email, phone, name, first_name, specializations, clinics.
+    Patient response: all User + Patient fields except the excluded set.
+
+PUT    /api/users/<user_id>/profile/
+    Update whitelisted profile fields.  Two modes:
+
+    1. Password change — send ``oldPassword``/``newPassword`` (camelCase) or
+       ``old_password``/``new_password`` (snake_case).  Old password is verified
+       before any change is saved.
+
+    2. Field update — send any subset of the allowed fields below.  Forbidden
+       fields (``role``, ``pwdhash``, ``createdAt``, etc.) are silently stripped
+       (overposting protection).  Empty string / null values are skipped so they
+       never erase existing data.
+
+    Therapist allowed fields
+        User:      username, email, phone
+        Therapist: name, first_name, specializations, clinics
+
+    Patient allowed fields
+        User:    username, email, phone
+        Patient: first_name, name, gender, birthdate, height, weight, function,
+                 diagnosis, clinic, reha_end_date, last_clinic_visit,
+                 level_of_education, professional_status, marital_status,
+                 restrictions, lifestyle, personal_goals, social_support,
+                 initial_questionnaire_enabled
+
+    Every successful PUT writes a ``Logs`` entry with action ``UPDATE_PROFILE``
+    recording the old and new values of changed fields.
+
+DELETE /api/users/<user_id>/profile/
+    Soft-delete: sets ``isActive=False`` on the User document.  No data is
+    hard-deleted; audit trail (rehabilitation plans, logs) is preserved.
+
+PUT    /api/users/<user_id>/change-password/
+    Intentionally returns HTTP 400 when password fields are supplied — callers
+    should use the profile PUT endpoint instead.  Rate-limited (5 per 5 min).
+
+PUT    /api/patients/<patient_id>/reset-password/
+    Therapist-initiated password reset for a patient.  No old password needed.
+    Same strength rules as self-service: 8+ chars, upper, lower, digit, special.
+
+GET    /api/admin/pending-users/
+    List all users with ``isActive=False`` (awaiting admin approval).
+
+POST   /api/admin/accept-user/
+    Activate a pending user and send an acceptance e-mail.
+
+POST   /api/admin/decline-user/
+    Hard-delete a pending user and send a rejection e-mail.
+
+Input validation
+----------------
+- Email:  ``^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$``
+- Phone:  ``^\\+?[0-9]{7,15}$``
+- Both validators skip None / empty values (REDCap patients have no email/phone).
+- Date fields: ``YYYY-MM-DD`` (also accepts ISO with time component, truncated).
+
+Password strength rules
+-----------------------
+At least 8 characters; must contain at least one uppercase letter, one lowercase
+letter, one digit, and one special character from ``!@#$%^&*(),.?":{}|<>``.
+"""
+
 import json
 import logging
 

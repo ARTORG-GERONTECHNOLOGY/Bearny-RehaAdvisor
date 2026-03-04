@@ -23,14 +23,14 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'frontend/**'
       - 'backend/**'
       - '.github/workflows/tests.yml'
       - 'docker-compose*.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'frontend/**'
       - 'backend/**'

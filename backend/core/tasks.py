@@ -1,5 +1,6 @@
 # core/tasks.py
 import logging
+import os
 
 from celery import shared_task
 from django.core.management import call_command
@@ -29,8 +30,17 @@ from core.models import (
 def run_delete_expired_videos():
     """
     Runs the Django management command 'delete_expired_videos'.
-    Prefer direct function calls if you have a service function.
+
+    Controlled by the ENABLE_MEDIA_AUTO_DELETE environment variable.
+    Set it to "true" (or "1"/"yes") to enable automatic deletion of feedback
+    videos and audios older than 14 days.  Defaults to disabled so existing
+    deployments are unaffected until explicitly opted in.
     """
+    enabled = os.environ.get("ENABLE_MEDIA_AUTO_DELETE", "").strip().lower()
+    if enabled not in ("true", "1", "yes"):
+        logger.info("ENABLE_MEDIA_AUTO_DELETE is not set to true — skipping media cleanup")
+        return "skipped"
+
     call_command("delete_expired_videos")
     logger.info("✅ delete_expired_videos finished")
     return "ok"

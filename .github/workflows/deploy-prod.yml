@@ -1,27 +1,33 @@
 name: Production Deployment
 
-# Triggers only on the `prod` branch (kept separate from main so CI tests
-# on main never accidentally kick off a production deploy).
-# Manual runs via workflow_dispatch are also supported.
+# Triggers only when a GitHub Release is published (e.g. v1.2.3).
+# This means production deploys are always tied to a specific immutable tag,
+# not to an arbitrary branch state.
+#
+# Manual re-runs are still available via workflow_dispatch (useful for
+# re-deploying the same tag after an infra issue without creating a new release).
+#
+# Secrets required (repository or production environment):
+#   ENV_FILE_DEV         — full contents of .env.dev for CI test run
+#   PROD_HOST            — SSH host for production server
+#   PROD_USERNAME        — SSH user
+#   PROD_SSH_KEY         — private SSH key (PEM)
+#   VITE_SENTRY_DSN      — baked into the frontend image at build time
+#   SLACK_WEBHOOK_URL    — optional Slack notifications
+#
+# GitHub Environment: "production"
+#   Recommended: add required reviewers so every release needs approval
+#   before the deploy job actually runs.
+
 on:
-  push:
-    branches: [Prod]
-    paths:
-      - 'frontend/**'
-      - 'backend/**'
-      - 'nginx/**'
-      - 'docker-compose.prod.reha-advisor.yml'
-      - '.github/workflows/deploy-prod.yml'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - staging
-          - production
+      tag:
+        description: 'Git tag to deploy (e.g. v1.2.3) — defaults to latest release tag'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
@@ -29,7 +35,7 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Tests — same pattern as tests.yml so secrets / coverage work correctly
+  # 1. Tests — run the full backend + frontend suite against the release tag
   # ---------------------------------------------------------------------------
   test:
     name: Run Tests Before Deploy
@@ -48,8 +54,10 @@ jobs:
           - 6379:6379
 
     steps:
-      - name: Checkout code
+      - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
 
       - name: Write env file
         run: echo "${{ secrets.ENV_FILE_DEV }}" > .env
@@ -97,10 +105,10 @@ jobs:
           npm test -- --watchAll=false --testTimeout=10000
 
   # ---------------------------------------------------------------------------
-  # 2. Build — push images to GHCR
+  # 2. Build — push versioned images to GHCR
   # ---------------------------------------------------------------------------
   build:
-    name: Build Docker Images
+    name: Build & Push Docker Images
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: test
@@ -109,12 +117,20 @@ jobs:
       packages: write
 
     outputs:
-      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
-      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      tag: ${{ steps.resolve-tag.outputs.tag }}
 
     steps:
-      - name: Checkout code
+      - name: Resolve deployment tag
+        id: resolve-tag
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: $TAG"
+
+      - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve-tag.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -132,11 +148,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=raw,value=latest
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
@@ -157,11 +171,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=raw,value=latest
 
       - name: Build and push backend image
         uses: docker/build-push-action@v4
@@ -175,68 +187,14 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # 3. Deploy to staging (optional — only fires on push to prod branch)
-  #    Production deploy does NOT depend on this job succeeding.
-  # ---------------------------------------------------------------------------
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/prod'
-    environment:
-      name: staging
-      url: https://staging.reha-advisor.ch
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to staging server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USERNAME }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            cd /opt/reha-advisor-staging
-            git pull origin prod
-            docker compose -f docker-compose.prod.reha-advisor.yml down || true
-            docker compose -f docker-compose.prod.reha-advisor.yml pull
-            docker compose -f docker-compose.prod.reha-advisor.yml up -d
-            docker exec django-prod python manage.py migrate
-            docker exec django-prod python manage.py collectstatic --noinput
-            docker exec django-prod python manage.py seed_admin
-            docker exec django-prod python manage.py seed_feedback_questions
-            sleep 10
-            docker compose -f docker-compose.prod.reha-advisor.yml ps
-
-      - name: Health check
-        run: |
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f https://staging.reha-advisor.ch/health; then
-              echo "✅ Staging deployment successful"
-              exit 0
-            fi
-            attempt=$((attempt + 1))
-            sleep 2
-          done
-          echo "❌ Health check failed"
-          exit 1
-
-  # ---------------------------------------------------------------------------
-  # 4. Deploy to production
-  #    Depends only on `build` so it can run even when staging is skipped.
+  # 3. Deploy to production
+  #    Uses the GitHub "production" environment — add required reviewers there
+  #    to gate every deploy behind a manual approval step.
   # ---------------------------------------------------------------------------
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build]
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/prod' &&
-       contains(github.event.head_commit.message, '[deploy-prod]'))
     environment:
       name: production
       url: https://reha-advisor.ch
@@ -245,109 +203,106 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Verify production readiness
-        run: |
-          echo "🔍 Verifying production readiness..."
-          if [[ "${{ needs.build.result }}" != "success" ]]; then
-            echo "❌ Build failed — cannot deploy to production"
-            exit 1
-          fi
-          echo "✅ All checks passed — ready for production deployment"
-
-      - name: Create backup
-        uses: appleboy/ssh-action@master
+      - name: Create pre-deploy backup
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /opt/reha-advisor
-            echo "Creating database backup..."
-            ./scripts/backup.sh
+            set -euo pipefail
+            cd /home/ubuntu/repos/telerehabapp
+            echo "Creating database backup before deploy..."
+            if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh; fi
 
-      - name: Deploy to production
-        uses: appleboy/ssh-action@master
+      - name: Deploy release ${{ needs.build.outputs.tag }} to production
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /opt/reha-advisor
-            echo "🚀 Starting production deployment..."
-            git pull origin prod
-            docker compose -f docker-compose.prod.reha-advisor.yml ps > /tmp/before-deploy.txt
-            echo "📦 Pulling latest Docker images..."
+            set -euo pipefail
+            cd /home/ubuntu/repos/telerehabapp
+
+            TAG="${{ needs.build.outputs.tag }}"
+            echo "Deploying tag: $TAG"
+
+            # Checkout the exact release tag — guarantees reproducible deploys
+            git fetch --all --tags
+            git checkout -f "$TAG"
+
+            # Pull the pre-built images for this tag from GHCR
             docker compose -f docker-compose.prod.reha-advisor.yml pull
-            echo "⚙️  Starting new services..."
+
+            # Bring up new containers
             docker compose -f docker-compose.prod.reha-advisor.yml up -d
-            echo "⏳ Waiting for services to be healthy..."
+
+            echo "Waiting for containers to settle..."
             sleep 15
-            echo "🗄️  Running database migrations..."
+
             docker exec django-prod python manage.py migrate
-            echo "📁 Collecting static files..."
             docker exec django-prod python manage.py collectstatic --noinput
-            echo "🌱 Seeding admin user..."
             docker exec django-prod python manage.py seed_admin
-            echo "🌱 Seeding feedback questions..."
             docker exec django-prod python manage.py seed_feedback_questions
-            echo "✅ Verifying deployment..."
+            docker exec django-prod python manage.py seed_periodic_tasks
+
+            echo "Deployed $TAG successfully"
             docker compose -f docker-compose.prod.reha-advisor.yml ps
+
+            # Clean up old images to free disk space
+            docker image prune -f
 
       - name: Production health check
         run: |
-          echo "🏥 Running production health checks..."
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/health)
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/health || true)
             if [ "$http_code" = "200" ]; then
               echo "✅ Production health check passed (HTTP $http_code)"
               exit 0
             fi
-            echo "⏳ Attempt $((attempt + 1))/$max_attempts — HTTP $http_code"
+            echo "Attempt $((attempt + 1))/$max_attempts — HTTP $http_code"
             attempt=$((attempt + 1))
             sleep 2
           done
           echo "❌ Production health check failed"
           exit 1
 
-      - name: Verify database
-        uses: appleboy/ssh-action@master
+      - name: Verify database connectivity
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /opt/reha-advisor
-            echo "🗄️  Verifying database..."
             docker exec db-prod mongosh admin --eval 'db.adminCommand("ping")' || exit 1
-            echo "✅ Database verification passed"
-
-      - name: Notify deployment success
-        if: success()
-        run: |
-          echo "✅ Production deployment successful!"
-          echo "🌍 Service available at: https://reha-advisor.ch"
+            echo "✅ Database OK"
 
       - name: Rollback on failure
         if: failure()
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /opt/reha-advisor
-            echo "❌ Production deployment failed — rolling back..."
-            docker compose -f docker-compose.prod.reha-advisor.yml down
-            git checkout HEAD~1
-            docker compose -f docker-compose.prod.reha-advisor.yml up -d
+            cd /home/ubuntu/repos/telerehabapp
+            echo "❌ Deploy failed — rolling back to previous tag..."
+            PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              git checkout -f "$PREV_TAG"
+              docker compose -f docker-compose.prod.reha-advisor.yml pull || true
+              docker compose -f docker-compose.prod.reha-advisor.yml up -d
+              echo "Rolled back to $PREV_TAG"
+            else
+              echo "No previous tag found — manual intervention required"
+              exit 1
+            fi
 
   # ---------------------------------------------------------------------------
-  # 5. Notify — Slack + GitHub deployment status
+  # 4. Notify
   # ---------------------------------------------------------------------------
   notify:
     name: Notify Deployment Status
@@ -358,30 +313,17 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
-      - name: Determine status
-        id: status
-        run: |
-          if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
-            echo "status=✅ Production deployment successful" >> $GITHUB_OUTPUT
-            echo "color=good" >> $GITHUB_OUTPUT
-          else
-            echo "status=❌ Production deployment failed" >> $GITHUB_OUTPUT
-            echo "color=danger" >> $GITHUB_OUTPUT
-          fi
-
       - name: Send Slack notification
         if: ${{ env.SLACK_WEBHOOK_URL != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: |
-            ${{ steps.status.outputs.status }}
+            ${{ needs.deploy-production.result == 'success' && '✅ Production deployment successful' || '❌ Production deployment failed' }}
 
+            Release: ${{ github.event.release.tag_name || inputs.tag }}
             Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
-
             URL: https://reha-advisor.ch
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           fields: repo,message,commit,author,action,eventName,ref,workflow
@@ -391,12 +333,14 @@ jobs:
         if: always()
         with:
           script: |
-            const deployment_status = '${{ needs.deploy-production.result }}' === 'success' ? 'success' : 'failure';
-            github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: context.payload.deployment?.id,
-              state: deployment_status,
-              description: 'Production deployment ${{ needs.deploy-production.result }}',
-              environment_url: 'https://reha-advisor.ch'
-            });
+            const state = '${{ needs.deploy-production.result }}' === 'success' ? 'success' : 'failure';
+            if (context.payload.deployment?.id) {
+              github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: context.payload.deployment.id,
+                state,
+                description: `Production deployment ${{ needs.deploy-production.result }}`,
+                environment_url: 'https://reha-advisor.ch'
+              });
+            }
