@@ -1,16 +1,147 @@
+"""
+ICF Monitor / HealthSlider — backend API views
+===============================================
+
+Endpoints
+---------
+POST   /api/healthslider/submit-item/       No auth required (patients submit from device)
+GET    /api/healthslider/items/             Requires X-Healthslider-Token
+GET    /api/healthslider/audio/<id>/        Requires X-Healthslider-Token
+GET    /api/healthslider/session-zip/       Aggregate ZIP download (internal/admin use)
+DELETE /api/healthslider/delete-session/    Delete session data + files (internal/admin use)
+POST   /api/healthslider/auth/              Step 1: validate shared password, send email code
+POST   /api/healthslider/auth/verify/       Step 2: verify email code, return signed token
+
+Download auth flow (2FA, separate from main app)
+------------------------------------------------
+1. Researcher POSTs shared password + their email to /api/healthslider/auth/
+2. A 6-digit code is emailed to that address (valid 10 min, stored in SMSVerification
+   with userId="healthslider_download").
+3. Researcher POSTs the code to /api/healthslider/auth/verify/
+4. A tamper-proof signed token is returned (django.core.signing, salt "healthslider_dl",
+   max_age 8 hours).
+5. All subsequent read requests carry the token in the X-Healthslider-Token header.
+
+Environment variables
+---------------------
+HEALTHSLIDER_DOWNLOAD_PASSWORD   Shared password used in step 1 above.
+"""
+
 import datetime
 import io
+import json
 import mimetypes
 import os
+import random
 import re
+import string
 import zipfile
+from datetime import timedelta, timezone as dt_timezone
 
+from django.conf import settings
+from django.core import signing
 from django.core.files.storage import default_storage
+from django.core.mail import EmailMultiAlternatives
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
-from core.models import HealthSliderEntry
+from core.models import HealthSliderEntry, SMSVerification
+
+# ---------------------------------------------------------------------------
+# Download-only auth constants
+# ---------------------------------------------------------------------------
+_DL_SALT = "healthslider_dl"
+_DL_TOKEN_MAX_AGE = 28800  # 8 hours
+
+
+def _check_download_token(request) -> bool:
+    """Return True when the request carries a valid, unexpired download token."""
+    token = request.META.get("HTTP_X_HEALTHSLIDER_TOKEN", "")
+    if not token:
+        return False
+    try:
+        signing.loads(token, salt=_DL_SALT, max_age=_DL_TOKEN_MAX_AGE)
+        return True
+    except Exception:
+        return False
+
+
+@csrf_exempt
+def healthslider_download_auth(request):
+    """
+    POST /api/healthslider/auth/
+    Body: {"password": "...", "email": "..."}
+    Validates the shared password, sends a 6-digit code to the given email.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    try:
+        data = json.loads(request.body or "{}")
+        password = (data.get("password") or "").strip()
+        email = (data.get("email") or "").strip()
+
+        expected = os.environ.get("HEALTHSLIDER_DOWNLOAD_PASSWORD", "")
+        if not expected or password != expected:
+            return JsonResponse({"error": "Invalid password"}, status=401)
+        if not email:
+            return JsonResponse({"error": "Email required"}, status=400)
+
+        code = "".join(random.choices(string.digits, k=6))
+        expires_at = timezone.now() + timedelta(minutes=10)
+        SMSVerification(userId="healthslider_download", code=code, expires_at=expires_at).save()
+
+        msg = EmailMultiAlternatives(
+            subject="ICF Monitor Download Code",
+            body=f"Your download access code is: {code}\n\nValid for 10 minutes.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email],
+        )
+        msg.attach_alternative(
+            f"<p>Your ICF Monitor download code: <b>{code}</b></p><p>Valid for 10 minutes.</p>",
+            "text/html",
+        )
+        msg.send(fail_silently=False)
+        return JsonResponse({"ok": True}, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def healthslider_download_verify(request):
+    """
+    POST /api/healthslider/auth/verify/
+    Body: {"code": "123456"}
+    Verifies the email code and returns a signed download token valid for 8 hours.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    try:
+        data = json.loads(request.body or "{}")
+        code = (data.get("code") or "").strip()
+        if not code:
+            return JsonResponse({"error": "Code required"}, status=400)
+
+        verification = (
+            SMSVerification.objects(userId="healthslider_download", code=code)
+            .order_by("-created_at")
+            .first()
+        )
+        if not verification:
+            return JsonResponse({"error": "Invalid code"}, status=400)
+
+        expires_at = verification.expires_at
+        if timezone.is_naive(expires_at):
+            expires_at = expires_at.replace(tzinfo=dt_timezone.utc)
+        if expires_at < timezone.now().astimezone(dt_timezone.utc):
+            verification.delete()
+            return JsonResponse({"error": "Code expired"}, status=400)
+
+        verification.delete()
+        token = signing.dumps({"ok": True}, salt=_DL_SALT)
+        return JsonResponse({"token": token}, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 def _safe_slug(s: str) -> str:
@@ -131,7 +262,10 @@ def submit_healthslider_item(request):
 def list_healthslider_items(request):
     """
     GET /api/healthslider/items/?participantId=...
+    Requires a valid X-Healthslider-Token header.
     """
+    if not _check_download_token(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
     participant_id = request.GET.get("participantId")
     if not participant_id:
         return JsonResponse({"error": "participantId required"}, status=400)
@@ -165,8 +299,10 @@ def list_healthslider_items(request):
 def download_healthslider_audio(request, item_id: str):
     """
     GET /api/healthslider/audio/<item_id>/
-    Streams stored audio file.
+    Streams stored audio file. Requires a valid X-Healthslider-Token header.
     """
+    if not _check_download_token(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
