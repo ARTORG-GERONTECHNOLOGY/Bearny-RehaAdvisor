@@ -159,7 +159,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
-          context: ./frontend
+          context: .
           file: ./frontend/Dockerfile.prod.reha-advisor
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
