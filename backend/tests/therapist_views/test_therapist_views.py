@@ -587,6 +587,7 @@ def test_feedback_computing_scores_and_adherence_for_two_answer_days():
 # Clinic-based patient filtering tests
 # ---------------------------------------------------------------------------
 
+
 def test_patient_same_clinic_appears_in_list(mongo_mock):
     """Patient whose clinic matches the therapist's clinic is returned."""
     therapist = _make_therapist("th_clinic1", ["Inselspital"])

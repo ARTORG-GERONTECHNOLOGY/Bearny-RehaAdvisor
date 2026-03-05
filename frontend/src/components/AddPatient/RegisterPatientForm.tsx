@@ -64,10 +64,13 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
   useEffect(() => {
     if (!therapist) return;
-    apiClient.get(`/users/${therapist}/profile/`).then((res) => {
-      setTherapistClinics(res.data?.clinics || []);
-      setTherapistProjects(res.data?.projects || []);
-    }).catch(() => {});
+    apiClient
+      .get(`/users/${therapist}/profile/`)
+      .then((res) => {
+        setTherapistClinics(res.data?.clinics || []);
+        setTherapistProjects(res.data?.projects || []);
+      })
+      .catch(() => {});
   }, [therapist]);
 
   // field-level client validation (per step)
@@ -159,7 +162,8 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   };
 
   // ---- handlers ----
-  const clinicProjectsMap: Record<string, string[]> = (config as any).therapistInfo?.clinic_projects || {};
+  const clinicProjectsMap: Record<string, string[]> =
+    (config as any).therapistInfo?.clinic_projects || {};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
