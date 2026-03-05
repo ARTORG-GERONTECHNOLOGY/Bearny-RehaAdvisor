@@ -75,6 +75,7 @@
   "day": "day",
   "from day": "from day",
   "Saving...": "Saving...",
+  "Saved!": "Saved!",
   "Please enter a valid range (S ≤ N) and K ≥ 1.": "Please enter a valid range (S ≤ N) and K ≥ 1.",
   "Preview: {{count}} session(s): Day {{S}}, Day {{S}}+{{K}}, … ≤ Day {{N}} at ~{{time}}": "Preview: {{count}} session(s): Day {{S}}, Day {{S}}+{{K}}, … ≤ Day {{N}} at ~{{time}}",
   "These are relative template days. Actual calendar dates are set when you apply the template to a patient.": "These are relative template days. Actual calendar dates are set when you apply the template to a patient.",

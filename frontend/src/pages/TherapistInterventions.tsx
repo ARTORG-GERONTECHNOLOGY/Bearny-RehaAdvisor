@@ -124,6 +124,7 @@ const TherapistRecomendations: React.FC = observer(() => {
   // Template assign modal (create/modify)
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignInterventionId, setAssignInterventionId] = useState<string | null>(null);
+  const [assignInterventionTitle, setAssignInterventionTitle] = useState<string | undefined>(undefined);
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
@@ -309,15 +310,23 @@ const TherapistRecomendations: React.FC = observer(() => {
     if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon);
   }, [mainTab, templateDiag, templateHorizon, fetchTemplates]);
 
-  const openAssignToTemplate = (id: string, mode: 'create' | 'modify' = 'create') => {
+  const openAssignToTemplate = (
+    id: string,
+    title?: string,
+    mode: 'create' | 'modify' = 'create'
+  ) => {
     setAssignMode(mode);
     setAssignInterventionId(id);
+    setAssignInterventionTitle(title);
     setAssignOpen(true);
   };
 
   const openModifyTemplate = (it: TemplateItem) => {
     setAssignMode('modify');
     setAssignInterventionId(it.intervention._id);
+    setAssignInterventionTitle(
+      translatedTitles[it.intervention._id]?.title ?? it.intervention.title
+    );
     setTemplateDiag(it.diagnosis);
     setAssignOpen(true);
   };
@@ -514,6 +523,7 @@ const TherapistRecomendations: React.FC = observer(() => {
           show
           onHide={() => setAssignOpen(false)}
           interventionId={assignInterventionId}
+          interventionTitle={assignInterventionTitle}
           diagnoses={diagnoses}
           defaultDiagnosis={templateDiag || undefined}
           mode={assignMode}
