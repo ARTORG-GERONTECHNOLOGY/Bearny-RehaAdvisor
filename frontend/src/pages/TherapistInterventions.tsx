@@ -124,7 +124,9 @@ const TherapistRecomendations: React.FC = observer(() => {
   // Template assign modal (create/modify)
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignInterventionId, setAssignInterventionId] = useState<string | null>(null);
-  const [assignInterventionTitle, setAssignInterventionTitle] = useState<string | undefined>(undefined);
+  const [assignInterventionTitle, setAssignInterventionTitle] = useState<string | undefined>(
+    undefined
+  );
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
