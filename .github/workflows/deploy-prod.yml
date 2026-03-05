@@ -253,11 +253,13 @@ jobs:
               exit 1
             fi
 
+            DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
+
             # Pull the pre-built images for this tag from GHCR
-            docker compose -f docker-compose.prod.reha-advisor.yml pull
+            $DC pull
 
             # Bring up new containers (does not touch dev or local-prod)
-            docker compose -f docker-compose.prod.reha-advisor.yml up -d
+            $DC up -d
 
             echo "Waiting for containers to settle..."
             sleep 15
@@ -274,7 +276,7 @@ jobs:
             docker kill -s HUP gateway
 
             echo "Deployed $TAG successfully"
-            docker compose -f docker-compose.prod.reha-advisor.yml ps
+            $DC ps
 
             # Clean up old images to free disk space
             docker image prune -f
