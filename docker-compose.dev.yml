@@ -1,9 +1,13 @@
 services:
   libretranslate:
-    image: libretranslate/libretranslate
+    image: libretranslate/libretranslate:latest
     container_name: libretranslate
     environment:
       LT_LOAD_ONLY: "en,fr,de,it,nl,pt"
+      LT_UPDATE_MODELS: "true"
+      LT_PACKAGES_ROOT: /app/packages
+    volumes:
+      - libretranslate_packages:/app/packages
     restart: unless-stopped
     networks:
       - telereha
@@ -170,6 +174,7 @@ volumes:
   mongo_data:
   media:
   static:
+  libretranslate_packages:
 
 networks:
   telereha:
