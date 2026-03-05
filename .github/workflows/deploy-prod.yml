@@ -220,7 +220,7 @@ jobs:
             if [ -d "$PROD_DIR" ]; then
               cd "$PROD_DIR"
               echo "Creating database backup before deploy..."
-              if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh; fi
+              if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh || echo "Backup failed (non-fatal) — continuing deploy"; fi
             fi
 
       - name: Deploy release ${{ needs.build.outputs.tag }} to production
