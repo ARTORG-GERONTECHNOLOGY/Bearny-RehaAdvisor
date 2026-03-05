@@ -14,11 +14,7 @@
       "other"
     ],
     "original_languages": ["DE", "FR", "IT", "PT", "ENG", "NL"],
-    "primary_diagnoses": [
-      "heart failure",
-      "acute corornary syndrom",
-      "chronic coronary syndrome"
-    ],
+    "primary_diagnoses": ["heart failure", "acute corornary syndrom", "chronic coronary syndrome"],
     "aims": ["Education", "Exercise", "Instructions"],
     "topics": [
       "disease",
