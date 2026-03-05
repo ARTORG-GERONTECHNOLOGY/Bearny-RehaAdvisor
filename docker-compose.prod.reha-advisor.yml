@@ -55,12 +55,11 @@ services:
       - telereha-prod
 
   # Production Django application
+  # Images are built and pushed to GHCR by the deploy workflow.
+  # Set GHCR_IMAGE in .env.prod, e.g.: GHCR_IMAGE=ghcr.io/your-org/telerehabapp
+  # IMAGE_TAG defaults to "latest" (the workflow also pushes the :latest tag).
   django-prod:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-      args:
-        - DJANGO_SETTINGS_MODULE=api.settings.prod
+    image: ${GHCR_IMAGE}-backend:${IMAGE_TAG:-latest}
     container_name: django-prod
     restart: always
     env_file:
@@ -89,16 +88,11 @@ services:
 
   # Celery worker for async tasks
   celery-prod:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-      args:
-        - DJANGO_SETTINGS_MODULE=api.settings.prod
+    image: ${GHCR_IMAGE}-backend:${IMAGE_TAG:-latest}
     container_name: celery-prod
     restart: always
     command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state -c 4
     volumes:
-      - ./backend:/app
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     env_file:
       - ./.env.prod
@@ -120,11 +114,7 @@ services:
 
   # Celery beat for scheduled tasks
   celery-beat-prod:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-      args:
-        - DJANGO_SETTINGS_MODULE=api.settings.prod
+    image: ${GHCR_IMAGE}-backend:${IMAGE_TAG:-latest}
     container_name: celery-beat-prod
     restart: always
     working_dir: /app
@@ -140,7 +130,6 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
     volumes:
-      - ./backend:/app
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     depends_on:
       redis-prod:
@@ -150,22 +139,15 @@ services:
     networks:
       - telereha-prod
 
-  # React frontend production build
+  # React frontend — static build served via nginx-prod
   react-prod:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-      args:
-        - VITE_API_URL=https://reha-advisor.ch/api
-        - VITE_APP_NAME=RehaAdvisor
-        - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
+    image: ${GHCR_IMAGE}-frontend:${IMAGE_TAG:-latest}
     container_name: react-prod
     restart: always
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - VITE_API_URL=https://reha-advisor.ch/api
     networks:
       - telereha-prod
 
