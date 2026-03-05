@@ -465,6 +465,7 @@ def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
         first_name="T",
         specializations=["Cardiology"],
         clinics=["Inselspital"],
+        projects=["COPAIN"],
     ).save()
 
     _post(
@@ -476,6 +477,8 @@ def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
             "lastName": "A",
             "therapist": str(therapist_user.id),
             "rehaEndDate": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "clinic": "Inselspital",
+            "project": "COPAIN",
             "initialQuestionnaireEnabled": True,
         }
     )
@@ -487,3 +490,137 @@ def test_register_patient_initial_questionnaire_enabled_persisted(mongo_mock):
     patient = Patient.objects.filter(userId=created_user).first()
     assert patient is not None, "Patient document must be created"
     assert patient.initial_questionnaire_enabled is True
+
+
+# ===========================================================================
+# Clinic and project validation on patient registration
+# ===========================================================================
+
+
+def _create_therapist_with_clinics(email, clinics, projects):
+    """Create a User + Therapist with the given clinics and projects."""
+    from core.models import Therapist as TherapistModel
+
+    th_user = User(
+        username=f"th_{email.split('@')[0]}",
+        role="Therapist",
+        email=email,
+        pwdhash="",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    TherapistModel(
+        userId=th_user,
+        name="Smith",
+        first_name="Dr",
+        specializations=["Cardiology"],
+        clinics=clinics,
+        projects=projects,
+    ).save()
+    return th_user
+
+
+def _patient_base(therapist_user_id):
+    return {
+        "userType": "Patient",
+        "email": f"pat_{therapist_user_id}@test.com",
+        "password": "pw",
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "therapist": str(therapist_user_id),
+        "rehaEndDate": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+    }
+
+
+def test_register_patient_missing_clinic_returns_400(mongo_mock):
+    """Missing clinic field returns 400 with field_errors.clinic."""
+    th = _create_therapist_with_clinics("t1@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "project": "COPAIN"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 400
+    assert "clinic" in resp.json().get("field_errors", {})
+
+
+def test_register_patient_clinic_not_in_therapist_clinics_returns_400(mongo_mock):
+    """Clinic not assigned to the therapist returns 400."""
+    th = _create_therapist_with_clinics("t2@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Leuven", "project": "COMPASS"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 400
+    assert "clinic" in resp.json().get("field_errors", {})
+
+
+def test_register_patient_missing_project_returns_400(mongo_mock):
+    """Missing project field returns 400 with field_errors.project."""
+    th = _create_therapist_with_clinics("t3@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 400
+    assert "project" in resp.json().get("field_errors", {})
+
+
+def test_register_patient_project_not_in_therapist_projects_returns_400(mongo_mock):
+    """Project not assigned to the therapist returns 400."""
+    th = _create_therapist_with_clinics("t4@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COMPASS"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 400
+    assert "project" in resp.json().get("field_errors", {})
+
+
+def test_register_patient_project_invalid_for_clinic_returns_400(mongo_mock):
+    """Project that doesn't belong to the chosen clinic returns 400.
+    Therapist has both COPAIN and COMPASS assigned, but Inselspital only maps
+    to COPAIN; submitting COMPASS for Inselspital must be rejected."""
+    th = _create_therapist_with_clinics("t5@example.com", ["Inselspital"], ["COPAIN", "COMPASS"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COMPASS"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 400
+    assert "project" in resp.json().get("field_errors", {})
+
+
+def test_register_patient_valid_clinic_and_project_succeeds(mongo_mock):
+    """Valid clinic + project from therapist's assigned list → registration succeeds."""
+    from core.models import Patient
+
+    th = _create_therapist_with_clinics("t6@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COPAIN"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 200
+    assert resp.json().get("success") is True
+
+    created_user = User.objects.filter(email=payload["email"]).first()
+    assert created_user is not None
+    patient = Patient.objects.filter(userId=created_user).first()
+    assert patient is not None
+    assert patient.clinic == "Inselspital"
+    assert patient.project == "COPAIN"
+
+
+def test_register_patient_created_by_set_to_therapist(mongo_mock):
+    """created_by on the Patient document must reference the assigning therapist."""
+    from core.models import Patient, Therapist as TherapistModel
+
+    th = _create_therapist_with_clinics("t7@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COPAIN"}
+    _post(payload)
+
+    created_user = User.objects.filter(email=payload["email"]).first()
+    assert created_user is not None
+    patient = Patient.objects.filter(userId=created_user).first()
+    assert patient is not None
+    assert patient.created_by is not None
+    therapist_doc = TherapistModel.objects.filter(userId=th).first()
+    assert patient.created_by.id == therapist_doc.id

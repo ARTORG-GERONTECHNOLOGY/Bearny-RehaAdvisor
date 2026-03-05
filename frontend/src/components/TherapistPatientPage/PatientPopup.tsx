@@ -397,6 +397,17 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                       </Form.Group>
                     </Col>
 
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="therapist_name">
+                        <Form.Label>{t('Therapist')}</Form.Label>
+                        <Form.Control
+                          plaintext
+                          readOnly
+                          value={store.getDisplayValue('therapist_name') || '—'}
+                        />
+                      </Form.Group>
+                    </Col>
+
                     <Col xs={12}>
                       <Form.Group controlId="clinic">
                         <Form.Label>

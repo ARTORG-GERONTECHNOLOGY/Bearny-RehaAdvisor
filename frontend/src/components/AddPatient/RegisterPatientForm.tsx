@@ -1,5 +1,5 @@
 // src/components/HomePage/RegisterPatient.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
@@ -38,6 +38,8 @@ const initialFormData = (therapist: string): FormData => ({
   lastName: '',
   age: '', // birth date (YYYY-MM-DD)
   sex: '',
+  clinic: '',
+  project: '',
   function: [],
   diagnosis: [],
   lifestyle: [],
@@ -56,6 +58,17 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<FormData>(initialFormData(therapist));
   const [step, setStep] = useState(0);
+
+  const [therapistClinics, setTherapistClinics] = useState<string[]>([]);
+  const [therapistProjects, setTherapistProjects] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!therapist) return;
+    apiClient.get(`/users/${therapist}/profile/`).then((res) => {
+      setTherapistClinics(res.data?.clinics || []);
+      setTherapistProjects(res.data?.projects || []);
+    }).catch(() => {});
+  }, [therapist]);
 
   // field-level client validation (per step)
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -146,9 +159,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   };
 
   // ---- handlers ----
+  const clinicProjectsMap: Record<string, string[]> = (config as any).therapistInfo?.clinic_projects || {};
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
-    setFormData((prev) => ({ ...prev, [id]: value }));
+    // When clinic changes, reset project
+    if (id === 'clinic') {
+      setFormData((prev) => ({ ...prev, clinic: value, project: '' }));
+    } else {
+      setFormData((prev) => ({ ...prev, [id]: value }));
+    }
 
     // clear client + server error for this field on change
     setErrors((prev) => ({ ...prev, [id]: '' }));
@@ -309,6 +329,15 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         const fieldErrMsg = mergedFieldError[field.name];
         const invalid = !!fieldErrMsg;
 
+        // Resolve dynamic options for clinic and project fields
+        let fieldOptions: string[] = field.options || [];
+        if (field.name === 'clinic') {
+          fieldOptions = therapistClinics;
+        } else if (field.name === 'project') {
+          const allowedByClinic = clinicProjectsMap[formData.clinic as string] || [];
+          fieldOptions = therapistProjects.filter((p) => allowedByClinic.includes(p));
+        }
+
         return (
           <Form.Group controlId={field.name} className="mb-3" key={field.name}>
             <Form.Label className="d-flex align-items-center gap-1">
@@ -367,7 +396,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 <option value="">
                   {t('Select')} {t(field.label)}
                 </option>
-                {(field.options || []).map((option: string) => (
+                {fieldOptions.map((option: string) => (
                   <option key={option} value={option}>
                     {t(option)}
                   </option>

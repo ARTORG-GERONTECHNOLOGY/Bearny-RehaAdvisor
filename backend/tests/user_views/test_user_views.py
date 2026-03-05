@@ -1448,3 +1448,51 @@ def test_patient_profile_put_disables_initial_questionnaire():
 
     refreshed = Patient.objects.get(pk=patient.id)
     assert refreshed.initial_questionnaire_enabled is False
+
+
+# ===========================================================================
+# created_by in patient profile GET
+# ===========================================================================
+
+
+def test_patient_profile_get_includes_created_by_name():
+    """
+    When a patient has a created_by therapist set, the profile GET must
+    include a ``created_by`` key with the therapist's full name.
+    """
+    user, patient = create_patient()
+    # Assign created_by to the same therapist used in create_patient()
+    therapist = Therapist.objects.get(userId__in=User.objects.filter(email="t1@example.com"))
+    patient.created_by = therapist
+    patient.save()
+
+    resp = client.get(
+        f"/api/users/{str(user.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "created_by" in data
+    assert data["created_by"] == "John Doe"
+
+
+def test_patient_profile_get_created_by_null_when_not_set():
+    """
+    When no therapist created the patient (e.g. REDCap import), the
+    ``created_by`` field must be ``null`` in the profile response.
+    """
+    user, patient = create_patient()
+    # Ensure no created_by is set
+    patient.created_by = None
+    patient.save()
+
+    resp = client.get(
+        f"/api/users/{str(user.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "created_by" in data
+    assert data["created_by"] is None

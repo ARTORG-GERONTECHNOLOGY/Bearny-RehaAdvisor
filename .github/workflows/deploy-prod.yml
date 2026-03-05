@@ -211,9 +211,13 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /home/ubuntu/repos/telerehabapp
-            echo "Creating database backup before deploy..."
-            if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh; fi
+            # Prod lives in its own directory — never touches the dev/local-prod checkout
+            PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
+            if [ -d "$PROD_DIR" ]; then
+              cd "$PROD_DIR"
+              echo "Creating database backup before deploy..."
+              if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh; fi
+            fi
 
       - name: Deploy release ${{ needs.build.outputs.tag }} to production
         uses: appleboy/ssh-action@v1.0.3
@@ -223,19 +227,30 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /home/ubuntu/repos/telerehabapp
-
+            PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
+            REPO_URL=https://github.com/${{ github.repository }}.git
             TAG="${{ needs.build.outputs.tag }}"
-            echo "Deploying tag: $TAG"
 
-            # Checkout the exact release tag — guarantees reproducible deploys
+            echo "Deploying tag: $TAG to $PROD_DIR"
+
+            # Clone on first deploy, otherwise fetch
+            if [ ! -d "$PROD_DIR/.git" ]; then
+              git clone "$REPO_URL" "$PROD_DIR"
+            fi
+            cd "$PROD_DIR"
             git fetch --all --tags
             git checkout -f "$TAG"
+
+            # .env.prod must be placed manually on the server at $PROD_DIR/.env.prod
+            if [ ! -f .env.prod ]; then
+              echo "ERROR: $PROD_DIR/.env.prod not found — place it on the server before deploying"
+              exit 1
+            fi
 
             # Pull the pre-built images for this tag from GHCR
             docker compose -f docker-compose.prod.reha-advisor.yml pull
 
-            # Bring up new containers
+            # Bring up new containers (does not touch dev or local-prod)
             docker compose -f docker-compose.prod.reha-advisor.yml up -d
 
             echo "Waiting for containers to settle..."
@@ -246,6 +261,11 @@ jobs:
             docker exec django-prod python manage.py seed_admin
             docker exec django-prod python manage.py seed_feedback_questions
             docker exec django-prod python manage.py seed_periodic_tasks
+
+            # Connect gateway to the prod network (idempotent) and switch routing
+            docker network connect telereha-prod gateway 2>/dev/null || true
+            sed -i 's/nginx-localprod/nginx-prod/g' /home/ubuntu/repos/telerehabapp/nginx/gateway.nginx.conf
+            docker kill -s HUP gateway
 
             echo "Deployed $TAG successfully"
             docker compose -f docker-compose.prod.reha-advisor.yml ps
@@ -258,7 +278,7 @@ jobs:
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/health || true)
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/api/auth/login/ || true)
             if [ "$http_code" = "200" ]; then
               echo "✅ Production health check passed (HTTP $http_code)"
               exit 0
@@ -277,7 +297,7 @@ jobs:
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            docker exec db-prod mongosh admin --eval 'db.adminCommand("ping")' || exit 1
+            docker exec db-prod mongosh --tls --tlsAllowInvalidCertificates admin --eval 'db.adminCommand("ping")' || exit 1
             echo "✅ Database OK"
 
       - name: Rollback on failure
@@ -288,13 +308,17 @@ jobs:
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /home/ubuntu/repos/telerehabapp
+            PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
+            cd "$PROD_DIR"
             echo "❌ Deploy failed — rolling back to previous tag..."
             PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
               git checkout -f "$PREV_TAG"
               docker compose -f docker-compose.prod.reha-advisor.yml pull || true
               docker compose -f docker-compose.prod.reha-advisor.yml up -d
+              # Revert gateway routing back to local-prod
+              sed -i 's/nginx-prod/nginx-localprod/g' /home/ubuntu/repos/telerehabapp/nginx/gateway.nginx.conf
+              docker kill -s HUP gateway
               echo "Rolled back to $PREV_TAG"
             else
               echo "No previous tag found — manual intervention required"
