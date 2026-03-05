@@ -264,6 +264,22 @@
           "type": "text",
           "required": true,
           "be_name": "patient_code"
+        },
+        {
+          "name": "clinic",
+          "label": "Clinic",
+          "type": "dropdown",
+          "required": true,
+          "options": [],
+          "be_name": "clinic"
+        },
+        {
+          "name": "project",
+          "label": "Project",
+          "type": "dropdown",
+          "required": true,
+          "options": [],
+          "be_name": "project"
         }
       ]
     },

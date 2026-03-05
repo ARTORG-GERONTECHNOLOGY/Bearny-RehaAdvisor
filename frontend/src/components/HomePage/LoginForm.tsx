@@ -55,8 +55,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
 
       const utype = (authStore.userType || '').toLowerCase();
 
-      if (utype === 'therapist') {
-        // Therapists require 2FA
+      if (utype === 'therapist' || utype === 'admin') {
+        // Therapists and Admins require 2FA
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
@@ -95,7 +95,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
 
       if (res?.status === 200 && res?.data?.access_token && res?.data?.refresh_token) {
         await authStore.complete2FA(res.data.access_token, res.data.refresh_token);
-        navigate('/therapist');
+        const role = (authStore.userType || '').toLowerCase();
+        navigate(role === 'admin' ? '/admin' : '/therapist');
       } else {
         setError(t('Verification failed. Please try again.'));
       }

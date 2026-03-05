@@ -20,7 +20,27 @@ import ErrorAlert from '../common/ErrorAlert';
 
 import StandardModal from '../common/StandardModal';
 import ConfirmModal from '../common/ConfirmModal';
-import { PatientPopupStore, toDateInput, toDisplayDate } from '../../stores/patientPopupStore';
+import {
+  PatientPopupStore,
+  PatientThresholds,
+  toDateInput,
+  toDisplayDate,
+} from '../../stores/patientPopupStore';
+
+function formatThresholdSnapshot(th: Partial<PatientThresholds>): string {
+  if (!th || Object.keys(th).length === 0) return '—';
+  const parts: string[] = [];
+  if (th.steps_goal != null) parts.push(`Steps: ${th.steps_goal}`);
+  if (th.active_minutes_green != null)
+    parts.push(`Active min: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`);
+  if (th.sleep_green_min != null)
+    parts.push(`Sleep: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'} min`);
+  if (th.bp_sys_green_max != null)
+    parts.push(`BP sys: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`);
+  if (th.bp_dia_green_max != null)
+    parts.push(`BP dia: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`);
+  return parts.join('\n') || '—';
+}
 
 interface PatientPopupProps {
   patient_id: PatientType;
@@ -374,6 +394,17 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                             value={toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'}
                           />
                         )}
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="therapist_name">
+                        <Form.Label>{t('Therapist')}</Form.Label>
+                        <Form.Control
+                          plaintext
+                          readOnly
+                          value={store.getDisplayValue('therapist_name') || '—'}
+                        />
                       </Form.Group>
                     </Col>
 
@@ -945,6 +976,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                           <th style={{ width: 220 }}>{t('Effective from')}</th>
                           <th style={{ width: 180 }}>{t('Changed by')}</th>
                           <th>{t('Reason')}</th>
+                          <th>{t('Previous values')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -955,6 +987,9 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                             </td>
                             <td>{h.changed_by || '—'}</td>
                             <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
+                            <td style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em' }}>
+                              {formatThresholdSnapshot(h.thresholds)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
