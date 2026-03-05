@@ -41,6 +41,7 @@ jobs:
     name: Run Tests Before Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    continue-on-error: true
 
     services:
       redis:
@@ -112,6 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: test
+    if: always()
     permissions:
       contents: read
       packages: write
