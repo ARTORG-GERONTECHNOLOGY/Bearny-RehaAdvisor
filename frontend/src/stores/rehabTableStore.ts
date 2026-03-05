@@ -543,7 +543,7 @@ export class RehabTableStore {
   // Filters (ALL tab)
   // ---------------------------------------------------------------------------
   applyAllFilters() {
-    const filtered = filterInterventions(this.recommendations, {
+    const filtered = filterInterventions(this.recommendations, this.titleMap, {
       patientTypeFilter: this.patientTypeFilter,
       contentTypeFilter: this.contentTypeFilter,
       tagFilter: this.tagFilter,

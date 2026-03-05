@@ -21,7 +21,6 @@ import authStore from '../stores/authStore';
 import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
 
 import config from '../config/config.json';
-import interventionsConfig from '../config/interventions.json';
 import apiClient from '../api/client';
 
 import { filterInterventions } from '../utils/filterUtils';
@@ -69,24 +68,21 @@ const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: numb
   return occ.filter((o: any) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
 };
 
-// ✅ shared defaults (avoids drift between reset + initial state)
 const defaultLibraryFilters: LibraryFiltersState = {
   searchTerm: '',
   patientTypeFilter: '',
   contentTypeFilter: '',
+  aimsFilter: [],
   tagFilter: [],
-  benefitForFilter: [],
   frequencyFilter: '',
 };
 
-// ✅ UPDATED: templates filters include diagnosis multi-filter
 const defaultTemplatesFilters: TemplatesFiltersState = {
   tSearchTerm: '',
   tPatientTypeFilter: '',
   tDiagnosisFilter: [],
   tContentTypeFilter: '',
   tTagFilter: [],
-  tBenefitForFilter: [],
   tFrequencyFilter: '',
 };
 
@@ -157,26 +153,24 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
 
   const filteredInterventions = useMemo(() => {
-    return filterInterventions(recommendations, {
+    return filterInterventions(recommendations, translatedTitles, {
       patientTypeFilter: libraryFilters.patientTypeFilter,
       contentTypeFilter: libraryFilters.contentTypeFilter,
       tagFilter: libraryFilters.tagFilter,
-      benefitForFilter: libraryFilters.benefitForFilter,
+      benefitForFilter: libraryFilters.aimsFilter,
       searchTerm: libraryFilters.searchTerm,
     });
-  }, [recommendations, libraryFilters]);
+  }, [recommendations, libraryFilters, translatedTitles]);
 
-  // ✅ UPDATED: includes diagnosisFilter (multi) for templates browse
   const templateFilteredAll = useMemo(() => {
-    return filterInterventions(recommendations, {
+    return filterInterventions(recommendations, translatedTitles, {
       patientTypeFilter: templatesFilters.tPatientTypeFilter,
-      diagnosisFilter: templatesFilters.tDiagnosisFilter, // ✅ NEW
       contentTypeFilter: templatesFilters.tContentTypeFilter,
       tagFilter: templatesFilters.tTagFilter,
-      benefitForFilter: templatesFilters.tBenefitForFilter,
+      benefitForFilter: [], // templates don't use aims filter
       searchTerm: templatesFilters.tSearchTerm,
     });
-  }, [recommendations, templatesFilters]);
+  }, [recommendations, templatesFilters, translatedTitles]);
 
   // ─────────────────────────── auth check ───────────────────────────
   useEffect(() => {

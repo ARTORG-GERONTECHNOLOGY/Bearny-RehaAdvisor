@@ -1,10 +1,8 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import TherapistInterventions from '../../pages/TherapistInterventions';
+import TherapistInterventions from '@/pages/TherapistInterventions';
 import '@testing-library/jest-dom';
-import apiClient from '../../api/client'; // ✅ Import apiClient
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 jest.mock('../../config/config.json', () => ({
   RecomendationInfo: { tags: [] },
   patientInfo: {
@@ -25,7 +23,7 @@ jest.mock('../../config/config.json', () => ({
   },
 }));
 
-// 🔁 Mock react-router-dom navigation
+// Mock react-router-dom navigation
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
@@ -35,22 +33,34 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-// ✅ Mock authStore to simulate logged-in and not-logged-in states
-jest.mock('../../stores/authStore', () => ({
+// Mock authStore to simulate logged-in and not-logged-in states
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
     isAuthenticated: true,
     userType: 'Therapist',
-    specialisation: 'Stroke',
+    specialisations: ['Cardiology'],
+    id: 'therapist-123',
   },
 }));
 
-// ✅ Child component mocks
-jest.mock('../../components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('../../components/common/Footer', () => () => <div>Mock Footer</div>);
-jest.mock('../../components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
-jest.mock('../../components/TherapistInterventionPage/ProductPopup', () => (props) => (
+// Mock interventionsLibraryStore
+jest.mock('@/stores/interventionsLibraryStore', () => ({
+  therapistInterventionsLibraryStore: {
+    items: [],
+    loading: false,
+    error: null,
+    fetchAll: jest.fn(),
+    clearError: jest.fn(),
+  },
+}));
+
+// Child component mocks
+jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
+jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
+jest.mock('@/components/TherapistInterventionPage/ProductPopup', () => (props) => (
   <div>
     Product Popup
     <button aria-label="close" onClick={props.handleClose}>
@@ -59,10 +69,60 @@ jest.mock('../../components/TherapistInterventionPage/ProductPopup', () => (prop
   </div>
 ));
 
-jest.mock('../../components/AddIntervention/AddRecomendationPopUp', () => () => (
+jest.mock('@/components/AddIntervention/AddRecomendationPopUp', () => () => (
   <div>Add Intervention Popup</div>
 ));
-jest.mock('../../components/TherapistInterventionPage/FilterBar', () => (props) => {
+
+// Mock new components used in refactored TherapistInterventions
+jest.mock('@/components/TherapistInterventionPage/MainTabs', () => (props: any) => (
+  <div>Main Tabs</div>
+));
+
+jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (props: any) => (
+  <div>
+    <input
+      placeholder="Search Interventions"
+      value={props.filters.searchTerm}
+      onChange={(e) =>
+        props.onChange({ ...props.filters, searchTerm: e.target.value })
+      }
+    />
+    <button
+      onClick={() =>
+        props.onChange({ ...props.filters, patientTypeFilter: 'Stroke' })
+      }
+    >
+      Set Patient Type
+    </button>
+    <button onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}>
+      Set Content Type
+    </button>
+  </div>
+));
+
+jest.mock('@/components/TherapistInterventionPage/LibraryListSection', () => (props: any) => (
+  <div>
+    {props.items.map((item: any) => (
+      <div key={item._id} onClick={() => props.onClick(item)}>
+        {item.title}
+      </div>
+    ))}
+  </div>
+));
+
+jest.mock('@/components/TherapistInterventionPage/AddInterventionRow', () => (props: any) => (
+  <div>
+    <button onClick={props.onAdd}>Add Intervention</button>
+    <button onClick={props.onImport}>Import</button>
+  </div>
+));
+
+jest.mock('@/components/TherapistInterventionPage/ImportInterventionsModal', () => () => null);
+jest.mock('@/components/TherapistInterventionPage/TemplateAssignModal', () => () => null);
+jest.mock('@/components/TherapistInterventionPage/TemplatesLayout', () => () => null);
+
+// Old mocks - remove these
+jest.mock('@/components/TherapistInterventionPage/FilterBar', () => (props) => {
   return (
     <div>
       <input
@@ -71,7 +131,6 @@ jest.mock('../../components/TherapistInterventionPage/FilterBar', () => (props) 
         onChange={(e) => props.setSearchTerm(e.target.value)}
       />
       <button onClick={() => props.setPatientTypeFilter('Stroke')}>Set Patient Type</button>
-      {/* ✅ Add this: */}
       <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
       <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
       <button onClick={() => props.setFrequencyFilter('Daily')}>Set Frequency</button>
@@ -79,7 +138,7 @@ jest.mock('../../components/TherapistInterventionPage/FilterBar', () => (props) 
   );
 });
 
-jest.mock('../../components/TherapistInterventionPage/InterventionList', () => (props) => (
+jest.mock('@/components/TherapistInterventionPage/InterventionList', () => (props) => (
   <div>
     {props.items.map((item) => (
       <div key={item._id} onClick={() => props.onClick(item)}>
@@ -89,9 +148,22 @@ jest.mock('../../components/TherapistInterventionPage/InterventionList', () => (
   </div>
 ));
 
-// ✅ Mock translations
+// Mock translations
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en' },
+  }),
+}));
+
+// Mock translate utility
+jest.mock('@/utils/translate', () => ({
+  translateText: jest.fn((text: string) =>
+    Promise.resolve({
+      translatedText: text,
+      detectedSourceLanguage: 'en',
+    })
+  ),
 }));
 
 const mockInterventions = [
@@ -121,14 +193,16 @@ const mockInterventions = [
 ];
 
 describe('TherapistInterventions Page', () => {
+  let store: any;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    (apiClient.get as jest.Mock).mockImplementation((url) => {
-      if (url === 'interventions/all/') {
-        return Promise.resolve({ data: mockInterventions });
-      }
-      return Promise.reject(new Error('Unknown endpoint'));
-    });
+    
+    // Set up the store mock with items
+    store = require('@/stores/interventionsLibraryStore').therapistInterventionsLibraryStore;
+    store.items = mockInterventions;
+    store.loading = false;
+    store.error = null;
   });
   test('opens add intervention popup when button is clicked', async () => {
     render(
@@ -140,20 +214,7 @@ describe('TherapistInterventions Page', () => {
     fireEvent.click(addButton);
     expect(screen.getByText('Add Intervention Popup')).toBeInTheDocument();
   });
-  test('applies core/supportive filter', async () => {
-    render(
-      <MemoryRouter>
-        <TherapistInterventions />
-      </MemoryRouter>
-    );
 
-    await screen.findByText('Stretching for 30 minutes');
-
-    // Simulate setting the coreSupportFilter to 'Core'
-    fireEvent.click(screen.getByText('Set Patient Type')); // Already existing button, but you'd make a new one if needed for coreSupportFilter
-
-    // You may need to extend your FilterBar mock to include a button to set coreSupportFilter
-  });
   test('applies content type filter', async () => {
     render(
       <MemoryRouter>
@@ -275,7 +336,7 @@ describe('TherapistInterventions Page', () => {
   });
 
   test('redirects if user is not authenticated', async () => {
-    const authStore = require('../../stores/authStore').default;
+    const authStore = require('@/stores/authStore').default;
     authStore.isAuthenticated = false;
 
     render(
@@ -289,7 +350,11 @@ describe('TherapistInterventions Page', () => {
   });
 
   test('handles API errors gracefully', async () => {
-    (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('API error'));
+    // Set store error state instead of mocking API
+    store.items = [];
+    store.error = 'API error';
+    store.loading = false;
+
     render(
       <MemoryRouter>
         <TherapistInterventions />
