@@ -15,13 +15,13 @@ RUN apt-get update && \
 ENV PATH=/app/node_modules/.bin:$PATH
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY . ./
+COPY frontend/ ./
 
 # Build arguments
 ARG VITE_API_URL=https://reha-advisor.ch/api
