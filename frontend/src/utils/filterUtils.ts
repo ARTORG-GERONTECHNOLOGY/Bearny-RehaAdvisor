@@ -1,5 +1,8 @@
+import type { Intervention } from '@/types';
+
 export const filterInterventions = (
   recommendations: Intervention[],
+  translatedTitles: Record<string, { title: string; lang: string | null }> | undefined,
   filters: {
     patientTypeFilter: string;
     contentTypeFilter: string;
@@ -12,7 +15,7 @@ export const filterInterventions = (
 
   if (filters.patientTypeFilter) {
     result = result.filter((rec) =>
-      rec.patient_types.some((pt) => pt.diagnosis === filters.patientTypeFilter)
+      rec.patient_types?.some((pt) => pt.diagnosis === filters.patientTypeFilter)
     );
   }
 
@@ -21,19 +24,26 @@ export const filterInterventions = (
   }
 
   if (filters.tagFilter.length > 0) {
-    result = result.filter((rec) => rec.tags.some((tag) => filters.tagFilter.includes(tag)));
+    result = result.filter((rec) => rec.tags?.some((tag) => filters.tagFilter.includes(tag)));
   }
 
   if (filters.benefitForFilter.length > 0) {
-    result = result.filter((rec) =>
-      rec.benefitFor.some((benefit) => filters.benefitForFilter.includes(benefit))
-    );
+    result = result.filter((rec) => {
+      // Backend returns 'aims', but types use 'benefitFor' - check both
+      const aims = (rec as any).aims || rec.benefitFor || [];
+      return (
+        Array.isArray(aims) && aims.some((benefit) => filters.benefitForFilter.includes(benefit))
+      );
+    });
   }
 
   if (filters.searchTerm) {
-    result = result.filter((rec) =>
-      rec.title.toLowerCase().includes(filters.searchTerm.toLowerCase())
-    );
+    const searchLower = filters.searchTerm.toLowerCase();
+    result = result.filter((rec) => {
+      const originalTitle = rec.title.toLowerCase();
+      const translatedTitle = translatedTitles?.[rec._id]?.title?.toLowerCase();
+      return originalTitle.includes(searchLower) || translatedTitle?.includes(searchLower);
+    });
   }
 
   return result;

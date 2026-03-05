@@ -152,7 +152,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const filteredItems = useMemo(() => {
     // NOTE: your filterInterventions already supports tags/content/search.
     // Here we add aimsFilter: assumes items have .aims array in your new model.
-    const base = filterInterventions(sourceItems as any, {
+    const base = filterInterventions(sourceItems as any, translatedTitles, {
       patientTypeFilter: '',
       contentTypeFilter: contentType,
       tagFilter,
@@ -166,7 +166,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       const aims: string[] = Array.isArray(it?.aims) ? it.aims : [];
       return aimsFilter.every((a) => aims.includes(a));
     });
-  }, [sourceItems, contentType, tagFilter, aimsFilter, searchTerm]);
+  }, [sourceItems, contentType, tagFilter, aimsFilter, searchTerm, translatedTitles]);
 
   return (
     <Layout>
