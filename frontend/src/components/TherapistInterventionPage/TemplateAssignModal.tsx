@@ -11,6 +11,7 @@ type Props = {
   show: boolean;
   onHide: () => void;
   interventionId: string | null;
+  interventionTitle?: string;
   diagnoses: string[];
   defaultDiagnosis?: string;
   onSuccess?: () => void;
@@ -23,6 +24,7 @@ const TemplateAssignModal: React.FC<Props> = ({
   show,
   onHide,
   interventionId,
+  interventionTitle,
   diagnoses,
   defaultDiagnosis,
   onSuccess,
@@ -39,6 +41,7 @@ const TemplateAssignModal: React.FC<Props> = ({
   const [keepPrevious, setKeepPrevious] = useState<boolean>(mode === 'modify');
 
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<ErrorMap>({});
   const [showErrorDetails, setShowErrorDetails] = useState(false);
@@ -57,6 +60,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     setFieldErrors({});
     setShowErrorDetails(false);
     setSubmitting(false);
+    setSuccess(false);
   }, [show, defaultDiagnosis, mode]);
 
   const validRange = startDay >= 1 && lastDay >= startDay;
@@ -70,8 +74,11 @@ const TemplateAssignModal: React.FC<Props> = ({
     return Math.floor((lastDay - startDay) / everyK) + 1;
   }, [startDay, lastDay, everyK, validRange]);
 
-  // ✅ track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
+  // track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
   const hasUnsavedChanges = useMemo(() => {
+    // After successful save, no unsaved changes
+    if (success) return false;
+
     const diagChanged = (diagnosis || '') !== (defaultDiagnosis || '');
     const defaultsChanged =
       startDay !== 1 ||
@@ -81,6 +88,7 @@ const TemplateAssignModal: React.FC<Props> = ({
       (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false);
     return diagChanged || defaultsChanged || !!error;
   }, [
+    success,
     diagnosis,
     defaultDiagnosis,
     startDay,
@@ -183,8 +191,13 @@ const TemplateAssignModal: React.FC<Props> = ({
       );
 
       if (res.status === 201 || res.status === 200) {
+        setSuccess(true);
         onSuccess?.();
-        confirmClose(); // ✅ close via same exit path (no confirm since we reset state)
+
+        // Auto-close after showing success message briefly
+        setTimeout(() => {
+          onHide();
+        }, 1500);
       } else {
         setError(t('Failed to save template assignment.'));
       }
@@ -214,6 +227,9 @@ const TemplateAssignModal: React.FC<Props> = ({
       </Modal.Header>
 
       <Modal.Body>
+        {/* SUCCESS BANNER */}
+        {success && <Alert variant="success">{t('Intervention successfully added')}</Alert>}
+
         {/* ERROR BANNER */}
         {error && (
           <Alert variant="danger" dismissible onClose={() => setError('')}>
@@ -241,6 +257,13 @@ const TemplateAssignModal: React.FC<Props> = ({
         )}
 
         <Form>
+          {/* INTERVENTION TITLE */}
+          {interventionTitle && (
+            <Form.Group className="mb-3">
+              <Form.Label>{t('Intervention')}</Form.Label>
+              <div className="fw-semibold">{interventionTitle}</div>
+            </Form.Group>
+          )}
           <Form.Group className="mb-3">
             <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
             <Form.Select
@@ -345,11 +368,15 @@ const TemplateAssignModal: React.FC<Props> = ({
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
+        <Button variant="secondary" onClick={confirmClose} disabled={submitting || success}>
           {t('Cancel')}
         </Button>
-        <Button variant="primary" onClick={handleSave} disabled={!canSubmit || submitting}>
-          {submitting ? t('Saving...') : t('Save')}
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={!canSubmit || submitting || success}
+        >
+          {submitting ? t('Saving...') : success ? t('Saved!') : t('Save')}
         </Button>
       </Modal.Footer>
     </Modal>

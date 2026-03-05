@@ -75,6 +75,7 @@
   "day": "Tag",
   "from day": "ab Tag",
   "Saving...": "Speichern...",
+  "Saved!": "Gespeichert!",
   "Please enter a valid range (S ≤ N) and K ≥ 1.": "Bitte geben Sie einen gültigen Bereich ein (S ≤ N) und K ≥ 1.",
   "Preview: {{count}} session(s): Day {{S}}, Day {{S}}+{{K}}, … ≤ Day {{N}} at ~{{time}}": "Vorschau: {{count}} Sitzung(en): Tag {{S}}, Tag {{S}}+{{K}}, … ≤ Tag {{N}} um ~{{time}}",
   "These are relative template days. Actual calendar dates are set when you apply the template to a patient.": "Dies sind relative Vorlagentage. Tatsächliche Kalenderdaten werden festgelegt, wenn Sie die Vorlage auf einen Patienten anwenden.",

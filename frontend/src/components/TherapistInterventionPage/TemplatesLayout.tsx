@@ -64,7 +64,7 @@ type Props = {
 
   browseAllItems: InterventionTypeTh[];
   findTemplateFor: (intId: string) => TemplateItem | undefined;
-  onOpenAssign: (id: string, mode: 'create' | 'modify') => void;
+  onOpenAssign: (id: string, title?: string, mode?: 'create' | 'modify') => void;
 
   filters: TemplatesFiltersState;
   onFilters: (next: TemplatesFiltersState) => void;
@@ -283,7 +283,7 @@ const TemplatesLayout: React.FC<Props> = ({
                             <Button
                               size="sm"
                               variant="outline-success"
-                              onClick={() => onOpenAssign(intervention._id, 'create')}
+                              onClick={() => onOpenAssign(intervention._id, displayTitle, 'create')}
                             >
                               <FaPlus className="me-1" />
                             </Button>
@@ -296,7 +296,9 @@ const TemplatesLayout: React.FC<Props> = ({
                             >
                               <Button
                                 variant="outline-secondary"
-                                onClick={() => onOpenAssign(entry!.intervention._id, 'modify')}
+                                onClick={() =>
+                                  onOpenAssign(entry!.intervention._id, displayTitle, 'modify')
+                                }
                               >
                                 <FaEdit />
                               </Button>

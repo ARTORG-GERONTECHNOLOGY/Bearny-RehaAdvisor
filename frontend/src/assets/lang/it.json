@@ -75,6 +75,7 @@
   "day": "giorno",
   "from day": "dal giorno",
   "Saving...": "Salvataggio in corso...",
+  "Saved!": "Salvato!",
   "Please enter a valid range (S ≤ N) and K ≥ 1.": "Per favore inserisci un intervallo valido (S ≤ N) e K ≥ 1.",
   "Preview: {{count}} session(s): Day {{S}}, Day {{S}}+{{K}}, … ≤ Day {{N}} at ~{{time}}": "Anteprima: {{count}} sessioni: Giorno {{S}}, Giorno {{S}}+{{K}}, … ≤ Giorno {{N}} a ~{{time}}",
   "These are relative template days. Actual calendar dates are set when you apply the template to a patient.": "Questi sono giorni relativi del modello. Le date effettive del calendario vengono impostate quando si applica il modello a un paziente.",
