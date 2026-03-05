@@ -611,7 +611,8 @@ def test_register_patient_valid_clinic_and_project_succeeds(mongo_mock):
 
 def test_register_patient_created_by_set_to_therapist(mongo_mock):
     """created_by on the Patient document must reference the assigning therapist."""
-    from core.models import Patient, Therapist as TherapistModel
+    from core.models import Patient
+    from core.models import Therapist as TherapistModel
 
     th = _create_therapist_with_clinics("t7@example.com", ["Inselspital"], ["COPAIN"])
     payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COPAIN"}
