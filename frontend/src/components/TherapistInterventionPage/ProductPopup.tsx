@@ -844,6 +844,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           show
           onHide={() => setAssignOpen(false)}
           interventionId={getId(effectiveItem)}
+          interventionTitle={translatedTitle || effectiveItem?.title}
           diagnoses={allDiagnoses}
           defaultDiagnosis={selectedDiagnosis}
           mode={assignMode}
