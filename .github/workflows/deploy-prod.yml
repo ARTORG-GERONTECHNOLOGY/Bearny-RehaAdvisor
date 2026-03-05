@@ -225,10 +225,14 @@ jobs:
 
       - name: Deploy release ${{ needs.build.outputs.tag }} to production
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -euo pipefail
             PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
@@ -254,6 +258,9 @@ jobs:
             fi
 
             DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
+
+            # Authenticate with GHCR to pull private images
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
             # Pull the pre-built images for this tag from GHCR
             $DC pull
