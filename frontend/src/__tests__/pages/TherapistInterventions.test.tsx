@@ -83,15 +83,9 @@ jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (pr
     <input
       placeholder="Search Interventions"
       value={props.filters.searchTerm}
-      onChange={(e) =>
-        props.onChange({ ...props.filters, searchTerm: e.target.value })
-      }
+      onChange={(e) => props.onChange({ ...props.filters, searchTerm: e.target.value })}
     />
-    <button
-      onClick={() =>
-        props.onChange({ ...props.filters, patientTypeFilter: 'Stroke' })
-      }
-    >
+    <button onClick={() => props.onChange({ ...props.filters, patientTypeFilter: 'Stroke' })}>
       Set Patient Type
     </button>
     <button onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}>
@@ -197,7 +191,7 @@ describe('TherapistInterventions Page', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Set up the store mock with items
     store = require('@/stores/interventionsLibraryStore').therapistInterventionsLibraryStore;
     store.items = mockInterventions;
