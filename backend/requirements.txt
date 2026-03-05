@@ -25,3 +25,4 @@ openpyxl
 pytest-cov
 black
 isort
+sentry-sdk[django]

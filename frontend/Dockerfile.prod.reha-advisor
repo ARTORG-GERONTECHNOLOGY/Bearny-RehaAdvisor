@@ -12,7 +12,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH=/app/node_modules/.bin:$PATH
 
 # Copy package files
 COPY package.json package-lock.json ./
@@ -23,9 +23,12 @@ RUN npm ci
 # Copy source code
 COPY . ./
 
-# Build argument for API URL
+# Build arguments
 ARG VITE_API_URL=https://reha-advisor.ch/api
 ENV VITE_API_URL=${VITE_API_URL}
+
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
 
 # Build application
 RUN npm run build

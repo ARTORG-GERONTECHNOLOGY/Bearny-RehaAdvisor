@@ -974,7 +974,10 @@ def get_patient_plan(request, patient_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        patient = Patient.objects.get(userId=ObjectId(patient_id))
+        try:
+            patient = Patient.objects.get(userId=ObjectId(patient_id))
+        except Patient.DoesNotExist:
+            patient = Patient.objects.get(id=ObjectId(patient_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
@@ -1741,6 +1744,10 @@ def add_intervention_to_patient(request):
     plan_end = plan.endDate or (timezone.now() + timedelta(days=90))
     if timezone.is_naive(plan_end):
         plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
+    # If the plan end is in the past, extend to 90 days from now so future
+    # sessions can always be scheduled regardless of an outdated reha_end_date.
+    if plan_end < timezone.now():
+        plan_end = timezone.now() + timedelta(days=90)
 
     total_added = 0
     created_assignments = 0

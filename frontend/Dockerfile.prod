@@ -16,7 +16,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Add to $PATH
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH=/app/node_modules/.bin:$PATH
 
 # Install app dependencies
 COPY package.json package-lock.json ./
@@ -25,9 +25,12 @@ RUN npm install
 # Add app code
 COPY . ./
 
-# ---- KEY: Pass env argument ----
+# ---- KEY: Pass env arguments ----
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
+
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
 
 # Confirm env variable (for debugging — optional)
 RUN echo "Building with VITE_API_URL=$VITE_API_URL"

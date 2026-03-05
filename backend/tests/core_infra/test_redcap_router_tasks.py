@@ -50,7 +50,7 @@ def test_beat_router_routing_rules():
 
 
 def test_tasks_run_delete_and_fetch_success_paths():
-    with patch("core.tasks.call_command") as mocked:
+    with patch("core.tasks.call_command") as mocked, patch.dict("os.environ", {"ENABLE_MEDIA_AUTO_DELETE": "true"}):
         assert run_delete_expired_videos() == "ok"
         mocked.assert_called_with("delete_expired_videos")
 

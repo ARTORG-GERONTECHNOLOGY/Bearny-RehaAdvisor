@@ -136,6 +136,19 @@ import sys
 print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
 print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
 
+import sentry_sdk
+
+_sentry_dsn = os.environ.get("SENTRY_DSN", "")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        send_default_pii=True,
+        enable_logs=True,
+        traces_sample_rate=1.0,
+        profile_session_sample_rate=1.0,
+        profile_lifecycle="trace",
+    )
+
 CONTENT_TYPE_CANONICAL_MAP = {
     "app": "App",
     "audio": "Audio",

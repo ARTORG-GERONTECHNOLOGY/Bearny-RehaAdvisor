@@ -406,7 +406,7 @@ def list_therapist_patients(request, therapist_id):
         output_list = []
 
         qs = (
-            Patient.objects(therapist=therapist)
+            Patient.objects(clinic__in=therapist.clinics)
             .only(
                 "first_name",
                 "name",

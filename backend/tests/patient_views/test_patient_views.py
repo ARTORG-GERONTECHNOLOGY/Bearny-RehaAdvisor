@@ -632,7 +632,7 @@ def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
 
 def test_get_patient_plan_patient_not_found_404(mongo_mock):
     """
-    If patient userId doesn't exist => 404.
+    If the ID matches neither a userId nor a patient _id => 404.
     """
     resp = client.get(
         f"/api/patients/rehabilitation-plan/patient/{str(ObjectId())}/",
@@ -1255,3 +1255,81 @@ def test_get_patient_plan_post_method_not_allowed(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
+
+
+# ===========================================================================
+# Bug fix: get_patient_plan must accept both User._id and Patient._id
+# Regression tests for: https://github.com/.../issues/XXX
+# Before fix: only userId was tried; passing Patient._id returned "No plan found"
+# ===========================================================================
+
+
+def test_get_patient_plan_by_user_id(mongo_mock):
+    """
+    Calling the endpoint with the patient's User._id (normal login flow) returns
+    the rehabilitation plan.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["intervention_id"] == str(intervention.id)
+
+
+def test_get_patient_plan_by_patient_id(mongo_mock):
+    """
+    Regression: calling the endpoint with the Patient._id (not User._id) must
+    also return the plan.  Before the fix this returned "No rehabilitation plan
+    found" even when the plan existed.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    # Use Patient._id instead of User._id
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["intervention_id"] == str(intervention.id)
+
+
+def test_get_patient_plan_user_id_takes_priority_over_patient_id(mongo_mock):
+    """
+    When an ID matches a userId, that patient is used even if another patient
+    happens to have the same ObjectId as their Patient._id (shouldn't happen in
+    practice but ensures the lookup order is stable).
+    """
+    patient, _, _, plan = setup_patient_with_plan()
+
+    # Called with the User._id — must return the plan for this patient
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+    assert len(resp.json()) == 1
+
+
+def test_get_patient_plan_unknown_id_returns_404(mongo_mock):
+    """
+    An ID that matches neither a userId nor a Patient._id returns 404,
+    not a silent empty list.
+    """
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(ObjectId())}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "Patient not found" in resp.json().get("error", "")
