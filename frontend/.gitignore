@@ -24,4 +24,4 @@ test-results
 *.njsproj
 *.sln
 *.sw?
-src/config
+src/config/config.json
