@@ -1,4 +1,36 @@
+/**
+ * ICF Monitor — patient-facing questionnaire  (/icf/:patientId?)
+ *
+ * Routes
+ * ------
+ * /icf/:patientId?   Optional URL segment; /eva2 redirects here for backwards compatibility.
+ *
+ * State machine (rendered screens in order)
+ * -----------------------------------------
+ * 1. Patient-ID input   — when no patientId in URL param or localStorage.
+ *                         Validates "P\d+" format, persists to localStorage.
+ * 2. Mic permission     — requests getUserMedia; shows "Übungslauf starten" button.
+ * 3. Practice mode      — one warm-up question (not uploaded to backend).
+ * 4. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
+ *                         Each answer POSTs to /api/healthslider/submit-item/ including
+ *                         participantId, sessionId, questionIndex, answerValue, and the
+ *                         recorded audio Blob (webm or m4a depending on browser).
+ * 5. Summary / end      — shown after the last question; "Beenden" clears localStorage.
+ *
+ * Persistence (localStorage)
+ * --------------------------
+ * patient_id        — survives page reloads; cleared by "ID zurücksetzen" footer button.
+ * survey_index      — allows resuming mid-survey after accidental reload.
+ * survey_sessionId  — groups all answers for a single sitting.
+ *
+ * Upload failure handling
+ * -----------------------
+ * If /api/healthslider/submit-item/ fails, a modal lets the patient download the
+ * audio blob + JSON metadata locally, so no data is lost.
+ */
+
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { PlayFill, BellFill, BellSlashFill } from 'react-bootstrap-icons';
 
 /** ====== DATA ====== */
@@ -88,6 +120,8 @@ const pickRecorderMime = () => {
 };
 
 export default function HealthSlider() {
+  const { patientId: urlPatientId } = useParams<{ patientId?: string }>();
+
   // --- questionnaire states ---
   const [sliderPosition, setSliderPosition] = useState(50);
   const [sliderMoved, setSliderMoved] = useState(false);
@@ -100,7 +134,12 @@ export default function HealthSlider() {
   );
   const [testMode, setTestMode] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState(() => {
+    if (urlPatientId) return urlPatientId;
+    return localStorage.getItem('patient_id') || '';
+  });
+  const [patientIdInput, setPatientIdInput] = useState('');
+  const [patientIdError, setPatientIdError] = useState('');
 
   // --- UI cues ---
   const [isLocked, setIsLocked] = useState(false);
@@ -210,26 +249,20 @@ export default function HealthSlider() {
     } catch {}
   }, [isPracticeMode, questionIndex]);
 
-  /** --- patient id prompt --- */
+  /** --- sync URL-provided patient ID to localStorage --- */
   useEffect(() => {
-    const stored = localStorage.getItem('patient_id');
-    if (stored) {
-      setPatientId(stored);
-    } else {
-      let input = '';
-      const idPattern = /^P\d+$/;
-      while (!input.match(idPattern)) {
-        const val = window.prompt('Bitte Patienten-ID eingeben (Format: P01, P02...):');
-        if (val === null) break;
-        input = val.trim();
-        if (!input.match(idPattern)) alert('ID muss mit P beginnen (z.B. P01).');
-      }
-      if (input) {
-        localStorage.setItem('patient_id', input);
-        setPatientId(input);
-      }
+    if (urlPatientId) localStorage.setItem('patient_id', urlPatientId);
+  }, [urlPatientId]);
+
+  const submitPatientId = () => {
+    const v = patientIdInput.trim();
+    if (!/^P\d+$/.test(v)) {
+      setPatientIdError('ID muss mit P beginnen, gefolgt von Ziffern (z.B. P01).');
+      return;
     }
-  }, []);
+    localStorage.setItem('patient_id', v);
+    setPatientId(v);
+  };
 
   /** --- persistence --- */
   useEffect(() => {
@@ -538,6 +571,53 @@ export default function HealthSlider() {
       el.removeEventListener('touchcancel', onTouchEnd as any);
     };
   }, [handleSliderMove, saving, isLocked]);
+
+  if (!patientId) {
+    return (
+      <main style={styles.app}>
+        <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
+        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
+          <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
+            Bitte geben Sie die Patienten-ID ein (Format: P01, P02...).
+          </p>
+          <input
+            type="text"
+            value={patientIdInput}
+            onChange={(e) => {
+              setPatientIdInput(e.target.value);
+              setPatientIdError('');
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitPatientId();
+            }}
+            placeholder="P01"
+            autoFocus
+            style={{
+              width: '100%',
+              fontSize: 20,
+              padding: '12px 14px',
+              borderRadius: 12,
+              border: '2px solid #ccc',
+              marginBottom: 10,
+              textAlign: 'center',
+              boxSizing: 'border-box',
+            }}
+          />
+          {patientIdError && <p style={{ color: '#b00020', marginBottom: 10 }}>{patientIdError}</p>}
+          <button
+            type="button"
+            style={{ ...styles.btn, ...styles.btnPrimary }}
+            onClick={submitPatientId}
+          >
+            Weiter
+          </button>
+        </div>
+        <footer style={{ ...styles.footer, marginTop: 'auto' }}>
+          <div style={styles.footerText}>{VERSION}</div>
+        </footer>
+      </main>
+    );
+  }
 
   if (testMode) {
     return (

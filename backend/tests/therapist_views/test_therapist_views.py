@@ -115,6 +115,7 @@ def create_therapist_with_patient(*, patient_active=True):
         access_word="word",
         age="30",
         therapist=therapist,
+        clinic="Inselspital",
         sex="Male",
         diagnosis=["Stroke"],
         function=["Cardiology"],
@@ -127,6 +128,53 @@ def create_therapist_with_patient(*, patient_active=True):
     ).save()
 
     return therapist, patient
+
+
+def _make_therapist(username, clinics):
+    """Helper: create a therapist user + Therapist with given clinics."""
+    u = User(
+        username=username,
+        email=f"{username}@example.com",
+        phone="000",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    return Therapist(
+        userId=u,
+        name="T",
+        first_name="F",
+        specializations=["Cardiology"],
+        clinics=clinics,
+    ).save()
+
+
+def _make_patient(username, therapist, clinic):
+    """Helper: create a patient user + Patient with given clinic."""
+    u = User(
+        username=username,
+        email=f"{username}@example.com",
+        phone="000",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    return Patient(
+        userId=u,
+        patient_code=f"PAT-{str(ObjectId())[-6:]}",
+        name="Doe",
+        first_name=username,
+        access_word="w",
+        age="30",
+        therapist=therapist,
+        clinic=clinic,
+        sex="Male",
+        diagnosis=["Stroke"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=[],
+        personal_goals=[],
+    ).save()
 
 
 def test_list_therapist_patients_success():
@@ -533,3 +581,106 @@ def test_feedback_computing_scores_and_adherence_for_two_answer_days():
     assert item["low_score"] is True
     assert item["last_answered_at"] is not None
     assert last is not None
+
+
+# ---------------------------------------------------------------------------
+# Clinic-based patient filtering tests
+# ---------------------------------------------------------------------------
+
+
+def test_patient_same_clinic_appears_in_list(mongo_mock):
+    """Patient whose clinic matches the therapist's clinic is returned."""
+    therapist = _make_therapist("th_clinic1", ["Inselspital"])
+    patient = _make_patient("pat_clinic1", therapist, "Inselspital")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    ids = [row["_id"] for row in resp.json()]
+    assert str(patient.id) in ids
+
+
+def test_patient_different_clinic_excluded_from_list(mongo_mock):
+    """Patient at a different clinic does not appear in the therapist's list."""
+    therapist = _make_therapist("th_clinic2", ["Inselspital"])
+    other_therapist = _make_therapist("th_other", ["Berner Reha Centrum"])
+    patient = _make_patient("pat_other_clinic", other_therapist, "Berner Reha Centrum")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    ids = [row["_id"] for row in resp.json()]
+    assert str(patient.id) not in ids
+
+
+def test_patient_no_clinic_excluded_from_list(mongo_mock):
+    """Patient with no clinic set does not appear in any therapist's list."""
+    therapist = _make_therapist("th_clinic3", ["Inselspital"])
+    patient = _make_patient("pat_no_clinic", therapist, "")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    ids = [row["_id"] for row in resp.json()]
+    assert str(patient.id) not in ids
+
+
+def test_therapist_no_clinics_returns_empty_list(mongo_mock):
+    """Therapist with no clinics configured sees an empty patient list."""
+    therapist = _make_therapist("th_no_clinics", [])
+    _make_patient("pat_insel", therapist, "Inselspital")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_therapist_multiple_clinics_shows_patients_from_all(mongo_mock):
+    """Therapist with multiple clinics sees patients from every assigned clinic."""
+    therapist = _make_therapist("th_multi", ["Inselspital", "Berner Reha Centrum"])
+    p_insel = _make_patient("pat_insel2", therapist, "Inselspital")
+    p_bern = _make_patient("pat_bern", therapist, "Berner Reha Centrum")
+    p_other = _make_patient("pat_leuven", therapist, "Leuven")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    ids = [row["_id"] for row in resp.json()]
+    assert str(p_insel.id) in ids
+    assert str(p_bern.id) in ids
+    assert str(p_other.id) not in ids
+
+
+def test_patients_from_same_clinic_visible_across_therapists(mongo_mock):
+    """Two therapists at the same clinic both see a patient registered there."""
+    therapist_a = _make_therapist("th_a", ["Inselspital"])
+    therapist_b = _make_therapist("th_b", ["Inselspital"])
+    patient = _make_patient("shared_patient", therapist_a, "Inselspital")
+
+    resp_a = client.get(
+        f"/api/therapists/{therapist_a.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    resp_b = client.get(
+        f"/api/therapists/{therapist_b.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert str(patient.id) in [row["_id"] for row in resp_a.json()]
+    assert str(patient.id) in [row["_id"] for row in resp_b.json()]

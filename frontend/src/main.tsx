@@ -1,6 +1,17 @@
+import * as Sentry from '@sentry/react';
 import React from 'react';
 import i18n from '../i18n'; // Import the i18n config
 import { createRoot } from 'react-dom/client';
+
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    sendDefaultPii: true,
+    tracesSampleRate: 1.0,
+    integrations: [Sentry.browserTracingIntegration()],
+  });
+}
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { I18nextProvider } from 'react-i18next';
 import { Router } from '@/routes/index';

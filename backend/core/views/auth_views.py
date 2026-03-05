@@ -370,11 +370,11 @@ def login_view(request):
 
         user_id_str = str(user.id)
 
-        # Therapists: require 2FA
-        if user.role == "Therapist":
+        # Therapists and Admins: require 2FA
+        if user.role in ("Therapist", "Admin"):
             return JsonResponse(
                 {
-                    "user_type": "Therapist",
+                    "user_type": user.role,
                     "id": user_id_str,
                     "require_2fa": True,
                     "request_id": request_id,
@@ -675,6 +675,48 @@ def register_view(request):
                 rollback()
                 return _err("Assigned therapist not found.", status=404)
 
+            # Validate clinic
+            clinic = (data.get("clinic") or "").strip()
+            if not clinic:
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"clinic": ["Clinic is required."]},
+                )
+            if clinic not in (pat_therapist.clinics or []):
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"clinic": ["Selected clinic is not assigned to this therapist."]},
+                )
+
+            # Validate project
+            project = (data.get("project") or "").strip()
+            if not project:
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"project": ["Project is required."]},
+                )
+            if project not in (pat_therapist.projects or []):
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"project": ["Selected project is not assigned to this therapist."]},
+                )
+            clinic_projects = config.get("therapistInfo", {}).get("clinic_projects") or {}
+            if project not in clinic_projects.get(clinic, []):
+                rollback()
+                return _err(
+                    "Validation error.",
+                    status=400,
+                    field_errors={"project": ["Selected project is not valid for the chosen clinic."]},
+                )
+
             # Parse date safely: accept "YYYY-MM-DD" and full ISO "YYYY-MM-DDTHH:mm:ssZ"
             raw_reha_end = (data.get("rehaEndDate") or "").strip()
             try:
@@ -701,6 +743,9 @@ def register_view(request):
                 first_name=sanitize_text(data.get("firstName"), True),
                 age=(data.get("age") or ""),
                 therapist=pat_therapist,
+                clinic=clinic,
+                project=project,
+                created_by=pat_therapist,
                 sex=((data.get("sex") or "").strip() if isinstance(data.get("sex"), str) else data.get("sex")),
                 diagnosis=data.get("diagnosis"),
                 function=data.get("function"),

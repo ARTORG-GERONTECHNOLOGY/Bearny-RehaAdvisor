@@ -1,0 +1,40 @@
+# Gateway — optional multi-stack router.
+#
+# Only needed when running dev + local-prod (or dev + prod) simultaneously.
+# For dev-only operation, dev nginx owns ports 80/443 directly — no gateway needed.
+#
+# Usage (multi-stack):
+#   1. Edit docker-compose.dev.yml — remove nginx-dev ports 80/443 (comment them out)
+#   2. docker compose -f docker-compose.dev.yml up -d
+#   3. docker compose -f docker-compose.local-prod.yml up -d   (if needed)
+#   4. docker compose -f docker-compose.gateway.yml up -d
+#   5. Connect gateway to stacks:
+#        docker network connect telereha gateway          # dev
+#        docker network connect telerehabapp_telereha-localprod gateway   # local-prod
+#        docker network connect telereha-prod gateway    # prod (after first GitHub deploy)
+#
+# Reverse (back to dev-only):
+#   docker compose -f docker-compose.gateway.yml down
+#   Restore nginx-dev ports 80/443 in docker-compose.dev.yml
+#   docker compose -f docker-compose.dev.yml up -d nginx-dev
+
+services:
+  gateway:
+    image: nginx:stable-alpine
+    container_name: gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/gateway.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+    # Networks are connected dynamically via `docker network connect`
+    # (see usage instructions above) so this compose file has no hard
+    # external network dependencies and can start independently.
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

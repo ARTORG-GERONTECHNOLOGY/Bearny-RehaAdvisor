@@ -7,7 +7,7 @@ from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import PatientInterventionLogs
+from core.models import GeneralFeedback, PatientInterventionLogs
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +51,11 @@ def _best_video_timestamp(log) -> "timezone.datetime | None":
 
 class Command(BaseCommand):
     help = (
-        "Deletes old intervention video feedback files and marks them expired.\n"
-        "Uses PatientInterventionLogs.video_url + video_expired.\n"
+        "Deletes old feedback media files (videos and audios) older than --days days.\n"
+        "Videos: PatientInterventionLogs.video_url — marked with video_expired=True.\n"
+        "Audios: FeedbackEntry.audio_url in PatientInterventionLogs and GeneralFeedback\n"
+        "        — audio_url cleared to '' after deletion.\n"
+        "Controlled by ENABLE_MEDIA_AUTO_DELETE env var when run via Celery.\n"
         "Default cutoff is 14 days based on updatedAt/createdAt/date (best available)."
     )
 
@@ -226,9 +229,71 @@ class Command(BaseCommand):
             # If legacy structure doesn't exist anymore, we just ignore it.
             pass
 
+        # --- AUDIO: FeedbackEntry.audio_url in PatientInterventionLogs ---
+        # FeedbackEntry embeds a `date` field — use that as the age proxy.
+        # After deletion the audio_url field is cleared to "" so the record is not revisited.
+        audio_deleted = 0
+        audio_missing = 0
+
+        for doc_class, list_field in [
+            (PatientInterventionLogs, "feedback"),
+            (GeneralFeedback, "feedback_entries"),
+        ]:
+            try:
+                audio_qs = doc_class.objects(
+                    **{f"{list_field}__audio_url__ne": None, f"{list_field}__audio_url__ne": ""}
+                )
+                if limit:
+                    audio_qs = audio_qs[:limit]
+
+                for doc in audio_qs:
+                    entries = getattr(doc, list_field, None) or []
+                    updated = False
+                    for entry in entries:
+                        url = getattr(entry, "audio_url", None) or ""
+                        if not url:
+                            continue
+                        entry_date = getattr(entry, "date", None)
+                        if not entry_date or entry_date > cutoff:
+                            continue
+
+                        storage_path = _storage_path_from_url(url)
+                        if storage_path and not no_delete:
+                            if dry_run:
+                                logger.info("[DRY RUN] Would delete audio: %s", storage_path)
+                            else:
+                                try:
+                                    if default_storage.exists(storage_path):
+                                        default_storage.delete(storage_path)
+                                        audio_deleted += 1
+                                    else:
+                                        audio_missing += 1
+                                        logger.warning("Audio file missing in storage: %s", storage_path)
+                                except Exception:
+                                    errors += 1
+                                    logger.exception("Failed to delete audio file: %s", storage_path)
+
+                        if dry_run:
+                            logger.info(
+                                "[DRY RUN] Would clear audio_url on %s id=%s",
+                                doc_class.__name__,
+                                getattr(doc, "id", "unknown"),
+                            )
+                        else:
+                            entry.audio_url = ""
+                            updated = True
+
+                    if updated and not dry_run:
+                        doc.save()
+
+            except Exception:
+                errors += 1
+                logger.exception("Error during audio cleanup for %s", doc_class.__name__)
+
         msg = (
             f"Done. logs_updated={touched_logs}, videos_marked_expired={marked_expired}, "
-            f"files_deleted={deleted_files}, missing_files={missing_files}, errors={errors}"
+            f"files_deleted={deleted_files}, missing_files={missing_files}, "
+            f"audios_deleted={audio_deleted}, audio_missing={audio_missing}, errors={errors}"
         )
         if legacy_marked or legacy_deleted:
             msg += f" | legacy_marked={legacy_marked}, legacy_deleted={legacy_deleted}"

@@ -25,6 +25,17 @@ Happy-path
   * Therapist can toggle ``initial_questionnaire_enabled`` on a patient via
     the profile PUT endpoint (``True`` → ``False`` and vice-versa).
 
+Therapist field persistence (DB-level assertions)
+  * ``name`` / ``first_name`` updates are persisted to the Therapist document.
+  * ``specializations`` list updates are persisted to the Therapist document.
+  * ``clinics`` list updates are persisted to the Therapist document.
+  * ``username`` updates are persisted to the User document.
+  * Valid ``email`` (regex-passing) is accepted and persisted.
+  * Valid ``phone`` (E.164 style) is accepted and persisted.
+  * A successful PUT creates a ``Logs`` entry with action ``UPDATE_PROFILE``
+    and the updated field names in ``details``.
+  * Empty string values are silently skipped (not persisted, not an error).
+
 Input validation (400)
   * Missing required fields (userId, old password, etc.).
   * Invalid ObjectId strings.
@@ -521,6 +532,157 @@ def test_user_profile_view_overposting_forbidden_fields_are_ignored():
     refreshed = User.objects.get(pk=user.id)
     assert refreshed.role == original_role, "role must not be changeable via profile PUT"
     assert refreshed.pwdhash == original_pwdhash, "pwdhash must not be changeable via profile PUT"
+
+
+# ===========================================================================
+# user_profile_view — PUT (therapist field persistence)
+#
+# These tests verify that changes are actually written to MongoDB, not just
+# echoed back in the response body.
+# ===========================================================================
+
+
+def test_user_profile_view_update_therapist_name_persists_to_db():
+    """
+    PUT ``name`` and ``first_name`` values are persisted to the Therapist
+    document in MongoDB, not just echoed in the response body.
+    """
+    user, therapist = create_user_and_therapist()
+    client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"name": "NewLast", "first_name": "NewFirst"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    therapist.reload()
+    assert therapist.name == "NewLast"
+    assert therapist.first_name == "NewFirst"
+
+
+def test_user_profile_view_update_therapist_specializations():
+    """
+    PUT a new ``specializations`` list updates the Therapist document in
+    MongoDB and is reflected in a subsequent GET.
+    """
+    user, therapist = create_user_and_therapist()
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"specializations": ["Neurology", "Orthopedics"]}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "specializations" in resp.json().get("updated", {})
+    therapist.reload()
+    assert "Neurology" in therapist.specializations
+
+
+def test_user_profile_view_update_therapist_clinics():
+    """
+    PUT a new ``clinics`` list updates the Therapist document and is
+    persisted to the database.
+    """
+    user, therapist = create_user_and_therapist()
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"clinics": ["Berner Reha Centrum"]}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    therapist.reload()
+    assert therapist.clinics == ["Berner Reha Centrum"]
+
+
+def test_user_profile_view_update_therapist_username():
+    """
+    PUT a new ``username`` updates the User document in MongoDB.
+    """
+    user, _ = create_user_and_therapist()
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"username": "updated_username"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    user.reload()
+    assert user.username == "updated_username"
+
+
+def test_user_profile_view_update_valid_email_accepted_and_persisted():
+    """
+    PUT a well-formed e-mail returns 200 and the new address is saved in
+    MongoDB.  This verifies the validator does not reject valid values.
+    """
+    user, _ = create_user_and_therapist()
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"email": "newemail@clinic.org"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    user.reload()
+    assert user.email == "newemail@clinic.org"
+
+
+def test_user_profile_view_update_valid_phone_accepted_and_persisted():
+    """
+    PUT a well-formed phone number (E.164 style, 7–15 digits, optional +)
+    returns 200 and the number is persisted to MongoDB.
+    """
+    user, _ = create_user_and_therapist()
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"phone": "+41791234567"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    user.reload()
+    assert user.phone == "+41791234567"
+
+
+def test_user_profile_view_update_creates_audit_log():
+    """
+    Every successful PUT writes a ``Logs`` entry with action ``UPDATE_PROFILE``
+    and details that include the changed field name.  This supports the audit
+    trail for profile changes.
+    """
+    from core.models import Logs
+
+    user, _ = create_user_and_therapist()
+    client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"first_name": "Audited"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    log = Logs.objects(userId=user, action="UPDATE_PROFILE").first()
+    assert log is not None
+    assert "first_name" in log.details
+
+
+def test_user_profile_view_update_empty_string_does_not_overwrite():
+    """
+    PUT with an empty string for a whitelisted field must NOT overwrite the
+    existing value.  ``valid_update_value("")`` returns False so empty strings
+    are silently skipped.  This protects against accidental data erasure from
+    partially-filled form submissions.
+    """
+    user, therapist = create_user_and_therapist()
+    original_name = therapist.name
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"name": ""}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200  # empty value is silently skipped, not an error
+    therapist.reload()
+    assert therapist.name == original_name, "Empty string must not overwrite existing field"
 
 
 # ===========================================================================
@@ -1286,3 +1448,51 @@ def test_patient_profile_put_disables_initial_questionnaire():
 
     refreshed = Patient.objects.get(pk=patient.id)
     assert refreshed.initial_questionnaire_enabled is False
+
+
+# ===========================================================================
+# created_by in patient profile GET
+# ===========================================================================
+
+
+def test_patient_profile_get_includes_created_by_name():
+    """
+    When a patient has a created_by therapist set, the profile GET must
+    include a ``created_by`` key with the therapist's full name.
+    """
+    user, patient = create_patient()
+    # Assign created_by to the same therapist used in create_patient()
+    therapist = Therapist.objects.get(userId__in=User.objects.filter(email="t1@example.com"))
+    patient.created_by = therapist
+    patient.save()
+
+    resp = client.get(
+        f"/api/users/{str(user.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "created_by" in data
+    assert data["created_by"] == "John Doe"
+
+
+def test_patient_profile_get_created_by_null_when_not_set():
+    """
+    When no therapist created the patient (e.g. REDCap import), the
+    ``created_by`` field must be ``null`` in the profile response.
+    """
+    user, patient = create_patient()
+    # Ensure no created_by is set
+    patient.created_by = None
+    patient.save()
+
+    resp = client.get(
+        f"/api/users/{str(user.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "created_by" in data
+    assert data["created_by"] is None
