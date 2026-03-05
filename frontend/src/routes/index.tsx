@@ -132,8 +132,12 @@ export const router = createBrowserRouter([
     element: withSuspense(createElement(HelpPage)),
   },
   {
-    path: '/eva2',
+    path: '/icf/:patientId?',
     element: withSuspense(createElement(Eva)),
+  },
+  {
+    path: '/eva2',
+    element: createElement(Navigate, { to: '/icf', replace: true }),
   },
   {
     path: '/healthslider-downloads',

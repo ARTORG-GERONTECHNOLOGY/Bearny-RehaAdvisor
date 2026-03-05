@@ -1,0 +1,147 @@
+# Local-prod: runs the full production stack on non-conflicting ports
+# so it can run side-by-side with docker-compose.dev.yml.
+#
+# Port mapping (dev → local-prod):
+#   MongoDB  27017 → 27018
+#   Redis    6379  → 6380
+#   Django   8001  → 8002
+#   Nginx    80    → 8080
+#
+# Usage:
+#   docker compose -f docker-compose.local-prod.yml up --build -d
+#   docker exec django-localprod python manage.py migrate
+#   docker exec django-localprod python manage.py seed_admin
+#   docker exec django-localprod python manage.py seed_feedback_questions
+#   docker exec django-localprod python manage.py seed_periodic_tasks
+#   Open: http://localhost:8080
+
+services:
+  db-localprod:
+    image: mongo:8.0.3
+    container_name: db-localprod
+    restart: unless-stopped
+    command: >
+      mongod
+      --auth
+      --tlsMode requireTLS
+      --tlsCertificateKeyFile /etc/ssl/mongo/server.pem
+      --tlsCAFile /etc/ssl/mongo/ca.crt
+      --tlsAllowConnectionsWithoutCertificates
+      --bind_ip_all
+    env_file:
+      - ./.env.local-prod
+    environment:
+      MONGO_APP_DB: reha_advisor_prod
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data_localprod:/data/db
+      - ./mongo/tls:/etc/ssl/mongo:ro
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --tls --tlsAllowInvalidCertificates localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - telereha-localprod
+
+  redis-localprod:
+    image: redis:7-alpine
+    container_name: redis-localprod
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - telereha-localprod
+
+  django-localprod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: django-localprod
+    restart: unless-stopped
+    env_file:
+      - ./.env.local-prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.local_prod
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8002:8000"
+    volumes:
+      - static-localprod:/app/collected_static
+      - media-localprod:/app/media
+      - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
+    depends_on:
+      db-localprod:
+        condition: service_healthy
+      redis-localprod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/auth/login/ | grep -qE '^[2-4][0-9][0-9]$'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - telereha-localprod
+
+  celery-localprod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: celery-localprod
+    restart: unless-stopped
+    command: python -m celery -A api.celery:app worker --loglevel=info -c 2
+    env_file:
+      - ./.env.local-prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.local_prod
+      - PYTHONPATH=/app
+      - CELERY_BROKER_URL=redis://redis-localprod:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-localprod:6379/0
+    working_dir: /app
+    volumes:
+      - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
+    depends_on:
+      redis-localprod:
+        condition: service_healthy
+      db-localprod:
+        condition: service_healthy
+    networks:
+      - telereha-localprod
+
+  nginx-localprod:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile.local-prod
+      args:
+        - VITE_API_URL=https://reha-advisor.ch/api
+    container_name: nginx-localprod
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "8443:443"
+    depends_on:
+      django-localprod:
+        condition: service_healthy
+    volumes:
+      - static-localprod:/srv/app/static:ro
+      - media-localprod:/srv/app/media:rw
+      - ./nginx/certbot/conf:/etc/letsencrypt:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+    networks:
+      - telereha-localprod
+
+volumes:
+  mongo_data_localprod:
+  static-localprod:
+  media-localprod:
+
+networks:
+  telereha-localprod:
+    driver: bridge
