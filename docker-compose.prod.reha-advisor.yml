@@ -141,7 +141,13 @@ services:
 
   # React frontend — static build served via nginx-prod
   react-prod:
-    image: ${GHCR_IMAGE}-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_URL=https://reha-advisor.ch/api
+        - VITE_APP_NAME=RehaAdvisor
+        - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
     container_name: react-prod
     restart: always
     ports:
