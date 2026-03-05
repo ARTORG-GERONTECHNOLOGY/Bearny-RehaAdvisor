@@ -166,8 +166,8 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend-root
+          cache-to: type=gha,mode=max,scope=frontend-root
 
       - name: Extract metadata (backend)
         id: meta-backend
