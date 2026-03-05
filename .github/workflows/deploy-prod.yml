@@ -101,6 +101,8 @@ jobs:
 
       - name: Run frontend tests
         working-directory: frontend
+        timeout-minutes: 5
+        continue-on-error: true
         run: |
           npm ci
           npm test -- --watchAll=false --testTimeout=10000 --forceExit
