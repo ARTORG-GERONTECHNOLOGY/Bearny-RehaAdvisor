@@ -110,7 +110,7 @@ export default defineConfig(({ mode }) => {
       host: true, // or '0.0.0.0'
       port: 3000,
       https: false,
-      allowedHosts: ['dev.reha-advisor.ch'],
+      allowedHosts: ['dev.reha-advisor.ch', 'reha-advisor.ch'],
     },
     define: {
       'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),

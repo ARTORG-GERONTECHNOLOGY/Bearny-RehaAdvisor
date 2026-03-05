@@ -459,6 +459,8 @@ class Patient(Document):
 
     # ✅ Optional platform fields (can also come from REDCap)
     clinic = StringField(max_length=120, default="")
+    project = StringField(max_length=100, default="")
+    created_by = ReferenceField("Therapist", required=False, null=True)
     last_clinic_visit = DateTimeField(required=False, null=True)
 
     # ✅ Optional “profile” fields (REDCap source of truth)

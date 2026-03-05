@@ -353,6 +353,7 @@ def user_profile_view(request, user_id):
                     "pwdhash",
                     "access_word",
                     "therapist",
+                    "created_by",
                     "userId",
                     "id",
                 }
@@ -374,6 +375,26 @@ def user_profile_view(request, user_id):
                 last_login = Logs.objects(userId=user, action="LOGIN").order_by("-timestamp").first()
                 if last_login:
                     obj["last_online"] = last_login.timestamp.date().isoformat()
+
+                # Resolve creator therapist name
+                obj["created_by"] = None
+                try:
+                    cb = pt.created_by  # triggers MongoEngine auto-dereference
+                    if cb is not None:
+                        name = f"{cb.first_name or ''} {cb.name or ''}".strip()
+                        obj["created_by"] = name or None
+                except Exception:
+                    logger.warning("Could not resolve created_by for patient %s", pt.id)
+
+                # Resolve connected (assigned) therapist name
+                obj["therapist_name"] = None
+                try:
+                    th = pt.therapist  # triggers MongoEngine auto-dereference
+                    if th is not None:
+                        name = f"{th.first_name or ''} {th.name or ''}".strip()
+                        obj["therapist_name"] = name or None
+                except Exception:
+                    logger.warning("Could not resolve therapist for patient %s", pt.id)
 
             return JsonResponse(obj, status=200)
 
