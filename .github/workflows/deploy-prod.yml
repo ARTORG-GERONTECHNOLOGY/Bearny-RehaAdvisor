@@ -239,7 +239,9 @@ jobs:
 
             # Clone on first deploy, otherwise fetch
             if [ ! -d "$PROD_DIR/.git" ]; then
-              git clone "$REPO_URL" "$PROD_DIR"
+              mkdir -p "$PROD_DIR"
+              git -C "$PROD_DIR" init
+              git -C "$PROD_DIR" remote add origin "$REPO_URL"
             fi
             cd "$PROD_DIR"
             git fetch --all --tags
