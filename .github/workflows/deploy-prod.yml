@@ -244,7 +244,7 @@ jobs:
               git -C "$PROD_DIR" remote add origin "$REPO_URL"
             fi
             cd "$PROD_DIR"
-            git fetch --all --tags
+            git fetch --all --tags --force
             git checkout -f "$TAG"
 
             # .env.prod must be placed manually on the server at $PROD_DIR/.env.prod
