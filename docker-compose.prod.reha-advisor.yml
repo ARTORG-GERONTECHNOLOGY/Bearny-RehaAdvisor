@@ -22,6 +22,7 @@ services:
     command: >
       mongod
       --auth
+      --keyFile /etc/ssl/mongo/keyfile
       --tlsMode requireTLS
       --tlsCertificateKeyFile /etc/ssl/mongo/server.pem
       --tlsCAFile /etc/ssl/mongo/ca.crt
@@ -35,7 +36,7 @@ services:
       - ./mongo/tls:/etc/ssl/mongo:ro
       - ./mongo/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: echo 'db.runCommand("ping").ok' | mongosh --tls --tlsAllowInvalidCertificates localhost:27017/test --quiet
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,6 +75,7 @@ services:
     volumes:
       - static-prod:/srv/app/static
       - media-prod:/srv/app/media
+      - ./data/db.sqlite3:/app/api/db.sqlite3
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     depends_on:
       db-prod:
@@ -83,7 +85,7 @@ services:
       libretranslate:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -134,6 +136,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
     volumes:
+      - ./data/db.sqlite3:/app/api/db.sqlite3
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
     depends_on:
       redis-prod:
