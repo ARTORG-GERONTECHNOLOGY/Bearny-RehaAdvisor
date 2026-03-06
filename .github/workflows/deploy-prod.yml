@@ -205,6 +205,9 @@ jobs:
     concurrency:
       group: production-deployment
       cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Create pre-deploy backup
@@ -223,7 +226,7 @@ jobs:
               if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh || echo "Backup failed (non-fatal) — continuing deploy"; fi
             fi
 
-      - name: Deploy release ${{ needs.build.outputs.tag }} to production
+      - name: Authenticate prod server with GHCR
         uses: appleboy/ssh-action@v1.0.3
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -233,6 +236,15 @@ jobs:
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           envs: GHCR_TOKEN,GHCR_USER
+          script: |
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+      - name: Deploy release ${{ needs.build.outputs.tag }} to production
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             set -euo pipefail
             PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
@@ -259,10 +271,8 @@ jobs:
 
             DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
 
-            # Authenticate with GHCR to pull private images
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
             # Pull the pre-built images for this tag from GHCR
+            # (GHCR login is done in the preceding step, credentials cached in ~/.docker/config.json)
             $DC pull
 
             # Bring up new containers (does not touch dev or local-prod)
