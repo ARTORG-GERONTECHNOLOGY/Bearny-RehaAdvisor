@@ -271,6 +271,10 @@ jobs:
 
             DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
 
+            # Ensure server-side data files exist (created once, persist across deploys)
+            mkdir -p ./data ./mongo/tls
+            touch -a ./data/db.sqlite3
+
             # Pull the pre-built images for this tag from GHCR
             # (GHCR login is done in the preceding step, credentials cached in ~/.docker/config.json)
             $DC pull
