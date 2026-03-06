@@ -307,7 +307,7 @@ jobs:
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/api/auth/login/ || true)
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" https://reha-advisor.ch/api/ || true)
             if [ "$http_code" = "200" ]; then
               echo "✅ Production health check passed (HTTP $http_code)"
               exit 0
