@@ -147,9 +147,10 @@ services:
       dockerfile: Dockerfile.dev
     container_name: nginx
     restart: always
-    ports:
-      - "80:80"
-      - "443:443"
+    # Ports 80/443 are owned by the gateway when multi-stack routing is active.
+    # To run dev-only without the gateway, restore:
+    #   - "80:80"
+    #   - "443:443"
     volumes:
       - static:/app/static
       - media:/app/media
