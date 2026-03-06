@@ -296,6 +296,9 @@ jobs:
             sed -i 's/nginx-localprod/nginx-prod/g' /home/ubuntu/repos/telerehabapp/nginx/gateway.nginx.conf
             docker kill -s HUP gateway
 
+            # Reload nginx-prod so it picks up any config changes from the bind mount
+            docker kill -s HUP nginx-prod
+
             echo "Deployed $TAG successfully"
             $DC ps
 
