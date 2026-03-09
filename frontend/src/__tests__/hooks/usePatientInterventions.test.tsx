@@ -1,12 +1,11 @@
 // src/__tests__/hooks/usePatientInterventions.test.tsx
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { usePatientInterventions } from '../../hooks/usePatientInterventions';
-import apiClient from '../../api/client';
+import { usePatientInterventions } from '@/hooks/usePatientInterventions';
+import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 import { renderHook, act } from '@testing-library/react';
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
-import type { RehabPlanResponse, Intervention } from '../../types';
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+import type { RehabPlanResponse, Intervention } from '@/types';
 
 const MockComponent = ({ patientId }: { patientId: string }) => {
   const { patientData, interventions, loading } = usePatientInterventions(patientId);

@@ -33,7 +33,7 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-// Mock authStore to simulate logged-in and not-logged-in states
+// ✅ Mock authStore to simulate logged-in and not-logged-in states
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
@@ -74,9 +74,7 @@ jest.mock('@/components/AddIntervention/AddRecomendationPopUp', () => () => (
 ));
 
 // Mock new components used in refactored TherapistInterventions
-jest.mock('@/components/TherapistInterventionPage/MainTabs', () => (props: any) => (
-  <div>Main Tabs</div>
-));
+jest.mock('@/components/TherapistInterventionPage/MainTabs', () => () => <div>Main Tabs</div>);
 
 jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (props: any) => (
   <div>

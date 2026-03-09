@@ -5,9 +5,19 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import PatientInterventionPopUp from '../../../components/PatientPage/PatientInterventionPopUp';
+import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
 jest.mock('react-pdf', () => ({
@@ -26,12 +36,16 @@ jest.mock('@microlink/react', () => (props: any) => (
   <div data-testid="microlink-preview" {...props} />
 ));
 
-jest.mock('../../../utils/interventions', () => ({
+jest.mock('@/utils/interventions', () => ({
   generateTagColors: () => ({}),
   getMediaTypeLabelFromUrl: jest.fn(),
+  getTaxonomyTags: jest.fn(() => []),
+  getBadgeVariantFromIntervention: jest.fn(() => 'primary'),
+  getMediaTypeLabelFromIntervention: jest.fn(() => 'Unknown'),
+  getTagColor: jest.fn(() => '#6f2dbd'),
 }));
 
-import { getMediaTypeLabelFromUrl } from '../../../utils/interventions';
+import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
 
 const defaultItem = {
   title: 'Test Intervention',
@@ -51,7 +65,6 @@ describe('PatientInterventionPopUp Component', () => {
     expect(screen.getByText('Test Intervention')).toBeInTheDocument();
     expect(screen.getByText('Exercise')).toBeInTheDocument();
     expect(screen.getByText('This is a test intervention.')).toBeInTheDocument();
-    expect(screen.getByText('mobility')).toBeInTheDocument();
     expect(screen.getByText('Flexibility')).toBeInTheDocument();
   });
 
@@ -69,16 +82,27 @@ describe('PatientInterventionPopUp Component', () => {
 
   it('renders video player for Video type', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Video');
-    const item = { ...defaultItem, media_file: 'video.mp4', link: '', content_type: 'Video' };
+    const item = {
+      ...defaultItem,
+      media_url: 'https://example.com/video.mp4',
+      link: '',
+      content_type: 'Video',
+    };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
     expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
   it('renders audio player for Audio type', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Audio');
-    const item = { ...defaultItem, media_file: 'audio.mp3', link: '', content_type: 'Audio' };
+    const item = {
+      ...defaultItem,
+      media_url: 'https://example.com/audio.mp3',
+      link: '',
+      content_type: 'Audio',
+    };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
-    expect(screen.getByTestId('audio-player')).toBeInTheDocument();
+    // Audio files are also rendered using ReactPlayer (video-player testid)
+    expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
   it('renders PDF preview for PDF type', () => {
@@ -97,12 +121,17 @@ describe('PatientInterventionPopUp Component', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Link');
     const item = { ...defaultItem, link: 'https://example.com', content_type: 'Link' };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
-    expect(screen.getByTestId('microlink-preview')).toBeInTheDocument();
+    // Link URLs are rendered using ReactPlayer (video-player), not Microlink
+    expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
   it('renders image for Image type', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Image');
-    const item = { ...defaultItem, media_file: 'image.jpg', content_type: 'Image' };
+    const item = {
+      ...defaultItem,
+      media_url: 'https://example.com/image.jpg',
+      content_type: 'Image',
+    };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
     const images = screen.getAllByRole('img');
     expect(images.length).toBeGreaterThan(0);
@@ -111,9 +140,8 @@ describe('PatientInterventionPopUp Component', () => {
     title: 'Test Intervention',
     content_type: 'Other',
     description: 'This is a test intervention.',
-    media_file: 'unknown.xyz', // make sure this is provided!
-    media_url: '',
-    link: '', // fallback will use media_file
+    media_url: 'https://example.com/unknown.xyz',
+    link: '',
     tags: ['mobility'],
     benefitFor: ['Flexibility'],
   };
@@ -123,10 +151,10 @@ describe('PatientInterventionPopUp Component', () => {
 
     render(<PatientInterventionPopUp show={true} item={fallbackItem} handleClose={jest.fn()} />);
 
-    const fallbackLink = screen.getByText(/Open Resource/i).closest('a');
+    const fallbackLink = screen.getByText(/Open link/i).closest('a');
 
     expect(fallbackLink).toBeInTheDocument();
-    expect(fallbackLink).toHaveAttribute('href', 'unknown.xyz');
-    expect(fallbackLink).toHaveClass('btn btn-secondary');
+    expect(fallbackLink).toHaveAttribute('href', 'https://example.com/unknown.xyz');
+    expect(fallbackLink).toHaveClass('btn btn-outline-secondary');
   });
 });

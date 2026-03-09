@@ -1,11 +1,17 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import InterventionList from '../../../components/TherapistInterventionPage/InterventionList';
+import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
 import '@testing-library/jest-dom';
 
-jest.mock('../../../utils/interventions', () => ({
-  getBadgeVariantFromUrl: jest.fn(() => 'info'),
-  getMediaTypeLabelFromUrl: jest.fn(() => 'Video'),
+jest.mock('@/utils/interventions', () => ({
+  getBadgeVariantFromIntervention: jest.fn(() => 'info'),
+  getMediaTypeLabelFromIntervention: jest.fn(() => 'Video'),
+  getTagColor: jest.fn((tagColors: any, tag: string) => tagColors[tag] || '#6c757d'),
+}));
+
+jest.mock('@/utils/translate', () => ({
+  translateText: jest.fn(() =>
+    Promise.resolve({ translatedText: 'Translated', detectedSourceLanguage: 'en' })
+  ),
 }));
 
 describe('InterventionList', () => {
@@ -35,13 +41,24 @@ describe('InterventionList', () => {
     },
   ];
 
+  const translatedTitles = {
+    '1': { title: 'Mobility Drill', lang: 'en' },
+    '2': { title: 'Stretch PDF', lang: 'en' },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('renders list items with title and content type', () => {
     render(
-      <InterventionList items={items} onClick={mockOnClick} t={mockT} tagColors={tagColors} />
+      <InterventionList
+        items={items}
+        onClick={mockOnClick}
+        t={mockT}
+        tagColors={tagColors}
+        translatedTitles={translatedTitles}
+      />
     );
 
     expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
@@ -53,7 +70,13 @@ describe('InterventionList', () => {
 
   it('renders tag badges with correct styles', () => {
     render(
-      <InterventionList items={items} onClick={mockOnClick} t={mockT} tagColors={tagColors} />
+      <InterventionList
+        items={items}
+        onClick={mockOnClick}
+        t={mockT}
+        tagColors={tagColors}
+        translatedTitles={translatedTitles}
+      />
     );
 
     expect(screen.getByText('Mobility')).toHaveStyle(`background-color: ${tagColors.Mobility}`);
@@ -62,15 +85,27 @@ describe('InterventionList', () => {
 
   it('renders media type badge using utils', () => {
     render(
-      <InterventionList items={items} onClick={mockOnClick} t={mockT} tagColors={tagColors} />
+      <InterventionList
+        items={items}
+        onClick={mockOnClick}
+        t={mockT}
+        tagColors={tagColors}
+        translatedTitles={translatedTitles}
+      />
     );
 
-    expect(screen.getAllByText('Video').length).toBeGreaterThan(0); // called for both items
+    expect(screen.getAllByText('Video').length).toBeGreaterThan(0);
   });
 
   it('calls onClick when item is clicked', () => {
     render(
-      <InterventionList items={items} onClick={mockOnClick} t={mockT} tagColors={tagColors} />
+      <InterventionList
+        items={items}
+        onClick={mockOnClick}
+        t={mockT}
+        tagColors={tagColors}
+        translatedTitles={translatedTitles}
+      />
     );
 
     fireEvent.click(screen.getByText('Mobility Drill'));
