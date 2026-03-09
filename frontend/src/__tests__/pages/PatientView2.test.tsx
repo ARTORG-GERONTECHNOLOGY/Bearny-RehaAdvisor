@@ -1,11 +1,20 @@
 // src/pages/__tests__/PatientView.test.tsx
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import PatientView from '../PatientView';
-import authStore from '../../stores/authStore';
-import { patientUiStore } from '../../stores/patientUiStore';
+import PatientView from '@/pages/Patient';
+import authStore from '@/stores/authStore';
 
-jest.mock('../../stores/authStore', () => ({
+// Mock api client to avoid import.meta error
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
@@ -15,33 +24,35 @@ jest.mock('../../stores/authStore', () => ({
   },
 }));
 
-jest.mock('../../stores/patientUiStore', () => ({
+jest.mock('@/stores/patientUiStore', () => ({
   patientUiStore: { selectedDate: new Date('2026-02-16T00:00:00Z') },
 }));
 
 // Keep page unit tests small: mock children
-jest.mock('../../components/common/Header', () => () => <div data-testid="header" />);
-jest.mock('../../components/common/Footer', () => () => <div data-testid="footer" />);
-jest.mock('../../components/common/WelcomeArea', () => () => <div data-testid="welcome" />);
-jest.mock('../../components/PatientPage/FitbitStatus', () => () => (
-  <div data-testid="fitbit-btn" />
+jest.mock('@/components/common/Header', () => () => <div data-testid="header" />);
+jest.mock('@/components/common/Footer', () => () => <div data-testid="footer" />);
+jest.mock('@/components/common/WelcomeArea', () => () => <div data-testid="welcome" />);
+jest.mock('@/components/Layout', () => ({ children }: any) => (
+  <div data-testid="layout">{children}</div>
 ));
-jest.mock('../../components/PatientPage/DailyVitalsPrompt', () => () => (
-  <div data-testid="vitals" />
-));
-jest.mock('../../components/PatientPage/ActivitySummary', () => () => (
-  <div data-testid="summary" />
-));
-jest.mock('../../components/PatientPage/InterventionList', () => () => <div data-testid="list" />);
-jest.mock('../../components/common/ErrorAlert', () => (p: any) => (
-  <div role="alert">{p.message}</div>
+jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div data-testid="fitbit-btn" />);
+jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div data-testid="vitals" />);
+jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div data-testid="summary" />);
+jest.mock('@/components/PatientPage/InterventionList', () => () => <div data-testid="list" />);
+jest.mock('@/components/common/ErrorAlert', () => ({ message, onClose }: any) => (
+  <div role="alert">
+    {message}
+    <button onClick={onClose}>Close</button>
+  </div>
 ));
 
 const navigateMock = jest.fn();
+let mockSearchParams = new URLSearchParams();
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => navigateMock,
-  useSearchParams: () => [new URLSearchParams()],
+  useSearchParams: () => [mockSearchParams],
 }));
 
 jest.mock('react-i18next', () => ({
@@ -51,6 +62,7 @@ jest.mock('react-i18next', () => ({
 describe('PatientView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchParams = new URLSearchParams();
     (authStore.checkAuthentication as jest.Mock).mockResolvedValue(undefined);
   });
 
@@ -66,16 +78,15 @@ describe('PatientView', () => {
   });
 
   it('shows fitbit error alert when fitbit_status=error', async () => {
-    jest.doMock('react-router-dom', () => ({
-      ...jest.requireActual('react-router-dom'),
-      useNavigate: () => navigateMock,
-      useSearchParams: () => [new URLSearchParams('fitbit_status=error')],
-    }));
+    (authStore as any).isAuthenticated = true;
+    (authStore as any).userType = 'Patient';
 
-    // re-require with new router mock
-    const PV = require('../PatientView').default;
+    // Set the search params before rendering
+    mockSearchParams = new URLSearchParams('fitbit_status=error');
 
-    render(<PV />);
+    render(<PatientView />);
+
+    // Wait for error alert to appear
     expect(await screen.findByRole('alert')).toHaveTextContent('Fitbit connection failed.');
   });
 
@@ -85,12 +96,11 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    await screen.findByTestId('header');
+    await screen.findByTestId('layout');
     expect(screen.getByTestId('welcome')).toBeInTheDocument();
     expect(screen.getByTestId('fitbit-btn')).toBeInTheDocument();
     expect(screen.getByTestId('vitals')).toBeInTheDocument();
     expect(screen.getByTestId('summary')).toBeInTheDocument();
     expect(screen.getByTestId('list')).toBeInTheDocument();
-    expect(screen.getByTestId('footer')).toBeInTheDocument();
   });
 });

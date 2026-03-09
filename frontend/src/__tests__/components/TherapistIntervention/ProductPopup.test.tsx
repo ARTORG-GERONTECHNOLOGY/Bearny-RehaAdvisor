@@ -1,6 +1,25 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import ProductPopup from '../../../components/TherapistInterventionPage/ProductPopup';
-import React from 'react';
+import { render, screen } from '@testing-library/react';
+import ProductPopup from '@/components/TherapistInterventionPage/ProductPopup';
+
+// Mock apiClient to avoid import.meta errors
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+// Mock authStore
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: {
+    id: 'therapist123',
+    userType: 'Therapist',
+  },
+}));
 
 const mockItem = {
   _id: 'abc123',

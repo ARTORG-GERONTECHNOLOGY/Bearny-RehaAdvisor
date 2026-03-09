@@ -1,13 +1,12 @@
-import React from 'react';
 import { screen, fireEvent } from '@testing-library/react';
-import { renderWithRouter } from '../../../test-utils/renderWithRouter';
-import DeleteConfirmation from '../DeleteConfirmation';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmation';
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
 }));
 
-jest.mock('../../common/StandardModal', () => ({
+jest.mock('@/components/common/StandardModal', () => ({
   __esModule: true,
   default: ({ show, title, children, footer }: any) =>
     show ? (
