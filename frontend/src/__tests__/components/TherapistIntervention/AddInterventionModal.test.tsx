@@ -1,15 +1,12 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import AddInterventionModal from '../../../components/AddIntervention/AddInterventionModal';
-import apiClient from '../../../api/client';
-import { MemoryRouter } from 'react-router-dom';
+import AddInterventionModal from '@/components/AddIntervention/AddInterventionModal';
+import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
-import { within } from '@testing-library/react';
-jest.mock('../../../api/client', () => require('../../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 import {
   getBadgeVariantFromUrl,
   getMediaTypeLabelFromUrl,
-} from '../../../components/AddIntervention/AddInterventionModal';
+} from '@/components/AddIntervention/AddInterventionModal';
 const mockOnAdd = jest.fn();
 const defaultProps = {
   show: true,
@@ -89,7 +86,7 @@ describe('AddInterventionModal', () => {
     // Here you could also assert console.error was called if you want to mock console.error
   });
 
-  it('filters recommendations by content type and recommendation type', async () => {
+  it('filters recommendations by content type Video', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
       data: { recommendations: mockRecommendations },
     });
@@ -100,11 +97,10 @@ describe('AddInterventionModal', () => {
     fireEvent.change(screen.getByLabelText(/Filter by Content Type/i), {
       target: { value: 'Video' },
     });
-    fireEvent.change(screen.getByLabelText(/Filter by Core\/Supportive/i), {
-      target: { value: 'Core' },
-    });
 
+    // Exercise Therapy (YouTube link → Video) and Strength Training (video.mp4 → Video)
     expect(screen.getByText('Exercise Therapy')).toBeInTheDocument();
+    expect(screen.getByText('Strength Training (Core)')).toBeInTheDocument();
   });
 
   it('displays fetched recommendations and allows adding an intervention', async () => {
@@ -160,7 +156,7 @@ describe('AddInterventionModal', () => {
     // Here you could also assert console.error was called if you want to mock console.error
   });
 
-  it('filters recommendations by content type and recommendation type', async () => {
+  it('filters recommendations by content type Audio', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
       data: { recommendations: mockRecommendations },
     });
@@ -169,13 +165,12 @@ describe('AddInterventionModal', () => {
     await waitFor(() => screen.getByText('Exercise Therapy'));
 
     fireEvent.change(screen.getByLabelText(/Filter by Content Type/i), {
-      target: { value: 'Video' },
-    });
-    fireEvent.change(screen.getByLabelText(/Filter by Core\/Supportive/i), {
-      target: { value: 'Core' },
+      target: { value: 'Audio' },
     });
 
-    expect(screen.getByText('Exercise Therapy')).toBeInTheDocument();
+    // Music Therapy (test.mp3 → Audio) and Endurance Training (audio.mp3 → Audio)
+    expect(screen.getByText('Music Therapy')).toBeInTheDocument();
+    expect(screen.getByText('Endurance Training (Supportive)')).toBeInTheDocument();
   });
 
   it('displays fetched recommendations and allows adding an intervention', async () => {
@@ -225,7 +220,7 @@ describe('AddInterventionModal', () => {
     );
   });
 
-  it('covers filtering logic by content type and recommendation type (lines 36-44)', async () => {
+  it('covers filtering logic by content type (lines 36-44)', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
       data: { recommendations: mockRecommendations },
     });
@@ -239,12 +234,6 @@ describe('AddInterventionModal', () => {
     });
     expect(screen.getByText('Music Therapy')).toBeInTheDocument();
     expect(screen.queryByText('Exercise Therapy')).not.toBeInTheDocument();
-
-    // Filter by Core/Supportive: Supportive (should still match Music Therapy)
-    fireEvent.change(screen.getByLabelText(/Filter by Core\/Supportive/i), {
-      target: { value: 'Supportive' },
-    });
-    expect(screen.getByText('Music Therapy')).toBeInTheDocument();
   });
 
   it('covers error handling properly and logs the error (lines 54-62)', async () => {
@@ -275,7 +264,7 @@ describe('AddInterventionModal', () => {
     expect(screen.getByText('Music Therapy')).toBeInTheDocument();
   });
 
-  it('filters recommendations properly by recommendationTypeFilter only (coverage for lines 42-44)', async () => {
+  it('filters recommendations properly by content type (coverage for lines 42-44)', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
       data: { recommendations: mockRecommendations },
     });
@@ -284,9 +273,9 @@ describe('AddInterventionModal', () => {
 
     await waitFor(() => screen.getByText('Exercise Therapy'));
 
-    // Apply Core/Supportive filter → Core (should only show Exercise Therapy)
-    fireEvent.change(screen.getByLabelText(/Filter by Core\/Supportive/i), {
-      target: { value: 'Core' },
+    // Filter by Content Type: Video
+    fireEvent.change(screen.getByLabelText(/Filter by Content Type/i), {
+      target: { value: 'Video' },
     });
 
     expect(screen.getByText('Exercise Therapy')).toBeInTheDocument();
@@ -328,7 +317,7 @@ describe('AddInterventionModal', () => {
     expect(screen.queryByText('Music Therapy')).not.toBeInTheDocument();
     expect(screen.getByText(/No interventions available/i)).toBeInTheDocument();
   });
-  it('filters out Core item and leaves Supportive item (correct coverage for 42-44)', async () => {
+  it('filters correctly shows no results for unmatched type (correct coverage for 42-44)', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
       data: { recommendations: mockRecommendations },
     });
@@ -336,12 +325,15 @@ describe('AddInterventionModal', () => {
 
     await waitFor(() => screen.getByText('Exercise Therapy'));
 
-    fireEvent.change(screen.getByLabelText(/Filter by Core\/Supportive/i), {
-      target: { value: 'Supportive' },
+    // Filter by Link - none of our mock items are plain links (Exercise has YouTube link which is Video)
+    fireEvent.change(screen.getByLabelText(/Filter by Content Type/i), {
+      target: { value: 'Link' },
     });
 
-    expect(screen.queryByText('Exercise Therapy')).not.toBeInTheDocument(); // Core should be gone
-    expect(screen.getByText('Music Therapy')).toBeInTheDocument(); // Supportive stays
+    // All items should be filtered out
+    expect(screen.queryByText('Exercise Therapy')).not.toBeInTheDocument();
+    expect(screen.queryByText('Music Therapy')).not.toBeInTheDocument();
+    expect(screen.getByText(/No interventions available/i)).toBeInTheDocument();
   });
 
   it('handles API error and clears loading state (covers 54-55, 60-62)', async () => {
