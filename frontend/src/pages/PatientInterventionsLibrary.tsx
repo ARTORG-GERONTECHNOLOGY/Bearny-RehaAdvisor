@@ -7,7 +7,6 @@ import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
-import LibraryTabs, { type MainTab } from '@/components/PatientLibrary/LibraryTabs';
 import InterventionFiltersCard from '@/components/PatientLibrary/InterventionFiltersCard';
 import PatientInterventionDetailsModal from '@/components/PatientLibrary/PatientInterventionDetailsModal';
 import Layout from '@/components/Layout';
@@ -45,9 +44,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       mounted = false;
     };
   }, []);
-
-  // ─────────────────────────── tabs ───────────────────────────
-  const [mainTab, setMainTab] = useState<MainTab>('library');
 
   // ─────────────────────────── filters ───────────────────────────
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,6 +166,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
   return (
     <Layout>
+      <h1 className="text-2xl font-bold">{t('Library')}</h1>
       <div className="d-flex flex-column min-vh-100">
         <div className="flex-grow-1">
           <Container className="py-3 py-sm-4">
@@ -184,13 +181,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                 </Col>
               </Row>
             )}
-
-            {/* Tabs */}
-            <Row className="mb-3">
-              <Col>
-                <LibraryTabs value={mainTab} onChange={setMainTab} />
-              </Col>
-            </Row>
 
             {/* Filters */}
             <Row className="mb-3">

@@ -4,6 +4,8 @@ import { NavItem } from '@/components/NavItem';
 import authStore from '@/stores/authStore';
 import SunriseOutline from '@/assets/icons/sunrise-outline.svg?react';
 import SunriseFill from '@/assets/icons/sunrise-fill.svg?react';
+import CalendarOutline from '@/assets/icons/calendar-outline.svg?react';
+import CalendarFill from '@/assets/icons/calendar-fill.svg?react';
 import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
 import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
@@ -26,6 +28,12 @@ export default function Navigation() {
             iconOutline: SunriseOutline,
             iconFill: SunriseFill,
             label: t('Home'),
+          },
+          {
+            path: '/patient-plan',
+            iconOutline: CalendarOutline,
+            iconFill: CalendarFill,
+            label: t('Week Plan'),
           },
           {
             path: '/patient-interventions',
@@ -141,7 +149,7 @@ export default function Navigation() {
           <button
             // TODO: unhide when profile page is implemented
             className="hidden bg-[#F2F2F2] border border-[#D4D4D4] p-2 aspect-square rounded-full text-[#565656] hover:text-black transition flex items-center justify-center"
-            style={{ color: location.pathname === '/userprofile' ? '#000000' : '#565656' }}
+            style={{ color: location.pathname === '/userprofile' ? '#03A578' : '#565656' }}
           >
             {location.pathname === '/userprofile' ? (
               <UserFill className="w-5 h-5" />
