@@ -12,7 +12,7 @@ export default function Layout({ children }: Props) {
       <Navigation />
       <Container
         className="
-          py-28
+          pt-16 md:pt-28 pb-28
           transition-all
         "
       >

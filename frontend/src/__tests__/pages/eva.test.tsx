@@ -1,9 +1,11 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import HealthSlider from '../../pages/eva';
+import HealthSlider from '@/pages/eva';
 import '@testing-library/jest-dom';
 
 beforeEach(() => {
+  // Clear localStorage before each test
+  localStorage.clear();
+
   Object.defineProperty(window, 'location', {
     configurable: true,
     value: {
@@ -13,6 +15,7 @@ beforeEach(() => {
   });
 
   jest.spyOn(window, 'prompt').mockReturnValue('test-patient-id');
+  jest.spyOn(window, 'alert').mockImplementation(() => {});
   global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
   global.URL.revokeObjectURL = jest.fn();
 });
@@ -33,7 +36,7 @@ describe('HealthSlider', () => {
   test('advances to next question', () => {
     render(<HealthSlider />);
     fireEvent.click(screen.getByText(/Interview starten/i));
-    const nextButton = screen.getByText(/Nächste Frage/i);
+    const nextButton = screen.getByText(/Weiter/i);
     fireEvent.click(nextButton);
     expect(screen.getByText(/Frage 2/i)).toBeInTheDocument();
   });
@@ -42,28 +45,30 @@ describe('HealthSlider', () => {
     render(<HealthSlider />);
     fireEvent.click(screen.getByText('Interview starten'));
 
-    const nextButton = screen.getByText('Nächste Frage');
-    for (let i = 0; i < 27; i++) {
+    // Click through all 29 questions
+    for (let i = 0; i < 29; i++) {
+      const nextButton = screen.getByText('Weiter');
       fireEvent.click(nextButton);
     }
 
-    expect(await screen.findByText(/Vielen Dank/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Bestätigen & Exportieren/i)).toBeInTheDocument();
   });
 
   test('resets state on export confirmation', async () => {
     render(<HealthSlider />);
     fireEvent.click(screen.getByText('Interview starten'));
 
-    const nextButton = screen.getByText('Nächste Frage');
-    for (let i = 0; i < 27; i++) {
+    // Click through all 29 questions
+    for (let i = 0; i < 29; i++) {
+      const nextButton = screen.getByText('Weiter');
       fireEvent.click(nextButton);
     }
 
     await waitFor(() => {
-      expect(screen.getByText(/Vielen Dank/i)).toBeInTheDocument();
+      expect(screen.getByText(/Bestätigen & Exportieren/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Bestätigen/i));
+    fireEvent.click(screen.getByText(/Bestätigen & Exportieren/i));
 
     await waitFor(() => {
       expect(screen.getByText(/Testlauf Beispiel/i)).toBeInTheDocument();
@@ -72,7 +77,7 @@ describe('HealthSlider', () => {
 
   test('removes ID and reloads on footer reset click', () => {
     render(<HealthSlider />);
-    fireEvent.click(screen.getByText(/ID zurücksetzen/i));
+    fireEvent.click(screen.getByText(/Alle Daten löschen & Reset/i));
     expect(window.location.reload).toHaveBeenCalled();
   });
 
@@ -94,17 +99,18 @@ describe('HealthSlider', () => {
     render(<HealthSlider />);
     fireEvent.click(screen.getByText('Interview starten'));
 
-    const nextButton = screen.getByText('Nächste Frage');
-    for (let i = 0; i < 27; i++) {
+    // Click through all 29 questions
+    for (let i = 0; i < 29; i++) {
+      const nextButton = screen.getByText('Weiter');
       fireEvent.click(nextButton);
     }
 
     await waitFor(() => {
-      expect(screen.getByText(/Vielen Dank/i)).toBeInTheDocument();
+      expect(screen.getByText(/Bestätigen & Exportieren/i)).toBeInTheDocument();
     });
 
     const downloadSpy = jest.spyOn(document.body, 'appendChild');
-    fireEvent.click(screen.getByText(/Bestätigen/i));
+    fireEvent.click(screen.getByText(/Bestätigen & Exportieren/i));
     expect(downloadSpy).toHaveBeenCalled();
   });
 
@@ -141,9 +147,9 @@ describe('HealthSlider', () => {
     fireEvent.touchEnd(window);
   });
   test('removes patient_id from localStorage on reset', () => {
-    const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+    const clearSpy = jest.spyOn(Storage.prototype, 'clear');
     render(<HealthSlider />);
-    fireEvent.click(screen.getByText(/ID zurücksetzen/i));
-    expect(removeSpy).toHaveBeenCalledWith('patient_id');
+    fireEvent.click(screen.getByText(/Alle Daten löschen & Reset/i));
+    expect(clearSpy).toHaveBeenCalled();
   });
 });

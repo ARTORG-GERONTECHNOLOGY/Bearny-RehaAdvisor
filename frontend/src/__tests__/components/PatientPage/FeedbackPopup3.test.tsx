@@ -1,10 +1,9 @@
 // src/components/patient/__tests__/FeedbackPopup.test.tsx
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import FeedbackPopup from '../FeedbackPopup';
-import apiClient from '../../../api/client';
+import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import apiClient from '@/api/client';
 
-jest.mock('../../../api/client', () => ({
+jest.mock('@/api/client', () => ({
   __esModule: true,
   default: { post: jest.fn() },
 }));
@@ -13,7 +12,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (x: any) => x, i18n: { language: 'en' } }),
 }));
 
-jest.mock('../common/ErrorAlert', () => (p: any) => <div role="alert">{p.message}</div>);
+jest.mock('@/components/common/ErrorAlert', () => (p: any) => <div role="alert">{p.message}</div>);
 
 const Q = [
   {

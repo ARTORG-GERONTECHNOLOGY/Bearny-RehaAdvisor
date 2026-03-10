@@ -1,14 +1,13 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithRouter } from '../../../test-utils/renderWithRouter';
-import EditUserInfo from '../EditTherapistInfo';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import EditUserInfo from '@/components/UserProfile/EditTherapistInfo';
 
 // translation
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('../../common/ErrorAlert', () => ({
+jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
   default: ({ message, onClose }: any) => (
     <div role="alert">
@@ -31,14 +30,16 @@ jest.mock('../../../config/config.json', () => ({
   ],
 }));
 
-const storeMock = {
+const mockStore = {
   saving: false,
   updateProfile: jest.fn(async () => {}),
 };
 
-jest.mock('../../../stores/userProfileStore', () => ({
+jest.mock('@/stores/userProfileStore', () => ({
   __esModule: true,
-  default: storeMock,
+  get default() {
+    return mockStore;
+  },
 }));
 
 // bootstrap mocks
@@ -74,7 +75,7 @@ jest.mock('react-bootstrap', () => ({
 describe('EditTherapistInfo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    storeMock.saving = false;
+    mockStore.saving = false;
   });
 
   const baseUser = { email: 'a@b.com', phone: '1234567' } as any;
@@ -92,7 +93,7 @@ describe('EditTherapistInfo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid email format.');
-    expect(storeMock.updateProfile).not.toHaveBeenCalled();
+    expect(mockStore.updateProfile).not.toHaveBeenCalled();
   });
 
   it('invalid phone triggers local validation error', async () => {
@@ -102,7 +103,7 @@ describe('EditTherapistInfo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid phone number format.');
-    expect(storeMock.updateProfile).not.toHaveBeenCalled();
+    expect(mockStore.updateProfile).not.toHaveBeenCalled();
   });
 
   it('valid submit calls userProfileStore.updateProfile with updated data', async () => {
@@ -112,8 +113,8 @@ describe('EditTherapistInfo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => {
-      expect(storeMock.updateProfile).toHaveBeenCalledTimes(1);
-      expect(storeMock.updateProfile.mock.calls[0][0]).toMatchObject({
+      expect(mockStore.updateProfile).toHaveBeenCalledTimes(1);
+      expect(mockStore.updateProfile.mock.calls[0][0]).toMatchObject({
         email: 'a@b.com',
         phone: '+41791234567',
       });
@@ -129,7 +130,7 @@ describe('EditTherapistInfo', () => {
   });
 
   it('disables buttons when saving', () => {
-    storeMock.saving = true;
+    mockStore.saving = true;
     renderWithRouter(<EditUserInfo userData={baseUser} onCancel={jest.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();

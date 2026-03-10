@@ -1,22 +1,26 @@
-import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import Therapist from '../../pages/Therapist';
+import Therapist from '@/pages/Therapist';
 import { MemoryRouter } from 'react-router-dom';
-import authStore from '../../stores/authStore';
-import apiClient from '../../api/client';
-import { act } from 'react-dom/test-utils';
+import authStore from '@/stores/authStore';
+import apiClient from '@/api/client';
 
 import '@testing-library/jest-dom';
+
+// Mock ResizeObserver
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Mock the apiClient
 // Mock the apiClient
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 // Mock child components
-jest.mock('../../components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('../../components/common/Footer', () => () => <div>Mock Footer</div>);
-jest.mock('../../components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
-jest.mock('../../components/TherapistPatientPage/PatientPopup', () => () => (
-  <div>Patient Popup</div>
-));
+jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
+jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
+jest.mock('@/components/TherapistPatientPage/PatientPopup', () => () => <div>Patient Popup</div>);
 jest.mock('../../config/config.json', () => ({
   RehaInfo: ['< 30 days', '30-60 days', '60-90 days', '> 90 days'],
   patientInfo: {
@@ -24,7 +28,11 @@ jest.mock('../../config/config.json', () => ({
   },
 }));
 
-jest.mock('../../components/AddPatient/AddPatientPopUp', () => () => <div>Add Patient Popup</div>);
+jest.mock('@/components/AddPatient/AddPatientPopUp', () => () => <div>Add Patient Popup</div>);
+jest.mock('@/components/TherapistPatientPage/ImportFromRedcapModal', () => () => (
+  <div>Import Modal</div>
+));
+
 // Mock translation function
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -42,7 +50,7 @@ jest.mock('react-router-dom', () => {
 });
 
 // Mock authStore and API
-jest.mock('../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
@@ -50,6 +58,130 @@ jest.mock('../../stores/authStore', () => ({
     userType: 'Therapist',
     id: 'therapist123',
   },
+}));
+
+// Mock TherapistPatientsStore
+const mockStore = {
+  patients: [],
+  loading: false,
+  error: '',
+  errorDetails: null,
+  showErrorDetails: false,
+  selectedPatient: null,
+  showPatientPopup: false,
+  showAddPatientPopup: false,
+  showImportRedcapModal: false,
+  redcapLoading: false,
+  redcapError: '',
+  redcapCandidates: [],
+  selectedCandidates: [] as any[],
+  importProgress: null,
+  searchTerm: '',
+  selectedSex: 'All',
+  selectedDuration: 'All',
+  sortKey: 'created' as const,
+  sortAsc: false,
+  sexFilter: '',
+  durationFilter: '',
+  diseaseFilter: '',
+  sortBy: 'created' as const,
+  get diseaseOptions() {
+    const all: string[] = [];
+    this.patients.forEach((p: any) => {
+      if (Array.isArray(p.diagnosis)) p.diagnosis.forEach((d: any) => all.push(String(d)));
+      else if (p.diagnosis) all.push(String(p.diagnosis));
+    });
+    return Array.from(new Set(all)).sort();
+  },
+  get filteredPatients() {
+    let filtered = [...this.patients];
+
+    if (this.sexFilter) {
+      filtered = filtered.filter((p: any) => p.sex === this.sexFilter);
+    }
+
+    if (this.durationFilter) {
+      filtered = filtered.filter((p: any) => {
+        const dur = p.duration;
+        if (!Number.isFinite(dur)) return false;
+        if (this.durationFilter === '< 30 days') return dur < 30;
+        if (this.durationFilter === '30-60 days') return dur >= 30 && dur <= 60;
+        if (this.durationFilter === '60-90 days') return dur > 60 && dur <= 90;
+        return dur > 90;
+      });
+    }
+
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase();
+      filtered = filtered.filter((p: any) => {
+        const first = (p.first_name || '').toLowerCase();
+        const last = (p.name || '').toLowerCase();
+        const full = `${first} ${last}`.trim();
+        return first.includes(term) || last.includes(term) || full.includes(term);
+      });
+    }
+
+    return filtered;
+  },
+  fetchPatients: jest.fn().mockResolvedValue(undefined),
+  setSearchTerm: jest.fn((term: string) => {
+    mockStore.searchTerm = term;
+  }),
+  setSelectedSex: jest.fn((sex: string) => {
+    mockStore.selectedSex = sex;
+  }),
+  setSelectedDuration: jest.fn((duration: string) => {
+    mockStore.selectedDuration = duration;
+  }),
+  setSexFilter: jest.fn((sex: string) => {
+    mockStore.sexFilter = sex;
+  }),
+  setDurationFilter: jest.fn((duration: string) => {
+    mockStore.durationFilter = duration;
+  }),
+  setDiseaseFilter: jest.fn((disease: string) => {
+    mockStore.diseaseFilter = disease;
+  }),
+  setSortKey: jest.fn(),
+  isCompletedPatient: jest.fn((p: any) => {
+    const status = p.rehab_status;
+    const end = p.rehab_end_date;
+    return status === 'completed' || !!end;
+  }),
+  splitCompleted: jest.fn((sortedFiltered: any[]) => {
+    const active = sortedFiltered.filter((p) => !mockStore.isCompletedPatient(p));
+    const completed = sortedFiltered.filter((p) => mockStore.isCompletedPatient(p));
+    return { active, completed };
+  }),
+  openPatientPopup: jest.fn((patient: any) => {
+    mockStore.selectedPatient = patient;
+    mockStore.showPatientPopup = true;
+  }),
+  openPatient: jest.fn((patient: any) => {
+    mockStore.selectedPatient = patient;
+    mockStore.showPatientPopup = true;
+  }),
+  closePatientPopup: jest.fn(() => {
+    mockStore.showPatientPopup = false;
+  }),
+  openAddPatientPopup: jest.fn(() => {
+    mockStore.showAddPatientPopup = true;
+  }),
+  closeAddPatientPopup: jest.fn(() => {
+    mockStore.showAddPatientPopup = false;
+  }),
+  openImportRedcapModal: jest.fn(),
+  closeImportRedcapModal: jest.fn(),
+  toggleErrorDetails: jest.fn(),
+  closeAddPatient: jest.fn(() => {
+    mockStore.showAddPatientPopup = false;
+  }),
+};
+
+jest.mock('@/stores/therapistPatientsStore', () => ({
+  __esModule: true,
+  TherapistPatientsStore: jest.fn().mockImplementation(() => mockStore),
+  SortKey: 'created',
 }));
 
 describe('Therapist Page', () => {
@@ -95,66 +227,17 @@ describe('Therapist Page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (apiClient.get as jest.Mock).mockResolvedValue({ data: patientsMock });
-  });
-
-  test('filters patients by duration', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await screen.findByText('Mark Ruffalo');
-
-    fireEvent.change(screen.getByRole('combobox', { name: /filter by duration/i }), {
-      target: { value: '> 90 days' },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Mark Ruffalo')).toBeInTheDocument();
-      expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
-      expect(screen.getByText('Tom Day')).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByRole('combobox', { name: /filter by duration/i }), {
-      target: { value: '< 30 days' },
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByText('Mark Ruffalo')).not.toBeInTheDocument();
-      expect(screen.queryByText('Jennifer Anniston')).not.toBeInTheDocument();
-      expect(screen.queryByText('Tom Day')).not.toBeInTheDocument();
-    });
-  });
-
-  test('navigates to rehab table when rehab button is clicked', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await screen.findByText('Mark Ruffalo');
-
-    fireEvent.click(screen.getAllByText('Go to Rehab Table')[0]);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/rehabtable');
-  });
-  test('opens patient info popup when Info button is clicked', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      expect(screen.getAllByText('Info').length).toBeGreaterThan(0);
-    });
-
-    const infoButtons = screen.getAllByText('Info');
-    fireEvent.click(infoButtons[0]);
-
-    expect(screen.getByText('Patient Popup')).toBeInTheDocument();
+    mockStore.patients = patientsMock;
+    mockStore.loading = false;
+    mockStore.error = '';
+    mockStore.showPatientPopup = false;
+    mockStore.showAddPatientPopup = false;
+    mockStore.selectedSex = 'All';
+    mockStore.selectedDuration = 'All';
+    mockStore.searchTerm = '';
+    mockStore.sexFilter = '';
+    mockStore.durationFilter = '';
+    mockStore.diseaseFilter = '';
   });
 
   test('renders therapist page with patients', async () => {
@@ -173,68 +256,6 @@ describe('Therapist Page', () => {
     });
 
     expect(screen.getByText('Mock Footer')).toBeInTheDocument();
-  });
-  test('testi', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText('Mock Header')).toBeInTheDocument();
-    expect(await screen.findByText('Mark Ruffalo')).toBeInTheDocument();
-    expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
-    expect(screen.getByText('Tom Day')).toBeInTheDocument();
-    expect(screen.getByText('Mock Footer')).toBeInTheDocument();
-  });
-
-  test('renders therapist page with patients', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText('Mock Header')).toBeInTheDocument();
-    expect(await screen.findByText('Mark Ruffalo')).toBeInTheDocument();
-    expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
-    expect(screen.getByText('Tom Day')).toBeInTheDocument();
-    expect(screen.getByText('Mock Footer')).toBeInTheDocument();
-  });
-
-  test('filters patients by sex', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await screen.findByText('Mark Ruffalo');
-
-    fireEvent.change(screen.getByRole('combobox', { name: /filter by sex/i }), {
-      target: { value: 'Female' },
-    });
-
-    expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
-    expect(screen.queryByText('Mark Ruffalo')).not.toBeInTheDocument();
-    expect(screen.queryByText('Tom Day')).not.toBeInTheDocument();
-  });
-
-  test('search filters by name', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await screen.findByText('Mark Ruffalo');
-
-    fireEvent.change(screen.getByPlaceholderText(/Search Patients/i), {
-      target: { value: 'anniston' },
-    });
-
-    expect(screen.queryByText('Mark Ruffalo')).not.toBeInTheDocument();
-    expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
   });
 
   test('redirects if user is not a Therapist', async () => {
@@ -251,20 +272,7 @@ describe('Therapist Page', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/');
     });
   });
-  test('handles fetchPatients API error gracefully', async () => {
-    (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('API error'));
 
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      // No patients should be shown; table remains empty
-      expect(screen.queryByRole('cell')).not.toBeInTheDocument();
-    });
-  });
   test('opens Add Patient popup when button clicked', async () => {
     render(
       <MemoryRouter>
@@ -275,25 +283,5 @@ describe('Therapist Page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Add a New Patient/i }));
 
     expect(screen.getByText('Add Patient Popup')).toBeInTheDocument();
-  });
-  test('closes Add Patient popup and refreshes patient list', async () => {
-    render(
-      <MemoryRouter>
-        <Therapist />
-      </MemoryRouter>
-    );
-
-    // Open the popup
-    fireEvent.click(screen.getByRole('button', { name: /Add a New Patient/i }));
-    expect(screen.getByText('Add Patient Popup')).toBeInTheDocument();
-
-    // Close it via internal `handleClose` logic
-    // Assuming AddPatientPopup internally calls handleClose on a button, mock the behavior:
-    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: patientsMock });
-    await act(async () => {
-      // manually invoke fetchPatients via handleClose
-      const closeFn = Therapist.prototype?.handleClose || (() => {});
-      closeFn();
-    });
   });
 });

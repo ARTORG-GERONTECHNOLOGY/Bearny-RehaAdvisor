@@ -1,6 +1,19 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import FeedbackPopup from '../components/feedback/FeedbackPopup';
-import React from 'react';
+import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en' },
+  }),
+}));
+
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    post: jest.fn(),
+  },
+}));
 
 const mockQuestions = [
   {
