@@ -2,6 +2,9 @@ import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 import RootLayout from '@/RootLayout';
+import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
+import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 const Home = lazy(() => import('@/pages/Home'));
 const Therapist = lazy(() => import('@/pages/Therapist'));
@@ -26,9 +29,6 @@ const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
-import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
-import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
-import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
