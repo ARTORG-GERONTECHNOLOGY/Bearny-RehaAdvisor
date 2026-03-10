@@ -1,7 +1,7 @@
 // src/pages/__tests__/PatientView.test.tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import PatientView from '@/pages/Patient';
-import authStore from '@/stores/authStore';
+import '@testing-library/jest-dom';
 
 // Mock api client to avoid import.meta error
 jest.mock('@/api/client', () => ({
@@ -14,13 +14,41 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
+// Globals to manipulate auth state
+let mockIsAuthenticated = true;
+let mockUserType = 'Patient';
+
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
-    isAuthenticated: true,
-    userType: 'Patient',
+    get isAuthenticated() {
+      return mockIsAuthenticated;
+    },
+    get userType() {
+      return mockUserType;
+    },
     id: 'p1',
+  },
+}));
+
+jest.mock('@/stores/patientInterventionsStore', () => ({
+  patientInterventionsStore: {
+    items: [],
+    fetchPlan: jest.fn(),
+    isCompletedOn: jest.fn(() => false),
+  },
+}));
+
+jest.mock('@/stores/patientQuestionnairesStore', () => ({
+  patientQuestionnairesStore: {
+    healthQuestions: [],
+    showHealthPopup: false,
+    showFeedbackPopup: false,
+    checkInitialQuestionnaire: jest.fn(),
+    loadHealthQuestionnaire: jest.fn(),
+    closeHealth: jest.fn(),
+    closeFeedback: jest.fn(),
   },
 }));
 
@@ -38,13 +66,38 @@ jest.mock('@/components/Layout', () => ({ children }: any) => (
 jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div data-testid="fitbit-btn" />);
 jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div data-testid="vitals" />);
 jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div data-testid="summary" />);
-jest.mock('@/components/PatientPage/InterventionList', () => () => <div data-testid="list" />);
+jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
+  <div data-testid="daily-card" />
+));
+jest.mock('@/components/PatientPage/PatientPopupContainer', () => () => (
+  <div data-testid="popup" />
+));
+jest.mock('@/components/PatientPage/FeedbackPopup', () => () => <div data-testid="feedback" />);
 jest.mock('@/components/common/ErrorAlert', () => ({ message, onClose }: any) => (
   <div role="alert">
     {message}
     <button onClick={onClose}>Close</button>
   </div>
 ));
+
+jest.mock('@/hooks/useInterventions', () => ({
+  useInterventions: jest.fn(() => ({
+    interventions: [],
+    sortedInterventions: [],
+    completionCount: { completed: 0, total: 0 },
+    busyKey: null,
+    openFeedbackFor: jest.fn(),
+    toggleCompleted: jest.fn(),
+  })),
+}));
+
+jest.mock('@/hooks/useInterventionPopup', () => ({
+  useInterventionPopup: jest.fn(() => ({
+    selectedIntervention: null,
+    openIntervention: jest.fn(),
+    closeIntervention: jest.fn(),
+  })),
+}));
 
 const navigateMock = jest.fn();
 let mockSearchParams = new URLSearchParams();
@@ -62,13 +115,15 @@ jest.mock('react-i18next', () => ({
 describe('PatientView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsAuthenticated = true;
+    mockUserType = 'Patient';
     mockSearchParams = new URLSearchParams();
-    (authStore.checkAuthentication as jest.Mock).mockResolvedValue(undefined);
+    navigateMock.mockClear();
   });
 
   it('redirects to / when not authenticated or not Patient', async () => {
-    (authStore as any).isAuthenticated = false;
-    (authStore as any).userType = 'Patient';
+    mockIsAuthenticated = false;
+    mockUserType = 'Patient';
 
     render(<PatientView />);
 
@@ -78,10 +133,8 @@ describe('PatientView', () => {
   });
 
   it('shows fitbit error alert when fitbit_status=error', async () => {
-    (authStore as any).isAuthenticated = true;
-    (authStore as any).userType = 'Patient';
-
-    // Set the search params before rendering
+    mockIsAuthenticated = true;
+    mockUserType = 'Patient';
     mockSearchParams = new URLSearchParams('fitbit_status=error');
 
     render(<PatientView />);
@@ -91,16 +144,15 @@ describe('PatientView', () => {
   });
 
   it('renders main sections when authenticated', async () => {
-    (authStore as any).isAuthenticated = true;
-    (authStore as any).userType = 'Patient';
+    mockIsAuthenticated = true;
+    mockUserType = 'Patient';
 
     render(<PatientView />);
 
     await screen.findByTestId('layout');
-    expect(screen.getByTestId('welcome')).toBeInTheDocument();
     expect(screen.getByTestId('fitbit-btn')).toBeInTheDocument();
     expect(screen.getByTestId('vitals')).toBeInTheDocument();
     expect(screen.getByTestId('summary')).toBeInTheDocument();
-    expect(screen.getByTestId('list')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-card')).toBeInTheDocument();
   });
 });

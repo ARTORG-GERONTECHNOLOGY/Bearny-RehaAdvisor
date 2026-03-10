@@ -25,8 +25,6 @@ import {
   getTagColor,
 } from '../../utils/interventions';
 
-import { patientInterventionsStore } from '../../stores/patientInterventionsStore';
-
 // ---------- types ----------
 type Props = {
   show: boolean;
