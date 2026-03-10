@@ -1,9 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import AddPatient from '../../pages/AddPatient';
+import AddPatient from '@/pages/AddPatient';
 import '@testing-library/jest-dom';
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
-jest.mock('../../stores/authStore', () => ({
+import apiClient from '@/api/client';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     id: 'therapist123',
@@ -19,21 +22,36 @@ jest.mock('react-i18next', () => ({
     },
   }),
 }));
-jest.mock('../../components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('../../components/common/Footer', () => () => <div>Mock Footer</div>);
 
-jest.mock('../../hooks/useAuthGuard', () => ({
+jest.mock('@/components/common/Header', () => {
+  const MockHeader = () => <div>Mock Header</div>;
+  MockHeader.displayName = 'MockHeader';
+  return MockHeader;
+});
+
+jest.mock('@/components/common/Footer', () => {
+  const MockFooter = () => <div>Mock Footer</div>;
+  MockFooter.displayName = 'MockFooter';
+  return MockFooter;
+});
+
+jest.mock('@/hooks/useAuthGuard', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key, // return translation key
-  }),
-}));
-
 describe('AddPatient Page', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Mock apiClient methods to return resolved promises
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        clinics: [],
+        projects: [],
+      },
+    });
+  });
+
   it('renders without crashing', () => {
     render(
       <MemoryRouter>

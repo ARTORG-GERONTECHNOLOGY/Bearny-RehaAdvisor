@@ -1,7 +1,11 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import PatientTypeSection from '../../../components/AddIntervention/PatientTypeSection';
+import PatientTypeSection from '@/components/AddIntervention/PatientTypeSection';
 import '@testing-library/jest-dom';
+
+// Mock react-i18next
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 
 describe('PatientTypeSection', () => {
   const mockOnChange = jest.fn();
@@ -20,7 +24,7 @@ describe('PatientTypeSection', () => {
 
     expect(screen.getByLabelText('PatientType')).toBeInTheDocument();
     expect(screen.getByLabelText('Frequency')).toBeInTheDocument();
-    expect(screen.getByLabelText('CoreExercise')).toBeChecked();
+    expect(screen.getByLabelText('Core')).toBeChecked();
     expect(screen.getByLabelText('Supportive')).not.toBeChecked();
   });
 
@@ -48,7 +52,7 @@ describe('PatientTypeSection', () => {
     const types = [{ type: 'DiagnosisA', frequency: 'Weekly', includeOption: null }];
     renderComponent(types);
 
-    const coreRadio = screen.getByLabelText('CoreExercise');
+    const coreRadio = screen.getByLabelText('Core');
     fireEvent.click(coreRadio);
 
     expect(mockOnChange).toHaveBeenCalledWith(0, 'includeOption', true);

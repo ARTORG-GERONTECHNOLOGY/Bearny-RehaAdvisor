@@ -1,9 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import RootLayout from '../RootLayout';
+import RootLayout from '@/RootLayout';
 import '@testing-library/jest-dom';
-// ✅ Mock LogoutListener to avoid testing its internals here
-jest.mock('../LogoutListener', () => () => (
+
+// Mock LogoutListener to avoid testing its internals here
+jest.mock('@/LogoutListener', () => () => (
   <div data-testid="logout-listener-mock">LogoutListener Active</div>
 ));
 
@@ -15,10 +16,10 @@ describe('RootLayout', () => {
       </RootLayout>
     );
 
-    // ✅ Check that LogoutListener (mocked) is rendered
+    // Check that LogoutListener (mocked) is rendered
     expect(screen.getByTestId('logout-listener-mock')).toBeInTheDocument();
 
-    // ✅ Check that children are rendered
+    // Check that children are rendered
     expect(screen.getByText('Test Child Content')).toBeInTheDocument();
   });
 });

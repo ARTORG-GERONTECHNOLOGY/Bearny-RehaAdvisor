@@ -1,8 +1,6 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import WelcomeArea from '../../../components/common/WelcomeArea';
+import WelcomeArea from '@/components/common/WelcomeArea';
 import '@testing-library/jest-dom';
-import { useTranslation } from 'react-i18next';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -10,14 +8,20 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: {
+    firstName: 'Alex',
+    email: 'alex@example.com',
+  },
+}));
+
 describe('WelcomeArea Component', () => {
   beforeEach(() => {
-    localStorage.setItem('fullName', 'Alex');
     jest.useFakeTimers().setSystemTime(new Date('2025-04-30T08:00:00Z')); // Morning UTC
   });
 
   afterEach(() => {
-    localStorage.clear();
     jest.useRealTimers();
   });
 
@@ -52,6 +56,8 @@ describe('WelcomeArea Component', () => {
 
   it('handles missing user type gracefully', () => {
     render(<WelcomeArea user="" />);
-    expect(screen.getByText(/You can manage patients/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/You can manage patients and review recommendations/i)
+    ).toBeInTheDocument();
   });
 });

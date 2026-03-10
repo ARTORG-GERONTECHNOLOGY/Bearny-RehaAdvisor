@@ -1,11 +1,9 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import DeleteConfirmation from '../../../components/UserProfile/DeleteConfirmation';
+import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmation';
 import '@testing-library/jest-dom';
 
-// ✅ Mock the global i18next `t` function
-jest.mock('i18next', () => ({
-  t: (key: string) => key,
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
 }));
 
 describe('DeleteConfirmation Component', () => {
