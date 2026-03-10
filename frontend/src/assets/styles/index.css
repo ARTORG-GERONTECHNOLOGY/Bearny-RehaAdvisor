@@ -17,6 +17,11 @@
   overflow-wrap: anywhere;
 }
 
+/* Ensure accordion body is visible when expanded */
+.accordion-body {
+  visibility: visible;
+}
+
 /* Adjust Bootstrap ratios responsively */
 @media (min-width: 768px) {
   .ratio-md-4x3 {

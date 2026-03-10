@@ -1,11 +1,10 @@
 // src/__tests__/hooks/usePatients.test.tsx
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { usePatients } from '../../hooks/usePatients';
-import apiClient from '../../api/client';
-import type { PatientType } from '../../types';
+import { usePatients } from '@/hooks/usePatients';
+import apiClient from '@/api/client';
+import type { PatientType } from '@/types';
 import '@testing-library/jest-dom';
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
 const mockPatients: PatientType[] = [
   {

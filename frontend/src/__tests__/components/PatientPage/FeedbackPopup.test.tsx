@@ -1,26 +1,37 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import FeedbackPopup from '../../../components/PatientPage/FeedbackPopup';
-import apiClient from '../../../api/client';
+import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key, // Return the key as-is
+    t: (key: string) => key,
+    i18n: { language: 'en' },
   }),
 }));
 
-jest.mock('../../../api/client', () => require('../../../__mocks__/api/client'));
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    post: jest.fn(),
+  },
+}));
+
 const defaultProps = {
   show: true,
   interventionId: 'test-intervention-id',
   onClose: jest.fn(),
   questions: [
-    { questionKey: 'q1', label: 'How do you feel?', type: 'text' },
+    {
+      questionKey: 'q1',
+      answerType: 'text' as const,
+      translations: [{ language: 'en', text: 'How do you feel?' }],
+    },
     {
       questionKey: 'q2',
-      label: 'Select the severity',
-      type: 'dropdown',
-      options: [
+      answerType: 'dropdown' as const,
+      translations: [{ language: 'en', text: 'Select the severity' }],
+      possibleAnswers: [
         { key: 'mild', translations: [{ language: 'en', text: 'Mild' }] },
         { key: 'severe', translations: [{ language: 'en', text: 'Severe' }] },
       ],
@@ -30,26 +41,6 @@ const defaultProps = {
 // 🟢 OUTSIDE DESCRIBE: MockMediaRecorder definition and global mocks
 global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
 
-class MockMediaRecorder {
-  ondataavailable: ((event: any) => void) | null = null;
-  onstop: (() => void) | null = null;
-  onstart: (() => void) | null = null;
-
-  start = jest.fn(() => {
-    if (this.onstart) this.onstart();
-  });
-
-  stop = jest.fn(() => {
-    if (this.onstop) {
-      this.ondataavailable?.({ data: new Blob(['test audio'], { type: 'audio/wav' }) });
-      this.onstop();
-    }
-  });
-
-  addEventListener = jest.fn();
-  removeEventListener = jest.fn();
-  dispatchEvent = jest.fn();
-}
 describe('FeedbackPopup Component', () => {
   // 🟡 INSIDE DESCRIBE: beforeEach and tests
 
@@ -84,6 +75,8 @@ describe('FeedbackPopup Component', () => {
       });
 
       constructor() {}
+
+      static isTypeSupported = jest.fn(() => true);
     }
 
     global.MediaRecorder = MockMediaRecorder as any;
@@ -130,7 +123,7 @@ describe('FeedbackPopup Component', () => {
     fireEvent.click(typeButton);
 
     // Now the textarea should exist
-    const textarea = await screen.findByRole('textbox', { name: /Text Area/i });
+    const textarea = await screen.findByRole('textbox', { name: /Text Feedback/i });
     fireEvent.change(textarea, { target: { value: 'Feeling good' } });
 
     expect(textarea).toHaveValue('Feeling good');
@@ -148,7 +141,8 @@ describe('FeedbackPopup Component', () => {
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
-        'patients/feedback/questionaire/',
+        '/patients/feedback/questionaire/',
+        expect.any(Object),
         expect.any(Object)
       );
     });
@@ -180,7 +174,7 @@ describe('FeedbackPopup Component', () => {
 
     // Assert that the denied alert is shown
     await waitFor(() => {
-      screen.getByTestId('microphone-alert');
+      expect(screen.getByText(/Microphone access denied/i)).toBeInTheDocument();
     });
   });
 
@@ -193,8 +187,16 @@ describe('FeedbackPopup Component', () => {
     const multiQuestionProps = {
       ...defaultProps,
       questions: [
-        { questionKey: 'q1', label: 'Question 1', type: 'text' },
-        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+        {
+          questionKey: 'q1',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 1' }],
+        },
+        {
+          questionKey: 'q2',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 2' }],
+        },
       ],
     };
     render(<FeedbackPopup {...multiQuestionProps} />);
@@ -205,8 +207,16 @@ describe('FeedbackPopup Component', () => {
     const multiQuestionProps = {
       ...defaultProps,
       questions: [
-        { questionKey: 'q1', label: 'Question 1', type: 'text' },
-        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+        {
+          questionKey: 'q1',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 1' }],
+        },
+        {
+          questionKey: 'q2',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 2' }],
+        },
       ],
     };
     render(<FeedbackPopup {...multiQuestionProps} />);
@@ -233,8 +243,16 @@ describe('FeedbackPopup Component', () => {
     const multiQuestionProps = {
       ...defaultProps,
       questions: [
-        { questionKey: 'q1', label: 'Question 1', type: 'text' },
-        { questionKey: 'q2', label: 'Question 2', type: 'text' },
+        {
+          questionKey: 'q1',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 1' }],
+        },
+        {
+          questionKey: 'q2',
+          answerType: 'text' as const,
+          translations: [{ language: 'en', text: 'Question 2' }],
+        },
       ],
     };
 
@@ -252,17 +270,18 @@ describe('FeedbackPopup Component', () => {
 
     // Click Next
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
-    expect(screen.getByText(defaultProps.questions[1].label)).toBeInTheDocument();
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
 
     // Click Back
     fireEvent.click(screen.getByRole('button', { name: /Back/i }));
-    expect(screen.getByText(defaultProps.questions[0].label)).toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
   });
   it('handles multi-select option selection correctly', () => {
     const multiSelectQuestion = {
-      ...defaultProps.questions[0],
-      type: 'multi-select',
-      options: [
+      questionKey: 'q-multi',
+      answerType: 'multi-select' as const,
+      translations: [{ language: 'en', text: 'Select multiple options' }],
+      possibleAnswers: [
         { key: 'option1', translations: [{ language: 'en', text: 'Option 1' }] },
         { key: 'option2', translations: [{ language: 'en', text: 'Option 2' }] },
       ],
@@ -289,7 +308,7 @@ describe('FeedbackPopup Component', () => {
     });
 
     // Now recording should be true → Stop button should be visible
-    const stopButton = screen.getByLabelText(/Stop/i);
+    const stopButton = await screen.findByRole('button', { name: /Stop/i });
     expect(stopButton).toBeInTheDocument();
 
     // Stop the recording
@@ -328,9 +347,10 @@ describe('FeedbackPopup Component', () => {
 
   it('submits feedback and closes the modal', async () => {
     const onCloseMock = jest.fn();
+    (apiClient.post as jest.Mock).mockResolvedValue({ status: 200 });
     render(<FeedbackPopup {...defaultProps} onClose={onCloseMock} />);
 
-    fireEvent.change(screen.getByLabelText(/Text Area/i), {
+    fireEvent.change(screen.getByLabelText(/Text Feedback/i), {
       target: { value: 'My feedback' },
     });
 
@@ -345,7 +365,7 @@ describe('FeedbackPopup Component', () => {
     const recordButton = screen.getByRole('button', { name: /Record/i });
 
     fireEvent.click(typeButton);
-    expect(screen.getByRole('textbox', { name: /Text Area/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Text Feedback/i })).toBeInTheDocument();
 
     fireEvent.click(recordButton);
     expect(screen.getByRole('button', { name: /Start Record/i })).toBeInTheDocument();
@@ -353,9 +373,9 @@ describe('FeedbackPopup Component', () => {
   it('toggles multi-select option state correctly', () => {
     const multiSelectQuestion = {
       questionKey: 'q-multi',
-      label: 'Select options',
-      type: 'multi-select',
-      options: [
+      answerType: 'multi-select' as const,
+      translations: [{ language: 'en', text: 'Select options' }],
+      possibleAnswers: [
         { key: 'opt1', translations: [{ language: 'en', text: 'Option 1' }] },
         { key: 'opt2', translations: [{ language: 'en', text: 'Option 2' }] },
       ],

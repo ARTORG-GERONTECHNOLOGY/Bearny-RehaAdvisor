@@ -1,18 +1,15 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import PatientQuestionaire from '../../../components/PatientPage/PatientQuestionaire';
+import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
-import apiClient from '../../../api/client';
+import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 
-jest.mock('../../../api/client', () => ({
+jest.mock('@/api/client', () => ({
   post: jest.fn(),
 }));
 
-const mockPatientId = 'test-patient-id';
-
-const config = {
+jest.mock('../../../config/config.json', () => ({
   PatientInitialQuestionaire: [
     {
       title: 'Life Style Information',
@@ -43,9 +40,9 @@ const config = {
       ],
     },
   ],
-};
+}));
 
-jest.mock('../../../config/config.json', () => config);
+const mockPatientId = 'test-patient-id';
 
 describe('PatientQuestionaire', () => {
   const renderComponent = () =>
@@ -62,7 +59,7 @@ describe('PatientQuestionaire', () => {
   it('renders form fields from config and submits data', async () => {
     renderComponent();
 
-    await screen.findByText('Initial Questionaire');
+    await screen.findByText('Initial Questionnaire');
     expect(screen.getByText('Life Style Information')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Life Goals'), {
@@ -88,6 +85,6 @@ describe('PatientQuestionaire', () => {
       </I18nextProvider>
     );
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
   });
 });

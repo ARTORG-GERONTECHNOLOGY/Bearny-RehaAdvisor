@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react';
-import Header from '../../../components/common/Header';
+import Header from '@/components/common/Header';
 import { BrowserRouter } from 'react-router-dom';
-import authStore from '../../../stores/authStore';
+import authStore from '@/stores/authStore';
 import renderer from 'react-test-renderer';
 import '@testing-library/jest-dom';
 
@@ -16,7 +16,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('../../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   isAuthenticated: true,
   userType: 'Therapist',
   logout: jest.fn().mockResolvedValue(undefined),
@@ -27,34 +27,34 @@ const renderWithRouter = (component: React.ReactElement) => {
 };
 
 describe('Header', () => {
-  it('renders the logo', () => {
-    renderWithRouter(<Header isLoggedIn={true} />);
-    const logo = screen.getByAltText('Logo');
-    expect(logo).toBeInTheDocument();
+  it('renders the brand logos', () => {
+    const { container } = renderWithRouter(<Header isLoggedIn={true} />);
+    const logos = container.querySelectorAll('.brand-logo');
+    expect(logos.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders therapist navigation links', () => {
     renderWithRouter(<Header isLoggedIn={true} />);
-    expect(screen.getByText('Patients')).toBeInTheDocument();
-    expect(screen.getByText('Interventions')).toBeInTheDocument();
-    expect(screen.getByText('Profile')).toBeInTheDocument();
+    expect(screen.getAllByText('Patients').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Interventions').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Profile').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders logout link', () => {
     renderWithRouter(<Header isLoggedIn={true} />);
-    expect(screen.getByText('Logout')).toBeInTheDocument();
+    expect(screen.getAllByText('Logout').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders language toggle buttons or dropdown', () => {
-    renderWithRouter(<Header isLoggedIn={true} />);
-    const flagButtons = screen.getAllByRole('radio');
-    expect(flagButtons.length).toBeGreaterThanOrEqual(1);
+  it('renders language toggle button', () => {
+    const { container } = renderWithRouter(<Header isLoggedIn={true} />);
+    const langToggle = container.querySelector('.lang-btn');
+    expect(langToggle).toBeInTheDocument();
   });
 
   it('calls logout when logout is clicked', async () => {
     renderWithRouter(<Header isLoggedIn={true} />);
-    const logoutLink = screen.getByText('Logout');
-    fireEvent.click(logoutLink);
+    const logoutLinks = screen.getAllByText('Logout');
+    fireEvent.click(logoutLinks[0]);
     expect(authStore.logout).toHaveBeenCalled();
   });
 });

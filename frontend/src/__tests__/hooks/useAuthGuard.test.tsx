@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
-import useAuthGuard from '../../hooks/useAuthGuard'; // adjust path as needed
-import authStore from '../../stores/authStore';
+import useAuthGuard from '@/hooks/useAuthGuard';
+import authStore from '@/stores/authStore';
 
 // Mock react-router's useNavigate
 jest.mock('react-router-dom', () => ({
@@ -10,7 +10,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 // Mock authStore
-jest.mock('../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
