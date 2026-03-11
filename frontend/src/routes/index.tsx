@@ -31,6 +31,10 @@ const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloa
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
+import PatientPlanSkeleton from '@/components/skeletons/PatientPlanSkeleton';
+import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
