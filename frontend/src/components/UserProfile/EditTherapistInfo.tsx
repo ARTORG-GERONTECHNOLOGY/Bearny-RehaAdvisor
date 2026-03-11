@@ -100,14 +100,16 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
               inputId={field.be_name}
               isMulti
               isDisabled={saving}
-              options={(field.options || []).map((opt: string) => ({
+              options={(Array.isArray(field.options) ? field.options : []).map((opt: string) => ({
                 value: opt,
                 label: t(opt),
               }))}
-              value={(formData[field.be_name] || []).map((val: string) => ({
-                value: val,
-                label: t(val),
-              }))}
+              value={(Array.isArray(formData[field.be_name]) ? formData[field.be_name] : []).map(
+                (val: string) => ({
+                  value: val,
+                  label: t(val),
+                })
+              )}
               onChange={(selected) => handleMultiSelectChange(selected as any, field.be_name)}
             />
           ) : (
