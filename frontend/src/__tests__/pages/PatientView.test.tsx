@@ -1,11 +1,24 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import PatientView from '../../pages/Patient';
+import PatientView from '@/pages/Patient';
 import '@testing-library/jest-dom';
 
+// Mock api client to avoid import.meta error
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+// Globals to manipulate auth state
+let mockIsAuthenticated = true;
+let mockUserType = 'Patient';
+
 // Mocks
-jest.mock('../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     checkAuthentication: jest.fn(),
@@ -15,19 +28,75 @@ jest.mock('../../stores/authStore', () => ({
     get userType() {
       return mockUserType;
     },
+    id: 'p1',
   },
 }));
 
-jest.mock('../../components/common/Header', () => () => <div>Mocked Header</div>);
-jest.mock('../../components/common/Footer', () => () => <div>Mocked Footer</div>);
-jest.mock('../../components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
-jest.mock('../../components/PatientPage/InterventionList', () => () => (
-  <div>Mocked Intervention List</div>
-));
+jest.mock('@/stores/patientInterventionsStore', () => ({
+  patientInterventionsStore: {
+    items: [],
+    fetchPlan: jest.fn(),
+    isCompletedOn: jest.fn(() => false),
+  },
+}));
 
-// Globals to manipulate auth state
-let mockIsAuthenticated = true;
-let mockUserType = 'Patient';
+jest.mock('@/stores/patientQuestionnairesStore', () => ({
+  patientQuestionnairesStore: {
+    healthQuestions: [],
+    showHealthPopup: false,
+    showFeedbackPopup: false,
+    checkInitialQuestionnaire: jest.fn(),
+    loadHealthQuestionnaire: jest.fn(),
+    closeHealth: jest.fn(),
+    closeFeedback: jest.fn(),
+  },
+}));
+
+jest.mock('@/components/common/Header', () => () => <div>Mocked Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mocked Footer</div>);
+jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
+jest.mock('@/components/Layout', () => ({ children }: any) => <div>{children}</div>);
+jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
+  <div>Daily Intervention Card</div>
+));
+jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div>Fitbit Status</div>);
+jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div>Activity Summary</div>);
+jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div>Vitals Prompt</div>);
+jest.mock('@/components/PatientPage/PatientPopupContainer', () => () => <div>Popup Container</div>);
+jest.mock('@/components/PatientPage/FeedbackPopup', () => () => <div>Feedback Popup</div>);
+jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => <div>Questionnaire</div>);
+
+jest.mock('@/stores/patientUiStore', () => ({
+  patientUiStore: {
+    selectedDate: new Date('2026-03-02'),
+  },
+}));
+
+jest.mock('@/hooks/useInterventions', () => ({
+  useInterventions: jest.fn(() => ({
+    interventions: [],
+    sortedInterventions: [],
+    completionCount: { completed: 0, total: 0 },
+    busyKey: null,
+    openFeedbackFor: jest.fn(),
+    toggleCompleted: jest.fn(),
+  })),
+}));
+
+jest.mock('@/hooks/useInterventionPopup', () => ({
+  useInterventionPopup: jest.fn(() => ({
+    selectedIntervention: null,
+    openIntervention: jest.fn(),
+    closeIntervention: jest.fn(),
+  })),
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en' },
+  }),
+}));
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
@@ -35,23 +104,23 @@ jest.mock('react-router-dom', () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useSearchParams: () => [new URLSearchParams()],
   };
 });
 
 describe('PatientView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsAuthenticated = true;
+    mockUserType = 'Patient';
+    mockNavigate.mockClear();
   });
 
   test('redirects to / if not authenticated', async () => {
     mockIsAuthenticated = false;
     mockUserType = 'Patient';
 
-    render(
-      <MemoryRouter>
-        <PatientView />
-      </MemoryRouter>
-    );
+    render(<PatientView />);
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -62,11 +131,7 @@ describe('PatientView', () => {
     mockIsAuthenticated = true;
     mockUserType = 'Therapist';
 
-    render(
-      <MemoryRouter>
-        <PatientView />
-      </MemoryRouter>
-    );
+    render(<PatientView />);
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -77,15 +142,12 @@ describe('PatientView', () => {
     mockIsAuthenticated = true;
     mockUserType = 'Patient';
 
-    render(
-      <MemoryRouter>
-        <PatientView />
-      </MemoryRouter>
-    );
+    render(<PatientView />);
 
-    expect(await screen.findByText('Mocked Header')).toBeInTheDocument();
-    expect(screen.getByText('Mocked Welcome Area')).toBeInTheDocument();
-    expect(screen.getByText('Mocked Intervention List')).toBeInTheDocument();
-    expect(screen.getByText('Mocked Footer')).toBeInTheDocument();
+    // Check that the main components are rendered
+    expect(await screen.findByText('Fitbit Status')).toBeInTheDocument();
+    expect(screen.getByText('Vitals Prompt')).toBeInTheDocument();
+    expect(screen.getByText('Activity Summary')).toBeInTheDocument();
+    expect(screen.getByText('Daily Intervention Card')).toBeInTheDocument();
   });
 });

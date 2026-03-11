@@ -1,12 +1,14 @@
-import authStore from '../../stores/authStore';
-import apiClient from '../../api/client';
+import authStore from '@/stores/authStore';
+import apiClient from '@/api/client';
 
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
 describe('authStore', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
+    authStore.reset();
+    authStore.removeInactivityListeners();
   });
 
   it('sets email and password', () => {
@@ -15,33 +17,6 @@ describe('authStore', () => {
 
     expect(authStore.email).toBe('test@example.com');
     expect(authStore.password).toBe('pass123');
-  });
-
-  it('persists auth data to localStorage', () => {
-    const payload = {
-      access_token: 'access',
-      refresh_token: 'refresh',
-      user_type: 'Therapist',
-      id: '1',
-      full_name: 'John Doe',
-      specialisation: 'Neuro',
-    };
-
-    authStore.persistAuthData(payload);
-    expect(localStorage.getItem('authToken')).toBe('access');
-    expect(localStorage.getItem('sessionStart')).not.toBeNull();
-  });
-
-  it('restores session', () => {
-    localStorage.setItem('userType', 'Therapist');
-    localStorage.setItem('id', '123');
-    localStorage.setItem('fullName', 'Jane');
-    localStorage.setItem('specialisation', 'Stroke');
-
-    authStore.restoreSession();
-
-    expect(authStore.userType).toBe('Therapist');
-    expect(authStore.fullName).toBe('Jane');
   });
 
   it('handles failed login', async () => {
@@ -56,31 +31,24 @@ describe('authStore', () => {
 
   it('logs out and resets state', async () => {
     authStore.setId('1');
-    authStore.setFullName('Name');
+    authStore.setFirstName('Name');
     const callback = jest.fn();
     authStore.setOnLogoutCallback(callback);
 
     await authStore.logout();
 
-    expect(authStore.fullName).toBe('');
+    expect(authStore.firstName).toBe('');
     expect(callback).toHaveBeenCalled();
   });
 
-  it('deletes user', () => {
-    authStore.setEmail('del@example.com');
-    authStore.deleteUser();
-
-    expect(authStore.email).toBe('');
-    expect(localStorage.length).toBe(0);
-  });
   it('restores session if session is still valid', () => {
-    const now = Date.now();
+    const futureTime = Date.now() + 3600000; // 1 hour from now
     localStorage.setItem('authToken', 'token');
-    localStorage.setItem('sessionStart', now.toString());
+    localStorage.setItem('expiresAt', futureTime.toString());
     localStorage.setItem('userType', 'Therapist');
     localStorage.setItem('id', '123');
-    localStorage.setItem('fullName', 'Jane Doe');
-    localStorage.setItem('specialisation', 'Neuro');
+    localStorage.setItem('firstName', 'Jane');
+    localStorage.setItem('specialisations', 'Neuro');
 
     // Spy on startInactivityTimer to confirm it's triggered
     const startTimerSpy = jest.spyOn(authStore, 'startInactivityTimer');
@@ -91,10 +59,11 @@ describe('authStore', () => {
     expect(authStore.userType).toBe('Therapist');
     expect(startTimerSpy).toHaveBeenCalled();
   });
+
   it('resets state if session is expired', () => {
-    const oldTime = Date.now() - (authStore.sessionTimeout + 1000); // Expired
+    const oldTime = Date.now() - 1000; // Expired 1 second ago
     localStorage.setItem('authToken', 'token');
-    localStorage.setItem('sessionStart', oldTime.toString());
+    localStorage.setItem('expiresAt', oldTime.toString());
 
     const resetSpy = jest.spyOn(authStore, 'reset');
 
@@ -103,26 +72,17 @@ describe('authStore', () => {
     expect(resetSpy).toHaveBeenCalled();
     expect(authStore.isAuthenticated).toBe(false);
   });
-  it('resets state if session is expired', () => {
-    const oldTime = Date.now() - (authStore.sessionTimeout + 1000); // Expired
-    localStorage.setItem('authToken', 'token');
-    localStorage.setItem('sessionStart', oldTime.toString());
 
-    const resetSpy = jest.spyOn(authStore, 'reset');
-
-    authStore.checkAuthentication();
-
-    expect(resetSpy).toHaveBeenCalled();
-    expect(authStore.isAuthenticated).toBe(false);
-  });
   it('starts inactivity timer and sets up event listeners', () => {
     const addSpy = jest.spyOn(window, 'addEventListener');
     const clearSpy = jest.spyOn(window, 'removeEventListener');
 
     authStore.startInactivityTimer();
 
-    expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
-    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+    // The implementation adds multiple events including mousemove, mousedown, keydown, etc.
+    expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function), { passive: true });
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function), { passive: true });
+    expect(addSpy).toHaveBeenCalledWith('mousedown', expect.any(Function), { passive: true });
 
     authStore.removeInactivityListeners();
 

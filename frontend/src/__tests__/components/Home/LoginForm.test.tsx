@@ -1,12 +1,29 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import LoginForm from '../../../components/HomePage/LoginForm';
-import authStore from '../../../stores/authStore';
+import LoginForm from '@/components/HomePage/LoginForm';
+import authStore from '@/stores/authStore';
+
+// Mock ResizeObserver
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (str: string) => str }),
 }));
 
-jest.mock('../../../stores/authStore', () => ({
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     email: '',
@@ -17,15 +34,22 @@ jest.mock('../../../stores/authStore', () => ({
     reset: jest.fn(),
     loginWithHttp: jest.fn(),
     setAuthenticated: jest.fn(),
+    setLoginError: jest.fn(),
     userType: 'Therapist',
     id: '123',
     loginError: '',
   },
 }));
 
+import { MemoryRouter } from 'react-router-dom';
+
 describe('LoginForm - ErrorAlert integration', () => {
   const setup = (props = {}) =>
-    render(<LoginForm show={true} handleClose={jest.fn()} pageType="regular" {...props} />);
+    render(
+      <MemoryRouter>
+        <LoginForm show={true} handleClose={jest.fn()} {...props} />
+      </MemoryRouter>
+    );
 
   it('displays ErrorAlert when error is set', async () => {
     authStore.loginWithHttp.mockImplementation(() => {
@@ -52,7 +76,7 @@ describe('LoginForm - ErrorAlert integration', () => {
       expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    fireEvent.click(screen.getByRole('button', { name: /close alert/i }));
     expect(screen.queryByText('Invalid credentials')).not.toBeInTheDocument();
   });
 });

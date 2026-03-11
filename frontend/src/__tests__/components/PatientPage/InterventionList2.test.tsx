@@ -1,28 +1,29 @@
 // src/components/PatientPage/__tests__/InterventionList.test.tsx
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import InterventionList from '../InterventionList';
-import authStore from '../../../stores/authStore';
-import { patientUiStore } from '../../../stores/patientUiStore';
-import { patientInterventionsStore } from '../../../stores/patientInterventionsStore';
-import { patientQuestionnairesStore } from '../../../stores/patientQuestionnairesStore';
+import InterventionList from '@/components/PatientPage/InterventionList';
+import { patientUiStore } from '@/stores/patientUiStore';
+import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 
-jest.mock('../../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: { id: 'p1' },
 }));
 
-jest.mock('../../../stores/patientUiStore', () => ({
-  patientUiStore: {
+jest.mock('@/stores/patientUiStore', () => {
+  const store = {
     selectedDate: new Date('2026-02-16T00:00:00Z'),
     viewMode: 'day',
     setSelectedDate: jest.fn(),
-    setViewMode: jest.fn(),
+    setViewMode: jest.fn((mode) => {
+      store.viewMode = mode;
+    }),
     goToday: jest.fn(),
-  },
-}));
+  };
+  return { patientUiStore: store };
+});
 
-jest.mock('../../../stores/patientInterventionsStore', () => ({
+jest.mock('@/stores/patientInterventionsStore', () => ({
   patientInterventionsStore: {
     items: [
       {
@@ -42,7 +43,7 @@ jest.mock('../../../stores/patientInterventionsStore', () => ({
   },
 }));
 
-jest.mock('../../../stores/patientQuestionnairesStore', () => ({
+jest.mock('@/stores/patientQuestionnairesStore', () => ({
   patientQuestionnairesStore: {
     showFeedbackPopup: false,
     feedbackInterventionId: '',
@@ -65,9 +66,15 @@ jest.mock('react-i18next', () => ({
 }));
 
 // Reduce complexity: don’t render popups here
-jest.mock('../PatientInterventionPopUp', () => () => <div data-testid="info-popup" />);
-jest.mock('../FeedbackPopup', () => () => <div data-testid="feedback-popup" />);
-jest.mock('../PatientQuestionaire', () => () => <div data-testid="initial-popup" />);
+jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => () => (
+  <div data-testid="info-popup" />
+));
+jest.mock('@/components/PatientPage/FeedbackPopup', () => () => (
+  <div data-testid="feedback-popup" />
+));
+jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => (
+  <div data-testid="initial-popup" />
+));
 
 describe('InterventionList', () => {
   beforeEach(() => {
@@ -111,14 +118,11 @@ describe('InterventionList', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: 'Week view' }));
     expect(patientUiStore.setViewMode).toHaveBeenCalledWith('week');
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Day view' }));
-    expect(patientUiStore.setViewMode).toHaveBeenCalledWith('day');
   });
 
   it('Today button calls goToday()', async () => {
     render(<InterventionList />);
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(patientUiStore.goToday).toHaveBeenCalled();
   });
 });

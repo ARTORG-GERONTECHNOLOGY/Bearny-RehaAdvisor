@@ -1,23 +1,32 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import FilterBar from '../../../components/TherapistInterventionPage/FilterBar';
+import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 import '@testing-library/jest-dom';
+
+// Mock ResizeObserver
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 // 🛠 Mock react-select
 jest.mock('react-select', () => (props: any) => {
-  const testId = props.placeholder.includes('Tags')
+  const testId = props.placeholder?.includes('Tags')
     ? 'tag-select'
-    : props.placeholder.includes('Benefit')
-      ? 'benefit-select'
+    : props.placeholder?.includes('Diagnosis')
+      ? 'diagnosis-select'
       : 'other-select';
 
   return (
-    <div>
+    <div data-testid={testId}>
       <button
-        data-testid={testId}
-        onClick={() => props.onChange([{ value: 'At Home', label: 'At Home' }])}
+        onClick={() => {
+          if (props.onChange) {
+            props.onChange([{ value: 'At Home', label: 'At Home' }]);
+          }
+        }}
       >
-        Select At Home
+        Select Option
       </button>
     </div>
   );
@@ -26,23 +35,10 @@ jest.mock('react-select', () => (props: any) => {
 describe('FilterBar component', () => {
   const mockSetSearchTerm = jest.fn();
   const mockSetPatientTypeFilter = jest.fn();
-  const mockSetCoreSupportFilter = jest.fn();
+  const mockSetDiagnosisFilter = jest.fn();
   const mockSetContentTypeFilter = jest.fn();
   const mockSetTagFilter = jest.fn();
-  const mockSetBenefitForFilter = jest.fn();
   const mockSetFrequencyFilter = jest.fn();
-
-  const mockConfig = {
-    RecomendationInfo: {
-      intensity: ['Core', 'Supportive'],
-      types: ['Video', 'PDFs'],
-      tags: ['At Home', 'Outdoor'],
-      benefits: ['Mobility', 'Mental Health'],
-      frequency: ['Daily', 'Weekly'],
-    },
-  };
-
-  const diagnoses = ['Cardiology', 'Neurology'];
 
   const mockT = (key: string) => key;
 
@@ -57,18 +53,14 @@ describe('FilterBar component', () => {
         setSearchTerm={mockSetSearchTerm}
         patientTypeFilter=""
         setPatientTypeFilter={mockSetPatientTypeFilter}
-        coreSupportFilter=""
-        setCoreSupportFilter={mockSetCoreSupportFilter}
+        diagnosisFilter={[]}
+        setDiagnosisFilter={mockSetDiagnosisFilter}
         contentTypeFilter=""
         setContentTypeFilter={mockSetContentTypeFilter}
         tagFilter={[]}
         setTagFilter={mockSetTagFilter}
-        benefitForFilter={[]}
-        setBenefitForFilter={mockSetBenefitForFilter}
         frequencyFilter=""
         setFrequencyFilter={mockSetFrequencyFilter}
-        diagnoses={diagnoses}
-        config={mockConfig}
         t={mockT}
       />
     );
@@ -77,15 +69,12 @@ describe('FilterBar component', () => {
     renderComponent();
 
     expect(screen.getByPlaceholderText('Search Interventions')).toBeInTheDocument();
-    expect(screen.getByText('Filter by Patient Type')).toBeInTheDocument();
-    expect(screen.getByText('Filter by Core/Supportive')).toBeInTheDocument();
-    expect(screen.getByText('Filter by Content Type')).toBeInTheDocument();
-
-    // Update these two lines:
+    // Select elements can be queried by their id
+    expect(screen.getByRole('combobox', { name: 'Filter by Patient Type' })).toBeInTheDocument();
+    expect(screen.getByTestId('diagnosis-select')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Filter by Content Type' })).toBeInTheDocument();
     expect(screen.getByTestId('tag-select')).toBeInTheDocument();
-    expect(screen.getByTestId('benefit-select')).toBeInTheDocument();
-
-    expect(screen.getByText('Filter by Frequency')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Filter by Frequency' })).toBeInTheDocument();
   });
 
   test('calls setSearchTerm when input is changed', () => {
@@ -97,63 +86,46 @@ describe('FilterBar component', () => {
     expect(mockSetSearchTerm).toHaveBeenCalledWith('stretch');
   });
 
-  test('calls setPatientTypeFilter when diagnosis is selected', () => {
+  test('calls setPatientTypeFilter when patient type is selected', () => {
     renderComponent();
 
-    const select = screen.getByDisplayValue('Filter by Patient Type');
-    fireEvent.change(select, { target: { value: 'Cardiology' } });
+    const select = screen.getByRole('combobox', { name: 'Filter by Patient Type' });
+    fireEvent.change(select, { target: { value: 'heart failure' } });
 
-    expect(mockSetPatientTypeFilter).toHaveBeenCalledWith('Cardiology');
+    expect(mockSetPatientTypeFilter).toHaveBeenCalledWith('heart failure');
   });
 
   test('calls setFrequencyFilter when frequency is selected', () => {
     renderComponent();
 
-    const select = screen.getByDisplayValue('Filter by Frequency');
-    fireEvent.change(select, { target: { value: 'Weekly' } });
+    const select = screen.getByRole('combobox', { name: 'Filter by Frequency' });
+    fireEvent.change(select, { target: { value: 'week' } });
 
-    expect(mockSetFrequencyFilter).toHaveBeenCalledWith('Weekly');
+    expect(mockSetFrequencyFilter).toHaveBeenCalledWith('week');
   });
 
-  test('calls setTagFilter when tag is selected', () => {
+  test('calls setTagFilter when tag is selected via react-select', () => {
     renderComponent();
-    fireEvent.click(screen.getByTestId('tag-select'));
+    const tagSelect = screen.getByTestId('tag-select');
+    const button = tagSelect.querySelector('button');
+    fireEvent.click(button!);
     expect(mockSetTagFilter).toHaveBeenCalledWith(['At Home']);
   });
 
-  test('calls setBenefitForFilter when benefit is selected', () => {
+  test('calls setDiagnosisFilter when diagnosis is selected via react-select', () => {
     renderComponent();
-    fireEvent.click(screen.getByTestId('benefit-select'));
-    expect(mockSetBenefitForFilter).toHaveBeenCalledWith(['At Home']);
-  });
-
-  test('calls setCoreSupportFilter when core/supportive is selected', () => {
-    renderComponent();
-
-    const select = screen.getByDisplayValue('Filter by Core/Supportive');
-    fireEvent.change(select, { target: { value: 'Supportive' } });
-
-    expect(mockSetCoreSupportFilter).toHaveBeenCalledWith('Supportive');
+    const diagnosisSelect = screen.getByTestId('diagnosis-select');
+    const button = diagnosisSelect.querySelector('button');
+    fireEvent.click(button!);
+    expect(mockSetDiagnosisFilter).toHaveBeenCalledWith(['At Home']);
   });
 
   test('calls setContentTypeFilter when content type is selected', () => {
     renderComponent();
 
-    const select = screen.getByDisplayValue('Filter by Content Type');
-    fireEvent.change(select, { target: { value: 'Video' } });
+    const select = screen.getByRole('combobox', { name: 'Filter by Content Type' });
+    fireEvent.change(select, { target: { value: 'video' } });
 
-    expect(mockSetContentTypeFilter).toHaveBeenCalledWith('Video');
-  });
-
-  test('calls setTagFilter when tag is selected via react-select', () => {
-    renderComponent();
-    fireEvent.click(screen.getByTestId('tag-select')); // already mocked
-    expect(mockSetTagFilter).toHaveBeenCalledWith(['At Home']);
-  });
-
-  test('calls setBenefitForFilter when benefit is selected via react-select', () => {
-    renderComponent();
-    fireEvent.click(screen.getByTestId('benefit-select')); // already mocked
-    expect(mockSetBenefitForFilter).toHaveBeenCalledWith(['At Home']);
+    expect(mockSetContentTypeFilter).toHaveBeenCalledWith('video');
   });
 });

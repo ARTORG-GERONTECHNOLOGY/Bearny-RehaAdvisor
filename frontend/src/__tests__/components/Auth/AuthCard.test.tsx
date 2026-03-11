@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import AuthCard from '../AuthCard';
+import AuthCard from '@/components/Auth/AuthCard';
 
 describe('AuthCard', () => {
   it('renders title and children', () => {

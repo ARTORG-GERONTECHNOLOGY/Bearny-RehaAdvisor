@@ -13,6 +13,7 @@ const config: Config = {
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/src/__mocks__/fileMock.js',
     '\\.(css|scss|sass)$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^.*/config/interventions\\.json$': '<rootDir>/src/__mocks__/interventions.config.json',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(@react|react-dom|mobx-react-lite)/)',
@@ -20,6 +21,7 @@ const config: Config = {
     'node_modules/(?!react-pdf|pdfjs-dist)/',
   ],
   testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/?(*.)+(spec|test).(ts|tsx)'],
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

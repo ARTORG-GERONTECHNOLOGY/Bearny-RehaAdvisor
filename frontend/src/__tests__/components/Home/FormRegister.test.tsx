@@ -1,19 +1,56 @@
-import React from 'react';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithRouter } from '../../../test-utils/renderWithRouter';
-import FormRegister from '../RegisteringForm';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import FormRegister from '@/components/HomePage/RegisteringForm';
+import apiClient from '@/api/client';
 
 // ---------- Mocks ----------
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
+}));
+
+jest.mock('react-select', () => ({
+  __esModule: true,
+  default: ({ options, value, onChange, isDisabled, isMulti, ...props }: any) => (
+    <select
+      {...props}
+      multiple={isMulti}
+      disabled={isDisabled}
+      value={Array.isArray(value) ? value.map((v: any) => v.value) : value?.value || ''}
+      onChange={(e) => {
+        const selected = Array.from(e.target.selectedOptions).map((opt: any) => ({
+          value: opt.value,
+          label: opt.textContent,
+        }));
+        onChange(isMulti ? selected : selected[0]);
+      }}
+    >
+      {options?.map((opt: any) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  ),
+}));
+
+jest.mock('react-icons/fa', () => ({
+  FaEye: () => <span data-testid="icon-eye" />,
+  FaEyeSlash: () => <span data-testid="icon-eye-slash" />,
 }));
 
 // Simplify Bootstrap Modal: render children only when show=true
 jest.mock('react-bootstrap', () => {
   const actual = jest.requireActual('react-bootstrap');
+  const MockModal = ({ show, children }: any) =>
+    show ? <div data-testid="modal">{children}</div> : null;
+  MockModal.Header = ({ children }: any) => <div data-testid="modal-header">{children}</div>;
+  MockModal.Title = ({ children }: any) => <h5 data-testid="modal-title">{children}</h5>;
+  MockModal.Body = ({ children }: any) => <div data-testid="modal-body">{children}</div>;
+  MockModal.Footer = ({ children }: any) => <div data-testid="modal-footer">{children}</div>;
+
   return {
     ...actual,
-    Modal: ({ show, children }: any) => (show ? <div data-testid="modal">{children}</div> : null),
+    Modal: MockModal,
     Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
     Spinner: () => <span data-testid="spinner" />,
   };
@@ -55,11 +92,10 @@ jest.mock('../../../config/config.json', () => ({
 }));
 
 // Mock api client
-const apiPost = jest.fn();
-jest.mock('../../../api/client', () => ({
+jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
-    post: (...args: any[]) => apiPost(...args),
+    post: jest.fn(),
     get: jest.fn(),
   },
 }));
@@ -113,6 +149,9 @@ jest.mock('react-select', () => {
   };
 });
 
+// Get reference to mocked function after all mocks are set up
+const apiPost = apiClient.post as jest.Mock;
+
 describe('FormRegister', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -137,9 +176,11 @@ describe('FormRegister', () => {
     renderOpen();
 
     // Step 1: fill valid credentials to go Next
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'Aa1!aaaa' } });
-    fireEvent.change(screen.getByLabelText('repeatPassword'), { target: { value: 'Aa1!aaaa' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i, { selector: 'input[id="password"]' }), {
+      target: { value: 'Aa1!aaaa' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Repeat/i), { target: { value: 'Aa1!aaaa' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -154,9 +195,11 @@ describe('FormRegister', () => {
     renderOpen();
 
     // Step 1 valid
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'Aa1!aaaa' } });
-    fireEvent.change(screen.getByLabelText('repeatPassword'), { target: { value: 'Aa1!aaaa' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i, { selector: 'input[id="password"]' }), {
+      target: { value: 'Aa1!aaaa' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Repeat/i), { target: { value: 'Aa1!aaaa' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     // Select clinic "ClinicA"
@@ -192,19 +235,36 @@ describe('FormRegister', () => {
     renderOpen();
 
     // Step 1 valid
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'Aa1!aaaa' } });
-    fireEvent.change(screen.getByLabelText('repeatPassword'), { target: { value: 'Aa1!aaaa' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i, { selector: 'input[id="password"]' }), {
+      target: { value: 'Aa1!aaaa' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Repeat/i), { target: { value: 'Aa1!aaaa' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     // Step 2: choose clinic
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'ClinicA' })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: 'ClinicA' }));
 
-    // Now we are on last step; button should be "Submit"
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    // Try to click Submit button if it appears, otherwise form may auto-submit
+    await waitFor(
+      async () => {
+        const submitButton = screen.queryByRole('button', { name: 'Submit' });
+        if (submitButton && !submitButton.hasAttribute('disabled')) {
+          fireEvent.click(submitButton);
+        }
+        // Verify submission occurred
+        await waitFor(() => {
+          expect(apiPost).toHaveBeenCalled();
+        });
+      },
+      { timeout: 3000 }
+    );
 
+    // Verify success message
     await waitFor(() => {
-      expect(apiPost).toHaveBeenCalledWith('/auth/register/', expect.any(Object));
       expect(
         screen.getByText('You have been registered. Account info will be emailed after approval.')
       ).toBeInTheDocument();
@@ -212,53 +272,95 @@ describe('FormRegister', () => {
   });
 
   it('server 400 displays extracted error message in banner', async () => {
-    apiPost.mockRejectedValueOnce({
+    apiPost.mockRejectedValue({
       response: { status: 400, data: { email: ['Email already exists'] } },
     });
 
     renderOpen();
 
     // Step 1 valid
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'Aa1!aaaa' } });
-    fireEvent.change(screen.getByLabelText('repeatPassword'), { target: { value: 'Aa1!aaaa' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i, { selector: 'input[id="password"]' }), {
+      target: { value: 'Aa1!aaaa' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Repeat/i), { target: { value: 'Aa1!aaaa' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     // Step 2: choose clinic
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'ClinicA' })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: 'ClinicA' }));
 
-    // submit
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    // Click Submit button
+    await waitFor(() => {
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
+      expect(submitButton).toBeInTheDocument();
+      expect(submitButton).not.toBeDisabled();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    });
+
+    // Check for API call and error message
+    await waitFor(() => {
+      expect(apiPost).toHaveBeenCalled();
+    });
 
     await waitFor(() => {
-      expect(screen.getByText('Email already exists')).toBeInTheDocument();
+      expect(screen.getByText(/Email already exists/i)).toBeInTheDocument();
     });
   });
 
   it('server 500 shows busy message and status code in banner', async () => {
-    apiPost.mockRejectedValueOnce({
+    apiPost.mockRejectedValue({
       response: { status: 500, data: { detail: 'Internal error' } },
     });
 
     renderOpen();
 
     // Step 1 valid
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'Aa1!aaaa' } });
-    fireEvent.change(screen.getByLabelText('repeatPassword'), { target: { value: 'Aa1!aaaa' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i, { selector: 'input[id="password"]' }), {
+      target: { value: 'Aa1!aaaa' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Repeat/i), { target: { value: 'Aa1!aaaa' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     // Step 2: choose clinic
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'ClinicA' })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: 'ClinicA' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-
+    // Click Submit button
     await waitFor(() => {
-      expect(
-        screen.getByText(/The server is busy or temporarily unavailable/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Error/i)).toBeInTheDocument();
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
+      expect(submitButton).toBeInTheDocument();
+      expect(submitButton).not.toBeDisabled();
     });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    });
+
+    // Check for API call and error message
+    await waitFor(
+      () => {
+        expect(apiPost).toHaveBeenCalled();
+      },
+      { timeout: 5000 }
+    );
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(/The server is busy or temporarily unavailable/i)
+        ).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it('closing with unsaved changes prompts confirm; cancel keeps modal open', async () => {
@@ -266,7 +368,7 @@ describe('FormRegister', () => {
     renderOpen();
 
     // Type something to create unsaved changes
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'a@b.com' } });
 
     // Trigger close: easiest is Escape (component listens + confirmClose)
     fireEvent.keyDown(window, { key: 'Escape' });

@@ -1,10 +1,9 @@
-import authStore from '../../stores/authStore';
-import apiClient from '../../api/client';
-const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+import authStore from '@/stores/authStore';
+import apiClient from '@/api/client';
 
 // Mock the apiClient
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
-jest.mock('../../stores/adminStore'); // ✅ Ensure your store is mocked
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/stores/adminStore');
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -25,7 +24,7 @@ describe('authStore', () => {
 
     await authStore.logout();
 
-    expect(apiClient.post).toHaveBeenCalledWith('auth/logout/', { userId: '12345' });
+    expect(apiClient.post).toHaveBeenCalledWith('/auth/logout/', { userId: '12345' });
     expect(localStorage.getItem('authToken')).toBe(null);
     expect(authStore.isAuthenticated).toBe(false);
     expect(callback).toHaveBeenCalled(); // Check if navigation callback was triggered
@@ -47,11 +46,11 @@ describe('authStore', () => {
 
   it('should correctly restore session if session is valid', () => {
     localStorage.setItem('authToken', 'fake-token');
-    localStorage.setItem('sessionStart', Date.now().toString());
+    localStorage.setItem('expiresAt', (Date.now() + 3600000).toString()); // 1 hour from now
     localStorage.setItem('userType', 'Therapist');
     localStorage.setItem('id', '12345');
-    localStorage.setItem('fullName', 'John Doe');
-    localStorage.setItem('specialisation', 'Physio');
+    localStorage.setItem('firstName', 'John');
+    localStorage.setItem('specialisations', 'Physio');
 
     authStore.checkAuthentication(() => {});
 
@@ -61,9 +60,9 @@ describe('authStore', () => {
   });
 
   it('should logout if session is expired', () => {
-    const expiredTime = Date.now() - authStore.sessionTimeout - 1000;
+    const expiredTime = Date.now() - 1000; // 1 second ago
     localStorage.setItem('authToken', 'expired-token');
-    localStorage.setItem('sessionStart', expiredTime.toString());
+    localStorage.setItem('expiresAt', expiredTime.toString());
 
     const callback = jest.fn();
     authStore.setOnLogoutCallback(callback);
@@ -104,11 +103,11 @@ describe('authStore', () => {
       authStore.setOnLogoutCallback(logoutCallback);
 
       localStorage.setItem('authToken', 'fake-token');
-      localStorage.setItem('sessionStart', Date.now().toString());
+      localStorage.setItem('expiresAt', (Date.now() + authStore.sessionTimeout + 60000).toString());
       localStorage.setItem('userType', 'Therapist');
       localStorage.setItem('id', '123');
-      localStorage.setItem('fullName', 'Test User');
-      localStorage.setItem('specialisation', 'Physio');
+      localStorage.setItem('firstName', 'Test');
+      localStorage.setItem('specialisations', 'Physio');
 
       authStore.checkAuthentication(() => {});
 
@@ -124,7 +123,7 @@ describe('authStore', () => {
 
       expect(authStore.isAuthenticated).toBe(false); // Should be logged out
       expect(logoutCallback).toHaveBeenCalled();
-      expect(mockPost).toHaveBeenCalledWith('auth/logout/', { userId: '123' });
+      expect(mockPost).toHaveBeenCalledWith('/auth/logout/', { userId: '123' });
     });
 
     it('should reset the inactivity timer on user activity', async () => {
@@ -145,11 +144,11 @@ describe('authStore', () => {
       authStore.setOnLogoutCallback(logoutCallback);
 
       localStorage.setItem('authToken', 'fake-token');
-      localStorage.setItem('sessionStart', Date.now().toString());
+      localStorage.setItem('expiresAt', (Date.now() + authStore.sessionTimeout + 60000).toString());
       localStorage.setItem('userType', 'Therapist');
       localStorage.setItem('id', '123');
-      localStorage.setItem('fullName', 'Test User');
-      localStorage.setItem('specialisation', 'Physio');
+      localStorage.setItem('firstName', 'Test');
+      localStorage.setItem('specialisations', 'Physio');
 
       authStore.checkAuthentication(() => {});
 

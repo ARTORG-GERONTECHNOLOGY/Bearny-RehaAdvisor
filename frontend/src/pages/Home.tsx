@@ -63,17 +63,15 @@ const Home: React.FC = () => {
                   {t('Login')}
                 </Button>
               </div>
-              {!authStore.isAuthenticated && (
-                <div className="mt-3 text-center text-md-start">
-                  <Button
-                    variant="link"
-                    className="p-0 text-decoration-none"
-                    onClick={toggleRegisterModal}
-                  >
-                    {t('Register (Only for Therapists)')}
-                  </Button>
-                </div>
-              )}
+              <div className="mt-2 text-center text-md-start">
+                <Button
+                  variant="link"
+                  className="p-0 text-decoration-none"
+                  onClick={toggleRegisterModal}
+                >
+                  {t('Register (Only for Therapists)')}
+                </Button>
+              </div>
             </Col>
 
             {/* Image column */}
