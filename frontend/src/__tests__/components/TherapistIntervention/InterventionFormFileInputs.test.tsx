@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import InterventionFormFileInputs from '../../../components/AddIntervention/InterventionFormFileInputs';
+import InterventionFormFileInputs from '@/components/AddIntervention/InterventionFormFileInputs';
 import '@testing-library/jest-dom';
 
 describe('InterventionFormFileInputs', () => {

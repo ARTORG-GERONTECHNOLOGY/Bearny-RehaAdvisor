@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ForgotPasswordLink from '../../../components/common/ForgotPasswordLink'; // adjust path if needed
+import ForgotPasswordLink from '@/components/common/ForgotPasswordLink';
 
 describe('ForgotPasswordLink', () => {
   it('renders with default text', () => {

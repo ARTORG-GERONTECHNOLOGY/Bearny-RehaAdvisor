@@ -1,16 +1,14 @@
 // src/components/PatientPage/__tests__/DailyVitalsPrompt.test.tsx
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import DailyVitalsPrompt from '../DailyVitalsPrompt';
-import authStore from '../../../stores/authStore';
-import { patientVitalsStore } from '../../../stores/patientVitalsStore';
+import DailyVitalsPrompt from '@/components/PatientPage/DailyVitalsPrompt';
+import { patientVitalsStore } from '@/stores/patientVitalsStore';
 
-jest.mock('../../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: { id: 'p1' },
 }));
 
-jest.mock('../../../stores/patientVitalsStore', () => ({
+jest.mock('@/stores/patientVitalsStore', () => ({
   patientVitalsStore: {
     loading: false,
     exists: false,
@@ -55,7 +53,7 @@ describe('DailyVitalsPrompt', () => {
     const saveBtn = screen.getByRole('button', { name: 'Save for today' });
     expect(saveBtn).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('Weight (kg)'), { target: { value: '72.4' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. 72.4'), { target: { value: '72.4' } });
     expect(saveBtn).not.toBeDisabled();
 
     fireEvent.click(saveBtn);

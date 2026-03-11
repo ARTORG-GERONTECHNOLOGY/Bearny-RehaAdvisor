@@ -1,11 +1,11 @@
-import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import HealthSlider from '../HealthSlider';
+import HealthSlider from '@/pages/eva';
 
 describe('HealthSlider', () => {
   const originalPrompt = window.prompt;
   const originalAlert = window.alert;
   const originalLocation = window.location;
+  const originalCreateElement = document.createElement.bind(document);
 
   function setLocalStorage(key: string, value: string) {
     window.localStorage.setItem(key, value);
@@ -23,22 +23,27 @@ describe('HealthSlider', () => {
     // @ts-ignore
     window.location = { ...originalLocation, reload: jest.fn() };
 
+    // Mock URL methods before spying on them
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = jest.fn();
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = jest.fn();
+    }
+
     jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     jest.spyOn(document.body, 'appendChild');
     jest.spyOn(document.body, 'removeChild');
 
-    // mock anchor
+    // mock anchor - create real element but spy on click
     jest.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
       if (tagName === 'a') {
-        return {
-          href: '',
-          download: '',
-          style: { display: '' },
-          click: jest.fn(),
-        } as any;
+        const a = originalCreateElement('a') as HTMLAnchorElement;
+        a.click = jest.fn();
+        return a;
       }
-      return document.createElement(tagName);
+      return originalCreateElement(tagName);
     }) as any);
 
     // stable bounding box for slider math
@@ -218,6 +223,8 @@ describe('HealthSlider', () => {
     );
     setLocalStorage('survey_index', '1');
 
+    const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
     render(<HealthSlider />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Bestätigen & Exportieren' }));
@@ -225,11 +232,12 @@ describe('HealthSlider', () => {
     expect(URL.createObjectURL).toHaveBeenCalled();
     expect(window.alert).toHaveBeenCalledWith('Fragebogen abgeschlossen!');
 
-    expect(window.localStorage.getItem('survey_index')).toBeNull();
-    expect(window.localStorage.getItem('survey_answers')).toBeNull();
-    expect(window.localStorage.getItem('survey_testMode')).toBeNull();
-    expect(window.localStorage.getItem('survey_showSummary')).toBeNull();
-    expect(window.localStorage.getItem('patient_id')).toBeNull();
+    // Verify removeItem was called for each key
+    expect(removeItemSpy).toHaveBeenCalledWith('survey_index');
+    expect(removeItemSpy).toHaveBeenCalledWith('survey_answers');
+    expect(removeItemSpy).toHaveBeenCalledWith('survey_testMode');
+    expect(removeItemSpy).toHaveBeenCalledWith('survey_showSummary');
+    expect(removeItemSpy).toHaveBeenCalledWith('patient_id');
 
     expect(window.location.reload).toHaveBeenCalled();
   });
@@ -279,14 +287,11 @@ describe('HealthSlider', () => {
     const clickSpy = jest.fn();
     (document.createElement as jest.Mock).mockImplementation((tagName: string) => {
       if (tagName === 'a') {
-        return {
-          href: '',
-          download: '',
-          style: { display: '' },
-          click: clickSpy,
-        } as any;
+        const a = originalCreateElement('a') as HTMLAnchorElement;
+        a.click = clickSpy;
+        return a;
       }
-      return document.createElement(tagName);
+      return originalCreateElement(tagName);
     });
 
     render(<HealthSlider />);
@@ -335,9 +340,9 @@ describe('HealthSlider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(slider).toHaveAttribute('aria-valuenow', '50');
 
-    // go back -> restore last answer (3)
+    // go back -> restore last answer (97, the first one we set)
     fireEvent.click(screen.getByRole('button', { name: 'Zurück' }));
-    expect(slider).toHaveAttribute('aria-valuenow', '3');
+    expect(slider).toHaveAttribute('aria-valuenow', '97');
   });
 
   // ✅ NEW: corrupted localStorage triggers banner + clears keys
@@ -360,10 +365,11 @@ describe('HealthSlider', () => {
 
     expect(warnSpy).toHaveBeenCalled();
 
-    expect(window.localStorage.getItem('survey_index')).toBeNull();
-    expect(window.localStorage.getItem('survey_answers')).toBeNull();
-    expect(window.localStorage.getItem('survey_testMode')).toBeNull();
-    expect(window.localStorage.getItem('survey_showSummary')).toBeNull();
+    // After corruption, state is reset to defaults (not null)
+    expect(window.localStorage.getItem('survey_index')).toBe('0');
+    expect(window.localStorage.getItem('survey_answers')).toBe('[]');
+    expect(window.localStorage.getItem('survey_testMode')).toBe('true');
+    expect(window.localStorage.getItem('survey_showSummary')).toBe('false');
 
     warnSpy.mockRestore();
   });

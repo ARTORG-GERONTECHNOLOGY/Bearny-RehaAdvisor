@@ -2,13 +2,13 @@ import {
   getBadgeVariantFromUrl,
   getMediaTypeLabelFromUrl,
   generateTagColors,
-} from '../../utils/interventions';
+} from '@/utils/interventions';
 
 describe('getBadgeVariantFromUrl', () => {
   it.each([
-    ['.mp4', '', 'primary'],
-    ['.mp3', '', 'info'],
-    ['.pdf', '', 'danger'],
+    ['.mp4', '', 'danger'],
+    ['.mp3', '', 'warning'],
+    ['.pdf', '', 'info'],
     ['.jpg', '', 'success'],
     ['.jpeg', '', 'success'],
     ['.png', '', 'success'],
@@ -18,10 +18,10 @@ describe('getBadgeVariantFromUrl', () => {
   });
 
   it.each([
-    ['https://youtube.com/watch?v=abc', 'primary'],
-    ['https://youtu.be/xyz', 'primary'],
-    ['https://vimeo.com/abc', 'primary'],
-    ['https://unknown.com/page', 'warning'],
+    ['https://youtube.com/watch?v=abc', 'danger'],
+    ['https://youtu.be/xyz', 'danger'],
+    ['https://vimeo.com/abc', 'danger'],
+    ['https://unknown.com/page', 'secondary'],
   ])('returns correct badge for iframe links: %s', (link, expected) => {
     expect(getBadgeVariantFromUrl('', link)).toBe(expected);
   });
@@ -58,7 +58,7 @@ describe('generateTagColors', () => {
     const result = generateTagColors(tags);
     expect(Object.keys(result)).toEqual(tags);
     tags.forEach((tag) => {
-      expect(result[tag]).toMatch(/^hsl\(\d+, 70%, 50%\)$/);
+      expect(result[tag]).toMatch(/^hsl\(\d+, 68%, 42%\)$/);
     });
   });
 

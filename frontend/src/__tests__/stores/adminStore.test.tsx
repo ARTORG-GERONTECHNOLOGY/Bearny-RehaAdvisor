@@ -1,7 +1,7 @@
-import adminStore from '../../stores/adminStore';
-import apiClient from '../../api/client';
+import adminStore from '@/stores/adminStore';
+import apiClient from '@/api/client';
 
-jest.mock('../../api/client', () => require('../../__mocks__/api/client'));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
 describe('adminStore', () => {
   beforeEach(() => {
