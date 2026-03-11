@@ -13,3 +13,4 @@ logs
 secrets/
 .env.dev
 .env.prod
+backups/
