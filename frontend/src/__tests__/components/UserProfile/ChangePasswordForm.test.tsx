@@ -1,13 +1,12 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithRouter } from '../../../test-utils/renderWithRouter';
-import ChangePasswordForm from '../ChangePasswordForm';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import ChangePasswordForm from '@/components/UserProfile/ChangePasswordForm';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('../../common/ErrorAlert', () => ({
+jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
   default: ({ message, onClose }: any) => (
     <div role="alert">
@@ -17,15 +16,20 @@ jest.mock('../../common/ErrorAlert', () => ({
   ),
 }));
 
-const storeMock = {
+// Create mock store object that will be shared
+const createMockStore = () => ({
   saving: false,
   errorBanner: '',
   changePassword: jest.fn(async () => {}),
-};
+});
 
-jest.mock('../../../stores/userProfileStore', () => ({
+let mockStore = createMockStore();
+
+jest.mock('@/stores/userProfileStore', () => ({
   __esModule: true,
-  default: storeMock,
+  get default() {
+    return mockStore;
+  },
 }));
 
 jest.mock('react-bootstrap', () => ({
@@ -36,10 +40,10 @@ jest.mock('react-bootstrap', () => ({
       </form>
     ),
     {
-      Group: ({ children }: any) => <div>{children}</div>,
+      Group: ({ children, controlId }: any) => <div data-testid={controlId}>{children}</div>,
       Label: ({ children }: any) => <label>{children}</label>,
-      Control: ({ value, onChange, disabled, type }: any) => (
-        <input type={type} value={value} onChange={onChange} disabled={disabled} />
+      Control: ({ value, onChange, disabled, type, ...rest }: any) => (
+        <input type={type} value={value} onChange={onChange} disabled={disabled} {...rest} />
       ),
     }
   ),
@@ -54,8 +58,9 @@ jest.mock('react-bootstrap', () => ({
 describe('ChangePasswordForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    storeMock.saving = false;
-    storeMock.errorBanner = '';
+    mockStore.saving = false;
+    mockStore.errorBanner = '';
+    mockStore.changePassword = jest.fn(async () => {});
   });
 
   it('shows local validation error for missing old password', async () => {
@@ -64,37 +69,41 @@ describe('ChangePasswordForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('Please enter your old password.');
-    expect(storeMock.changePassword).not.toHaveBeenCalled();
+    expect(mockStore.changePassword).not.toHaveBeenCalled();
   });
 
   it('shows local validation error for password mismatch', async () => {
     renderWithRouter(<ChangePasswordForm onCancel={jest.fn()} />);
 
-    const inputs = screen.getAllByRole('textbox'); // because mocked input is plain input; password isn't "textbox" in real DOM
-    // In our mock, inputs are normal <input>, which RTL treats as textbox.
-    // order: old, new, confirm
-    fireEvent.change(inputs[0], { target: { value: 'oldpwd' } });
-    fireEvent.change(inputs[1], { target: { value: 'newpassword' } });
-    fireEvent.change(inputs[2], { target: { value: 'different' } });
+    const oldPasswordInput = screen.getByTestId('oldPassword').querySelector('input')!;
+    const newPasswordInput = screen.getByTestId('newPassword').querySelector('input')!;
+    const confirmPasswordInput = screen.getByTestId('confirmPassword').querySelector('input')!;
+
+    fireEvent.change(oldPasswordInput, { target: { value: 'oldpwd' } });
+    fireEvent.change(newPasswordInput, { target: { value: 'newpassword' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'different' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('New passwords do not match!');
-    expect(storeMock.changePassword).not.toHaveBeenCalled();
+    expect(mockStore.changePassword).not.toHaveBeenCalled();
   });
 
   it('submits valid data and calls store.changePassword', async () => {
     renderWithRouter(<ChangePasswordForm onCancel={jest.fn()} />);
 
-    const inputs = screen.getAllByRole('textbox');
-    fireEvent.change(inputs[0], { target: { value: 'oldpwd123' } });
-    fireEvent.change(inputs[1], { target: { value: 'newpassword' } }); // >=8
-    fireEvent.change(inputs[2], { target: { value: 'newpassword' } });
+    const oldPasswordInput = screen.getByTestId('oldPassword').querySelector('input')!;
+    const newPasswordInput = screen.getByTestId('newPassword').querySelector('input')!;
+    const confirmPasswordInput = screen.getByTestId('confirmPassword').querySelector('input')!;
+
+    fireEvent.change(oldPasswordInput, { target: { value: 'oldpwd123' } });
+    fireEvent.change(newPasswordInput, { target: { value: 'newpassword' } }); // >=8
+    fireEvent.change(confirmPasswordInput, { target: { value: 'newpassword' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
 
     await waitFor(() => {
-      expect(storeMock.changePassword).toHaveBeenCalledWith('oldpwd123', 'newpassword');
+      expect(mockStore.changePassword).toHaveBeenCalledWith('oldpwd123', 'newpassword');
     });
   });
 
@@ -107,7 +116,7 @@ describe('ChangePasswordForm', () => {
   });
 
   it('disables buttons when store.saving=true', () => {
-    storeMock.saving = true;
+    mockStore.saving = true;
 
     renderWithRouter(<ChangePasswordForm onCancel={jest.fn()} />);
 

@@ -43,9 +43,10 @@ beforeEach(() => {
 // ── navLinks by user type ────────────────────────────────────────────────────
 
 describe('Navigation - navLinks by user type', () => {
-  it('shows Home + Interventions + Settings for Patient', () => {
+  it('shows Home + Week Plan + Interventions + Settings for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Week Plan').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
@@ -84,6 +85,7 @@ describe('Navigation - navLinks by user type', () => {
     mockAuthStore.isAuthenticated = false;
     renderNav('/');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Week Plan')).not.toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
@@ -96,21 +98,21 @@ describe('Navigation - navLinks by user type', () => {
 describe('Navigation - active link', () => {
   it('marks the link whose path matches the current pathname as active', () => {
     renderNav('/patient-interventions');
-    // "Library" buttons should be active (standalone text-black class)
+    // "Library" buttons should be active (teal color text-[#03A578])
     const libraryBtns = screen.getAllByText('Library').map((el) => el.closest('button')!);
 
     libraryBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
     });
   });
 
   it('does NOT mark a non-matching link as active', () => {
     renderNav('/patient-interventions');
-    // "Home" is NOT the current path → should not have standalone text-black
+    // "Home" is NOT the current path → should not have active teal color
     const homeBtns = screen.getAllByText('Home').map((el) => el.closest('button')!);
 
     homeBtns.forEach((btn) => {
-      expect(btn.className).not.toMatch(/(^|\s)text-black(\s|$)/);
+      expect(btn.className).not.toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
     });
   });
 
@@ -119,7 +121,7 @@ describe('Navigation - active link', () => {
     const homeBtns = screen.getAllByText('Home').map((el) => el.closest('button')!);
 
     homeBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
     });
   });
 });
@@ -135,7 +137,7 @@ describe('Navigation - therapist and researcher path uses lowercased userType', 
     const patientsBtns = screen.getAllByText('Patients').map((el) => el.closest('button')!);
 
     patientsBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
     });
   });
 
@@ -145,7 +147,7 @@ describe('Navigation - therapist and researcher path uses lowercased userType', 
     const patientsBtns = screen.getAllByText('Patients').map((el) => el.closest('button')!);
 
     patientsBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-black(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
     });
   });
 });

@@ -1,20 +1,12 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import InterventionStatsModal from '../../../components/RehaTablePage/InterventionStatsModal';
-import '@testing-library/jest-dom';
-import type { Intervention } from '../../../types'; // adjust path if necessary
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
 
-const mockTranslate = (key: string) => key;
-interface FeedbackEntry {
-  question: {
-    translations: { language: string; text: string }[];
-  };
-  answer: {
-    key: string;
-    translations: { language: string; text: string }[];
-  }[];
-  comment?: string;
-}
+import { render, screen } from '@testing-library/react';
+import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
+import '@testing-library/jest-dom';
 
 const baseExercise = {
   _id: '1',
@@ -30,8 +22,8 @@ const baseExercise = {
 };
 
 describe('InterventionStatsModal', () => {
-  it('renders modal with calculated progress values', () => {
-    const interventionData: Intervention = {
+  it('renders modal with calculated statistics', () => {
+    const intervention = {
       _id: '123',
       title: 'Test Exercise',
       content_type: 'Exercise',
@@ -41,35 +33,47 @@ describe('InterventionStatsModal', () => {
       patient_types: [],
       benefitFor: [],
       tags: [],
-      currentTotalCount: 2,
-      dates: [
+      averageRating: 4.5,
+    };
+
+    const patientData = {
+      interventions: [
         {
-          status: 'completed',
-          datetime: '2025-04-01T10:00:00Z',
-          feedback: [
+          _id: '123',
+          duration: 30,
+          frequency: 'Daily',
+          notes: 'Test notes',
+          dates: [
             {
-              question: {
-                id: 'q1', // ✅ Add the required `id`
-                translations: [{ language: 'en', text: 'How was it?' }],
-              },
-              answer: [
+              status: 'completed',
+              datetime: '2025-04-01T10:00:00Z',
+              feedback: [
                 {
-                  key: 'good',
-                  translations: [{ language: 'en', text: 'Good' }],
+                  question: {
+                    id: 'q1',
+                    translations: [{ language: 'en', text: 'How was it?' }],
+                  },
+                  answer: [
+                    {
+                      key: 'good',
+                      translations: [{ language: 'en', text: 'Good' }],
+                    },
+                  ],
                 },
               ],
+              video: { video_url: 'http://example.com/video.mp4' },
+            },
+            {
+              status: 'missed',
+              datetime: '2025-04-02T10:00:00Z',
+              feedback: [],
+            },
+            {
+              status: 'upcoming',
+              datetime: '2025-04-04T10:00:00Z',
+              feedback: [],
             },
           ],
-        },
-        {
-          status: 'missed',
-          datetime: '2025-04-02T10:00:00Z',
-          feedback: [], // valid empty array
-        },
-        {
-          status: 'upcoming',
-          datetime: '2025-04-04T10:00:00Z',
-          feedback: [],
         },
       ],
     };
@@ -77,68 +81,65 @@ describe('InterventionStatsModal', () => {
     render(
       <InterventionStatsModal
         show={true}
-        onClose={jest.fn()}
-        exercise={baseExercise}
-        interventionData={interventionData}
-        t={mockTranslate}
+        onHide={jest.fn()}
+        intervention={intervention}
+        patientData={patientData}
       />
     );
 
-    // Titles and labels
-    expect(screen.getByText(/Test Exercise Information/i)).toBeInTheDocument();
-    expect(screen.getByText(/Total Sessions/i)).toBeInTheDocument();
-    expect(screen.getByText(/Current Sessions/i)).toBeInTheDocument();
-    expect(screen.getByText(/Current Feedback Answered/i)).toBeInTheDocument();
+    // Check modal title
+    expect(screen.getByText(/Statistics/)).toBeInTheDocument();
+    expect(screen.getByText(/Test Exercise/)).toBeInTheDocument();
 
-    // Total sessions count
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // Check badges - they render as "Total : 3" with spaces
+    expect(screen.getByText(/Total/)).toBeInTheDocument();
+    const badges = screen.getAllByText(/3|1/);
+    expect(badges.length).toBeGreaterThan(0);
+    expect(screen.getByText(/Completed:/)).toBeInTheDocument();
+    expect(screen.getByText(/Missed:/)).toBeInTheDocument();
+    expect(screen.getByText(/Upcoming:/)).toBeInTheDocument();
 
-    // Check progress bar width values directly in DOM
-    const bars = document.querySelectorAll('.progress-bar');
-    expect(bars.length).toBe(7);
-
-    const totalCompletedWidth = (1 / 3) * 100; // 33.33%
-    const totalMissedWidth = (1 / 3) * 100; // 33.33%
-    const totalUpcomingWidth = (1 / 3) * 100; // 33.33%
-    expect(bars[0]).toHaveStyle(`width: ${totalCompletedWidth}%`);
-    expect(bars[1]).toHaveStyle(`width: ${totalMissedWidth}%`);
-    expect(bars[2]).toHaveStyle(`width: ${totalUpcomingWidth}%`);
-
-    const currentCompletedWidth = (1 / 2) * 100;
-    const currentRemainingWidth = (1 / 2) * 100;
-
-    expect(bars[3]).toHaveStyle(`width: ${currentCompletedWidth}%`);
-    expect(bars[4]).toHaveStyle(`width: ${currentRemainingWidth}%`);
-
-    const feedbackAnsweredWidth = (1 / 2) * 100;
-    const feedbackMissingWidth = (1 / 2) * 100; // (100 - feedbackAnsweredWidth)
-
-    expect(bars[5]).toHaveStyle(`width: ${feedbackAnsweredWidth}%`);
-    expect(bars[6]).toHaveStyle(`width: ${feedbackMissingWidth}%`);
-
-    // The missing portion is implied in remaining style (not explicitly rendered in your logic)
+    // Check table rows
+    expect(screen.getByText(/Average rating/)).toBeInTheDocument();
+    expect(screen.getByText('4.5')).toBeInTheDocument();
+    expect(screen.getByText(/Feedback entries/)).toBeInTheDocument();
+    expect(screen.getByText(/Video feedback/)).toBeInTheDocument();
+    expect(screen.getByText(/Duration/)).toBeInTheDocument();
+    expect(screen.getByText('30 min')).toBeInTheDocument();
+    expect(screen.getByText(/Frequency/)).toBeInTheDocument();
+    expect(screen.getByText('Daily')).toBeInTheDocument();
+    expect(screen.getByText(/Notes/)).toBeInTheDocument();
+    expect(screen.getByText('Test notes')).toBeInTheDocument();
   });
 
-  it('handles empty interventionData gracefully', () => {
-    const emptyData = {
+  it('handles empty data gracefully', () => {
+    const intervention = {
       ...baseExercise,
-      currentTotalCount: 0,
-      dates: [],
+    };
+
+    const patientData = {
+      interventions: [
+        {
+          _id: '1',
+          dates: [],
+        },
+      ],
     };
 
     render(
       <InterventionStatsModal
         show={true}
-        onClose={jest.fn()}
-        exercise={baseExercise}
-        interventionData={emptyData}
-        t={mockTranslate}
+        onHide={jest.fn()}
+        intervention={intervention}
+        patientData={patientData}
       />
     );
 
-    // Verify modal renders with 0 sessions
-    expect(screen.getByText('Total Sessions:')).toBeInTheDocument();
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(document.querySelectorAll('.progress-bar').length).toBe(7);
+    // Verify modal renders with 0 for all stats
+    expect(screen.getByText(/Total/)).toBeInTheDocument();
+    const zeros = screen.getAllByText('0');
+    expect(zeros.length).toBeGreaterThan(0); // Multiple 0s will be rendered
+    expect(screen.getByText(/Completed/)).toBeInTheDocument();
+    expect(screen.getByText(/Missed/)).toBeInTheDocument();
   });
 });

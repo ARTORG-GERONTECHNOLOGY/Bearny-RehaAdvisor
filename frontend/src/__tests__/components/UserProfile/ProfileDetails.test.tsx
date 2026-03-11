@@ -1,13 +1,12 @@
-import React from 'react';
 import { screen, fireEvent } from '@testing-library/react';
-import { renderWithRouter } from '../../../test-utils/renderWithRouter';
-import ProfileDetails from '../ProfileDetails';
+import { renderWithRouter } from '@/test-utils/renderWithRouter';
+import ProfileDetails from '@/components/UserProfile/ProfileDetails';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('../../common/InfoBubble', () => ({
+jest.mock('@/components/common/InfoBubble', () => ({
   __esModule: true,
   default: ({ tooltip }: any) => <span data-testid="infobubble">{tooltip}</span>,
 }));
@@ -20,11 +19,13 @@ jest.mock('react-bootstrap', () => ({
   ),
 }));
 
-const authStoreMock = { userType: 'Therapist' };
+const mockAuthStore = { userType: 'Therapist' };
 
-jest.mock('../../../stores/authStore', () => ({
+jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: authStoreMock,
+  get default() {
+    return mockAuthStore;
+  },
 }));
 
 describe('ProfileDetails', () => {
@@ -38,7 +39,7 @@ describe('ProfileDetails', () => {
   } as any;
 
   it('renders therapist-specific sections when userType is Therapist', () => {
-    authStoreMock.userType = 'Therapist';
+    mockAuthStore.userType = 'Therapist';
 
     renderWithRouter(
       <ProfileDetails
@@ -58,7 +59,7 @@ describe('ProfileDetails', () => {
   });
 
   it('does not render therapist sections for non-therapist', () => {
-    authStoreMock.userType = 'Admin';
+    mockAuthStore.userType = 'Admin';
 
     renderWithRouter(
       <ProfileDetails
@@ -100,7 +101,7 @@ describe('ProfileDetails', () => {
   });
 
   it('renders "None" when specializations/clinics empty', () => {
-    authStoreMock.userType = 'Therapist';
+    mockAuthStore.userType = 'Therapist';
     const u = { ...userData, specializations: [], clinics: [] };
 
     renderWithRouter(
