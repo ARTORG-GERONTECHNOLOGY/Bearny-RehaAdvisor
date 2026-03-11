@@ -32,7 +32,6 @@ const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventi
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
-
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
   return createElement('div', null, 'Loading...');
