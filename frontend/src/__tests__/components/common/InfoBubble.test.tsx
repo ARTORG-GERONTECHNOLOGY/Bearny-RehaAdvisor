@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import InfoBubble from '../../../components/common/InfoBubble';
+import InfoBubble from '@/components/common/InfoBubble';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
@@ -13,7 +12,7 @@ describe('InfoBubble', () => {
 
   it('shows tooltip on hover', async () => {
     render(<InfoBubble tooltip="Hover text" />);
-    const iconWrapper = screen.getByRole('button', { name: 'info' });
+    const iconWrapper = screen.getByRole('button', { name: 'More information' });
 
     // Hover over the icon
     await userEvent.hover(iconWrapper);

@@ -4,7 +4,7 @@ describe('adminStore', () => {
 
   async function importFreshAdminStore() {
     jest.resetModules();
-    const mod = await import('../adminStore');
+    const mod = await import('@/stores/adminStore');
     return mod.default;
   }
 
@@ -12,7 +12,7 @@ describe('adminStore', () => {
     apiGet = jest.fn();
     apiPost = jest.fn();
 
-    jest.doMock('../../api/client', () => ({
+    jest.doMock('@/api/client', () => ({
       __esModule: true,
       default: {
         get: (...args: any[]) => apiGet(...args),
@@ -23,7 +23,7 @@ describe('adminStore', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    jest.dontMock('../../api/client');
+    jest.dontMock('@/api/client');
   });
 
   it('fetchPendingEntries: success maps response.data.pending_users into pendingEntries', async () => {
