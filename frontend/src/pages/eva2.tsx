@@ -246,7 +246,9 @@ export default function HealthSlider() {
     if (!el) return;
 
     // Resume shared AudioContext so audio routes to current output (incl. headphones)
-    try { await getAudioCtx().resume(); } catch {}
+    try {
+      await getAudioCtx().resume();
+    } catch {}
 
     const src = getItemAudioSrc(isPracticeMode, questionIndex);
     try {
