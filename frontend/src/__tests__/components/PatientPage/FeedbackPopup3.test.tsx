@@ -37,7 +37,7 @@ describe('FeedbackPopup', () => {
     localStorage.setItem('id', 'p1');
   });
 
-  it('dropdown selection advances to next question', async () => {
+  it('dropdown selection requires Next to advance', async () => {
     render(
       <FeedbackPopup
         show
@@ -50,8 +50,9 @@ describe('FeedbackPopup', () => {
 
     expect(screen.getByText('Q1')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'A' }));
-
-    // advances after small timeout
+    // Should still be on Q1 until Next is clicked
+    expect(screen.getByText('Q1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => {
       expect(screen.getByText('Q2')).toBeInTheDocument();
     });
@@ -71,11 +72,13 @@ describe('FeedbackPopup', () => {
       />
     );
 
-    // advance to last question
+    // select answer for first question
     fireEvent.click(screen.getByRole('button', { name: 'A' }));
+    // must click Next to advance
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByText('Q2');
 
-    // click submit (since Q2 is last after Next? In your modal footer: last screen shows Submit)
+    // click submit (since Q2 is last after Next)
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
@@ -83,8 +86,6 @@ describe('FeedbackPopup', () => {
     const [, formData] = (apiClient.post as jest.Mock).mock.calls[0];
     expect(formData instanceof FormData).toBe(true);
 
-    // Hard to inspect FormData directly; easiest is to spy on append:
-    // If you want direct checking, see note below.
     expect(onClose).toHaveBeenCalled();
   });
 
