@@ -233,9 +233,6 @@ const getMetaTags = (item: any): string[] => {
   const out: string[] = [];
   const src = asRecord(item?.intervention ?? item ?? {});
 
-  const aim = asStr(src.aim || src.benefitFor).trim();
-  if (aim) out.push(aim);
-
   out.push(...asArr<string>(src.topic).map(asStr));
   out.push(...asArr<string>(src.lc9).map(asStr));
   out.push(...asArr<string>(src.where).map(asStr));
