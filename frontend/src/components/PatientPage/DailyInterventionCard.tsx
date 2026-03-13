@@ -14,7 +14,7 @@ interface DailyInterventionCardProps {
   title?: string; // Custom title, if not provided will use formatted date
   locale?: Locale; // Locale for date formatting
   badgeText?: string; // Optional badge text to display (e.g., "Today", "1/2", or undefined for no badge)
-  onOpenIntervention?: (rec: PatientRec) => void;
+  onOpenIntervention?: (rec: PatientRec, date: Date) => void;
 }
 
 const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
@@ -59,7 +59,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
               rec={rec}
               date={date}
               isBusy={isBusy(rec, date)}
-              onItemClick={() => onOpenIntervention?.(rec)}
+              onItemClick={() => onOpenIntervention?.(rec, date)}
               onToggleComplete={handleToggleCompleted}
             />
           ))
