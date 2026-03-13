@@ -541,6 +541,110 @@ celery -A backend beat -l info
 
 ---
 
+## Named Template System
+
+### Overview
+
+The named template system (`backend/core/views/template_views.py`) lets therapists create, share, and apply reusable rehabilitation schedules called **InterventionTemplates**. It was introduced in three phases:
+
+| Phase | What it adds |
+|---|---|
+| 1 | Template CRUD + copy |
+| 2 | Assign interventions; apply to patient |
+| 3 | Calendar/schedule preview |
+
+All template views are registered in `backend/core/urls.py` under the `/api/templates/` prefix.
+
+### Project structure additions
+
+```
+backend/
+├── core/
+│   ├── models.py                    # InterventionTemplate, DefaultInterventions, DiagnosisAssignmentSettings
+│   └── views/
+│       └── template_views.py        # All 7 template view functions
+└── tests/
+    └── template_views/
+        ├── __init__.py
+        ├── test_template_views.py   # 63 tests (pytest + mongomock)
+        └── TESTING.md               # Test documentation
+```
+
+### Auth helper — `_get_therapist`
+
+Every template view resolves the caller to a `Therapist` document using:
+
+```python
+def _get_therapist(request) -> Therapist | None:
+    try:
+        return Therapist.objects.get(userId=str(request.user.id))
+    except Exception:
+        return None
+```
+
+Views return `403` immediately if this returns `None`. In tests, patch this helper directly rather than setting up real JWT:
+
+```python
+with patch("core.views.template_views._get_therapist", return_value=therapist):
+    resp = client.get("/api/templates/", HTTP_AUTHORIZATION="Bearer test")
+```
+
+### Visibility rules
+
+| Operation | Who can |
+|---|---|
+| List / GET | Creator + any therapist for public templates |
+| Create | Any authenticated therapist |
+| PATCH / DELETE | Creator only (403 for others) |
+| Copy | Any therapist who can see the template (copy is always private) |
+| Assign interventions | Creator only |
+| Apply | Any therapist who can see the template |
+| Calendar preview | Any therapist who can see the template |
+
+### `_ALL_DX` sentinel
+
+When an intervention is added to a template without specifying a diagnosis, it is stored under the key `_ALL_DX = "_all"`. This means the entry applies to any patient regardless of their diagnosis. The sentinel is stripped in API responses (serialised as `""` in the calendar endpoint).
+
+### Serializer helpers
+
+`_serialize_template(tmpl, detail=False)` — produces the JSON-safe dict for list and detail responses.
+
+- `detail=False` (list view) — omits `recommendations`; includes `intervention_count` only.
+- `detail=True` (detail/create/update view) — includes full `recommendations` array with per-diagnosis schedule blocks.
+
+`_visible_qs(therapist)` — returns the QuerySet of templates the therapist can see:
+
+```python
+InterventionTemplate.objects.filter(Q(is_public=True) | Q(created_by=therapist))
+```
+
+### URL routing (excerpt)
+
+```python
+# core/urls.py
+path("templates/", views.template_views.template_list_create),
+path("templates/<str:template_id>/", views.template_views.template_detail),
+path("templates/<str:template_id>/copy/", views.template_views.copy_template),
+path("templates/<str:template_id>/interventions/", views.template_views.template_intervention_assign),
+path("templates/<str:template_id>/interventions/<str:intervention_id>/", views.template_views.template_intervention_remove),
+path("templates/<str:template_id>/apply/", views.template_views.apply_named_template),
+path("templates/<str:template_id>/calendar/", views.template_views.template_calendar),
+```
+
+### Running the tests
+
+```bash
+# All template view tests (63 tests, ~1s)
+docker exec django pytest tests/template_views/ -v
+
+# Single section
+docker exec django pytest tests/template_views/ -v -k "apply"
+```
+
+For full API reference see [09-API_DOCUMENTATION.md](./09-API_DOCUMENTATION.md#named-templates).
+
+---
+
 **Related Documentation**:
 - [Frontend Development Guide](./03-FRONTEND_GUIDE.md)
 - [Database Documentation](./05-DATABASE_GUIDE.md)
