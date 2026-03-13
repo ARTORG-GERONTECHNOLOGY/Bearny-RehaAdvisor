@@ -194,6 +194,11 @@ const getPlayableUrl = (m: InterventionMedia): string => {
   return '';
 };
 
+const getOpenLinkUrl = (m: InterventionMedia): string => {
+  const candidate = norm(m.url || m.embed_url || m.file_url || m.file_path || '');
+  return isHttpUrl(candidate) ? candidate : '';
+};
+
 const getMediaBadge = (media: InterventionMedia[]) => {
   if (!media.length) return { label: 'No media', icon: '' as const };
   const types = new Set(media.map((m) => m.media_type));
@@ -476,6 +481,20 @@ const PatientInterventionDetail: React.FC = observer(() => {
     [effectiveMediaList]
   );
 
+  const mediaLinks = useMemo(
+    () =>
+      effectiveMediaList
+        .map((m, idx) => {
+          const label = m.title || `${t('Media')} ${idx + 1}`;
+          const href = getOpenLinkUrl(m);
+          const text = m.media_type === 'pdf' ? t('Open PDF') : t('Open link');
+          return { href, label, text };
+        })
+        .filter((x) => Boolean(x.href))
+        .filter((x, idx, arr) => arr.findIndex((y) => y.href === x.href) === idx),
+    [effectiveMediaList, t]
+  );
+
   const renderOneMedia = (m: InterventionMedia, idx: number) => {
     const label = m.title || `${t('Media')} ${idx + 1}`;
     const playable = getPlayableUrl(m);
@@ -489,15 +508,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
                 <Page pageNumber={1} width={320} />
               </Document>
             </div>
-            <a
-              href={playable}
-              className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t('Open PDF')}
-              <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />
-            </a>
           </>
         ) : m.media_type === 'image' ? (
           <img
@@ -519,6 +529,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
             }}
             label={label}
             openText={t('Open link')}
+            showOpenLink={false}
           />
         )}
       </div>
@@ -672,12 +683,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         </div>
 
         <div className="bg-white rounded-[40px] p-4 flex flex-col gap-2">
-          <div className="flex flex-col gap-2">
-            <div>{renderMediaContent()}</div>
-            {effectiveItem?.provider && (
-              <span className="text-zinc-500">{String(effectiveItem.provider)}</span>
-            )}
-          </div>
+          {renderMediaContent()}
 
           <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
             {detectedLang ? (
@@ -696,6 +702,27 @@ const PatientInterventionDetail: React.FC = observer(() => {
             {renderMetaTags()}
           </div>
         </div>
+
+        {!!mediaLinks.length && (
+          <div className="p-4 flex flex-col gap-2">
+            {mediaLinks.map((link, idx) => (
+              <a
+                key={`${link.href}-${idx}`}
+                href={link.href}
+                className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${link.text}: ${link.label}`}
+              >
+                {link.text}
+                <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />
+              </a>
+            ))}
+            {effectiveItem?.provider && (
+              <span className="text-zinc-500 text-center">{String(effectiveItem.provider)}</span>
+            )}
+          </div>
+        )}
       </div>
     </Layout>
   );
