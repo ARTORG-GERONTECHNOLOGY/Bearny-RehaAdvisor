@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -508,12 +508,21 @@ const PatientInterventionDetail: React.FC = observer(() => {
   if (!effectiveItem) {
     return (
       <Layout>
-        <Container className="py-4">
-          <ErrorAlert message={t('Intervention not found.')} onClose={() => navigate('/patient')} />
-          <Button variant="secondary" className="mt-3" onClick={() => navigate(-1)}>
-            {t('Back')}
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={() => navigate(-1)}
+            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
+          >
+            <ArrowLeftIcon className="w-6 h-6" />
+            <span className="sr-only">{t('Back')}</span>
           </Button>
-        </Container>
+
+          <ErrorAlert
+            message={t('Intervention not found.')}
+            onClose={() => navigate(-1)}
+            className="mb-0"
+          />
+        </div>
       </Layout>
     );
   }
