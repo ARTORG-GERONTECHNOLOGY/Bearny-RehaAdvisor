@@ -91,13 +91,12 @@ export const PlayableMedia: React.FC<{ m: Media; label: string; openText?: strin
               left: 0,
               width: '100%',
               height: '100%',
-              border: 0,
-              borderRadius: 12,
             }}
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
             loading="lazy"
             onError={() => setMode('reactplayer')}
+            className="border-none rounded-3xl"
           />
         </div>
         {openLink}

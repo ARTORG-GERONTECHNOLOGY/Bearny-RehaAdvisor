@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
+import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import { translateText } from '@/utils/translate';
 import { generateTagColors, getTaxonomyTags, getTagColor } from '@/utils/interventions';
 
@@ -274,6 +275,11 @@ const PatientInterventionDetail: React.FC = observer(() => {
         await patientInterventionsStore.fetchPlan(patientId, i18n.language);
       }
 
+      if (!patientInterventionsLibraryStore.visibleItemsForPatient.length) {
+        const lang = (i18n.language || 'en').slice(0, 2);
+        await patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
+      }
+
       if (!alive) return;
       setLoading(false);
     };
@@ -287,9 +293,26 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   const selectedRec = useMemo<PatientRec | null>(() => {
     return (
-      patientInterventionsStore.items.find((rec) => rec.intervention_id === interventionId) || null
+      patientInterventionsStore.items.find(
+        (rec) =>
+          rec.intervention_id === interventionId ||
+          asStr(rec.intervention?._id) === interventionId ||
+          asStr(rec.intervention?.external_id) === interventionId
+      ) || null
     );
   }, [interventionId, patientInterventionsStore.items]);
+
+  const selectedLibraryItem = useMemo<unknown | null>(() => {
+    const items = patientInterventionsLibraryStore.visibleItemsForPatient as unknown[];
+    return (
+      items.find(
+        (it) =>
+          asStr(asRecord(it)._id) === interventionId ||
+          asStr(asRecord(it).id) === interventionId ||
+          asStr(asRecord(it).external_id) === interventionId
+      ) || null
+    );
+  }, [interventionId, patientInterventionsLibraryStore.visibleItemsForPatient]);
 
   const targetDate = useMemo(() => {
     const dateParam = searchParams.get('date');
@@ -356,28 +379,57 @@ const PatientInterventionDetail: React.FC = observer(() => {
   };
 
   const effectiveItem = useMemo<any | null>(() => {
-    if (!selectedRec) return null;
+    if (selectedRec) {
+      const intervention = asRecord(selectedRec.intervention || {});
+      return {
+        title: selectedRec.intervention_title || asStr(intervention.title) || '',
+        intervention_title: selectedRec.intervention_title || asStr(intervention.title) || '',
+        description: selectedRec.description || asStr(intervention.description) || '',
+        content_type: asStr(intervention.content_type) || '',
+        language: asStr(intervention.language) || '',
+        external_id: asStr(intervention.external_id) || '',
+        provider: asStr(intervention.provider) || '',
+        media: asArray<unknown>(intervention.media).length
+          ? asArray<unknown>(intervention.media)
+          : (selectedRec.media as unknown[]) || [],
+        available_languages: asArr<string>(intervention.available_languages),
+        intervention,
+        is_private: Boolean(intervention.is_private),
+        link: asStr(intervention.link) || '',
+        media_file: asStr(intervention.media_file) || '',
+        media_url: asStr(intervention.media_url) || '',
+      };
+    }
 
-    const intervention = asRecord(selectedRec.intervention || {});
-    return {
-      title: selectedRec.intervention_title || asStr(intervention.title) || '',
-      intervention_title: selectedRec.intervention_title || asStr(intervention.title) || '',
-      description: selectedRec.description || asStr(intervention.description) || '',
-      content_type: asStr(intervention.content_type) || '',
-      language: asStr(intervention.language) || '',
-      external_id: asStr(intervention.external_id) || '',
-      provider: asStr(intervention.provider) || '',
-      media: asArray<unknown>(intervention.media).length
-        ? asArray<unknown>(intervention.media)
-        : (selectedRec.media as unknown[]) || [],
-      available_languages: asArr<string>(intervention.available_languages),
-      intervention,
-      is_private: Boolean(intervention.is_private),
-      link: asStr(intervention.link) || '',
-      media_file: asStr(intervention.media_file) || '',
-      media_url: asStr(intervention.media_url) || '',
-    };
-  }, [selectedRec]);
+    if (selectedLibraryItem) {
+      const intervention = asRecord(selectedLibraryItem);
+      const aims = asArr<string>(intervention.aims);
+      const benefitFor = asArr<string>(intervention.benefitFor);
+      const primaryAim = asStr(intervention.aim) || aims[0] || benefitFor[0] || '';
+
+      return {
+        title: asStr(intervention.title) || '',
+        intervention_title: asStr(intervention.title) || '',
+        description: asStr(intervention.description) || '',
+        content_type: asStr(intervention.content_type) || '',
+        language: asStr(intervention.language) || '',
+        external_id: asStr(intervention.external_id) || '',
+        provider: asStr(intervention.provider) || '',
+        media: asArray<unknown>(intervention.media),
+        available_languages: asArr<string>(intervention.available_languages),
+        intervention: {
+          ...intervention,
+          aim: primaryAim,
+        },
+        is_private: Boolean(intervention.is_private),
+        link: asStr(intervention.link) || '',
+        media_file: asStr(intervention.media_file) || '',
+        media_url: asStr(intervention.media_url) || '',
+      };
+    }
+
+    return null;
+  }, [selectedRec, selectedLibraryItem]);
 
   useEffect(() => {
     if (!effectiveItem) return;
@@ -623,7 +675,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           <div className="flex flex-col gap-2">
             <div>{renderMediaContent()}</div>
             {effectiveItem?.provider && (
-              <span className="text-zinc-500 text-center">{String(effectiveItem.provider)}</span>
+              <span className="text-zinc-500">{String(effectiveItem.provider)}</span>
             )}
           </div>
 
