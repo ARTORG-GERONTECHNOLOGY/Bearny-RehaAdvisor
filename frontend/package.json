@@ -62,13 +62,14 @@
     "vite-plugin-svgr": "^4.5.0"
   },
   "dependencies": {
-    "@sentry/react": "^9.0.0",
     "@microlink/react": "^5.5.23",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
     "@react-pdf-viewer/core": "^3.12.0",
     "@react-pdf-viewer/default-layout": "^3.12.0",
     "@react-pdf/renderer": "^4.2.2",
+    "@sentry/react": "^9.0.0",
     "@types/node": "^22.13.5",
     "axios": "^1.8.1",
     "bootstrap": "^5.3.3",
