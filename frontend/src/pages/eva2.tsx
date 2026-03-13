@@ -162,6 +162,18 @@ export default function HealthSlider() {
   const spectrumRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
 
+  // persistent AudioContext for headphone routing (ding + playback share one session)
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const audioGainRef = useRef<GainNode | null>(null);
+
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioCtxRef.current;
+  }, []);
+
   // upload-failure prompt
   const [uploadFail, setUploadFail] = useState<{
     open: boolean;
@@ -191,25 +203,40 @@ export default function HealthSlider() {
   const progressPercent = isPracticeMode ? 0 : ((questionIndex + 1) / total) * 100;
   const progressText = isPracticeMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
 
+  /** --- wire <audio> into the shared AudioContext with 2× gain boost + headphone routing --- */
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || audioNodeRef.current) return;
+    try {
+      const ctx = getAudioCtx();
+      audioNodeRef.current = ctx.createMediaElementSource(audio);
+      audioGainRef.current = ctx.createGain();
+      audioGainRef.current.gain.value = 5.0;
+      audioNodeRef.current.connect(audioGainRef.current);
+      audioGainRef.current.connect(ctx.destination);
+    } catch {}
+  }, [getAudioCtx]);
+
   /** --- ding --- */
   const playDing = useCallback(
     (freq = 550) => {
       if (!dingActive) return;
       try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const ctx = getAudioCtx();
+        ctx.resume().catch(() => {});
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        gain.connect(ctx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.35);
+        osc.stop(ctx.currentTime + 0.35);
       } catch {}
     },
-    [dingActive]
+    [dingActive, getAudioCtx]
   );
 
   /** --- play pre-recorded item audio (manual) --- */
@@ -217,6 +244,11 @@ export default function HealthSlider() {
     setAudioError('');
     const el = audioRef.current;
     if (!el) return;
+
+    // Resume shared AudioContext so audio routes to current output (incl. headphones)
+    try {
+      await getAudioCtx().resume();
+    } catch {}
 
     const src = getItemAudioSrc(isPracticeMode, questionIndex);
     try {
@@ -234,7 +266,7 @@ export default function HealthSlider() {
         'Audio kann nicht abgespielt werden (Datei fehlt oder Gerät blockiert Wiedergabe).'
       );
     }
-  }, [isPracticeMode, questionIndex]);
+  }, [isPracticeMode, questionIndex, getAudioCtx]);
 
   /** --- preload current + next audio for snappy playback --- */
   useEffect(() => {
@@ -282,7 +314,7 @@ export default function HealthSlider() {
     if (navigator.vibrate) navigator.vibrate(20);
 
     const flashTimer = setTimeout(() => setShowFlash(false), 250);
-    const lockTimer = setTimeout(() => setIsLocked(false), 1200);
+    const lockTimer = setTimeout(() => setIsLocked(false), 5000);
     return () => {
       clearTimeout(flashTimer);
       clearTimeout(lockTimer);
@@ -667,23 +699,35 @@ export default function HealthSlider() {
           {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
         </h1>
 
-        <button
-          type="button"
-          onClick={() => setDingActive((v) => !v)}
-          style={{
-            ...styles.audioBtn,
-            background: dingActive ? '#9d8d71' : '#fff',
-            color: dingActive ? '#fff' : '#000',
-          }}
-          aria-label={dingActive ? 'Ton an' : 'Ton aus'}
-          title={dingActive ? 'Ton an' : 'Ton aus'}
-        >
-          {dingActive ? (
-            <BellFill size={isMobile ? 18 : 20} />
-          ) : (
-            <BellSlashFill size={isMobile ? 18 : 20} />
-          )}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setDingActive((v) => !v)}
+            style={{
+              ...styles.audioBtn,
+              background: dingActive ? '#9d8d71' : '#fff',
+              color: dingActive ? '#fff' : '#000',
+            }}
+            aria-label={dingActive ? 'Ton an' : 'Ton aus'}
+            title={dingActive ? 'Ton an' : 'Ton aus'}
+          >
+            {dingActive ? (
+              <BellFill size={isMobile ? 18 : 20} />
+            ) : (
+              <BellSlashFill size={isMobile ? 18 : 20} />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={playItemAudio}
+            style={{ ...styles.audioBtn, background: '#9bb0e6', color: '#0f1a2a' }}
+            aria-label="Frage abspielen"
+            title="Frage abspielen"
+          >
+            <PlayFill size={isMobile ? 18 : 20} />
+          </button>
+        </div>
       </div>
 
       {!showSummary ? (
@@ -691,33 +735,7 @@ export default function HealthSlider() {
           <section style={styles.centerArea}>
             <div style={styles.endLabelTop}>Sehr gut</div>
 
-            {/* ✅ On mobile: play button ABOVE the slider, not off-screen */}
-            {isMobile ? (
-              <button
-                type="button"
-                onClick={playItemAudio}
-                style={styles.playBtnMobile}
-                aria-label="Frage abspielen"
-                title="Frage abspielen"
-              >
-                <PlayFill size={22} />
-                <span style={{ fontWeight: 700 }}>Frage abspielen</span>
-              </button>
-            ) : null}
-
             <div style={styles.sliderWrap}>
-              {!isMobile ? (
-                <button
-                  type="button"
-                  onClick={playItemAudio}
-                  style={styles.playBtnAnchored}
-                  aria-label="Frage abspielen"
-                  title="Frage abspielen"
-                >
-                  <PlayFill size={32} />
-                </button>
-              ) : null}
-
               <div
                 ref={spectrumRef}
                 style={styles.trackBox}
@@ -827,19 +845,19 @@ export default function HealthSlider() {
               <>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
-                  disabled={saving || isLocked}
-                  onClick={() => handleNext('NA')}
-                >
-                  Kann ich nicht beantworten
-                </button>
-                <button
-                  type="button"
                   style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
                   disabled={saving || isLocked}
                   onClick={() => handleNext(sliderPosition)}
                 >
                   Weiter
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
+                  disabled={saving || isLocked}
+                  onClick={() => handleNext('NA')}
+                >
+                  Kann ich nicht beantworten
                 </button>
               </>
             )}
@@ -966,43 +984,10 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 6,
   },
 
-  playBtnAnchored: {
-    position: 'absolute',
-    left: 'calc(-76px - 64px)',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: 76,
-    height: 76,
-    borderRadius: '50%',
-    border: 'none',
-    background: '#9bb0e6',
-    color: '#0f1a2a',
-    cursor: 'pointer',
-    boxShadow: '0 10px 20px rgba(0,0,0,0.12)',
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  playBtnMobile: {
-    width: '100%',
-    maxWidth: 520,
-    border: 'none',
-    borderRadius: 14,
-    padding: '12px 14px',
-    background: '#9bb0e6',
-    color: '#0f1a2a',
-    cursor: 'pointer',
-    boxShadow: '0 8px 16px rgba(0,0,0,0.10)',
-    display: 'flex',
-    gap: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   trackBox: {
     position: 'relative',
     width: '100%',
-    height: 'clamp(320px, 55svh, 560px)', // ✅ fits phones
+    height: 'clamp(400px, 65svh, 680px)',
     userSelect: 'none',
     WebkitUserSelect: 'none',
     touchAction: 'none',
@@ -1066,28 +1051,37 @@ const styles: Record<string, React.CSSProperties> = {
   buttonsRow: {
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '1fr',
+    gridTemplateColumns: '1fr 1fr',
     gap: 12,
     marginTop: 8,
   },
 
   btn: {
     width: '100%',
-    minHeight: 56,
-    fontSize: 'clamp(16px, 4.4vw, 20px)',
+    minHeight: 72,
+    fontSize: 'clamp(14px, 3.8vw, 18px)',
     borderRadius: 14,
     border: 'none',
     cursor: 'pointer',
     fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    lineHeight: 1.2,
+    padding: '8px 12px',
   },
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
   btnPrimary: { background: '#9d8d71', color: '#fff' },
 
   footer: {
     width: '100%',
-    display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: 6,
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '4px 16px',
     padding: '10px 0 0',
     fontSize: 13,
     color: '#707070',
