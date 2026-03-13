@@ -16,6 +16,8 @@ type Props = {
   defaultDiagnosis?: string;
   onSuccess?: () => void;
   mode?: Mode;
+  /** When set, saves to named template instead of the therapist's implicit template */
+  templateId?: string;
 };
 
 type ErrorMap = Record<string, string>;
@@ -29,6 +31,7 @@ const TemplateAssignModal: React.FC<Props> = ({
   defaultDiagnosis,
   onSuccess,
   mode = 'create',
+  templateId,
 }) => {
   const { t } = useTranslation();
 
@@ -65,8 +68,12 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const validRange = startDay >= 1 && lastDay >= startDay;
   const canSubmit = useMemo(
-    () => !!interventionId && !!diagnosis && validRange && everyK >= 1,
-    [interventionId, diagnosis, validRange, everyK]
+    () =>
+      !!interventionId &&
+      (templateId ? true : !!diagnosis) &&
+      validRange &&
+      everyK >= 1,
+    [interventionId, diagnosis, validRange, everyK, templateId]
   );
 
   const occurrencesCount = useMemo(() => {
@@ -168,27 +175,44 @@ const TemplateAssignModal: React.FC<Props> = ({
       const [h, m] = startTime.split(':').map(Number);
       const suggestedExecution = h * 60 + m;
 
-      const payload = {
-        therapistId: authStore.id,
-        patientId: diagnosis, // BE expects diagnosis here
-        interventions: [
-          {
-            interventionId,
-            interval: everyK,
-            unit: 'day',
-            selectedDays: [],
-            start_day: startDay,
-            end: { type: 'count', count: lastDay },
-            keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
-            suggested_execution_time: suggestedExecution,
-          },
-        ],
-      };
+      let res: any;
 
-      const res = await apiClient.post(
-        `therapists/${authStore.id}/interventions/assign-to-patient-types/`,
-        payload
-      );
+      if (templateId) {
+        // Named template endpoint
+        const payload = {
+          interventionId,
+          diagnosis: diagnosis || '',
+          start_day: startDay,
+          end_day: lastDay,
+          interval: everyK,
+          unit: 'day',
+          selected_days: [],
+          suggested_execution_time: suggestedExecution,
+        };
+        res = await apiClient.post(`templates/${templateId}/interventions/`, payload);
+      } else {
+        // Legacy implicit therapist template endpoint
+        const payload = {
+          therapistId: authStore.id,
+          patientId: diagnosis,
+          interventions: [
+            {
+              interventionId,
+              interval: everyK,
+              unit: 'day',
+              selectedDays: [],
+              start_day: startDay,
+              end: { type: 'count', count: lastDay },
+              keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
+              suggested_execution_time: suggestedExecution,
+            },
+          ],
+        };
+        res = await apiClient.post(
+          `therapists/${authStore.id}/interventions/assign-to-patient-types/`,
+          payload
+        );
+      }
 
       if (res.status === 201 || res.status === 200) {
         setSuccess(true);
@@ -265,13 +289,18 @@ const TemplateAssignModal: React.FC<Props> = ({
             </Form.Group>
           )}
           <Form.Group className="mb-3">
-            <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
+            <Form.Label>
+              {t('Diagnosis_patient_list')}
+              {templateId && (
+                <span className="text-muted ms-1 small">({t('optional — leave blank for all')})</span>
+              )}
+            </Form.Label>
             <Form.Select
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
               isInvalid={!!fieldErrors['patientId']}
             >
-              <option value="">{t('Choose...')}</option>
+              <option value="">{templateId ? t('All diagnoses') : t('Choose...')}</option>
               {diagnoses.map((d) => (
                 <option key={d} value={d}>
                   {d}

@@ -7,6 +7,7 @@ import core.views.auth_views as auth_views
 import core.views.fitbit_view as fitbit_views
 import core.views.patient_views as patient_views
 import core.views.recomendation_views as recomendation_views
+import core.views.template_views as template_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
@@ -282,6 +283,17 @@ urlpatterns = [
         user_views.reset_patient_password,
         name="reset-patient-password",
     ),
+    # ── Intervention Templates ─────────────────────────────────────────────
+    path("api/templates/", template_views.template_list_create),
+    path("api/templates/<str:template_id>/", template_views.template_detail),
+    path("api/templates/<str:template_id>/copy/", template_views.copy_template),
+    path("api/templates/<str:template_id>/interventions/", template_views.template_intervention_assign),
+    path(
+        "api/templates/<str:template_id>/interventions/<str:intervention_id>/",
+        template_views.template_intervention_remove,
+    ),
+    path("api/templates/<str:template_id>/apply/", template_views.apply_named_template),
+    path("api/templates/<str:template_id>/calendar/", template_views.template_calendar),
 ]
 
 # Only add this if DEBUG=True, which is typical in development

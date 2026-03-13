@@ -1,6 +1,7 @@
 // src/pages/TherapistRecomendations.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Container } from 'react-bootstrap';
+import { Container, Card, Form, Button, ButtonGroup, Spinner, Modal } from 'react-bootstrap';
+import { FaPlus, FaTrash, FaCopy, FaUpload } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -19,6 +20,8 @@ import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTi
 
 import authStore from '../stores/authStore';
 import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
+import templateStore from '../stores/templateStore';
+import ApplyTemplateModal from '../components/TherapistInterventionPage/ApplyTemplateModal';
 
 import config from '../config/config.json';
 import apiClient from '../api/client';
@@ -115,6 +118,15 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [templateHorizon, setTemplateHorizon] = useState<number>(84);
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
   const [tLoading, setTLoading] = useState<boolean>(false);
+
+  // ─────────────────────────── named templates ───────────────────────────
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('');
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateDesc, setNewTemplateDesc] = useState('');
+  const [newTemplatePublic, setNewTemplatePublic] = useState(false);
+  const [newTemplateSubmitting, setNewTemplateSubmitting] = useState(false);
 
   // ─────────────────────────── import popup ───────────────────────────
   const [showPopupImport, setShowPopupImport] = useState(false);
@@ -288,16 +300,22 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── templates fetch + actions ───────────────────────────
   const fetchTemplates = useCallback(
-    async (diag?: string, horizon?: number) => {
+    async (diag?: string, horizon?: number, namedId?: string) => {
       try {
         setTLoading(true);
         const q = new URLSearchParams();
         if (diag) q.set('diagnosis', diag);
-        if (horizon) q.set('horizon', String(horizon));
 
-        const res = await apiClient.get<TemplatePayload>(
-          `therapists/${authStore.id}/template-plan?${q.toString()}`
-        );
+        let res: any;
+        if (namedId) {
+          q.set('horizon_days', String(horizon || 84));
+          res = await apiClient.get<TemplatePayload>(`templates/${namedId}/calendar/?${q.toString()}`);
+        } else {
+          if (horizon) q.set('horizon', String(horizon));
+          res = await apiClient.get<TemplatePayload>(
+            `therapists/${authStore.id}/template-plan?${q.toString()}`
+          );
+        }
         setTemplateItems(res.data.items || []);
       } catch {
         setTemplateItems([]);
@@ -309,8 +327,15 @@ const TherapistRecomendations: React.FC = observer(() => {
   );
 
   useEffect(() => {
-    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon);
-  }, [mainTab, templateDiag, templateHorizon, fetchTemplates]);
+    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
+  }, [mainTab, templateDiag, templateHorizon, activeTemplateId, fetchTemplates]);
+
+  // Load named template list when entering templates tab
+  useEffect(() => {
+    if (mainTab === 'templates') {
+      templateStore.fetchTemplates();
+    }
+  }, [mainTab]);
 
   const openAssignToTemplate = (
     id: string,
@@ -339,15 +364,19 @@ const TherapistRecomendations: React.FC = observer(() => {
     startDay?: number
   ) => {
     try {
-      const payload: any = { intervention_id: interventionId, diagnosis };
-      if (typeof startDay === 'number') payload.start_day = startDay;
+      if (activeTemplateId) {
+        const q = diagnosis ? `?diagnosis=${encodeURIComponent(diagnosis)}` : '';
+        await apiClient.delete(`templates/${activeTemplateId}/interventions/${interventionId}/${q}`);
+      } else {
+        const payload: any = { intervention_id: interventionId, diagnosis };
+        if (typeof startDay === 'number') payload.start_day = startDay;
+        await apiClient.post(
+          `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
+          payload
+        );
+      }
 
-      await apiClient.post(
-        `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
-        payload
-      );
-
-      fetchTemplates(templateDiag, templateHorizon);
+      fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
     } catch (e: any) {
       const data = e?.response?.data || {};
       const base =
@@ -365,6 +394,42 @@ const TherapistRecomendations: React.FC = observer(() => {
         setError(base);
       }
     }
+  };
+
+  // ─────────────────────────── named template actions ───────────────────────────
+  const handleCreateTemplate = async () => {
+    if (!newTemplateName.trim()) return;
+    try {
+      setNewTemplateSubmitting(true);
+      const tmpl = await templateStore.createTemplate({
+        name: newTemplateName.trim(),
+        description: newTemplateDesc.trim(),
+        is_public: newTemplatePublic,
+      });
+      setActiveTemplateId(tmpl.id);
+      setShowNewTemplateModal(false);
+      setNewTemplateName('');
+      setNewTemplateDesc('');
+      setNewTemplatePublic(false);
+    } catch {
+      // error shown via templateStore.error
+    } finally {
+      setNewTemplateSubmitting(false);
+    }
+  };
+
+  const handleDeleteActiveTemplate = async () => {
+    if (!activeTemplateId) return;
+    if (!window.confirm(t('Delete this template? This cannot be undone.'))) return;
+    await templateStore.deleteTemplate(activeTemplateId);
+    setActiveTemplateId('');
+    setTemplateItems([]);
+  };
+
+  const handleCopyActiveTemplate = async () => {
+    if (!activeTemplateId) return;
+    const copy = await templateStore.copyTemplate(activeTemplateId);
+    setActiveTemplateId(copy.id);
   };
 
   const findTemplateFor = (intId: string): TemplateItem | undefined => {
@@ -457,6 +522,68 @@ const TherapistRecomendations: React.FC = observer(() => {
             />
           </>
         ) : (
+          <>
+          {/* ── Named template management bar ── */}
+          <Card className="mb-3">
+            <Card.Body className="d-flex align-items-center flex-wrap gap-2">
+              <Form.Select
+                style={{ maxWidth: 320 }}
+                value={activeTemplateId}
+                onChange={(e) => setActiveTemplateId(e.target.value)}
+              >
+                <option value="">{t('Implicit therapist template')}</option>
+                {templateStore.templates.map((tmpl) => (
+                  <option key={tmpl.id} value={tmpl.id}>
+                    {tmpl.name}
+                    {tmpl.is_public ? ` (${t('public')})` : ''}
+                    {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
+                  </option>
+                ))}
+              </Form.Select>
+
+              {templateStore.loading && <Spinner size="sm" />}
+
+              <Button size="sm" variant="outline-success" onClick={() => setShowNewTemplateModal(true)}>
+                <FaPlus className="me-1" />{t('New')}
+              </Button>
+
+              {activeTemplateId && (
+                <ButtonGroup size="sm">
+                  <Button
+                    variant="outline-primary"
+                    onClick={() => setShowApplyModal(true)}
+                    title={t('Apply to patient')}
+                  >
+                    <FaUpload className="me-1" />{t('Apply')}
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    onClick={handleCopyActiveTemplate}
+                    title={t('Copy template')}
+                  >
+                    <FaCopy />
+                  </Button>
+                  {templateStore.templates.find((t) => t.id === activeTemplateId)?.created_by === authStore.id && (
+                    <Button
+                      variant="outline-danger"
+                      onClick={handleDeleteActiveTemplate}
+                      title={t('Delete template')}
+                    >
+                      <FaTrash />
+                    </Button>
+                  )}
+                </ButtonGroup>
+              )}
+
+              {activeTemplateId && (() => {
+                const tmpl = templateStore.templates.find((t) => t.id === activeTemplateId);
+                return tmpl?.description ? (
+                  <small className="text-muted ms-2">{tmpl.description}</small>
+                ) : null;
+              })()}
+            </Card.Body>
+          </Card>
+
           <TemplatesLayout
             t={t}
             // left panel state
@@ -496,8 +623,72 @@ const TherapistRecomendations: React.FC = observer(() => {
             }
             tagColors={tagColors}
           />
+          </>
         )}
       </Container>
+
+      {/* Apply named template to patient */}
+      <ApplyTemplateModal
+        show={showApplyModal}
+        onHide={() => setShowApplyModal(false)}
+        diagnoses={diagnoses}
+        defaultDiagnosis={templateDiag || undefined}
+        templateId={activeTemplateId || undefined}
+        onApplied={(res) => {
+          setShowApplyModal(false);
+          setError('');
+          window.alert(
+            t('Template applied: {{applied}} interventions, {{sessions}} sessions', {
+              applied: res.applied,
+              sessions: res.sessions_created,
+            })
+          );
+        }}
+      />
+
+      {/* New template modal */}
+      <Modal show={showNewTemplateModal} onHide={() => setShowNewTemplateModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Create new template')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Name')}</Form.Label>
+            <Form.Control
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder={t('Template name')}
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Description (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={newTemplateDesc}
+              onChange={(e) => setNewTemplateDesc(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Check
+            type="checkbox"
+            label={t('Public (visible to all therapists)')}
+            checked={newTemplatePublic}
+            onChange={(e) => setNewTemplatePublic(e.target.checked)}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowNewTemplateModal(false)}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCreateTemplate}
+            disabled={!newTemplateName.trim() || newTemplateSubmitting}
+          >
+            {newTemplateSubmitting ? t('Creating...') : t('Create')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {selectedItem && (
         <ProductPopup
@@ -529,7 +720,8 @@ const TherapistRecomendations: React.FC = observer(() => {
           diagnoses={diagnoses}
           defaultDiagnosis={templateDiag || undefined}
           mode={assignMode}
-          onSuccess={() => fetchTemplates(templateDiag, templateHorizon)}
+          templateId={activeTemplateId || undefined}
+          onSuccess={() => fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined)}
         />
       )}
 
