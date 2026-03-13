@@ -56,6 +56,13 @@ const lower = (v: unknown) => norm(v).toLowerCase();
 const asRecord = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
+const capitalizeWords = (value: string) =>
+  value
+    .trim()
+    .split(/\s+/)
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+    .join(' ');
+
 const isHttpUrl = (u: string) => {
   try {
     const x = new URL(u);
@@ -546,6 +553,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
       <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
         {tags.map((x, idx) => {
           const bg = getTagColor(tagColors, x) || '#6f2dbd';
+          const label = capitalizeWords(t(x, { defaultValue: x }));
           return (
             <Badge
               key={`${x}-${idx}`}
@@ -553,7 +561,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               title={x}
               style={{ backgroundColor: bg }}
             >
-              {t(x, { defaultValue: x })}
+              {label}
             </Badge>
           );
         })}
