@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Document, Page } from 'react-pdf';
@@ -11,13 +12,16 @@ import { FaLock } from 'react-icons/fa';
 import Layout from '@/components/Layout';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
+import { Skeleton } from '@/components/ui/skeleton';
 import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { translateText } from '@/utils/translate';
 import { generateTagColors, getTaxonomyTags, getTagColor } from '@/utils/interventions';
 
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
+import CircleCheckFillIcon from '@/assets/icons/circle-check-fill.svg?react';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import MediaIcon from '@/assets/icons/interventions/media.svg?react';
 import ReaderIcon from '@/assets/icons/interventions/reader.svg?react';
@@ -231,6 +235,7 @@ const getMetaTags = (item: any): string[] => {
 const PatientInterventionDetail: React.FC = observer(() => {
   const navigate = useNavigate();
   const { interventionId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
 
   const [loading, setLoading] = useState(true);
@@ -240,6 +245,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [translatedTitle, setTranslatedTitle] = useState('');
   const [detectedLang, setDetectedLang] = useState('');
   const [titleLang, setTitleLang] = useState('');
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -284,6 +290,71 @@ const PatientInterventionDetail: React.FC = observer(() => {
       patientInterventionsStore.items.find((rec) => rec.intervention_id === interventionId) || null
     );
   }, [interventionId, patientInterventionsStore.items]);
+
+  const targetDate = useMemo(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      const parsed = new Date(`${dateParam}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    if (selectedRec?.dates?.length) {
+      const todayKey = format(new Date(), 'yyyy-MM-dd');
+      const todayDate = selectedRec.dates.find((d) => asStr(d).startsWith(todayKey));
+      const fallbackDate = todayDate || selectedRec.dates[0];
+      const parsedFallback = new Date(asStr(fallbackDate));
+      if (!Number.isNaN(parsedFallback.getTime())) return parsedFallback;
+    }
+
+    return new Date();
+  }, [searchParams, selectedRec]);
+
+  const completed = selectedRec
+    ? patientInterventionsStore.isCompletedOn(selectedRec, targetDate)
+    : false;
+
+  const completionDateKey = useMemo(() => format(targetDate, 'yyyy-MM-dd'), [targetDate]);
+  const completionLockKey = selectedRec
+    ? `${selectedRec.intervention_id}__${completionDateKey}`
+    : '__missing__';
+  const isBusy = busyKey === completionLockKey;
+
+  const handleToggleCompleted = async () => {
+    if (!patientId || !selectedRec) return;
+    if (isBusy) return;
+
+    setBusyKey(completionLockKey);
+
+    try {
+      const res = await patientInterventionsStore.toggleCompleted(
+        patientId,
+        selectedRec,
+        targetDate
+      );
+
+      if (res?.completed) {
+        try {
+          await patientQuestionnairesStore.openInterventionFeedback(
+            patientId,
+            selectedRec.intervention_id,
+            res.dateKey,
+            i18n.language
+          );
+        } catch (feedbackErr) {
+          console.error('[openFeedbackFor] failed:', feedbackErr);
+          try {
+            patientQuestionnairesStore.closeFeedback();
+          } catch {
+            // Ignore close errors
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Toggle completed failed:', err);
+    } finally {
+      setBusyKey(null);
+    }
+  };
 
   const effectiveItem = useMemo<any | null>(() => {
     if (!selectedRec) return null;
@@ -464,10 +535,25 @@ const PatientInterventionDetail: React.FC = observer(() => {
           </Button>
 
           <Button
-            onClick={() => alert('TODO: mark intervention as done')}
-            className="rounded-full border border-accent bg-white p-4 pl-5 shadow-none text-zinc-400 font-medium text-lg flex gap-2 "
+            onClick={handleToggleCompleted}
+            disabled={isBusy}
+            aria-pressed={completed}
+            className={`rounded-full border border-accent p-4 pl-5 shadow-none font-medium text-lg flex gap-2 ${
+              completed ? 'bg-[#00956C] text-zinc-50' : 'bg-white text-zinc-400'
+            }`}
           >
-            {t('Mark as done')} <CircleHalfCheckIcon className="w-6 h-6" />
+            {isBusy ? (
+              <Skeleton className="w-20 h-6 rounded-full" />
+            ) : completed ? (
+              t('Done')
+            ) : (
+              t('Mark as done')
+            )}
+            {completed ? (
+              <CircleCheckFillIcon className="w-6 h-6" />
+            ) : (
+              <CircleHalfCheckIcon className="w-6 h-6" />
+            )}
           </Button>
         </div>
 
