@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
-import PatientPopupContainer from '@/components/PatientPage/PatientPopupContainer';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
-import { useInterventionPopup } from '@/hooks/useInterventionPopup';
 import { startOfWeek, addDays, format, isToday, endOfWeek, type Locale } from 'date-fns';
 import { de, enUS, fr, it } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +17,6 @@ const PatientPlan: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [dayFilter, setDayFilter] = useState<DayFilter>('all');
-  const { selectedIntervention, openIntervention, closeIntervention } = useInterventionPopup();
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -114,16 +111,10 @@ const PatientPlan: React.FC = observer(() => {
             date={date}
             locale={locale}
             badgeText={isToday(date) ? t('Today') : undefined}
-            onOpenIntervention={openIntervention}
+            onOpenIntervention={(rec) => navigate(`/patient-intervention/${rec.intervention_id}`)}
           />
         ))}
       </div>
-
-      {/* Intervention Popups (shared with Patient home page) */}
-      <PatientPopupContainer
-        selectedIntervention={selectedIntervention}
-        onCloseIntervention={closeIntervention}
-      />
     </Layout>
   );
 });
