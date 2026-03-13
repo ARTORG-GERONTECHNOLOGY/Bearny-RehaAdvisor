@@ -30,6 +30,7 @@ const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
+const PatientInterventionDetail = lazy(() => import('@/pages/PatientInterventionDetail'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
 // -------------------- Loading Fallback --------------------
@@ -156,6 +157,12 @@ export const router = createBrowserRouter([
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
       createElement(PatientInterventionsSkeleton)
+    ),
+  },
+  {
+    path: '/patient-intervention/:interventionId',
+    element: withSuspense(createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
+      createElement(PatientInterventionDetailSkeleton)
     ),
   },
   {
