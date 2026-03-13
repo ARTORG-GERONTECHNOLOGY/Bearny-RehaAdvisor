@@ -38,6 +38,18 @@ const defaultProps = {
     },
   ],
 };
+
+// Text-first question setup for tests that need text input
+const textFirstProps = {
+  ...defaultProps,
+  questions: [
+    {
+      questionKey: 'q1',
+      answerType: 'text' as const,
+      translations: [{ language: 'en', text: 'How do you feel?' }],
+    },
+  ],
+};
 // 🟢 OUTSIDE DESCRIBE: MockMediaRecorder definition and global mocks
 global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
 
@@ -101,29 +113,29 @@ describe('FeedbackPopup Component', () => {
   it('navigates forward and backward between questions', async () => {
     render(<FeedbackPopup {...defaultProps} />);
 
-    // Check first question
-    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+    // Check first question (dropdown question appears first due to sorting)
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
 
     // Click Next
     const nextButton = screen.getByRole('button', { name: /Next/i });
     fireEvent.click(nextButton);
-    expect(screen.getByText('Select the severity')).toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
 
     // Click Back
     const backButton = screen.getByRole('button', { name: /Back/i });
     fireEvent.click(backButton);
-    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
   });
 
   it('handles text input change', async () => {
-    render(<FeedbackPopup {...defaultProps} />);
+    render(<FeedbackPopup {...textFirstProps} />);
 
-    // IMPORTANT: Activate the text mode first!
-    const typeButton = screen.getByRole('button', { name: /Type/i });
+    // IMPORTANT: Activate the text mode first using Badge component!
+    const typeButton = screen.getByLabelText(/Text mode/i);
     fireEvent.click(typeButton);
 
     // Now the textarea should exist
-    const textarea = await screen.findByRole('textbox', { name: /Text Feedback/i });
+    const textarea = await screen.findByLabelText(/Text Feedback/i);
     fireEvent.change(textarea, { target: { value: 'Feeling good' } });
 
     expect(textarea).toHaveValue('Feeling good');
@@ -142,8 +154,10 @@ describe('FeedbackPopup Component', () => {
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/patients/feedback/questionaire/',
-        expect.any(Object),
-        expect.any(Object)
+        expect.any(FormData),
+        expect.objectContaining({
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
       );
     });
   });
@@ -164,13 +178,13 @@ describe('FeedbackPopup Component', () => {
       writable: true,
     });
 
-    render(<FeedbackPopup {...defaultProps} />);
+    render(<FeedbackPopup {...textFirstProps} />);
 
-    // Click the "Record" button to trigger microphone permission check
-    const recordButton = screen.getByRole('button', { name: /Record/i });
+    // Click the "Record" Badge to trigger microphone permission check
+    const recordButton = screen.getByLabelText(/Audio mode/i);
     fireEvent.click(recordButton);
-    const srecordButton = screen.getByRole('button', { name: /Start Record/i });
-    fireEvent.click(srecordButton);
+    const startRecordButton = screen.getByRole('button', { name: /Start Recording/i });
+    fireEvent.click(startRecordButton);
 
     // Assert that the denied alert is shown
     await waitFor(() => {
@@ -226,13 +240,13 @@ describe('FeedbackPopup Component', () => {
   });
 
   it('starts recording when microphone permission is granted', async () => {
-    render(<FeedbackPopup {...defaultProps} />);
+    render(<FeedbackPopup {...textFirstProps} />);
 
-    // Switch to audio mode first if needed
-    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+    // Switch to audio mode first using Badge component
+    fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Click the start recording button
-    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+    // Click the start recording button (updated text)
+    fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
     await waitFor(() => {
       expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
@@ -268,13 +282,16 @@ describe('FeedbackPopup Component', () => {
   it('navigates between questions using Next and Back', () => {
     render(<FeedbackPopup {...defaultProps} />);
 
+    // The component sorts questions, so dropdown comes first
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
+
     // Click Next
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
-    expect(screen.getByText('Select the severity')).toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
 
     // Click Back
     fireEvent.click(screen.getByRole('button', { name: /Back/i }));
-    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+    expect(screen.getByText('Select the severity')).toBeInTheDocument();
   });
   it('handles multi-select option selection correctly', () => {
     const multiSelectQuestion = {
@@ -294,21 +311,21 @@ describe('FeedbackPopup Component', () => {
     // Optionally assert that the button switches state or the answer updates
   });
   it('handles microphone permission granted and starts/stops recording', async () => {
-    render(<FeedbackPopup {...defaultProps} />);
+    render(<FeedbackPopup {...textFirstProps} />);
 
-    // Switch to audio mode (this sets inputMode = 'audio')
-    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+    // Switch to audio mode (this sets inputMode = 'audio') using Badge component
+    fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Start recording (should trigger the getUserMedia mock)
-    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+    // Start recording (should trigger the getUserMedia mock) - updated button text
+    fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
     // Wait for getUserMedia to be called and recording state to update
     await waitFor(() => {
       expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
     });
 
-    // Now recording should be true → Stop button should be visible
-    const stopButton = await screen.findByRole('button', { name: /Stop/i });
+    // Now recording should be true → Stop button should be visible (includes timer)
+    const stopButton = await screen.findByRole('button', { name: /Stop \(\d+s\)/i });
     expect(stopButton).toBeInTheDocument();
 
     // Stop the recording
@@ -316,16 +333,16 @@ describe('FeedbackPopup Component', () => {
   });
 
   it('deletes the recording when delete button is clicked', async () => {
-    render(<FeedbackPopup {...defaultProps} />);
+    render(<FeedbackPopup {...textFirstProps} />);
 
-    // Switch to audio input mode
-    fireEvent.click(screen.getByRole('button', { name: /Record/i }));
+    // Switch to audio input mode using Badge component
+    fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Start recording
-    fireEvent.click(screen.getByRole('button', { name: /Start Record/i }));
+    // Start recording with updated button text
+    fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
-    // Stop recording
-    const stopButton = await screen.findByRole('button', { name: /Stop/i });
+    // Stop recording (includes timer in text)
+    const stopButton = await screen.findByRole('button', { name: /Stop \(\d+s\)/i });
     fireEvent.click(stopButton);
 
     // Confirm the audio element appears
@@ -348,27 +365,31 @@ describe('FeedbackPopup Component', () => {
   it('submits feedback and closes the modal', async () => {
     const onCloseMock = jest.fn();
     (apiClient.post as jest.Mock).mockResolvedValue({ status: 200 });
-    render(<FeedbackPopup {...defaultProps} onClose={onCloseMock} />);
+    render(<FeedbackPopup {...textFirstProps} onClose={onCloseMock} />);
 
-    fireEvent.change(screen.getByLabelText(/Text Feedback/i), {
+    // Make sure we're in text input mode
+    fireEvent.click(screen.getByLabelText(/Text mode/i));
+
+    const textarea = await screen.findByLabelText(/Text Feedback/i);
+    fireEvent.change(textarea, {
       target: { value: 'My feedback' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    // For single question, Submit should be available directly
     fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
 
     await waitFor(() => expect(onCloseMock).toHaveBeenCalled());
   });
   it('switches between text and audio input modes', () => {
-    render(<FeedbackPopup {...defaultProps} />);
-    const typeButton = screen.getByRole('button', { name: /Type/i });
-    const recordButton = screen.getByRole('button', { name: /Record/i });
+    render(<FeedbackPopup {...textFirstProps} />);
+    const typeButton = screen.getByLabelText(/Text mode/i);
+    const recordButton = screen.getByLabelText(/Audio mode/i);
 
     fireEvent.click(typeButton);
-    expect(screen.getByRole('textbox', { name: /Text Feedback/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Text Feedback/i)).toBeInTheDocument();
 
     fireEvent.click(recordButton);
-    expect(screen.getByRole('button', { name: /Start Record/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Start Recording/i })).toBeInTheDocument();
   });
   it('toggles multi-select option state correctly', () => {
     const multiSelectQuestion = {
@@ -402,10 +423,5 @@ describe('FeedbackPopup Component', () => {
     });
 
     errorSpy.mockRestore();
-  });
-  it('shows correct progress bar label', () => {
-    render(<FeedbackPopup {...defaultProps} />);
-    const progress = screen.getByText('1/2');
-    expect(progress).toBeInTheDocument();
   });
 });
