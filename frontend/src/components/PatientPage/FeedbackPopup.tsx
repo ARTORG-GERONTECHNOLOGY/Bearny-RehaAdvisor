@@ -1,21 +1,24 @@
 // src/components/patient/FeedbackPopup.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Form, Alert } from 'react-bootstrap';
 import {
-  Modal,
-  Button,
-  ProgressBar,
-  Form,
-  Row,
-  Col,
-  Alert,
-  OverlayTrigger,
-  Tooltip,
-} from 'react-bootstrap';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash, FaUpload } from 'react-icons/fa';
 import ReactPlayer from 'react-player';
-import apiClient from '../../api/client';
+import apiClient from '@/api/client';
+import StarIcon from '@/assets/icons/interventions/star.svg?react';
+import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import { useTranslation } from 'react-i18next';
-import ErrorAlert from '../common/ErrorAlert';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import { Badge } from '@/components/ui/badge';
 
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
@@ -62,15 +65,6 @@ const toNormalized = (q: RawQuestion, lang: string): NormalizedQuestion => ({
   options: q.possibleAnswers || [],
 });
 
-const PRIVACY_NOTE: Record<string, string> = {
-  de: 'Hinweis: Aufnahmen und Videos sind nur für Ihre Therapeutin/Ihren Therapeuten sichtbar und werden nach 14 Tagen gelöscht.',
-  fr: 'Remarque : les enregistrements et vidéos ne sont visibles que par votre thérapeute et seront supprimés après 14 jours.',
-  it: 'Nota: le registrazioni e i video sono visibili solo al/la terapeuta e verranno eliminati dopo 14 giorni.',
-  en: 'Note: Recordings and videos are only visible to your therapist and will be deleted after 14 days.',
-};
-
-const GAP_PX = 12;
-
 type Props = {
   show: boolean;
   interventionId: string;
@@ -82,7 +76,6 @@ type Props = {
 const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
-  const privacyNote = PRIVACY_NOTE[currentLang] || PRIVACY_NOTE.en;
 
   const normalizedQuestions: NormalizedQuestion[] = useMemo(() => {
     const src = Array.isArray(questions) ? questions : [];
@@ -92,25 +85,32 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
           ? (q as NormalizedQuestion)
           : toNormalized(q as RawQuestion, currentLang)
       )
-      .filter((q) => typeof q?.questionKey === 'string' && q.questionKey.trim().length > 0);
+      .filter((q) => typeof q?.questionKey === 'string' && q.questionKey.trim().length > 0)
+      .sort((a, b) => {
+        if (a.type === 'text' && b.type !== 'text') return 1;
+        if (a.type !== 'text' && b.type === 'text') return -1;
+        return 0;
+      });
   }, [questions, currentLang]);
 
-  // ✅ IMPORTANT: show a safe modal even if there are 0 questions
+  // show a safe sheet even if there are no questions
   if (show && normalizedQuestions.length === 0) {
     return (
-      <Modal show={show} onHide={onClose} centered backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>{t('Feedback')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Alert variant="info" className="mb-0">
-            {t('No feedback questions available.')}
-          </Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={onClose}>{t('Close')}</Button>
-        </Modal.Footer>
-      </Modal>
+      <Sheet open={show} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent side="bottom" className="min-h-[55vh]">
+          <SheetHeader>
+            <SheetTitle>{t('Feedback')}</SheetTitle>
+          </SheetHeader>
+          <div className="py-4">
+            <Alert variant="info" className="mb-0">
+              {t('No feedback questions available.')}
+            </Alert>
+          </div>
+          <SheetFooter>
+            <Button onClick={onClose}>{t('Close')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     );
   }
 
@@ -148,7 +148,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
-    } catch {}
+    } catch {
+      /* empty */
+    }
 
     try {
       const stream = previewRef.current?.srcObject as MediaStream | null;
@@ -156,7 +158,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
         stream.getTracks().forEach((tt) => tt.stop());
         if (previewRef.current) previewRef.current.srcObject = null;
       }
-    } catch {}
+    } catch {
+      /* empty */
+    }
 
     setRecording(false);
     setCountdown(null);
@@ -180,7 +184,6 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
   useEffect(() => {
     if (!show) resetAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
   useEffect(() => {
@@ -188,16 +191,14 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       forceStopAllMedia();
       stopTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If questions changed while modal open, clamp index
+  // if questions changed while modal open, clamp index
   useEffect(() => {
     if (currentQuestionIndex >= normalizedQuestions.length) {
       setCurrentQuestionIndex(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedQuestions.length]);
+  }, [normalizedQuestions.length, currentQuestionIndex]);
 
   const handleChangeText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: e.target.value }));
@@ -214,12 +215,6 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       }
       return { ...prev, [fieldKey]: [optionKey] };
     });
-
-    if (!multiple) {
-      setTimeout(() => {
-        setCurrentQuestionIndex((idx) => (idx + 1 < normalizedQuestions.length ? idx + 1 : idx));
-      }, 120);
-    }
   };
 
   const requestMicrophonePermission = async () => {
@@ -268,7 +263,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const stopRecording = () => {
     try {
       mediaRecorderRef.current?.stop();
-    } catch {}
+    } catch {
+      /* empty */
+    }
     setRecording(false);
   };
 
@@ -310,7 +307,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
           stream.getTracks().forEach((track) => track.stop());
           try {
             if (previewRef.current) previewRef.current.srcObject = null as any;
-          } catch {}
+          } catch {
+            /* empty */
+          }
 
           const blob = new Blob(videoChunks.current, { type: mimeType || 'video/webm' });
           if (blob.size > MAX_VIDEO_SIZE) {
@@ -331,7 +330,9 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   const stopVideoRecording = () => {
     try {
       mediaRecorderRef.current?.stop();
-    } catch {}
+    } catch {
+      /* empty */
+    }
     setRecording(false);
     setCountdown(null);
   };
@@ -350,12 +351,6 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     }
     setVideoURL(URL.createObjectURL(file));
     setAnswers((prev) => ({ ...prev, [currentQuestion.questionKey]: file }));
-  };
-
-  const getGridLayout = (count: number) => {
-    const cols = count <= 4 ? 2 : 3;
-    const rows = Math.min(2, Math.ceil(count / cols));
-    return { cols, rows };
   };
 
   const confirmClose = () => {
@@ -410,291 +405,275 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     }
   };
 
-  const renderOptions = (multiple = false) => {
-    const selected: string[] = Array.isArray(answers[currentQuestion.questionKey])
-      ? (answers[currentQuestion.questionKey] as string[])
-      : [];
-
+  const renderStarRating = () => {
     const options = currentQuestion.options || [];
-    const { cols, rows } = getGridLayout(options.length);
+    const selectedValue = answers[currentQuestion.questionKey];
+    const selectedRating = selectedValue ? parseInt(selectedValue[0], 10) : 0;
 
     return (
-      <div className="bottom-answers">
+      <div className="mx-auto flex flex-col gap-2">
         <div
-          className="feedback-box answers p-3"
-          style={
-            {
-              ['--rows' as any]: rows,
-              ['--cols' as any]: cols,
-            } as React.CSSProperties
-          }
+          className="flex justify-between items-center gap-2"
+          role="group"
+          aria-label={t('Star rating')}
         >
-          <div
-            className="answer-grid"
-            style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-            role="group"
-            aria-label={t('Answer options')}
-          >
-            {options.map((opt, i) => {
-              const label = pickText(opt.translations, currentLang, opt.key);
-              const active = selected.includes(opt.key);
-              return (
-                <Button
-                  key={i}
-                  variant={active ? 'primary' : 'outline-primary'}
-                  className="answer-btn"
-                  onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
-                  aria-pressed={active}
-                  aria-label={label}
-                  title={label}
-                >
-                  <span className="answer-label">{label}</span>
-                </Button>
-              );
-            })}
-            {Array.from({ length: Math.max(0, rows * cols - options.length) }).map((_, i) => (
-              <div className="answer-filler" key={`f-${i}`} />
-            ))}
-          </div>
+          {options.map((opt, i) => {
+            const rating = parseInt(opt.key, 10);
+
+            return (
+              <button
+                key={i}
+                type="button"
+                className={`p-3 rounded-full border-none transition-all ${rating <= selectedRating ? 'bg-[#EFA73B33]' : 'bg-zinc-100'}`}
+                onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, false)}
+                aria-pressed={rating === selectedRating}
+                aria-label={`${rating} ${rating === 1 ? 'star' : 'stars'}`}
+                title={`${rating}/5`}
+              >
+                <StarIcon
+                  className={`w-8 h-8 ${rating <= selectedRating ? 'text-[#EFA73B]' : 'text-zinc-300'}`}
+                />
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-3 font-normal text-sm text-zinc-500">
+          <span>{t('Insufficient')}</span>
+          <span className="text-center">{t('Good')}</span>
+          <span className="text-right">{t('Very good')}</span>
         </div>
       </div>
     );
   };
 
+  const renderOptions = (multiple = false) => {
+    // Check if this is a star rating question
+    if (currentQuestion.questionKey.startsWith('rating_stars_')) {
+      return renderStarRating();
+    }
+
+    const selected: string[] = Array.isArray(answers[currentQuestion.questionKey])
+      ? (answers[currentQuestion.questionKey] as string[])
+      : [];
+
+    const options = currentQuestion.options || [];
+
+    return (
+      <div
+        className="flex flex-col gap-2 sm:max-w-96 w-full mx-auto"
+        role="group"
+        aria-label={t('Answer options')}
+      >
+        {options.map((opt, i) => {
+          const label = pickText(opt.translations, currentLang, opt.key);
+          const active = selected.includes(opt.key);
+          return (
+            <Button
+              key={i}
+              className={`px-5 py-4 shadow-none rounded-full text-lg font-medium flex gap-2 items-center justify-center hover:bg-accent ${active ? 'bg-[#00956C33] border-none text-[#00956C]' : 'bg-white border border-zinc-200 text-zinc-800'}`}
+              onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
+              aria-pressed={active}
+              aria-label={label}
+              title={label}
+            >
+              {label}
+              {active && <CircleCheckFill className="w-[18px] h-[18px]" />}
+            </Button>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <Modal
-      show={show}
-      onHide={confirmClose}
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
+    <Sheet
+      open={show}
+      onOpenChange={(open) => {
+        if (!open) {
+          confirmClose();
+        }
       }}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard
     >
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Feedback')}</Modal.Title>
-      </Modal.Header>
+      <SheetContent side="bottom" className="min-h-[55vh] flex flex-col">
+        <SheetHeader>
+          <SheetDescription>{t('Feedback')}</SheetDescription>
+          <SheetTitle>{currentQuestion.label}</SheetTitle>
+        </SheetHeader>
 
-      <Modal.Body className="feedback-body">
-        <ProgressBar
-          now={((currentQuestionIndex + 1) / normalizedQuestions.length) * 100}
-          label={`${currentQuestionIndex + 1}/${normalizedQuestions.length}`}
-        />
+        <div className="flex flex-col gap-2 flex-1">
+          {micPermissionDenied && <Alert variant="danger">{t('Microphone access denied.')}</Alert>}
+          {error && <ErrorAlert message={error} onClose={() => setError(null)} className="m-0" />}
 
-        {micPermissionDenied && (
-          <Alert variant="danger" className="mt-2">
-            {t('Microphone access denied.')}
-          </Alert>
-        )}
+          <div className="flex flex-col gap-2 flex-1">
+            {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
+              renderOptions(currentQuestion.type === 'multi-select')}
 
-        <div className="feedback-layout">
-          <div className="question-area">
-            <h5 className="text-center my-3">{currentQuestion.label}</h5>
+            {currentQuestion.type === 'text' && (
+              <>
+                <div className="flex justify-center gap-2">
+                  <Badge
+                    onClick={() => setInputMode('text')}
+                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
+                      inputMode === 'text' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+                    }`}
+                    role="button"
+                    aria-pressed={inputMode === 'text'}
+                    aria-label={t('Text mode')}
+                  >
+                    {t('Type')} <FaKeyboard />
+                  </Badge>
+                  <Badge
+                    onClick={() => setInputMode('audio')}
+                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
+                      inputMode === 'audio' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+                    }`}
+                    role="button"
+                    aria-pressed={inputMode === 'audio'}
+                    aria-label={t('Audio mode')}
+                  >
+                    {t('Record')} <FaMicrophone />
+                  </Badge>
+                </div>
 
-            <Row className="w-100 justify-content-center m-0">
-              <Col md={10} className="p-0">
-                {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
-                  renderOptions(currentQuestion.type === 'multi-select')}
-
-                {currentQuestion.type === 'text' && (
-                  <>
-                    <div className="d-flex justify-content-center gap-2 mb-3">
-                      <OverlayTrigger overlay={<Tooltip>{t('Text mode')}</Tooltip>}>
-                        <Button
-                          variant={inputMode === 'text' ? 'primary' : 'outline-primary'}
-                          onClick={() => setInputMode('text')}
-                        >
-                          <FaKeyboard /> {t('Type')}
-                        </Button>
-                      </OverlayTrigger>
-                      <OverlayTrigger overlay={<Tooltip>{t('Audio mode')}</Tooltip>}>
-                        <Button
-                          variant={inputMode === 'audio' ? 'primary' : 'outline-primary'}
-                          onClick={() => setInputMode('audio')}
-                        >
-                          <FaMicrophone /> {t('Record')}
-                        </Button>
-                      </OverlayTrigger>
-                    </div>
-
-                    {inputMode === 'text' ? (
-                      <div className="feedback-box">
-                        <Form.Control
-                          as="textarea"
-                          aria-label={t('Text Feedback')}
-                          value={answers[currentQuestion.questionKey] || ''}
-                          onChange={handleChangeText}
-                          style={{ height: '100%', resize: 'none' }}
-                        />
-                      </div>
+                {inputMode === 'text' ? (
+                  <Textarea
+                    aria-label={t('Text Feedback')}
+                    value={answers[currentQuestion.questionKey] || ''}
+                    onChange={handleChangeText}
+                    className="p-4 flex-1 resize-none rounded-3xl border border-zinc-200 font-medium text-zinc-800 shadow-none"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center my-3 gap-2">
+                    {recording ? (
+                      <Button
+                        onClick={stopRecording}
+                        className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                      >
+                        {t('Stop')} ({recordingTime}s) <FaStop />
+                      </Button>
                     ) : (
-                      <div className="feedback-box d-flex flex-column align-items-center justify-content-start p-3">
-                        {recording ? (
-                          <Button variant="danger" onClick={stopRecording} className="mb-2">
-                            <FaStop /> {t('Stop')} ({recordingTime}s)
-                          </Button>
-                        ) : (
-                          <Button onClick={startRecording} className="mb-2">
-                            <FaMicrophone /> {t('Start Recording')}
-                          </Button>
-                        )}
+                      <Button
+                        onClick={startRecording}
+                        className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                      >
+                        {t('Start Recording')} <FaMicrophone />
+                      </Button>
+                    )}
 
-                        {audioURL && (
-                          <div className="mt-2">
-                            <audio controls src={audioURL} />
-                            <Button variant="warning" onClick={deleteAudio} className="ms-2">
-                              <FaTrash /> {t('Delete')}
-                            </Button>
-                          </div>
-                        )}
-
-                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
+                    {audioURL && (
+                      <div className="flex justify-center items-center flex-wrap gap-2">
+                        <audio controls src={audioURL} />
+                        <Button
+                          onClick={deleteAudio}
+                          className="px-5 py-4 bg-[#F1ADCF] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                        >
+                          {t('Delete')} <FaTrash />
+                        </Button>
                       </div>
                     )}
-                  </>
-                )}
 
-                {currentQuestion.type === 'video' && (
-                  <div className="feedback-box d-flex flex-column align-items-center justify-content-start p-3">
-                    {videoURL ? (
-                      <>
-                        <ReactPlayer url={videoURL} controls width="100%" height="100%" />
-                        <Button variant="warning" onClick={deleteVideo} className="mt-2">
-                          <FaTrash /> {t('Delete')}
-                        </Button>
-                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
-                      </>
-                    ) : (
-                      <>
-                        <video
-                          ref={previewRef}
-                          autoPlay
-                          muted
-                          style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
-                        />
-                        {countdown !== null ? (
-                          <div className="my-2 text-center fs-5">
-                            {t('Starting in')} {countdown}s...
-                          </div>
-                        ) : (
-                          <div className="d-flex gap-2 mt-2">
-                            {recording ? (
-                              <Button variant="danger" onClick={stopVideoRecording}>
-                                <FaStop className="me-1" /> {t('Stop')}
-                              </Button>
-                            ) : (
-                              <Button onClick={startVideoRecording}>{t('Record Video')}</Button>
-                            )}
-
-                            <Form.Label className="btn btn-outline-secondary mb-0">
-                              <FaUpload className="me-1" /> {t('Upload')}
-                              <Form.Control
-                                type="file"
-                                accept="video/*"
-                                hidden
-                                onChange={handleUpload}
-                              />
-                            </Form.Label>
-                          </div>
-                        )}
-                        <p className="text-muted small mt-auto mb-0 text-center">{privacyNote}</p>
-                      </>
-                    )}
+                    <p className="text-sm text-center text-zinc-500">
+                      {t('privacy_note_recordings')}
+                    </p>
                   </div>
                 )}
-              </Col>
-            </Row>
+              </>
+            )}
+
+            {currentQuestion.type === 'video' && (
+              <div className="flex flex-col items-center my-3 gap-2">
+                {videoURL ? (
+                  <>
+                    <ReactPlayer url={videoURL} controls width="100%" height="100%" />
+                    <Button
+                      onClick={deleteVideo}
+                      className="px-5 py-4 bg-[#F1ADCF] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                    >
+                      {t('Delete')} <FaTrash />
+                    </Button>
+                    <p className="text-sm text-center text-zinc-500">
+                      {t('privacy_note_recordings')}
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex justify-center items-center flex-wrap gap-2">
+                    <video
+                      ref={previewRef}
+                      autoPlay
+                      muted
+                      style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                    />
+                    {countdown !== null ? (
+                      <div className="text-center text-lg font-medium text-zinc-800">
+                        {t('Starting in')} {countdown}s...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {recording ? (
+                          <Button
+                            onClick={stopVideoRecording}
+                            className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                          >
+                            {t('Stop')} <FaStop />
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={startVideoRecording}
+                            className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+                          >
+                            {t('Record Video')}
+                          </Button>
+                        )}
+                        <div>{t('or')}</div>
+                        <Form.Label className="btn btn-outline-secondary mb-0 !rounded-full">
+                          <FaUpload /> {t('Upload')}
+                          <Form.Control
+                            type="file"
+                            accept="video/*"
+                            hidden
+                            onChange={handleUpload}
+                          />
+                        </Form.Label>
+                      </div>
+                    )}
+                    <p className="text-sm text-center text-zinc-500">
+                      {t('privacy_note_recordings')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {error && <ErrorAlert message={error} onClose={() => setError(null)} className="mt-3" />}
-      </Modal.Body>
-
-      <Modal.Footer>
-        {currentQuestionIndex > 0 && (
-          <Button variant="secondary" onClick={() => setCurrentQuestionIndex((i) => i - 1)}>
-            {t('Back')}
-          </Button>
-        )}
-        {currentQuestionIndex + 1 < normalizedQuestions.length ? (
-          <Button variant="primary" onClick={() => setCurrentQuestionIndex((i) => i + 1)}>
-            {t('Next')}
-          </Button>
-        ) : (
-          <Button variant="success" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? t('Submitting...') : t('Submit')}
-          </Button>
-        )}
-      </Modal.Footer>
-
-      <style>{`
-        :root{
-          --footer-safe: 84px;
-          --feedback-min-h: 56vh;
-          --feedback-box-h: 236px;
-          --answers-area-h: clamp(180px, 36vh, 360px);
-        }
-        @media (max-width: 576px){
-          :root{
-            --footer-safe: 84px;
-            --feedback-min-h: 52vh;
-            --feedback-box-h: 210px;
-            --answers-area-h: clamp(160px, 34vh, 320px);
-          }
-        }
-
-        .feedback-body{ display:flex; flex-direction:column; }
-        .feedback-layout{ display:flex; flex-direction:column; min-height:var(--feedback-min-h); }
-        .question-area{ display:flex; flex-direction:column; }
-
-        .feedback-box{
-          width:100%;
-          height:var(--feedback-box-h);
-          border:1px solid rgba(0,0,0,0.08);
-          border-radius:8px;
-          background:#fff;
-        }
-
-        .feedback-box.answers{
-          height: var(--answers-area-h);
-          overflow: hidden;
-          display: flex;
-          align-items: stretch;
-        }
-        .bottom-answers{
-          position: sticky;
-          bottom: var(--footer-safe);
-          margin-top: auto;
-          background: #fff;
-          padding-top: .5rem;
-          z-index: 1;
-        }
-
-        .answer-grid{
-          display:grid;
-          gap:${GAP_PX}px;
-          width: 100%;
-        }
-        .answer-filler{ visibility: hidden; }
-
-        .answer-btn{
-          height: calc(
-            (var(--answers-area-h) - ( (var(--rows, 2) - 1) * ${GAP_PX}px ) - 2px) / var(--rows, 2)
-          );
-          width: 100%;
-          display:flex; align-items:center; justify-content:center;
-          border-radius: 12px;
-          padding: .75rem;
-          line-height: 1.25;
-          white-space: normal;
-          word-break: break-word;
-        }
-        .answer-label{ display:block; font-size: 1rem; }
-      `}</style>
-    </Modal>
+        <SheetFooter className="flex gap-2">
+          {currentQuestionIndex > 0 && (
+            <Button
+              onClick={() => setCurrentQuestionIndex((i) => i - 1)}
+              className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
+            >
+              {t('Back')}
+            </Button>
+          )}
+          {currentQuestionIndex + 1 < normalizedQuestions.length ? (
+            <Button
+              onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {t('Next')}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {isSubmitting ? t('Submitting...') : t('Submit')}
+            </Button>
+          )}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 
