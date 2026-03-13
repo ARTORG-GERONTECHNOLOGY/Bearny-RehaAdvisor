@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
+import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
 
 export type Media = {
   kind: 'external' | 'file';
@@ -41,8 +42,14 @@ const OpenLinkButton: React.FC<{ href: string; text?: string }> = ({
   text = 'Open link',
 }) => (
   <div className="mt-2">
-    <a className="btn btn-outline-secondary btn-sm" href={href} target="_blank" rel="noreferrer">
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
+    >
       {text}
+      <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />
     </a>
   </div>
 );
