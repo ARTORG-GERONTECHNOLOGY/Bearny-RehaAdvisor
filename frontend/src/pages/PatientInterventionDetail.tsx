@@ -1,34 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  Badge,
-  Button,
-  ButtonGroup,
-  Container,
-  OverlayTrigger,
-  Row,
-  Col,
-  Tooltip,
-} from 'react-bootstrap';
+import { Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Document, Page } from 'react-pdf';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
-import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { translateText } from '@/utils/translate';
-import {
-  generateTagColors,
-  getTaxonomyTags,
-  getBadgeVariantFromIntervention,
-  getMediaTypeLabelFromIntervention,
-  getTagColor,
-} from '@/utils/interventions';
+import { generateTagColors, getTaxonomyTags, getTagColor } from '@/utils/interventions';
+
+import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
+import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
+import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
+import MediaIcon from '@/assets/icons/interventions/media.svg?react';
+import ReaderIcon from '@/assets/icons/interventions/reader.svg?react';
+import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
+import EducationIcon from '@/assets/icons/interventions/education.svg?react';
+import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
 
 type InterventionMedia = {
   kind: 'external' | 'file';
@@ -45,32 +40,6 @@ type InterventionMedia = {
 
 type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
   kind: string;
-};
-
-type LangOpt = { language: string; title?: string | null };
-
-type DetailItem = {
-  title?: string;
-  intervention_title?: string;
-  description?: string;
-  content_type?: string;
-  language?: string;
-  external_id?: string;
-  provider?: string;
-  media?: unknown[];
-  link?: string;
-  media_file?: string;
-  media_url?: string;
-  available_languages?: string[];
-  intervention?: Record<string, unknown>;
-  is_private?: boolean;
-  aim?: string;
-  topic?: string[];
-  lc9?: string[];
-  where?: string[];
-  setting?: string[];
-  keywords?: string[];
-  benefitFor?: string;
 };
 
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
@@ -133,7 +102,7 @@ const asArray = <T,>(v: unknown): T[] => {
   return [];
 };
 
-const getAllMedia = (item: DetailItem | null): InterventionMedia[] => {
+const getAllMedia = (item: any): InterventionMedia[] => {
   const rawMedia = asArray<Record<string, unknown>>(item?.media);
 
   if (rawMedia.length) {
@@ -221,29 +190,29 @@ const getPlayableUrl = (m: InterventionMedia): string => {
 };
 
 const getMediaBadge = (media: InterventionMedia[]) => {
-  if (!media.length) return { label: 'No media', variant: 'secondary' as const };
+  if (!media.length) return { label: 'No media', icon: '' as const };
   const types = new Set(media.map((m) => m.media_type));
-  if (types.size > 1) return { label: 'Mixed', variant: 'primary' as const };
+  if (types.size > 1) return { label: 'Mixed', icon: '' as const };
 
   const only = [...types][0];
   switch (only) {
     case 'video':
-      return { label: 'Video', variant: 'danger' as const };
+      return { label: 'Video', icon: 'media' as const };
     case 'audio':
     case 'streaming':
-      return { label: 'Audio', variant: 'warning' as const };
+      return { label: 'Audio', icon: 'media' as const };
     case 'pdf':
-      return { label: 'PDF', variant: 'info' as const };
+      return { label: 'PDF', icon: 'reader' as const };
     case 'image':
-      return { label: 'Image', variant: 'success' as const };
+      return { label: 'Image', icon: 'media' as const };
     case 'app':
-      return { label: 'App', variant: 'dark' as const };
+      return { label: 'App', icon: 'reader' as const };
     default:
-      return { label: 'Link', variant: 'secondary' as const };
+      return { label: 'Link', icon: 'reader' as const };
   }
 };
 
-const getMetaTags = (item: DetailItem): string[] => {
+const getMetaTags = (item: any): string[] => {
   const out: string[] = [];
   const src = asRecord(item?.intervention ?? item ?? {});
 
@@ -256,9 +225,6 @@ const getMetaTags = (item: DetailItem): string[] => {
   out.push(...asArr<string>(src.setting).map(asStr));
   out.push(...asArr<string>(src.keywords).map(asStr));
 
-  const ct = asStr(item?.content_type || src.content_type).trim();
-  if (ct) out.push(ct);
-
   return uniq(out.map((x) => x.trim()).filter(Boolean));
 };
 
@@ -270,14 +236,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [localOverride, setLocalOverride] = useState<DetailItem | null>(null);
   const [translatedText, setTranslatedText] = useState('');
   const [translatedTitle, setTranslatedTitle] = useState('');
   const [detectedLang, setDetectedLang] = useState('');
   const [titleLang, setTitleLang] = useState('');
-  const [langOptions, setLangOptions] = useState<LangOpt[]>([]);
-  const [variantsByLang, setVariantsByLang] = useState<Record<string, DetailItem>>({});
-  const [loadingLangs, setLoadingLangs] = useState(false);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -323,7 +285,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
     );
   }, [interventionId, patientInterventionsStore.items]);
 
-  const initialItem = useMemo<DetailItem | null>(() => {
+  const effectiveItem = useMemo<any | null>(() => {
     if (!selectedRec) return null;
 
     const intervention = asRecord(selectedRec.intervention || {});
@@ -346,143 +308,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
       media_url: asStr(intervention.media_url) || '',
     };
   }, [selectedRec]);
-
-  const effectiveItem = localOverride || initialItem;
-
-  const toLangList = (x: unknown): string[] => {
-    if (Array.isArray(x)) return x.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
-    return [];
-  };
-
-  const preferredLang = useMemo(() => {
-    const l = (i18n?.language || '').slice(0, 2).toLowerCase();
-    return l || 'en';
-  }, [i18n?.language]);
-
-  const currentLang = useMemo(
-    () =>
-      String(effectiveItem?.language || '')
-        .trim()
-        .toLowerCase(),
-    [effectiveItem?.language]
-  );
-
-  const fetchVariants = useCallback(async () => {
-    if (!effectiveItem) return;
-
-    const externalId = norm(effectiveItem.external_id);
-    const seeded = toLangList(effectiveItem.available_languages);
-
-    const seedOpts: LangOpt[] = seeded.map((l) => ({ language: l, title: null }));
-    if (currentLang && !seeded.includes(currentLang)) {
-      seedOpts.unshift({ language: currentLang, title: null });
-    }
-    if (seedOpts.length) setLangOptions(seedOpts);
-
-    try {
-      setLoadingLangs(true);
-
-      if (externalId) {
-        const res = await apiClient.get('/api/interventions/all/', {
-          params: { external_id: externalId },
-        });
-
-        const arr = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-            ? res.data.data
-            : [];
-
-        const map: Record<string, DetailItem> = {};
-        const opts: LangOpt[] = [];
-
-        for (const v of arr) {
-          const l = String(v?.language || '')
-            .trim()
-            .toLowerCase();
-          if (!l) continue;
-          map[l] = v as DetailItem;
-          opts.push({ language: l, title: v?.title ?? null });
-        }
-
-        if (currentLang && !map[currentLang]) {
-          map[currentLang] = effectiveItem;
-          opts.push({ language: currentLang, title: effectiveItem?.title ?? null });
-        }
-
-        const uniqOpts = opts.reduce((acc: LangOpt[], cur) => {
-          const key = (cur.language || '').toLowerCase();
-          if (!key) return acc;
-          if (!acc.find((x) => (x.language || '').toLowerCase() === key)) acc.push(cur);
-          return acc;
-        }, []);
-
-        setVariantsByLang(map);
-        setLangOptions(uniqOpts.length ? uniqOpts : seedOpts);
-      }
-    } catch {
-      // Keep seeded options when backend variant lookup fails.
-    } finally {
-      setLoadingLangs(false);
-    }
-  }, [effectiveItem, currentLang]);
-
-  useEffect(() => {
-    void fetchVariants();
-  }, [fetchVariants]);
-
-  const sortedLangOptions = useMemo(() => {
-    const score = (l: string) => {
-      const ll = String(l || '').toLowerCase();
-      if (ll === preferredLang) return 0;
-      if (ll === 'en') return 1;
-      if (ll === 'de') return 2;
-      return 3;
-    };
-
-    return [...(langOptions || [])]
-      .filter((x) => x?.language)
-      .sort(
-        (a, b) => score(a.language) - score(b.language) || a.language.localeCompare(b.language)
-      );
-  }, [langOptions, preferredLang]);
-
-  const switchVariantByLang = useCallback(
-    async (lang: string) => {
-      const nextLang = String(lang || '')
-        .toLowerCase()
-        .trim();
-      if (!nextLang || nextLang === currentLang) return;
-
-      if (variantsByLang[nextLang]) {
-        setLocalOverride(variantsByLang[nextLang]);
-        return;
-      }
-
-      const externalId = norm(effectiveItem?.external_id);
-      if (!externalId) return;
-
-      try {
-        setLoadingLangs(true);
-        const res = await apiClient.get('/api/interventions/all/', {
-          params: { external_id: externalId, lang: nextLang },
-        });
-
-        const arr = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-            ? res.data.data
-            : [];
-        const next = arr?.[0] as DetailItem | undefined;
-        if (next) setLocalOverride(next);
-      } catch {
-        // Ignore language switch errors; keep current variant.
-      } finally {
-        setLoadingLangs(false);
-      }
-    },
-    [currentLang, variantsByLang, effectiveItem?.external_id]
-  );
 
   useEffect(() => {
     if (!effectiveItem) return;
@@ -529,40 +354,34 @@ const PatientInterventionDetail: React.FC = observer(() => {
     [effectiveMediaList]
   );
 
-  const interventionForBadges: unknown = effectiveItem?.intervention ?? effectiveItem;
-  const mediaVariant = getBadgeVariantFromIntervention(interventionForBadges);
-  const mediaLabel = getMediaTypeLabelFromIntervention(interventionForBadges);
-
   const renderOneMedia = (m: InterventionMedia, idx: number) => {
     const label = m.title || `${t('Media')} ${idx + 1}`;
     const playable = getPlayableUrl(m);
 
     return (
-      <div key={`${idx}-${label}`} className="mb-3">
-        <div className="fw-semibold mb-1">{label}</div>
-
+      <div key={`${idx}-${label}`}>
         {m.media_type === 'pdf' ? (
           <>
-            <div style={{ border: '1px solid #e9ecef', borderRadius: 8, padding: 8 }}>
+            <div className="border border-accent p-4 rounded-3xl mb-2">
               <Document file={playable}>
                 <Page pageNumber={1} width={320} />
               </Document>
             </div>
             <a
               href={playable}
-              className="btn btn-outline-primary btn-sm mt-2"
+              className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
               target="_blank"
               rel="noreferrer"
             >
               {t('Open PDF')}
+              <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />
             </a>
           </>
         ) : m.media_type === 'image' ? (
           <img
             src={playable}
             alt={label}
-            className="img-fluid rounded"
-            style={{ maxHeight: 420, objectFit: 'contain' }}
+            className="w-full max-h-[420px] object-contain rounded-3xl"
           />
         ) : (
           <PlayableMedia
@@ -591,18 +410,18 @@ const PatientInterventionDetail: React.FC = observer(() => {
     if (!tags.length) return null;
 
     return (
-      <div className="flex flex-wrap gap-1" aria-label={t('Tags')}>
+      <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
         {tags.map((x, idx) => {
           const bg = getTagColor(tagColors, x) || '#6f2dbd';
           return (
-            <span
+            <Badge
               key={`${x}-${idx}`}
-              className="py-1 px-2 rounded-full "
+              className="bg-white py-[10px] px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500"
               title={x}
-              style={{ backgroundColor: bg, color: '#fff' }}
+              style={{ backgroundColor: bg }}
             >
               {t(x, { defaultValue: x })}
-            </span>
+            </Badge>
           );
         })}
       </div>
@@ -610,9 +429,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   };
 
   const renderMediaContent = () => {
-    if (!effectiveMediaList.length) {
-      return <div className="text-muted">{t('No media available.')}</div>;
-    }
+    if (!effectiveMediaList.length) return null;
     return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
   };
 
@@ -636,24 +453,48 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   return (
     <Layout>
-      <Container className="py-3 py-md-4">
-        <Button variant="outline-secondary" className="mb-3" onClick={() => navigate(-1)}>
-          {t('Back')}
-        </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between align-items-center">
+          <Button
+            onClick={() => navigate(-1)}
+            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
+          >
+            <ArrowLeftIcon className="w-6 h-6" />
+            <span className="sr-only">{t('Back')}</span>
+          </Button>
+
+          <Button
+            onClick={() => alert('TODO: mark intervention as done')}
+            className="rounded-full border border-accent bg-white p-4 pl-5 shadow-none text-zinc-400 font-medium text-lg flex gap-2 "
+          >
+            {t('Mark as done')} <CircleHalfCheckIcon className="w-6 h-6" />
+          </Button>
+        </div>
 
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
-        <div className="bg-white rounded-4 p-3 p-md-4 shadow-sm">
-          <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
-            <h1 className="h3 m-0 d-flex align-items-center gap-2 flex-wrap">
-              {effectiveIsPrivate && (
-                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                  <span className="text-muted">
-                    <FaLock />
-                  </span>
-                </OverlayTrigger>
+        <div className="bg-white rounded-[40px] p-4">
+          <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
+            <Badge className="bg-white py-2 pl-[10px] pr-3 border border-accent rounded-xl flex gap-1 shadow-none">
+              {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
+                <ExerciseIcon className="flex-none w-8 h-8" />
+              ) : (
+                <EducationIcon className="flex-none w-8 h-8" />
               )}
-
+              <span
+                className={`font-medium text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
+              >
+                {effectiveItem.intervention.aim}
+              </span>
+            </Badge>
+            {effectiveIsPrivate && (
+              <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+                <span className="text-zinc-800 -mb-4">
+                  <FaLock />
+                </span>
+              </OverlayTrigger>
+            )}
+            <div className="font-bold text-2xl leading-7 text-zinc-800">
               {titleLang ? (
                 <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
                   <span>{translatedTitle}</span>
@@ -661,89 +502,53 @@ const PatientInterventionDetail: React.FC = observer(() => {
               ) : (
                 titleRaw
               )}
-            </h1>
-          </div>
-
-          {(loadingLangs || sortedLangOptions.length > 1) && (
-            <div className="mb-3">
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <h2 className="h5 m-0">{t('Languages')}</h2>
-                {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
-              </div>
-
-              <ButtonGroup className="flex-wrap gap-2">
-                {sortedLangOptions.map((opt) => {
-                  const optLang = String(opt.language || '').toLowerCase();
-                  const active = optLang === currentLang;
-                  return (
-                    <Button
-                      key={optLang}
-                      variant={active ? 'primary' : 'outline-primary'}
-                      size="sm"
-                      onClick={() => switchVariantByLang(optLang)}
-                      aria-pressed={active}
-                    >
-                      {optLang.toUpperCase()}
-                      {!active && optLang === preferredLang ? ' ★' : ''}
-                    </Button>
-                  );
-                })}
-              </ButtonGroup>
             </div>
-          )}
-
-          <Row className="mb-3">
-            <Col xs={12} md={6}>
-              <h2 className="h5">{t('Description')}</h2>
-
-              <p className="text-muted mb-2">
-                {detectedLang ? (
-                  <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
-                    <span>{translatedText}</span>
-                  </OverlayTrigger>
-                ) : (
-                  effectiveItem?.description || ''
-                )}
-              </p>
-
-              {renderMetaTags()}
-
-              <div className="mt-3 d-flex flex-wrap gap-2">
-                <Badge bg={mediaVariant}>{t(mediaLabel, { defaultValue: mediaLabel })}</Badge>
-
-                {effectiveItem?.language ? (
-                  <Badge bg="secondary">{String(effectiveItem.language).toUpperCase()}</Badge>
-                ) : null}
-
-                {effectiveItem?.provider ? (
-                  <Badge bg="light" text="dark">
-                    {String(effectiveItem.provider)}
-                  </Badge>
-                ) : null}
-              </div>
-            </Col>
-
-            <Col xs={12} md={6}>
-              <div className="d-flex align-items-center justify-content-between">
-                <h2 className="h5 mb-0">{t('Media')}</h2>
-                <Badge bg={effectiveMediaBadge.variant}>{t(effectiveMediaBadge.label)}</Badge>
-              </div>
-              <div className="mt-2">{renderMediaContent()}</div>
-            </Col>
-          </Row>
+            <div className="flex flex-wrap gap-2">
+              {effectiveItem.intervention.duration_bucket && (
+                <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+                  <ClockIcon className="w-6 h-6" />
+                  <span className="font-medium text-xl text-[#00956C]">
+                    {effectiveItem.intervention.duration_bucket}
+                  </span>
+                </Badge>
+              )}
+              <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+                {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
+                {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
+                <span className="font-medium text-xl text-[#00956C]">
+                  {t(effectiveMediaBadge.label)}
+                </span>
+              </Badge>
+            </div>
+          </div>
         </div>
 
-        <style>{`
-          .meta-tag-row{
-            display:flex;
-            flex-wrap:wrap;
-            gap: 10px;
-            margin-top: 8px;
-            position: relative;
-            z-index: 3;
-          }
-        `}</style>
-      </Container>
+        <div className="bg-white rounded-[40px] p-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            <div>{renderMediaContent()}</div>
+            {effectiveItem?.provider && (
+              <span className="text-zinc-500 text-center">{String(effectiveItem.provider)}</span>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+            {detectedLang ? (
+              <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
+                <span>{translatedText}</span>
+              </OverlayTrigger>
+            ) : (
+              effectiveItem?.description || ''
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[40px] p-4">
+          <div className="p-4 flex flex-col gap-2">
+            <div className="font-medium text-lg text-zinc-500">Tags</div>
+            {renderMetaTags()}
+          </div>
+        </div>
+      </div>
     </Layout>
   );
 });
