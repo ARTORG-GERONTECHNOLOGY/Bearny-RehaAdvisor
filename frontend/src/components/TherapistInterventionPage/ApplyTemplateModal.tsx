@@ -11,6 +11,8 @@ type Props = {
   diagnoses: string[];
   defaultDiagnosis?: string;
   onApplied?: (res: { applied: number; sessions_created: number }) => void;
+  /** When set, applies this named template instead of the therapist's implicit template */
+  templateId?: string;
 };
 
 type ErrMap = Record<string, string>;
@@ -21,6 +23,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
   diagnoses,
   defaultDiagnosis,
   onApplied,
+  templateId,
 }) => {
   const { t } = useTranslation();
 
@@ -40,8 +43,8 @@ const ApplyTemplateModal: React.FC<Props> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = useMemo(
-    () => patientId && diagnosis && effectiveFrom,
-    [patientId, diagnosis, effectiveFrom]
+    () => patientId && effectiveFrom && (templateId ? true : !!diagnosis),
+    [patientId, diagnosis, effectiveFrom, templateId]
   );
 
   const humanize = (key: string) => {
@@ -141,7 +144,11 @@ const ApplyTemplateModal: React.FC<Props> = ({
       setSubmitting(true);
       resetLocalErrors();
 
-      const res = await apiClient.post(`therapists/${authStore.id}/templates/apply`, {
+      const url = templateId
+        ? `templates/${templateId}/apply/`
+        : `therapists/${authStore.id}/templates/apply`;
+
+      const res = await apiClient.post(url, {
         patientId,
         diagnosis,
         effectiveFrom,
@@ -216,13 +223,18 @@ const ApplyTemplateModal: React.FC<Props> = ({
           <Row className="mb-3">
             <Col md={7}>
               <Form.Group>
-                <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
+                <Form.Label>
+                  {t('Diagnosis_patient_list')}
+                  {templateId && (
+                    <span className="text-muted ms-1 small">({t('optional')})</span>
+                  )}
+                </Form.Label>
                 <Form.Select
                   value={diagnosis}
                   onChange={(e) => setDiagnosis(e.target.value)}
                   isInvalid={!!fieldErrors.diagnosis}
                 >
-                  <option value="">{t('Choose...')}</option>
+                  <option value="">{templateId ? t('All diagnoses') : t('Choose...')}</option>
                   {diagnoses.map((d) => (
                     <option key={d} value={d}>
                       {d}

@@ -1361,6 +1361,288 @@ JWT required.
 
 ---
 
+---
+
+## Named Templates
+
+All endpoints in this section require JWT authentication.
+The requesting user must have an associated `Therapist` profile.
+
+**Visibility rules:**
+- Public templates (`is_public: true`) are visible to all therapists.
+- Private templates are visible only to their creator.
+- Only the creator may modify or delete a template.
+- Any therapist who can *see* a template may copy it (copy is always private).
+
+**`_all` sentinel:** When no diagnosis is specified for an intervention assignment, it is stored under the internal key `_all`, meaning it applies to any patient regardless of diagnosis.
+
+---
+
+#### `GET /api/templates/`
+
+List templates visible to the authenticated therapist (own + all public ones).
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `name` | string | Case-insensitive substring match |
+| `specialization` | string | Case-insensitive substring match |
+| `diagnosis` | string | Case-insensitive substring match |
+
+**Response 200:**
+
+```json
+{
+  "templates": [
+    {
+      "id": "<ObjectId>",
+      "name": "Stroke Recovery Week 1",
+      "description": "",
+      "is_public": true,
+      "created_by": "<therapist_object_id>",
+      "created_by_name": "Alice Smith",
+      "specialization": "Neurology",
+      "diagnosis": "Stroke",
+      "intervention_count": 4,
+      "createdAt": "2026-01-01T00:00:00",
+      "updatedAt": "2026-01-02T00:00:00"
+    }
+  ]
+}
+```
+
+**Errors:** 403 therapist profile not found
+
+---
+
+#### `POST /api/templates/`
+
+Create a new template.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | yes | Max 200 chars |
+| `description` | string | no | |
+| `is_public` | boolean | no | Default `false` |
+| `specialization` | string | no | |
+| `diagnosis` | string | no | |
+
+**Response 201:** `{ "template": { ...full template with `recommendations` array } }`
+
+**Errors:** 400 missing/blank name · 400 name > 200 chars · 403 therapist not found
+
+---
+
+#### `GET /api/templates/<id>/`
+
+Retrieve full template detail including all recommendation entries.
+
+**Response 200:**
+
+```json
+{
+  "template": {
+    "id": "...",
+    "name": "...",
+    "recommendations": [
+      {
+        "intervention_id": "<ObjectId>",
+        "intervention_title": "Arm Exercise",
+        "diagnosis_assignments": {
+          "Stroke": [
+            {
+              "active": true,
+              "interval": 1,
+              "unit": "day",
+              "selected_days": [],
+              "start_day": 1,
+              "end_day": 14,
+              "suggested_execution_time": 30
+            }
+          ],
+          "_all": [ ... ]
+        }
+      }
+    ],
+    "intervention_count": 1,
+    ...
+  }
+}
+```
+
+**Errors:** 400 invalid ObjectId · 403 therapist not found · 404 not found or private
+
+---
+
+#### `DELETE /api/templates/<id>/`
+
+Delete a template. Owner only.
+
+**Response 200:** `{ "success": true }`
+
+**Errors:** 400 invalid id · 403 not owner · 404 not found
+
+---
+
+#### `PATCH /api/templates/<id>/`
+
+Update template metadata. Owner only. All fields are optional.
+
+**Request body:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Max 200 chars, cannot be blank |
+| `description` | string | |
+| `is_public` | boolean | |
+| `specialization` | string | |
+| `diagnosis` | string | |
+
+**Response 200:** `{ "template": { ...full template } }`
+
+**Errors:** 400 blank/overlong name · 403 not owner · 404 not found
+
+---
+
+#### `POST /api/templates/<id>/copy/`
+
+Duplicate a visible template. The copy is private and owned by the requesting therapist.
+
+**Request body (optional):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Defaults to `"Copy of <original name>"`, truncated at 200 chars |
+
+**Response 201:** `{ "template": { ...new template (detail) } }`
+
+**Errors:** 400 invalid id · 403 therapist not found · 404 template not found or private · 405 wrong method
+
+---
+
+#### `POST /api/templates/<id>/interventions/`
+
+Add (or replace) an intervention+schedule entry in the template. Only the template owner may call this.
+
+When `diagnosis` is omitted or empty, the entry is stored under the `_all` sentinel key and will apply to any patient regardless of diagnosis.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `interventionId` | string | yes | Valid ObjectId of an `Intervention` |
+| `diagnosis` | string | no | Omit or `""` for "all diagnoses" |
+| `start_day` | integer | no | Default `1` |
+| `end_day` | integer | yes | |
+| `interval` | integer | no | Default `1` |
+| `unit` | string | no | `"day"` \| `"week"` \| `"month"`, default `"week"` |
+| `selected_days` | string[] | no | e.g. `["Mon","Wed","Fri"]` |
+| `suggested_execution_time` | integer | no | Minutes |
+
+**Response 200:** `{ "template": { ...full template } }`
+
+**Errors:** 400 missing interventionId/end_day/invalid unit · 403 not owner · 404 template/intervention not found · 405 wrong method
+
+---
+
+#### `DELETE /api/templates/<id>/interventions/<intervention_id>/`
+
+Remove an intervention entry from the template.
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `diagnosis` | string | If provided, only removes that diagnosis block; omit to remove the entire entry |
+
+**Response 200:** `{ "template": { ...updated template } }`
+
+**Errors:** 400 invalid id · 403 not owner · 404 intervention not in template · 405 wrong method
+
+---
+
+#### `POST /api/templates/<id>/apply/`
+
+Apply a named template to a patient's rehabilitation plan.
+
+Diagnosis is optional:
+- If supplied → only recommendations matching that diagnosis key (or `_all`) are applied.
+- If omitted → all recommendations are applied.
+
+If no `RehabilitationPlan` exists for the patient, one is created automatically.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `patientId` | string | yes | Patient ObjectId or `patient_code` string |
+| `effectiveFrom` | string | yes | `YYYY-MM-DD` |
+| `startTime` | string | no | `HH:MM`, default `"08:00"` |
+| `diagnosis` | string | no | Filter to a specific diagnosis |
+| `overwrite` | boolean | no | Default `false` |
+| `require_video_feedback` | boolean | no | Default `false` |
+| `notes` | string | no | Max 1000 chars |
+
+**Response 200:**
+
+```json
+{ "success": true, "applied": 3, "sessions_created": 12 }
+```
+
+**Errors:** 400 missing patientId/effectiveFrom/invalid date · 403 therapist not found · 404 template not found or private / patient not found · 405 wrong method
+
+---
+
+#### `GET /api/templates/<id>/calendar/`
+
+Preview the intervention schedule for a template as a flat list of occurrences, anchored to a virtual start date of `2000-01-01`. Used by the frontend Templates tab to render the schedule grid before applying.
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `horizon_days` | integer | Number of days to project, default `84` |
+| `diagnosis` | string | If set, only entries matching that diagnosis (or `_all`) are included |
+
+**Response 200:**
+
+```json
+{
+  "horizon_days": 84,
+  "items": [
+    {
+      "diagnosis": "Stroke",
+      "intervention": {
+        "_id": "<ObjectId>",
+        "title": "Arm Exercise",
+        "duration": 30,
+        "content_type": "video",
+        "tags": []
+      },
+      "schedule": {
+        "unit": "week",
+        "interval": 1,
+        "selectedDays": ["Mon", "Wed"],
+        "start_day": 1,
+        "end_day": 14
+      },
+      "occurrences": [
+        { "day": 1, "time": "08:00" },
+        { "day": 3, "time": "08:00" }
+      ],
+      "segments": [ ... ]
+    }
+  ]
+}
+```
+
+**Errors:** 400 invalid id · 403 therapist not found · 404 not found or private · 405 wrong method · 500 internal
+
+---
+
 ## Common Response Patterns
 
 - `{ "success": true|false, ... }`

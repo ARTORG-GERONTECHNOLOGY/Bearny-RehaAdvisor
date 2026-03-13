@@ -639,6 +639,159 @@ const apiUrl = import.meta.env.VITE_API_URL;
 
 ---
 
+## Named Template System
+
+### Overview
+
+The named template system exposes a set of reusable rehabilitation schedules (InterventionTemplates) in the therapist's Interventions page. The feature is split across:
+
+| Layer | File | Role |
+|---|---|---|
+| Types | `src/types/templates.ts` | `TemplateDoc`, `TemplateItem`, `TemplateRecommendation`, `TemplateScheduleBlock` |
+| Store | `src/stores/templateStore.ts` | MobX store for CRUD operations |
+| Modal | `src/components/TherapistInterventionPage/TemplateAssignModal.tsx` | Assign an intervention to a template |
+| Modal | `src/components/TherapistInterventionPage/ApplyTemplateModal.tsx` | Apply a template to a patient |
+| Page | `src/pages/TherapistInterventions.tsx` | Hosts the Templates tab with the management bar |
+
+### TypeScript types
+
+```typescript
+// src/types/templates.ts
+
+type TemplateDoc = {
+  id: string;
+  name: string;
+  description: string;
+  is_public: boolean;
+  created_by: string;
+  created_by_name: string;
+  specialization: string | null;
+  diagnosis: string | null;
+  intervention_count: number;
+  createdAt: string;
+  updatedAt: string;
+  recommendations?: TemplateRecommendation[];
+};
+
+type TemplateRecommendation = {
+  intervention_id: string | null;
+  intervention_title: string | null;
+  diagnosis_assignments: Record<string, TemplateScheduleBlock[]>;
+};
+
+type TemplateScheduleBlock = {
+  active: boolean;
+  interval: number;
+  unit: 'day' | 'week' | 'month';
+  selected_days: string[];
+  start_day: number;
+  end_day: number | null;
+  suggested_execution_time: number | null;
+};
+
+// Calendar preview (from GET /api/templates/<id>/calendar/)
+type TemplateItem = {
+  diagnosis: string;        // "" when the _all sentinel was used
+  intervention: { _id, title, duration?, content_type?, tags? };
+  schedule: { unit, interval, selectedDays, end };
+  occurrences: { day: number; time?: string }[];
+};
+```
+
+### `templateStore`
+
+Location: `src/stores/templateStore.ts`
+
+A singleton MobX store (`makeAutoObservable`) with the following observable state and async actions:
+
+| Property / Method | Type | Description |
+|---|---|---|
+| `templates` | `TemplateDoc[]` | List of visible templates (loaded by `fetchTemplates`) |
+| `loading` | `boolean` | True while any request is in flight |
+| `error` | `string` | Last error message, `""` when clear |
+| `fetchTemplates(filters?)` | `async void` | `GET templates/?[name=&specialization=&diagnosis=]` |
+| `createTemplate(payload)` | `async TemplateDoc` | `POST templates/` — prepends result to `templates` |
+| `deleteTemplate(id)` | `async void` | `DELETE templates/<id>/` — removes from `templates` |
+| `copyTemplate(id, name?)` | `async TemplateDoc` | `POST templates/<id>/copy/` — prepends copy to `templates` |
+| `updateTemplate(id, patch)` | `async TemplateDoc` | `PATCH templates/<id>/` — replaces matching entry in `templates` |
+| `clearError()` | `void` | Resets `error` to `""` |
+
+```typescript
+// Usage in a component
+import { observer } from 'mobx-react-lite';
+import templateStore from '@/stores/templateStore';
+
+const TemplateList = observer(() => {
+  useEffect(() => { templateStore.fetchTemplates(); }, []);
+  if (templateStore.loading) return <Spinner />;
+  return <>{templateStore.templates.map(t => <div key={t.id}>{t.name}</div>)}</>;
+});
+```
+
+### `TemplateAssignModal`
+
+Assigns a single intervention to either a named template or the therapist's legacy implicit template.
+
+**Key prop:**
+
+```typescript
+templateId?: string   // When set → named-template mode
+```
+
+**Behavioural differences by mode:**
+
+| Aspect | Legacy mode (`templateId` absent) | Named-template mode |
+|---|---|---|
+| API endpoint | `therapists/<id>/interventions/assign-to-patient-types/` | `templates/<id>/interventions/` |
+| Diagnosis | Required (blocks Save) | Optional — blank sends `diagnosis: ""` → stored under `_all` |
+| Default option | "Choose…" | "All diagnoses" |
+| Label hint | — | "(optional — leave blank for all)" |
+
+### `ApplyTemplateModal`
+
+Applies a template to a patient's rehabilitation plan.
+
+**Key prop:**
+
+```typescript
+templateId?: string   // When set → named-template mode
+```
+
+**Behavioural differences by mode:**
+
+| Aspect | Legacy mode | Named-template mode |
+|---|---|---|
+| API endpoint | `therapists/<id>/templates/apply` | `templates/<id>/apply/` |
+| Diagnosis | Required for Submit | Optional — blank applies all diagnosis keys |
+| canSubmit | `patientId && effectiveFrom && !!diagnosis` | `patientId && effectiveFrom` |
+
+### Templates tab — management bar
+
+The Templates tab in `TherapistInterventions.tsx` renders a Card above the schedule grid with:
+
+1. **Selector dropdown** — "Implicit template" option + one `<option>` per `TemplateDoc` from `templateStore.templates`.
+2. **"+ New" button** — opens the New Template modal (name, description, public checkbox).
+3. **Apply / Copy / Delete buttons** — only shown when a named template is selected (`activeTemplateId` state is set).
+4. **Description text** — shown beneath the selector when the active template has a `description`.
+
+**`fetchTemplates` routing** — the page-level function accepts an optional `namedId` parameter:
+
+```typescript
+const fetchTemplates = async (namedId?: string) => {
+  if (namedId) {
+    // Named template calendar
+    await apiClient.get(`templates/${namedId}/calendar/?horizon_days=...`);
+  } else {
+    // Legacy implicit template
+    await apiClient.get(`therapists/${authStore.id}/template-plan`);
+  }
+};
+```
+
+**`removeTemplateItem` routing** — similarly routes to `DELETE templates/<id>/interventions/<int_id>/` for named templates or the legacy POST for the implicit template.
+
+---
+
 **Related Documentation**:
 - [Backend Development Guide](./04-BACKEND_GUIDE.md)
 - [API Documentation](./09-API_DOCUMENTATION.md)
