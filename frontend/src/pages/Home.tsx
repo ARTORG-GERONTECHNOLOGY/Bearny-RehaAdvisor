@@ -9,6 +9,7 @@ import Footer from '@/components/common/Footer';
 import LoginForm from '@/components/HomePage/LoginForm';
 import FormRegister from '@/components/HomePage/RegisteringForm';
 import authStore from '@/stores/authStore';
+import HomeIllustration from '@/assets/home_illustration.svg?react';
 
 const Home: React.FC = () => {
   const { t } = useTranslation();
@@ -28,11 +29,12 @@ const Home: React.FC = () => {
   const toggleRegisterModal = () => setShowRegisterModal((p) => !p);
 
   return (
-    <div className="d-flex flex-column min-vh-100 home-root">
+    <div className="d-flex flex-column min-vh-100 home-root bg-[#F2F2F7]">
       <Header isLoggedIn={authStore.isAuthenticated} />
+      <HomeIllustration className="ml-auto md:absolute right-0 top-28 md:top-1/4" />
 
       {/* HERO */}
-      <main className="flex-grow-1 d-flex align-items-center home-main py-4 py-sm-5">
+      <main className="flex-grow-1 d-flex align-items-center home-main py-4 py-sm-5 z-1">
         <Container fluid="md" className="px-3 px-sm-4 px-md-5">
           {/* keep hero from touching header/footer on small screens */}
           <Row className="g-4 g-lg-5 align-items-center py-2 py-md-3">
@@ -71,23 +73,6 @@ const Home: React.FC = () => {
                 >
                   {t('Register (Only for Therapists)')}
                 </Button>
-              </div>
-            </Col>
-
-            {/* Image column */}
-            <Col xs={12} md={6} className="order-1 order-md-2">
-              {/* add consistent padding + prevent overflow on small screens */}
-              <div className="home-art rounded-4 overflow-hidden shadow-sm mx-auto">
-                <picture>
-                  <img
-                    src="/home.jpg"
-                    alt={t('YourCompanyName')}
-                    className="w-100 h-100 d-block"
-                    loading="eager"
-                    decoding="async"
-                    style={{ objectFit: 'cover', aspectRatio: '16 / 10' }}
-                  />
-                </picture>
               </div>
             </Col>
           </Row>
