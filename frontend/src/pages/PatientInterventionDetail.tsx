@@ -293,34 +293,33 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   const targetDate = useMemo(() => {
     const dateParam = searchParams.get('date');
-    if (dateParam) {
-      const parsed = new Date(`${dateParam}T00:00:00`);
-      if (!Number.isNaN(parsed.getTime())) return parsed;
-    }
+    if (!dateParam || !selectedRec?.dates?.length) return null;
 
-    if (selectedRec?.dates?.length) {
-      const todayKey = format(new Date(), 'yyyy-MM-dd');
-      const todayDate = selectedRec.dates.find((d) => asStr(d).startsWith(todayKey));
-      const fallbackDate = todayDate || selectedRec.dates[0];
-      const parsedFallback = new Date(asStr(fallbackDate));
-      if (!Number.isNaN(parsedFallback.getTime())) return parsedFallback;
-    }
+    const parsed = new Date(`${dateParam}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return null;
 
-    return new Date();
+    const dateKey = format(parsed, 'yyyy-MM-dd');
+    const isAssignedDate = selectedRec.dates.some((d) => asStr(d).startsWith(dateKey));
+
+    return isAssignedDate ? parsed : null;
   }, [searchParams, selectedRec]);
 
-  const completed = selectedRec
-    ? patientInterventionsStore.isCompletedOn(selectedRec, targetDate)
-    : false;
+  const completed =
+    selectedRec && targetDate
+      ? patientInterventionsStore.isCompletedOn(selectedRec, targetDate)
+      : false;
 
-  const completionDateKey = useMemo(() => format(targetDate, 'yyyy-MM-dd'), [targetDate]);
+  const completionDateKey = useMemo(
+    () => (targetDate ? format(targetDate, 'yyyy-MM-dd') : ''),
+    [targetDate]
+  );
   const completionLockKey = selectedRec
     ? `${selectedRec.intervention_id}__${completionDateKey}`
     : '__missing__';
   const isBusy = busyKey === completionLockKey;
 
   const handleToggleCompleted = async () => {
-    if (!patientId || !selectedRec) return;
+    if (!patientId || !selectedRec || !targetDate) return;
     if (isBusy) return;
 
     setBusyKey(completionLockKey);
@@ -534,27 +533,29 @@ const PatientInterventionDetail: React.FC = observer(() => {
             <span className="sr-only">{t('Back')}</span>
           </Button>
 
-          <Button
-            onClick={handleToggleCompleted}
-            disabled={isBusy}
-            aria-pressed={completed}
-            className={`rounded-full border border-accent p-4 pl-5 shadow-none font-medium text-lg flex gap-2 ${
-              completed ? 'bg-[#00956C] text-zinc-50' : 'bg-white text-zinc-400'
-            }`}
-          >
-            {isBusy ? (
-              <Skeleton className="w-20 h-6 rounded-full" />
-            ) : completed ? (
-              t('Done')
-            ) : (
-              t('Mark as done')
-            )}
-            {completed ? (
-              <CircleCheckFillIcon className="w-6 h-6" />
-            ) : (
-              <CircleHalfCheckIcon className="w-6 h-6" />
-            )}
-          </Button>
+          {targetDate && (
+            <Button
+              onClick={handleToggleCompleted}
+              disabled={isBusy}
+              aria-pressed={completed}
+              className={`rounded-full border border-accent p-4 pl-5 shadow-none font-medium text-lg flex gap-2 ${
+                completed ? 'bg-[#00956C] text-zinc-50' : 'bg-white text-zinc-400'
+              }`}
+            >
+              {isBusy ? (
+                <Skeleton className="w-20 h-6 rounded-full" />
+              ) : completed ? (
+                t('Done')
+              ) : (
+                t('Mark as done')
+              )}
+              {completed ? (
+                <CircleCheckFillIcon className="w-6 h-6" />
+              ) : (
+                <CircleHalfCheckIcon className="w-6 h-6" />
+              )}
+            </Button>
+          )}
         </div>
 
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
