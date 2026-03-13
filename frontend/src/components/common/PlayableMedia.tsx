@@ -54,11 +54,12 @@ const OpenLinkButton: React.FC<{ href: string; text?: string }> = ({
   </div>
 );
 
-export const PlayableMedia: React.FC<{ m: Media; label: string; openText?: string }> = ({
-  m,
-  label,
-  openText = 'Open link',
-}) => {
+export const PlayableMedia: React.FC<{
+  m: Media;
+  label: string;
+  openText?: string;
+  showOpenLink?: boolean;
+}> = ({ m, label, openText = 'Open link', showOpenLink = true }) => {
   const [mode, setMode] = useState<'iframe' | 'reactplayer' | 'native' | 'link'>(() =>
     m.embed_url ? 'iframe' : 'reactplayer'
   );
@@ -73,7 +74,7 @@ export const PlayableMedia: React.FC<{ m: Media; label: string; openText?: strin
     return <div className="text-muted small">No playable URL available.</div>;
   }
 
-  const openLink = <OpenLinkButton href={linkUrl} text={openText} />;
+  const openLink = showOpenLink ? <OpenLinkButton href={linkUrl} text={openText} /> : null;
 
   // Final fallback
   if (mode === 'link') return openLink;
