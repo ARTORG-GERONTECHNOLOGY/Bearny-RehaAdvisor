@@ -100,8 +100,10 @@ const PatientView: React.FC = observer(() => {
                   date={today}
                   title={t('Your recommendations') || 'Deine Empfehlungen'}
                   badgeText={completionBadge}
-                  onOpenIntervention={(rec) =>
-                    navigate(`/patient-intervention/${rec.intervention_id}`)
+                  onOpenIntervention={(rec, date) =>
+                    navigate(
+                      `/patient-intervention/${rec.intervention_id}?date=${format(date, 'yyyy-MM-dd')}`
+                    )
                   }
                 />
               </Col>
