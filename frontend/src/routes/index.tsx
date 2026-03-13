@@ -26,10 +26,12 @@ const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
+const PatientInterventionDetail = lazy(() => import('@/pages/PatientInterventionDetail'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientPlanSkeleton from '@/components/skeletons/PatientPlanSkeleton';
 import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
 import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
 
 // -------------------- Loading Fallback --------------------
@@ -156,6 +158,12 @@ export const router = createBrowserRouter([
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
       createElement(PatientInterventionsSkeleton)
+    ),
+  },
+  {
+    path: '/patient-intervention/:interventionId',
+    element: withSuspense(createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
+      createElement(PatientInterventionDetailSkeleton)
     ),
   },
   {
