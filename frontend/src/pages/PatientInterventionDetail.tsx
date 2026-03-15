@@ -141,6 +141,7 @@ const getAllMedia = (item: any): InterventionMedia[] => {
       );
   }
 
+  // legacy fallback
   const out: InterventionMedia[] = [];
   const link = norm(item?.link);
   const mf = norm(item?.media_file || item?.media_url || item?.media);
@@ -446,6 +447,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return null;
   }, [selectedRec, selectedLibraryItem]);
 
+  // keep translations in sync with effectiveItem
   useEffect(() => {
     if (!effectiveItem) return;
 
