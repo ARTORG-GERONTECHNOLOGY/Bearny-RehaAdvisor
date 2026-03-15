@@ -30,6 +30,7 @@ const Eva = lazy(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
+const PatientProcess = lazy(() => import('@/pages/PatientProcess'));
 const PatientInterventionDetail = lazy(() => import('@/pages/PatientInterventionDetail'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
@@ -150,6 +151,13 @@ export const router = createBrowserRouter([
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientPlan) }),
       createElement(PatientPlanSkeleton)
+    ),
+  },
+  {
+    path: '/patient-process',
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(PatientProcess) }),
+      createElement(PatientProcessSkeleton)
     ),
   },
   {
