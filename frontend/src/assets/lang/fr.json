@@ -778,5 +778,19 @@
   "Bewusstseinserweiternd": "Éveillant",
   "Geistig aktivierend": "Stimulant mentalement",
   "Lehrreich": "Éducatif",
-  "Achtsam": "Conscient"
+  "Achtsam": "Conscient",
+  "Sleep (min)": "Sommeil (min)",
+  "Blood pressure systolic": "Pression artérielle systolique",
+  "Blood pressure diastolic": "Pression artérielle diastolique",
+  "Uncompleted": "Non terminé",
+  "Last Week": "Semaine dernière",
+  "Last Month": "Mois dernier",
+  "Not reached": "Raté",
+  "Process": "Processus",
+  "Filter by time period": "Filtrer par période",
+  "Show last week": "Afficher la semaine dernière",
+  "Show last month": "Afficher le mois dernier",
+  "Recommendations": "Recommandations",
+  "Average per day": "Moyenne par jour",
+  "Blood pressure": "Pression artérielle"
 }
