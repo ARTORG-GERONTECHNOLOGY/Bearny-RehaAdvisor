@@ -432,9 +432,12 @@ def patient_thresholds_view(request, patient_id: str):
     # ---- load patient ----
     print("patient_thresholds_view called with patient_id:", patient_id)
     try:
-        pat = Patient.objects.get(pk=ObjectId(patient_id))
-    except (DoesNotExist, Exception):
-        return bad("Patient not found.", status=404)
+        pat = Patient.objects.get(pk=patient_id)
+    except Exception:
+        try:
+            pat = Patient.objects.get(userId=ObjectId(patient_id))
+        except (DoesNotExist, Exception):
+            return bad("Patient not found.", status=404)
 
     if request.method == "GET":
         # Patients can read only themselves
