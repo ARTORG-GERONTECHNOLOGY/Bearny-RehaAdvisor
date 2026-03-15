@@ -573,8 +573,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
   };
 
   const renderMediaContent = () => {
-    if (!effectiveMediaList.length) return null;
-    return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
+    const renderableMedia = effectiveMediaList.filter((m) =>
+      ['video', 'audio', 'streaming', 'pdf', 'image'].includes(m.media_type)
+    );
+
+    if (!renderableMedia.length) return null;
+    return <div>{renderableMedia.map((m, idx) => renderOneMedia(m, idx))}</div>;
   };
 
   if (loading) return null;
@@ -707,12 +711,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[40px] p-4">
-          <div className="p-4 flex flex-col gap-2">
-            <div className="font-medium text-lg text-zinc-500">Tags</div>
-            {renderMetaTags()}
+        {getMetaTags(effectiveItem).length > 0 && (
+          <div className="bg-white rounded-[40px] p-4">
+            <div className="p-4 flex flex-col gap-2">
+              <div className="font-medium text-lg text-zinc-500">Tags</div>
+              {renderMetaTags()}
+            </div>
           </div>
-        </div>
+        )}
 
         {!!mediaLinks.length && (
           <div className="p-4 flex flex-col gap-2">
