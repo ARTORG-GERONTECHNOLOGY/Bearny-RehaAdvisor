@@ -29,6 +29,7 @@ import ReaderIcon from '@/assets/icons/interventions/reader.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
+import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 
 type InterventionMedia = {
   kind: 'external' | 'file';
@@ -387,6 +388,11 @@ const PatientInterventionDetail: React.FC = observer(() => {
     }
   };
 
+  // Safe questions array for feedback questionnaire
+  const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
+    ? patientQuestionnairesStore.feedbackQuestions
+    : [];
+
   const effectiveItem = useMemo<any | null>(() => {
     if (selectedRec) {
       const intervention = asRecord(selectedRec.intervention || {});
@@ -729,6 +735,17 @@ const PatientInterventionDetail: React.FC = observer(() => {
           </div>
         )}
       </div>
+
+      {/* Intervention Feedback Popup */}
+      {patientQuestionnairesStore.showFeedbackPopup && (
+        <FeedbackPopup
+          show
+          interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
+          questions={safeInterventionQuestions}
+          date={patientQuestionnairesStore.feedbackDateKey}
+          onClose={() => patientQuestionnairesStore.closeFeedback()}
+        />
+      )}
     </Layout>
   );
 });
