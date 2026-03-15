@@ -20,7 +20,7 @@ export default function PatientProcessSkeleton() {
       {/* Day Cards */}
       <div className="flex flex-col gap-2 mt-6">
         {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-56 w-full rounded-[40px]" />
+          <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
         ))}
       </div>
     </Layout>
