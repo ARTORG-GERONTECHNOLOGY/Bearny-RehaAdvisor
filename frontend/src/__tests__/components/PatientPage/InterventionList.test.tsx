@@ -363,8 +363,8 @@ describe('InterventionList Component', () => {
 
   it('shows Day and Week toggle buttons', () => {
     render(<InterventionList />);
-    expect(screen.getByRole('radio', { name: /Day view/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Week view/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Day view/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Week view/i)).toBeInTheDocument();
   });
 
   it('calls fetchInterventions on mount', async () => {
@@ -391,8 +391,8 @@ describe('InterventionList Component', () => {
   });
   it('navigates to next and previous day/week', () => {
     render(<InterventionList />);
-    const nextButton = screen.getByRole('button', { name: /Next/i });
-    const prevButton = screen.getByRole('button', { name: /Previous/i });
+    const nextButton = screen.getByText('Next');
+    const prevButton = screen.getByText('Previous');
 
     fireEvent.click(nextButton);
     fireEvent.click(prevButton);
@@ -548,7 +548,7 @@ describe('InterventionList Component', () => {
     // The store sets the error state instead of logging
     await waitFor(() => {
       // Just verify the component renders without crashing
-      expect(screen.getByRole('button', { name: /Previous/i })).toBeInTheDocument();
+      expect(screen.getByText('Previous')).toBeInTheDocument();
     });
   });
   it('handles getQuestionnaire API failure gracefully', async () => {
@@ -566,15 +566,15 @@ describe('InterventionList Component', () => {
 
     // The questionnaire store silently ignores errors (see patientQuestionnairesStore.ts)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Previous/i })).toBeInTheDocument();
+      expect(screen.getByText('Previous')).toBeInTheDocument();
     });
   });
 
   it('navigates to the next and previous day correctly', () => {
     render(<InterventionList />);
 
-    const nextButton = screen.getByRole('button', { name: /Next/i });
-    const prevButton = screen.getByRole('button', { name: /Previous/i });
+    const nextButton = screen.getByText('Next');
+    const prevButton = screen.getByText('Previous');
 
     fireEvent.click(nextButton);
     fireEvent.click(prevButton);
@@ -669,7 +669,7 @@ describe('InterventionList Component', () => {
     render(<InterventionList />);
 
     // Switch to day view to see the "I did it" button - use the radio input
-    const dayViewRadio = await screen.findByRole('radio', { name: /Day view/i });
+    const dayViewRadio = await screen.findByLabelText(/Day view/i);
     fireEvent.click(dayViewRadio);
 
     // Wait for "I did it" button to appear
@@ -713,11 +713,13 @@ describe('InterventionList Component', () => {
   it('renders week view correctly', () => {
     render(<InterventionList />);
 
-    const weekToggle = screen.getByRole('radio', { name: /Week view/i });
-    fireEvent.click(weekToggle);
+    const weekToggleLabel = screen.getByLabelText(/Week view/i);
+    fireEvent.click(weekToggleLabel);
+
+    const weekToggleInput = screen.getByDisplayValue('week');
 
     // Check that the input (radio) is checked
-    expect(weekToggle).toBeChecked();
+    expect(weekToggleInput).toBeChecked();
   });
   it('renders intervention without completion_dates correctly', async () => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -751,7 +753,7 @@ describe('InterventionList Component', () => {
     });
 
     // Switch to day view to see the "I did it" button - use the radio input
-    const dayViewRadio = screen.getByRole('radio', { name: /Day view/i });
+    const dayViewRadio = screen.getAllByLabelText(/Day view/i)[0];
     fireEvent.click(dayViewRadio);
 
     // Now expect "I did it" button to be present
