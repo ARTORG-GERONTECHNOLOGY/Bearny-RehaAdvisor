@@ -41,6 +41,11 @@ const PatientView: React.FC = observer(() => {
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
 
+  // Safe questions array for feedback questionnaire
+  const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
+    ? patientQuestionnairesStore.feedbackQuestions
+    : [];
+
   // Safe questions array for health questionnaire
   const safeHealthQuestions = Array.isArray(patientQuestionnairesStore.healthQuestions)
     ? patientQuestionnairesStore.healthQuestions
@@ -136,6 +141,17 @@ const PatientView: React.FC = observer(() => {
             </Row>
           </Container>
         </div>
+
+        {/* Intervention Feedback Popup */}
+        {patientQuestionnairesStore.showFeedbackPopup && (
+          <FeedbackPopup
+            show
+            interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
+            questions={safeInterventionQuestions}
+            date={patientQuestionnairesStore.feedbackDateKey}
+            onClose={() => patientQuestionnairesStore.closeFeedback()}
+          />
+        )}
 
         {/* Health Questionnaire Popup (only on Patient home page) */}
         {patientQuestionnairesStore.showHealthPopup && (
