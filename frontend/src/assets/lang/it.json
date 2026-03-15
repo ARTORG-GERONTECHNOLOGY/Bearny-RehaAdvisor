@@ -792,5 +792,19 @@
   "Achtsam": "Attento",
   "Wie gross war Ihr Bedarf an Hilfe bei Schlafproblemen?": "Quanto ha avuto bisogno di aiuto per problemi di sonno?",
   "Funktionsfähigkeit": "Funzionalità",
-  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Descriva la funzionalità attuale del suo corpo, ad esempio gambe, braccia, mani, memoria, digestione, funzione della vescica, ecc."
+  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Descriva la funzionalità attuale del suo corpo, ad esempio gambe, braccia, mani, memoria, digestione, funzione della vescica, ecc.",
+  "Sleep (min)": "Sonno (min)",
+  "Blood pressure systolic": "Pressione sanguigna sistolica",
+  "Blood pressure diastolic": "Pressione sanguigna diastolica",
+  "Uncompleted": "Non completato",
+  "Last Week": "Ultima settimana",
+  "Last Month": "Ultimo mese",
+  "Not reached": "Mancato",
+  "Process": "Processo",
+  "Filter by time period": "Filtra per periodo",
+  "Show last week": "Mostra ultima settimana",
+  "Show last month": "Mostra ultimo mese",
+  "Recommendations": "Raccomandazioni",
+  "Average per day": "Media giornaliera",
+  "Blood pressure": "Pressione sanguigna"
 }
