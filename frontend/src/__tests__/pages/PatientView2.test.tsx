@@ -69,9 +69,6 @@ jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div data-test
 jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
   <div data-testid="daily-card" />
 ));
-jest.mock('@/components/PatientPage/PatientPopupContainer', () => () => (
-  <div data-testid="popup" />
-));
 jest.mock('@/components/PatientPage/FeedbackPopup', () => () => <div data-testid="feedback" />);
 jest.mock('@/components/common/ErrorAlert', () => ({ message, onClose }: any) => (
   <div role="alert">
@@ -88,14 +85,6 @@ jest.mock('@/hooks/useInterventions', () => ({
     busyKey: null,
     openFeedbackFor: jest.fn(),
     toggleCompleted: jest.fn(),
-  })),
-}));
-
-jest.mock('@/hooks/useInterventionPopup', () => ({
-  useInterventionPopup: jest.fn(() => ({
-    selectedIntervention: null,
-    openIntervention: jest.fn(),
-    closeIntervention: jest.fn(),
   })),
 }));
 

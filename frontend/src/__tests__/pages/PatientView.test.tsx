@@ -62,7 +62,6 @@ jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
 jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div>Fitbit Status</div>);
 jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div>Activity Summary</div>);
 jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div>Vitals Prompt</div>);
-jest.mock('@/components/PatientPage/PatientPopupContainer', () => () => <div>Popup Container</div>);
 jest.mock('@/components/PatientPage/FeedbackPopup', () => () => <div>Feedback Popup</div>);
 jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => <div>Questionnaire</div>);
 
@@ -80,14 +79,6 @@ jest.mock('@/hooks/useInterventions', () => ({
     busyKey: null,
     openFeedbackFor: jest.fn(),
     toggleCompleted: jest.fn(),
-  })),
-}));
-
-jest.mock('@/hooks/useInterventionPopup', () => ({
-  useInterventionPopup: jest.fn(() => ({
-    selectedIntervention: null,
-    openIntervention: jest.fn(),
-    closeIntervention: jest.fn(),
   })),
 }));
 
