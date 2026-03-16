@@ -4,10 +4,10 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { DailyMetricsDatum } from '@/hooks/usePatientProcess';
 import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   title: string;
-  averagePerDayLabel: string;
   bpSys: number | null;
   bpDia: number | null;
   isReached: boolean | null;
@@ -16,8 +16,6 @@ type Props = {
   yMax: number;
   bpSysThreshold: number | null;
   bpDiaThreshold: number | null;
-  reachedLabel: string;
-  notReachedLabel: string;
   accentColor: string;
   accentLightColor: string;
   thresholdLineProps: {
@@ -29,7 +27,6 @@ type Props = {
 
 const BloodPressureCard: React.FC<Props> = ({
   title,
-  averagePerDayLabel,
   bpSys,
   bpDia,
   isReached,
@@ -38,24 +35,20 @@ const BloodPressureCard: React.FC<Props> = ({
   yMax,
   bpSysThreshold,
   bpDiaThreshold,
-  reachedLabel,
-  notReachedLabel,
   accentColor,
   accentLightColor,
   thresholdLineProps,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="p-4 border border-accent rounded-3xl">
       <div className="flex justify-between">
         <div>
           <div className="font-bold text-lg text-zinc-800">{title}</div>
-          <div className="font-medium text-sm text-zinc-500">{averagePerDayLabel}</div>
+          <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
         </div>
-        <ThresholdStatusBadge
-          isReached={isReached}
-          reachedLabel={reachedLabel}
-          notReachedLabel={notReachedLabel}
-        />
+        <ThresholdStatusBadge isReached={isReached} />
       </div>
 
       <div className="flex items-end">
