@@ -33,7 +33,7 @@ export type DailyMetricsDatum = {
   bpDia: number | null;
 };
 
-export type ThresholdStatus = {
+export type IsReachedStatus = {
   steps: boolean | null;
   activeMinutes: boolean | null;
   sleepMinutes: boolean | null;
@@ -322,7 +322,7 @@ export function usePatientProcess() {
     };
   }, [dailyMetrics, chartThresholds]);
 
-  const thresholdStatus = useMemo<ThresholdStatus>(() => {
+  const isReachedStatus = useMemo<IsReachedStatus>(() => {
     const isReached = (value: number | null, threshold: number | null) =>
       value !== null && threshold !== null && value >= threshold;
 
@@ -362,6 +362,6 @@ export function usePatientProcess() {
     averageMetrics,
     chartThresholds,
     chartYMax,
-    thresholdStatus,
+    isReachedStatus,
   };
 }
