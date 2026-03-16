@@ -1348,12 +1348,9 @@ def test_serialize_template_created_by_is_user_id(mongo_mock):
     created_by = templates[0]["created_by"]
     # Must equal the User ObjectId, not the Therapist ObjectId.
     assert created_by == str(user.id), (
-        f"created_by should be user.id={user.id} but got {created_by}. "
-        f"(therapist.id={therapist.id})"
+        f"created_by should be user.id={user.id} but got {created_by}. " f"(therapist.id={therapist.id})"
     )
-    assert created_by != str(therapist.id), (
-        "created_by must not be the Therapist ObjectId"
-    )
+    assert created_by != str(therapist.id), "created_by must not be the Therapist ObjectId"
 
 
 # ===========================================================================
