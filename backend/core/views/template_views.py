@@ -77,12 +77,21 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
     except Exception:
         logger.warning("Could not resolve created_by for template %s", tmpl.id)
 
+    # created_by must be the *User* ObjectId (what authStore.id holds in the
+    # JWT claim) — NOT the Therapist document's own ObjectId.
+    created_by_user_id = None
+    try:
+        if tmpl.created_by and tmpl.created_by.userId:
+            created_by_user_id = str(tmpl.created_by.userId.id)
+    except Exception:
+        logger.warning("Could not resolve created_by userId for template %s", tmpl.id)
+
     obj: dict = {
         "id": str(tmpl.id),
         "name": tmpl.name,
         "description": tmpl.description or "",
         "is_public": tmpl.is_public,
-        "created_by": str(tmpl.created_by.id) if tmpl.created_by else None,
+        "created_by": created_by_user_id,
         "created_by_name": created_by_name,
         "specialization": tmpl.specialization or None,
         "diagnosis": tmpl.diagnosis or None,
@@ -334,9 +343,12 @@ def copy_template(request, template_id):
     if len(new_name) > 200:
         new_name = new_name[:200]
 
+    new_description = body.get("description")
+    new_description = new_description.strip() if isinstance(new_description, str) else original.description
+
     copy = InterventionTemplate(
         name=new_name,
-        description=original.description,
+        description=new_description,
         is_public=False,
         created_by=therapist,
         specialization=original.specialization,
@@ -525,90 +537,11 @@ def _rec_intervention_id(rec: DefaultInterventions) -> str:
 # ---------------------------------------------------------------------------
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def apply_named_template(request, template_id):
-    """
-    POST /api/templates/<id>/apply/
-
-    Apply a named InterventionTemplate to a patient's rehabilitation plan.
-    Diagnosis is optional:
-    - If supplied → only recommendations whose diagnosis_assignments contain
-      that diagnosis key (or the ``_all`` sentinel) are applied.
-    - If omitted  → all recommendations are applied (all diagnosis keys).
-
-    Body fields
-    -----------
-    patientId       str      required  (patient_code or ObjectId)
-    effectiveFrom   str      required  YYYY-MM-DD
-    startTime       str      optional  HH:MM  default "08:00"
-    diagnosis       str      optional
-    overwrite       bool     default false
-    require_video_feedback  bool  default false
-    notes           str      optional
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed."}, status=405)
-
-    therapist = _get_therapist(request)
-    if therapist is None:
-        return JsonResponse({"error": "Therapist profile not found."}, status=403)
-
-    if not ObjectId.is_valid(template_id):
-        return JsonResponse({"error": "Invalid template id."}, status=400)
-
-    try:
-        tmpl = InterventionTemplate.objects.get(pk=ObjectId(template_id))
-    except InterventionTemplate.DoesNotExist:
-        return JsonResponse({"error": "Template not found."}, status=404)
-
-    # Visibility check (public or own)
-    is_owner = str(tmpl.created_by.id) == str(therapist.id)
-    if not tmpl.is_public and not is_owner:
-        return JsonResponse({"error": "Not found."}, status=404)
-
-    try:
-        body = json.loads(request.body or "{}")
-    except Exception:
-        return bad("Invalid JSON body.", {}, ["Invalid JSON."], status=400)
-
-    field_errors: Dict[str, List[str]] = {}
-
-    patient_id = (body.get("patientId") or "").strip()
-    effective = (body.get("effectiveFrom") or "").strip()
-    start_time = (body.get("startTime") or "08:00").strip()
-    diagnosis_filter = (body.get("diagnosis") or "").strip() or None
-    overwrite = bool(body.get("overwrite", False))
-    force_video = bool(body.get("require_video_feedback", False))
-    notes = (body.get("notes") or "").strip()[:1000]
-
-    if not patient_id:
-        field_errors["patientId"] = ["patientId is required."]
-    if not effective:
-        field_errors["effectiveFrom"] = ["effectiveFrom is required."]
-
-    if field_errors:
-        return bad("Validation error.", field_errors, [], status=400)
-
-    try:
-        eff_date = datetime.fromisoformat(f"{effective}T00:00:00")
-    except Exception:
-        return bad("Validation error.", {"effectiveFrom": ["Invalid date. Use YYYY-MM-DD."]}, [], status=400)
-
-    try:
-        datetime.strptime(start_time, "%H:%M")
-    except Exception:
-        return bad("Validation error.", {"startTime": ["Invalid time. Use HH:MM."]}, [], status=400)
-
-    eff_dt = make_aware(eff_date) if is_naive(eff_date) else eff_date
-
-    try:
-        if ObjectId.is_valid(patient_id):
-            patient = Patient.objects.get(pk=ObjectId(patient_id))
-        else:
-            patient = Patient.objects.get(patient_code=patient_id)
-    except Exception:
-        return bad("Validation error.", {"patientId": ["Patient not found."]}, [], status=404)
+def _apply_template_to_single_patient(
+    tmpl, patient, therapist, eff_dt, diagnosis_filter, notes, force_video, overwrite
+):
+    """Apply *tmpl* to one patient.  Returns (applied_count, sessions_created)."""
+    start_time = "08:00"
 
     plan = RehabilitationPlan.objects(patientId=patient).first()
     if not plan:
@@ -616,7 +549,7 @@ def apply_named_template(request, template_id):
             patientId=patient,
             therapistId=therapist,
             startDate=getattr(patient.userId, "createdAt", timezone.now()),
-            endDate=getattr(patient, "reha_end_date", None),
+            endDate=getattr(patient, "study_end_date", None) or getattr(patient, "reha_end_date", None),
             status="active",
             interventions=[],
             questionnaires=[],
@@ -638,12 +571,9 @@ def apply_named_template(request, template_id):
 
         dx_map = rec.diagnosis_assignments or {}
 
-        # Decide which diagnosis keys to process.
         if diagnosis_filter:
-            # Apply matching diagnosis + the universal _all key.
             keys_to_apply = [k for k in dx_map if k in (diagnosis_filter, _ALL_DX)]
         else:
-            # Apply everything.
             keys_to_apply = list(dx_map.keys())
 
         collected_dates = []
@@ -699,9 +629,148 @@ def apply_named_template(request, template_id):
 
     plan.updatedAt = timezone.now()
     plan.save()
+    return applied, total_sessions
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def apply_named_template(request, template_id):
+    """
+    POST /api/templates/<id>/apply/
+
+    Apply a named InterventionTemplate to one or more patients.
+
+    Modes (mutually exclusive):
+    - patientIds  list[str]  — apply to specific patients (patient_code or ObjectId)
+    - diagnosis   str        — apply to ALL clinic patients whose diagnosis list
+                               contains this value
+
+    Body fields
+    -----------
+    patientIds      list     required when not using diagnosis mode
+    diagnosis       str      required when not using patientIds mode
+    effectiveFrom   str      required  YYYY-MM-DD
+    overwrite       bool     default false
+    require_video_feedback  bool  default false
+    notes           str      optional
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed."}, status=405)
+
+    therapist = _get_therapist(request)
+    if therapist is None:
+        return JsonResponse({"error": "Therapist profile not found."}, status=403)
+
+    if not ObjectId.is_valid(template_id):
+        return JsonResponse({"error": "Invalid template id."}, status=400)
+
+    try:
+        tmpl = InterventionTemplate.objects.get(pk=ObjectId(template_id))
+    except InterventionTemplate.DoesNotExist:
+        return JsonResponse({"error": "Template not found."}, status=404)
+
+    is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    if not tmpl.is_public and not is_owner:
+        return JsonResponse({"error": "Not found."}, status=404)
+
+    try:
+        body = json.loads(request.body or "{}")
+    except Exception:
+        return bad("Invalid JSON body.", {}, ["Invalid JSON."], status=400)
+
+    field_errors: Dict[str, List[str]] = {}
+
+    patient_ids_raw = body.get("patientIds") or []
+    diagnosis_filter = (body.get("diagnosis") or "").strip() or None
+    effective = (body.get("effectiveFrom") or "").strip()
+    overwrite = bool(body.get("overwrite", False))
+    force_video = bool(body.get("require_video_feedback", False))
+    notes = (body.get("notes") or "").strip()[:1000]
+
+    if not effective:
+        field_errors["effectiveFrom"] = ["effectiveFrom is required."]
+    if not patient_ids_raw and not diagnosis_filter:
+        field_errors["patientIds"] = ["Either patientIds or diagnosis is required."]
+    if patient_ids_raw and diagnosis_filter:
+        field_errors["patientIds"] = ["Provide either patientIds or diagnosis, not both."]
+
+    if field_errors:
+        return bad("Validation error.", field_errors, [], status=400)
+
+    try:
+        eff_date = datetime.fromisoformat(f"{effective}T00:00:00")
+    except Exception:
+        return bad("Validation error.", {"effectiveFrom": ["Invalid date. Use YYYY-MM-DD."]}, [], status=400)
+
+    eff_dt = make_aware(eff_date) if is_naive(eff_date) else eff_date
+
+    # ── Resolve patient list ──────────────────────────────────────────────────
+    patients = []
+
+    if patient_ids_raw:
+        not_found = []
+        for pid in patient_ids_raw:
+            pid = str(pid).strip()
+            try:
+                if ObjectId.is_valid(pid):
+                    p = Patient.objects.get(pk=ObjectId(pid))
+                else:
+                    p = Patient.objects.get(patient_code=pid)
+                patients.append(p)
+            except Exception:
+                not_found.append(pid)
+        if not_found:
+            return bad(
+                "Validation error.",
+                {"patientIds": [f"Patient(s) not found: {', '.join(not_found)}"]},
+                [],
+                status=404,
+            )
+    else:
+        # Diagnosis bulk mode — find all active clinic patients with this diagnosis
+        patients = list(
+            Patient.objects(
+                clinic__in=therapist.clinics,
+                diagnosis=diagnosis_filter,
+            )
+        )
+        if not patients:
+            return JsonResponse(
+                {"success": True, "applied": 0, "sessions_created": 0,
+                 "patients_affected": 0,
+                 "message": f"No patients found with diagnosis '{diagnosis_filter}'."},
+                status=200,
+            )
+
+    # ── Apply template to each patient ───────────────────────────────────────
+    total_applied = 0
+    total_sessions = 0
+    patients_affected = 0
+
+    for patient in patients:
+        try:
+            a, s = _apply_template_to_single_patient(
+                tmpl, patient, therapist, eff_dt, diagnosis_filter, notes, force_video, overwrite
+            )
+            total_applied += a
+            total_sessions += s
+            if a > 0:
+                patients_affected += 1
+        except Exception as e:
+            logger.error(
+                "apply_named_template: error applying to patient %s: %s",
+                getattr(patient, "patient_code", str(patient.pk)),
+                str(e),
+                exc_info=True,
+            )
 
     return JsonResponse(
-        {"success": True, "applied": applied, "sessions_created": total_sessions},
+        {
+            "success": True,
+            "applied": total_applied,
+            "sessions_created": total_sessions,
+            "patients_affected": patients_affected,
+        },
         status=200,
     )
 

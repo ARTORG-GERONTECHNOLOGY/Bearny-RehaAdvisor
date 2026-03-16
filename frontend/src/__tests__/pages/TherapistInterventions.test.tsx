@@ -8,7 +8,7 @@ jest.mock('../../config/config.json', () => ({
   patientInfo: {
     function: {
       Cardiology: {
-        diagnosis: ['Coronary Artery Disease', 'Arrhytmia', 'Stroke'],
+        diagnosis: ['Coronary Artery Disease', 'Arrhythmia', 'Stroke'],
       },
       Psychiatry: {
         diagnosis: ['Depression'],

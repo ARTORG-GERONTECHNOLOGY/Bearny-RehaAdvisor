@@ -27,18 +27,18 @@ import {
   toDisplayDate,
 } from '../../stores/patientPopupStore';
 
-function formatThresholdSnapshot(th: Partial<PatientThresholds>): string {
+function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
   if (!th || Object.keys(th).length === 0) return '—';
   const parts: string[] = [];
-  if (th.steps_goal != null) parts.push(`Steps: ${th.steps_goal}`);
+  if (th.steps_goal != null) parts.push(`${t('Steps goal')}: ${th.steps_goal}`);
   if (th.active_minutes_green != null)
-    parts.push(`Active min: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`);
+    parts.push(`${t('Active minutes (green)')}/${t('Active minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`);
   if (th.sleep_green_min != null)
-    parts.push(`Sleep: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'} min`);
+    parts.push(`${t('Sleep min (green, minutes)')}/${t('Sleep min (yellow, minutes)')}: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'}`);
   if (th.bp_sys_green_max != null)
-    parts.push(`BP sys: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`);
+    parts.push(`${t('BP systolic green max')}/${t('BP systolic yellow max')}: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`);
   if (th.bp_dia_green_max != null)
-    parts.push(`BP dia: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`);
+    parts.push(`${t('BP diastolic green max')}/${t('BP diastolic yellow max')}: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`);
   return parts.join('\n') || '—';
 }
 
@@ -408,31 +408,76 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                       </Form.Group>
                     </Col>
 
-                    <Col xs={12}>
+                    <Col xs={12} md={6}>
                       <Form.Group controlId="clinic">
                         <Form.Label>
-                          {t('Clinics')} <SourceBadge fieldKey="clinic" />
+                          {t('Clinic')} <SourceBadge fieldKey="clinic" />
                         </Form.Label>
-                        <Form.Control
-                          id="clinic"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.formData.clinic || ''
-                              : store.getDisplayValue('clinic') || ''
-                          }
-                          onChange={handleChange}
-                          disabled={!store.isEditing}
-                          placeholder={t('e.g. Inselspital Bern')}
-                          maxLength={200}
-                        />
+                        {store.isEditing ? (
+                          <Form.Select
+                            id="clinic"
+                            value={store.formData.clinic || ''}
+                            onChange={(e) => {
+                              store.setField('clinic', e.target.value);
+                              store.setField('project', '');
+                            }}
+                          >
+                            <option value="">{t('Select clinic')}</option>
+                            {Object.keys((config as any).therapistInfo?.clinic_projects || {}).map(
+                              (c) => (
+                                <option key={c} value={c}>
+                                  {t(c)}
+                                </option>
+                              )
+                            )}
+                          </Form.Select>
+                        ) : (
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={store.getDisplayValue('clinic') || '—'}
+                          />
+                        )}
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="project">
+                        <Form.Label>
+                          {t('Project')} <SourceBadge fieldKey="project" />
+                        </Form.Label>
+                        {store.isEditing ? (
+                          <Form.Select
+                            id="project"
+                            value={store.formData.project || ''}
+                            onChange={handleChange}
+                            disabled={!store.formData.clinic}
+                          >
+                            <option value="">{t('Select project')}</option>
+                            {(
+                              (config as any).therapistInfo?.clinic_projects?.[
+                                store.formData.clinic
+                              ] || []
+                            ).map((p: string) => (
+                              <option key={p} value={p}>
+                                {t(p)}
+                              </option>
+                            ))}
+                          </Form.Select>
+                        ) : (
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={store.getDisplayValue('project') || '—'}
+                          />
+                        )}
                       </Form.Group>
                     </Col>
 
                     <Col xs={12} md={6}>
                       <Form.Group controlId="reha_end_date">
                         <Form.Label>
-                          {t('Rehabilitation end date')} <SourceBadge fieldKey="reha_end_date" />
+                          {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />
                         </Form.Label>
                         {store.isEditing ? (
                           <Form.Control
@@ -446,6 +491,28 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                             plaintext
                             readOnly
                             value={toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
+                          />
+                        )}
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="study_end_date">
+                        <Form.Label>
+                          {t('Study / After-Rehab Plan End Date')} <SourceBadge fieldKey="study_end_date" />
+                        </Form.Label>
+                        {store.isEditing ? (
+                          <Form.Control
+                            id="study_end_date"
+                            type="date"
+                            value={toDateInput(store.formData.study_end_date)}
+                            onChange={handleChange}
+                          />
+                        ) : (
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={toDisplayDate(store.getDisplayValue('study_end_date')) || '—'}
                           />
                         )}
                       </Form.Group>
@@ -988,7 +1055,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                             <td>{h.changed_by || '—'}</td>
                             <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
                             <td style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em' }}>
-                              {formatThresholdSnapshot(h.thresholds)}
+                              {formatThresholdSnapshot(h.thresholds, t)}
                             </td>
                           </tr>
                         ))}

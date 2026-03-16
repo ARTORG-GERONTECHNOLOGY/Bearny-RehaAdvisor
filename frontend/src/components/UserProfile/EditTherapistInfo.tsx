@@ -10,6 +10,12 @@ import { observer } from 'mobx-react-lite';
 import userProfileStore from '../../stores/userProfileStore';
 import { UserType } from '../../types';
 
+const therapistInfo = (config as any).therapistInfo || {};
+const allClinics: string[] = Object.keys(therapistInfo.clinic_projects || {});
+const allProjects: string[] = therapistInfo.projects || [];
+const allSpecializations: string[] = therapistInfo.specializations || [];
+const clinicProjectsMap: Record<string, string[]> = therapistInfo.clinic_projects || {};
+
 interface Props {
   userData: UserType;
   onCancel: () => void;
@@ -49,14 +55,39 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
+  // Projects allowed based on currently selected clinics
+  const allowedProjects = useMemo(() => {
+    const selected: string[] = Array.isArray(formData.clinic) ? formData.clinic : [];
+    if (!selected.length) return allProjects;
+    const set = new Set<string>();
+    selected.forEach((c) => (clinicProjectsMap[c] || []).forEach((p) => set.add(p)));
+    return allProjects.filter((p) => set.has(p));
+  }, [formData.clinic]);
+
   const handleMultiSelectChange = (
     selectedOptions: { value: string; label: string }[] | null,
     field: string
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: selectedOptions?.map((o) => o.value) || [],
-    }));
+    const values = selectedOptions?.map((o) => o.value) || [];
+    setFormData((prev) => {
+      const next: Record<string, any> = { ...prev, [field]: values };
+      // When clinics change, prune any projects no longer allowed
+      if (field === 'clinic') {
+        const allowed = new Set<string>();
+        values.forEach((c) => (clinicProjectsMap[c] || []).forEach((p) => allowed.add(p)));
+        const currentProjects: string[] = Array.isArray(prev.projects) ? prev.projects : [];
+        next.projects = currentProjects.filter((p) => allowed.has(p));
+      }
+      return next;
+    });
+  };
+
+  // Resolve options for fields marked 'fromConfig'
+  const resolveOptions = (field: any): string[] => {
+    if (field.be_name === 'specialisation') return allSpecializations;
+    if (field.be_name === 'clinic') return allClinics;
+    if (field.be_name === 'projects') return allowedProjects;
+    return Array.isArray(field.options) ? field.options : [];
   };
 
   const validateProfile = (): boolean => {
@@ -100,7 +131,7 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
               inputId={field.be_name}
               isMulti
               isDisabled={saving}
-              options={(Array.isArray(field.options) ? field.options : []).map((opt: string) => ({
+              options={resolveOptions(field).map((opt: string) => ({
                 value: opt,
                 label: t(opt),
               }))}

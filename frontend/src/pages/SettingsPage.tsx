@@ -11,6 +11,8 @@ import flagDe from '@/assets/flags/de.png';
 import flagFr from '@/assets/flags/fr.png';
 import flagEn from '@/assets/flags/gb.png';
 import flagIt from '@/assets/flags/it.png';
+import flagPt from '@/assets/flags/pt.png';
+import flagNl from '@/assets/flags/be.png';
 import { Dropdown } from 'react-bootstrap';
 
 export default function SettingsPage() {
@@ -24,13 +26,15 @@ export default function SettingsPage() {
   const [currentLanguage, setCurrentLanguage] = useState(getInitialLang);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const languages = ['de', 'fr', 'en', 'it'] as const;
+  const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
 
   const flagMap: Record<string, string> = {
     en: flagEn,
     de: flagDe,
     fr: flagFr,
     it: flagIt,
+    pt: flagPt,
+    nl: flagNl,
   };
 
   const lang = currentLanguage.slice(0, 2);
