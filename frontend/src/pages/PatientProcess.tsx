@@ -7,11 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import type { ChartConfig } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import authStore from '@/stores/authStore';
-import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
 import RecommendationsCard from '@/components/PatientProcess/RecommendationsCard';
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CHART_ACCENT = '#F1ADCF';
 const CHART_ACCENT_LIGHT = '#F1ADCF80';
@@ -120,11 +120,7 @@ const PatientProcess: React.FC = observer(() => {
     };
   }, [navigate]);
 
-  if (combinedHistoryLoading) {
-    return <PatientProcessSkeleton />;
-  }
-
-  if (combinedHistoryError || !combinedHistory) {
+  if (!combinedHistoryLoading && (combinedHistoryError || !combinedHistory)) {
     return (
       <Layout>
         <div className="text-red-600 text-center py-10">{t('Failed to load health data.')}</div>
@@ -163,66 +159,76 @@ const PatientProcess: React.FC = observer(() => {
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 mt-6">
-        <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-          <div className="flex flex-col gap-2">
-            <RecommendationsCard
-              title={t('Recommendations')}
-              doneLabel={t('Done')}
-              recommendationsPct={averageMetrics.recommendationsPct}
-              adherenceTotals={adherenceTotals}
-              chartConfig={chartConfigs.recommendations}
-              accentColor={CHART_ACCENT}
-              accentSoftColor={CHART_ACCENT_SOFT}
-            />
-          </div>
+      {combinedHistoryLoading && (
+        <div className="flex flex-col gap-2 mt-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
+          ))}
         </div>
+      )}
 
-        <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-          <div className="flex flex-col gap-2">
-            {barMetricCards.map((card) => (
-              <MetricBarCard
-                key={card.metricKey}
-                title={card.title}
-                value={card.value}
-                metricKey={card.metricKey}
-                data={dailyMetrics}
-                yMax={card.yMax}
-                threshold={card.threshold}
-                isReached={card.isReached}
-                chartConfig={chartConfigs[card.metricKey]}
+      {!combinedHistoryLoading && (
+        <div className="flex flex-col gap-2 mt-6">
+          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+            <div className="flex flex-col gap-2">
+              <RecommendationsCard
+                title={t('Recommendations')}
+                doneLabel={t('Done')}
+                recommendationsPct={averageMetrics.recommendationsPct}
+                adherenceTotals={adherenceTotals}
+                chartConfig={chartConfigs.recommendations}
+                accentColor={CHART_ACCENT}
+                accentSoftColor={CHART_ACCENT_SOFT}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+            <div className="flex flex-col gap-2">
+              {barMetricCards.map((card) => (
+                <MetricBarCard
+                  key={card.metricKey}
+                  title={card.title}
+                  value={card.value}
+                  metricKey={card.metricKey}
+                  data={dailyMetrics}
+                  yMax={card.yMax}
+                  threshold={card.threshold}
+                  isReached={card.isReached}
+                  chartConfig={chartConfigs[card.metricKey]}
+                  averagePerDayLabel={t('Average per day')}
+                  reachedLabel={t('Done')}
+                  notReachedLabel={t('Not reached')}
+                  accentColor={CHART_ACCENT}
+                  thresholdLineProps={THRESHOLD_LINE_PROPS}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+            <div className="flex flex-col gap-2">
+              <BloodPressureCard
+                title={t('Blood pressure')}
                 averagePerDayLabel={t('Average per day')}
+                bpSys={averageMetrics.bpSys}
+                bpDia={averageMetrics.bpDia}
+                isReached={isReachedStatus.bloodPressure}
+                chartConfig={chartConfigs.bloodPressure}
+                data={dailyMetrics}
+                yMax={chartYMax.bloodPressure}
+                bpSysThreshold={chartThresholds.bpSysMax}
+                bpDiaThreshold={chartThresholds.bpDiaMax}
                 reachedLabel={t('Done')}
                 notReachedLabel={t('Not reached')}
                 accentColor={CHART_ACCENT}
+                accentLightColor={CHART_ACCENT_LIGHT}
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
               />
-            ))}
+            </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-          <div className="flex flex-col gap-2">
-            <BloodPressureCard
-              title={t('Blood pressure')}
-              averagePerDayLabel={t('Average per day')}
-              bpSys={averageMetrics.bpSys}
-              bpDia={averageMetrics.bpDia}
-              isReached={isReachedStatus.bloodPressure}
-              chartConfig={chartConfigs.bloodPressure}
-              data={dailyMetrics}
-              yMax={chartYMax.bloodPressure}
-              bpSysThreshold={chartThresholds.bpSysMax}
-              bpDiaThreshold={chartThresholds.bpDiaMax}
-              reachedLabel={t('Done')}
-              notReachedLabel={t('Not reached')}
-              accentColor={CHART_ACCENT}
-              accentLightColor={CHART_ACCENT_LIGHT}
-              thresholdLineProps={THRESHOLD_LINE_PROPS}
-            />
-          </div>
-        </div>
-      </div>
+      )}
     </Layout>
   );
 });
