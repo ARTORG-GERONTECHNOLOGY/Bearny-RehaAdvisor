@@ -1007,7 +1007,7 @@ def test_apply_template_success(mongo_mock):
 
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     payload = {
-        "patientId": str(patient.id),
+        "patientIds": [str(patient.id)],
         "effectiveFrom": tomorrow,
     }
 
@@ -1022,8 +1022,8 @@ def test_apply_template_success(mongo_mock):
 
 def test_apply_template_by_patient_code(mongo_mock):
     """
-    POST with a ``patientId`` that is the patient's ``patient_code`` string
-    (not an ObjectId) resolves the patient and succeeds.
+    POST with a ``patientIds`` entry that is the patient's ``patient_code``
+    string (not an ObjectId) resolves the patient and succeeds.
     """
     _, therapist = _make_therapist()
     _, patient = _make_patient(therapist)
@@ -1032,7 +1032,7 @@ def test_apply_template_by_patient_code(mongo_mock):
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": patient.patient_code, "effectiveFrom": tomorrow},
+        {"patientIds": [patient.patient_code], "effectiveFrom": tomorrow},
         therapist,
     )
 
@@ -1042,7 +1042,8 @@ def test_apply_template_by_patient_code(mongo_mock):
 
 def test_apply_template_missing_patient_id(mongo_mock):
     """
-    POST without ``patientId`` returns 400 with ``field_errors.patientId``.
+    POST without ``patientIds`` or ``diagnosis`` returns 400 with
+    ``field_errors.patientIds``.
     """
     _, therapist = _make_therapist()
     tmpl = _make_template(therapist, with_intervention=True)
@@ -1054,7 +1055,7 @@ def test_apply_template_missing_patient_id(mongo_mock):
     )
 
     assert resp.status_code == 400
-    assert "patientId" in resp.json().get("field_errors", {})
+    assert "patientIds" in resp.json().get("field_errors", {})
 
 
 def test_apply_template_missing_effective_from(mongo_mock):
@@ -1068,7 +1069,7 @@ def test_apply_template_missing_effective_from(mongo_mock):
 
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": str(patient.id)},
+        {"patientIds": [str(patient.id)]},
         therapist,
     )
 
@@ -1086,7 +1087,7 @@ def test_apply_template_invalid_effective_from(mongo_mock):
 
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": str(patient.id), "effectiveFrom": "not-a-date"},
+        {"patientIds": [str(patient.id)], "effectiveFrom": "not-a-date"},
         therapist,
     )
 
@@ -1095,14 +1096,14 @@ def test_apply_template_invalid_effective_from(mongo_mock):
 
 def test_apply_template_patient_not_found(mongo_mock):
     """
-    POST with an unknown ``patientId`` returns 404.
+    POST with an unknown patient ObjectId in ``patientIds`` returns 404.
     """
     _, therapist = _make_therapist()
     tmpl = _make_template(therapist, with_intervention=True)
 
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": str(ObjectId()), "effectiveFrom": "2026-06-01"},
+        {"patientIds": [str(ObjectId())], "effectiveFrom": "2026-06-01"},
         therapist,
     )
 
@@ -1120,7 +1121,7 @@ def test_apply_template_private_by_non_owner_returns_404(mongo_mock):
 
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": str(patient.id), "effectiveFrom": "2026-06-01"},
+        {"patientIds": [str(patient.id)], "effectiveFrom": "2026-06-01"},
         other,
     )
 
@@ -1141,7 +1142,7 @@ def test_apply_template_creates_rehabilitation_plan_if_none(mongo_mock):
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     resp = _post_json(
         APPLY_URL.format(id=tmpl.id),
-        {"patientId": str(patient.id), "effectiveFrom": tomorrow},
+        {"patientIds": [str(patient.id)], "effectiveFrom": tomorrow},
         therapist,
     )
 
@@ -1318,3 +1319,269 @@ def test_calendar_post_not_allowed(mongo_mock):
     resp = _post_json(CALENDAR_URL.format(id=tmpl.id), {}, therapist)
 
     assert resp.status_code == 405
+
+
+# ===========================================================================
+# Phase 4 — Ownership / created_by serialisation
+# ===========================================================================
+
+
+def test_serialize_template_created_by_is_user_id(mongo_mock):
+    """
+    ``created_by`` in the list response must be the *User* ObjectId — the
+    value stored in ``authStore.id`` (from the JWT claim) — not the Therapist
+    document's own ObjectId.
+
+    Regression test for the bug where ``_serialize_template`` returned
+    ``str(tmpl.created_by.id)`` (Therapist ObjectId) instead of
+    ``str(tmpl.created_by.userId.id)`` (User ObjectId).
+    """
+    user, therapist = _make_therapist()
+    _make_template(therapist)
+
+    resp = _get(LIST_URL, therapist)
+
+    assert resp.status_code == 200
+    templates = resp.json()["templates"]
+    assert len(templates) == 1
+
+    created_by = templates[0]["created_by"]
+    # Must equal the User ObjectId, not the Therapist ObjectId.
+    assert created_by == str(user.id), (
+        f"created_by should be user.id={user.id} but got {created_by}. "
+        f"(therapist.id={therapist.id})"
+    )
+    assert created_by != str(therapist.id), (
+        "created_by must not be the Therapist ObjectId"
+    )
+
+
+# ===========================================================================
+# Phase 4 — copy_template with custom description
+# ===========================================================================
+
+COPY_URL = "/api/templates/{id}/copy/"
+
+
+def test_copy_template_custom_description(mongo_mock):
+    """
+    POST /api/templates/<id>/copy/ with a ``description`` field in the body
+    sets the copy's description to the supplied value instead of inheriting
+    the original's description.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, is_public=True)
+    _, copier = _make_therapist("copier")
+
+    resp = _post_json(
+        COPY_URL.format(id=tmpl.id),
+        {"name": "My Copy", "description": "Custom description for the copy"},
+        copier,
+    )
+
+    assert resp.status_code == 201
+    data = resp.json()["template"]
+    assert data["description"] == "Custom description for the copy"
+    assert data["name"] == "My Copy"
+
+
+def test_copy_template_inherits_description_when_not_supplied(mongo_mock):
+    """
+    POST /api/templates/<id>/copy/ without a ``description`` field inherits
+    the original template's description.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, is_public=True)
+    _, copier = _make_therapist("copier2")
+
+    resp = _post_json(COPY_URL.format(id=tmpl.id), {}, copier)
+
+    assert resp.status_code == 201
+    data = resp.json()["template"]
+    assert data["description"] == tmpl.description
+
+
+def test_copy_template_empty_description_string(mongo_mock):
+    """
+    POST /api/templates/<id>/copy/ with ``description=""`` sets an empty
+    description (not falls back to original).
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, is_public=True)
+    _, copier = _make_therapist("copier3")
+
+    resp = _post_json(COPY_URL.format(id=tmpl.id), {"description": ""}, copier)
+
+    assert resp.status_code == 201
+    data = resp.json()["template"]
+    # Empty string is stripped → stored as ""
+    assert data["description"] == ""
+
+
+# ===========================================================================
+# Phase 4 — apply_named_template multi-patient and diagnosis-bulk modes
+# ===========================================================================
+
+APPLY_URL = "/api/templates/{id}/apply/"
+
+
+def test_apply_template_multi_patient_ids(mongo_mock):
+    """
+    POST /api/templates/<id>/apply/ with a ``patientIds`` list containing
+    two valid patient ObjectIds applies the template to both patients and
+    returns ``patients_affected == 2``.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    _, patient1 = _make_patient(therapist)
+    _, patient2 = _make_patient(therapist)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "patientIds": [str(patient1.id), str(patient2.id)],
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["patients_affected"] == 2
+
+
+def test_apply_template_multi_patient_codes(mongo_mock):
+    """
+    ``patientIds`` may contain patient_code strings (not just ObjectIds).
+    The endpoint resolves both and applies the template.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    _, patient = _make_patient(therapist)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "patientIds": [patient.patient_code],
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["patients_affected"] == 1
+
+
+def test_apply_template_one_unknown_patient_in_list(mongo_mock):
+    """
+    If any patient in ``patientIds`` cannot be resolved, the endpoint
+    returns 404 (no partial application).
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    _, patient = _make_patient(therapist)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "patientIds": [str(patient.id), str(ObjectId())],  # second one is fake
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 404
+
+
+def test_apply_template_by_diagnosis_bulk(mongo_mock):
+    """
+    POST /api/templates/<id>/apply/ with ``diagnosis`` (no ``patientIds``)
+    applies the template to all clinic patients whose diagnosis list contains
+    that value, returning ``patients_affected`` equal to the count of matches.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    # _make_patient creates patients with diagnosis=["Stroke"]
+    _, patient1 = _make_patient(therapist)
+    _, patient2 = _make_patient(therapist)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "diagnosis": "Stroke",
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["patients_affected"] == 2
+
+
+def test_apply_template_missing_both_patient_and_diagnosis(mongo_mock):
+    """
+    POST /api/templates/<id>/apply/ with neither ``patientIds`` nor
+    ``diagnosis`` returns 400.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"effectiveFrom": "2025-01-01"},
+        therapist,
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert "patientIds" in body.get("field_errors", {}) or "error" in body
+
+
+def test_apply_template_both_patient_ids_and_diagnosis_rejected(mongo_mock):
+    """
+    Supplying both ``patientIds`` and ``diagnosis`` is ambiguous and returns 400.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    _, patient = _make_patient(therapist)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "patientIds": [str(patient.id)],
+            "diagnosis": "Stroke",
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 400
+
+
+def test_apply_template_diagnosis_no_matching_patients(mongo_mock):
+    """
+    POST /api/templates/<id>/apply/ with ``diagnosis`` that matches no clinic
+    patients returns 200 with ``applied == 0`` and an informative message
+    (no error is raised).
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {
+            "diagnosis": "UnknownDiagnosis",
+            "effectiveFrom": "2025-01-01",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["applied"] == 0
+    assert data["patients_affected"] == 0
+    assert "message" in data
