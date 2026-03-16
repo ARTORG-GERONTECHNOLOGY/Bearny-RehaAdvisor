@@ -304,6 +304,7 @@ def user_profile_view(request, user_id):
         "diagnosis": list,
         "clinic": str,
         "reha_end_date": "date",
+        "study_end_date": "date",
         "last_clinic_visit": "date",
         "level_of_education": str,
         "professional_status": str,
@@ -340,6 +341,7 @@ def user_profile_view(request, user_id):
                     "first_name": sanitize(th.first_name),
                     "specializations": th.specializations or [],
                     "clinics": th.clinics or [],
+                    "projects": th.projects or [],
                 }
 
             else:  # PATIENT
@@ -368,7 +370,7 @@ def user_profile_view(request, user_id):
                     if f not in excluded_patient:
                         obj[f] = sanitize(getattr(pt, f, None))
 
-                for dkey in ("reha_end_date", "last_clinic_visit"):
+                for dkey in ("reha_end_date", "study_end_date", "last_clinic_visit"):
                     if isinstance(obj.get(dkey), datetime):
                         obj[dkey] = obj[dkey].date().isoformat()
 

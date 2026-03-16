@@ -572,7 +572,7 @@ backend/
 
 ### Auth helper — `_get_therapist`
 
-Every template view resolves the caller to a `Therapist` document using:
+Every template view is decorated with `@api_view` (from DRF), which activates the JWT authentication pipeline before the view body runs. The custom `MongoJWTAuthentication` class (see below) handles the JWT → user resolution. The helper then resolves the authenticated user to a `Therapist` document:
 
 ```python
 def _get_therapist(request) -> Therapist | None:
@@ -582,12 +582,56 @@ def _get_therapist(request) -> Therapist | None:
         return None
 ```
 
-Views return `403` immediately if this returns `None`. In tests, patch this helper directly rather than setting up real JWT:
+Views return `403` immediately if this returns `None` (therapist profile missing for an otherwise valid JWT user). An invalid or absent JWT causes DRF to return `401` before the view body is even entered.
+
+> **Why `@api_view` matters:** Using only `@permission_classes([IsAuthenticated])` on a plain Django function view does **not** invoke DRF's authentication backend — `request.user` remains `AnonymousUser` for JWT-based requests. All template views use `@api_view` to ensure the JWT is validated and `request.user` is populated correctly.
+
+### `MongoJWTAuthentication` — custom auth backend
+
+**File:** `backend/core/jwt_auth.py`
+
+The default simplejwt `JWTAuthentication.get_user()` calls `auth.User.objects.get(id=<user_id>)` via Django's SQLite ORM. This fails for this app because the `user_id` claim in the JWT is a **MongoDB ObjectId string**, not an integer:
+
+```
+ValueError: Field 'id' expected a number but got '69844f954a901999fb72ee7c'
+```
+
+`MongoJWTAuthentication` overrides `get_user()` to skip the ORM lookup and instead return a lightweight `SimpleNamespace(is_authenticated=True, id=<mongo_id_string>)`. This:
+
+- Satisfies DRF's `IsAuthenticated` permission check.
+- Gives `_get_therapist()` a usable `request.user.id` (the MongoDB ObjectId string) to look up the `Therapist`.
+- Makes no database calls during token validation — the Therapist lookup happens once inside each view.
+
+Configured in `backend/api/settings/base.py`:
 
 ```python
-with patch("core.views.template_views._get_therapist", return_value=therapist):
-    resp = client.get("/api/templates/", HTTP_AUTHORIZATION="Bearer test")
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "core.jwt_auth.MongoJWTAuthentication",   # replaces rest_framework_simplejwt.authentication.JWTAuthentication
+    ],
+    ...
+}
 ```
+
+#### Testing auth in isolation
+
+The tests use DRF's `APIClient` with `force_authenticate` to bypass JWT issuance, then patch `_get_therapist` to control the therapist resolution:
+
+```python
+from types import SimpleNamespace
+from rest_framework.test import APIClient
+
+_AUTH_USER = SimpleNamespace(is_authenticated=True)  # satisfies IsAuthenticated
+
+client = APIClient()
+client.force_authenticate(user=_AUTH_USER)
+
+with patch("core.views.template_views._get_therapist", return_value=therapist):
+    resp = client.get("/api/templates/")
+    assert resp.status_code == 200
+```
+
+Unauthenticated tests use an un-authenticated `APIClient()` (no `force_authenticate`) and expect **401**.
 
 ### Visibility rules
 
@@ -639,6 +683,12 @@ docker exec django pytest tests/template_views/ -v
 
 # Single section
 docker exec django pytest tests/template_views/ -v -k "apply"
+
+# Test infrastructure notes
+# - Uses mongomock (in-memory MongoDB) via autouse fixture
+# - Uses rest_framework.test.APIClient + force_authenticate (not Django Client)
+# - _get_therapist is patched per-test to decouple JWT from therapist resolution
+# - Unauthenticated tests expect 401 (DRF rejects at auth layer), not 403
 ```
 
 For full API reference see [09-API_DOCUMENTATION.md](./09-API_DOCUMENTATION.md#named-templates).

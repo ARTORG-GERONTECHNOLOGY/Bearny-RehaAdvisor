@@ -520,7 +520,8 @@ class Patient(Document):
     care_giver = StringField(max_length=80, required=False, default="")
     initial_questionnaire_enabled = BooleanField(default=False)
 
-    reha_end_date = DateTimeField(required=False, null=True)
+    reha_end_date = DateTimeField(required=False, null=True)   # actual end of the rehabilitation programme
+    study_end_date = DateTimeField(required=False, null=True)  # end of the study / after-rehab monitoring plan
 
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)

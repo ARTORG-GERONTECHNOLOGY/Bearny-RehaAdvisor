@@ -4,7 +4,6 @@ import {
   Row,
   Col,
   Card,
-  Form,
   Nav,
   Button,
   ButtonGroup,
@@ -22,10 +21,6 @@ import type { InterventionTypeTh } from '../../types';
 export type TemplatesFiltersState = {
   tSearchTerm: string;
   tPatientTypeFilter: string;
-
-  // optional / compatible with FilterBar
-  tDiagnosisFilter: string[];
-
   tContentTypeFilter: string;
 
   // ✅ tags = everything (including aims if your taxonomy includes them)
@@ -38,15 +33,6 @@ type TemplateLeftTab = 'my' | 'all';
 
 type Props = {
   t: (key: string) => string;
-
-  templateDiag: string;
-  onTemplateDiag: (v: string) => void;
-
-  templateHorizon: number;
-  onTemplateHorizon: (v: number) => void;
-
-  diagnoses: string[];
-  patientTypes: string[]; // (kept even if not used; you may want later)
 
   templateLeftTab: TemplateLeftTab;
   onTemplateLeftTab: (v: TemplateLeftTab) => void;
@@ -76,12 +62,6 @@ type Props = {
 
 const TemplatesLayout: React.FC<Props> = ({
   t,
-  templateDiag,
-  onTemplateDiag,
-  templateHorizon,
-  onTemplateHorizon,
-  diagnoses,
-  patientTypes, // kept (unused for now)
   templateLeftTab,
   onTemplateLeftTab,
   templateItems,
@@ -104,34 +84,6 @@ const TemplatesLayout: React.FC<Props> = ({
   return (
     <Row className="g-3">
       <Col xs={12} md={4}>
-        <Card className="mb-3">
-          <Card.Header>{t('Template filters')}</Card.Header>
-          <Card.Body>
-            <Form.Group className="mb-2">
-              <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-              <Form.Select value={templateDiag} onChange={(e) => onTemplateDiag(e.target.value)}>
-                <option value="">{t('All')}</option>
-                {diagnoses.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group>
-              <Form.Label>{t('Horizon (days)')}</Form.Label>
-              <Form.Control
-                type="number"
-                min={14}
-                max={180}
-                value={templateHorizon}
-                onChange={(e) => onTemplateHorizon(parseInt(e.target.value || '84', 10))}
-              />
-            </Form.Group>
-          </Card.Body>
-        </Card>
-
         <Card>
           <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>{t('Content')}</div>
@@ -214,11 +166,7 @@ const TemplatesLayout: React.FC<Props> = ({
                 searchTerm={filters.tSearchTerm}
                 setSearchTerm={(v) => onFilters({ ...filters, tSearchTerm: v })}
                 patientTypeFilter={filters.tPatientTypeFilter}
-                setPatientTypeFilter={(v) =>
-                  onFilters({ ...filters, tPatientTypeFilter: v, tDiagnosisFilter: [] })
-                }
-                diagnosisFilter={filters.tDiagnosisFilter}
-                setDiagnosisFilter={(v) => onFilters({ ...filters, tDiagnosisFilter: v })}
+                setPatientTypeFilter={(v) => onFilters({ ...filters, tPatientTypeFilter: v })}
                 contentTypeFilter={filters.tContentTypeFilter}
                 setContentTypeFilter={(v) => onFilters({ ...filters, tContentTypeFilter: v })}
                 tagFilter={filters.tTagFilter}

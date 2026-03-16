@@ -339,7 +339,10 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
           fieldOptions = therapistClinics;
         } else if (field.name === 'project') {
           const allowedByClinic = clinicProjectsMap[formData.clinic as string] || [];
-          fieldOptions = therapistProjects.filter((p) => allowedByClinic.includes(p));
+          // Use therapist's assigned projects when available; fall back to the
+          // full config list for the selected clinic so the dropdown is never empty.
+          const pool = therapistProjects.length ? therapistProjects : allowedByClinic;
+          fieldOptions = pool.filter((p) => allowedByClinic.includes(p));
         }
 
         return (

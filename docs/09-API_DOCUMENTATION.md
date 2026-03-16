@@ -1365,8 +1365,11 @@ JWT required.
 
 ## Named Templates
 
-All endpoints in this section require JWT authentication.
-The requesting user must have an associated `Therapist` profile.
+All endpoints in this section require a valid JWT `Authorization: Bearer <token>` header.
+
+**Auth error codes:**
+- `401 Unauthorized` — token missing, expired, or invalid (DRF rejects before the view runs).
+- `403 Forbidden` — token is valid but the authenticated user has no associated `Therapist` profile, or the operation requires ownership.
 
 **Visibility rules:**
 - Public templates (`is_public: true`) are visible to all therapists.
@@ -1400,7 +1403,7 @@ List templates visible to the authenticated therapist (own + all public ones).
       "name": "Stroke Recovery Week 1",
       "description": "",
       "is_public": true,
-      "created_by": "<therapist_object_id>",
+      "created_by": "<user_object_id>",
       "created_by_name": "Alice Smith",
       "specialization": "Neurology",
       "diagnosis": "Stroke",
@@ -1412,7 +1415,7 @@ List templates visible to the authenticated therapist (own + all public ones).
 }
 ```
 
-**Errors:** 403 therapist profile not found
+**Errors:** 401 unauthenticated · 403 therapist profile not found
 
 ---
 
@@ -1432,7 +1435,7 @@ Create a new template.
 
 **Response 201:** `{ "template": { ...full template with `recommendations` array } }`
 
-**Errors:** 400 missing/blank name · 400 name > 200 chars · 403 therapist not found
+**Errors:** 400 missing/blank name · 400 name > 200 chars · 401 unauthenticated · 403 therapist not found
 
 ---
 
@@ -1473,7 +1476,7 @@ Retrieve full template detail including all recommendation entries.
 }
 ```
 
-**Errors:** 400 invalid ObjectId · 403 therapist not found · 404 not found or private
+**Errors:** 400 invalid ObjectId · 401 unauthenticated · 403 therapist not found · 404 not found or private
 
 ---
 
@@ -1483,7 +1486,7 @@ Delete a template. Owner only.
 
 **Response 200:** `{ "success": true }`
 
-**Errors:** 400 invalid id · 403 not owner · 404 not found
+**Errors:** 400 invalid id · 401 unauthenticated · 403 not owner · 404 not found
 
 ---
 
@@ -1503,7 +1506,7 @@ Update template metadata. Owner only. All fields are optional.
 
 **Response 200:** `{ "template": { ...full template } }`
 
-**Errors:** 400 blank/overlong name · 403 not owner · 404 not found
+**Errors:** 400 blank/overlong name · 401 unauthenticated · 403 not owner · 404 not found
 
 ---
 
@@ -1516,10 +1519,11 @@ Duplicate a visible template. The copy is private and owned by the requesting th
 | Field | Type | Notes |
 |---|---|---|
 | `name` | string | Defaults to `"Copy of <original name>"`, truncated at 200 chars |
+| `description` | string | Overrides the original description. If omitted, the original description is inherited. Pass `""` for an empty description. |
 
 **Response 201:** `{ "template": { ...new template (detail) } }`
 
-**Errors:** 400 invalid id · 403 therapist not found · 404 template not found or private · 405 wrong method
+**Errors:** 400 invalid id · 401 unauthenticated · 403 therapist not found · 404 template not found or private · 405 wrong method
 
 ---
 
@@ -1544,7 +1548,7 @@ When `diagnosis` is omitted or empty, the entry is stored under the `_all` senti
 
 **Response 200:** `{ "template": { ...full template } }`
 
-**Errors:** 400 missing interventionId/end_day/invalid unit · 403 not owner · 404 template/intervention not found · 405 wrong method
+**Errors:** 400 missing interventionId/end_day/invalid unit · 401 unauthenticated · 403 not owner · 404 template/intervention not found · 405 wrong method
 
 ---
 
@@ -1560,39 +1564,50 @@ Remove an intervention entry from the template.
 
 **Response 200:** `{ "template": { ...updated template } }`
 
-**Errors:** 400 invalid id · 403 not owner · 404 intervention not in template · 405 wrong method
+**Errors:** 400 invalid id · 401 unauthenticated · 403 not owner · 404 intervention not in template · 405 wrong method
 
 ---
 
 #### `POST /api/templates/<id>/apply/`
 
-Apply a named template to a patient's rehabilitation plan.
+Apply a named template to one or more patients' rehabilitation plans.
 
-Diagnosis is optional:
-- If supplied → only recommendations matching that diagnosis key (or `_all`) are applied.
-- If omitted → all recommendations are applied.
+Two mutually exclusive targeting modes are supported — exactly one must be provided:
 
-If no `RehabilitationPlan` exists for the patient, one is created automatically.
+- **`patientIds` mode**: apply to a specific list of patients (by ObjectId or `patient_code`).
+- **`diagnosis` mode**: apply to *all* clinic patients whose `diagnosis` list contains the given value.
+
+If no `RehabilitationPlan` exists for a patient, one is created automatically.
 
 **Request body:**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `patientId` | string | yes | Patient ObjectId or `patient_code` string |
+| `patientIds` | string[] | one of | List of patient ObjectIds or `patient_code` strings |
+| `diagnosis` | string | one of | Bulk mode — applies to all clinic patients with this diagnosis |
 | `effectiveFrom` | string | yes | `YYYY-MM-DD` |
-| `startTime` | string | no | `HH:MM`, default `"08:00"` |
-| `diagnosis` | string | no | Filter to a specific diagnosis |
 | `overwrite` | boolean | no | Default `false` |
 | `require_video_feedback` | boolean | no | Default `false` |
 | `notes` | string | no | Max 1000 chars |
 
+> **Note:** providing both `patientIds` and `diagnosis` at the same time returns 400.
+
 **Response 200:**
 
 ```json
-{ "success": true, "applied": 3, "sessions_created": 12 }
+{
+  "success": true,
+  "applied": 3,
+  "sessions_created": 12,
+  "patients_affected": 2
+}
 ```
 
-**Errors:** 400 missing patientId/effectiveFrom/invalid date · 403 therapist not found · 404 template not found or private / patient not found · 405 wrong method
+When `diagnosis` mode finds no matching patients, the response is still 200 with `applied: 0` and a `message` field explaining there were no matches.
+
+**`created_by` field:** The `created_by` value in all template responses is the **User** ObjectId (what `authStore.id` holds from the JWT claim), not the Therapist document ObjectId. Frontend ownership checks should compare `template.created_by === authStore.id`.
+
+**Errors:** 400 missing patientIds+diagnosis/effectiveFrom/invalid date/both modes given · 401 unauthenticated · 403 therapist not found · 404 template not found or private / patient(s) not found · 405 wrong method
 
 ---
 
@@ -1639,7 +1654,7 @@ Preview the intervention schedule for a template as a flat list of occurrences, 
 }
 ```
 
-**Errors:** 400 invalid id · 403 therapist not found · 404 not found or private · 405 wrong method · 500 internal
+**Errors:** 400 invalid id · 401 unauthenticated · 403 therapist not found · 404 not found or private · 405 wrong method · 500 internal
 
 ---
 

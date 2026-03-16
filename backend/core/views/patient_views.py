@@ -1733,7 +1733,7 @@ def add_intervention_to_patient(request):
             therapistId=therapist,
             startDate=getattr(patient.userId, "createdAt", timezone.now()),
             # ✅ critical: never leave endDate None
-            endDate=patient.reha_end_date or (timezone.now() + timedelta(days=90)),
+            endDate=patient.study_end_date or patient.reha_end_date or (timezone.now() + timedelta(days=90)),
             status=payload.get("status", "active"),
             interventions=[],
             createdAt=timezone.now(),

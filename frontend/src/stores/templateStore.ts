@@ -67,8 +67,10 @@ class TemplateStore {
     });
   }
 
-  async copyTemplate(id: string, name?: string): Promise<TemplateDoc> {
-    const body = name ? { name } : {};
+  async copyTemplate(id: string, name?: string, description?: string): Promise<TemplateDoc> {
+    const body: Record<string, string> = {};
+    if (name) body.name = name;
+    if (description !== undefined) body.description = description;
     const res = await apiClient.post<{ template: TemplateDoc }>(`templates/${id}/copy/`, body);
     runInAction(() => {
       this.templates = [res.data.template, ...this.templates];
