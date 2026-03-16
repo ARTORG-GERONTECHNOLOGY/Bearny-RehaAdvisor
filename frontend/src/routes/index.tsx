@@ -177,13 +177,6 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/patient-intervention/:interventionId',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
-      createElement(PatientInterventionDetailSkeleton)
-    ),
-  },
-  {
     path: '/patient-profile',
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientProfile) }),
