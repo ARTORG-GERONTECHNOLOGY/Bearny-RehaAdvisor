@@ -4,19 +4,17 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { BarMetricKey, DailyMetricsDatum } from '@/hooks/usePatientProcess';
 import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   title: string;
-  value: string;
+  average: string;
   metricKey: BarMetricKey;
   data: DailyMetricsDatum[];
   yMax: number;
   threshold: number | null;
   isReached: boolean | null;
   chartConfig: ChartConfig;
-  averagePerDayLabel: string;
-  reachedLabel: string;
-  notReachedLabel: string;
   accentColor: string;
   thresholdLineProps: {
     stroke: string;
@@ -27,36 +25,31 @@ type Props = {
 
 const MetricBarCard: React.FC<Props> = ({
   title,
-  value,
+  average,
   metricKey,
   data,
   yMax,
   threshold,
   isReached,
   chartConfig,
-  averagePerDayLabel,
-  reachedLabel,
-  notReachedLabel,
   accentColor,
   thresholdLineProps,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="p-4 border border-accent rounded-3xl">
       <div className="flex justify-between">
         <div>
           <div className="font-bold text-lg text-zinc-800">{title}</div>
-          <div className="font-medium text-sm text-zinc-500">{averagePerDayLabel}</div>
+          <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
         </div>
-        <ThresholdStatusBadge
-          isReached={isReached}
-          reachedLabel={reachedLabel}
-          notReachedLabel={notReachedLabel}
-        />
+        <ThresholdStatusBadge isReached={isReached} />
       </div>
 
       <div className="flex items-end">
         <div className="flex-1">
-          <div className="font-bold text-[28px] text-zinc-900">{value}</div>
+          <div className="font-bold text-[28px] text-zinc-900">{average}</div>
         </div>
 
         <div className="flex-1">
