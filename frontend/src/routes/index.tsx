@@ -175,10 +175,17 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/settings',
+    path: '/patient-profile',
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientProfile) }),
       createElement(PatientProfileSkeleton)
+    ),
+  },
+  {
+    path: '/settings',
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(SettingsPage) }),
+      createElement(SettingsPageSkeleton)
     ),
   },
 
