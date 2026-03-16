@@ -12,7 +12,7 @@ type Props = {
   data: DailyMetricsDatum[];
   yMax: number;
   threshold: number | null;
-  status: boolean | null;
+  isReached: boolean | null;
   chartConfig: ChartConfig;
   averagePerDayLabel: string;
   reachedLabel: string;
@@ -32,7 +32,7 @@ const MetricBarCard: React.FC<Props> = ({
   data,
   yMax,
   threshold,
-  status,
+  isReached,
   chartConfig,
   averagePerDayLabel,
   reachedLabel,
@@ -48,7 +48,7 @@ const MetricBarCard: React.FC<Props> = ({
           <div className="font-medium text-sm text-zinc-500">{averagePerDayLabel}</div>
         </div>
         <ThresholdStatusBadge
-          isReached={status}
+          isReached={isReached}
           reachedLabel={reachedLabel}
           notReachedLabel={notReachedLabel}
         />
