@@ -53,7 +53,43 @@ type DailyMetricsDatum = {
   bpDia: number | null;
 };
 
+type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
+
+type ThresholdStatus = {
+  steps: boolean | null;
+  activeMinutes: boolean | null;
+  sleepMinutes: boolean | null;
+  bloodPressure: boolean | null;
+};
+
+const CHART_ACCENT = '#F1ADCF';
+const CHART_ACCENT_LIGHT = '#F1ADCF80';
+const CHART_ACCENT_SOFT = '#FCEFF5';
+const THRESHOLD_LINE_PROPS = {
+  stroke: '#E4E4E7',
+  strokeWidth: 2,
+  strokeDasharray: '8 8',
+} as const;
+
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+
+const asNumberOrNull = (value: unknown) => {
+  if (value == null) return null;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+};
+
+const averageOf = (values: number[]) =>
+  values.length > 0
+    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : null;
+
+const formatMinutesToHM = (minutes: number | null) => {
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}min`;
+};
 
 const getDateWindow = (filter: ProcessFilter) => {
   const to = new Date();
@@ -67,23 +103,28 @@ const PatientProcess: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const recommendationsChartConfig = {
-    completed: { label: t('Completed') },
-    uncompleted: { label: t('Uncompleted') },
-  } satisfies ChartConfig;
-  const stepsChartConfig = {
-    steps: { label: t('Steps') },
-  } satisfies ChartConfig;
-  const activeMinutesChartConfig = {
-    activeMinutes: { label: t('Active Minutes') },
-  } satisfies ChartConfig;
-  const sleepChartConfig = {
-    sleepMinutes: { label: t('Sleep (min)') },
-  } satisfies ChartConfig;
-  const bloodPressureChartConfig = {
-    bpSys: { label: t('Blood pressure systolic') },
-    bpDia: { label: t('Blood pressure diastolic') },
-  } satisfies ChartConfig;
+  const chartConfigs = React.useMemo(
+    () => ({
+      recommendations: {
+        completed: { label: t('Completed') },
+        uncompleted: { label: t('Uncompleted') },
+      } satisfies ChartConfig,
+      steps: {
+        steps: { label: t('Steps') },
+      } satisfies ChartConfig,
+      activeMinutes: {
+        activeMinutes: { label: t('Active Minutes') },
+      } satisfies ChartConfig,
+      sleepMinutes: {
+        sleepMinutes: { label: t('Sleep (min)') },
+      } satisfies ChartConfig,
+      bloodPressure: {
+        bpSys: { label: t('Blood pressure systolic') },
+        bpDia: { label: t('Blood pressure diastolic') },
+      } satisfies ChartConfig,
+    }),
+    [t]
+  );
 
   const [processFilter, setProcessFilter] = React.useState<ProcessFilter>('week');
   const [combinedHistory, setCombinedHistory] = React.useState<CombinedHealthResponse | null>(null);
@@ -275,36 +316,23 @@ const PatientProcess: React.FC = observer(() => {
     const withBpDia = dailyMetrics.filter((d) => d.bpDia !== null);
     const adherenceTotal = adherenceTotals.completed + adherenceTotals.uncompleted;
 
-    const avg = (arr: number[]) =>
-      arr.length > 0 ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
-
-    const formatMinutesToHM = (minutes: number | null) => {
-      if (minutes === null) return null;
-      const h = Math.floor(minutes / 60);
-      const m = minutes % 60;
-      return `${h}h ${m}min`;
-    };
+    const averageActiveMinutes = averageOf(withActive.map((d) => d.activeMinutes));
+    const averageSleepMinutes = averageOf(withSleep.map((d) => d.sleepMinutes));
 
     return {
-      steps: avg(withSteps.map((d) => d.steps)),
-      activeMinutes: avg(withActive.map((d) => d.activeMinutes)),
-      activeMinutesLabel: formatMinutesToHM(avg(withActive.map((d) => d.activeMinutes))),
-      sleepMinutes: avg(withSleep.map((d) => d.sleepMinutes)),
-      sleepMinutesLabel: formatMinutesToHM(avg(withSleep.map((d) => d.sleepMinutes))),
-      bpSys: avg(withBpSys.map((d) => d.bpSys as number)),
-      bpDia: avg(withBpDia.map((d) => d.bpDia as number)),
+      steps: averageOf(withSteps.map((d) => d.steps)),
+      activeMinutes: averageActiveMinutes,
+      activeMinutesLabel: formatMinutesToHM(averageActiveMinutes),
+      sleepMinutes: averageSleepMinutes,
+      sleepMinutesLabel: formatMinutesToHM(averageSleepMinutes),
+      bpSys: averageOf(withBpSys.map((d) => d.bpSys as number)),
+      bpDia: averageOf(withBpDia.map((d) => d.bpDia as number)),
       recommendationsPct:
         adherenceTotal > 0 ? Math.round((adherenceTotals.completed / adherenceTotal) * 100) : null,
     };
   }, [dailyMetrics, adherenceTotals]);
 
   const chartThresholds = React.useMemo(() => {
-    const asNumberOrNull = (value: unknown) => {
-      if (value == null) return null;
-      const n = Number(value);
-      return Number.isFinite(n) ? n : null;
-    };
-
     return {
       steps: asNumberOrNull(thresholds?.steps_goal),
       activeMinutes: asNumberOrNull(thresholds?.active_minutes_green),
@@ -344,7 +372,7 @@ const PatientProcess: React.FC = observer(() => {
     };
   }, [dailyMetrics, chartThresholds]);
 
-  const thresholdStatus = React.useMemo(() => {
+  const thresholdStatus = React.useMemo<ThresholdStatus>(() => {
     const isReached = (value: number | null, threshold: number | null) =>
       value !== null && threshold !== null && value >= threshold;
 
@@ -381,6 +409,82 @@ const PatientProcess: React.FC = observer(() => {
       </div>
     );
   };
+
+  const renderMetricBarCard = ({
+    metricKey,
+    title,
+    value,
+    threshold,
+    yMax,
+    status,
+  }: {
+    metricKey: BarMetricKey;
+    title: string;
+    value: string;
+    threshold: number | null;
+    yMax: number;
+    status: boolean | null;
+  }) => (
+    <div className="p-4 border border-accent rounded-3xl">
+      <div className="flex justify-between">
+        <div>
+          <div className="font-bold text-lg text-zinc-800">{title}</div>
+          <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
+        </div>
+        {renderThresholdStatus(status)}
+      </div>
+      <div className="flex items-end">
+        <div className="flex-1">
+          <div className="font-bold text-[28px] text-zinc-900">{value}</div>
+        </div>
+        <div className="flex-1">
+          <ChartContainer config={chartConfigs[metricKey]} className="w-full">
+            <BarChart accessibilityLayer data={dailyMetrics}>
+              <CartesianGrid vertical={false} />
+              <YAxis hide domain={[0, yMax]} />
+              {threshold !== null && <ReferenceLine y={threshold} {...THRESHOLD_LINE_PROPS} />}
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                tickMargin={8}
+                axisLine={false}
+                tickFormatter={(date) => date.slice(3)}
+              />
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <Bar dataKey={metricKey} fill={CHART_ACCENT} radius={18} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      </div>
+    </div>
+  );
+
+  const barMetricCards = [
+    {
+      metricKey: 'steps' as const,
+      title: t('Steps'),
+      value: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
+      threshold: chartThresholds.steps,
+      yMax: chartYMax.steps,
+      status: thresholdStatus.steps,
+    },
+    {
+      metricKey: 'activeMinutes' as const,
+      title: t('Active Minutes'),
+      value: averageMetrics.activeMinutesLabel ?? '--',
+      threshold: chartThresholds.activeMinutes,
+      yMax: chartYMax.activeMinutes,
+      status: thresholdStatus.activeMinutes,
+    },
+    {
+      metricKey: 'sleepMinutes' as const,
+      title: t('Sleep'),
+      value: averageMetrics.sleepMinutesLabel ?? '--',
+      threshold: chartThresholds.sleepMinutes,
+      yMax: chartYMax.sleepMinutes,
+      status: thresholdStatus.sleepMinutes,
+    },
+  ];
 
   if (combinedHistoryLoading) {
     return <PatientProcessSkeleton />;
@@ -445,7 +549,7 @@ const PatientProcess: React.FC = observer(() => {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <ChartContainer config={recommendationsChartConfig} className="w-full">
+                  <ChartContainer config={chartConfigs.recommendations} className="w-full">
                     <BarChart
                       layout="vertical"
                       accessibilityLayer
@@ -455,7 +559,7 @@ const PatientProcess: React.FC = observer(() => {
                       <XAxis type="number" hide />
                       <YAxis type="category" hide />
                       <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                      <Bar dataKey="completed" stackId="a" fill="#F1ADCF" radius={18}>
+                      <Bar dataKey="completed" stackId="a" fill={CHART_ACCENT} radius={18}>
                         <LabelList
                           dataKey="completed"
                           content={({ x, y, height, value }) => (
@@ -470,7 +574,7 @@ const PatientProcess: React.FC = observer(() => {
                           )}
                         />
                       </Bar>
-                      <Bar dataKey="uncompleted" stackId="a" fill="#FCEFF5" radius={18}>
+                      <Bar dataKey="uncompleted" stackId="a" fill={CHART_ACCENT_SOFT} radius={18}>
                         <LabelList
                           dataKey="uncompleted"
                           content={({ x, y, height, value }) => (
@@ -495,135 +599,9 @@ const PatientProcess: React.FC = observer(() => {
 
         <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
           <div className="flex flex-col gap-2">
-            <div className="p-4 border border-accent rounded-3xl">
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-bold text-lg text-zinc-800">{t('Steps')}</div>
-                  <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
-                </div>
-                {renderThresholdStatus(thresholdStatus.steps)}
-              </div>
-              <div className="flex items-end">
-                <div className="flex-1">
-                  <div className="font-bold text-[28px] text-zinc-900">
-                    {averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--'}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <ChartContainer config={stepsChartConfig} className="w-full">
-                    <BarChart accessibilityLayer data={dailyMetrics}>
-                      <CartesianGrid vertical={false} />
-                      <YAxis hide domain={[0, chartYMax.steps]} />
-                      {chartThresholds.steps !== null && (
-                        <ReferenceLine
-                          y={chartThresholds.steps}
-                          stroke="#e4e4e7"
-                          strokeWidth={2}
-                          strokeDasharray="8 8"
-                        />
-                      )}
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        tickMargin={8}
-                        axisLine={false}
-                        tickFormatter={(date) => date.slice(3)}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border border-accent rounded-3xl">
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-bold text-lg text-zinc-800">{t('Active Minutes')}</div>
-                  <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
-                </div>
-                {renderThresholdStatus(thresholdStatus.activeMinutes)}
-              </div>
-              <div className="flex items-end">
-                <div className="flex-1">
-                  <div className="font-bold text-[28px] text-zinc-900">
-                    {averageMetrics.activeMinutesLabel !== null
-                      ? averageMetrics.activeMinutesLabel
-                      : '--'}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <ChartContainer config={activeMinutesChartConfig} className="w-full">
-                    <BarChart accessibilityLayer data={dailyMetrics}>
-                      <CartesianGrid vertical={false} />
-                      <YAxis hide domain={[0, chartYMax.activeMinutes]} />
-                      {chartThresholds.activeMinutes !== null && (
-                        <ReferenceLine
-                          y={chartThresholds.activeMinutes}
-                          stroke="#e4e4e7"
-                          strokeWidth={2}
-                          strokeDasharray="8 8"
-                        />
-                      )}
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        tickMargin={8}
-                        axisLine={false}
-                        tickFormatter={(date) => date.slice(3)}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Bar dataKey="activeMinutes" fill="#F1ADCF" radius={18} />
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border border-accent rounded-3xl">
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
-                  <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
-                </div>
-                {renderThresholdStatus(thresholdStatus.sleepMinutes)}
-              </div>
-              <div className="flex items-end">
-                <div className="flex-1">
-                  <div className="font-bold text-[28px] text-zinc-900">
-                    {averageMetrics.sleepMinutesLabel !== null
-                      ? averageMetrics.sleepMinutesLabel
-                      : '--'}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <ChartContainer config={sleepChartConfig} className="w-full">
-                    <BarChart accessibilityLayer data={dailyMetrics}>
-                      <CartesianGrid vertical={false} />
-                      <YAxis hide domain={[0, chartYMax.sleepMinutes]} />
-                      {chartThresholds.sleepMinutes !== null && (
-                        <ReferenceLine
-                          y={chartThresholds.sleepMinutes}
-                          stroke="#e4e4e7"
-                          strokeWidth={2}
-                          strokeDasharray="8 8"
-                        />
-                      )}
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        tickMargin={8}
-                        axisLine={false}
-                        tickFormatter={(date) => date.slice(3)}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Bar dataKey="sleepMinutes" fill="#F1ADCF" radius={18} />
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-              </div>
-            </div>
+            {barMetricCards.map((card) => (
+              <React.Fragment key={card.metricKey}>{renderMetricBarCard(card)}</React.Fragment>
+            ))}
           </div>
         </div>
 
@@ -645,25 +623,15 @@ const PatientProcess: React.FC = observer(() => {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <ChartContainer config={bloodPressureChartConfig} className="w-full">
+                  <ChartContainer config={chartConfigs.bloodPressure} className="w-full">
                     <LineChart accessibilityLayer data={dailyMetrics}>
                       <CartesianGrid vertical={false} />
                       <YAxis hide domain={[0, chartYMax.bloodPressure]} />
                       {chartThresholds.bpSysMax !== null && (
-                        <ReferenceLine
-                          y={chartThresholds.bpSysMax}
-                          stroke="#e4e4e7"
-                          strokeWidth={2}
-                          strokeDasharray="8 8"
-                        />
+                        <ReferenceLine y={chartThresholds.bpSysMax} {...THRESHOLD_LINE_PROPS} />
                       )}
                       {chartThresholds.bpDiaMax !== null && (
-                        <ReferenceLine
-                          y={chartThresholds.bpDiaMax}
-                          stroke="#e4e4e7"
-                          strokeWidth={2}
-                          strokeDasharray="8 8"
-                        />
+                        <ReferenceLine y={chartThresholds.bpDiaMax} {...THRESHOLD_LINE_PROPS} />
                       )}
                       <XAxis
                         dataKey="date"
@@ -676,7 +644,7 @@ const PatientProcess: React.FC = observer(() => {
                       <Line
                         type="monotone"
                         dataKey="bpSys"
-                        stroke="#F1ADCF"
+                        stroke={CHART_ACCENT}
                         strokeWidth={4}
                         dot={true}
                         connectNulls={true}
@@ -684,7 +652,7 @@ const PatientProcess: React.FC = observer(() => {
                       <Line
                         type="monotone"
                         dataKey="bpDia"
-                        stroke="#F1ADCF80"
+                        stroke={CHART_ACCENT_LIGHT}
                         strokeWidth={4}
                         dot={true}
                         connectNulls={true}
