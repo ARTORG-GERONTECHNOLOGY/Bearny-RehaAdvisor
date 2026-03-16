@@ -67,42 +67,22 @@ const PatientProcess: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const stepsChartConfig = {
-    steps: {
-      label: t('Steps'),
-    },
-  } satisfies ChartConfig;
-
-  const activeMinutesChartConfig = {
-    activeMinutes: {
-      label: t('Active Minutes'),
-    },
-  } satisfies ChartConfig;
-
-  const sleepChartConfig = {
-    sleepMinutes: {
-      label: t('Sleep (min)'),
-    },
-  } satisfies ChartConfig;
-
-  const bloodPressureChartConfig = {
-    bpSys: {
-      label: t('Blood pressure systolic'),
-    },
-    bpDia: {
-      label: t('Blood pressure diastolic'),
-    },
-  } satisfies ChartConfig;
-
   const recommendationsChartConfig = {
-    completed: {
-      label: t('Completed'),
-      color: '#F1ADCF',
-    },
-    uncompleted: {
-      label: t('Uncompleted'),
-      color: '#FCEFF5',
-    },
+    completed: { label: t('Completed') },
+    uncompleted: { label: t('Uncompleted') },
+  } satisfies ChartConfig;
+  const stepsChartConfig = {
+    steps: { label: t('Steps') },
+  } satisfies ChartConfig;
+  const activeMinutesChartConfig = {
+    activeMinutes: { label: t('Active Minutes') },
+  } satisfies ChartConfig;
+  const sleepChartConfig = {
+    sleepMinutes: { label: t('Sleep (min)') },
+  } satisfies ChartConfig;
+  const bloodPressureChartConfig = {
+    bpSys: { label: t('Blood pressure systolic') },
+    bpDia: { label: t('Blood pressure diastolic') },
   } satisfies ChartConfig;
 
   const [processFilter, setProcessFilter] = React.useState<ProcessFilter>('week');
@@ -112,6 +92,8 @@ const PatientProcess: React.FC = observer(() => {
   const [thresholds, setThresholds] = React.useState<ThresholdsResponse | null>(null);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
+
+  const { from, to } = getDateWindow(processFilter);
 
   const filterOptions: { value: ProcessFilter; label: string }[] = [
     { value: 'week', label: t('Last Week') },
@@ -204,8 +186,6 @@ const PatientProcess: React.FC = observer(() => {
     };
   }, [patientId, authStore.isAuthenticated, authStore.userType]);
 
-  const { from, to } = getDateWindow(processFilter);
-
   const dailyMetrics = React.useMemo<DailyMetricsDatum[]>(() => {
     const byDay = new Map<string, Omit<DailyMetricsDatum, 'date'>>();
 
@@ -221,45 +201,15 @@ const PatientProcess: React.FC = observer(() => {
           bp_sys?: unknown;
           bp_dia?: unknown;
         };
+
         const dayKey = typeof row.date === 'string' ? row.date.slice(0, 10) : '';
-
-        const parsedSteps =
-          typeof row.steps === 'number'
-            ? row.steps
-            : typeof row.steps === 'string'
-              ? Number(row.steps)
-              : Number.NaN;
-
-        const parsedActiveMinutes =
-          typeof row.active_minutes === 'number'
-            ? row.active_minutes
-            : typeof row.active_minutes === 'string'
-              ? Number(row.active_minutes)
-              : Number.NaN;
-
-        const rawSleepDuration = row.sleep?.sleep_duration;
-        const parsedSleepDuration =
-          typeof rawSleepDuration === 'number'
-            ? rawSleepDuration
-            : typeof rawSleepDuration === 'string'
-              ? Number(rawSleepDuration)
-              : Number.NaN;
-
-        const parsedBpSys =
-          typeof row.bp_sys === 'number'
-            ? row.bp_sys
-            : typeof row.bp_sys === 'string'
-              ? Number(row.bp_sys)
-              : Number.NaN;
-
-        const parsedBpDia =
-          typeof row.bp_dia === 'number'
-            ? row.bp_dia
-            : typeof row.bp_dia === 'string'
-              ? Number(row.bp_dia)
-              : Number.NaN;
-
         if (!dayKey) return;
+
+        const parsedSteps = Number(row.steps ?? NaN);
+        const parsedActiveMinutes = Number(row.active_minutes ?? NaN);
+        const parsedSleepDuration = Number(row.sleep?.sleep_duration ?? NaN);
+        const parsedBpSys = Number(row.bp_sys ?? NaN);
+        const parsedBpDia = Number(row.bp_dia ?? NaN);
 
         const sleepMinutes = Number.isFinite(parsedSleepDuration)
           ? parsedSleepDuration > 2000
@@ -310,8 +260,8 @@ const PatientProcess: React.FC = observer(() => {
       combinedHistory.adherence.forEach((item) => {
         if (!item || typeof item !== 'object') return;
         const row = item as { scheduled?: unknown; completed?: unknown };
-        scheduled += typeof row.scheduled === 'number' ? row.scheduled : Number(row.scheduled) || 0;
-        completed += typeof row.completed === 'number' ? row.completed : Number(row.completed) || 0;
+        scheduled += Number(row.scheduled) || 0;
+        completed += Number(row.completed) || 0;
       });
     }
     return { completed, uncompleted: Math.max(0, scheduled - completed) };
@@ -350,12 +300,9 @@ const PatientProcess: React.FC = observer(() => {
 
   const chartThresholds = React.useMemo(() => {
     const asNumberOrNull = (value: unknown) => {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'string') {
-        const n = Number(value);
-        return Number.isFinite(n) ? n : null;
-      }
-      return null;
+      if (value == null) return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
     };
 
     return {
@@ -446,8 +393,6 @@ const PatientProcess: React.FC = observer(() => {
       </Layout>
     );
   }
-
-  console.dir(chartThresholds);
 
   return (
     <Layout>
@@ -561,7 +506,7 @@ const PatientProcess: React.FC = observer(() => {
               <div className="flex items-end">
                 <div className="flex-1">
                   <div className="font-bold text-[28px] text-zinc-900">
-                    {averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '---'}
+                    {averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--'}
                   </div>
                 </div>
                 <div className="flex-1">
@@ -605,7 +550,7 @@ const PatientProcess: React.FC = observer(() => {
                   <div className="font-bold text-[28px] text-zinc-900">
                     {averageMetrics.activeMinutesLabel !== null
                       ? averageMetrics.activeMinutesLabel
-                      : '---'}
+                      : '--'}
                   </div>
                 </div>
                 <div className="flex-1">
@@ -649,7 +594,7 @@ const PatientProcess: React.FC = observer(() => {
                   <div className="font-bold text-[28px] text-zinc-900">
                     {averageMetrics.sleepMinutesLabel !== null
                       ? averageMetrics.sleepMinutesLabel
-                      : '---'}
+                      : '--'}
                   </div>
                 </div>
                 <div className="flex-1">
@@ -695,8 +640,8 @@ const PatientProcess: React.FC = observer(() => {
               <div className="flex items-end">
                 <div className="flex-1">
                   <div className="font-bold text-[28px] text-zinc-900">
-                    {averageMetrics.bpSys !== null ? averageMetrics.bpSys : '---'}
-                    <br />/{averageMetrics.bpDia !== null ? averageMetrics.bpDia : '---'} mmHg
+                    {averageMetrics.bpSys !== null ? averageMetrics.bpSys : '--'}
+                    <br />/{averageMetrics.bpDia !== null ? averageMetrics.bpDia : '--'} mmHg
                   </div>
                 </div>
                 <div className="flex-1">
@@ -732,7 +677,7 @@ const PatientProcess: React.FC = observer(() => {
                         type="monotone"
                         dataKey="bpSys"
                         stroke="#F1ADCF"
-                        strokeWidth={2.5}
+                        strokeWidth={4}
                         dot={true}
                         connectNulls={true}
                       />
@@ -740,7 +685,7 @@ const PatientProcess: React.FC = observer(() => {
                         type="monotone"
                         dataKey="bpDia"
                         stroke="#F1ADCF80"
-                        strokeWidth={2.5}
+                        strokeWidth={4}
                         dot={true}
                         connectNulls={true}
                       />
