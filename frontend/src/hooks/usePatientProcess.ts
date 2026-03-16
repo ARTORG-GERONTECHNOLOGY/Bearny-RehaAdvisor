@@ -7,9 +7,13 @@ export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
 
 export type CombinedHealthResponse = {
-  fitbit?: unknown[];
-  questionnaire?: unknown[];
-  adherence?: unknown[];
+  adherence?: AdherenceItem[];
+};
+
+type AdherenceItem = {
+  scheduled?: unknown;
+  completed?: unknown;
+  date?: unknown;
 };
 
 export type ThresholdsResponse = {
@@ -22,6 +26,32 @@ export type ThresholdsResponse = {
   bp_sys_yellow_max?: unknown;
   bp_dia_green_max?: unknown;
   bp_dia_yellow_max?: unknown;
+};
+
+type FitbitPeriodAverages = {
+  steps?: unknown;
+  active_minutes?: unknown;
+  sleep_minutes?: unknown;
+  bp_sys?: unknown;
+  bp_dia?: unknown;
+};
+
+type FitbitPeriodDaily = {
+  date?: unknown;
+  steps?: unknown;
+  active_minutes?: unknown;
+  sleep_minutes?: unknown;
+  bp_sys?: unknown;
+  bp_dia?: unknown;
+};
+
+type FitbitSummaryResponse = {
+  thresholds?: ThresholdsResponse;
+  period?: {
+    days?: unknown;
+    averages?: FitbitPeriodAverages;
+    daily?: FitbitPeriodDaily[];
+  };
 };
 
 export type DailyMetricsDatum = {
@@ -74,22 +104,25 @@ const asNumberOrNull = (value: unknown) => {
   return Number.isFinite(numericValue) ? numericValue : null;
 };
 
-const averageOf = (values: number[]) =>
-  values.length > 0
-    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-    : null;
+const asPositiveNumberOrNull = (value: unknown) => {
+  const numericValue = asNumberOrNull(value);
+  return numericValue !== null && numericValue > 0 ? numericValue : null;
+};
 
 const formatMinutesToHM = (minutes: number | null) => {
   if (minutes === null) return null;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+  const totalMinutes = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
   return `${hours}h ${remainingMinutes}min`;
 };
 
 const getDateWindow = (filter: ProcessFilter) => {
+  const days = filter === 'week' ? 7 : 30;
   const to = new Date();
   const from = new Date(to);
-  from.setDate(to.getDate() - (filter === 'week' ? 7 : 30));
+  // Range is inclusive of both `from` and `to`, so subtract days - 1.
+  from.setDate(to.getDate() - (days - 1));
 
   return { from: toISODate(from), to: toISODate(to) };
 };
@@ -98,9 +131,10 @@ export function usePatientProcess() {
   const { isAllowed } = usePatientAuthGate();
 
   const [processFilter, setProcessFilter] = useState<ProcessFilter>('week');
-  const [combinedHistory, setCombinedHistory] = useState<CombinedHealthResponse | null>(null);
-  const [combinedHistoryLoading, setCombinedHistoryLoading] = useState(false);
-  const [combinedHistoryError, setCombinedHistoryError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [adherenceItems, setAdherenceItems] = useState<AdherenceItem[]>([]);
+  const [fitbitSummary, setFitbitSummary] = useState<FitbitSummaryResponse | null>(null);
   const [thresholds, setThresholds] = useState<ThresholdsResponse | null>(null);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
@@ -110,20 +144,30 @@ export function usePatientProcess() {
   useEffect(() => {
     let alive = true;
 
-    const loadCombinedHistory = async () => {
+    const loadData = async () => {
       if (!patientId || !isAllowed) return;
 
-      setCombinedHistoryLoading(true);
-      setCombinedHistoryError('');
+      setLoading(true);
+      setError('');
 
       try {
-        const res = await apiClient.get<CombinedHealthResponse>(
-          `/patients/health-combined-history/${patientId}/`,
-          { params: { from, to } }
-        );
+        const [combinedHistoryRes, fitbitSummaryRes] = await Promise.all([
+          apiClient.get<CombinedHealthResponse>(`/patients/health-combined-history/${patientId}/`, {
+            params: { from, to },
+          }),
+          apiClient.get<FitbitSummaryResponse>(`/fitbit/summary/${patientId}/`, {
+            params: { days: processFilter === 'week' ? 7 : 30 },
+          }),
+        ]);
 
         if (!alive) return;
-        setCombinedHistory(res?.data || {});
+        setAdherenceItems(
+          Array.isArray(combinedHistoryRes?.data?.adherence)
+            ? combinedHistoryRes.data.adherence
+            : []
+        );
+        setFitbitSummary(fitbitSummaryRes?.data || null);
+        setThresholds(fitbitSummaryRes?.data?.thresholds || null);
       } catch (err: unknown) {
         const errObj = err as {
           response?: { data?: { error?: string; message?: string; detail?: string } };
@@ -131,86 +175,42 @@ export function usePatientProcess() {
         const msg = errObj?.response?.data;
 
         if (!alive) return;
-        setCombinedHistory(null);
-        setCombinedHistoryError(
-          String(msg?.error || msg?.message || msg?.detail || 'Request failed')
-        );
-      } finally {
-        if (alive) setCombinedHistoryLoading(false);
-      }
-    };
-
-    void loadCombinedHistory();
-
-    return () => {
-      alive = false;
-    };
-  }, [patientId, isAllowed, from, to]);
-
-  useEffect(() => {
-    let alive = true;
-
-    const loadThresholds = async () => {
-      if (!patientId || !isAllowed) return;
-
-      try {
-        const res = await apiClient.get<{ thresholds?: ThresholdsResponse }>(
-          `/patients/${patientId}/thresholds/`
-        );
-        if (!alive) return;
-        setThresholds(res?.data?.thresholds || {});
-      } catch {
-        if (!alive) return;
+        setAdherenceItems([]);
+        setFitbitSummary(null);
         setThresholds(null);
+        setError(String(msg?.error || msg?.message || msg?.detail || 'Request failed'));
+      } finally {
+        if (alive) setLoading(false);
       }
     };
 
-    void loadThresholds();
+    void loadData();
 
     return () => {
       alive = false;
     };
-  }, [patientId, isAllowed]);
+  }, [patientId, isAllowed, from, to, processFilter]);
 
   const dailyMetrics = useMemo<DailyMetricsDatum[]>(() => {
     const byDay = new Map<string, Omit<DailyMetricsDatum, 'date'>>();
 
-    if (Array.isArray(combinedHistory?.fitbit)) {
-      combinedHistory.fitbit.forEach((item) => {
-        if (!item || typeof item !== 'object') return;
-
-        const row = item as {
-          date?: unknown;
-          steps?: unknown;
-          active_minutes?: unknown;
-          sleep?: { sleep_duration?: unknown };
-          bp_sys?: unknown;
-          bp_dia?: unknown;
-        };
-
+    if (Array.isArray(fitbitSummary?.period?.daily)) {
+      fitbitSummary.period.daily.forEach((row) => {
         const dayKey = typeof row.date === 'string' ? row.date.slice(0, 10) : '';
         if (!dayKey) return;
 
-        const parsedSteps = Number(row.steps ?? NaN);
-        const parsedActiveMinutes = Number(row.active_minutes ?? NaN);
-        const parsedSleepDuration = Number(row.sleep?.sleep_duration ?? NaN);
-        const parsedBpSys = Number(row.bp_sys ?? NaN);
-        const parsedBpDia = Number(row.bp_dia ?? NaN);
-
-        const sleepMinutes = Number.isFinite(parsedSleepDuration)
-          ? parsedSleepDuration > 2000
-            ? parsedSleepDuration / 60000
-            : parsedSleepDuration
-          : 0;
+        const steps = asNumberOrNull(row.steps);
+        const activeMinutes = asNumberOrNull(row.active_minutes);
+        const sleepMinutes = asNumberOrNull(row.sleep_minutes);
+        const bpSys = asNumberOrNull(row.bp_sys);
+        const bpDia = asNumberOrNull(row.bp_dia);
 
         byDay.set(dayKey, {
-          steps: Number.isFinite(parsedSteps) ? Math.max(0, Math.round(parsedSteps)) : 0,
-          activeMinutes: Number.isFinite(parsedActiveMinutes)
-            ? Math.max(0, Math.round(parsedActiveMinutes))
-            : 0,
-          sleepMinutes: Math.max(0, Math.round(sleepMinutes)),
-          bpSys: Number.isFinite(parsedBpSys) ? Math.round(parsedBpSys) : null,
-          bpDia: Number.isFinite(parsedBpDia) ? Math.round(parsedBpDia) : null,
+          steps: steps !== null ? Math.max(0, Math.round(steps)) : 0,
+          activeMinutes: activeMinutes !== null ? Math.max(0, Math.round(activeMinutes)) : 0,
+          sleepMinutes: sleepMinutes !== null ? Math.max(0, Math.round(sleepMinutes)) : 0,
+          bpSys: bpSys !== null ? Math.round(bpSys) : null,
+          bpDia: bpDia !== null ? Math.round(bpDia) : null,
         });
       });
     }
@@ -237,47 +237,44 @@ export function usePatientProcess() {
     }
 
     return series;
-  }, [combinedHistory?.fitbit, from, to]);
+  }, [fitbitSummary?.period?.daily, from, to]);
 
   const adherenceTotals = useMemo(() => {
     let completed = 0;
     let scheduled = 0;
 
-    if (Array.isArray(combinedHistory?.adherence)) {
-      combinedHistory.adherence.forEach((item) => {
-        if (!item || typeof item !== 'object') return;
-        const row = item as { scheduled?: unknown; completed?: unknown };
-        scheduled += Number(row.scheduled) || 0;
-        completed += Number(row.completed) || 0;
-      });
-    }
+    adherenceItems.forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      const row = item as AdherenceItem;
+      scheduled += Number(row.scheduled) || 0;
+      completed += Number(row.completed) || 0;
+    });
 
     return { completed, uncompleted: Math.max(0, scheduled - completed) };
-  }, [combinedHistory?.adherence]);
+  }, [adherenceItems]);
 
   const averageMetrics = useMemo<AverageMetrics>(() => {
-    const withSteps = dailyMetrics.filter((entry) => entry.steps > 0);
-    const withActive = dailyMetrics.filter((entry) => entry.activeMinutes > 0);
-    const withSleep = dailyMetrics.filter((entry) => entry.sleepMinutes > 0);
-    const withBpSys = dailyMetrics.filter((entry) => entry.bpSys !== null);
-    const withBpDia = dailyMetrics.filter((entry) => entry.bpDia !== null);
+    const averages = fitbitSummary?.period?.averages;
     const adherenceTotal = adherenceTotals.completed + adherenceTotals.uncompleted;
 
-    const averageActiveMinutes = averageOf(withActive.map((entry) => entry.activeMinutes));
-    const averageSleepMinutes = averageOf(withSleep.map((entry) => entry.sleepMinutes));
+    const averageSteps = asPositiveNumberOrNull(averages?.steps);
+    const averageActiveMinutes = asPositiveNumberOrNull(averages?.active_minutes);
+    const averageSleepMinutes = asPositiveNumberOrNull(averages?.sleep_minutes);
+    const averageBpSys = asPositiveNumberOrNull(averages?.bp_sys);
+    const averageBpDia = asPositiveNumberOrNull(averages?.bp_dia);
 
     return {
-      steps: averageOf(withSteps.map((entry) => entry.steps)),
+      steps: averageSteps !== null ? Math.round(averageSteps) : null,
       activeMinutes: averageActiveMinutes,
       activeMinutesLabel: formatMinutesToHM(averageActiveMinutes),
       sleepMinutes: averageSleepMinutes,
       sleepMinutesLabel: formatMinutesToHM(averageSleepMinutes),
-      bpSys: averageOf(withBpSys.map((entry) => entry.bpSys as number)),
-      bpDia: averageOf(withBpDia.map((entry) => entry.bpDia as number)),
+      bpSys: averageBpSys !== null ? Math.round(averageBpSys) : null,
+      bpDia: averageBpDia !== null ? Math.round(averageBpDia) : null,
       recommendationsPct:
         adherenceTotal > 0 ? Math.round((adherenceTotals.completed / adherenceTotal) * 100) : null,
     };
-  }, [dailyMetrics, adherenceTotals]);
+  }, [fitbitSummary?.period?.averages, adherenceTotals]);
 
   const chartThresholds = useMemo<ChartThresholds>(() => {
     return {
@@ -354,9 +351,8 @@ export function usePatientProcess() {
     setProcessFilter,
     from,
     to,
-    combinedHistory,
-    combinedHistoryLoading,
-    combinedHistoryError,
+    loading,
+    error,
     dailyMetrics,
     adherenceTotals,
     averageMetrics,

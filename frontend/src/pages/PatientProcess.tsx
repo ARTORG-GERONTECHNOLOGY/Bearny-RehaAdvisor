@@ -35,9 +35,8 @@ const PatientProcess: React.FC = observer(() => {
     setProcessFilter,
     from,
     to,
-    combinedHistory,
-    combinedHistoryLoading,
-    combinedHistoryError,
+    loading,
+    error,
     dailyMetrics,
     adherenceTotals,
     averageMetrics,
@@ -120,7 +119,7 @@ const PatientProcess: React.FC = observer(() => {
     };
   }, [navigate]);
 
-  if (!combinedHistoryLoading && (combinedHistoryError || !combinedHistory)) {
+  if (!loading && error) {
     return (
       <Layout>
         <div className="text-red-600 text-center py-10">{t('Failed to load health data.')}</div>
@@ -159,7 +158,7 @@ const PatientProcess: React.FC = observer(() => {
         ))}
       </div>
 
-      {combinedHistoryLoading && (
+      {loading && (
         <div className="flex flex-col gap-2 mt-6">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
@@ -167,7 +166,7 @@ const PatientProcess: React.FC = observer(() => {
         </div>
       )}
 
-      {!combinedHistoryLoading && (
+      {!loading && (
         <div className="flex flex-col gap-2 mt-6">
           <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
             <div className="flex flex-col gap-2">

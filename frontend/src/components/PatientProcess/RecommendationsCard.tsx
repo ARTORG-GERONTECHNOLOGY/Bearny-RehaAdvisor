@@ -47,7 +47,11 @@ const RecommendationsCard: React.FC<Props> = ({
               data={[adherenceTotals]}
               margin={{ bottom: 16 }}
             >
-              <XAxis type="number" hide />
+              <XAxis
+                type="number"
+                domain={[0, Math.max(1, adherenceTotals.completed + adherenceTotals.uncompleted)]}
+                hide
+              />
               <YAxis type="category" hide />
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
 
