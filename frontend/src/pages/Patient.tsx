@@ -103,7 +103,7 @@ const PatientView: React.FC = observer(() => {
               <Col xs={12} sm={11} md={10} lg={8}>
                 <DailyInterventionCard
                   date={today}
-                  title={t('Your recommendations') || 'Deine Empfehlungen'}
+                  title={t('Your recommendations')}
                   badgeText={completionBadge}
                   onOpenIntervention={(rec, date) =>
                     navigate(
