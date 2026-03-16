@@ -10,7 +10,7 @@ type Props = {
   averagePerDayLabel: string;
   bpSys: number | null;
   bpDia: number | null;
-  status: boolean | null;
+  isReached: boolean | null;
   chartConfig: ChartConfig;
   data: DailyMetricsDatum[];
   yMax: number;
@@ -32,7 +32,7 @@ const BloodPressureCard: React.FC<Props> = ({
   averagePerDayLabel,
   bpSys,
   bpDia,
-  status,
+  isReached,
   chartConfig,
   data,
   yMax,
@@ -52,7 +52,7 @@ const BloodPressureCard: React.FC<Props> = ({
           <div className="font-medium text-sm text-zinc-500">{averagePerDayLabel}</div>
         </div>
         <ThresholdStatusBadge
-          isReached={status}
+          isReached={isReached}
           reachedLabel={reachedLabel}
           notReachedLabel={notReachedLabel}
         />
