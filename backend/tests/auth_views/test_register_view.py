@@ -580,9 +580,7 @@ def test_register_patient_project_invalid_for_clinic_returns_400(mongo_mock):
     """Project that doesn't belong to the chosen clinic returns 400.
     Therapist has both COPAIN and COMPASS assigned, but Berner Reha Centrum only
     maps to COPAIN; submitting COMPASS for Berner Reha Centrum must be rejected."""
-    th = _create_therapist_with_clinics(
-        "t5@example.com", ["Berner Reha Centrum"], ["COPAIN", "COMPASS"]
-    )
+    th = _create_therapist_with_clinics("t5@example.com", ["Berner Reha Centrum"], ["COPAIN", "COMPASS"])
     payload = {**_patient_base(th.id), "clinic": "Berner Reha Centrum", "project": "COMPASS"}
 
     resp = _post(payload)
