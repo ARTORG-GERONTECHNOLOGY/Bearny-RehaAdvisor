@@ -534,6 +534,7 @@
   "ConfirmDeletion": "Löschung bestätigen",
   "Interventionsuccessfullyadded": "Empfehlung erfolgreich hinzugefügt",
   "Contact": "Kontakt",
+  "Research Project Contact": "Ansprechsperson Forschungsprojekt",
   "RecomendationDuration(min)": "Empfohlene Dauer (Min)",
   "Enterrecommendationtitle": "Empfehlungstitel eingeben",
   "InterventionTitle": "Empfehlungstitel",
@@ -784,5 +785,6 @@
   "Achtsam": "Achtsam",
   "Wie groß war Ihr Bedarf an Hilfe bei Schlafproblemen?": "Wie groß war Ihr Bedarf an Hilfe bei Schlafproblemen?",
   "Funktionsfähigkeit": "Funktionsfähigkeit",
-  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc."
+  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.",
+  "Your recommendations": "Deine Empfehlungen"
 }

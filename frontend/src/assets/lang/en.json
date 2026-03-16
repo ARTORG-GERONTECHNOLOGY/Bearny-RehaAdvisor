@@ -536,6 +536,7 @@
   "ConfirmDeletion": "Confirm Deletion",
   "Interventionsuccessfullyadded": "Intervention successfully added",
   "Contact": "Contact",
+  "Research Project Contact": "Research Project Contact",
   "RecomendationDuration(min)": "Recomendation Duration (min)",
   "Enterrecommendationtitle": "Enter recommendation title",
   "InterventionTitle": "Intervention Title",
@@ -776,5 +777,6 @@
   "Bewusstseinserweiternd": "Mind-expanding",
   "Geistig aktivierend": "Mentally stimulating",
   "Lehrreich": "Educational",
-  "Achtsam": "Mindful"
+  "Achtsam": "Mindful",
+  "Your recommendations": "Your recommendations"
 }

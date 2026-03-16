@@ -2,83 +2,18 @@ import { screen } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
-// --- mocks ---
-const mockNavigate = jest.fn();
-
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
-  return { ...actual, useNavigate: () => mockNavigate };
-});
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
-
-jest.mock('@/components/common/Header', () => ({
+jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
-}));
-
-jest.mock('@/components/common/Footer', () => ({
-  __esModule: true,
-  default: () => <div data-testid="footer" />,
-}));
-
-// PrivacyPolicy imports LoginForm but does not render it currently.
-// Still mock to avoid side effects if it changes later.
-jest.mock('@/components/HomePage/LoginForm', () => ({
-  __esModule: true,
-  default: () => <div data-testid="loginform" />,
-}));
-
-// lightweight bootstrap mocks
-jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
-}));
-
-const authStoreMock = {
-  isAuthenticated: false,
-  checkAuthentication: jest.fn(),
-};
-
-jest.mock('@/stores/authStore', () => ({
-  __esModule: true,
-  get default() {
-    return authStoreMock;
-  },
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="layout">{children}</div>
+  ),
 }));
 
 describe('PrivacyPolicy', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockNavigate.mockReset();
-    authStoreMock.isAuthenticated = false;
-  });
-
-  it('calls authStore.checkAuthentication on mount', () => {
+  it('renders inside the layout wrapper', () => {
     renderWithRouter(<PrivacyPolicy />);
-    expect(authStoreMock.checkAuthentication).toHaveBeenCalledTimes(1);
-  });
 
-  it('renders Header and Footer', () => {
-    renderWithRouter(<PrivacyPolicy />);
-    expect(screen.getByTestId('header')).toBeInTheDocument();
-    expect(screen.getByTestId('footer')).toBeInTheDocument();
-  });
-
-  it('passes auth state to Header (logged out)', () => {
-    authStoreMock.isAuthenticated = false;
-    renderWithRouter(<PrivacyPolicy />);
-    expect(screen.getByTestId('header')).toHaveTextContent('logged:false');
-  });
-
-  it('passes auth state to Header (logged in)', () => {
-    authStoreMock.isAuthenticated = true;
-    renderWithRouter(<PrivacyPolicy />);
-    expect(screen.getByTestId('header')).toHaveTextContent('logged:true');
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
   });
 
   it('renders Privacy Policy title with aria-label', () => {
@@ -129,8 +64,6 @@ describe('PrivacyPolicy', () => {
   it('mounts layout container structure (smoke)', () => {
     renderWithRouter(<PrivacyPolicy />);
 
-    expect(screen.getByTestId('container')).toBeInTheDocument();
-    expect(screen.getByTestId('row')).toBeInTheDocument();
-    expect(screen.getByTestId('col')).toBeInTheDocument();
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
   });
 });

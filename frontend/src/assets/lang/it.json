@@ -543,6 +543,7 @@
   "ConfirmDeletion": "Conferma eliminazione",
   "Interventionsuccessfullyadded": "Raccomandazione aggiunta con successo",
   "Contact": "Contatto",
+  "Research Project Contact": "Contatto del progetto di ricerca",
   "RecomendationDuration(min)": "Durata raccomandazione (min)",
   "Enterrecommendationtitle": "Inserisci titolo della raccomandazione",
   "InterventionTitle": "Titolo della raccomandazione",
@@ -792,5 +793,6 @@
   "Achtsam": "Attento",
   "Wie gross war Ihr Bedarf an Hilfe bei Schlafproblemen?": "Quanto ha avuto bisogno di aiuto per problemi di sonno?",
   "Funktionsfähigkeit": "Funzionalità",
-  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Descriva la funzionalità attuale del suo corpo, ad esempio gambe, braccia, mani, memoria, digestione, funzione della vescica, ecc."
+  "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. ihr Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Descriva la funzionalità attuale del suo corpo, ad esempio gambe, braccia, mani, memoria, digestione, funzione della vescica, ecc.",
+  "Your recommendations": "I tuoi consigli"
 }
