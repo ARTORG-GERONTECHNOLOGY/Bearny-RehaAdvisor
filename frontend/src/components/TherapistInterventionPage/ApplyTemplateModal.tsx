@@ -18,7 +18,11 @@ type Props = {
   onHide: () => void;
   diagnoses: string[];
   defaultDiagnosis?: string;
-  onApplied?: (res: { applied: number; sessions_created: number; patients_affected?: number }) => void;
+  onApplied?: (res: {
+    applied: number;
+    sessions_created: number;
+    patients_affected?: number;
+  }) => void;
   templateId?: string;
 };
 
@@ -212,7 +216,10 @@ const ApplyTemplateModal: React.FC<Props> = ({
     <Modal
       show={show}
       onHide={confirmClose}
-      onEscapeKeyDown={(e) => { e.preventDefault(); confirmClose(); }}
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        confirmClose();
+      }}
       centered
       backdrop="static"
       keyboard
@@ -234,7 +241,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
             {showErrors && Object.keys(fieldErrors).length > 0 && (
               <ul className="mt-2 mb-0">
                 {Object.entries(fieldErrors).map(([key, msg]) => (
-                  <li key={key}><strong>{humanize(key)}:</strong> {msg}</li>
+                  <li key={key}>
+                    <strong>{humanize(key)}:</strong> {msg}
+                  </li>
                 ))}
               </ul>
             )}
@@ -266,7 +275,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
               <Form.Label>
                 {t('Patients')}{' '}
                 {selectedIds.size > 0 && (
-                  <Badge bg="primary" className="ms-1">{selectedIds.size} {t('selected')}</Badge>
+                  <Badge bg="primary" className="ms-1">
+                    {selectedIds.size} {t('selected')}
+                  </Badge>
                 )}
               </Form.Label>
 
@@ -283,12 +294,11 @@ const ApplyTemplateModal: React.FC<Props> = ({
                     onChange={(e) => setPatientSearch(e.target.value)}
                     className="mb-2"
                   />
-                  <div
-                    className="border rounded"
-                    style={{ maxHeight: 220, overflowY: 'auto' }}
-                  >
+                  <div className="border rounded" style={{ maxHeight: 220, overflowY: 'auto' }}>
                     {filteredPatients.length === 0 ? (
-                      <div className="text-muted text-center py-3 small">{t('No data available')}</div>
+                      <div className="text-muted text-center py-3 small">
+                        {t('No data available')}
+                      </div>
                     ) : (
                       <>
                         {/* Select all row */}
@@ -300,7 +310,10 @@ const ApplyTemplateModal: React.FC<Props> = ({
                           <Form.Check
                             type="checkbox"
                             readOnly
-                            checked={filteredPatients.length > 0 && selectedIds.size === filteredPatients.length}
+                            checked={
+                              filteredPatients.length > 0 &&
+                              selectedIds.size === filteredPatients.length
+                            }
                             className="me-2 pointer-events-none"
                           />
                           <span className="small fw-semibold">{t('Select All')}</span>
@@ -320,7 +333,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
                               className="me-2 pointer-events-none"
                             />
                             <span className="small">
-                              <strong>{p.first_name} {p.name}</strong>
+                              <strong>
+                                {p.first_name} {p.name}
+                              </strong>
                               <span className="text-muted ms-2">({p.patient_code})</span>
                             </span>
                           </div>
@@ -347,7 +362,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
               >
                 <option value="">{t('Choose...')}</option>
                 {diagnoses.map((d) => (
-                  <option key={d} value={d}>{d}</option>
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
                 ))}
               </Form.Select>
               <Form.Text className="text-muted">
@@ -367,7 +384,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
                   onChange={(e) => setEffectiveFrom(e.target.value)}
                   isInvalid={!!fieldErrors.effectiveFrom}
                 />
-                <Form.Control.Feedback type="invalid">{fieldErrors.effectiveFrom}</Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.effectiveFrom}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col md={6} className="d-flex align-items-end">

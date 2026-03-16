@@ -744,9 +744,7 @@ def register_view(request):
                     cleaned_study = raw_study_end.split("T")[0]
                     study_end_date = datetime.strptime(cleaned_study, "%Y-%m-%d")
                 except Exception as e:
-                    logger.warning(
-                        "Invalid studyEndDate. raw=%r error=%s", raw_study_end, e
-                    )
+                    logger.warning("Invalid studyEndDate. raw=%r error=%s", raw_study_end, e)
                     rollback()
                     return _err(
                         "Validation error.",

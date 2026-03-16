@@ -169,11 +169,16 @@ const TherapistRecomendations: React.FC = observer(() => {
   };
 
   const [seenMap, setSeenMap] = useState<Record<string, TemplateSeen>>(() => {
-    try { return JSON.parse(localStorage.getItem('templateSeenMap') || '{}'); }
-    catch { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem('templateSeenMap') || '{}');
+    } catch {
+      return {};
+    }
   });
   const seenMapRef = useRef(seenMap);
-  useEffect(() => { seenMapRef.current = seenMap; }, [seenMap]);
+  useEffect(() => {
+    seenMapRef.current = seenMap;
+  }, [seenMap]);
 
   // In-memory diffs computed this session — cleared on page refresh
   const [sessionDiffs, setSessionDiffs] = useState<Record<string, TemplateDiff>>({});
@@ -217,8 +222,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     if (!q) return templateStore.templates;
     return templateStore.templates.filter(
       (tmpl) =>
-        tmpl.name.toLowerCase().includes(q) ||
-        (tmpl.description || '').toLowerCase().includes(q)
+        tmpl.name.toLowerCase().includes(q) || (tmpl.description || '').toLowerCase().includes(q)
     );
   }, [templateStore.templates, templateSearch]);
 
@@ -380,7 +384,9 @@ const TherapistRecomendations: React.FC = observer(() => {
         let res: any;
         if (namedId) {
           q.set('horizon_days', String(horizon || 84));
-          res = await apiClient.get<TemplatePayload>(`templates/${namedId}/calendar/?${q.toString()}`);
+          res = await apiClient.get<TemplatePayload>(
+            `templates/${namedId}/calendar/?${q.toString()}`
+          );
         } else {
           if (horizon) q.set('horizon', String(horizon));
           res = await apiClient.get<TemplatePayload>(
@@ -398,7 +404,8 @@ const TherapistRecomendations: React.FC = observer(() => {
   );
 
   useEffect(() => {
-    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
+    if (mainTab === 'templates')
+      fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
   }, [mainTab, templateDiag, templateHorizon, activeTemplateId, fetchTemplates]);
 
   // Load named template list when entering templates tab
@@ -481,7 +488,7 @@ const TherapistRecomendations: React.FC = observer(() => {
       localStorage.setItem('templateSeenMap', JSON.stringify(updated));
       return updated;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateItems, activeTemplateId]);
 
   const openAssignToTemplate = (
@@ -513,7 +520,9 @@ const TherapistRecomendations: React.FC = observer(() => {
     try {
       if (activeTemplateId) {
         const q = diagnosis ? `?diagnosis=${encodeURIComponent(diagnosis)}` : '';
-        await apiClient.delete(`templates/${activeTemplateId}/interventions/${interventionId}/${q}`);
+        await apiClient.delete(
+          `templates/${activeTemplateId}/interventions/${interventionId}/${q}`
+        );
       } else {
         const payload: any = { intervention_id: interventionId, diagnosis };
         if (typeof startDay === 'number') payload.start_day = startDay;
@@ -641,7 +650,8 @@ const TherapistRecomendations: React.FC = observer(() => {
     if (isUpdated) {
       const metaChanges: string[] = [];
       if (tmpl.name !== oldSnap.name) metaChanges.push(t('Name changed'));
-      if ((tmpl.description || '') !== (oldSnap.description || '')) metaChanges.push(t('Description changed'));
+      if ((tmpl.description || '') !== (oldSnap.description || ''))
+        metaChanges.push(t('Description changed'));
       setSessionDiffs((prev) => ({
         ...prev,
         [id]: { date: tmpl.updatedAt, metaChanges, added: [], removed: [] },
@@ -752,293 +762,361 @@ const TherapistRecomendations: React.FC = observer(() => {
           </>
         ) : (
           <>
-          {/* ── Named template management bar ── */}
-          <Card className="mb-3">
-            <Card.Body>
-              {/* ── Row 1: search + selector + actions ── */}
-              <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
-
-                {/* ── Template autocomplete search ── */}
-                <div className="position-relative" style={{ minWidth: 240 }}>
-                  <Form.Control
-                    size="sm"
-                    placeholder={t('Search templates...')}
-                    value={templateSearch}
-                    onChange={(e) => setTemplateSearch(e.target.value)}
-                    onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
-                    autoComplete="off"
-                  />
-                  {templateSearch.trim() && (
-                    <div
-                      className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"
-                      style={{ zIndex: 1050, maxHeight: 260, overflowY: 'auto' }}
-                    >
-                      {filteredTemplates.length === 0 ? (
-                        <div className="px-3 py-2 text-muted small">{t('No data available')}</div>
-                      ) : (
-                        filteredTemplates.map((tmpl) => {
-                          const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
-                          const q = templateSearch.trim();
-                          const highlight = (text: string) => {
-                            const idx = text.toLowerCase().indexOf(q.toLowerCase());
-                            if (idx === -1) return <>{text}</>;
+            {/* ── Named template management bar ── */}
+            <Card className="mb-3">
+              <Card.Body>
+                {/* ── Row 1: search + selector + actions ── */}
+                <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+                  {/* ── Template autocomplete search ── */}
+                  <div className="position-relative" style={{ minWidth: 240 }}>
+                    <Form.Control
+                      size="sm"
+                      placeholder={t('Search templates...')}
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                      onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
+                      autoComplete="off"
+                    />
+                    {templateSearch.trim() && (
+                      <div
+                        className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"
+                        style={{ zIndex: 1050, maxHeight: 260, overflowY: 'auto' }}
+                      >
+                        {filteredTemplates.length === 0 ? (
+                          <div className="px-3 py-2 text-muted small">{t('No data available')}</div>
+                        ) : (
+                          filteredTemplates.map((tmpl) => {
+                            const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
+                            const q = templateSearch.trim();
+                            const highlight = (text: string) => {
+                              const idx = text.toLowerCase().indexOf(q.toLowerCase());
+                              if (idx === -1) return <>{text}</>;
+                              return (
+                                <>
+                                  {text.slice(0, idx)}
+                                  <mark className="p-0 bg-warning bg-opacity-50">
+                                    {text.slice(idx, idx + q.length)}
+                                  </mark>
+                                  {text.slice(idx + q.length)}
+                                </>
+                              );
+                            };
                             return (
-                              <>
-                                {text.slice(0, idx)}
-                                <mark className="p-0 bg-warning bg-opacity-50">{text.slice(idx, idx + q.length)}</mark>
-                                {text.slice(idx + q.length)}
-                              </>
-                            );
-                          };
-                          return (
-                            <div
-                              key={tmpl.id}
-                              className={`px-3 py-2 border-bottom ${activeTemplateId === tmpl.id ? 'bg-primary bg-opacity-10' : ''}`}
-                              style={{ cursor: 'pointer' }}
-                              onMouseDown={(e) => {
-                                e.preventDefault(); // keep focus on input during click
-                                handleTemplateSelect(tmpl.id);
-                                setTemplateSearch('');
-                              }}
-                            >
-                              <div className="d-flex align-items-center gap-1">
-                                {isUnseen && <FaBell className="text-warning" style={{ fontSize: '0.7rem' }} />}
-                                <span className="fw-semibold small">{highlight(tmpl.name)}</span>
-                                {tmpl.is_public && <span className="badge bg-secondary ms-1" style={{ fontSize: '0.65rem' }}>{t('public')}</span>}
-                                {tmpl.created_by !== authStore.id && (
-                                  <span className="text-muted small ms-1">— {tmpl.created_by_name}</span>
+                              <div
+                                key={tmpl.id}
+                                className={`px-3 py-2 border-bottom ${activeTemplateId === tmpl.id ? 'bg-primary bg-opacity-10' : ''}`}
+                                style={{ cursor: 'pointer' }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // keep focus on input during click
+                                  handleTemplateSelect(tmpl.id);
+                                  setTemplateSearch('');
+                                }}
+                              >
+                                <div className="d-flex align-items-center gap-1">
+                                  {isUnseen && (
+                                    <FaBell
+                                      className="text-warning"
+                                      style={{ fontSize: '0.7rem' }}
+                                    />
+                                  )}
+                                  <span className="fw-semibold small">{highlight(tmpl.name)}</span>
+                                  {tmpl.is_public && (
+                                    <span
+                                      className="badge bg-secondary ms-1"
+                                      style={{ fontSize: '0.65rem' }}
+                                    >
+                                      {t('public')}
+                                    </span>
+                                  )}
+                                  {tmpl.created_by !== authStore.id && (
+                                    <span className="text-muted small ms-1">
+                                      — {tmpl.created_by_name}
+                                    </span>
+                                  )}
+                                </div>
+                                {tmpl.description && (
+                                  <div className="text-muted small text-truncate">
+                                    {highlight(tmpl.description)}
+                                  </div>
                                 )}
                               </div>
-                              {tmpl.description && (
-                                <div className="text-muted small text-truncate">{highlight(tmpl.description)}</div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                {/* ── Full template selector (for browsing without search) ── */}
-                <div className="position-relative">
-                  <Form.Select
+                  {/* ── Full template selector (for browsing without search) ── */}
+                  <div className="position-relative">
+                    <Form.Select
+                      size="sm"
+                      style={{ maxWidth: 280 }}
+                      value={activeTemplateId}
+                      onChange={(e) => handleTemplateSelect(e.target.value)}
+                    >
+                      <option value="">{t('Implicit therapist template')}</option>
+                      {templateStore.templates.map((tmpl) => {
+                        const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
+                        return (
+                          <option key={tmpl.id} value={tmpl.id}>
+                            {isUnseen ? '● ' : ''}
+                            {tmpl.name}
+                            {tmpl.is_public ? ` (${t('public')})` : ''}
+                            {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
+                          </option>
+                        );
+                      })}
+                    </Form.Select>
+                    {unseenTemplates.length > 0 && (
+                      <span
+                        className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
+                        style={{ fontSize: '0.65rem', cursor: 'default' }}
+                        title={t('{{count}} template(s) updated since last view', {
+                          count: unseenTemplates.length,
+                        })}
+                      >
+                        <FaBell className="me-1" />
+                        {unseenTemplates.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {templateStore.loading && <Spinner size="sm" />}
+
+                  <Button
                     size="sm"
-                    style={{ maxWidth: 280 }}
-                    value={activeTemplateId}
-                    onChange={(e) => handleTemplateSelect(e.target.value)}
+                    variant="outline-success"
+                    onClick={() => setShowNewTemplateModal(true)}
                   >
-                    <option value="">{t('Implicit therapist template')}</option>
-                    {templateStore.templates.map((tmpl) => {
-                      const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
-                      return (
-                        <option key={tmpl.id} value={tmpl.id}>
-                          {isUnseen ? '● ' : ''}{tmpl.name}
-                          {tmpl.is_public ? ` (${t('public')})` : ''}
-                          {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
-                        </option>
-                      );
-                    })}
-                  </Form.Select>
-                  {unseenTemplates.length > 0 && (
-                    <span
-                      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
-                      style={{ fontSize: '0.65rem', cursor: 'default' }}
-                      title={t('{{count}} template(s) updated since last view', { count: unseenTemplates.length })}
-                    >
-                      <FaBell className="me-1" />{unseenTemplates.length}
-                    </span>
-                  )}
-                </div>
+                    <FaPlus className="me-1" />
+                    {t('New')}
+                  </Button>
 
-                {templateStore.loading && <Spinner size="sm" />}
-
-                <Button size="sm" variant="outline-success" onClick={() => setShowNewTemplateModal(true)}>
-                  <FaPlus className="me-1" />{t('New')}
-                </Button>
-
-                {activeTemplateId && (
-                  <ButtonGroup size="sm">
-                    <Button
-                      variant="outline-primary"
-                      onClick={() => setShowApplyModal(true)}
-                      title={t('Apply to patient')}
-                    >
-                      <FaUpload className="me-1" />{t('Apply')}
-                    </Button>
-                    {templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by === authStore.id && (
+                  {activeTemplateId && (
+                    <ButtonGroup size="sm">
+                      <Button
+                        variant="outline-primary"
+                        onClick={() => setShowApplyModal(true)}
+                        title={t('Apply to patient')}
+                      >
+                        <FaUpload className="me-1" />
+                        {t('Apply')}
+                      </Button>
+                      {templateStore.templates.find((x) => x.id === activeTemplateId)
+                        ?.created_by === authStore.id && (
+                        <Button
+                          variant="outline-secondary"
+                          onClick={handleOpenEditMeta}
+                          title={t('Edit name / description')}
+                        >
+                          <FaEdit />
+                        </Button>
+                      )}
                       <Button
                         variant="outline-secondary"
-                        onClick={handleOpenEditMeta}
-                        title={t('Edit name / description')}
+                        onClick={handleCopyActiveTemplate}
+                        title={t('Copy template')}
                       >
-                        <FaEdit />
+                        <FaCopy />
                       </Button>
-                    )}
-                    <Button
-                      variant="outline-secondary"
-                      onClick={handleCopyActiveTemplate}
-                      title={t('Copy template')}
+                      {templateStore.templates.find((x) => x.id === activeTemplateId)
+                        ?.created_by === authStore.id && (
+                        <Button
+                          variant="outline-danger"
+                          onClick={handleDeleteActiveTemplate}
+                          title={t('Delete template')}
+                        >
+                          <FaTrash />
+                        </Button>
+                      )}
+                    </ButtonGroup>
+                  )}
+                </div>
+
+                {/* ── Row 2: view options (diagnosis + horizon) ── */}
+                <div className="d-flex align-items-center flex-wrap gap-3 mb-2">
+                  <div className="d-flex align-items-center gap-1">
+                    <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
+                    <Form.Select
+                      size="sm"
+                      style={{ maxWidth: 200 }}
+                      value={templateDiag}
+                      onChange={(e) => setTemplateDiag(e.target.value)}
                     >
-                      <FaCopy />
-                    </Button>
-                    {templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by === authStore.id && (
-                      <Button
-                        variant="outline-danger"
-                        onClick={handleDeleteActiveTemplate}
-                        title={t('Delete template')}
-                      >
-                        <FaTrash />
-                      </Button>
-                    )}
-                  </ButtonGroup>
-                )}
-              </div>
-
-              {/* ── Row 2: view options (diagnosis + horizon) ── */}
-              <div className="d-flex align-items-center flex-wrap gap-3 mb-2">
-                <div className="d-flex align-items-center gap-1">
-                  <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
-                  <Form.Select
-                    size="sm"
-                    style={{ maxWidth: 200 }}
-                    value={templateDiag}
-                    onChange={(e) => setTemplateDiag(e.target.value)}
-                  >
-                    <option value="">{t('All')}</option>
-                    {diagnoses.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </Form.Select>
-                </div>
-                <div className="d-flex align-items-center gap-1">
-                  <small className="text-muted">{t('Horizon (days)')}:</small>
-                  <Form.Control
-                    size="sm"
-                    type="number"
-                    min={14}
-                    max={180}
-                    style={{ maxWidth: 80 }}
-                    value={templateHorizon}
-                    onChange={(e) => setTemplateHorizon(parseInt(e.target.value || '84', 10))}
-                  />
-                </div>
-              </div>
-
-              {activeTemplateId && (() => {
-                const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
-                if (!tmpl) return null;
-                const diff = sessionDiffs[activeTemplateId];
-                return (
-                  <div className="d-flex flex-column ms-2" style={{ maxWidth: 480 }}>
-                    {tmpl.description && (
-                      <small className="text-muted">{tmpl.description}</small>
-                    )}
-                    {diff && (() => {
-                      const scheduleLabel = (i: InterventionRef) => {
-                        const end = i.end_day != null ? ` → ${t('day')} ${i.end_day}` : '';
-                        const days = i.selectedDays.length ? ` (${i.selectedDays.join(', ')})` : '';
-                        return `${t('day')} ${i.start_day}${end}, ${t('every')} ${i.interval} ${t(i.unit)}${days}`;
-                      };
-                      const scheduleChanges = (m: ModifiedRef) => {
-                        const parts: string[] = [];
-                        if (m.curr.start_day !== m.prev.start_day)
-                          parts.push(`${t('start day')} ${m.prev.start_day} → ${m.curr.start_day}`);
-                        if (m.curr.end_day !== m.prev.end_day)
-                          parts.push(`${t('end day')} ${m.prev.end_day ?? '∞'} → ${m.curr.end_day ?? '∞'}`);
-                        if (m.curr.unit !== m.prev.unit || m.curr.interval !== m.prev.interval)
-                          parts.push(`${t('frequency')}: ${m.prev.interval} ${t(m.prev.unit)} → ${m.curr.interval} ${t(m.curr.unit)}`);
-                        if (
-                          JSON.stringify([...m.curr.selectedDays].sort()) !==
-                          JSON.stringify([...m.prev.selectedDays].sort())
-                        )
-                          parts.push(`${t('days')}: ${m.prev.selectedDays.join(', ') || '—'} → ${m.curr.selectedDays.join(', ') || '—'}`);
-                        return parts.join('; ');
-                      };
-                      const totalChanges =
-                        diff.metaChanges.length + diff.added.length +
-                        diff.removed.length + diff.modified.length;
-                      return (
-                        <div className="mt-1">
-                          <button
-                            className="btn btn-sm btn-warning d-flex align-items-center gap-1 py-0 px-2"
-                            onClick={() => setShowDiff((v) => !v)}
-                          >
-                            <FaBell />
-                            <small>
-                              {t('Updated')}: {new Date(diff.date).toLocaleDateString()}
-                              {' '}({totalChanges})
-                            </small>
-                            <small>{showDiff ? '▲' : '▼'}</small>
-                          </button>
-                          {showDiff && (
-                            <div className="mt-1 p-2 rounded border border-warning bg-warning bg-opacity-10">
-                              {diff.metaChanges.map((c) => (
-                                <small key={c} className="text-muted d-block">• {c}</small>
-                              ))}
-                              {diff.added.map((i) => (
-                                <small key={`${i.id}::${i.diagnosis}`} className="text-success d-block">
-                                  + {translatedTitles[i.id]?.title ?? i.title}
-                                  {i.diagnosis && <span className="text-muted"> [{i.diagnosis}]</span>}
-                                  <span className="text-muted"> — {scheduleLabel(i)}</span>
-                                </small>
-                              ))}
-                              {diff.removed.map((i) => (
-                                <small key={`${i.id}::${i.diagnosis}`} className="text-danger d-block">
-                                  − {translatedTitles[i.id]?.title ?? i.title}
-                                  {i.diagnosis && <span className="text-muted"> [{i.diagnosis}]</span>}
-                                </small>
-                              ))}
-                              {diff.modified.map(({ prev, curr }) => (
-                                <small key={`${curr.id}::${curr.diagnosis}`} className="text-warning-emphasis d-block">
-                                  ~ {translatedTitles[curr.id]?.title ?? curr.title}
-                                  {curr.diagnosis && <span className="text-muted"> [{curr.diagnosis}]</span>}
-                                  <span className="text-muted"> — {scheduleChanges({ prev, curr })}</span>
-                                </small>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                      <option value="">{t('All')}</option>
+                      {diagnoses.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </Form.Select>
                   </div>
-                );
-              })()}
-            </Card.Body>
-          </Card>
+                  <div className="d-flex align-items-center gap-1">
+                    <small className="text-muted">{t('Horizon (days)')}:</small>
+                    <Form.Control
+                      size="sm"
+                      type="number"
+                      min={14}
+                      max={180}
+                      style={{ maxWidth: 80 }}
+                      value={templateHorizon}
+                      onChange={(e) => setTemplateHorizon(parseInt(e.target.value || '84', 10))}
+                    />
+                  </div>
+                </div>
 
-          <TemplatesLayout
-            t={t}
-            // sub-tab
-            templateLeftTab={templateLeftTab}
-            onTemplateLeftTab={setTemplateLeftTab}
-            // my template list
-            templateItems={templateItems}
-            tLoading={tLoading}
-            translatedTitles={translatedTitles}
-            getSegments={getSegments}
-            segmentSummary={segmentSummary}
-            onTemplateItemClick={handleTemplateItemClick}
-            onModifyTemplate={openModifyTemplate}
-            onRemoveTemplateItem={removeTemplateItem}
-            // browse all list
-            browseAllItems={templateFilteredAll}
-            findTemplateFor={findTemplateFor}
-            onOpenAssign={openAssignToTemplate}
-            // browse filters
-            filters={templatesFilters}
-            onFilters={setTemplatesFilters}
-            onResetFilters={resetTemplateFilters}
-            // right timeline
-            timeline={
-              <TemplateTimeline
-                items={templateItems}
-                horizonDays={templateHorizon}
-                translatedTitles={translatedTitles}
-              />
-            }
-            tagColors={tagColors}
-          />
+                {activeTemplateId &&
+                  (() => {
+                    const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
+                    if (!tmpl) return null;
+                    const diff = sessionDiffs[activeTemplateId];
+                    return (
+                      <div className="d-flex flex-column ms-2" style={{ maxWidth: 480 }}>
+                        {tmpl.description && (
+                          <small className="text-muted">{tmpl.description}</small>
+                        )}
+                        {diff &&
+                          (() => {
+                            const scheduleLabel = (i: InterventionRef) => {
+                              const end = i.end_day != null ? ` → ${t('day')} ${i.end_day}` : '';
+                              const days = i.selectedDays.length
+                                ? ` (${i.selectedDays.join(', ')})`
+                                : '';
+                              return `${t('day')} ${i.start_day}${end}, ${t('every')} ${i.interval} ${t(i.unit)}${days}`;
+                            };
+                            const scheduleChanges = (m: ModifiedRef) => {
+                              const parts: string[] = [];
+                              if (m.curr.start_day !== m.prev.start_day)
+                                parts.push(
+                                  `${t('start day')} ${m.prev.start_day} → ${m.curr.start_day}`
+                                );
+                              if (m.curr.end_day !== m.prev.end_day)
+                                parts.push(
+                                  `${t('end day')} ${m.prev.end_day ?? '∞'} → ${m.curr.end_day ?? '∞'}`
+                                );
+                              if (
+                                m.curr.unit !== m.prev.unit ||
+                                m.curr.interval !== m.prev.interval
+                              )
+                                parts.push(
+                                  `${t('frequency')}: ${m.prev.interval} ${t(m.prev.unit)} → ${m.curr.interval} ${t(m.curr.unit)}`
+                                );
+                              if (
+                                JSON.stringify([...m.curr.selectedDays].sort()) !==
+                                JSON.stringify([...m.prev.selectedDays].sort())
+                              )
+                                parts.push(
+                                  `${t('days')}: ${m.prev.selectedDays.join(', ') || '—'} → ${m.curr.selectedDays.join(', ') || '—'}`
+                                );
+                              return parts.join('; ');
+                            };
+                            const totalChanges =
+                              diff.metaChanges.length +
+                              diff.added.length +
+                              diff.removed.length +
+                              diff.modified.length;
+                            return (
+                              <div className="mt-1">
+                                <button
+                                  className="btn btn-sm btn-warning d-flex align-items-center gap-1 py-0 px-2"
+                                  onClick={() => setShowDiff((v) => !v)}
+                                >
+                                  <FaBell />
+                                  <small>
+                                    {t('Updated')}: {new Date(diff.date).toLocaleDateString()} (
+                                    {totalChanges})
+                                  </small>
+                                  <small>{showDiff ? '▲' : '▼'}</small>
+                                </button>
+                                {showDiff && (
+                                  <div className="mt-1 p-2 rounded border border-warning bg-warning bg-opacity-10">
+                                    {diff.metaChanges.map((c) => (
+                                      <small key={c} className="text-muted d-block">
+                                        • {c}
+                                      </small>
+                                    ))}
+                                    {diff.added.map((i) => (
+                                      <small
+                                        key={`${i.id}::${i.diagnosis}`}
+                                        className="text-success d-block"
+                                      >
+                                        + {translatedTitles[i.id]?.title ?? i.title}
+                                        {i.diagnosis && (
+                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                        )}
+                                        <span className="text-muted"> — {scheduleLabel(i)}</span>
+                                      </small>
+                                    ))}
+                                    {diff.removed.map((i) => (
+                                      <small
+                                        key={`${i.id}::${i.diagnosis}`}
+                                        className="text-danger d-block"
+                                      >
+                                        − {translatedTitles[i.id]?.title ?? i.title}
+                                        {i.diagnosis && (
+                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                        )}
+                                      </small>
+                                    ))}
+                                    {diff.modified.map(({ prev, curr }) => (
+                                      <small
+                                        key={`${curr.id}::${curr.diagnosis}`}
+                                        className="text-warning-emphasis d-block"
+                                      >
+                                        ~ {translatedTitles[curr.id]?.title ?? curr.title}
+                                        {curr.diagnosis && (
+                                          <span className="text-muted"> [{curr.diagnosis}]</span>
+                                        )}
+                                        <span className="text-muted">
+                                          {' '}
+                                          — {scheduleChanges({ prev, curr })}
+                                        </span>
+                                      </small>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                      </div>
+                    );
+                  })()}
+              </Card.Body>
+            </Card>
+
+            <TemplatesLayout
+              t={t}
+              // sub-tab
+              templateLeftTab={templateLeftTab}
+              onTemplateLeftTab={setTemplateLeftTab}
+              // my template list
+              templateItems={templateItems}
+              tLoading={tLoading}
+              translatedTitles={translatedTitles}
+              getSegments={getSegments}
+              segmentSummary={segmentSummary}
+              onTemplateItemClick={handleTemplateItemClick}
+              onModifyTemplate={openModifyTemplate}
+              onRemoveTemplateItem={removeTemplateItem}
+              // browse all list
+              browseAllItems={templateFilteredAll}
+              findTemplateFor={findTemplateFor}
+              onOpenAssign={openAssignToTemplate}
+              // browse filters
+              filters={templatesFilters}
+              onFilters={setTemplatesFilters}
+              onResetFilters={resetTemplateFilters}
+              // right timeline
+              timeline={
+                <TemplateTimeline
+                  items={templateItems}
+                  horizonDays={templateHorizon}
+                  translatedTitles={translatedTitles}
+                />
+              }
+              tagColors={tagColors}
+            />
           </>
         )}
       </Container>
@@ -1137,7 +1215,9 @@ const TherapistRecomendations: React.FC = observer(() => {
           defaultDiagnosis={templateDiag || undefined}
           mode={assignMode}
           templateId={activeTemplateId || undefined}
-          onSuccess={() => fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined)}
+          onSuccess={() =>
+            fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined)
+          }
         />
       )}
 
@@ -1166,7 +1246,11 @@ const TherapistRecomendations: React.FC = observer(() => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCopyModal(false)} disabled={copyModalSubmitting}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCopyModal(false)}
+            disabled={copyModalSubmitting}
+          >
             {t('Cancel')}
           </Button>
           <Button
@@ -1211,7 +1295,11 @@ const TherapistRecomendations: React.FC = observer(() => {
           />
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEditMetaModal(false)} disabled={editMetaSubmitting}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowEditMetaModal(false)}
+            disabled={editMetaSubmitting}
+          >
             {t('Cancel')}
           </Button>
           <Button

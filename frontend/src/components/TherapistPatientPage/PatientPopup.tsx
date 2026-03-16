@@ -32,13 +32,21 @@ function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) 
   const parts: string[] = [];
   if (th.steps_goal != null) parts.push(`${t('Steps goal')}: ${th.steps_goal}`);
   if (th.active_minutes_green != null)
-    parts.push(`${t('Active minutes (green)')}/${t('Active minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`);
+    parts.push(
+      `${t('Active minutes (green)')}/${t('Active minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`
+    );
   if (th.sleep_green_min != null)
-    parts.push(`${t('Sleep min (green, minutes)')}/${t('Sleep min (yellow, minutes)')}: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'}`);
+    parts.push(
+      `${t('Sleep min (green, minutes)')}/${t('Sleep min (yellow, minutes)')}: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'}`
+    );
   if (th.bp_sys_green_max != null)
-    parts.push(`${t('BP systolic green max')}/${t('BP systolic yellow max')}: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`);
+    parts.push(
+      `${t('BP systolic green max')}/${t('BP systolic yellow max')}: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`
+    );
   if (th.bp_dia_green_max != null)
-    parts.push(`${t('BP diastolic green max')}/${t('BP diastolic yellow max')}: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`);
+    parts.push(
+      `${t('BP diastolic green max')}/${t('BP diastolic yellow max')}: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`
+    );
   return parts.join('\n') || '—';
 }
 
@@ -499,7 +507,8 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     <Col xs={12} md={6}>
                       <Form.Group controlId="study_end_date">
                         <Form.Label>
-                          {t('Study / After-Rehab Plan End Date')} <SourceBadge fieldKey="study_end_date" />
+                          {t('Study / After-Rehab Plan End Date')}{' '}
+                          <SourceBadge fieldKey="study_end_date" />
                         </Form.Label>
                         {store.isEditing ? (
                           <Form.Control
