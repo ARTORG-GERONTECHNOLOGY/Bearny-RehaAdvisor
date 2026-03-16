@@ -72,6 +72,7 @@ const BloodPressureCard: React.FC<Props> = ({
               )}
               <XAxis
                 dataKey="date"
+                interval="preserveStartEnd"
                 tickLine={false}
                 tickMargin={8}
                 axisLine={false}

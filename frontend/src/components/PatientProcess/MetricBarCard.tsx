@@ -60,6 +60,7 @@ const MetricBarCard: React.FC<Props> = ({
               {threshold !== null && <ReferenceLine y={threshold} {...thresholdLineProps} />}
               <XAxis
                 dataKey="date"
+                interval="preserveStartEnd"
                 tickLine={false}
                 tickMargin={8}
                 axisLine={false}
