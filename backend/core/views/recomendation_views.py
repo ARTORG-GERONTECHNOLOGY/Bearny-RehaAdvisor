@@ -193,7 +193,7 @@ def apply_template_to_patient(request, therapist_id):
                 patientId=patient,
                 therapistId=therapist,
                 startDate=getattr(patient.userId, "createdAt", timezone.now()),
-                endDate=getattr(patient, "reha_end_date", None),
+                endDate=getattr(patient, "study_end_date", None) or getattr(patient, "reha_end_date", None),
                 status="active",
                 interventions=[],
                 questionnaires=[],

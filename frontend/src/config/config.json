@@ -17,7 +17,7 @@
         "Chronic Coronary Syndrome",
         "High blood pressure",
         "Stroke",
-        "Arrhytmia",
+        "Arrhythmia",
         "Chronic Obstructive Pulmonary Disease (COPD)"
       ],
       "Neurology": [
@@ -41,7 +41,7 @@
         "Chronic Coronary Syndrome",
         "High blood pressure",
         "Stroke",
-        "Arrhytmia",
+        "Arrhythmia",
         "Chronic Obstructive Pulmonary Disease (COPD)"
         ]
       },
@@ -137,7 +137,7 @@
 "projects": ["COPAIN", "COMPASS"],
   "clinic_projects": {
     "Berner Reha Centrum": ["COPAIN"],
-    "Inselspital": ["COPAIN"],
+    "Inselspital": ["COPAIN", "COMPASS"],
     "Leuven": ["COMPASS"],
     "Bern": ["COMPASS"],
     "Lisbon": ["COMPASS"],
@@ -318,10 +318,17 @@
         },
         {
           "name": "rehaEndDate",
-          "label": "Rehabilitations End Date (Modifiable afterwards)",
+          "label": "Rehabilitation End Date",
           "type": "date",
           "required": true,
           "be_name": "reha_end_date"
+        },
+        {
+          "name": "studyEndDate",
+          "label": "Study / After-Rehab Plan End Date",
+          "type": "date",
+          "required": false,
+          "be_name": "study_end_date"
         }
       ]
     }

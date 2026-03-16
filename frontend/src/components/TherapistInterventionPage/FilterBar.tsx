@@ -12,8 +12,8 @@ interface Props {
   patientTypeFilter: string;
   setPatientTypeFilter: (val: string) => void;
 
-  diagnosisFilter: string[];
-  setDiagnosisFilter: (val: string[]) => void;
+  diagnosisFilter?: string[];
+  setDiagnosisFilter?: (val: string[]) => void;
 
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
@@ -145,18 +145,20 @@ const FilterBar: React.FC<Props> = ({
         </Form.Select>
       </Form.Group>
 
-      <Form.Group controlId="filterDiagnosis">
-        <Form.Label visuallyHidden>{t('Filter by Diagnosis')}</Form.Label>
-        <Select
-          isMulti
-          placeholder={t('Filter by Diagnosis')}
-          options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
-          value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-          onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
-          styles={selectStyles}
-          menuPortalTarget={document.body}
-        />
-      </Form.Group>
+      {setDiagnosisFilter && (
+        <Form.Group controlId="filterDiagnosis">
+          <Form.Label visuallyHidden>{t('Filter by Diagnosis')}</Form.Label>
+          <Select
+            isMulti
+            placeholder={t('Filter by Diagnosis')}
+            options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
+            value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+            onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+            styles={selectStyles}
+            menuPortalTarget={document.body}
+          />
+        </Form.Group>
+      )}
 
       <Form.Group controlId="filterContentType">
         <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
