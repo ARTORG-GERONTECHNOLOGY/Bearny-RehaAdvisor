@@ -27,11 +27,11 @@ from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
     Intervention,
+    InterventionAssignment,
     InterventionTemplate,
     Patient,
     RehabilitationPlan,
     Therapist,
-    InterventionAssignment,
 )
 from utils.interventions import (
     _anchor_date_for_day,
@@ -111,9 +111,7 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
                     intervention_id = str(iv.id)
                     titles = iv.title or {}
                     intervention_title = (
-                        titles.get("en")
-                        or titles.get("de")
-                        or next(iter(titles.values()), None)
+                        titles.get("en") or titles.get("de") or next(iter(titles.values()), None)
                         if isinstance(titles, dict)
                         else str(titles)
                     )
@@ -152,9 +150,7 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
 
 def _visible_qs(therapist: Therapist):
     """QuerySet of templates the therapist can see."""
-    return InterventionTemplate.objects.filter(
-        Q(is_public=True) | Q(created_by=therapist)
-    )
+    return InterventionTemplate.objects.filter(Q(is_public=True) | Q(created_by=therapist))
 
 
 # ---------------------------------------------------------------------------
@@ -512,9 +508,7 @@ def template_intervention_remove(request, template_id, intervention_id):
                     tmpl.recommendations.remove(rec)
                 break
     else:
-        tmpl.recommendations = [
-            r for r in tmpl.recommendations if _rec_intervention_id(r) != intervention_id
-        ]
+        tmpl.recommendations = [r for r in tmpl.recommendations if _rec_intervention_id(r) != intervention_id]
 
     if len(tmpl.recommendations) == original_len and not diagnosis_key:
         return JsonResponse({"error": "Intervention not found in template."}, status=404)
@@ -736,9 +730,13 @@ def apply_named_template(request, template_id):
         )
         if not patients:
             return JsonResponse(
-                {"success": True, "applied": 0, "sessions_created": 0,
-                 "patients_affected": 0,
-                 "message": f"No patients found with diagnosis '{diagnosis_filter}'."},
+                {
+                    "success": True,
+                    "applied": 0,
+                    "sessions_created": 0,
+                    "patients_affected": 0,
+                    "message": f"No patients found with diagnosis '{diagnosis_filter}'.",
+                },
                 status=200,
             )
 
@@ -845,9 +843,7 @@ def template_calendar(request, template_id):
                     end_date = _anchor_date_for_day(seg["end_day"])
 
                     if seg["unit"] == "day":
-                        count = _occ_count_for_day_range(
-                            seg["start_day"], seg["end_day"], seg["interval"]
-                        )
+                        count = _occ_count_for_day_range(seg["start_day"], seg["end_day"], seg["interval"])
                         end_obj = {"type": "count", "count": count}
                         max_occ = count
                     else:

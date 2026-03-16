@@ -489,7 +489,9 @@ def assign_questionnaire(request):
                 patientId=patient,
                 therapistId=therapist,
                 startDate=timezone.now(),
-                endDate=getattr(patient, "study_end_date", None) or getattr(patient, "reha_end_date", None) or (timezone.now() + timedelta(days=365)),
+                endDate=getattr(patient, "study_end_date", None)
+                or getattr(patient, "reha_end_date", None)
+                or (timezone.now() + timedelta(days=365)),
                 status="active",
                 interventions=[],
                 questionnaires=[],

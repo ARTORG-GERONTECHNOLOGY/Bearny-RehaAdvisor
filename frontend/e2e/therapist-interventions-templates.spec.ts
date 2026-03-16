@@ -210,8 +210,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     const copyRequest = page.waitForRequest(
       (req) =>
-        req.url().includes(`/api/templates/${namedOptionValue}/copy/`) &&
-        req.method() === 'POST'
+        req.url().includes(`/api/templates/${namedOptionValue}/copy/`) && req.method() === 'POST'
     );
 
     await page.getByRole('button', { name: /copy/i }).click();
@@ -286,8 +285,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     const calendarRequest = page.waitForRequest(
       (req) =>
-        req.url().includes(`/api/templates/${namedOptionValue}/calendar/`) &&
-        req.method() === 'GET'
+        req.url().includes(`/api/templates/${namedOptionValue}/calendar/`) && req.method() === 'GET'
     );
 
     await selector.selectOption(namedOptionValue as string);

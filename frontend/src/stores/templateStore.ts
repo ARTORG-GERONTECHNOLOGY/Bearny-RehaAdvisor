@@ -80,7 +80,9 @@ class TemplateStore {
 
   async updateTemplate(
     id: string,
-    patch: Partial<Pick<TemplateDoc, 'name' | 'description' | 'is_public' | 'specialization' | 'diagnosis'>>
+    patch: Partial<
+      Pick<TemplateDoc, 'name' | 'description' | 'is_public' | 'specialization' | 'diagnosis'>
+    >
   ): Promise<TemplateDoc> {
     const res = await apiClient.patch<{ template: TemplateDoc }>(`templates/${id}/`, patch);
     runInAction(() => {

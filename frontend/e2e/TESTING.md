@@ -9,14 +9,14 @@ Current scope starts with the home/login journey.
 
 ## Test files
 
-| File                                   | Flow covered                                                                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `home-login.spec.ts`                   | Home page opens login modal, submits credentials to `/auth/login/`, and verifies error feedback is rendered on failed login.           |
-| `home-login-success-redirects.spec.ts` | Home login succeeds for seeded users and verifies role-based redirects (`/patient` and `/admin`).                                      |
-| `home-login-therapist.spec.ts`         | Seeded therapist login validates `/auth/login/` 2FA response and 2FA step rendering in modal.                                          |
-| `home-register-therapist.spec.ts`      | Home register modal submits therapist registration payload to `/auth/register/` and validates user-facing feedback.                    |
-| `patient-page.spec.ts`                 | Patient page access-control, core patient API call triggers, day/week/today navigation controls, and daily vitals submission behavior. |
-| `patient-interventions-page.spec.ts`   | Patient interventions library auth-guard, API load trigger, filter interactions, and details modal open/close behavior.                |
+| File                                        | Flow covered                                                                                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `home-login.spec.ts`                        | Home page opens login modal, submits credentials to `/auth/login/`, and verifies error feedback is rendered on failed login.                                                                                        |
+| `home-login-success-redirects.spec.ts`      | Home login succeeds for seeded users and verifies role-based redirects (`/patient` and `/admin`).                                                                                                                   |
+| `home-login-therapist.spec.ts`              | Seeded therapist login validates `/auth/login/` 2FA response and 2FA step rendering in modal.                                                                                                                       |
+| `home-register-therapist.spec.ts`           | Home register modal submits therapist registration payload to `/auth/register/` and validates user-facing feedback.                                                                                                 |
+| `patient-page.spec.ts`                      | Patient page access-control, core patient API call triggers, day/week/today navigation controls, and daily vitals submission behavior.                                                                              |
+| `patient-interventions-page.spec.ts`        | Patient interventions library auth-guard, API load trigger, filter interactions, and details modal open/close behavior.                                                                                             |
 | `therapist-interventions-templates.spec.ts` | Named-template management on `/interventions` Templates tab: create, select, apply, copy, delete, and calendar load. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`; tests skip gracefully without them. |
 
 ---

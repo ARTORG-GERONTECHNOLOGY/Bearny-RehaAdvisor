@@ -68,11 +68,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const validRange = startDay >= 1 && lastDay >= startDay;
   const canSubmit = useMemo(
-    () =>
-      !!interventionId &&
-      (templateId ? true : !!diagnosis) &&
-      validRange &&
-      everyK >= 1,
+    () => !!interventionId && (templateId ? true : !!diagnosis) && validRange && everyK >= 1,
     [interventionId, diagnosis, validRange, everyK, templateId]
   );
 
@@ -292,7 +288,9 @@ const TemplateAssignModal: React.FC<Props> = ({
             <Form.Label>
               {t('Diagnosis_patient_list')}
               {templateId && (
-                <span className="text-muted ms-1 small">({t('optional — leave blank for all')})</span>
+                <span className="text-muted ms-1 small">
+                  ({t('optional — leave blank for all')})
+                </span>
               )}
             </Form.Label>
             <Form.Select
