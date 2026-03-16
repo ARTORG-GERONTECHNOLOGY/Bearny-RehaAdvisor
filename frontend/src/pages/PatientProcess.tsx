@@ -43,7 +43,7 @@ const PatientProcess: React.FC = observer(() => {
     averageMetrics,
     chartThresholds,
     chartYMax,
-    thresholdStatus,
+    isReachedStatus,
   } = usePatientProcess();
 
   const chartConfigs = React.useMemo(
@@ -81,7 +81,7 @@ const PatientProcess: React.FC = observer(() => {
       value: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
       threshold: chartThresholds.steps,
       yMax: chartYMax.steps,
-      status: thresholdStatus.steps,
+      isReached: isReachedStatus.steps,
     },
     {
       metricKey: 'activeMinutes' as const,
@@ -89,7 +89,7 @@ const PatientProcess: React.FC = observer(() => {
       value: averageMetrics.activeMinutesLabel ?? '--',
       threshold: chartThresholds.activeMinutes,
       yMax: chartYMax.activeMinutes,
-      status: thresholdStatus.activeMinutes,
+      isReached: isReachedStatus.activeMinutes,
     },
     {
       metricKey: 'sleepMinutes' as const,
@@ -97,7 +97,7 @@ const PatientProcess: React.FC = observer(() => {
       value: averageMetrics.sleepMinutesLabel ?? '--',
       threshold: chartThresholds.sleepMinutes,
       yMax: chartYMax.sleepMinutes,
-      status: thresholdStatus.sleepMinutes,
+      isReached: isReachedStatus.sleepMinutes,
     },
   ];
 
@@ -189,7 +189,7 @@ const PatientProcess: React.FC = observer(() => {
                 data={dailyMetrics}
                 yMax={card.yMax}
                 threshold={card.threshold}
-                status={card.status}
+                isReached={card.isReached}
                 chartConfig={chartConfigs[card.metricKey]}
                 averagePerDayLabel={t('Average per day')}
                 reachedLabel={t('Done')}
@@ -208,7 +208,7 @@ const PatientProcess: React.FC = observer(() => {
               averagePerDayLabel={t('Average per day')}
               bpSys={averageMetrics.bpSys}
               bpDia={averageMetrics.bpDia}
-              status={thresholdStatus.bloodPressure}
+              isReached={isReachedStatus.bloodPressure}
               chartConfig={chartConfigs.bloodPressure}
               data={dailyMetrics}
               yMax={chartYMax.bloodPressure}
