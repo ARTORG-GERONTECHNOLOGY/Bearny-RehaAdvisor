@@ -460,7 +460,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       const source = allowedProjectsForSelectedClinics.length
         ? allowedProjectsForSelectedClinics
         : allProjects;
-      return source.map((p) => ({ value: p, label: p }));
+      return source.map((p) => ({ value: p, label: t(p) }));
     }
     return [];
   };

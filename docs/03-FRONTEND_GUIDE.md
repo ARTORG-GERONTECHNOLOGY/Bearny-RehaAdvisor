@@ -790,6 +790,90 @@ const fetchTemplates = async (namedId?: string) => {
 
 **`removeTemplateItem` routing** — similarly routes to `DELETE templates/<id>/interventions/<int_id>/` for named templates or the legacy POST for the implicit template.
 
+### Testing the Named Template System
+
+#### Jest unit tests — `templateStore`
+
+**File:** `src/__tests__/stores/templateStore.test.ts`
+
+Tests all 5 async store actions using the `apiClient` mock (`src/__mocks__/api/client`):
+
+| Test group | What is verified |
+|---|---|
+| `fetchTemplates` | no-filter call, query params appended, sets `templates`, error state |
+| `createTemplate` | POST payload, result prepended to `templates` |
+| `deleteTemplate` | DELETE call, item removed from `templates`, 404 sets error |
+| `copyTemplate` | POST to copy endpoint, copy prepended to `templates` |
+| `updateTemplate` | PATCH call, matching item replaced in `templates` |
+
+**Mock pattern:**
+```typescript
+import apiClient from '@/api/client';
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+
+(apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { templates: [doc] } });
+await templateStore.fetchTemplates();
+expect(templateStore.templates).toEqual([doc]);
+```
+
+#### Jest component tests — `TemplateAssignModal`
+
+**File:** `src/__tests__/components/TherapistInterventionPage/TemplateAssignModal.test.tsx`
+
+| Test | What is verified |
+|---|---|
+| Legacy mode renders | Diagnosis required, submit blocked without it |
+| Named-template mode renders | "All diagnoses" option visible, label shows "(optional)" |
+| Legacy canSubmit logic | All required fields must be set |
+| Named-template canSubmit | Diagnosis not required |
+| Legacy submit routing | POSTs to `therapists/<id>/interventions/assign-to-patient-types/` |
+| Named-template submit routing | POSTs to `templates/<id>/interventions/` |
+
+#### Jest component tests — `ApplyTemplateModal`
+
+**File:** `src/__tests__/components/TherapistInterventionPage/ApplyTemplateModal.test.tsx`
+
+| Test | What is verified |
+|---|---|
+| Legacy mode renders | Diagnosis field required, submit blocked without it |
+| Named-template mode renders | "All diagnoses" option visible |
+| Legacy canSubmit | Requires patientId + effectiveFrom + diagnosis |
+| Named-template canSubmit | Requires only patientId + effectiveFrom |
+| Legacy submit routing | POSTs to `therapists/<id>/templates/apply` |
+| Named-template submit routing | POSTs to `templates/<id>/apply/` |
+
+#### Running Jest tests
+
+```bash
+# All template-related tests
+docker exec react npx jest --no-coverage --testPathPattern="templateStore|TemplateAssignModal|ApplyTemplateModal"
+
+# Watch mode during development
+docker exec react npx jest --watch --testPathPattern="templateStore"
+```
+
+#### Playwright E2E — Templates tab
+
+**File:** `e2e/therapist-interventions-templates.spec.ts`
+
+Covers the full user journey on the `/interventions` page (Templates tab):
+
+| Scenario | What is verified |
+|---|---|
+| Tab navigation | Click "Templates" tab, management bar visible |
+| Template selector | Implicit option present by default |
+| "New Template" flow | Open modal → fill name → submit → template appears in selector |
+| Named template buttons | Apply/Copy/Delete visible after selecting a named template |
+| Apply template flow | Open apply modal → select patient → submit → `POST …/apply/` called |
+| Delete template flow | Click Delete → confirm → `DELETE …/<id>/` called |
+
+**Credential skipping:** Tests requiring a logged-in therapist use `test.skip(!THERAPIST_EMAIL, 'No credentials')` so the suite stays green in CI without secrets.
+
+```bash
+# Run E2E against local-prod (requires server running on port 4173)
+docker exec react npx playwright test e2e/therapist-interventions-templates.spec.ts
+```
+
 ---
 
 **Related Documentation**:
