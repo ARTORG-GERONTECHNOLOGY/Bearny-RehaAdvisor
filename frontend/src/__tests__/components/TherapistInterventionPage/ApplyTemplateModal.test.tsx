@@ -35,6 +35,8 @@ const getDiagnosisSelect = () => screen.getAllByRole('combobox')[0];
 describe('ApplyTemplateModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // The component fetches patients on mount; return an empty list by default.
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: [] });
   });
 
   // ------------------------------------------------------------------
