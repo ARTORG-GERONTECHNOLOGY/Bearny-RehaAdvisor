@@ -43,41 +43,40 @@ beforeEach(() => {
 // ── navLinks by user type ────────────────────────────────────────────────────
 
 describe('Navigation - navLinks by user type', () => {
-  it('shows Home + Week Plan + Interventions + Settings for Patient', () => {
+  it('shows Home + Week Plan + Interventions + Profile for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Week Plan').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
   });
 
-  it('shows Patients + Interventions + Profile + Settings for Therapist', () => {
+  it('shows Patients + Library + Profile for Therapist', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Patients + Interventions + Profile + Settings for Researcher', () => {
+  it('shows Patients + Library + Profile for Researcher', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Settings for Admin', () => {
+  it('shows no navigation links for Admin', () => {
     mockAuthStore.userType = 'Admin';
     renderNav('/admin');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Profile')).not.toBeInTheDocument();
+    expect(screen.queryByText('Week Plan')).not.toBeInTheDocument();
   });
 
   it('shows Home for unauthenticated (null userType)', () => {
@@ -89,7 +88,6 @@ describe('Navigation - navLinks by user type', () => {
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 });
 
