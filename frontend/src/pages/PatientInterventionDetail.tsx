@@ -18,7 +18,6 @@ import { patientInterventionsStore, type PatientRec } from '@/stores/patientInte
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import { translateText } from '@/utils/translate';
-import { generateTagColors, getTaxonomyTags, getTagColor } from '@/utils/interventions';
 
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
@@ -49,13 +48,19 @@ type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
 };
 
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
-const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: unknown) => norm(v).toLowerCase();
 
 const asRecord = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
+
+const asArray = <T,>(v: unknown): T[] => {
+  if (Array.isArray(v)) return v as T[];
+  if (!v) return [];
+  if (typeof v === 'object') return [v as T];
+  return [];
+};
 
 const capitalizeWords = (value: string) =>
   value
@@ -106,13 +111,6 @@ const guessMediaTypeFromFilePath = (p: string): InterventionMedia['media_type'] 
   if (path.endsWith('.pdf')) return 'pdf';
   if (path.match(/\.(png|jpg|jpeg|gif|webp)$/)) return 'image';
   return 'text';
-};
-
-const asArray = <T,>(v: unknown): T[] => {
-  if (Array.isArray(v)) return v as T[];
-  if (!v) return [];
-  if (typeof v === 'object') return [v as T];
-  return [];
 };
 
 const getAllMedia = (item: any): InterventionMedia[] => {
@@ -235,13 +233,93 @@ const getMetaTags = (item: any): string[] => {
   const out: string[] = [];
   const src = asRecord(item?.intervention ?? item ?? {});
 
-  out.push(...asArr<string>(src.topic).map(asStr));
-  out.push(...asArr<string>(src.lc9).map(asStr));
-  out.push(...asArr<string>(src.where).map(asStr));
-  out.push(...asArr<string>(src.setting).map(asStr));
-  out.push(...asArr<string>(src.keywords).map(asStr));
+  out.push(...asArray<string>(src.topic).map(asStr));
+  out.push(...asArray<string>(src.lc9).map(asStr));
+  out.push(...asArray<string>(src.where).map(asStr));
+  out.push(...asArray<string>(src.setting).map(asStr));
+  out.push(...asArray<string>(src.keywords).map(asStr));
 
   return uniq(out.map((x) => x.trim()).filter(Boolean));
+};
+
+const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) => {
+  const { t } = useTranslation();
+  const label = m.title || `${t('Media')} ${idx + 1}`;
+  const playable = getPlayableUrl(m);
+
+  return (
+    <div>
+      {m.media_type === 'pdf' ? (
+        <>
+          <div className="border border-accent p-4 rounded-3xl mb-2">
+            <Document file={playable}>
+              <Page pageNumber={1} width={320} />
+            </Document>
+          </div>
+        </>
+      ) : m.media_type === 'image' ? (
+        <img
+          src={playable}
+          alt={label}
+          className="w-full max-h-[420px] object-contain rounded-3xl"
+        />
+      ) : (
+        <PlayableMedia
+          m={{
+            kind: m.kind,
+            media_type: m.media_type,
+            url: m.url,
+            embed_url: m.embed_url,
+            file_path: m.file_path,
+            file_url: m.file_url,
+            title: m.title,
+            provider: m.provider,
+          }}
+          label={label}
+          openText={t('Open link')}
+          showOpenLink={false}
+        />
+      )}
+    </div>
+  );
+};
+
+const MetaTags: React.FC<{ item: any }> = ({ item }) => {
+  const { t } = useTranslation();
+  const tags = getMetaTags(item);
+
+  if (!tags.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
+      {tags.map((x, idx) => {
+        return (
+          <Badge
+            key={`${x}-${idx}`}
+            className="bg-white py-[10px] px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500"
+            title={x}
+          >
+            {capitalizeWords(t(x, { defaultValue: x }))}
+          </Badge>
+        );
+      })}
+    </div>
+  );
+};
+
+const MediaContent: React.FC<{ mediaList: InterventionMedia[] }> = ({ mediaList }) => {
+  const renderableMedia = mediaList.filter((m) =>
+    ['video', 'audio', 'streaming', 'pdf', 'image'].includes(m.media_type)
+  );
+
+  if (!renderableMedia.length) return null;
+  return (
+    <div>
+      {renderableMedia.map((m, idx) => (
+        <OneMedia key={`${idx}-${m.title ?? idx}`} m={m} idx={idx} />
+      ))}
+    </div>
+  );
 };
 
 const PatientInterventionDetail: React.FC = observer(() => {
@@ -260,8 +338,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
-
-  const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
 
   useEffect(() => {
     let alive = true;
@@ -408,7 +484,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         media: asArray<unknown>(intervention.media).length
           ? asArray<unknown>(intervention.media)
           : (selectedRec.media as unknown[]) || [],
-        available_languages: asArr<string>(intervention.available_languages),
+        available_languages: asArray<string>(intervention.available_languages),
         intervention,
         is_private: Boolean(intervention.is_private),
         link: asStr(intervention.link) || '',
@@ -419,8 +495,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     if (selectedLibraryItem) {
       const intervention = asRecord(selectedLibraryItem);
-      const aims = asArr<string>(intervention.aims);
-      const benefitFor = asArr<string>(intervention.benefitFor);
+      const aims = asArray<string>(intervention.aims);
+      const benefitFor = asArray<string>(intervention.benefitFor);
       const primaryAim = asStr(intervention.aim) || aims[0] || benefitFor[0] || '';
 
       return {
@@ -432,7 +508,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         external_id: asStr(intervention.external_id) || '',
         provider: asStr(intervention.provider) || '',
         media: asArray<unknown>(intervention.media),
-        available_languages: asArr<string>(intervention.available_languages),
+        available_languages: asArray<string>(intervention.available_languages),
         intervention: {
           ...intervention,
           aim: primaryAim,
@@ -506,82 +582,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
         .filter((x, idx, arr) => arr.findIndex((y) => y.href === x.href) === idx),
     [effectiveMediaList, t]
   );
-
-  const renderOneMedia = (m: InterventionMedia, idx: number) => {
-    const label = m.title || `${t('Media')} ${idx + 1}`;
-    const playable = getPlayableUrl(m);
-
-    return (
-      <div key={`${idx}-${label}`}>
-        {m.media_type === 'pdf' ? (
-          <>
-            <div className="border border-accent p-4 rounded-3xl mb-2">
-              <Document file={playable}>
-                <Page pageNumber={1} width={320} />
-              </Document>
-            </div>
-          </>
-        ) : m.media_type === 'image' ? (
-          <img
-            src={playable}
-            alt={label}
-            className="w-full max-h-[420px] object-contain rounded-3xl"
-          />
-        ) : (
-          <PlayableMedia
-            m={{
-              kind: m.kind,
-              media_type: m.media_type,
-              url: m.url,
-              embed_url: m.embed_url,
-              file_path: m.file_path,
-              file_url: m.file_url,
-              title: m.title,
-              provider: m.provider,
-            }}
-            label={label}
-            openText={t('Open link')}
-            showOpenLink={false}
-          />
-        )}
-      </div>
-    );
-  };
-
-  const renderMetaTags = () => {
-    if (!effectiveItem) return null;
-
-    const tags = getMetaTags(effectiveItem);
-    if (!tags.length) return null;
-
-    return (
-      <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
-        {tags.map((x, idx) => {
-          const bg = getTagColor(tagColors, x) || '#6f2dbd';
-          const label = capitalizeWords(t(x, { defaultValue: x }));
-          return (
-            <Badge
-              key={`${x}-${idx}`}
-              className="bg-white py-[10px] px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500"
-              title={x}
-              style={{ backgroundColor: bg }}
-            >
-              {label}
-            </Badge>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderMediaContent = () => {
-    const renderableMedia = effectiveMediaList.filter((m) =>
-      ['video', 'audio', 'streaming', 'pdf', 'image'].includes(m.media_type)
-    );
-
-    if (!renderableMedia.length) return null;
-    return <div>{renderableMedia.map((m, idx) => renderOneMedia(m, idx))}</div>;
-  };
 
   if (loading) return null;
 
@@ -700,7 +700,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         </div>
 
         <div className="bg-white rounded-[40px] p-4 flex flex-col gap-2">
-          {renderMediaContent()}
+          <MediaContent mediaList={effectiveMediaList} />
 
           <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
             {detectedLang ? (
@@ -717,7 +717,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           <div className="bg-white rounded-[40px] p-4">
             <div className="p-4 flex flex-col gap-2">
               <div className="font-medium text-lg text-zinc-500">Tags</div>
-              {renderMetaTags()}
+              <MetaTags item={effectiveItem} />
             </div>
           </div>
         )}
