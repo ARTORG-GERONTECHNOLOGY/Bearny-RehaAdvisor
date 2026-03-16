@@ -78,7 +78,7 @@ const PatientProcess: React.FC = observer(() => {
     {
       metricKey: 'steps' as const,
       title: t('Steps'),
-      value: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
+      average: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
       threshold: chartThresholds.steps,
       yMax: chartYMax.steps,
       isReached: isReachedStatus.steps,
@@ -86,7 +86,7 @@ const PatientProcess: React.FC = observer(() => {
     {
       metricKey: 'activeMinutes' as const,
       title: t('Active Minutes'),
-      value: averageMetrics.activeMinutesLabel ?? '--',
+      average: averageMetrics.activeMinutesLabel ?? '--',
       threshold: chartThresholds.activeMinutes,
       yMax: chartYMax.activeMinutes,
       isReached: isReachedStatus.activeMinutes,
@@ -94,7 +94,7 @@ const PatientProcess: React.FC = observer(() => {
     {
       metricKey: 'sleepMinutes' as const,
       title: t('Sleep'),
-      value: averageMetrics.sleepMinutesLabel ?? '--',
+      average: averageMetrics.sleepMinutesLabel ?? '--',
       threshold: chartThresholds.sleepMinutes,
       yMax: chartYMax.sleepMinutes,
       isReached: isReachedStatus.sleepMinutes,
@@ -189,16 +189,13 @@ const PatientProcess: React.FC = observer(() => {
                 <MetricBarCard
                   key={card.metricKey}
                   title={card.title}
-                  value={card.value}
+                  average={card.average}
                   metricKey={card.metricKey}
                   data={dailyMetrics}
                   yMax={card.yMax}
                   threshold={card.threshold}
                   isReached={card.isReached}
                   chartConfig={chartConfigs[card.metricKey]}
-                  averagePerDayLabel={t('Average per day')}
-                  reachedLabel={t('Done')}
-                  notReachedLabel={t('Not reached')}
                   accentColor={CHART_ACCENT}
                   thresholdLineProps={THRESHOLD_LINE_PROPS}
                 />
@@ -210,7 +207,6 @@ const PatientProcess: React.FC = observer(() => {
             <div className="flex flex-col gap-2">
               <BloodPressureCard
                 title={t('Blood pressure')}
-                averagePerDayLabel={t('Average per day')}
                 bpSys={averageMetrics.bpSys}
                 bpDia={averageMetrics.bpDia}
                 isReached={isReachedStatus.bloodPressure}
@@ -219,8 +215,6 @@ const PatientProcess: React.FC = observer(() => {
                 yMax={chartYMax.bloodPressure}
                 bpSysThreshold={chartThresholds.bpSysMax}
                 bpDiaThreshold={chartThresholds.bpDiaMax}
-                reachedLabel={t('Done')}
-                notReachedLabel={t('Not reached')}
                 accentColor={CHART_ACCENT}
                 accentLightColor={CHART_ACCENT_LIGHT}
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
