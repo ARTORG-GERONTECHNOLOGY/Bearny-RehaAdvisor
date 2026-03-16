@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import InterventionList from '@/components/PatientPage/InterventionList';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 jest.mock('react-pdf');
 
 jest.mock('react-i18next', () => ({
@@ -346,6 +347,10 @@ describe('InterventionList Component', () => {
     });
 
     jest.clearAllMocks();
+    // Reset MobX store state that persists between tests
+    patientQuestionnairesStore.closeFeedback();
+    patientQuestionnairesStore.closeHealth();
+    patientQuestionnairesStore.closeInitial();
   });
 
   it('renders without crashing and calls API', async () => {
