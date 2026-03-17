@@ -108,9 +108,7 @@ describe('ApplyTemplateModal', () => {
   describe('canSubmit / Apply button state', () => {
     it('Apply button is disabled when no patients are selected', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      await waitFor(() =>
-        expect(screen.queryByRole('status')).not.toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
     });
 
