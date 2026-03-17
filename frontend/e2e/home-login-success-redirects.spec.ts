@@ -23,7 +23,9 @@ test.describe('Home login success redirects', () => {
     await modal.locator('#password').fill(patientPassword as string);
     await modal.getByRole('button', { name: /login/i }).click();
 
-    await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+    // Use a generous timeout — the first E2E run has Vite cold-start overhead
+    // and the login API call may take a few seconds in CI.
+    await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 30000 });
   });
 
   // Admin users require 2FA (same as therapists) — a direct post-login redirect
