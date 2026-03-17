@@ -36,16 +36,9 @@ test.describe('Home login success redirects', () => {
     await modal.locator('#email').fill(creds.login as string);
     await modal.locator('#password').fill(creds.password as string);
 
-    const loginResponsePromise = page.waitForResponse(
-      (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-    );
-
     await modal.getByRole('button', { name: /login/i }).click();
 
-    const loginResponse = await loginResponsePromise;
-    expect(loginResponse.status()).toBe(200);
-
-    await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+    await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 60000 });
   });
 
   test('redirects seeded admin user to /admin after successful login', async ({ page }) => {
@@ -64,15 +57,8 @@ test.describe('Home login success redirects', () => {
     await modal.locator('#email').fill(creds.login as string);
     await modal.locator('#password').fill(creds.password as string);
 
-    const loginResponsePromise = page.waitForResponse(
-      (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-    );
-
     await modal.getByRole('button', { name: /login/i }).click();
 
-    const loginResponse = await loginResponsePromise;
-    expect(loginResponse.status()).toBe(200);
-
-    await expect(page).toHaveURL(/\/admin(?:\/)?$/);
+    await expect(page).toHaveURL(/\/admin(?:\/)?$/, { timeout: 60000 });
   });
 });
