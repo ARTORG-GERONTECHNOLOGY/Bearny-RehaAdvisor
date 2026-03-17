@@ -118,7 +118,13 @@ jest.mock('react-bootstrap', () => {
     Form,
     Modal,
     Button: ({ children, onClick, type, disabled, variant, size }: any) => (
-      <button type={type || 'button'} onClick={onClick} disabled={disabled} data-variant={variant} data-size={size}>
+      <button
+        type={type || 'button'}
+        onClick={onClick}
+        disabled={disabled}
+        data-variant={variant}
+        data-size={size}
+      >
         {children}
       </button>
     ),
@@ -250,9 +256,7 @@ describe('EditTherapistInfo', () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: { hasPending: true } });
     setup();
     await waitFor(() => {
-      expect(
-        screen.getByText('Change request pending admin approval')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Change request pending admin approval')).toBeInTheDocument();
     });
   });
 
@@ -260,9 +264,7 @@ describe('EditTherapistInfo', () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: { hasPending: false } });
     setup();
     await waitFor(() => expect(apiClient.get).toHaveBeenCalled());
-    expect(
-      screen.queryByText('Change request pending admin approval')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Change request pending admin approval')).not.toBeInTheDocument();
   });
 
   // ── access change request modal ──────────────────────────────────────────
@@ -298,9 +300,7 @@ describe('EditTherapistInfo', () => {
 
     // Success message appears
     await waitFor(() => {
-      expect(
-        screen.getByText(/request has been submitted/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/request has been submitted/i)).toBeInTheDocument();
     });
   });
 
