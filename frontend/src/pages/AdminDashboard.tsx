@@ -335,14 +335,25 @@ const AdminDashboard: React.FC = observer(() => {
                           <td>{entry.email || '—'}</td>
                           <td>{t(entry.role)}</td>
                           <td>
-                            {isTherapist ? renderBadges(clinics, 'info') : <span className="text-muted">—</span>}
+                            {isTherapist ? (
+                              renderBadges(clinics, 'info')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                           <td>
-                            {isTherapist ? renderBadges(projects, 'secondary') : <span className="text-muted">—</span>}
+                            {isTherapist ? (
+                              renderBadges(projects, 'secondary')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                           <td className="d-flex gap-2 flex-wrap">
                             {isTherapist && (
-                              <Button variant="outline-primary" onClick={() => openAccessModal(entry)}>
+                              <Button
+                                variant="outline-primary"
+                                onClick={() => openAccessModal(entry)}
+                              >
                                 {t('Edit access')}
                               </Button>
                             )}
@@ -403,7 +414,9 @@ const AdminDashboard: React.FC = observer(() => {
                         <td>{renderBadges(req.requestedClinics, 'primary')}</td>
                         <td>{renderBadges(req.requestedProjects, 'dark')}</td>
                         <td>
-                          <small>{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}</small>
+                          <small>
+                            {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                          </small>
                         </td>
                         <td className="d-flex gap-2 flex-wrap">
                           <Button

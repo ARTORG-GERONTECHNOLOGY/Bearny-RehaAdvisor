@@ -432,9 +432,7 @@ class TherapistAccessChangeRequest(Document):
     therapist = ReferenceField("Therapist", required=True)
     requested_clinics = ListField(StringField(), default=list)
     requested_projects = ListField(StringField(), default=list)
-    status = StringField(
-        choices=["pending", "approved", "rejected"], default="pending"
-    )
+    status = StringField(choices=["pending", "approved", "rejected"], default="pending")
     created_at = DateTimeField(default=timezone.now)
     reviewed_at = DateTimeField(null=True, default=None)
     reviewed_by = ReferenceField("Therapist", null=True, default=None)

@@ -334,10 +334,9 @@ describe('AdminDashboard', () => {
     fireEvent.click(screen.getByText('Approve'));
 
     await waitFor(() => {
-      expect(apiClient.put).toHaveBeenCalledWith(
-        '/admin/access-change-requests/req-1/',
-        { action: 'approve' }
-      );
+      expect(apiClient.put).toHaveBeenCalledWith('/admin/access-change-requests/req-1/', {
+        action: 'approve',
+      });
     });
   });
 
@@ -354,9 +353,7 @@ describe('AdminDashboard', () => {
     fireEvent.click(screen.getByText('Access change requests'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('No pending access change requests')
-      ).toBeInTheDocument();
+      expect(screen.getByText('No pending access change requests')).toBeInTheDocument();
     });
   });
 });
