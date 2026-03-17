@@ -152,9 +152,7 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
       );
       setHasPending(true);
     } catch (err: any) {
-      setReqError(
-        err?.response?.data?.error || err?.message || t('Failed to submit request.')
-      );
+      setReqError(err?.response?.data?.error || err?.message || t('Failed to submit request.'));
     } finally {
       setReqSubmitting(false);
     }
@@ -182,13 +180,10 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
                   value: opt,
                   label: t(opt),
                 }))}
-                value={(Array.isArray(formData[field.be_name])
-                  ? formData[field.be_name]
-                  : []
-                ).map((val: string) => ({ value: val, label: t(val) }))}
-                onChange={(selected) =>
-                  handleMultiSelectChange(selected as any, field.be_name)
-                }
+                value={(Array.isArray(formData[field.be_name]) ? formData[field.be_name] : []).map(
+                  (val: string) => ({ value: val, label: t(val) })
+                )}
+                onChange={(selected) => handleMultiSelectChange(selected as any, field.be_name)}
               />
             ) : (
               <Form.Control
