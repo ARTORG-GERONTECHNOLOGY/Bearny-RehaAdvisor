@@ -363,9 +363,9 @@
     },
     {
 "fields": [
-        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "options": "fromConfig" },
-        { "name": "clinic", "label": "Clinics (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig" },
-        { "name": "projects", "label": "Projects (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig" }
+        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "specialisation" },
+        { "name": "clinic", "label": "Clinics (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "clinic" },
+        { "name": "projects", "label": "Projects (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "projects" }
       ]
     }
   ],

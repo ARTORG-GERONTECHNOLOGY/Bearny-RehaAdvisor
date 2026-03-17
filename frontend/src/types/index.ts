@@ -107,6 +107,7 @@ export interface UserType {
   name?: string;
   specializations?: string[];
   clinics?: string[];
+  projects?: string[];
 }
 export interface PendingEntry {
   id: number;

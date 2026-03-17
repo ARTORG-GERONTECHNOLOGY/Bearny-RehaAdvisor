@@ -266,13 +266,17 @@ Component tests verify that React components render correctly and respond to use
     - Password verification
     - Cancellation and deletion actions
 
-- **[EditUserInfo.test.tsx](../../../frontend/src/__tests__/components/UserProfile/EditUserInfo.test.tsx)**
-  - Purpose: Test user profile editing
+- **[EditTherapistInfo.test.tsx](../../../frontend/src/__tests__/components/UserProfile/EditTherapistInfo.test.tsx)**
+  - Purpose: Test therapist profile editing and clinic/project access change request flow
   - Tested Features:
-    - Form population with current user data
-    - Field editing and validation
-    - Form submission
-    - Success/error messaging
+    - Email field is disabled
+    - Phone and email validation
+    - Valid submit calls `userProfileStore.updateProfile`
+    - Current clinics/projects shown as read-only badges from `userData.clinics`/`userData.projects`
+    - `hasPending` badge shown when server reports a pending request
+    - "Request access change" modal opens on button click
+    - Access change request submission calls `apiClient.post`
+    - Error handling when submission fails
 
 #### Common Components (10 tests)
 
@@ -369,9 +373,12 @@ Page tests verify full page rendering and user workflows.
 - **[AdminDashboard.test.tsx](../../../frontend/src/__tests__/pages/AdminDashboard.test.tsx)**
   - Purpose: Test admin dashboard page
   - Tested Features:
-    - Dashboard statistics display
-    - User management interface
-    - System monitoring
+    - Redirect to `/unauthorized` when not authenticated or not Admin role
+    - Pending registrations tab: renders entries, Accept/Decline buttons
+    - Access change requests tab: fetches from `/admin/access-change-requests/` on mount
+    - Access change requests tab: renders therapist name, email, current/requested clinics/projects
+    - Approve button calls `apiClient.put` with `{ action: "approve" }`
+    - Empty state shows "No pending access change requests"
 
 - **[PatientHome.test.tsx](../../../frontend/src/__tests__/pages/PatientHome.test.tsx)**
   - Purpose: Test patient home page
