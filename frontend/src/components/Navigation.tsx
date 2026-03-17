@@ -6,6 +6,8 @@ import SunriseOutline from '@/assets/icons/sunrise-outline.svg?react';
 import SunriseFill from '@/assets/icons/sunrise-fill.svg?react';
 import CalendarOutline from '@/assets/icons/calendar-outline.svg?react';
 import CalendarFill from '@/assets/icons/calendar-fill.svg?react';
+import CirclesFill from '@/assets/icons/circles-fill.svg?react';
+import CirclesOutline from '@/assets/icons/circles-outline.svg?react';
 import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
 import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
@@ -32,6 +34,12 @@ export default function Navigation() {
             iconOutline: CalendarOutline,
             iconFill: CalendarFill,
             label: t('Week Plan'),
+          },
+          {
+            path: '/patient-process',
+            iconOutline: CirclesOutline,
+            iconFill: CirclesFill,
+            label: t('Process'),
           },
           {
             path: '/patient-interventions',

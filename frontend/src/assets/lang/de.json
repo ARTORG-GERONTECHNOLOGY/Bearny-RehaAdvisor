@@ -786,5 +786,19 @@
   "Wie groß war Ihr Bedarf an Hilfe bei Schlafproblemen?": "Wie groß war Ihr Bedarf an Hilfe bei Schlafproblemen?",
   "Funktionsfähigkeit": "Funktionsfähigkeit",
   "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.": "Bitte beschreiben Sie die aktuelle Funktionsfähigkeit Ihres Körpers also z.B. Ihre Beine, Arme, Hände, Gedächtnis, Verdauung, Blasenfunktion etc.",
-  "Your recommendations": "Deine Empfehlungen"
+  "Your recommendations": "Deine Empfehlungen",
+  "Sleep (min)": "Schlaf (Min)",
+  "Blood pressure systolic": "Systolischer Blutdruck",
+  "Blood pressure diastolic": "Diastolischer Blutdruck",
+  "Uncompleted": "Nicht erledigt",
+  "Last Week": "Letzte Woche",
+  "Last Month": "Letzter Monat",
+  "Not reached": "Verfehlt",
+  "Process": "Verlauf",
+  "Filter by time period": "Nach Zeitraum filtern",
+  "Show last week": "Letzte Woche anzeigen",
+  "Show last month": "Letzten Monat anzeigen",
+  "Recommendations": "Empfehlungen",
+  "Average per day": "Durchschnitt pro Tag",
+  "Blood pressure": "Blutdruck"
 }
