@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
 import apiClient from '@/api/client';
@@ -12,6 +12,14 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/stores/authStore', () => ({ default: { id: 'therapist-1' }, id: 'therapist-1' }));
 
+const PATIENT_A = {
+  _id: 'p-001',
+  patient_code: 'PT001',
+  first_name: 'Alice',
+  name: 'Smith',
+  diagnosis: ['Stroke'],
+};
+
 const defaultProps = {
   show: true,
   onHide: jest.fn(),
@@ -19,23 +27,16 @@ const defaultProps = {
   onApplied: jest.fn(),
 };
 
-/**
- * Fill the patient-ID text box.
- * Form.Label "Patient ID or username" has no htmlFor/controlId association in
- * the component, so we query by role and take the first textbox.
- */
-const fillPatientId = (value: string) => {
-  const inputs = screen.getAllByRole('textbox');
-  fireEvent.change(inputs[0], { target: { value } });
+/** Switch to "By diagnosis" mode and return the diagnosis <select>. */
+const switchToDiagnosisMode = () => {
+  fireEvent.click(screen.getByRole('button', { name: /by diagnosis/i }));
+  return screen.getByRole('combobox') as HTMLSelectElement;
 };
-
-/** The diagnosis <select> is the first combobox in the rendered modal. */
-const getDiagnosisSelect = () => screen.getAllByRole('combobox')[0];
 
 describe('ApplyTemplateModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // The component fetches patients on mount; return an empty list by default.
+    // Component fetches patients on mount; return an empty list by default.
     (apiClient.get as jest.Mock).mockResolvedValue({ data: [] });
   });
 
@@ -48,32 +49,56 @@ describe('ApplyTemplateModal', () => {
       expect(screen.getByText(/Apply template to patient/i)).toBeInTheDocument();
     });
 
-    it('shows "Choose..." as default option without templateId', () => {
+    it('shows mode-toggle buttons', () => {
       render(<ApplyTemplateModal {...defaultProps} />);
+      expect(screen.getByRole('button', { name: /select patients/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /by diagnosis/i })).toBeInTheDocument();
+    });
+
+    it('shows "Choose..." as default option in diagnosis mode', () => {
+      render(<ApplyTemplateModal {...defaultProps} />);
+      switchToDiagnosisMode();
       expect(screen.getByRole('option', { name: /choose/i })).toBeInTheDocument();
     });
 
-    it('shows "(optional)" hint on diagnosis label when templateId is provided', () => {
-      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      // The diagnosis label has a <span>(optional)</span>; "Notes (optional)" also exists
+    it('shows diagnoses as options in diagnosis mode', () => {
+      render(<ApplyTemplateModal {...defaultProps} />);
+      switchToDiagnosisMode();
+      expect(screen.getByRole('option', { name: 'Stroke' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'COPD' })).toBeInTheDocument();
+    });
+
+    it('pre-selects defaultDiagnosis in diagnosis mode', () => {
+      render(<ApplyTemplateModal {...defaultProps} defaultDiagnosis="Stroke" />);
+      const select = switchToDiagnosisMode();
+      expect(select.value).toBe('Stroke');
+    });
+
+    it('shows "(optional)" hint on Notes label', () => {
+      render(<ApplyTemplateModal {...defaultProps} />);
       const optionalSpans = screen.getAllByText(/\(optional\)/i);
       expect(optionalSpans.length).toBeGreaterThan(0);
-    });
-
-    it('shows "All diagnoses" default option when templateId is set', () => {
-      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      expect(screen.getByRole('option', { name: /all diagnoses/i })).toBeInTheDocument();
-    });
-
-    it('pre-selects defaultDiagnosis when provided', () => {
-      render(<ApplyTemplateModal {...defaultProps} defaultDiagnosis="Stroke" />);
-      const select = getDiagnosisSelect() as HTMLSelectElement;
-      expect(select.value).toBe('Stroke');
     });
 
     it('does not render when show=false', () => {
       render(<ApplyTemplateModal {...defaultProps} show={false} />);
       expect(screen.queryByText(/Apply template to patient/i)).not.toBeInTheDocument();
+    });
+
+    it('shows patient list after loading with patients', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
+      render(<ApplyTemplateModal {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByText(/Alice.*Smith/i)).toBeInTheDocument();
+      });
+    });
+
+    it('shows "No data available" when patient list is empty', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [] });
+      render(<ApplyTemplateModal {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByText(/No data available/i)).toBeInTheDocument();
+      });
     });
   });
 
@@ -81,27 +106,32 @@ describe('ApplyTemplateModal', () => {
   // canSubmit / Apply button state
   // ------------------------------------------------------------------
   describe('canSubmit / Apply button state', () => {
-    it('Apply button is disabled when patientId is empty', () => {
-      render(<ApplyTemplateModal {...defaultProps} defaultDiagnosis="Stroke" />);
-      expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
-    });
-
-    it('Apply button is disabled when diagnosis is missing in legacy mode', () => {
+    it('Apply button is disabled when no patients are selected', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      fillPatientId('p-001');
+      await waitFor(() =>
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      );
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
     });
 
-    it('Apply button is enabled with patientId only when templateId is provided', () => {
-      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      fillPatientId('p-001');
+    it('Apply button is disabled when diagnosis mode has no diagnosis selected', () => {
+      render(<ApplyTemplateModal {...defaultProps} />);
+      switchToDiagnosisMode();
+      expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
+    });
+
+    it('Apply button is enabled after selecting a patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
+      render(<ApplyTemplateModal {...defaultProps} />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
       expect(screen.getByRole('button', { name: /^Apply$/i })).not.toBeDisabled();
     });
 
-    it('Apply button is enabled with patientId + diagnosis in legacy mode', () => {
+    it('Apply button is enabled after selecting a diagnosis', () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      fillPatientId('p-001');
-      fireEvent.change(getDiagnosisSelect(), { target: { value: 'Stroke' } });
+      const select = switchToDiagnosisMode();
+      fireEvent.change(select, { target: { value: 'Stroke' } });
       expect(screen.getByRole('button', { name: /^Apply$/i })).not.toBeDisabled();
     });
   });
@@ -111,31 +141,40 @@ describe('ApplyTemplateModal', () => {
   // ------------------------------------------------------------------
   describe('API call routing', () => {
     it('posts to named template endpoint when templateId is set', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
       (apiClient.post as jest.Mock).mockResolvedValueOnce({
-        data: { applied: 3, sessions_created: 3 },
+        data: { applied: 1, sessions_created: 1 },
       });
 
       render(<ApplyTemplateModal {...defaultProps} templateId="tpl-42" />);
-      fillPatientId('p-001');
-      fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
 
       await waitFor(() => {
         expect(apiClient.post).toHaveBeenCalledWith(
           'templates/tpl-42/apply/',
-          expect.objectContaining({ patientId: 'p-001' })
+          expect.objectContaining({ patientIds: ['p-001'] })
         );
       });
     });
 
-    it('posts to legacy therapist endpoint when templateId is absent', async () => {
+    it('posts to therapist endpoint when templateId is absent', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
       (apiClient.post as jest.Mock).mockResolvedValueOnce({
-        data: { applied: 2, sessions_created: 2 },
+        data: { applied: 1, sessions_created: 1 },
       });
 
       render(<ApplyTemplateModal {...defaultProps} />);
-      fillPatientId('p-001');
-      fireEvent.change(getDiagnosisSelect(), { target: { value: 'Stroke' } });
-      fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
 
       await waitFor(() => {
         const url = (apiClient.post as jest.Mock).mock.calls[0][0] as string;
@@ -146,14 +185,40 @@ describe('ApplyTemplateModal', () => {
 
     it('calls onApplied with response data on success', async () => {
       const result = { applied: 5, sessions_created: 5 };
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
       (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: result });
 
       render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      fillPatientId('p-001');
-      fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
 
       await waitFor(() => {
         expect(defaultProps.onApplied).toHaveBeenCalledWith(result);
+      });
+    });
+
+    it('posts diagnosis in bulk mode', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { applied: 3, sessions_created: 3 },
+      });
+
+      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
+      const select = switchToDiagnosisMode();
+      fireEvent.change(select, { target: { value: 'COPD' } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith(
+          'templates/tpl-1/apply/',
+          expect.objectContaining({ diagnosis: 'COPD' })
+        );
       });
     });
   });
@@ -163,13 +228,18 @@ describe('ApplyTemplateModal', () => {
   // ------------------------------------------------------------------
   describe('error handling', () => {
     it('displays error banner on API failure', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
       (apiClient.post as jest.Mock).mockRejectedValueOnce({
         response: { data: { error: 'Patient not found' } },
       });
 
       render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      fillPatientId('bad-id');
-      fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -178,11 +248,16 @@ describe('ApplyTemplateModal', () => {
     });
 
     it('falls back to generic error message when response has no error field', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
       (apiClient.post as jest.Mock).mockRejectedValueOnce({});
 
       render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      fillPatientId('p-001');
-      fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toBeInTheDocument();
