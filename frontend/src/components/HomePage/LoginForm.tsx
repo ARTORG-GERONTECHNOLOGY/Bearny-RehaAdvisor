@@ -55,8 +55,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
 
       const utype = (authStore.userType || '').toLowerCase();
 
-      if (utype === 'therapist') {
-        // Only therapists use 2FA phone verification
+      if (utype === 'therapist' || utype === 'admin') {
+        // Therapists and admins require 2FA phone verification
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
@@ -65,8 +65,6 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
         }
       } else if (utype === 'patient') {
         navigate('/patient');
-      } else if (utype === 'admin') {
-        navigate('/admin');
       } else if (utype === 'researcher') {
         navigate('/researcher');
       } else {
