@@ -278,12 +278,10 @@ def test_admin_get_lists_pending_requests():
 def test_admin_get_filters_by_status_all():
     _, therapist = _make_therapist()
     TherapistAccessChangeRequest(
-        therapist=therapist, requested_clinics=[], requested_projects=[],
-        status="approved", created_at=datetime.now()
+        therapist=therapist, requested_clinics=[], requested_projects=[], status="approved", created_at=datetime.now()
     ).save()
     TherapistAccessChangeRequest(
-        therapist=therapist, requested_clinics=[], requested_projects=[],
-        status="pending", created_at=datetime.now()
+        therapist=therapist, requested_clinics=[], requested_projects=[], status="pending", created_at=datetime.now()
     ).save()
 
     c = _client()
