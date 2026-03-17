@@ -12,6 +12,7 @@ Flow:
      -> approve: updates Therapist.clinics + .projects, e-mails therapist
      -> reject:  e-mails therapist with optional note
 """
+
 import logging
 
 from django.conf import settings
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _bad(msg: str, status: int = 400):
     return JsonResponse({"ok": False, "error": msg}, status=status)
@@ -93,8 +95,7 @@ def _serialize_request(req: TherapistAccessChangeRequest) -> dict:
     }
 
 
-def _notify_admins(therapist_name: str, therapist_email: str,
-                   requested_clinics: list, requested_projects: list):
+def _notify_admins(therapist_name: str, therapist_email: str, requested_clinics: list, requested_projects: list):
     """E-mail all active Admin users about a new change request."""
     try:
         admins = User.objects.filter(role="Admin", isActive=True)
@@ -118,8 +119,7 @@ def _notify_admins(therapist_name: str, therapist_email: str,
         logger.exception("Failed to e-mail admins about access change request")
 
 
-def _notify_therapist_approved(therapist_email: str, therapist_name: str,
-                                clinics: list, projects: list):
+def _notify_therapist_approved(therapist_email: str, therapist_name: str, clinics: list, projects: list):
     if not therapist_email:
         return
     try:
@@ -144,10 +144,7 @@ def _notify_therapist_rejected(therapist_email: str, therapist_name: str, note: 
     if not therapist_email:
         return
     try:
-        msg = (
-            f"Dear {therapist_name},\n\n"
-            f"Your request to change your clinic/project access has been declined."
-        )
+        msg = f"Dear {therapist_name},\n\n" f"Your request to change your clinic/project access has been declined."
         if note:
             msg += f"\n\nAdmin note: {note}"
         msg += "\n\nPlease contact your administrator if you have questions."
@@ -167,6 +164,7 @@ def _notify_therapist_rejected(therapist_email: str, therapist_name: str, note: 
 # POST /api/therapist/access-change-request/
 # ---------------------------------------------------------------------------
 
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def submit_access_change_request(request):
@@ -174,11 +172,8 @@ def submit_access_change_request(request):
         therapist = _get_therapist(request)
         if not therapist:
             return _bad("Therapist profile not found.", 404)
-        has_pending = TherapistAccessChangeRequest.objects(
-            therapist=therapist, status="pending"
-        ).count() > 0
+        has_pending = TherapistAccessChangeRequest.objects(therapist=therapist, status="pending").count() > 0
         return JsonResponse({"ok": True, "hasPending": has_pending}, status=200)
-
 
     therapist = _get_therapist(request)
     if not therapist:
@@ -202,9 +197,9 @@ def submit_access_change_request(request):
             return _bad(f"Invalid project: {p}")
 
     # Prevent duplicate pending requests — cancel any existing pending one first
-    TherapistAccessChangeRequest.objects(
-        therapist=therapist, status="pending"
-    ).update(set__status="rejected", set__note="Superseded by a newer request.")
+    TherapistAccessChangeRequest.objects(therapist=therapist, status="pending").update(
+        set__status="rejected", set__note="Superseded by a newer request."
+    )
 
     req = TherapistAccessChangeRequest(
         therapist=therapist,
@@ -241,6 +236,7 @@ def submit_access_change_request(request):
 # PUT  /api/admin/access-change-requests/<id>/     -> approve or reject
 # ---------------------------------------------------------------------------
 
+
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def admin_access_change_requests(request, request_id: str | None = None):
@@ -260,6 +256,7 @@ def admin_access_change_requests(request, request_id: str | None = None):
             return _bad("request_id is required in URL.", 400)
 
         from bson import ObjectId
+
         try:
             req = TherapistAccessChangeRequest.objects.get(pk=ObjectId(request_id))
         except Exception:
@@ -310,8 +307,7 @@ def admin_access_change_requests(request, request_id: str | None = None):
             req.status = "approved"
             req.save()
 
-            _notify_therapist_approved(therapist_email, therapist_name,
-                                       norm_clinics, norm_projects)
+            _notify_therapist_approved(therapist_email, therapist_name, norm_clinics, norm_projects)
 
             return JsonResponse(
                 {"ok": True, "message": "Request approved and therapist access updated."},

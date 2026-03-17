@@ -10,6 +10,10 @@ import core.views.recomendation_views as recomendation_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
+from core.views.access_change_views import (
+    admin_access_change_requests,
+    submit_access_change_request,
+)
 from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_audio,
@@ -36,10 +40,6 @@ from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
 from core.views.therapist_projects import therapist_projects
-from core.views.access_change_views import (
-    submit_access_change_request,
-    admin_access_change_requests,
-)
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
