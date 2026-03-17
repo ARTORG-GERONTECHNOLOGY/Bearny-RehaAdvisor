@@ -39,9 +39,23 @@ jest.mock('react-bootstrap', () => {
       Label: ({ children, htmlFor }: any) => <label htmlFor={htmlFor}>{children}</label>,
       Control: ({ id, value, onChange, disabled, type, as, rows, placeholder }: any) =>
         as === 'textarea' ? (
-          <textarea id={id} value={value} onChange={onChange} disabled={disabled} rows={rows} placeholder={placeholder} />
+          <textarea
+            id={id}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            rows={rows}
+            placeholder={placeholder}
+          />
         ) : (
-          <input aria-label={id} id={id} type={type || 'text'} value={value} onChange={onChange} disabled={disabled} />
+          <input
+            aria-label={id}
+            id={id}
+            type={type || 'text'}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         ),
       Text: ({ children }: any) => <small>{children}</small>,
     }
@@ -50,7 +64,9 @@ jest.mock('react-bootstrap', () => {
     Form,
     Modal,
     Button: ({ children, onClick, type, disabled }: any) => (
-      <button type={type || 'button'} onClick={onClick} disabled={disabled}>{children}</button>
+      <button type={type || 'button'} onClick={onClick} disabled={disabled}>
+        {children}
+      </button>
     ),
     Badge: ({ children }: any) => <span>{children}</span>,
     Alert: ({ children }: any) => <div role="alert">{children}</div>,
