@@ -29,6 +29,11 @@ futureDate.setDate(today.getDate() + 1);
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 describe('InterventionList Component', () => {
   beforeEach(() => {
+    // Reset MobX store state so popup state doesn't leak between tests.
+    patientQuestionnairesStore.closeFeedback();
+    patientQuestionnairesStore.closeHealth();
+    patientQuestionnairesStore.closeInitial();
+
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/patients/rehabilitation-plan/patient/67d588798c0494979e4633e4/')) {
         return Promise.resolve({
