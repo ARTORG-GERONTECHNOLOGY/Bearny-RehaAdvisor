@@ -420,6 +420,27 @@ class InterventionTemplate(Document):
         return f"{self.name} (InterventionTemplate)"
 
 
+class TherapistAccessChangeRequest(Document):
+    """Pending request by a therapist to change their clinic / project assignments.
+
+    A therapist submits this instead of editing clinics/projects directly.
+    An admin must approve or reject before the assignment is updated.
+    """
+
+    meta = {"collection": "TherapistAccessChangeRequests"}
+
+    therapist = ReferenceField("Therapist", required=True)
+    requested_clinics = ListField(StringField(), default=list)
+    requested_projects = ListField(StringField(), default=list)
+    status = StringField(
+        choices=["pending", "approved", "rejected"], default="pending"
+    )
+    created_at = DateTimeField(default=timezone.now)
+    reviewed_at = DateTimeField(null=True, default=None)
+    reviewed_by = ReferenceField("Therapist", null=True, default=None)
+    note = StringField(default="")
+
+
 # models.py
 class RedcapParticipant(Document):
     meta = {"collection": "Participants"}
