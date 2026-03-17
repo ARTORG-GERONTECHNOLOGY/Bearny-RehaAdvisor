@@ -36,12 +36,20 @@ from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
 from core.views.therapist_projects import therapist_projects
+from core.views.access_change_views import (
+    submit_access_change_request,
+    admin_access_change_requests,
+)
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),
+    # Therapist access change requests
+    path("api/therapist/access-change-request/", submit_access_change_request),
+    path("api/admin/access-change-requests/", admin_access_change_requests),
+    path("api/admin/access-change-requests/<str:request_id>/", admin_access_change_requests),
     # Authentication
     path("api/auth/login/", auth_views.login_view, name="login"),
     path("api/auth/logout/", auth_views.logout_view, name="logout"),
