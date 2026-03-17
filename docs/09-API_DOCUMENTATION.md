@@ -312,6 +312,107 @@ JWT required.
 
 ---
 
+#### `GET /api/therapist/access-change-request/`
+
+JWT required. Returns whether the authenticated therapist has a pending clinic/project change request.
+
+**Response 200:**
+
+```json
+{ "ok": true, "hasPending": false }
+```
+
+**Errors:** 404 therapist profile not found
+
+---
+
+#### `POST /api/therapist/access-change-request/`
+
+JWT required. Submits a new clinic/project access change request for admin approval. Any existing pending request is automatically superseded (status set to `rejected`). All active Admin users are notified by e-mail.
+
+**Request body:**
+
+| Field      | Type          | Required | Notes                             |
+|------------|---------------|----------|-----------------------------------|
+| `clinics`  | array[string] | yes      | Must be valid values from config  |
+| `projects` | array[string] | yes      | Must be valid values from config  |
+
+**Response 201:**
+
+```json
+{
+  "ok": true,
+  "message": "Your request has been submitted and is awaiting admin approval.",
+  "requestId": "<ObjectId>"
+}
+```
+
+**Errors:** 400 invalid clinic or project · 404 therapist not found
+
+---
+
+#### `GET /api/admin/access-change-requests/`
+
+JWT required. Lists `TherapistAccessChangeRequest` documents.
+
+**Query params:**
+
+| Param    | Default   | Notes                          |
+|----------|-----------|--------------------------------|
+| `status` | `pending` | Pass `all` to include all statuses |
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "requests": [
+    {
+      "id": "...",
+      "therapistId": "...",
+      "therapistName": "Jane Doe",
+      "therapistEmail": "jane@example.com",
+      "currentClinics": ["Inselspital"],
+      "currentProjects": ["COPAIN"],
+      "requestedClinics": ["Berner Reha Centrum"],
+      "requestedProjects": ["COPAIN"],
+      "status": "pending",
+      "createdAt": "2024-01-15T10:00:00+00:00",
+      "reviewedAt": null,
+      "reviewedBy": "",
+      "note": ""
+    }
+  ]
+}
+```
+
+---
+
+#### `PUT /api/admin/access-change-requests/<id>/`
+
+JWT required. Approve or reject a pending access change request.
+
+**Request body:**
+
+| Field    | Type   | Required | Notes                                  |
+|----------|--------|----------|----------------------------------------|
+| `action` | string | yes      | `"approve"` or `"reject"`              |
+| `note`   | string | no       | Shown to therapist in rejection e-mail |
+
+**On approve:** Updates `Therapist.clinics` and `Therapist.projects` with the requested values (filtered against current config). E-mails the therapist.
+
+**On reject:** Marks request as rejected, e-mails therapist with optional note. Therapist access is unchanged.
+
+**Response 200:**
+
+```json
+{ "ok": true, "message": "Request approved and therapist access updated." }
+```
+
+**Errors:** 400 request already reviewed · 400 invalid action · 404 request not found · 500
+
+---
+
 #### `GET /api/admin/therapist/access/`
 #### `GET /api/admin/therapist/access/<therapistId>/`
 
