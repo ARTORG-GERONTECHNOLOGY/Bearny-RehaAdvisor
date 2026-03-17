@@ -320,7 +320,7 @@ jobs:
         run: npm run test:e2e -- e2e/home-login.spec.ts
 
       - name: Run seeded redirect E2E flow
-        if: ${{ vars.E2E_PATIENT_LOGIN != '' && env.E2E_PATIENT_PASSWORD != '' && vars.E2E_ADMIN_LOGIN != '' && env.E2E_ADMIN_PASSWORD != '' }}
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' && env.E2E_PATIENT_PASSWORD != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/home-login-success-redirects.spec.ts
 
@@ -340,9 +340,9 @@ jobs:
         run: npm run test:e2e -- e2e/patient-interventions-page.spec.ts
 
       - name: Skip note when E2E seeded secrets are missing
-        if: ${{ !(vars.E2E_PATIENT_LOGIN != '' && env.E2E_PATIENT_PASSWORD != '' && vars.E2E_ADMIN_LOGIN != '' && env.E2E_ADMIN_PASSWORD != '') }}
+        if: ${{ !(vars.E2E_PATIENT_LOGIN != '' && env.E2E_PATIENT_PASSWORD != '') }}
         run: |
-          echo "Seeded redirect E2E tests skipped — E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD / E2E_ADMIN_LOGIN / E2E_ADMIN_PASSWORD not set."
+          echo "Seeded redirect E2E tests skipped — E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD not set."
 
       - name: Skip note when patient-page E2E secrets are missing
         if: ${{ !(vars.E2E_PATIENT_LOGIN != '' && env.E2E_PATIENT_PASSWORD != '') }}
