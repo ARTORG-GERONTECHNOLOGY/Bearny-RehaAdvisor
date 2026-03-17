@@ -1,17 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import EditUserInfo from '@/components/UserProfile/EditTherapistInfo';
 import '@testing-library/jest-dom';
+import apiClient from '@/api/client';
 
 // Mock api client (must be before other imports that depend on it)
-jest.mock('@/api/client', () => ({
-  __esModule: true,
-  default: {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-  },
-}));
+jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
 // 🧪 Mock i18next
 jest.mock('i18next', () => ({
@@ -24,6 +17,45 @@ jest.mock('react-i18next', () => ({
     i18n: { language: 'en' },
   }),
 }));
+
+jest.mock('react-bootstrap', () => {
+  const Modal = Object.assign(
+    ({ show, children }: any) => (show ? <div role="dialog">{children}</div> : null),
+    {
+      Header: ({ children }: any) => <div>{children}</div>,
+      Title: ({ children }: any) => <h5>{children}</h5>,
+      Body: ({ children }: any) => <div>{children}</div>,
+      Footer: ({ children }: any) => <div>{children}</div>,
+    }
+  );
+  const Form = Object.assign(
+    ({ children, onSubmit, ...rest }: any) => (
+      <form onSubmit={onSubmit} {...rest}>
+        {children}
+      </form>
+    ),
+    {
+      Group: ({ children }: any) => <div>{children}</div>,
+      Label: ({ children, htmlFor }: any) => <label htmlFor={htmlFor}>{children}</label>,
+      Control: ({ id, value, onChange, disabled, type, as, rows, placeholder }: any) =>
+        as === 'textarea' ? (
+          <textarea id={id} value={value} onChange={onChange} disabled={disabled} rows={rows} placeholder={placeholder} />
+        ) : (
+          <input aria-label={id} id={id} type={type || 'text'} value={value} onChange={onChange} disabled={disabled} />
+        ),
+      Text: ({ children }: any) => <small>{children}</small>,
+    }
+  );
+  return {
+    Form,
+    Modal,
+    Button: ({ children, onClick, type, disabled }: any) => (
+      <button type={type || 'button'} onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Badge: ({ children }: any) => <span>{children}</span>,
+    Alert: ({ children }: any) => <div role="alert">{children}</div>,
+  };
+});
 
 jest.mock('react-select', () => ({
   __esModule: true,
@@ -96,6 +128,8 @@ describe('EditUserInfo Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (userProfileStore.updateProfile as jest.Mock).mockResolvedValue(undefined);
+    // Component fetches pending status on mount — provide a valid resolved value
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { hasPending: false } });
   });
 
   test('renders all form fields without password section', () => {
