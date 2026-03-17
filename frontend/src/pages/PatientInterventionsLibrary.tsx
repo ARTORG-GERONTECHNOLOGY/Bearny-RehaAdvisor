@@ -8,7 +8,6 @@ import { observer } from 'mobx-react-lite';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
 import InterventionFiltersCard from '@/components/PatientLibrary/InterventionFiltersCard';
-import PatientInterventionDetailsModal from '@/components/PatientLibrary/PatientInterventionDetailsModal';
 import Layout from '@/components/Layout';
 
 import authStore from '@/stores/authStore';
@@ -17,8 +16,6 @@ import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryS
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
-
-import type { InterventionTypeTh } from '@/types';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -61,19 +58,14 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   // ─────────────────────────── tag colors ───────────────────────────
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
 
-  // ─────────────────────────── popup ───────────────────────────
-  const [selectedItem, setSelectedItem] = useState<InterventionTypeTh | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-
-  const openDetails = useCallback((item: InterventionTypeTh) => {
-    setSelectedItem(item);
-    setShowDetails(true);
-  }, []);
-
-  const closeDetails = useCallback(() => {
-    setSelectedItem(null);
-    setShowDetails(false);
-  }, []);
+  const openDetails = useCallback(
+    (item: { _id?: string; id?: string; intervention_id?: string }) => {
+      const interventionId = item.intervention_id || item._id || item.id;
+      if (!interventionId) return;
+      navigate(`/patient-intervention/${interventionId}`);
+    },
+    [navigate]
+  );
 
   // ─────────────────────────── fetch list via store ───────────────────────────
   useEffect(() => {
@@ -217,13 +209,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
               </Col>
             </Row>
           </Container>
-
-          {/* Details modal */}
-          <PatientInterventionDetailsModal
-            item={selectedItem}
-            show={showDetails}
-            onClose={closeDetails}
-          />
         </div>
       </div>
     </Layout>
