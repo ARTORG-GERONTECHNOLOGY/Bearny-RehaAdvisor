@@ -8,6 +8,10 @@
   "defaultSettings": {
     "defaultLanguage": "en"
   },
+  "contact": {
+    "email": "forschung.respo@insel.ch",
+    "phone": ""
+  },
   "patientInfo": {
     "sex": ["Male", "Female"],
     "functionPat": {
