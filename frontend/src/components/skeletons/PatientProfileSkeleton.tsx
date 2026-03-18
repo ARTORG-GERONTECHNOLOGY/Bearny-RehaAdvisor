@@ -1,7 +1,7 @@
 import Layout from '@/components/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function SettingsPageSkeleton() {
+export default function PatientProfileSkeleton() {
   return (
     <Layout>
       {/* Title skeleton */}
