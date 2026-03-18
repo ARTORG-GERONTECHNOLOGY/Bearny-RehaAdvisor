@@ -188,7 +188,7 @@ const PatientProfile: React.FC = observer(() => {
 
         <div className="flex flex-col items-center gap-6 mt-4 mb-12">
           <img
-            src="/artorg_logo.gif"
+            src="/artorg_unibern_logo.gif"
             alt="ARTORG Center for Biomedical Engineering Research"
             className="w-[80px]"
           />
