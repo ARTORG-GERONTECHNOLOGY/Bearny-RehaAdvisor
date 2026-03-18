@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
-import PatientPopupContainer from '@/components/PatientPage/PatientPopupContainer';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
-import { useInterventionPopup } from '@/hooks/useInterventionPopup';
 import { startOfWeek, addDays, format, isToday, endOfWeek, type Locale } from 'date-fns';
 import { de, enUS, fr, it } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import authStore from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
+import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 
 type DayFilter = 'all' | 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -19,7 +19,6 @@ const PatientPlan: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [dayFilter, setDayFilter] = useState<DayFilter>('all');
-  const { selectedIntervention, openIntervention, closeIntervention } = useInterventionPopup();
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -42,6 +41,11 @@ const PatientPlan: React.FC = observer(() => {
     { value: 5 as const, label: t('Sat') },
     { value: 6 as const, label: t('Sun') },
   ];
+
+  // Safe questions array for feedback questionnaire
+  const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
+    ? patientQuestionnairesStore.feedbackQuestions
+    : [];
 
   // Fetch interventions on mount
   useEffect(() => {
@@ -114,16 +118,25 @@ const PatientPlan: React.FC = observer(() => {
             date={date}
             locale={locale}
             badgeText={isToday(date) ? t('Today') : undefined}
-            onOpenIntervention={openIntervention}
+            onOpenIntervention={(rec, openDate) =>
+              navigate(
+                `/patient-intervention/${rec.intervention_id}?date=${format(openDate, 'yyyy-MM-dd')}`
+              )
+            }
           />
         ))}
       </div>
 
-      {/* Intervention Popups (shared with Patient home page) */}
-      <PatientPopupContainer
-        selectedIntervention={selectedIntervention}
-        onCloseIntervention={closeIntervention}
-      />
+      {/* Intervention Feedback Popup */}
+      {patientQuestionnairesStore.showFeedbackPopup && (
+        <FeedbackPopup
+          show
+          interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
+          questions={safeInterventionQuestions}
+          date={patientQuestionnairesStore.feedbackDateKey}
+          onClose={() => patientQuestionnairesStore.closeFeedback()}
+        />
+      )}
     </Layout>
   );
 });
