@@ -424,10 +424,17 @@ jobs:
       - name: Check test results
         run: |
           if [[ "${{ needs.style-checks.result }}" == "failure" ||
+                "${{ needs.style-checks.result }}" == "cancelled" ||
                 "${{ needs.frontend-tests.result }}" == "failure" ||
+                "${{ needs.frontend-tests.result }}" == "cancelled" ||
                 "${{ needs.backend-tests.result }}" == "failure" ||
+                "${{ needs.backend-tests.result }}" == "cancelled" ||
                 "${{ needs.frontend-e2e.result }}" == "failure" ||
-                "${{ needs.docker-build.result }}" == "failure" ]]; then
+                "${{ needs.frontend-e2e.result }}" == "cancelled" ||
+                "${{ needs.docker-build.result }}" == "failure" ||
+                "${{ needs.docker-build.result }}" == "cancelled" ||
+                "${{ needs.security-scan.result }}" == "failure" ||
+                "${{ needs.security-scan.result }}" == "cancelled" ]]; then
             echo "❌ Tests failed"
             exit 1
           else
