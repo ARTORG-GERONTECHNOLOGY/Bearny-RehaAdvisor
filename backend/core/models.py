@@ -439,7 +439,6 @@ class TherapistAccessChangeRequest(Document):
     note = StringField(default="")
 
 
-
 # models.py
 class RedcapParticipant(Document):
     meta = {"collection": "Participants"}
