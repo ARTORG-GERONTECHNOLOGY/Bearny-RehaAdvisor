@@ -882,5 +882,21 @@
   "Decline access change request": "Decline access change request",
   "Note for therapist (optional)": "Note for therapist (optional)",
   "Explain why the request is being declined...": "Explain why the request is being declined...",
-  "Declining...": "Declining..."
+  "Declining...": "Declining...",
+  "Research Project Contact": "Contactpersoon onderzoeksproject",
+  "Your recommendations": "Jouw aanbevelingen",
+  "Sleep (min)": "Slaap (min)",
+  "Blood pressure systolic": "Systolische bloeddruk",
+  "Blood pressure diastolic": "Diastolische bloeddruk",
+  "Uncompleted": "Niet voltooid",
+  "Last Week": "Afgelopen week",
+  "Last Month": "Afgelopen maand",
+  "Not reached": "Niet bereikt",
+  "Process": "Proces",
+  "Filter by time period": "Filteren op periode",
+  "Show last week": "Afgelopen week tonen",
+  "Show last month": "Afgelopen maand tonen",
+  "Recommendations": "Aanbevelingen",
+  "Average per day": "Gemiddeld per dag",
+  "Blood pressure": "Bloeddruk"
 }
