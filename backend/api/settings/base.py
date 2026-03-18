@@ -149,6 +149,12 @@ if _sentry_dsn:
         profile_lifecycle="trace",
     )
 
+# Allow all CORS origins when explicitly enabled via env var.
+# Used by the E2E CI job so the Playwright browser (127.0.0.1:4173)
+# can reach the Django dev server (127.0.0.1:8001) without a CORS block.
+if os.environ.get("CORS_ALLOW_ALL_ORIGINS", "").lower() == "true":
+    CORS_ALLOW_ALL_ORIGINS = True
+
 CONTENT_TYPE_CANONICAL_MAP = {
     "app": "App",
     "audio": "Audio",
