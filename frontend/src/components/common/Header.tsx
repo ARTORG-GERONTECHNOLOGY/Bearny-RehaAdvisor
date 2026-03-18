@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegis
           <div className="header-top-row d-flex align-items-center justify-content-between w-100">
             {/* LOGOS LEFT */}
             <Navbar.Brand className="brand-zone d-flex align-items-center">
-              <img src="/artorg_logo.gif" className="brand-logo" />
+              <img src="/artorg_unibern_logo.gif" className="brand-logo" />
               <img src="/insel_logo.svg" className="brand-logo d-none d-sm-inline" />
               <img src="/brz_logo.png" className="brand-logo d-none d-md-inline" />
             </Navbar.Brand>

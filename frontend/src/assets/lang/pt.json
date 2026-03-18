@@ -898,5 +898,21 @@
   "Decline access change request": "Decline access change request",
   "Note for therapist (optional)": "Note for therapist (optional)",
   "Explain why the request is being declined...": "Explain why the request is being declined...",
-  "Declining...": "Declining..."
+  "Declining...": "Declining...",
+  "Research Project Contact": "Contacto do projeto de investigação",
+  "Your recommendations": "As suas recomendações",
+  "Sleep (min)": "Sono (min)",
+  "Blood pressure systolic": "Pressão arterial sistólica",
+  "Blood pressure diastolic": "Pressão arterial diastólica",
+  "Uncompleted": "Não concluído",
+  "Last Week": "Última semana",
+  "Last Month": "Último mês",
+  "Not reached": "Falha",
+  "Process": "Processo",
+  "Filter by time period": "Filtrar por período",
+  "Show last week": "Mostrar última semana",
+  "Show last month": "Mostrar último mês",
+  "Recommendations": "Recomendações",
+  "Average per day": "Média por dia",
+  "Blood pressure": "Pressão arterial"
 }
