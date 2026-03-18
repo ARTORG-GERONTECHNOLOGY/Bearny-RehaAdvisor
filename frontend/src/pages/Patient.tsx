@@ -12,6 +12,7 @@ import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import ActivitySummary from '@/components/PatientPage/ActivitySummary';
 import DailyVitalsPrompt from '@/components/PatientPage/DailyVitalsPrompt';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
+import PatientPopupContainer from '@/components/PatientPage/PatientPopupContainer';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
 import authStore from '@/stores/authStore';
@@ -19,6 +20,7 @@ import { patientUiStore } from '@/stores/patientUiStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { useInterventions } from '@/hooks/useInterventions';
+import { useInterventionPopup } from '@/hooks/useInterventionPopup';
 import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
 
@@ -31,6 +33,7 @@ const PatientView: React.FC = observer(() => {
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const { selectedIntervention, openIntervention, closeIntervention } = useInterventionPopup();
 
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
   const patientId = localStorage.getItem('id') || authStore.id || '';
@@ -40,11 +43,6 @@ const PatientView: React.FC = observer(() => {
   const { completionCount } = useInterventions(today);
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
-
-  // Safe questions array for feedback questionnaire
-  const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
-    ? patientQuestionnairesStore.feedbackQuestions
-    : [];
 
   // Safe questions array for health questionnaire
   const safeHealthQuestions = Array.isArray(patientQuestionnairesStore.healthQuestions)
@@ -98,18 +96,14 @@ const PatientView: React.FC = observer(() => {
 
       <div className="mt-16 d-flex flex-column">
         <div className="flex-grow-1">
-          <Container fluid>
+          <Container fluid className="patient-container">
             <Row className="patient-section justify-content-center py-10">
               <Col xs={12} sm={11} md={10} lg={8}>
                 <DailyInterventionCard
                   date={today}
-                  title={t('Your recommendations')}
+                  title={t('Your recommendations') || 'Deine Empfehlungen'}
                   badgeText={completionBadge}
-                  onOpenIntervention={(rec, date) =>
-                    navigate(
-                      `/patient-intervention/${rec.intervention_id}?date=${format(date, 'yyyy-MM-dd')}`
-                    )
-                  }
+                  onOpenIntervention={openIntervention}
                 />
               </Col>
             </Row>
@@ -142,16 +136,11 @@ const PatientView: React.FC = observer(() => {
           </Container>
         </div>
 
-        {/* Intervention Feedback Popup */}
-        {patientQuestionnairesStore.showFeedbackPopup && (
-          <FeedbackPopup
-            show
-            interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
-            questions={safeInterventionQuestions}
-            date={patientQuestionnairesStore.feedbackDateKey}
-            onClose={() => patientQuestionnairesStore.closeFeedback()}
-          />
-        )}
+        {/* Intervention Popups (shared with PatientPlan) */}
+        <PatientPopupContainer
+          selectedIntervention={selectedIntervention}
+          onCloseIntervention={closeIntervention}
+        />
 
         {/* Health Questionnaire Popup (only on Patient home page) */}
         {patientQuestionnairesStore.showHealthPopup && (
