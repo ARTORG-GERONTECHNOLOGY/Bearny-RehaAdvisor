@@ -6,6 +6,9 @@ import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientPlanSkeleton from '@/components/skeletons/PatientPlanSkeleton';
 import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
 import SettingsPageSkeleton from '@/components/skeletons/SettingsPageSkeleton';
+import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
+import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
+import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
 
 const Home = lazy(() => import('@/pages/Home'));
 const Therapist = lazy(() => import('@/pages/Therapist'));
@@ -32,6 +35,7 @@ const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventi
 const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
 const PatientProcess = lazy(() => import('@/pages/PatientProcess'));
 const PatientInterventionDetail = lazy(() => import('@/pages/PatientInterventionDetail'));
+const PatientProfile = lazy(() => import('@/pages/PatientProfile'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
 // -------------------- Loading Fallback --------------------
