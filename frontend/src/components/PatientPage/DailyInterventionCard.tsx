@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { observer } from 'mobx-react-lite';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import InterventionItem from '@/components/PatientPage/InterventionItem';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { useInterventions } from '@/hooks/useInterventions';
@@ -14,7 +15,7 @@ interface DailyInterventionCardProps {
   title?: string; // Custom title, if not provided will use formatted date
   locale?: Locale; // Locale for date formatting
   badgeText?: string; // Optional badge text to display (e.g., "Today", "1/2", or undefined for no badge)
-  onOpenIntervention?: (rec: PatientRec) => void;
+  onOpenIntervention?: (rec: PatientRec, date: Date) => void;
 }
 
 const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
@@ -52,14 +53,23 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
           )}
         </div>
 
-        {sortedInterventions.length > 0 ? (
+        {patientInterventionsStore.loading ? (
+          <div
+            className="flex items-center border border-accent rounded-3xl p-4 gap-3"
+            role="status"
+            aria-label={t('Loading')}
+          >
+            <Skeleton className="flex-none w-8 h-8 rounded-full" />
+            <Skeleton className="h-5 w-1/2" />
+          </div>
+        ) : sortedInterventions.length > 0 ? (
           sortedInterventions.map((rec) => (
             <InterventionItem
               key={rec.intervention_id}
               rec={rec}
               date={date}
               isBusy={isBusy(rec, date)}
-              onItemClick={() => onOpenIntervention?.(rec)}
+              onItemClick={() => onOpenIntervention?.(rec, date)}
               onToggleComplete={handleToggleCompleted}
             />
           ))
@@ -71,7 +81,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
           >
             <EmptyIcon className="flex-none w-8 h-8" aria-hidden="true" />
             <div className="flex-1 font-bold text-lg leading-5 text-zinc-400">
-              {patientInterventionsStore.loading ? t('Loading') : t('No interventions')}
+              {t('No interventions')}
             </div>
           </div>
         )}
