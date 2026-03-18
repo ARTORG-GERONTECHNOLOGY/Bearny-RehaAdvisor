@@ -541,6 +541,160 @@ celery -A backend beat -l info
 
 ---
 
+## Named Template System
+
+### Overview
+
+The named template system (`backend/core/views/template_views.py`) lets therapists create, share, and apply reusable rehabilitation schedules called **InterventionTemplates**. It was introduced in three phases:
+
+| Phase | What it adds |
+|---|---|
+| 1 | Template CRUD + copy |
+| 2 | Assign interventions; apply to patient |
+| 3 | Calendar/schedule preview |
+
+All template views are registered in `backend/core/urls.py` under the `/api/templates/` prefix.
+
+### Project structure additions
+
+```
+backend/
+├── core/
+│   ├── models.py                    # InterventionTemplate, DefaultInterventions, DiagnosisAssignmentSettings
+│   └── views/
+│       └── template_views.py        # All 7 template view functions
+└── tests/
+    └── template_views/
+        ├── __init__.py
+        ├── test_template_views.py   # 63 tests (pytest + mongomock)
+        └── TESTING.md               # Test documentation
+```
+
+### Auth helper — `_get_therapist`
+
+Every template view is decorated with `@api_view` (from DRF), which activates the JWT authentication pipeline before the view body runs. The custom `MongoJWTAuthentication` class (see below) handles the JWT → user resolution. The helper then resolves the authenticated user to a `Therapist` document:
+
+```python
+def _get_therapist(request) -> Therapist | None:
+    try:
+        return Therapist.objects.get(userId=str(request.user.id))
+    except Exception:
+        return None
+```
+
+Views return `403` immediately if this returns `None` (therapist profile missing for an otherwise valid JWT user). An invalid or absent JWT causes DRF to return `401` before the view body is even entered.
+
+> **Why `@api_view` matters:** Using only `@permission_classes([IsAuthenticated])` on a plain Django function view does **not** invoke DRF's authentication backend — `request.user` remains `AnonymousUser` for JWT-based requests. All template views use `@api_view` to ensure the JWT is validated and `request.user` is populated correctly.
+
+### `MongoJWTAuthentication` — custom auth backend
+
+**File:** `backend/core/jwt_auth.py`
+
+The default simplejwt `JWTAuthentication.get_user()` calls `auth.User.objects.get(id=<user_id>)` via Django's SQLite ORM. This fails for this app because the `user_id` claim in the JWT is a **MongoDB ObjectId string**, not an integer:
+
+```
+ValueError: Field 'id' expected a number but got '69844f954a901999fb72ee7c'
+```
+
+`MongoJWTAuthentication` overrides `get_user()` to skip the ORM lookup and instead return a lightweight `SimpleNamespace(is_authenticated=True, id=<mongo_id_string>)`. This:
+
+- Satisfies DRF's `IsAuthenticated` permission check.
+- Gives `_get_therapist()` a usable `request.user.id` (the MongoDB ObjectId string) to look up the `Therapist`.
+- Makes no database calls during token validation — the Therapist lookup happens once inside each view.
+
+Configured in `backend/api/settings/base.py`:
+
+```python
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "core.jwt_auth.MongoJWTAuthentication",   # replaces rest_framework_simplejwt.authentication.JWTAuthentication
+    ],
+    ...
+}
+```
+
+#### Testing auth in isolation
+
+The tests use DRF's `APIClient` with `force_authenticate` to bypass JWT issuance, then patch `_get_therapist` to control the therapist resolution:
+
+```python
+from types import SimpleNamespace
+from rest_framework.test import APIClient
+
+_AUTH_USER = SimpleNamespace(is_authenticated=True)  # satisfies IsAuthenticated
+
+client = APIClient()
+client.force_authenticate(user=_AUTH_USER)
+
+with patch("core.views.template_views._get_therapist", return_value=therapist):
+    resp = client.get("/api/templates/")
+    assert resp.status_code == 200
+```
+
+Unauthenticated tests use an un-authenticated `APIClient()` (no `force_authenticate`) and expect **401**.
+
+### Visibility rules
+
+| Operation | Who can |
+|---|---|
+| List / GET | Creator + any therapist for public templates |
+| Create | Any authenticated therapist |
+| PATCH / DELETE | Creator only (403 for others) |
+| Copy | Any therapist who can see the template (copy is always private) |
+| Assign interventions | Creator only |
+| Apply | Any therapist who can see the template |
+| Calendar preview | Any therapist who can see the template |
+
+### `_ALL_DX` sentinel
+
+When an intervention is added to a template without specifying a diagnosis, it is stored under the key `_ALL_DX = "_all"`. This means the entry applies to any patient regardless of their diagnosis. The sentinel is stripped in API responses (serialised as `""` in the calendar endpoint).
+
+### Serializer helpers
+
+`_serialize_template(tmpl, detail=False)` — produces the JSON-safe dict for list and detail responses.
+
+- `detail=False` (list view) — omits `recommendations`; includes `intervention_count` only.
+- `detail=True` (detail/create/update view) — includes full `recommendations` array with per-diagnosis schedule blocks.
+
+`_visible_qs(therapist)` — returns the QuerySet of templates the therapist can see:
+
+```python
+InterventionTemplate.objects.filter(Q(is_public=True) | Q(created_by=therapist))
+```
+
+### URL routing (excerpt)
+
+```python
+# core/urls.py
+path("templates/", views.template_views.template_list_create),
+path("templates/<str:template_id>/", views.template_views.template_detail),
+path("templates/<str:template_id>/copy/", views.template_views.copy_template),
+path("templates/<str:template_id>/interventions/", views.template_views.template_intervention_assign),
+path("templates/<str:template_id>/interventions/<str:intervention_id>/", views.template_views.template_intervention_remove),
+path("templates/<str:template_id>/apply/", views.template_views.apply_named_template),
+path("templates/<str:template_id>/calendar/", views.template_views.template_calendar),
+```
+
+### Running the tests
+
+```bash
+# All template view tests (63 tests, ~1s)
+docker exec django pytest tests/template_views/ -v
+
+# Single section
+docker exec django pytest tests/template_views/ -v -k "apply"
+
+# Test infrastructure notes
+# - Uses mongomock (in-memory MongoDB) via autouse fixture
+# - Uses rest_framework.test.APIClient + force_authenticate (not Django Client)
+# - _get_therapist is patched per-test to decouple JWT from therapist resolution
+# - Unauthenticated tests expect 401 (DRF rejects at auth layer), not 403
+```
+
+For full API reference see [09-API_DOCUMENTATION.md](./09-API_DOCUMENTATION.md#named-templates).
+
+---
+
 **Related Documentation**:
 - [Frontend Development Guide](./03-FRONTEND_GUIDE.md)
 - [Database Documentation](./05-DATABASE_GUIDE.md)

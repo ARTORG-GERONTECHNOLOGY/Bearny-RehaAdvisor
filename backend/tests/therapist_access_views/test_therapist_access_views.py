@@ -153,13 +153,13 @@ def test_access_put_invalid_clinic_value():
 def test_access_put_rejects_project_not_allowed_for_selected_clinic():
     _, therapist = create_therapist()
 
-    # Inselspital only allows COPAIN in current config.
+    # Berner Reha Centrum only allows COPAIN in current config.
     resp = client.put(
         "/api/admin/therapist/access/",
         data=json.dumps(
             {
                 "therapistId": str(therapist.id),
-                "clinics": ["Inselspital"],
+                "clinics": ["Berner Reha Centrum"],
                 "projects": ["COMPASS"],
             }
         ),

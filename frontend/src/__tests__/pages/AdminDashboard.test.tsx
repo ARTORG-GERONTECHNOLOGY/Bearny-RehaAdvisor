@@ -8,9 +8,10 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-// Mock react-i18next
+// Stable t reference — avoids re-triggering useEffect([..., t]) on every render
+const mockT = (key: string) => key;
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: mockT }),
 }));
 
 // Mock mobx-react-lite
@@ -29,19 +30,19 @@ jest.mock('@/stores/adminDashboardStore', () => {
       this.showDeclineConfirm = false;
       this.declineEntryId = null;
       this.init = jest.fn(async (navigate: any) => {
-        this.loading = true;
+        // Do not set this.loading — it's a plain property, not React state,
+        // so changes won't trigger re-renders and will leave the component
+        // stuck showing a spinner.
         const authStore = require('@/stores/authStore').default;
         await authStore.checkAuthentication();
 
         if (!authStore.isAuthenticated || authStore.userType !== 'Admin') {
           navigate('/unauthorized');
-          this.loading = false;
           return;
         }
 
         const adminStore = require('@/stores/adminStore').default;
         await adminStore.fetchPendingEntries();
-        this.loading = false;
       });
       this.setError = jest.fn((err: string | null) => {
         this.error = err;
@@ -70,7 +71,7 @@ jest.mock('@/stores/adminDashboardStore', () => {
   };
 });
 
-// ✅ Mock authStore properly BEFORE importing it!
+// ✅ Mock authStore
 const mockAuthStore = {
   id: 'mock-therapist-id',
   checkAuthentication: jest.fn(),
@@ -97,6 +98,7 @@ jest.mock('@/components/common/ConfirmModal', () => () => <div>Mock ConfirmModal
 
 // Mock the apiClient
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+import apiClient from '@/api/client';
 
 // Mock MobX stores
 const mockAdminStore = {
@@ -114,6 +116,26 @@ jest.mock('@/stores/adminStore', () => ({
   },
 }));
 
+// ─── sample access change request ────────────────────────────────────────────
+
+const sampleChangeRequest = {
+  id: 'req-1',
+  therapistId: 'th-1',
+  therapistName: 'Jane Doe',
+  therapistEmail: 'jane@example.com',
+  currentClinics: ['Inselspital'],
+  currentProjects: ['COPAIN'],
+  requestedClinics: ['Berner Reha Centrum'],
+  requestedProjects: ['COPAIN'],
+  status: 'pending',
+  createdAt: '2024-01-15T10:00:00Z',
+  note: '',
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Tests
+// ═════════════════════════════════════════════════════════════════════════════
+
 describe('AdminDashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -124,11 +146,17 @@ describe('AdminDashboard', () => {
     mockAdminStore.pendingEntries = [];
     mockAdminStore.error = '';
     mockStoreInstance = null;
+
+    // Default: no pending change requests
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { requests: [] } });
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: { ok: true } });
   });
 
-  it('redirects to unauthorized if user is not authenticated or not admin', async () => {
+  // ── auth / redirect ────────────────────────────────────────────────────────
+
+  it('redirects to unauthorized if user is not authenticated', async () => {
     mockAuthStore.isAuthenticated = false;
-    mockAuthStore.userType = 'Therapist'; // Not admin
+    mockAuthStore.userType = 'Therapist';
 
     render(
       <MemoryRouter>
@@ -141,11 +169,9 @@ describe('AdminDashboard', () => {
     });
   });
 
-  it('renders pending entries correctly', async () => {
-    mockAuthStore.checkAuthentication.mockResolvedValue(undefined);
-    mockAuthStore.isAuthenticated = true;
-    mockAuthStore.userType = 'Admin';
+  // ── pending registrations tab ─────────────────────────────────────────────
 
+  it('renders pending entries correctly', async () => {
     mockAdminStore.fetchPendingEntries.mockResolvedValue(undefined);
     mockAdminStore.pendingEntries = [
       { id: '1', name: 'Test User', email: 'test@example.com', role: 'Therapist' },
@@ -166,11 +192,6 @@ describe('AdminDashboard', () => {
   });
 
   it('calls acceptEntry when Accept button is clicked', async () => {
-    mockAuthStore.checkAuthentication.mockResolvedValue(undefined);
-    mockAuthStore.isAuthenticated = true;
-    mockAuthStore.userType = 'Admin';
-
-    mockAdminStore.fetchPendingEntries.mockResolvedValue(undefined);
     mockAdminStore.acceptEntry = jest.fn();
     mockAdminStore.pendingEntries = [
       { id: '1', name: 'Test User', email: 'test@example.com', type: 'Therapist' },
@@ -182,12 +203,9 @@ describe('AdminDashboard', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(screen.getByText('Test User')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
 
-    const acceptButton = screen.getByText('Accept');
-    fireEvent.click(acceptButton);
+    fireEvent.click(screen.getByText('Accept'));
 
     await waitFor(() => {
       expect(mockAdminStore.acceptEntry).toHaveBeenCalledWith('1');
@@ -195,11 +213,6 @@ describe('AdminDashboard', () => {
   });
 
   it('calls declineEntry when Decline button is clicked and confirmed', async () => {
-    mockAuthStore.checkAuthentication.mockResolvedValue(undefined);
-    mockAuthStore.isAuthenticated = true;
-    mockAuthStore.userType = 'Admin';
-
-    mockAdminStore.fetchPendingEntries.mockResolvedValue(undefined);
     mockAdminStore.declineEntry = jest.fn().mockResolvedValue(undefined);
     mockAdminStore.pendingEntries = [
       { id: '1', name: 'Test User', email: 'test@example.com', type: 'Therapist' },
@@ -211,22 +224,136 @@ describe('AdminDashboard', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(screen.getByText('Test User')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
 
-    const declineButton = screen.getByText('Decline');
-    fireEvent.click(declineButton);
+    fireEvent.click(screen.getByText('Decline'));
 
-    // The component uses a ConfirmModal, so we need to check that showDeclineConfirm was set
     await waitFor(() => {
       expect(mockStoreInstance?.showDeclineConfirm).toBe(true);
       expect(mockStoreInstance?.declineEntryId).toBe('1');
     });
 
-    // Manually trigger the confirm action since we mocked the ConfirmModal
     await mockStoreInstance.declineConfirmed();
-
     expect(mockAdminStore.declineEntry).toHaveBeenCalledWith('1');
+  });
+
+  // ── access change requests tab ────────────────────────────────────────────
+
+  it('fetches access change requests on mount', async () => {
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/admin/access-change-requests/');
+    });
+  });
+
+  it('shows "Access change requests" tab with badge when requests exist', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Access change requests')).toBeInTheDocument();
+    });
+  });
+
+  it('renders therapist name and email in access requests table', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    // Switch to access-requests tab
+    await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Access change requests'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+      expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+    });
+  });
+
+  it('renders current and requested clinics/projects in access requests table', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Access change requests'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Inselspital')).toBeInTheDocument();
+      expect(screen.getByText('Berner Reha Centrum')).toBeInTheDocument();
+    });
+  });
+
+  it('calls approve endpoint when Approve button is clicked', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    // Switch to access-requests tab
+    await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Access change requests'));
+
+    // Wait for tab-specific content ("Requested clinics" column only exists in this tab)
+    // then wait for data to load (Jane Doe's row must be present)
+    await waitFor(() => {
+      expect(screen.getByText('Requested clinics')).toBeInTheDocument();
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    });
+
+    // Now click the Approve button — it's in the active pane
+    fireEvent.click(screen.getByText('Approve'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith('/admin/access-change-requests/req-1/', {
+        action: 'approve',
+      });
+    });
+  });
+
+  it('shows no pending message when change requests list is empty', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { requests: [] } });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Access change requests'));
+
+    await waitFor(() => {
+      expect(screen.getByText('No pending access change requests')).toBeInTheDocument();
+    });
   });
 });
