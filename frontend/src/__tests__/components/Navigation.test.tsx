@@ -43,42 +43,41 @@ beforeEach(() => {
 // ── navLinks by user type ────────────────────────────────────────────────────
 
 describe('Navigation - navLinks by user type', () => {
-  it('shows Home + Week Plan + Process + Library + Profile for Patient', () => {
+  it('shows Home + Week Plan + Interventions + Settings for Patient', () => {
     renderNav('/patient');
     expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Week Plan').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Process').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
 
-  it('shows Patients + Library + Profile for Therapist', () => {
+  it('shows Patients + Interventions + Profile + Settings for Therapist', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Patients + Library + Profile for Researcher', () => {
+  it('shows Patients + Interventions + Profile + Settings for Researcher', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows no nav links for Admin', () => {
+  it('shows Settings for Admin', () => {
     mockAuthStore.userType = 'Admin';
     renderNav('/admin');
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
 
   it('shows Home for unauthenticated (null userType)', () => {

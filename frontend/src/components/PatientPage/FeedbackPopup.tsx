@@ -97,22 +97,17 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   if (show && normalizedQuestions.length === 0) {
     return (
       <Sheet open={show} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="bottom" className="flex flex-col">
+        <SheetContent side="bottom" className="min-h-[55vh]">
           <SheetHeader>
             <SheetTitle>{t('Feedback')}</SheetTitle>
           </SheetHeader>
-          <div className="flex-1">
+          <div className="py-4">
             <Alert variant="info" className="mb-0">
               {t('No feedback questions available.')}
             </Alert>
           </div>
           <SheetFooter>
-            <Button
-              onClick={onClose}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Close')}
-            </Button>
+            <Button onClick={onClose}>{t('Close')}</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

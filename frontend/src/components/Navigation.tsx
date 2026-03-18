@@ -6,12 +6,12 @@ import SunriseOutline from '@/assets/icons/sunrise-outline.svg?react';
 import SunriseFill from '@/assets/icons/sunrise-fill.svg?react';
 import CalendarOutline from '@/assets/icons/calendar-outline.svg?react';
 import CalendarFill from '@/assets/icons/calendar-fill.svg?react';
-import CirclesFill from '@/assets/icons/circles-fill.svg?react';
-import CirclesOutline from '@/assets/icons/circles-outline.svg?react';
 import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
 import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
 import UserFill from '@/assets/icons/user-fill.svg?react';
+import GearOutline from '@/assets/icons/gear-outline.svg?react';
+import GearFill from '@/assets/icons/gear-fill.svg?react';
 
 // TODO:
 // - move colors to config as soon as they are fixed
@@ -36,22 +36,16 @@ export default function Navigation() {
             label: t('Week Plan'),
           },
           {
-            path: '/patient-process',
-            iconOutline: CirclesOutline,
-            iconFill: CirclesFill,
-            label: t('Process'),
-          },
-          {
             path: '/patient-interventions',
             iconOutline: GridCircleOutline,
             iconFill: GridCircleFill,
             label: t('Library'),
           },
           {
-            path: '/patient-profile',
-            iconOutline: UserOutline,
-            iconFill: UserFill,
-            label: t('Profile'),
+            path: '/settings',
+            iconOutline: GearOutline,
+            iconFill: GearFill,
+            label: t('Settings'),
           },
         ]
       : authStore.userType === 'Therapist' || authStore.userType === 'Researcher'
@@ -74,9 +68,22 @@ export default function Navigation() {
               iconFill: UserFill,
               label: t('Profile'),
             },
+            {
+              path: '/settings',
+              iconOutline: GearOutline,
+              iconFill: GearFill,
+              label: t('Settings'),
+            },
           ]
         : authStore.userType === 'Admin'
-          ? [] // Admin: no nav links, only logout button
+          ? [
+              {
+                path: '/settings',
+                iconOutline: GearOutline,
+                iconFill: GearFill,
+                label: t('Settings'),
+              },
+            ]
           : [
               {
                 path: '/',
@@ -125,30 +132,26 @@ export default function Navigation() {
       >
         <div className="w-full flex justify-center gap-2">
           <div className="bg-[#F2F2F2] border border-[#D4D4D4] rounded-full p-2 flex">
-            {navLinks
-              .filter((link) => link.path !== '/patient-profile')
-              .map((link) => (
-                <NavItem
-                  key={link.path}
-                  onClick={() => {
-                    window.location.href = link.path;
-                  }}
-                  iconOutline={link.iconOutline}
-                  iconFill={link.iconFill}
-                  label={link.label}
-                  active={location.pathname === link.path}
-                  desktop
-                />
-              ))}
+            {navLinks.map((link) => (
+              <NavItem
+                key={link.path}
+                onClick={() => {
+                  window.location.href = link.path;
+                }}
+                iconOutline={link.iconOutline}
+                iconFill={link.iconFill}
+                label={link.label}
+                active={location.pathname === link.path}
+                desktop
+              />
+            ))}
           </div>
           <button
-            onClick={() => {
-              window.location.href = '/patient-profile';
-            }}
-            className="bg-[#F2F2F2] border border-[#D4D4D4] p-2 aspect-square rounded-full text-[#565656] hover:text-black transition flex items-center justify-center"
-            style={{ color: location.pathname === '/patient-profile' ? '#03A578' : '#565656' }}
+            // TODO: unhide when profile page is implemented
+            className="hidden bg-[#F2F2F2] border border-[#D4D4D4] p-2 aspect-square rounded-full text-[#565656] hover:text-black transition flex items-center justify-center"
+            style={{ color: location.pathname === '/userprofile' ? '#03A578' : '#565656' }}
           >
-            {location.pathname === '/patient-profile' ? (
+            {location.pathname === '/userprofile' ? (
               <UserFill className="w-5 h-5" />
             ) : (
               <UserOutline className="w-5 h-5" />

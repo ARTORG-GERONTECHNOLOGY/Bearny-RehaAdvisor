@@ -217,6 +217,7 @@ describe('LoginForm', () => {
 
     await waitFor(() => {
       expect(authStore.loginWithHttp).toHaveBeenCalled();
+      expect(authStore.setAuthenticated).toHaveBeenCalledWith(true);
       expect(mockNavigate).toHaveBeenCalledWith('/patient');
     });
   });
