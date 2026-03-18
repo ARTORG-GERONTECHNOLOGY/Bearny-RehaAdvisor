@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import InterventionList from '@/components/PatientPage/InterventionList';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 jest.mock('react-pdf');
 
 jest.mock('react-i18next', () => ({
@@ -28,6 +29,11 @@ futureDate.setDate(today.getDate() + 1);
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 describe('InterventionList Component', () => {
   beforeEach(() => {
+    // Reset MobX store state so popup state doesn't leak between tests.
+    patientQuestionnairesStore.closeFeedback();
+    patientQuestionnairesStore.closeHealth();
+    patientQuestionnairesStore.closeInitial();
+
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/patients/rehabilitation-plan/patient/67d588798c0494979e4633e4/')) {
         return Promise.resolve({
@@ -346,6 +352,10 @@ describe('InterventionList Component', () => {
     });
 
     jest.clearAllMocks();
+    // Reset MobX store state that persists between tests
+    patientQuestionnairesStore.closeFeedback();
+    patientQuestionnairesStore.closeHealth();
+    patientQuestionnairesStore.closeInitial();
   });
 
   it('renders without crashing and calls API', async () => {

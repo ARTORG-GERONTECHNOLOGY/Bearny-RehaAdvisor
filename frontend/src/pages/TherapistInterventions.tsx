@@ -1,6 +1,7 @@
 // src/pages/TherapistRecomendations.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Container } from 'react-bootstrap';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Container, Card, Form, Button, ButtonGroup, Spinner, Modal } from 'react-bootstrap';
+import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -19,6 +20,8 @@ import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTi
 
 import authStore from '../stores/authStore';
 import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
+import templateStore from '../stores/templateStore';
+import ApplyTemplateModal from '../components/TherapistInterventionPage/ApplyTemplateModal';
 
 import config from '../config/config.json';
 import apiClient from '../api/client';
@@ -80,7 +83,6 @@ const defaultLibraryFilters: LibraryFiltersState = {
 const defaultTemplatesFilters: TemplatesFiltersState = {
   tSearchTerm: '',
   tPatientTypeFilter: '',
-  tDiagnosisFilter: [],
   tContentTypeFilter: '',
   tTagFilter: [],
   tFrequencyFilter: '',
@@ -116,6 +118,72 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
   const [tLoading, setTLoading] = useState<boolean>(false);
 
+  // ─────────────────────────── named templates ───────────────────────────
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('');
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateDesc, setNewTemplateDesc] = useState('');
+  const [newTemplatePublic, setNewTemplatePublic] = useState(false);
+  const [newTemplateSubmitting, setNewTemplateSubmitting] = useState(false);
+
+  // ─────────────────────────── copy modal ───────────────────────────
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyModalName, setCopyModalName] = useState('');
+  const [copyModalDesc, setCopyModalDesc] = useState('');
+  const [copyModalSubmitting, setCopyModalSubmitting] = useState(false);
+
+  // ─────────────────────────── edit meta modal ───────────────────────────
+  const [showEditMetaModal, setShowEditMetaModal] = useState(false);
+  const [editMetaName, setEditMetaName] = useState('');
+  const [editMetaDesc, setEditMetaDesc] = useState('');
+  const [editMetaPublic, setEditMetaPublic] = useState(false);
+  const [editMetaSubmitting, setEditMetaSubmitting] = useState(false);
+
+  // ─────────────────────────── change notifications ───────────────────────────
+  type InterventionRef = {
+    id: string;
+    title: string;
+    diagnosis: string;
+    start_day: number;
+    end_day: number | null;
+    unit: string;
+    interval: number;
+    selectedDays: string[];
+  };
+  type TemplateSeen = {
+    updatedAt: string;
+    name: string;
+    description: string;
+    intervention_count: number;
+    interventions: InterventionRef[];
+  };
+  type ModifiedRef = { prev: InterventionRef; curr: InterventionRef };
+  type TemplateDiff = {
+    date: string;
+    metaChanges: string[];
+    added: InterventionRef[];
+    removed: InterventionRef[];
+    modified: ModifiedRef[];
+  };
+
+  const [seenMap, setSeenMap] = useState<Record<string, TemplateSeen>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('templateSeenMap') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const seenMapRef = useRef(seenMap);
+  useEffect(() => {
+    seenMapRef.current = seenMap;
+  }, [seenMap]);
+
+  // In-memory diffs computed this session — cleared on page refresh
+  const [sessionDiffs, setSessionDiffs] = useState<Record<string, TemplateDiff>>({});
+  const [showDiff, setShowDiff] = useState(false);
+
   // ─────────────────────────── import popup ───────────────────────────
   const [showPopupImport, setShowPopupImport] = useState(false);
   const handleOpenImport = () => setShowPopupImport(true);
@@ -147,6 +215,25 @@ const TherapistRecomendations: React.FC = observer(() => {
       ),
     [authStore.specialisations]
   );
+
+  // Template list filtered by the search box
+  const filteredTemplates = useMemo(() => {
+    const q = templateSearch.trim().toLowerCase();
+    if (!q) return templateStore.templates;
+    return templateStore.templates.filter(
+      (tmpl) =>
+        tmpl.name.toLowerCase().includes(q) || (tmpl.description || '').toLowerCase().includes(q)
+    );
+  }, [templateStore.templates, templateSearch]);
+
+  // Public templates updated since last viewed (not owned by current therapist)
+  const unseenTemplates = useMemo(() => {
+    return templateStore.templates.filter((tmpl) => {
+      if (tmpl.created_by === authStore.id) return false;
+      const seen = seenMap[tmpl.id];
+      return !seen || tmpl.updatedAt > seen.updatedAt;
+    });
+  }, [templateStore.templates, seenMap, authStore.id]);
 
   // Store-driven interventions
   const recommendations = therapistInterventionsLibraryStore.items;
@@ -288,16 +375,24 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── templates fetch + actions ───────────────────────────
   const fetchTemplates = useCallback(
-    async (diag?: string, horizon?: number) => {
+    async (diag?: string, horizon?: number, namedId?: string) => {
       try {
         setTLoading(true);
         const q = new URLSearchParams();
         if (diag) q.set('diagnosis', diag);
-        if (horizon) q.set('horizon', String(horizon));
 
-        const res = await apiClient.get<TemplatePayload>(
-          `therapists/${authStore.id}/template-plan?${q.toString()}`
-        );
+        let res: any;
+        if (namedId) {
+          q.set('horizon_days', String(horizon || 84));
+          res = await apiClient.get<TemplatePayload>(
+            `templates/${namedId}/calendar/?${q.toString()}`
+          );
+        } else {
+          if (horizon) q.set('horizon', String(horizon));
+          res = await apiClient.get<TemplatePayload>(
+            `therapists/${authStore.id}/template-plan?${q.toString()}`
+          );
+        }
         setTemplateItems(res.data.items || []);
       } catch {
         setTemplateItems([]);
@@ -309,8 +404,92 @@ const TherapistRecomendations: React.FC = observer(() => {
   );
 
   useEffect(() => {
-    if (mainTab === 'templates') fetchTemplates(templateDiag, templateHorizon);
-  }, [mainTab, templateDiag, templateHorizon, fetchTemplates]);
+    if (mainTab === 'templates')
+      fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
+  }, [mainTab, templateDiag, templateHorizon, activeTemplateId, fetchTemplates]);
+
+  // Load named template list when entering templates tab
+  useEffect(() => {
+    if (mainTab === 'templates') {
+      templateStore.fetchTemplates();
+    }
+  }, [mainTab]);
+
+  // When template items load: compute intervention diff vs stored snapshot, then save updated snapshot
+  useEffect(() => {
+    if (!activeTemplateId || !templateItems.length) return;
+    const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
+    if (!tmpl || tmpl.created_by === authStore.id) return;
+
+    const oldInterventions = seenMapRef.current[activeTemplateId]?.interventions ?? [];
+
+    const currentInterventions: InterventionRef[] = templateItems.map((it) => {
+      const seg = getSegments(it)[0];
+      return {
+        id: it.intervention._id,
+        title: it.intervention.title,
+        diagnosis: it.diagnosis,
+        start_day: seg.start_day,
+        end_day: seg.end_day ?? null,
+        unit: seg.unit,
+        interval: seg.interval,
+        selectedDays: seg.selectedDays,
+      };
+    });
+
+    if (oldInterventions.length > 0) {
+      // Key = id + diagnosis (same intervention may appear under multiple diagnoses)
+      const key = (i: InterventionRef) => `${i.id}::${i.diagnosis}`;
+      const oldMap = new Map(oldInterventions.map((i) => [key(i), i]));
+      const newMap = new Map(currentInterventions.map((i) => [key(i), i]));
+
+      const added = currentInterventions.filter((i) => !oldMap.has(key(i)));
+      const removed = oldInterventions.filter((i) => !newMap.has(key(i)));
+      const modified: ModifiedRef[] = currentInterventions
+        .filter((curr) => {
+          const prev = oldMap.get(key(curr));
+          if (!prev) return false;
+          return (
+            curr.start_day !== prev.start_day ||
+            curr.end_day !== prev.end_day ||
+            curr.unit !== prev.unit ||
+            curr.interval !== prev.interval ||
+            JSON.stringify([...curr.selectedDays].sort()) !==
+              JSON.stringify([...prev.selectedDays].sort())
+          );
+        })
+        .map((curr) => ({ prev: oldMap.get(key(curr))!, curr }));
+
+      if (added.length > 0 || removed.length > 0 || modified.length > 0) {
+        setSessionDiffs((prev) => ({
+          ...prev,
+          [activeTemplateId]: {
+            ...(prev[activeTemplateId] ?? { date: tmpl.updatedAt, metaChanges: [] }),
+            added,
+            removed,
+            modified,
+          },
+        }));
+      }
+    }
+
+    // Save updated snapshot with current intervention list
+    setSeenMap((prev) => {
+      const snap: TemplateSeen = {
+        ...(prev[activeTemplateId] ?? {
+          updatedAt: tmpl.updatedAt,
+          name: tmpl.name,
+          description: tmpl.description || '',
+          intervention_count: tmpl.intervention_count,
+        }),
+        interventions: currentInterventions,
+      };
+      const updated = { ...prev, [activeTemplateId]: snap };
+      localStorage.setItem('templateSeenMap', JSON.stringify(updated));
+      return updated;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateItems, activeTemplateId]);
 
   const openAssignToTemplate = (
     id: string,
@@ -339,15 +518,21 @@ const TherapistRecomendations: React.FC = observer(() => {
     startDay?: number
   ) => {
     try {
-      const payload: any = { intervention_id: interventionId, diagnosis };
-      if (typeof startDay === 'number') payload.start_day = startDay;
+      if (activeTemplateId) {
+        const q = diagnosis ? `?diagnosis=${encodeURIComponent(diagnosis)}` : '';
+        await apiClient.delete(
+          `templates/${activeTemplateId}/interventions/${interventionId}/${q}`
+        );
+      } else {
+        const payload: any = { intervention_id: interventionId, diagnosis };
+        if (typeof startDay === 'number') payload.start_day = startDay;
+        await apiClient.post(
+          `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
+          payload
+        );
+      }
 
-      await apiClient.post(
-        `therapists/${authStore.id}/interventions/remove-from-patient-types/`,
-        payload
-      );
-
-      fetchTemplates(templateDiag, templateHorizon);
+      fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
     } catch (e: any) {
       const data = e?.response?.data || {};
       const base =
@@ -365,6 +550,125 @@ const TherapistRecomendations: React.FC = observer(() => {
         setError(base);
       }
     }
+  };
+
+  // ─────────────────────────── named template actions ───────────────────────────
+  const handleCreateTemplate = async () => {
+    if (!newTemplateName.trim()) return;
+    try {
+      setNewTemplateSubmitting(true);
+      const tmpl = await templateStore.createTemplate({
+        name: newTemplateName.trim(),
+        description: newTemplateDesc.trim(),
+        is_public: newTemplatePublic,
+      });
+      setActiveTemplateId(tmpl.id);
+      setShowNewTemplateModal(false);
+      setNewTemplateName('');
+      setNewTemplateDesc('');
+      setNewTemplatePublic(false);
+    } catch {
+      // error shown via templateStore.error
+    } finally {
+      setNewTemplateSubmitting(false);
+    }
+  };
+
+  const handleDeleteActiveTemplate = async () => {
+    if (!activeTemplateId) return;
+    if (!window.confirm(t('Delete this template? This cannot be undone.'))) return;
+    await templateStore.deleteTemplate(activeTemplateId);
+    setActiveTemplateId('');
+    setTemplateItems([]);
+  };
+
+  const handleCopyActiveTemplate = () => {
+    if (!activeTemplateId) return;
+    const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
+    if (!tmpl) return;
+    setCopyModalName(`${t('Copy of')} ${tmpl.name}`);
+    setCopyModalDesc(tmpl.description || '');
+    setShowCopyModal(true);
+  };
+
+  const handleConfirmCopy = async () => {
+    if (!activeTemplateId) return;
+    try {
+      setCopyModalSubmitting(true);
+      const copy = await templateStore.copyTemplate(
+        activeTemplateId,
+        copyModalName.trim(),
+        copyModalDesc.trim()
+      );
+      setActiveTemplateId(copy.id);
+      setShowCopyModal(false);
+    } catch {
+      // error surfaced via templateStore.error
+    } finally {
+      setCopyModalSubmitting(false);
+    }
+  };
+
+  const handleOpenEditMeta = () => {
+    const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
+    if (!tmpl) return;
+    setEditMetaName(tmpl.name);
+    setEditMetaDesc(tmpl.description || '');
+    setEditMetaPublic(tmpl.is_public);
+    setShowEditMetaModal(true);
+  };
+
+  const handleConfirmEditMeta = async () => {
+    if (!activeTemplateId) return;
+    try {
+      setEditMetaSubmitting(true);
+      await templateStore.updateTemplate(activeTemplateId, {
+        name: editMetaName.trim(),
+        description: editMetaDesc.trim(),
+        is_public: editMetaPublic,
+      });
+      setShowEditMetaModal(false);
+    } catch {
+      // error surfaced via templateStore.error
+    } finally {
+      setEditMetaSubmitting(false);
+    }
+  };
+
+  const handleTemplateSelect = (id: string) => {
+    setShowDiff(false);
+    setTemplateSearch('');
+    setActiveTemplateId(id);
+    if (!id) return;
+    const tmpl = templateStore.templates.find((x) => x.id === id);
+    if (!tmpl) return;
+
+    const oldSnap = seenMapRef.current[id];
+    const isUpdated = oldSnap && tmpl.updatedAt > oldSnap.updatedAt;
+
+    // Compute meta-only diff immediately; intervention diff arrives when items load
+    if (isUpdated) {
+      const metaChanges: string[] = [];
+      if (tmpl.name !== oldSnap.name) metaChanges.push(t('Name changed'));
+      if ((tmpl.description || '') !== (oldSnap.description || ''))
+        metaChanges.push(t('Description changed'));
+      setSessionDiffs((prev) => ({
+        ...prev,
+        [id]: { date: tmpl.updatedAt, metaChanges, added: [], removed: [] },
+      }));
+    }
+
+    // Save snapshot — carry forward old intervention list until items load
+    const snap: TemplateSeen = {
+      updatedAt: tmpl.updatedAt,
+      name: tmpl.name,
+      description: tmpl.description || '',
+      intervention_count: tmpl.intervention_count,
+      interventions: oldSnap?.interventions ?? [],
+    };
+    const updated = { ...seenMapRef.current, [id]: snap };
+    setSeenMap(updated);
+    localStorage.setItem('templateSeenMap', JSON.stringify(updated));
   };
 
   const findTemplateFor = (intId: string): TemplateItem | undefined => {
@@ -457,47 +761,428 @@ const TherapistRecomendations: React.FC = observer(() => {
             />
           </>
         ) : (
-          <TemplatesLayout
-            t={t}
-            // left panel state
-            templateDiag={templateDiag}
-            onTemplateDiag={setTemplateDiag}
-            templateHorizon={templateHorizon}
-            onTemplateHorizon={setTemplateHorizon}
-            diagnoses={diagnoses}
-            patientTypes={patientTypes}
-            // sub-tab
-            templateLeftTab={templateLeftTab}
-            onTemplateLeftTab={setTemplateLeftTab}
-            // my template list
-            templateItems={templateItems}
-            tLoading={tLoading}
-            translatedTitles={translatedTitles}
-            getSegments={getSegments}
-            segmentSummary={segmentSummary}
-            onTemplateItemClick={handleTemplateItemClick}
-            onModifyTemplate={openModifyTemplate}
-            onRemoveTemplateItem={removeTemplateItem}
-            // browse all list
-            browseAllItems={templateFilteredAll}
-            findTemplateFor={findTemplateFor}
-            onOpenAssign={openAssignToTemplate}
-            // browse filters
-            filters={templatesFilters}
-            onFilters={setTemplatesFilters}
-            onResetFilters={resetTemplateFilters}
-            // right timeline
-            timeline={
-              <TemplateTimeline
-                items={templateItems}
-                horizonDays={templateHorizon}
-                translatedTitles={translatedTitles}
-              />
-            }
-            tagColors={tagColors}
-          />
+          <>
+            {/* ── Named template management bar ── */}
+            <Card className="mb-3">
+              <Card.Body>
+                {/* ── Row 1: search + selector + actions ── */}
+                <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+                  {/* ── Template autocomplete search ── */}
+                  <div className="position-relative" style={{ minWidth: 240 }}>
+                    <Form.Control
+                      size="sm"
+                      placeholder={t('Search templates...')}
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                      onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
+                      autoComplete="off"
+                    />
+                    {templateSearch.trim() && (
+                      <div
+                        className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"
+                        style={{ zIndex: 1050, maxHeight: 260, overflowY: 'auto' }}
+                      >
+                        {filteredTemplates.length === 0 ? (
+                          <div className="px-3 py-2 text-muted small">{t('No data available')}</div>
+                        ) : (
+                          filteredTemplates.map((tmpl) => {
+                            const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
+                            const q = templateSearch.trim();
+                            const highlight = (text: string) => {
+                              const idx = text.toLowerCase().indexOf(q.toLowerCase());
+                              if (idx === -1) return <>{text}</>;
+                              return (
+                                <>
+                                  {text.slice(0, idx)}
+                                  <mark className="p-0 bg-warning bg-opacity-50">
+                                    {text.slice(idx, idx + q.length)}
+                                  </mark>
+                                  {text.slice(idx + q.length)}
+                                </>
+                              );
+                            };
+                            return (
+                              <div
+                                key={tmpl.id}
+                                className={`px-3 py-2 border-bottom ${activeTemplateId === tmpl.id ? 'bg-primary bg-opacity-10' : ''}`}
+                                style={{ cursor: 'pointer' }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // keep focus on input during click
+                                  handleTemplateSelect(tmpl.id);
+                                  setTemplateSearch('');
+                                }}
+                              >
+                                <div className="d-flex align-items-center gap-1">
+                                  {isUnseen && (
+                                    <FaBell
+                                      className="text-warning"
+                                      style={{ fontSize: '0.7rem' }}
+                                    />
+                                  )}
+                                  <span className="fw-semibold small">{highlight(tmpl.name)}</span>
+                                  {tmpl.is_public && (
+                                    <span
+                                      className="badge bg-secondary ms-1"
+                                      style={{ fontSize: '0.65rem' }}
+                                    >
+                                      {t('public')}
+                                    </span>
+                                  )}
+                                  {tmpl.created_by !== authStore.id && (
+                                    <span className="text-muted small ms-1">
+                                      — {tmpl.created_by_name}
+                                    </span>
+                                  )}
+                                </div>
+                                {tmpl.description && (
+                                  <div className="text-muted small text-truncate">
+                                    {highlight(tmpl.description)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Full template selector (for browsing without search) ── */}
+                  <div className="position-relative">
+                    <Form.Select
+                      size="sm"
+                      style={{ maxWidth: 280 }}
+                      value={activeTemplateId}
+                      onChange={(e) => handleTemplateSelect(e.target.value)}
+                    >
+                      <option value="">{t('Implicit therapist template')}</option>
+                      {templateStore.templates.map((tmpl) => {
+                        const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
+                        return (
+                          <option key={tmpl.id} value={tmpl.id}>
+                            {isUnseen ? '● ' : ''}
+                            {tmpl.name}
+                            {tmpl.is_public ? ` (${t('public')})` : ''}
+                            {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
+                          </option>
+                        );
+                      })}
+                    </Form.Select>
+                    {unseenTemplates.length > 0 && (
+                      <span
+                        className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
+                        style={{ fontSize: '0.65rem', cursor: 'default' }}
+                        title={t('{{count}} template(s) updated since last view', {
+                          count: unseenTemplates.length,
+                        })}
+                      >
+                        <FaBell className="me-1" />
+                        {unseenTemplates.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {templateStore.loading && <Spinner size="sm" />}
+
+                  <Button
+                    size="sm"
+                    variant="outline-success"
+                    onClick={() => setShowNewTemplateModal(true)}
+                  >
+                    <FaPlus className="me-1" />
+                    {t('New')}
+                  </Button>
+
+                  {activeTemplateId && (
+                    <ButtonGroup size="sm">
+                      <Button
+                        variant="outline-primary"
+                        onClick={() => setShowApplyModal(true)}
+                        title={t('Apply to patient')}
+                      >
+                        <FaUpload className="me-1" />
+                        {t('Apply')}
+                      </Button>
+                      {templateStore.templates.find((x) => x.id === activeTemplateId)
+                        ?.created_by === authStore.id && (
+                        <Button
+                          variant="outline-secondary"
+                          onClick={handleOpenEditMeta}
+                          title={t('Edit name / description')}
+                        >
+                          <FaEdit />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline-secondary"
+                        onClick={handleCopyActiveTemplate}
+                        title={t('Copy template')}
+                      >
+                        <FaCopy />
+                      </Button>
+                      {templateStore.templates.find((x) => x.id === activeTemplateId)
+                        ?.created_by === authStore.id && (
+                        <Button
+                          variant="outline-danger"
+                          onClick={handleDeleteActiveTemplate}
+                          title={t('Delete template')}
+                        >
+                          <FaTrash />
+                        </Button>
+                      )}
+                    </ButtonGroup>
+                  )}
+                </div>
+
+                {/* ── Row 2: view options (diagnosis + horizon) ── */}
+                <div className="d-flex align-items-center flex-wrap gap-3 mb-2">
+                  <div className="d-flex align-items-center gap-1">
+                    <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
+                    <Form.Select
+                      size="sm"
+                      style={{ maxWidth: 200 }}
+                      value={templateDiag}
+                      onChange={(e) => setTemplateDiag(e.target.value)}
+                    >
+                      <option value="">{t('All')}</option>
+                      {diagnoses.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </div>
+                  <div className="d-flex align-items-center gap-1">
+                    <small className="text-muted">{t('Horizon (days)')}:</small>
+                    <Form.Control
+                      size="sm"
+                      type="number"
+                      min={14}
+                      max={180}
+                      style={{ maxWidth: 80 }}
+                      value={templateHorizon}
+                      onChange={(e) => setTemplateHorizon(parseInt(e.target.value || '84', 10))}
+                    />
+                  </div>
+                </div>
+
+                {activeTemplateId &&
+                  (() => {
+                    const tmpl = templateStore.templates.find((x) => x.id === activeTemplateId);
+                    if (!tmpl) return null;
+                    const diff = sessionDiffs[activeTemplateId];
+                    return (
+                      <div className="d-flex flex-column ms-2" style={{ maxWidth: 480 }}>
+                        {tmpl.description && (
+                          <small className="text-muted">{tmpl.description}</small>
+                        )}
+                        {diff &&
+                          (() => {
+                            const scheduleLabel = (i: InterventionRef) => {
+                              const end = i.end_day != null ? ` → ${t('day')} ${i.end_day}` : '';
+                              const days = i.selectedDays.length
+                                ? ` (${i.selectedDays.join(', ')})`
+                                : '';
+                              return `${t('day')} ${i.start_day}${end}, ${t('every')} ${i.interval} ${t(i.unit)}${days}`;
+                            };
+                            const scheduleChanges = (m: ModifiedRef) => {
+                              const parts: string[] = [];
+                              if (m.curr.start_day !== m.prev.start_day)
+                                parts.push(
+                                  `${t('start day')} ${m.prev.start_day} → ${m.curr.start_day}`
+                                );
+                              if (m.curr.end_day !== m.prev.end_day)
+                                parts.push(
+                                  `${t('end day')} ${m.prev.end_day ?? '∞'} → ${m.curr.end_day ?? '∞'}`
+                                );
+                              if (
+                                m.curr.unit !== m.prev.unit ||
+                                m.curr.interval !== m.prev.interval
+                              )
+                                parts.push(
+                                  `${t('frequency')}: ${m.prev.interval} ${t(m.prev.unit)} → ${m.curr.interval} ${t(m.curr.unit)}`
+                                );
+                              if (
+                                JSON.stringify([...m.curr.selectedDays].sort()) !==
+                                JSON.stringify([...m.prev.selectedDays].sort())
+                              )
+                                parts.push(
+                                  `${t('days')}: ${m.prev.selectedDays.join(', ') || '—'} → ${m.curr.selectedDays.join(', ') || '—'}`
+                                );
+                              return parts.join('; ');
+                            };
+                            const totalChanges =
+                              diff.metaChanges.length +
+                              diff.added.length +
+                              diff.removed.length +
+                              diff.modified.length;
+                            return (
+                              <div className="mt-1">
+                                <button
+                                  className="btn btn-sm btn-warning d-flex align-items-center gap-1 py-0 px-2"
+                                  onClick={() => setShowDiff((v) => !v)}
+                                >
+                                  <FaBell />
+                                  <small>
+                                    {t('Updated')}: {new Date(diff.date).toLocaleDateString()} (
+                                    {totalChanges})
+                                  </small>
+                                  <small>{showDiff ? '▲' : '▼'}</small>
+                                </button>
+                                {showDiff && (
+                                  <div className="mt-1 p-2 rounded border border-warning bg-warning bg-opacity-10">
+                                    {diff.metaChanges.map((c) => (
+                                      <small key={c} className="text-muted d-block">
+                                        • {c}
+                                      </small>
+                                    ))}
+                                    {diff.added.map((i) => (
+                                      <small
+                                        key={`${i.id}::${i.diagnosis}`}
+                                        className="text-success d-block"
+                                      >
+                                        + {translatedTitles[i.id]?.title ?? i.title}
+                                        {i.diagnosis && (
+                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                        )}
+                                        <span className="text-muted"> — {scheduleLabel(i)}</span>
+                                      </small>
+                                    ))}
+                                    {diff.removed.map((i) => (
+                                      <small
+                                        key={`${i.id}::${i.diagnosis}`}
+                                        className="text-danger d-block"
+                                      >
+                                        − {translatedTitles[i.id]?.title ?? i.title}
+                                        {i.diagnosis && (
+                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                        )}
+                                      </small>
+                                    ))}
+                                    {diff.modified.map(({ prev, curr }) => (
+                                      <small
+                                        key={`${curr.id}::${curr.diagnosis}`}
+                                        className="text-warning-emphasis d-block"
+                                      >
+                                        ~ {translatedTitles[curr.id]?.title ?? curr.title}
+                                        {curr.diagnosis && (
+                                          <span className="text-muted"> [{curr.diagnosis}]</span>
+                                        )}
+                                        <span className="text-muted">
+                                          {' '}
+                                          — {scheduleChanges({ prev, curr })}
+                                        </span>
+                                      </small>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                      </div>
+                    );
+                  })()}
+              </Card.Body>
+            </Card>
+
+            <TemplatesLayout
+              t={t}
+              // sub-tab
+              templateLeftTab={templateLeftTab}
+              onTemplateLeftTab={setTemplateLeftTab}
+              // my template list
+              templateItems={templateItems}
+              tLoading={tLoading}
+              translatedTitles={translatedTitles}
+              getSegments={getSegments}
+              segmentSummary={segmentSummary}
+              onTemplateItemClick={handleTemplateItemClick}
+              onModifyTemplate={openModifyTemplate}
+              onRemoveTemplateItem={removeTemplateItem}
+              // browse all list
+              browseAllItems={templateFilteredAll}
+              findTemplateFor={findTemplateFor}
+              onOpenAssign={openAssignToTemplate}
+              // browse filters
+              filters={templatesFilters}
+              onFilters={setTemplatesFilters}
+              onResetFilters={resetTemplateFilters}
+              // right timeline
+              timeline={
+                <TemplateTimeline
+                  items={templateItems}
+                  horizonDays={templateHorizon}
+                  translatedTitles={translatedTitles}
+                />
+              }
+              tagColors={tagColors}
+            />
+          </>
         )}
       </Container>
+
+      {/* Apply named template to patient */}
+      <ApplyTemplateModal
+        show={showApplyModal}
+        onHide={() => setShowApplyModal(false)}
+        diagnoses={diagnoses}
+        defaultDiagnosis={templateDiag || undefined}
+        templateId={activeTemplateId || undefined}
+        onApplied={(res) => {
+          setShowApplyModal(false);
+          setError('');
+          window.alert(
+            t('Template applied: {{applied}} interventions, {{sessions}} sessions', {
+              applied: res.applied,
+              sessions: res.sessions_created,
+            })
+          );
+        }}
+      />
+
+      {/* New template modal */}
+      <Modal show={showNewTemplateModal} onHide={() => setShowNewTemplateModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Create new template')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Name')}</Form.Label>
+            <Form.Control
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder={t('Template name')}
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Description (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={newTemplateDesc}
+              onChange={(e) => setNewTemplateDesc(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Check
+            type="checkbox"
+            label={t('Public (visible to all therapists)')}
+            checked={newTemplatePublic}
+            onChange={(e) => setNewTemplatePublic(e.target.checked)}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowNewTemplateModal(false)}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCreateTemplate}
+            disabled={!newTemplateName.trim() || newTemplateSubmitting}
+          >
+            {newTemplateSubmitting ? t('Creating...') : t('Create')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {selectedItem && (
         <ProductPopup
@@ -529,9 +1214,103 @@ const TherapistRecomendations: React.FC = observer(() => {
           diagnoses={diagnoses}
           defaultDiagnosis={templateDiag || undefined}
           mode={assignMode}
-          onSuccess={() => fetchTemplates(templateDiag, templateHorizon)}
+          templateId={activeTemplateId || undefined}
+          onSuccess={() =>
+            fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined)
+          }
         />
       )}
+
+      {/* Copy template modal */}
+      <Modal show={showCopyModal} onHide={() => setShowCopyModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Copy template')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Name')}</Form.Label>
+            <Form.Control
+              value={copyModalName}
+              onChange={(e) => setCopyModalName(e.target.value)}
+              placeholder={t('Template name')}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>{t('Description (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={copyModalDesc}
+              onChange={(e) => setCopyModalDesc(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCopyModal(false)}
+            disabled={copyModalSubmitting}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleConfirmCopy}
+            disabled={!copyModalName.trim() || copyModalSubmitting}
+          >
+            {copyModalSubmitting ? t('Copying...') : t('Copy')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit template name / description / visibility modal */}
+      <Modal show={showEditMetaModal} onHide={() => setShowEditMetaModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Edit template info')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Name')}</Form.Label>
+            <Form.Control
+              value={editMetaName}
+              onChange={(e) => setEditMetaName(e.target.value)}
+              placeholder={t('Template name')}
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>{t('Description (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={editMetaDesc}
+              onChange={(e) => setEditMetaDesc(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Check
+            type="checkbox"
+            id="edit-meta-public"
+            label={t('Public (visible to all therapists)')}
+            checked={editMetaPublic}
+            onChange={(e) => setEditMetaPublic(e.target.checked)}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowEditMetaModal(false)}
+            disabled={editMetaSubmitting}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleConfirmEditMeta}
+            disabled={!editMetaName.trim() || editMetaSubmitting}
+          >
+            {editMetaSubmitting ? t('Saving...') : t('Save')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Footer />
     </div>

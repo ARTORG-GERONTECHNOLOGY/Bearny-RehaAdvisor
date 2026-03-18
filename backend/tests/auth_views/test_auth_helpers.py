@@ -102,6 +102,7 @@ def test_create_rehab_plan_creates_new_assignment_with_mocked_plan(monkeypatch):
         userId=SimpleNamespace(createdAt=timezone.now()),
         diagnosis=["DX"],
         reha_end_date=timezone.now(),
+        study_end_date=None,
     )
     therapist = SimpleNamespace(default_recommendations=[rec])
 
@@ -160,6 +161,7 @@ def test_create_rehab_plan_merges_existing_and_handles_exception(monkeypatch):
         userId=SimpleNamespace(createdAt=timezone.now()),
         diagnosis=["DX"],
         reha_end_date=timezone.now(),
+        study_end_date=None,
     )
     therapist = SimpleNamespace(default_recommendations=[rec])
 

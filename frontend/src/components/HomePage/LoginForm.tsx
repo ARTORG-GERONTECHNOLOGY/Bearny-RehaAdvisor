@@ -56,7 +56,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
       const utype = (authStore.userType || '').toLowerCase();
 
       if (utype === 'therapist' || utype === 'admin') {
-        // Therapists and Admins require 2FA
+        // Therapists and admins require 2FA phone verification
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
@@ -64,15 +64,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
           setError(t('Login succeeded but failed to send verification code.'));
         }
       } else if (utype === 'patient') {
-        authStore.setAuthenticated(true);
         navigate('/patient');
-      } else if (utype === 'admin') {
-        // ✅ NEW: Admins go straight to /admin
-        authStore.setAuthenticated(true);
-        navigate('/admin');
       } else if (utype === 'researcher') {
-        // (Optional) If you have a researcher area
-        authStore.setAuthenticated(true);
         navigate('/researcher');
       } else {
         setError(t('Unsupported account type.'));

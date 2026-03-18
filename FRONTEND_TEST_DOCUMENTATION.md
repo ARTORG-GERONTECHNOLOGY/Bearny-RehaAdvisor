@@ -26,6 +26,9 @@ frontend/src/__tests__/
 │   ├── RehaTablePage/
 │   │   ├── InterventionFeedbackModal.test.tsx
 │   │   └── InterventionStatsModal.test.tsx
+│   ├── TherapistInterventionPage/
+│   │   ├── ApplyTemplateModal.test.tsx
+│   │   └── TemplateAssignModal.test.tsx
 │   ├── TherapistIntervention/
 │   │   ├── AddInterventionModal.test.tsx
 │   │   ├── FilterBar.test.tsx
@@ -69,7 +72,8 @@ frontend/src/__tests__/
 │   └── usePatients.test.tsx
 ├── stores/
 │   ├── adminStore.test.tsx
-│   └── authStore.test.ts
+│   ├── authStore.test.ts
+│   └── templateStore.test.ts
 ├── utils/
 │   ├── interventions.test.ts
 │   └── validation.test.ts
@@ -262,13 +266,17 @@ Component tests verify that React components render correctly and respond to use
     - Password verification
     - Cancellation and deletion actions
 
-- **[EditUserInfo.test.tsx](../../../frontend/src/__tests__/components/UserProfile/EditUserInfo.test.tsx)**
-  - Purpose: Test user profile editing
+- **[EditTherapistInfo.test.tsx](../../../frontend/src/__tests__/components/UserProfile/EditTherapistInfo.test.tsx)**
+  - Purpose: Test therapist profile editing and clinic/project access change request flow
   - Tested Features:
-    - Form population with current user data
-    - Field editing and validation
-    - Form submission
-    - Success/error messaging
+    - Email field is disabled
+    - Phone and email validation
+    - Valid submit calls `userProfileStore.updateProfile`
+    - Current clinics/projects shown as read-only badges from `userData.clinics`/`userData.projects`
+    - `hasPending` badge shown when server reports a pending request
+    - "Request access change" modal opens on button click
+    - Access change request submission calls `apiClient.post`
+    - Error handling when submission fails
 
 #### Common Components (10 tests)
 
@@ -365,9 +373,12 @@ Page tests verify full page rendering and user workflows.
 - **[AdminDashboard.test.tsx](../../../frontend/src/__tests__/pages/AdminDashboard.test.tsx)**
   - Purpose: Test admin dashboard page
   - Tested Features:
-    - Dashboard statistics display
-    - User management interface
-    - System monitoring
+    - Redirect to `/unauthorized` when not authenticated or not Admin role
+    - Pending registrations tab: renders entries, Accept/Decline buttons
+    - Access change requests tab: fetches from `/admin/access-change-requests/` on mount
+    - Access change requests tab: renders therapist name, email, current/requested clinics/projects
+    - Approve button calls `apiClient.put` with `{ action: "approve" }`
+    - Empty state shows "No pending access change requests"
 
 - **[PatientHome.test.tsx](../../../frontend/src/__tests__/pages/PatientHome.test.tsx)**
   - Purpose: Test patient home page
@@ -463,6 +474,41 @@ Store tests verify MobX store behavior and state mutations.
     - Statistics calculation
     - Filter state management
     - Export functionality
+
+- **[templateStore.test.ts](../frontend/src/__tests__/stores/templateStore.test.ts)**
+  - Purpose: Unit-test all 5 MobX actions in the named-template store
+  - API mock: `jest.mock('@/api/client', () => require('@/__mocks__/api/client'))`
+  - State reset in `beforeEach` (`templates`, `loading`, `error`)
+  - Sections:
+    - **fetchTemplates** (4 tests) — no filters, filter query params, API error (with error field), network error (fallback message)
+    - **createTemplate** (1 test) — POSTs payload, prepends returned doc to `templates` array
+    - **deleteTemplate** (2 tests) — DELETEs and removes from state; propagates error on failure
+    - **copyTemplate** (2 tests) — copy without name (defaults to "Copy of …"); copy with custom name
+    - **updateTemplate** (1 test) — PATCHes and replaces matching entry while leaving others unchanged
+    - **clearError** (1 test) — resets `error` to empty string
+
+#### TherapistInterventionPage Components
+
+- **[TemplateAssignModal.test.tsx](../frontend/src/__tests__/components/TherapistInterventionPage/TemplateAssignModal.test.tsx)**
+  - Purpose: Test the "Add intervention to template" modal in both legacy and named-template modes
+  - Mocks: `@/api/client`, `react-i18next`, `@/stores/authStore`
+  - Props under test: `templateId?: string`
+  - Sections:
+    - **Rendering** (6 tests) — title present, diagnosis dropdown, optional hint and "All diagnoses" option when `templateId` set, "Choose…" default without `templateId`, hidden when `show=false`
+    - **canSubmit logic** (3 tests) — Save disabled without diagnosis in legacy mode; enabled without diagnosis when `templateId` set; enabled after selecting diagnosis in legacy mode
+    - **API call routing** (5 tests) — POSTs to `templates/<id>/interventions/` with `templateId`; POSTs to `therapists/<id>/interventions/assign-to-patient-types/` without; sends `diagnosis: ""` for "all diagnoses"; sends selected diagnosis; calls `onSuccess` on 200
+    - **Error handling** (2 tests) — displays API error text; falls back to generic message
+
+- **[ApplyTemplateModal.test.tsx](../frontend/src/__tests__/components/TherapistInterventionPage/ApplyTemplateModal.test.tsx)**
+  - Purpose: Test the "Apply template to patient" modal in both legacy and named-template modes
+  - Mocks: `@/api/client`, `react-i18next`, `@/stores/authStore`
+  - Props under test: `templateId?: string`
+  - Sections:
+    - **Rendering** (6 tests) — title, "Choose…" default, "(optional)" hint and "All diagnoses" option when `templateId` set, `defaultDiagnosis` pre-selection, hidden when `show=false`
+    - **canSubmit / Apply button state** (4 tests) — disabled without patientId; disabled without diagnosis in legacy mode; enabled with patientId only when `templateId` set; enabled with patientId + diagnosis in legacy mode
+    - **API call routing** (3 tests) — POSTs to `templates/<id>/apply/`; POSTs to `therapists/<id>/templates/apply`; calls `onApplied` with response data
+    - **Error handling** (2 tests) — alert banner with API error; generic fallback message
+    - **Close behaviour** (1 test) — Cancel calls `onHide`
 
 ### 5. Utility Tests (2 files)
 

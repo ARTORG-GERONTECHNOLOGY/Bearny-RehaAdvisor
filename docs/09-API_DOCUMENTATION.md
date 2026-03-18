@@ -312,6 +312,107 @@ JWT required.
 
 ---
 
+#### `GET /api/therapist/access-change-request/`
+
+JWT required. Returns whether the authenticated therapist has a pending clinic/project change request.
+
+**Response 200:**
+
+```json
+{ "ok": true, "hasPending": false }
+```
+
+**Errors:** 404 therapist profile not found
+
+---
+
+#### `POST /api/therapist/access-change-request/`
+
+JWT required. Submits a new clinic/project access change request for admin approval. Any existing pending request is automatically superseded (status set to `rejected`). All active Admin users are notified by e-mail.
+
+**Request body:**
+
+| Field      | Type          | Required | Notes                             |
+|------------|---------------|----------|-----------------------------------|
+| `clinics`  | array[string] | yes      | Must be valid values from config  |
+| `projects` | array[string] | yes      | Must be valid values from config  |
+
+**Response 201:**
+
+```json
+{
+  "ok": true,
+  "message": "Your request has been submitted and is awaiting admin approval.",
+  "requestId": "<ObjectId>"
+}
+```
+
+**Errors:** 400 invalid clinic or project · 404 therapist not found
+
+---
+
+#### `GET /api/admin/access-change-requests/`
+
+JWT required. Lists `TherapistAccessChangeRequest` documents.
+
+**Query params:**
+
+| Param    | Default   | Notes                          |
+|----------|-----------|--------------------------------|
+| `status` | `pending` | Pass `all` to include all statuses |
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "requests": [
+    {
+      "id": "...",
+      "therapistId": "...",
+      "therapistName": "Jane Doe",
+      "therapistEmail": "jane@example.com",
+      "currentClinics": ["Inselspital"],
+      "currentProjects": ["COPAIN"],
+      "requestedClinics": ["Berner Reha Centrum"],
+      "requestedProjects": ["COPAIN"],
+      "status": "pending",
+      "createdAt": "2024-01-15T10:00:00+00:00",
+      "reviewedAt": null,
+      "reviewedBy": "",
+      "note": ""
+    }
+  ]
+}
+```
+
+---
+
+#### `PUT /api/admin/access-change-requests/<id>/`
+
+JWT required. Approve or reject a pending access change request.
+
+**Request body:**
+
+| Field    | Type   | Required | Notes                                  |
+|----------|--------|----------|----------------------------------------|
+| `action` | string | yes      | `"approve"` or `"reject"`              |
+| `note`   | string | no       | Shown to therapist in rejection e-mail |
+
+**On approve:** Updates `Therapist.clinics` and `Therapist.projects` with the requested values (filtered against current config). E-mails the therapist.
+
+**On reject:** Marks request as rejected, e-mails therapist with optional note. Therapist access is unchanged.
+
+**Response 200:**
+
+```json
+{ "ok": true, "message": "Request approved and therapist access updated." }
+```
+
+**Errors:** 400 request already reviewed · 400 invalid action · 404 request not found · 500
+
+---
+
 #### `GET /api/admin/therapist/access/`
 #### `GET /api/admin/therapist/access/<therapistId>/`
 
@@ -1358,6 +1459,303 @@ JWT required.
 ```
 
 **Errors:** 400 validation / already exists / therapist not found · 404 clinic or project not found · 500
+
+---
+
+---
+
+## Named Templates
+
+All endpoints in this section require a valid JWT `Authorization: Bearer <token>` header.
+
+**Auth error codes:**
+- `401 Unauthorized` — token missing, expired, or invalid (DRF rejects before the view runs).
+- `403 Forbidden` — token is valid but the authenticated user has no associated `Therapist` profile, or the operation requires ownership.
+
+**Visibility rules:**
+- Public templates (`is_public: true`) are visible to all therapists.
+- Private templates are visible only to their creator.
+- Only the creator may modify or delete a template.
+- Any therapist who can *see* a template may copy it (copy is always private).
+
+**`_all` sentinel:** When no diagnosis is specified for an intervention assignment, it is stored under the internal key `_all`, meaning it applies to any patient regardless of diagnosis.
+
+---
+
+#### `GET /api/templates/`
+
+List templates visible to the authenticated therapist (own + all public ones).
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `name` | string | Case-insensitive substring match |
+| `specialization` | string | Case-insensitive substring match |
+| `diagnosis` | string | Case-insensitive substring match |
+
+**Response 200:**
+
+```json
+{
+  "templates": [
+    {
+      "id": "<ObjectId>",
+      "name": "Stroke Recovery Week 1",
+      "description": "",
+      "is_public": true,
+      "created_by": "<user_object_id>",
+      "created_by_name": "Alice Smith",
+      "specialization": "Neurology",
+      "diagnosis": "Stroke",
+      "intervention_count": 4,
+      "createdAt": "2026-01-01T00:00:00",
+      "updatedAt": "2026-01-02T00:00:00"
+    }
+  ]
+}
+```
+
+**Errors:** 401 unauthenticated · 403 therapist profile not found
+
+---
+
+#### `POST /api/templates/`
+
+Create a new template.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | yes | Max 200 chars |
+| `description` | string | no | |
+| `is_public` | boolean | no | Default `false` |
+| `specialization` | string | no | |
+| `diagnosis` | string | no | |
+
+**Response 201:** `{ "template": { ...full template with `recommendations` array } }`
+
+**Errors:** 400 missing/blank name · 400 name > 200 chars · 401 unauthenticated · 403 therapist not found
+
+---
+
+#### `GET /api/templates/<id>/`
+
+Retrieve full template detail including all recommendation entries.
+
+**Response 200:**
+
+```json
+{
+  "template": {
+    "id": "...",
+    "name": "...",
+    "recommendations": [
+      {
+        "intervention_id": "<ObjectId>",
+        "intervention_title": "Arm Exercise",
+        "diagnosis_assignments": {
+          "Stroke": [
+            {
+              "active": true,
+              "interval": 1,
+              "unit": "day",
+              "selected_days": [],
+              "start_day": 1,
+              "end_day": 14,
+              "suggested_execution_time": 30
+            }
+          ],
+          "_all": [ ... ]
+        }
+      }
+    ],
+    "intervention_count": 1,
+    ...
+  }
+}
+```
+
+**Errors:** 400 invalid ObjectId · 401 unauthenticated · 403 therapist not found · 404 not found or private
+
+---
+
+#### `DELETE /api/templates/<id>/`
+
+Delete a template. Owner only.
+
+**Response 200:** `{ "success": true }`
+
+**Errors:** 400 invalid id · 401 unauthenticated · 403 not owner · 404 not found
+
+---
+
+#### `PATCH /api/templates/<id>/`
+
+Update template metadata. Owner only. All fields are optional.
+
+**Request body:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Max 200 chars, cannot be blank |
+| `description` | string | |
+| `is_public` | boolean | |
+| `specialization` | string | |
+| `diagnosis` | string | |
+
+**Response 200:** `{ "template": { ...full template } }`
+
+**Errors:** 400 blank/overlong name · 401 unauthenticated · 403 not owner · 404 not found
+
+---
+
+#### `POST /api/templates/<id>/copy/`
+
+Duplicate a visible template. The copy is private and owned by the requesting therapist.
+
+**Request body (optional):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Defaults to `"Copy of <original name>"`, truncated at 200 chars |
+| `description` | string | Overrides the original description. If omitted, the original description is inherited. Pass `""` for an empty description. |
+
+**Response 201:** `{ "template": { ...new template (detail) } }`
+
+**Errors:** 400 invalid id · 401 unauthenticated · 403 therapist not found · 404 template not found or private · 405 wrong method
+
+---
+
+#### `POST /api/templates/<id>/interventions/`
+
+Add (or replace) an intervention+schedule entry in the template. Only the template owner may call this.
+
+When `diagnosis` is omitted or empty, the entry is stored under the `_all` sentinel key and will apply to any patient regardless of diagnosis.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `interventionId` | string | yes | Valid ObjectId of an `Intervention` |
+| `diagnosis` | string | no | Omit or `""` for "all diagnoses" |
+| `start_day` | integer | no | Default `1` |
+| `end_day` | integer | yes | |
+| `interval` | integer | no | Default `1` |
+| `unit` | string | no | `"day"` \| `"week"` \| `"month"`, default `"week"` |
+| `selected_days` | string[] | no | e.g. `["Mon","Wed","Fri"]` |
+| `suggested_execution_time` | integer | no | Minutes |
+
+**Response 200:** `{ "template": { ...full template } }`
+
+**Errors:** 400 missing interventionId/end_day/invalid unit · 401 unauthenticated · 403 not owner · 404 template/intervention not found · 405 wrong method
+
+---
+
+#### `DELETE /api/templates/<id>/interventions/<intervention_id>/`
+
+Remove an intervention entry from the template.
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `diagnosis` | string | If provided, only removes that diagnosis block; omit to remove the entire entry |
+
+**Response 200:** `{ "template": { ...updated template } }`
+
+**Errors:** 400 invalid id · 401 unauthenticated · 403 not owner · 404 intervention not in template · 405 wrong method
+
+---
+
+#### `POST /api/templates/<id>/apply/`
+
+Apply a named template to one or more patients' rehabilitation plans.
+
+Two mutually exclusive targeting modes are supported — exactly one must be provided:
+
+- **`patientIds` mode**: apply to a specific list of patients (by ObjectId or `patient_code`).
+- **`diagnosis` mode**: apply to *all* clinic patients whose `diagnosis` list contains the given value.
+
+If no `RehabilitationPlan` exists for a patient, one is created automatically.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `patientIds` | string[] | one of | List of patient ObjectIds or `patient_code` strings |
+| `diagnosis` | string | one of | Bulk mode — applies to all clinic patients with this diagnosis |
+| `effectiveFrom` | string | yes | `YYYY-MM-DD` |
+| `overwrite` | boolean | no | Default `false` |
+| `require_video_feedback` | boolean | no | Default `false` |
+| `notes` | string | no | Max 1000 chars |
+
+> **Note:** providing both `patientIds` and `diagnosis` at the same time returns 400.
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "applied": 3,
+  "sessions_created": 12,
+  "patients_affected": 2
+}
+```
+
+When `diagnosis` mode finds no matching patients, the response is still 200 with `applied: 0` and a `message` field explaining there were no matches.
+
+**`created_by` field:** The `created_by` value in all template responses is the **User** ObjectId (what `authStore.id` holds from the JWT claim), not the Therapist document ObjectId. Frontend ownership checks should compare `template.created_by === authStore.id`.
+
+**Errors:** 400 missing patientIds+diagnosis/effectiveFrom/invalid date/both modes given · 401 unauthenticated · 403 therapist not found · 404 template not found or private / patient(s) not found · 405 wrong method
+
+---
+
+#### `GET /api/templates/<id>/calendar/`
+
+Preview the intervention schedule for a template as a flat list of occurrences, anchored to a virtual start date of `2000-01-01`. Used by the frontend Templates tab to render the schedule grid before applying.
+
+**Query parameters:**
+
+| Param | Type | Notes |
+|---|---|---|
+| `horizon_days` | integer | Number of days to project, default `84` |
+| `diagnosis` | string | If set, only entries matching that diagnosis (or `_all`) are included |
+
+**Response 200:**
+
+```json
+{
+  "horizon_days": 84,
+  "items": [
+    {
+      "diagnosis": "Stroke",
+      "intervention": {
+        "_id": "<ObjectId>",
+        "title": "Arm Exercise",
+        "duration": 30,
+        "content_type": "video",
+        "tags": []
+      },
+      "schedule": {
+        "unit": "week",
+        "interval": 1,
+        "selectedDays": ["Mon", "Wed"],
+        "start_day": 1,
+        "end_day": 14
+      },
+      "occurrences": [
+        { "day": 1, "time": "08:00" },
+        { "day": 3, "time": "08:00" }
+      ],
+      "segments": [ ... ]
+    }
+  ]
+}
+```
+
+**Errors:** 400 invalid id · 401 unauthenticated · 403 therapist not found · 404 not found or private · 405 wrong method · 500 internal
 
 ---
 

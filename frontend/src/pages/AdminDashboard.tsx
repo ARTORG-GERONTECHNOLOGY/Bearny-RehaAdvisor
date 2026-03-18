@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Table, Button, Spinner, Modal, Form, Badge, Alert } from 'react-bootstrap';
+import { Table, Button, Spinner, Modal, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -46,8 +46,79 @@ const AdminDashboard: React.FC = observer(() => {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [accessSuccess, setAccessSuccess] = useState<string | null>(null);
 
+  // -------------------------
+  // Access change requests tab
+  // -------------------------
+  type AccessChangeRequest = {
+    id: string;
+    therapistId: string;
+    therapistName: string;
+    therapistEmail: string;
+    currentClinics: string[];
+    currentProjects: string[];
+    requestedClinics: string[];
+    requestedProjects: string[];
+    status: string;
+    createdAt: string;
+    note: string;
+  };
+
+  const [changeRequests, setChangeRequests] = useState<AccessChangeRequest[]>([]);
+  const [changeReqLoading, setChangeReqLoading] = useState(false);
+  const [changeReqError, setChangeReqError] = useState<string | null>(null);
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; requestId: string }>({
+    open: false,
+    requestId: '',
+  });
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+
+  const fetchChangeRequests = useCallback(async () => {
+    setChangeReqLoading(true);
+    setChangeReqError(null);
+    try {
+      const res = await apiClient.get('/admin/access-change-requests/');
+      setChangeRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
+    } catch (e: any) {
+      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to load requests.');
+    } finally {
+      setChangeReqLoading(false);
+    }
+  }, []);
+
+  const approveRequest = async (requestId: string) => {
+    try {
+      await apiClient.put(`/admin/access-change-requests/${requestId}/`, { action: 'approve' });
+      await fetchChangeRequests();
+    } catch (e: any) {
+      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to approve.');
+    }
+  };
+
+  const openRejectModal = (requestId: string) => {
+    setRejectNote('');
+    setRejectModal({ open: true, requestId });
+  };
+
+  const submitReject = async () => {
+    setRejectSubmitting(true);
+    try {
+      await apiClient.put(`/admin/access-change-requests/${rejectModal.requestId}/`, {
+        action: 'reject',
+        note: rejectNote,
+      });
+      setRejectModal({ open: false, requestId: '' });
+      await fetchChangeRequests();
+    } catch (e: any) {
+      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to reject.');
+    } finally {
+      setRejectSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     store.init(navigate, t);
+    fetchChangeRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, navigate, t]);
 
@@ -201,79 +272,212 @@ const AdminDashboard: React.FC = observer(() => {
 
       <main className="container my-5 flex-grow-1">
         <h1 className="text-center">{t('Admin Dashboard')}</h1>
-        <h3 className="text-center mb-4">{t('Pending Therapists, Researchers, and Content')}</h3>
 
         {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
 
-        {store.loading ? (
-          <div className="text-center my-5">
-            <Spinner animation="border" role="status" />
-            <div>{t('Loading')}...</div>
-          </div>
-        ) : adminStore.pendingEntries.length === 0 ? (
-          <p className="text-center text-muted">{t('No pending entries')}</p>
-        ) : (
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>{t('Name')}</th>
-                <th>{t('Email')}</th>
-                <th>{t('Type')}</th>
-                <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
-                <th style={{ minWidth: 220 }}>{t('Projects')}</th>
-                <th style={{ minWidth: 260 }}>{t('Actions')}</th>
-              </tr>
-            </thead>
+        <Tab.Container defaultActiveKey="pending">
+          <Nav variant="tabs" className="mb-3">
+            <Nav.Item>
+              <Nav.Link eventKey="pending">
+                {t('Pending registrations')}
+                {adminStore.pendingEntries.length > 0 && (
+                  <Badge bg="danger" className="ms-2">
+                    {adminStore.pendingEntries.length}
+                  </Badge>
+                )}
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="access-requests">
+                {t('Access change requests')}
+                {changeRequests.length > 0 && (
+                  <Badge bg="warning" text="dark" className="ms-2">
+                    {changeRequests.length}
+                  </Badge>
+                )}
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
 
-            <tbody>
-              {adminStore.pendingEntries.map((entry: any) => {
-                const role = String(entry.role || '').toLowerCase();
-                const isTherapist = role === 'therapist';
+          <Tab.Content>
+            {/* ── Tab 1: pending registrations ── */}
+            <Tab.Pane eventKey="pending">
+              {store.loading ? (
+                <div className="text-center my-5">
+                  <Spinner animation="border" role="status" />
+                  <div>{t('Loading')}...</div>
+                </div>
+              ) : adminStore.pendingEntries.length === 0 ? (
+                <p className="text-center text-muted">{t('No pending entries')}</p>
+              ) : (
+                <Table striped bordered hover responsive>
+                  <thead>
+                    <tr>
+                      <th>{t('Name')}</th>
+                      <th>{t('Email')}</th>
+                      <th>{t('Type')}</th>
+                      <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
+                      <th style={{ minWidth: 220 }}>{t('Projects')}</th>
+                      <th style={{ minWidth: 260 }}>{t('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminStore.pendingEntries.map((entry: any) => {
+                      const role = String(entry.role || '').toLowerCase();
+                      const isTherapist = role === 'therapist';
+                      const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];
+                      const projects: string[] = Array.isArray(entry?.projects)
+                        ? entry.projects
+                        : [];
+                      return (
+                        <tr key={entry.id}>
+                          <td>{entry.name || '—'}</td>
+                          <td>{entry.email || '—'}</td>
+                          <td>{t(entry.role)}</td>
+                          <td>
+                            {isTherapist ? (
+                              renderBadges(clinics, 'info')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {isTherapist ? (
+                              renderBadges(projects, 'secondary')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="d-flex gap-2 flex-wrap">
+                            {isTherapist && (
+                              <Button
+                                variant="outline-primary"
+                                onClick={() => openAccessModal(entry)}
+                              >
+                                {t('Edit access')}
+                              </Button>
+                            )}
+                            <Button variant="success" onClick={() => store.accept(entry.id, t)}>
+                              {t('Accept')}
+                            </Button>
+                            <Button
+                              variant="danger"
+                              onClick={() => store.openDeclineConfirm(entry.id)}
+                            >
+                              {t('Decline')}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              )}
+            </Tab.Pane>
 
-                const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];
-                const projects: string[] = Array.isArray(entry?.projects) ? entry.projects : [];
+            {/* ── Tab 2: access change requests ── */}
+            <Tab.Pane eventKey="access-requests">
+              {changeReqError && (
+                <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
+                  {changeReqError}
+                </Alert>
+              )}
 
-                return (
-                  <tr key={entry.id}>
-                    <td>{entry.name || '—'}</td>
-                    <td>{entry.email || '—'}</td>
-                    <td>{t(entry.role)}</td>
-
-                    <td>
-                      {isTherapist ? (
-                        renderBadges(clinics, 'info')
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td>
-                      {isTherapist ? (
-                        renderBadges(projects, 'secondary')
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-
-                    <td className="d-flex gap-2 flex-wrap">
-                      {isTherapist && (
-                        <Button variant="outline-primary" onClick={() => openAccessModal(entry)}>
-                          {t('Edit access')}
-                        </Button>
-                      )}
-                      <Button variant="success" onClick={() => store.accept(entry.id, t)}>
-                        {t('Accept')}
-                      </Button>
-                      <Button variant="danger" onClick={() => store.openDeclineConfirm(entry.id)}>
-                        {t('Decline')}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
+              {changeReqLoading ? (
+                <div className="text-center my-5">
+                  <Spinner animation="border" role="status" />
+                  <div>{t('Loading')}...</div>
+                </div>
+              ) : changeRequests.length === 0 ? (
+                <p className="text-center text-muted">{t('No pending access change requests')}</p>
+              ) : (
+                <Table striped bordered hover responsive>
+                  <thead>
+                    <tr>
+                      <th>{t('Therapist')}</th>
+                      <th>{t('Email')}</th>
+                      <th>{t('Current clinics')}</th>
+                      <th>{t('Current projects')}</th>
+                      <th>{t('Requested clinics')}</th>
+                      <th>{t('Requested projects')}</th>
+                      <th>{t('Submitted')}</th>
+                      <th style={{ minWidth: 200 }}>{t('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {changeRequests.map((req) => (
+                      <tr key={req.id}>
+                        <td>{req.therapistName || '—'}</td>
+                        <td>{req.therapistEmail || '—'}</td>
+                        <td>{renderBadges(req.currentClinics, 'info')}</td>
+                        <td>{renderBadges(req.currentProjects, 'secondary')}</td>
+                        <td>{renderBadges(req.requestedClinics, 'primary')}</td>
+                        <td>{renderBadges(req.requestedProjects, 'dark')}</td>
+                        <td>
+                          <small>
+                            {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                          </small>
+                        </td>
+                        <td className="d-flex gap-2 flex-wrap">
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => approveRequest(req.id)}
+                          >
+                            {t('Approve')}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => openRejectModal(req.id)}
+                          >
+                            {t('Decline')}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Tab.Pane>
+          </Tab.Content>
+        </Tab.Container>
       </main>
+
+      {/* Reject access request modal */}
+      <Modal
+        show={rejectModal.open}
+        onHide={() => setRejectModal({ open: false, requestId: '' })}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Decline access change request')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              placeholder={t('Explain why the request is being declined...')}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setRejectModal({ open: false, requestId: '' })}
+            disabled={rejectSubmitting}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
+            {rejectSubmitting ? t('Declining...') : t('Decline')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Decline confirm */}
       <ConfirmModal

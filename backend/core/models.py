@@ -385,6 +385,60 @@ class Therapist(Document):
     default_recommendations = ListField(EmbeddedDocumentField(DefaultInterventions), default=list)
 
 
+class InterventionTemplate(Document):
+    """A named, shareable rehabilitation template.
+
+    Ownership:  only ``created_by`` may modify/delete.
+    Visibility: public templates are visible to all therapists;
+                private templates are visible only to their creator.
+    Copy:       any therapist can copy a template they can see — the copy
+                becomes their own private template.
+    """
+
+    meta = {"collection": "InterventionTemplates"}
+
+    name = StringField(max_length=200, required=True)
+    description = StringField(default="")
+    is_public = BooleanField(default=False)
+    created_by = ReferenceField("Therapist", required=True)
+
+    # Optional metadata used for filtering / search
+    specialization = StringField(max_length=200, required=False, null=True, default=None)
+    diagnosis = StringField(max_length=200, required=False, null=True, default=None)
+
+    # Schedule payload — same embedded structure as Therapist.default_recommendations
+    recommendations = ListField(EmbeddedDocumentField(DefaultInterventions), default=list)
+
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} (InterventionTemplate)"
+
+
+class TherapistAccessChangeRequest(Document):
+    """Pending request by a therapist to change their clinic / project assignments.
+
+    A therapist submits this instead of editing clinics/projects directly.
+    An admin must approve or reject before the assignment is updated.
+    """
+
+    meta = {"collection": "TherapistAccessChangeRequests"}
+
+    therapist = ReferenceField("Therapist", required=True)
+    requested_clinics = ListField(StringField(), default=list)
+    requested_projects = ListField(StringField(), default=list)
+    status = StringField(choices=["pending", "approved", "rejected"], default="pending")
+    created_at = DateTimeField(default=timezone.now)
+    reviewed_at = DateTimeField(null=True, default=None)
+    reviewed_by = ReferenceField("Therapist", null=True, default=None)
+    note = StringField(default="")
+
+
 # models.py
 class RedcapParticipant(Document):
     meta = {"collection": "Participants"}
@@ -461,6 +515,7 @@ class Patient(Document):
     clinic = StringField(max_length=120, default="")
     project = StringField(max_length=100, default="")
     created_by = ReferenceField("Therapist", required=False, null=True)
+    template = ReferenceField("InterventionTemplate", required=False, null=True, default=None)
     last_clinic_visit = DateTimeField(required=False, null=True)
 
     # ✅ Optional “profile” fields (REDCap source of truth)
@@ -484,7 +539,8 @@ class Patient(Document):
     care_giver = StringField(max_length=80, required=False, default="")
     initial_questionnaire_enabled = BooleanField(default=False)
 
-    reha_end_date = DateTimeField(required=False, null=True)
+    reha_end_date = DateTimeField(required=False, null=True)  # actual end of the rehabilitation programme
+    study_end_date = DateTimeField(required=False, null=True)  # end of the study / after-rehab monitoring plan
 
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
