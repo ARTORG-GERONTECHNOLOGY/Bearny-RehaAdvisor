@@ -19,6 +19,7 @@ frontend/
     home-login-therapist.spec.ts
     home-register-therapist.spec.ts
     patient-page.spec.ts
+    therapist-interventions-templates.spec.ts
     TESTING.md
   playwright.config.ts
 ```
@@ -74,6 +75,37 @@ Validates patient page and core user functions:
 - Feedback flow checks:
   - intervention feedback question fetch
   - feedback submission request to `/patients/feedback/questionaire/`
+
+### `therapist-interventions-templates.spec.ts`
+
+Validates the named-template management flow on `/interventions` → Templates tab.
+All tests skip gracefully when `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` are absent.
+
+**Helpers:**
+- `loginAsTherapist(page)` — authenticates via the home-page login modal and waits for `/therapist` redirect
+- `openTemplatesTab(page)` — navigates to `/interventions` and clicks the Templates tab
+- `skipUnlessSeeded(test)` — skips the current test when credentials env vars are missing
+
+**Test scenarios:**
+
+| Test | What it checks |
+|---|---|
+| Navigates to /interventions and shows the Templates tab | Tab element is visible |
+| Templates tab shows template management bar after clicking | Template selector combobox is present |
+| Opens New Template modal when "+ New" button is clicked | Modal appears with "New Template" heading |
+| Creates a new template via the modal and shows it in the selector | Intercepts `POST /api/templates/` — verifies request body includes `name`; modal closes; new option appears in selector |
+| Selecting a named template shows Apply, Copy, Delete buttons | After selecting a named option, all three action buttons are visible |
+| Apply button opens ApplyTemplateModal with correct templateId | Modal title "Apply template to patient" appears; "All diagnoses" option is present (confirming `templateId` was passed) |
+| Copy button calls `POST /api/templates/<id>/copy/` | Intercepts copy request; "Copy of …" option appears in selector |
+| Delete button calls `DELETE /api/templates/<id>/` after confirmation | Creates a template, selects it, accepts `window.confirm`, intercepts DELETE request, confirms option disappears |
+| Switching to a named template loads its calendar via `GET /api/templates/<id>/calendar/` | Intercepts calendar request after option selection |
+
+**Patterns used:**
+- `page.waitForRequest(req => req.url().includes(...) && req.method() === '...')` — API call verification
+- `page.once('dialog', d => d.accept())` — handle `window.confirm` for delete
+- `test.skip(!value, 'reason')` — conditional skipping per-test when no seeded data
+
+---
 
 ## Prerequisites
 
@@ -140,8 +172,8 @@ E2E_API_URL=http://127.0.0.1:8001/api npm run test:e2e
 | `E2E_PATIENT_PASSWORD` | Redirect tests only | Seeded patient password |
 | `E2E_ADMIN_LOGIN` | Redirect tests only | Seeded admin login identifier |
 | `E2E_ADMIN_PASSWORD` | Redirect tests only | Seeded admin password |
-| `E2E_THERAPIST_LOGIN` | Therapist login test only | Seeded therapist login identifier |
-| `E2E_THERAPIST_PASSWORD` | Therapist login test only | Seeded therapist password |
+| `E2E_THERAPIST_LOGIN` | Therapist login + templates tests | Seeded therapist login identifier |
+| `E2E_THERAPIST_PASSWORD` | Therapist login + templates tests | Seeded therapist password |
 
 ## CI Integration
 
@@ -155,6 +187,7 @@ The `frontend-e2e` job:
   - `e2e/patient-page.spec.ts`
   - `e2e/patient-interventions-page.spec.ts`
 - Runs therapist 2FA E2E test when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
+- Runs named-template E2E tests (`e2e/therapist-interventions-templates.spec.ts`) when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
 
 Required GitHub secrets for seeded redirect tests:
 - `E2E_PATIENT_LOGIN`

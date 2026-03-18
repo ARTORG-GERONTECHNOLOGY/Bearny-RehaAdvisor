@@ -221,7 +221,7 @@ def create_rehab_plan(patient, therapist):
                     datetime.min.time(),
                     tzinfo=timezone.get_current_timezone(),
                 ),
-                endDate=patient.reha_end_date,
+                endDate=patient.study_end_date or patient.reha_end_date,
                 status="active",
                 interventions=[],
                 questionnaires=[],
@@ -717,7 +717,7 @@ def register_view(request):
                     field_errors={"project": ["Selected project is not valid for the chosen clinic."]},
                 )
 
-            # Parse date safely: accept "YYYY-MM-DD" and full ISO "YYYY-MM-DDTHH:mm:ssZ"
+            # Parse rehaEndDate (actual end of rehabilitation programme) — required
             raw_reha_end = (data.get("rehaEndDate") or "").strip()
             try:
                 cleaned = raw_reha_end.split("T")[0]
@@ -736,6 +736,22 @@ def register_view(request):
                     field_errors={"rehaEndDate": ["Invalid date format. Use YYYY-MM-DD."]},
                 )
 
+            # Parse studyEndDate (study / after-rehab monitoring plan end) — optional
+            study_end_date = None
+            raw_study_end = (data.get("studyEndDate") or "").strip()
+            if raw_study_end:
+                try:
+                    cleaned_study = raw_study_end.split("T")[0]
+                    study_end_date = datetime.strptime(cleaned_study, "%Y-%m-%d")
+                except Exception as e:
+                    logger.warning("Invalid studyEndDate. raw=%r error=%s", raw_study_end, e)
+                    rollback()
+                    return _err(
+                        "Validation error.",
+                        status=400,
+                        field_errors={"studyEndDate": ["Invalid date format. Use YYYY-MM-DD."]},
+                    )
+
             patient = Patient(
                 userId=user,
                 patient_code=(data.get("patient_code") or "").strip(),
@@ -753,6 +769,7 @@ def register_view(request):
                 access_word=raw_password,
                 duration=(reha_end_date.date() - timezone.now().date()).days,
                 reha_end_date=reha_end_date,
+                study_end_date=study_end_date,
                 # ✅ FIX: correct key (your payload uses "careGiver")
                 care_giver=sanitize_text(data.get("careGiver", ""), True),
                 initial_questionnaire_enabled=bool(data.get("initialQuestionnaireEnabled", False)),

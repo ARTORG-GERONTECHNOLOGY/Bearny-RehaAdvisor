@@ -81,7 +81,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", "1048
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.jwt_auth.MongoJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -148,6 +148,12 @@ if _sentry_dsn:
         profile_session_sample_rate=1.0,
         profile_lifecycle="trace",
     )
+
+# Allow all CORS origins when explicitly enabled via env var.
+# Used by the E2E CI job so the Playwright browser (127.0.0.1:4173)
+# can reach the Django dev server (127.0.0.1:8001) without a CORS block.
+if os.environ.get("CORS_ALLOW_ALL_ORIGINS", "").lower() == "true":
+    CORS_ALLOW_ALL_ORIGINS = True
 
 CONTENT_TYPE_CANONICAL_MAP = {
     "app": "App",

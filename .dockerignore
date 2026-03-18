@@ -1,6 +1,7 @@
 # Ignore node dependencies
 node_modules/
 
+
 # Ignore Python virtualenv (if used)
 venv/
 
@@ -24,3 +25,5 @@ nginx/certbot/www/
 # Ignore common local/dev folders
 node_modules/
 .git/
+.claude
+.claude/
