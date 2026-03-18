@@ -45,13 +45,13 @@ const PatientProfile: React.FC = observer(() => {
   const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
 
   const flagMap: Record<string, string> = {
-      en: flagEn,
-      de: flagDe,
-      fr: flagFr,
-      it: flagIt,
-      pt: flagPt,
-      nl: flagNl,
-    };
+    en: flagEn,
+    de: flagDe,
+    fr: flagFr,
+    it: flagIt,
+    pt: flagPt,
+    nl: flagNl,
+  };
 
   const languageNames: Record<string, string> = {
     en: 'English',
