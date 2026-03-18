@@ -354,7 +354,9 @@ describe('PatientPlan', () => {
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/patient-intervention/'));
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -368,7 +370,9 @@ describe('PatientPlan', () => {
       await user.keyboard(' ');
 
       await waitFor(() => {
-        expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/patient-intervention/'));
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -401,7 +405,9 @@ describe('PatientPlan', () => {
       await user.click(interventionCards[0]);
 
       await waitFor(() => {
-        expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/patient-intervention/'));
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -436,7 +442,9 @@ describe('PatientPlan', () => {
       await user.click(interventionCards[0]);
 
       await waitFor(() => {
-        expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/patient-intervention/'));
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
   });
