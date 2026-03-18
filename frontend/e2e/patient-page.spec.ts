@@ -58,26 +58,16 @@ test.describe('Patient page and functions', () => {
     await planRequest;
     await initialQuestionnaireRequest;
 
-    await expect(page.getByRole('button', { name: /previous/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /next/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /today/i })).toBeVisible();
+    // Verify the redesigned patient page has loaded (no longer has prev/next/today nav buttons)
+    await expect(page.locator('h1')).toBeVisible();
   });
 
-  test('supports day/week/today navigation controls on patient page', async ({ page }) => {
+  test('shows patient page layout with daily content sections', async ({ page }) => {
     await loginAsSeededPatient(page);
 
-    const weekBtn = page.locator('#week');
-    const dayBtn = page.locator('#day');
-
-    await weekBtn.click();
-    await expect(weekBtn).toHaveClass(/active/);
-
-    await page.getByRole('button', { name: /next/i }).click();
-    await page.getByRole('button', { name: /previous/i }).click();
-    await page.getByRole('button', { name: /today/i }).click();
-
-    await dayBtn.click();
-    await expect(dayBtn).toHaveClass(/active/);
+    // The redesigned patient page has a "today" heading and a date subheading
+    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('h2')).toBeVisible();
   });
 
   test('submits daily vitals when prompt is shown', async ({ page }) => {
