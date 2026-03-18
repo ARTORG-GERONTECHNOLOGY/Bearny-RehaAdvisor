@@ -1,16 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import PatientProfile from '@/pages/PatientProfile';
+import SettingsPage from '@/pages/SettingsPage';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
-
-const mockNavigate = jest.fn();
-
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -23,19 +16,13 @@ jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
     isAuthenticated: true,
-    userType: 'Patient',
-    firstName: null,
     logout: jest.fn().mockResolvedValue(undefined),
-    checkAuthentication: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
 const mockAuthStore = jest.requireMock('@/stores/authStore').default as {
   isAuthenticated: boolean;
-  userType: string | null;
-  firstName: string | null;
   logout: jest.Mock;
-  checkAuthentication: jest.Mock;
 };
 
 // Mock useNotifications hook
@@ -49,25 +36,6 @@ const mockUseNotifications = jest.fn(() => ({
 
 jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: () => mockUseNotifications(),
-}));
-
-jest.mock('@/components/ui/select', () => ({
-  Select: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
-}));
-
-jest.mock('@/components/ui/switch', () => ({
-  Switch: ({
-    checked,
-    onCheckedChange,
-  }: {
-    checked: boolean;
-    onCheckedChange: (value: boolean) => void;
-  }) => <button role="switch" aria-checked={checked} onClick={() => onCheckedChange(!checked)} />,
 }));
 
 // Mock Layout
@@ -90,16 +58,15 @@ jest.mock('@/components/help/HelpCenter', () => ({
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const renderPatientProfile = () =>
+const renderSettingsPage = () =>
   render(
     <MemoryRouter>
-      <PatientProfile />
+      <SettingsPage />
     </MemoryRouter>
   );
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockNavigate.mockClear();
   mockUseNotifications.mockReturnValue({
     enabled: false,
     permission: 'default' as NotificationPermission,
@@ -107,8 +74,6 @@ beforeEach(() => {
     toggleNotifications: mockToggleNotifications,
   });
   mockAuthStore.isAuthenticated = true;
-  mockAuthStore.userType = 'Patient';
-  mockAuthStore.firstName = null;
 
   // Mock localStorage
   Storage.prototype.getItem = jest.fn(() => 'en');
@@ -117,15 +82,15 @@ beforeEach(() => {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-describe('PatientProfile - Notifications', () => {
+describe('SettingsPage - Notifications', () => {
   it('renders notification settings card', () => {
-    renderPatientProfile();
+    renderSettingsPage();
     expect(screen.getByText('Notifications')).toBeInTheDocument();
     expect(screen.getByText('Receive daily reminders')).toBeInTheDocument();
   });
 
   it('displays notification switch in unchecked state by default', () => {
-    renderPatientProfile();
+    renderSettingsPage();
     const switchElement = screen.getByRole('switch');
     expect(switchElement).not.toBeChecked();
   });
@@ -138,13 +103,13 @@ describe('PatientProfile - Notifications', () => {
       toggleNotifications: mockToggleNotifications,
     });
 
-    renderPatientProfile();
+    renderSettingsPage();
     const switchElement = screen.getByRole('switch');
     expect(switchElement).toBeChecked();
   });
 
   it('calls toggleNotifications when switch is clicked', async () => {
-    renderPatientProfile();
+    renderSettingsPage();
     const switchElement = screen.getByRole('switch');
 
     fireEvent.click(switchElement);
@@ -162,7 +127,7 @@ describe('PatientProfile - Notifications', () => {
       toggleNotifications: mockToggleNotifications,
     });
 
-    renderPatientProfile();
+    renderSettingsPage();
     expect(
       screen.getByText('Notification permission denied. Please enable in browser settings.')
     ).toBeInTheDocument();
@@ -176,7 +141,7 @@ describe('PatientProfile - Notifications', () => {
       toggleNotifications: mockToggleNotifications,
     });
 
-    renderPatientProfile();
+    renderSettingsPage();
     expect(
       screen.getByText('Background notifications not supported in this browser.')
     ).toBeInTheDocument();
@@ -190,7 +155,7 @@ describe('PatientProfile - Notifications', () => {
       toggleNotifications: mockToggleNotifications,
     });
 
-    renderPatientProfile();
+    renderSettingsPage();
     expect(
       screen.queryByText('Notification permission denied. Please enable in browser settings.')
     ).not.toBeInTheDocument();
@@ -200,14 +165,14 @@ describe('PatientProfile - Notifications', () => {
   });
 });
 
-describe('PatientProfile - General UI', () => {
-  it('renders patient profile page with title', () => {
-    renderPatientProfile();
-    expect(screen.getByText('Profile')).toBeInTheDocument();
+describe('SettingsPage - General UI', () => {
+  it('renders settings page with title', () => {
+    renderSettingsPage();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
-  it('renders all patient profile sections', () => {
-    renderPatientProfile();
+  it('renders all settings sections', () => {
+    renderSettingsPage();
     expect(screen.getByText('Notifications')).toBeInTheDocument();
     expect(screen.getByText('Language')).toBeInTheDocument();
     expect(screen.getAllByText('Help')[0]).toBeInTheDocument(); // Title
@@ -215,42 +180,36 @@ describe('PatientProfile - General UI', () => {
 
   it('shows logout button when authenticated', () => {
     mockAuthStore.isAuthenticated = true;
-    renderPatientProfile();
+    renderSettingsPage();
     expect(screen.getByText('Logout')).toBeInTheDocument();
   });
 
-  it('redirects to home when not authenticated', async () => {
+  it('hides logout button when not authenticated', () => {
     mockAuthStore.isAuthenticated = false;
-    renderPatientProfile();
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/');
-    });
-  });
-
-  it('redirects to home when user is not a Patient', async () => {
-    mockAuthStore.userType = 'Therapist';
-    renderPatientProfile();
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/');
-    });
+    renderSettingsPage();
+    expect(screen.queryByText('Logout')).not.toBeInTheDocument();
   });
 
   it('calls authStore.logout when logout button is clicked', async () => {
-    renderPatientProfile();
+    delete (window as any).location;
+    (window as any).location = { href: '' };
+
+    renderSettingsPage();
     const logoutButton = screen.getByText('Logout');
 
     fireEvent.click(logoutButton);
 
     await waitFor(() => {
       expect(mockAuthStore.logout).toHaveBeenCalled();
+      expect(window.location.href).toBe('/');
     });
   });
 
   it('opens help center when help button is clicked', () => {
-    renderPatientProfile();
-    fireEvent.click(screen.getByText('Help'));
+    renderSettingsPage();
+    const helpButton = screen.getAllByText('Help')[1]; // Second one is the button
+
+    fireEvent.click(helpButton);
 
     const helpCenter = screen.getByTestId('help-center');
     expect(helpCenter).toHaveAttribute('data-open', 'true');

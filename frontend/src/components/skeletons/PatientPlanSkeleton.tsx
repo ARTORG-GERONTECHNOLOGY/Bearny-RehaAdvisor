@@ -32,8 +32,9 @@ export default function PatientPlanSkeleton() {
               <div key={i} className="flex border border-accent rounded-3xl p-4 gap-3">
                 <div className="flex gap-3 w-full items-center">
                   <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
-                  <Skeleton className="h-5 w-1/2" />
+                  <Skeleton className="h-5 flex-1" />
                 </div>
+                <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
               </div>
             ))}
           </div>
