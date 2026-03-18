@@ -84,18 +84,6 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 // Mock Layout component
 jest.mock('@/components/Layout', () => ({ children }: any) => <div>{children}</div>);
 
-// Mock popup components
-jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => ({
-  __esModule: true,
-  default: ({ show, item, handleClose }: any) =>
-    show ? (
-      <div data-testid="intervention-popup">
-        <div>{item.intervention_title}</div>
-        <button onClick={handleClose}>Close</button>
-      </div>
-    ) : null,
-}));
-
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({
   __esModule: true,
   default: ({ show, onClose }: any) =>
@@ -333,13 +321,14 @@ describe('PatientPlan', () => {
       const markCompleteButtons = screen.getAllByLabelText('Mark as complete');
       await user.click(markCompleteButtons[0]);
 
-      // Intervention popup should not open
-      expect(screen.queryByTestId('intervention-popup')).not.toBeInTheDocument();
+      expect(navigateMock).not.toHaveBeenCalledWith(
+        expect.stringContaining('/patient-intervention/')
+      );
     });
   });
 
   describe('Keyboard Navigation', () => {
-    it('opens intervention detail on Enter key', async () => {
+    it('navigates to intervention detail on Enter key', async () => {
       const user = userEvent.setup();
       render(<PatientPlan />);
 
@@ -351,11 +340,11 @@ describe('PatientPlan', () => {
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith('/patient-intervention/int1?date=2026-03-03');
       });
     });
 
-    it('opens intervention detail on Space key', async () => {
+    it('navigates to intervention detail on Space key', async () => {
       const user = userEvent.setup();
       render(<PatientPlan />);
 
@@ -365,7 +354,7 @@ describe('PatientPlan', () => {
       await user.keyboard(' ');
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith('/patient-intervention/int1?date=2026-03-03');
       });
     });
 
@@ -390,7 +379,7 @@ describe('PatientPlan', () => {
   });
 
   describe('Popups', () => {
-    it('opens intervention detail popup when card is clicked', async () => {
+    it('navigates to intervention detail when card is clicked', async () => {
       const user = userEvent.setup();
       render(<PatientPlan />);
 
@@ -398,24 +387,7 @@ describe('PatientPlan', () => {
       await user.click(interventionCards[0]);
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
-      });
-    });
-
-    it('closes intervention detail popup', async () => {
-      const user = userEvent.setup();
-      render(<PatientPlan />);
-
-      // Open popup
-      const interventionCards = screen.getAllByText('Morning Exercise');
-      await user.click(interventionCards[0]);
-
-      // Close popup
-      const closeButton = screen.getByText('Close');
-      await user.click(closeButton);
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('intervention-popup')).not.toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith('/patient-intervention/int1?date=2026-03-03');
       });
     });
 
@@ -439,7 +411,7 @@ describe('PatientPlan', () => {
       expect(patientQuestionnairesStore.closeFeedback).toHaveBeenCalled();
     });
 
-    it('closes other popups when opening intervention detail', async () => {
+    it('does not force-close feedback when opening intervention detail', async () => {
       const user = userEvent.setup();
       (patientQuestionnairesStore as any).showFeedbackPopup = true;
 
@@ -449,7 +421,7 @@ describe('PatientPlan', () => {
       const interventionCards = screen.getAllByText('Morning Exercise');
       await user.click(interventionCards[0]);
 
-      expect(patientQuestionnairesStore.closeFeedback).toHaveBeenCalled();
+      expect(patientQuestionnairesStore.closeFeedback).not.toHaveBeenCalled();
     });
   });
 

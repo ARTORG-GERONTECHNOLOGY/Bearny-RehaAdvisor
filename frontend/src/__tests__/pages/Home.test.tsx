@@ -50,6 +50,11 @@ jest.mock('@/components/common/Footer', () => ({
   default: () => <div data-testid="footer" />,
 }));
 
+jest.mock('@/assets/home_illustration.svg?react', () => ({
+  __esModule: true,
+  default: (props: any) => <svg data-testid="home-illustration" {...props} />,
+}));
+
 const LoginFormMock = jest.fn(
   ({ show, handleClose }: { show: boolean; handleClose: () => void }) => (
     <div data-testid="login-form">
@@ -165,11 +170,9 @@ describe('Home page', () => {
     expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
   });
 
-  it('renders the hero image', () => {
+  it('renders the illustration', () => {
     render(<Home />);
-    const image = screen.getByAltText('YourCompanyName') as HTMLImageElement;
-    expect(image).toBeInTheDocument();
-    expect(image.src).toContain('/home.jpg');
+    expect(screen.getByTestId('home-illustration')).toBeInTheDocument();
   });
 
   it('does not show modals by default', () => {

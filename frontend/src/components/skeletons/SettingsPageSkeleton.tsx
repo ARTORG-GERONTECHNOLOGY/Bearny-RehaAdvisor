@@ -5,34 +5,60 @@ export default function SettingsPageSkeleton() {
   return (
     <Layout>
       {/* Title skeleton */}
-      <div className="flex items-center gap-[6px]">
-        <Skeleton className="w-6 h-6 rounded" />
-        <Skeleton className="h-7 w-32" />
-      </div>
+      <Skeleton className="h-8 w-48" />
 
-      <div className="mt-4 flex flex-col gap-2">
-        {/* Notifications card skeleton */}
-        <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-4 w-64" />
-            </div>
+      {/* Settings Section */}
+      <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        {/* Section header */}
+        <div className="p-2 pl-4">
+          <Skeleton className="h-7 w-24" />
+        </div>
+
+        {/* Language card */}
+        <div className="border border-accent p-4 rounded-3xl flex flex-col gap-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-6 w-32" />
+        </div>
+
+        {/* Notifications card */}
+        <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+          <Skeleton className="h-4 w-24" />
+          <div className="flex items-center justify-between pt-1">
+            <Skeleton className="h-6 w-44" />
             <Skeleton className="h-6 w-11 rounded-full" />
           </div>
         </div>
+      </div>
 
-        {/* Language card skeleton */}
-        <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-          <Skeleton className="h-6 w-24 mb-2" />
-          <Skeleton className="h-9 w-24" />
+      {/* Contact Section */}
+      <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        {/* Section header with help badge */}
+        <div className="flex justify-between items-center p-2 pl-4">
+          <Skeleton className="h-7 w-20" />
+          <Skeleton className="h-8 w-20 rounded-full" />
         </div>
 
-        {/* Help card skeleton */}
-        <div className="bg-[#F9F9F9] border border-[#D4D4D4] rounded-[16px] p-5">
-          <Skeleton className="h-6 w-16 mb-2" />
-          <Skeleton className="h-10 w-20" />
+        {/* Contact card */}
+        <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-3">
+          <div className="flex flex-col gap-1">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+          <Skeleton className="h-10 w-56 rounded-xl" />
+          <Skeleton className="h-10 w-44 rounded-xl" />
         </div>
+      </div>
+
+      {/* Logos Section */}
+      <div className="flex flex-col items-center gap-6 mt-4 mb-12">
+        <Skeleton className="h-[80px] w-[80px]" />
+        <Skeleton className="h-[40px] w-[160px]" />
+        <Skeleton className="h-[40px] w-[160px]" />
+      </div>
+
+      {/* Logout Section */}
+      <div className="mt-8 bg-white rounded-[40px] p-4">
+        <Skeleton className="h-14 w-full rounded-full" />
       </div>
     </Layout>
   );
