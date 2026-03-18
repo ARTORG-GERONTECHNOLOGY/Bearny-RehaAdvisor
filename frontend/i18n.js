@@ -5,6 +5,8 @@ import en from './src/assets/lang/en.json';
 import de from './src/assets/lang/de.json';
 import fr from './src/assets/lang/fr.json';
 import it from './src/assets/lang/it.json';
+import pt from './src/assets/lang/pt.json';
+import nl from './src/assets/lang/nl.json';
 
 i18n
   .use(LanguageDetector)
@@ -19,6 +21,8 @@ i18n
       de: { translation: de },
       fr: { translation: fr },
       it: { translation: it },
+      pt: { translation: pt },
+      nl: { translation: nl },
     },
     // Remove hardcoded default:
     fallbackLng: 'en',

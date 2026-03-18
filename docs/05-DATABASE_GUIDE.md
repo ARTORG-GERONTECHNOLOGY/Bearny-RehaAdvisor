@@ -49,16 +49,17 @@ MongoDB stores data as BSON documents (similar to JSON):
 
 ```
 rehaadvisor/
-├── users              # User accounts (therapists, researchers, admins)
-├── patients           # Patient records
-├── therapies          # Therapy programs and interventions
-├── sessions           # Therapy sessions
-├── assessments        # Patient assessments
-├── progress_reports   # Treatment progress reports
-├── feedback           # User feedback and ratings
-├── interventions      # Rehabilitation interventions
-├── settings           # Application settings
-└── logs               # Activity logs
+├── users                  # User accounts (therapists, researchers, admins)
+├── patients               # Patient records
+├── therapies              # Therapy programs and interventions
+├── sessions               # Therapy sessions
+├── assessments            # Patient assessments
+├── progress_reports       # Treatment progress reports
+├── feedback               # User feedback and ratings
+├── interventions          # Rehabilitation interventions (Intervention documents)
+├── InterventionTemplates  # Named shareable rehabilitation templates
+├── settings               # Application settings
+└── logs                   # Activity logs
 ```
 
 ### User Collection
@@ -474,6 +475,108 @@ for user in users.find():
         {'$set': {'created_at': user['created_at']}}  # Ensure date format
     )
 ```
+
+---
+
+## InterventionTemplates Collection
+
+MongoDB collection: `InterventionTemplates`
+MongoEngine model: `InterventionTemplate` (`backend/core/models.py`)
+
+### Document schema
+
+```javascript
+{
+  "_id": ObjectId("..."),
+
+  // Metadata
+  "name": "Stroke Recovery Week 1",          // required, max 200 chars
+  "description": "Standard week 1 protocol", // optional, default ""
+  "is_public": false,                         // visible to all therapists when true
+  "created_by": ObjectId("..."),              // ReferenceField → Therapist
+
+  // Optional filter tags
+  "specialization": "Neurology",             // nullable
+  "diagnosis": "Stroke",                     // nullable
+
+  // Schedule payload — list of DefaultInterventions embedded documents
+  "recommendations": [
+    {
+      "recommendation": ObjectId("..."),      // ReferenceField → Intervention
+
+      // Keys are diagnosis strings, or "_all" for any-diagnosis entries
+      "diagnosis_assignments": {
+        "Stroke": [
+          {
+            "active": true,
+            "interval": 1,
+            "unit": "week",                   // "day" | "week" | "month"
+            "selected_days": ["Mon", "Wed", "Fri"],
+            "start_day": 1,
+            "end_day": 14,
+            "suggested_execution_time": 30    // minutes, nullable
+          }
+        ],
+        "_all": [
+          { "active": true, "interval": 1, "unit": "day", ... }
+        ]
+      }
+    }
+  ],
+
+  "createdAt": ISODate("2026-01-01T00:00:00Z"),
+  "updatedAt": ISODate("2026-01-02T00:00:00Z")
+}
+```
+
+### Embedded sub-documents
+
+#### `DefaultInterventions`
+
+| Field | Type | Notes |
+|---|---|---|
+| `recommendation` | ReferenceField(Intervention) | Required — the referenced exercise/activity |
+| `diagnosis_assignments` | DictField | Keys are diagnosis strings or `"_all"`; values are lists of `DiagnosisAssignmentSettings` |
+
+#### `DiagnosisAssignmentSettings`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `active` | boolean | `true` | |
+| `interval` | integer | `1` | Repeat every N units |
+| `unit` | string | — | `"day"` \| `"week"` \| `"month"` |
+| `selected_days` | list\[string\] | `[]` | e.g. `["Mon","Wed"]` |
+| `start_day` | integer | `1` | Day 1 = effective start |
+| `end_day` | integer | — | Last day (inclusive) |
+| `suggested_execution_time` | integer | `null` | Minutes |
+
+### `_all` sentinel
+
+When an intervention is added without specifying a diagnosis (via `POST /api/templates/<id>/interventions/` with `diagnosis: ""`), the backend stores the schedule block under the key `"_all"`. When the template is applied to a patient, `_all` blocks match regardless of the patient's diagnosis filter.
+
+### Ownership and visibility
+
+- `is_public: false` → only `created_by` can see, modify, or delete.
+- `is_public: true` → all authenticated therapists can see and copy.
+- Only `created_by` may update or delete regardless of `is_public`.
+- Copying produces a new private document owned by the copying therapist.
+
+### MongoEngine query pattern
+
+```python
+from mongoengine.queryset.visitor import Q
+from core.models import InterventionTemplate
+
+# Templates visible to a therapist
+visible = InterventionTemplate.objects.filter(
+    Q(is_public=True) | Q(created_by=therapist)
+)
+
+# Filter by name substring
+visible.filter(name__icontains="stroke")
+```
+
+---
 
 ## Best Practices
 
