@@ -326,15 +326,18 @@ describe('PatientPlan', () => {
       });
     });
 
-    it('stops propagation to prevent opening intervention detail', async () => {
+    it('stops propagation to prevent navigation when clicking complete button', async () => {
       const user = userEvent.setup();
       render(<PatientPlan />);
 
+      navigateMock.mockClear();
       const markCompleteButtons = screen.getAllByLabelText('Mark as complete');
       await user.click(markCompleteButtons[0]);
 
-      // Intervention popup should not open
-      expect(screen.queryByTestId('intervention-popup')).not.toBeInTheDocument();
+      // Clicking the complete button should not navigate to intervention detail
+      expect(navigateMock).not.toHaveBeenCalledWith(
+        expect.stringContaining('/patient-intervention/')
+      );
     });
   });
 
@@ -351,7 +354,9 @@ describe('PatientPlan', () => {
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -365,7 +370,9 @@ describe('PatientPlan', () => {
       await user.keyboard(' ');
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -390,7 +397,7 @@ describe('PatientPlan', () => {
   });
 
   describe('Popups', () => {
-    it('opens intervention detail popup when card is clicked', async () => {
+    it('navigates to intervention detail when card is clicked', async () => {
       const user = userEvent.setup();
       render(<PatientPlan />);
 
@@ -398,24 +405,9 @@ describe('PatientPlan', () => {
       await user.click(interventionCards[0]);
 
       await waitFor(() => {
-        expect(screen.getByTestId('intervention-popup')).toBeInTheDocument();
-      });
-    });
-
-    it('closes intervention detail popup', async () => {
-      const user = userEvent.setup();
-      render(<PatientPlan />);
-
-      // Open popup
-      const interventionCards = screen.getAllByText('Morning Exercise');
-      await user.click(interventionCards[0]);
-
-      // Close popup
-      const closeButton = screen.getByText('Close');
-      await user.click(closeButton);
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('intervention-popup')).not.toBeInTheDocument();
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
       });
     });
 
@@ -439,17 +431,21 @@ describe('PatientPlan', () => {
       expect(patientQuestionnairesStore.closeFeedback).toHaveBeenCalled();
     });
 
-    it('closes other popups when opening intervention detail', async () => {
+    it('navigates to intervention detail (feedback popup stays open separately)', async () => {
       const user = userEvent.setup();
       (patientQuestionnairesStore as any).showFeedbackPopup = true;
 
       render(<PatientPlan />);
 
-      // Click on intervention card
+      // Click on intervention card navigates to detail page
       const interventionCards = screen.getAllByText('Morning Exercise');
       await user.click(interventionCards[0]);
 
-      expect(patientQuestionnairesStore.closeFeedback).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.stringContaining('/patient-intervention/')
+        );
+      });
     });
   });
 
