@@ -33,8 +33,8 @@ export default defineConfig(({ mode }) => {
           name: isDev ? 'Bearny (Dev)' : 'Bearny',
           short_name: isDev ? 'Bearny (Dev)' : 'Bearny',
           description: 'Beaready after Rehab',
-          theme_color: '#000000',
-          background_color: '#000000',
+          theme_color: '#F2F2F7',
+          background_color: '#F2F2F7',
           display: 'standalone',
           start_url: '/',
           icons: [
@@ -87,6 +87,7 @@ export default defineConfig(({ mode }) => {
               src: 'icons/pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
+              purpose: 'any maskable',
             },
           ],
           screenshots: [
