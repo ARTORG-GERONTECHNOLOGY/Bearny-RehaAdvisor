@@ -63,8 +63,6 @@ const RehabTable: React.FC = observer(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language]);
 
-  const calendarTitle = safeT(t, 'Calendar', 'Calendar');
-
   // ✅ Central refresh function (used after successful submit)
   const refreshAfterScheduleChange = async () => {
     await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
@@ -153,7 +151,7 @@ const RehabTable: React.FC = observer(() => {
 
             {/* RIGHT */}
             <Col xs={12} lg={8} xl={9} className="rehaCol rehaCol--right">
-              <RehaCalendarPanelShell title={calendarTitle}>
+              <RehaCalendarPanelShell title={safeT(t, 'Reha Calendar', 'Reha Calendar')}>
                 <div className="rehaCalendarWrap">
                   <InterventionCalendar
                     patientData={store.patientData as any}

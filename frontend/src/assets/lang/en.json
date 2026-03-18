@@ -882,5 +882,21 @@
   "Decline access change request": "Decline access change request",
   "Note for therapist (optional)": "Note for therapist (optional)",
   "Explain why the request is being declined...": "Explain why the request is being declining...",
-  "Declining...": "Declining..."
+  "Declining...": "Declining...",
+  "Research Project Contact": "Research Project Contact",
+  "Your recommendations": "Your recommendations",
+  "Sleep (min)": "Sleep (min)",
+  "Blood pressure systolic": "Blood pressure systolic",
+  "Blood pressure diastolic": "Blood pressure diastolic",
+  "Uncompleted": "Uncompleted",
+  "Last Week": "Last Week",
+  "Last Month": "Last Month",
+  "Not reached": "Missed",
+  "Process": "Process",
+  "Filter by time period": "Filter by time period",
+  "Show last week": "Show last week",
+  "Show last month": "Show last month",
+  "Recommendations": "Recommendations",
+  "Average per day": "Average per day",
+  "Blood pressure": "Blood pressure"
 }
