@@ -266,6 +266,9 @@ jobs:
           echo "MONGO_INITDB_ROOT_PASSWORD="             >> "$GITHUB_ENV"
           echo "MONGO_TLS=false"                         >> "$GITHUB_ENV"
           echo "REDIS_URL=redis://localhost:6379/0"      >> "$GITHUB_ENV"
+          # Allow the Playwright browser (127.0.0.1:4173) to reach the Django
+          # dev server (127.0.0.1:8001) without a CORS block.
+          echo "CORS_ALLOW_ALL_ORIGINS=true"             >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v4
