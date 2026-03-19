@@ -31,13 +31,6 @@ jest.mock('react-bootstrap', () => ({
   Tooltip: ({ children }: any) => <span>{children}</span>,
 }));
 
-jest.mock('react-pdf', () => ({
-  Document: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="pdf-document">{children}</div>
-  ),
-  Page: () => <div data-testid="pdf-page" />,
-}));
-
 jest.mock('react-icons/fa', () => ({
   FaLock: () => <span data-testid="fa-lock" />,
 }));
