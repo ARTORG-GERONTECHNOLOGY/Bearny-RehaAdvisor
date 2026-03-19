@@ -10,11 +10,11 @@ endpoints in `core/views/therapist_views.py`.
 
 | Endpoint | HTTP verb | View function | Tests |
 |---|---|---|---|
-| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 6 |
+| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 10 |
 | `/api/analytics/log` | POST | `create_log` | 4 |
 | Internal helpers (unit-level) | N/A | `_avg`, `_day_key`, `_sum_points_for_day`, `_adherence`, `_feedback_computing` | 9 |
 
-**Total: 19 tests**
+**Total: 23 tests**
 
 ---
 
@@ -31,10 +31,13 @@ Logs
   └── patient  → Patient (optional)
 
 FitbitData
-  ├── user     → User
+  ├── user              → User
   ├── steps
   ├── active_minutes
-  └── sleep.sleep_duration
+  ├── wear_time_minutes   (minutes with HR > 0; null if not recorded)
+  └── sleep
+      ├── sleep_duration    (total time in bed, ms)
+      └── minutes_asleep    (actual sleep time, min — matches Fitbit app)
 ```
 
 ---
@@ -53,10 +56,18 @@ patient dashboards.
 | `patient_code` | Patient code |
 | `first_name`, `name`, `sex`, `diagnosis`, `age` | Basic profile fields |
 | `last_online` | Last login log timestamp, if any |
-| `biomarker` | `{ sleep_avg_h, activity_min, steps_avg }` (7-day averages) |
+| `biomarker` | `{ sleep_avg_h, activity_min, steps_avg, wear_time_avg_min, wear_time_days_since }` (7-day averages) |
 | `adherence_rate`, `adherence_total` | Adherence percentages |
 | `questionnaires` | Questionnaire summary entries |
 | `feedback_low` | `true` if any questionnaire is flagged low-score |
+
+**Biomarker fields detail:**
+
+| Field | Meaning |
+|---|---|
+| `sleep_avg_h` | Average hours asleep per night over 7 days. Uses `minutes_asleep` (actual sleep from Fitbit) when available; falls back to `sleep_duration / 60000 / 60` (time in bed). |
+| `wear_time_avg_min` | Average daily Fitbit wear time in minutes over 7 days. `null` if no wear data. |
+| `wear_time_days_since` | Days since the last day the device had any wear recorded. `null` if no wear data. Used by the frontend to colour-code the Wear badge (red ≥ 2 days; yellow < 12 h avg; green otherwise). |
 
 ### Tests
 
@@ -68,6 +79,10 @@ patient dashboards.
 | `test_list_therapist_patients_method_not_allowed` | POST instead of GET | 405, `error: Method not allowed` |
 | `test_list_therapist_patients_excludes_inactive_users` | Patient user exists but `isActive=False` | 200, patient excluded from list |
 | `test_list_therapist_patients_includes_login_and_biomarker_fields` | Login log + Fitbit metrics exist | 200, `last_online` set, biomarker averages populated |
+| `test_biomarker_includes_wear_time_fields` | Two FitbitData docs with `wear_time_minutes` | `wear_time_avg_min` = average of both; `wear_time_days_since` = 1 |
+| `test_biomarker_wear_time_none_when_no_fitbit_data` | No FitbitData for patient | Both wear fields are `null` |
+| `test_biomarker_sleep_avg_h_uses_minutes_asleep` | FitbitData has `minutes_asleep=420` (7 h) and `sleep_duration=28800000` (8 h) | `sleep_avg_h` is 7.0, not 8.0 |
+| `test_biomarker_sleep_falls_back_to_duration_when_no_minutes_asleep` | FitbitData has only `sleep_duration=27000000` (7.5 h), no `minutes_asleep` | `sleep_avg_h` is 7.5 |
 
 ---
 
