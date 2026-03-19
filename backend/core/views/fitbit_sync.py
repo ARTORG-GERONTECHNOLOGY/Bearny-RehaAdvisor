@@ -149,6 +149,15 @@ def fetch_fitbit_today_for_user(user) -> int:
             dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
             hrv_data[dt] = item.get("value")
 
+    # Intraday HR (1-sec) for wear time and max HR
+    intraday_hr_map: dict[datetime.date, list] = {}
+    intraday_url = f"{FITBIT_API_URL}/activities/heart/date/{date_str}/1d/1sec.json"
+    intraday_resp = requests.get(intraday_url, headers=headers, timeout=20)
+    if intraday_resp.status_code == 200:
+        dataset = intraday_resp.json().get("activities-heart-intraday", {}).get("dataset", [])
+        if dataset:
+            intraday_hr_map[today] = dataset
+
     # Sleep
     sleep_url = f"{FITBIT_API_URL}/sleep/date/{date_str}/{date_str}.json"
     sleep_resp = requests.get(sleep_url, headers=headers, timeout=20)
@@ -157,6 +166,7 @@ def fetch_fitbit_today_for_user(user) -> int:
             dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
             sleep_data[dt] = {
                 "sleep_duration": entry.get("duration"),
+                "minutes_asleep": entry.get("minutesAsleep"),
                 "sleep_start": entry.get("startTime"),
                 "sleep_end": entry.get("endTime"),
                 "awakenings": entry.get("awakeningsCount"),
@@ -185,6 +195,17 @@ def fetch_fitbit_today_for_user(user) -> int:
         except Exception:
             return 0
 
+    def wear_time_for(dt: datetime.date) -> int | None:
+        dataset = intraday_hr_map.get(dt)
+        if not dataset:
+            return None
+        worn_minutes = {
+            entry["time"][:5]  # "HH:MM" — unique minute slots
+            for entry in dataset
+            if entry.get("value", 0) > 0
+        }
+        return len(worn_minutes)
+
     all_dates = {today}
     for m in series.values():
         if isinstance(m, dict):
@@ -204,6 +225,12 @@ def fetch_fitbit_today_for_user(user) -> int:
 
         inactivity_minutes = max(0, 1440 - (active_minutes + sleep_minutes_for(dt)))
 
+        max_hr = None
+        if today in intraday_hr_map:
+            values = [e.get("value", 0) for e in intraday_hr_map[today] if e.get("value", 0) > 0]
+            if values:
+                max_hr = max(values)
+
         FitbitData.objects(user=user, date=dt).update_one(
             set__resting_heart_rate=series["resting_heart_rate"].get(dt),
             set__steps=series["steps"].get(dt),
@@ -211,12 +238,14 @@ def fetch_fitbit_today_for_user(user) -> int:
             set__distance=series["distance"].get(dt),
             set__calories=series["calories"].get(dt),
             set__active_minutes=active_minutes,
+            set__max_heart_rate=max_hr,
             set__heart_rate_zones=series["heart_rate_zones"].get(dt),
             set__sleep=sleep_data.get(dt),
             set__exercise=exercise_data.get(dt),
             set__breathing_rate=breathing_data.get(dt),
             set__hrv=hrv_data.get(dt),
             set__inactivity_minutes=inactivity_minutes,
+            set__wear_time_minutes=wear_time_for(dt),
             upsert=True,
         )
         upserted += 1

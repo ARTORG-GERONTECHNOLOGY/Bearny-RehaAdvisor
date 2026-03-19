@@ -49,6 +49,7 @@ const HealthPage: React.FC = observer(() => {
     questionnaire: useRef<SVGSVGElement>(null),
     restingHR: useRef<SVGSVGElement>(null),
     sleep: useRef<SVGSVGElement>(null),
+    wearTime: useRef<SVGSVGElement>(null),
     hrZones: useRef<SVGSVGElement>(null),
     floors: useRef<SVGSVGElement>(null),
     steps: useRef<SVGSVGElement>(null),
