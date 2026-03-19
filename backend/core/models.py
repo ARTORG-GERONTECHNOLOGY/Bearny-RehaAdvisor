@@ -71,7 +71,8 @@ class HeartRateZone(EmbeddedDocument):
 
 
 class SleepData(EmbeddedDocument):
-    sleep_duration = IntField()  # in ms
+    sleep_duration = IntField()  # total session duration in ms (time in bed, includes awake periods)
+    minutes_asleep = IntField()  # actual sleep time in minutes (matches Fitbit app display)
     sleep_start = StringField()  # ISO datetime string
     sleep_end = StringField()  # ISO datetime string
     awakenings = IntField()
@@ -142,6 +143,9 @@ class FitbitData(Document):
 
     # Inactivity
     inactivity_minutes = IntField()
+
+    # Fitbit wear time (minutes the device was worn, derived from intraday HR)
+    wear_time_minutes = IntField()
 
     # Imported from PatientVitals (OPTION B)
     weight_kg = FloatField()

@@ -111,3 +111,101 @@ def test_export_record_by_pat_id_invalid_json_and_redcap_error(monkeypatch):
     with patch("core.services.redcap_service._post_redcap", side_effect=RedcapError("boom")):
         with pytest.raises(RedcapError):
             export_record_by_pat_id("COMPASS", "X1")
+
+
+# ---------------------------------------------------------------------------
+# REDCap connection tests
+# ---------------------------------------------------------------------------
+
+
+def test_redcap_connection_success(monkeypatch):
+    """A well-formed POST with a valid token and correct API URL returns data."""
+    monkeypatch.setattr(
+        svc,
+        "settings",
+        SimpleNamespace(REDCAP_API_URL="https://redcap.example/api/"),
+        raising=False,
+    )
+    ok_resp = SimpleNamespace(status_code=200, text='[{"record_id":"1","pat_id":"P01"}]')
+    with patch("core.services.redcap_service.requests.post", return_value=ok_resp) as mocked:
+        result = _post_redcap("valid-token", {"content": "record", "format": "json"})
+
+    assert '"record_id"' in result
+    call_data = mocked.call_args.kwargs["data"]
+    assert call_data["token"] == "valid-token"
+    assert mocked.call_args.args[0] == "https://redcap.example/api/"
+
+
+def test_redcap_connection_timeout_raises_redcap_error(monkeypatch):
+    """A connection timeout is wrapped in RedcapError (not a raw exception)."""
+    monkeypatch.setattr(
+        svc,
+        "settings",
+        SimpleNamespace(REDCAP_API_URL="https://redcap.example/api/"),
+        raising=False,
+    )
+    import requests as req_lib
+
+    with patch(
+        "core.services.redcap_service.requests.post",
+        side_effect=req_lib.exceptions.Timeout("timed out"),
+    ):
+        with pytest.raises(RedcapError) as exc_info:
+            _post_redcap("tok", {"content": "record"})
+    assert "REDCap" in str(exc_info.value)
+
+
+def test_redcap_connection_network_error_raises_redcap_error(monkeypatch):
+    """A generic network/connection error is wrapped in RedcapError."""
+    monkeypatch.setattr(
+        svc,
+        "settings",
+        SimpleNamespace(REDCAP_API_URL="https://redcap.example/api/"),
+        raising=False,
+    )
+    import requests as req_lib
+
+    with patch(
+        "core.services.redcap_service.requests.post",
+        side_effect=req_lib.exceptions.ConnectionError("refused"),
+    ):
+        with pytest.raises(RedcapError):
+            _post_redcap("tok", {"content": "record"})
+
+
+def test_redcap_connection_invalid_token_raises_redcap_error(monkeypatch):
+    """A 403 response (bad/missing token) is raised as RedcapError."""
+    monkeypatch.setattr(
+        svc,
+        "settings",
+        SimpleNamespace(REDCAP_API_URL="https://redcap.example/api/"),
+        raising=False,
+    )
+    forbidden = SimpleNamespace(status_code=403, text="ERROR: You do not have privileges")
+    with patch("core.services.redcap_service.requests.post", return_value=forbidden):
+        with pytest.raises(RedcapError):
+            _post_redcap("bad-token", {"content": "record"})
+
+
+def test_redcap_connection_uses_env_url_when_settings_empty(monkeypatch):
+    """Falls back to REDCAP_API_URL env var when Django settings value is blank."""
+    monkeypatch.setattr(svc, "settings", SimpleNamespace(REDCAP_API_URL=""), raising=False)
+    monkeypatch.setenv("REDCAP_API_URL", "https://env.redcap.example/api/")
+
+    ok_resp = SimpleNamespace(status_code=200, text="[]")
+    with patch("core.services.redcap_service.requests.post", return_value=ok_resp) as mocked:
+        _post_redcap("tok", {"content": "record"})
+
+    assert mocked.call_args.args[0] == "https://env.redcap.example/api/"
+
+
+def test_redcap_connection_falls_back_to_default_url(monkeypatch):
+    """Falls back to hardcoded unibe.ch URL when neither settings nor env is set."""
+    monkeypatch.setattr(svc, "settings", SimpleNamespace(REDCAP_API_URL=""), raising=False)
+    monkeypatch.delenv("REDCAP_API_URL", raising=False)
+
+    ok_resp = SimpleNamespace(status_code=200, text="[]")
+    with patch("core.services.redcap_service.requests.post", return_value=ok_resp) as mocked:
+        _post_redcap("tok", {"content": "record"})
+
+    assert "redcap.unibe.ch" in mocked.call_args.args[0]

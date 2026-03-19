@@ -20,6 +20,7 @@ type SvgRefs = {
   questionnaire: React.RefObject<SVGSVGElement>;
   restingHR: React.RefObject<SVGSVGElement>;
   sleep: React.RefObject<SVGSVGElement>;
+  wearTime: React.RefObject<SVGSVGElement>;
   hrZones: React.RefObject<SVGSVGElement>;
   floors: React.RefObject<SVGSVGElement>;
   steps: React.RefObject<SVGSVGElement>;
@@ -108,6 +109,23 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
             <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
+          </div>
+        </Accordion.Body>
+      </Accordion.Item>
+
+      <Accordion.Item eventKey="4b">
+        <Accordion.Header>{t('Wear Time')}</Accordion.Header>
+        <Accordion.Body className="p-2 p-md-3">
+          <div className="d-flex justify-content-center">
+            <MetricBarOrBox
+              ref={svgRefs.wearTime}
+              titleKey="Wear Time (min)"
+              data={store.fitbitData}
+              accessor={(d) => (d as any).wear_time_minutes}
+              res={store.chartRes}
+              start={start}
+              end={end}
+            />
           </div>
         </Accordion.Body>
       </Accordion.Item>
