@@ -99,7 +99,10 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       .attr('fill', '#9370DB')
       .attr('opacity', 0.7)
       .on('mouseover', (ev, d) => {
-        const asleep = d.sleep?.minutes_asleep != null ? ` • ${t('Asleep')}: ${Math.round(d.sleep.minutes_asleep / 60 * 10) / 10}h` : '';
+        const asleep =
+          d.sleep?.minutes_asleep != null
+            ? ` • ${t('Asleep')}: ${Math.round((d.sleep.minutes_asleep / 60) * 10) / 10}h`
+            : '';
         tt.style('opacity', 1).html(
           `${d.date}<br/>${d.sleep?.sleep_start?.slice(11, 16)}–${d.sleep?.sleep_end?.slice(11, 16)}${asleep}`
         );

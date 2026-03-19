@@ -442,9 +442,11 @@ def list_therapist_patients(request, therapist_id):
 
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
             last_worn_date = None
-            fitbit_docs = FitbitData.objects(user=user, date__gte=since).only(
-                "steps", "active_minutes", "sleep", "wear_time_minutes", "date"
-            ).order_by("-date")
+            fitbit_docs = (
+                FitbitData.objects(user=user, date__gte=since)
+                .only("steps", "active_minutes", "sleep", "wear_time_minutes", "date")
+                .order_by("-date")
+            )
             for doc in fitbit_docs:
                 if doc.steps is not None:
                     steps_vals.append(doc.steps)
@@ -463,9 +465,7 @@ def list_therapist_patients(request, therapist_id):
                         last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
 
             today_date = datetime.utcnow().date()
-            days_since_worn = (
-                (today_date - last_worn_date).days if last_worn_date else None
-            )
+            days_since_worn = (today_date - last_worn_date).days if last_worn_date else None
 
             biomarker = {
                 "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,

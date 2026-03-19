@@ -450,6 +450,7 @@ def test_fitbit_summary_internal_error_branch(mock_fetch):
 # minutes_asleep and wear_time_minutes in API responses
 # ---------------------------------------------------------------------------
 
+
 def test_health_data_includes_minutes_asleep():
     """health-data endpoint returns minutes_asleep in the sleep object."""
     _, _, patient_user, patient = create_patient_graph()
@@ -459,8 +460,8 @@ def test_health_data_includes_minutes_asleep():
         user=patient_user,
         date=dt0,
         sleep=SleepData(
-            sleep_duration=28800000,   # 8h in bed
-            minutes_asleep=435,        # 7h15m actually asleep
+            sleep_duration=28800000,  # 8h in bed
+            minutes_asleep=435,  # 7h15m actually asleep
             sleep_start="2026-01-01T22:00:00",
             sleep_end="2026-01-02T06:00:00",
         ),
@@ -480,9 +481,7 @@ def test_health_data_includes_minutes_asleep():
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
 @patch("core.views.fitbit_view.FitbitData.objects")
-def test_health_combined_history_includes_minutes_asleep_and_wear_time(
-    mock_fb_objects, mock_vitals_objects, mock_logs
-):
+def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_fb_objects, mock_vitals_objects, mock_logs):
     """health-combined-history FitbitEntry contains minutes_asleep and wear_time_minutes."""
     _, _, _patient_user, patient = create_patient_graph()
     entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
@@ -491,15 +490,28 @@ def test_health_combined_history_includes_minutes_asleep_and_wear_time(
 
     fake_fitbit = SimpleNamespace(
         date=entry_dt,
-        steps=800, resting_heart_rate=None, max_heart_rate=None,
-        floors=None, distance=None, calories=None, active_minutes=None,
+        steps=800,
+        resting_heart_rate=None,
+        max_heart_rate=None,
+        floors=None,
+        distance=None,
+        calories=None,
+        active_minutes=None,
         wear_time_minutes=650,
         sleep=SimpleNamespace(
-            sleep_duration=25200000, minutes_asleep=390,
-            sleep_start=None, sleep_end=None, awakenings=None,
+            sleep_duration=25200000,
+            minutes_asleep=390,
+            sleep_start=None,
+            sleep_end=None,
+            awakenings=None,
         ),
-        heart_rate_zones=[], breathing_rate=None, hrv=None,
-        exercise={}, weight_kg=None, bp_sys=None, bp_dia=None,
+        heart_rate_zones=[],
+        breathing_rate=None,
+        hrv=None,
+        exercise={},
+        weight_kg=None,
+        bp_sys=None,
+        bp_dia=None,
     )
     mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
 
@@ -524,9 +536,7 @@ def test_health_combined_history_includes_minutes_asleep_and_wear_time(
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
 @patch("core.views.fitbit_view.FitbitData.objects")
-def test_health_combined_history_wear_time_none_when_absent(
-    mock_fb_objects, mock_vitals_objects, mock_logs
-):
+def test_health_combined_history_wear_time_none_when_absent(mock_fb_objects, mock_vitals_objects, mock_logs):
     """wear_time_minutes is None in FitbitEntry when not recorded."""
     _, _, _patient_user, patient = create_patient_graph()
     entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
@@ -535,15 +545,28 @@ def test_health_combined_history_wear_time_none_when_absent(
 
     fake_fitbit = SimpleNamespace(
         date=entry_dt,
-        steps=300, resting_heart_rate=None, max_heart_rate=None,
-        floors=None, distance=None, calories=None, active_minutes=None,
+        steps=300,
+        resting_heart_rate=None,
+        max_heart_rate=None,
+        floors=None,
+        distance=None,
+        calories=None,
+        active_minutes=None,
         wear_time_minutes=None,
         sleep=SimpleNamespace(
-            sleep_duration=None, minutes_asleep=None,
-            sleep_start=None, sleep_end=None, awakenings=None,
+            sleep_duration=None,
+            minutes_asleep=None,
+            sleep_start=None,
+            sleep_end=None,
+            awakenings=None,
         ),
-        heart_rate_zones=[], breathing_rate=None, hrv=None,
-        exercise={}, weight_kg=None, bp_sys=None, bp_dia=None,
+        heart_rate_zones=[],
+        breathing_rate=None,
+        hrv=None,
+        exercise={},
+        weight_kg=None,
+        bp_sys=None,
+        bp_dia=None,
     )
     mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
 
