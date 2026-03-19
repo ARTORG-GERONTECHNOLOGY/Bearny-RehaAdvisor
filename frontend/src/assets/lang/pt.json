@@ -914,5 +914,12 @@
   "Show last month": "Mostrar último mês",
   "Recommendations": "Recomendações",
   "Average per day": "Média por dia",
-  "Blood pressure": "Pressão arterial"
+  "Blood pressure": "Pressão arterial",
+  "Not worn for": "Não usado há",
+  "yesterday": "ontem",
+  "Last worn": "Última vez usado",
+  "Avg wear": "Tempo médio",
+  "(7d)": "(7d)",
+  "No Fitbit data": "Sem dados Fitbit",
+  "Wear": "Uso"
 }
