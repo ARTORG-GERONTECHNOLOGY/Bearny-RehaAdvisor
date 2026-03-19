@@ -23,6 +23,7 @@ from core.views.intervention_import import (
     _parse_int,
     _split_list,
     _spotify_embed,
+    _validate_id_format,
     _youtube_embed,
     import_interventions_from_excel,
 )
@@ -50,8 +51,18 @@ def mongo_mock():
 
 
 def test_helper_parsers():
-    assert _parse_external_id_and_language("4001_de") == ("4001", "de")
+    # Legacy 2-part format
+    assert _parse_external_id_and_language("4001_de") == ("4001", "de", None)
+    # New 3-part format: {number}_{format}_{lang}
+    assert _parse_external_id_and_language("3500_web_de") == ("3500_web", "de", "web")
+    assert _parse_external_id_and_language("30500_vid_pt") == ("30500_vid", "pt", "vid")
+    assert _parse_external_id_and_language("3500_br_it") == ("3500_br", "it", "br")
+    # Unknown format code → format_code is None, but external_id still correct
+    assert _parse_external_id_and_language("3500_xyz_de") == ("3500_xyz", "de", None)
     assert _map_content_type("video") == "Video"
+    assert _map_content_type("vid") == "Video"
+    assert _map_content_type("br") == "Text"
+    assert _map_content_type("gfx") == "Image"
     assert _parse_duration_minutes("10-20") == 15
     assert _split_list("a, b; a") == ["a", "b"]
 
@@ -65,6 +76,9 @@ def test_helper_bool_int_lang_provider_and_media():
 
     assert _normalize_lang("german") == "de"
     assert _normalize_lang("italiano") == "it"
+    assert _normalize_lang("português") == "pt"
+    assert _normalize_lang("nl") == "nl"
+    assert _normalize_lang("dutch") == "nl"
     assert _normalize_lang("unknown") is None
 
     assert _guess_provider("https://open.spotify.com/track/abc") == "spotify"
@@ -84,6 +98,24 @@ def test_helper_bool_int_lang_provider_and_media():
     assert _guess_file_media_type("image.png", "text") == "image"
     assert _is_raw_file_name("file.pdf") is True
     assert _is_raw_file_name("https://example.com/file.pdf") is False
+
+
+def test_validate_id_format():
+    # Valid new 3-part IDs produce no warnings
+    assert _validate_id_format("3500_web_de") == []
+    assert _validate_id_format("30500_vid_pt") == []
+    assert _validate_id_format("3500_br_it") == []
+    # Legacy 2-part ID — no warnings (backward compat)
+    assert _validate_id_format("4001_de") == []
+    # Unknown format code
+    msgs = _validate_id_format("3500_xyz_de")
+    assert any("xyz" in m for m in msgs)
+    # Invalid prefix length
+    msgs = _validate_id_format("350_web_de")
+    assert any("350" in m for m in msgs)
+    # Unknown language
+    msgs = _validate_id_format("3500_web_xx")
+    assert any("xx" in m for m in msgs)
 
 
 def test_more_helper_branches_for_import_module():

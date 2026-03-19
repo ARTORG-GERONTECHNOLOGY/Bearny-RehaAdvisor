@@ -13,14 +13,42 @@ import axios from 'axios';
 import PatientTypeSection from '../components/AddIntervention/PatientTypeSection';
 import InterventionFormFileInputs from '../components/AddIntervention/InterventionFormFileInputs';
 
+const VALID_FORMAT_CODES = new Set(['vid', 'img', 'pdf', 'web', 'aud', 'app', 'br', 'gfx']);
+
+/** Validate the {number}_{format} part of the ID (language is separate). */
+function validateExternalId(id: string): string {
+  if (!id) return '';
+  const parts = id.toLowerCase().split('_');
+  if (parts.length < 2) return 'Expected format: {number}_{format} e.g. 3500_web';
+  const num = parts.slice(0, -1).join('_');
+  const fmt = parts[parts.length - 1];
+  if (!/^\d{4,5}$/.test(num))
+    return 'Prefix must be 4 digits (original) or 5 digits (self-made).';
+  if (!VALID_FORMAT_CODES.has(fmt))
+    return `Unknown format code "${fmt}". Valid: ${[...VALID_FORMAT_CODES].sort().join(', ')} (vid=video, img/gfx=image, pdf/br=document, web=website, aud=audio, app=app).`;
+  return '';
+}
+
 const defaultForm = {
   title: '',
   description: '',
   contentType: 'blog',
+  externalId: '',
+  language: '',
   link: '',
+  primaryDiagnosis: [] as string[],
   mediaFile: null,
   patientTypes: [{ type: '', frequency: '', includeOption: null }],
 };
+
+const LANGUAGES = [
+  { value: 'de', label: 'DE — Deutsch' },
+  { value: 'fr', label: 'FR — Français' },
+  { value: 'it', label: 'IT — Italiano' },
+  { value: 'pt', label: 'PT — Português' },
+  { value: 'nl', label: 'NL — Nederlands' },
+  { value: 'en', label: 'EN — English' },
+];
 
 const AddInterventionView: React.FC = observer(() => {
   const { t } = useTranslation();
@@ -60,6 +88,16 @@ const AddInterventionView: React.FC = observer(() => {
     setFormData((prev) => ({ ...prev, mediaFile: file }));
   };
 
+  const handlePrimaryDiagnosisChange = (value: string) => {
+    setFormData((prev) => {
+      const current = prev.primaryDiagnosis;
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      return { ...prev, primaryDiagnosis: next };
+    });
+  };
+
   const handlePatientTypeChange = (index: number, field: string, value: string | boolean) => {
     setFormData((prev) => {
       const updated = [...prev.patientTypes];
@@ -82,13 +120,27 @@ const AddInterventionView: React.FC = observer(() => {
     setIsSubmitting(true);
 
     try {
+      // client-side external_id validation
+      if (formData.externalId) {
+        const idErr = validateExternalId(formData.externalId);
+        if (idErr) { setError(idErr); setIsSubmitting(false); return; }
+      }
+
       const payload = new FormData();
       payload.append('title', formData.title);
       payload.append('description', formData.description);
       payload.append('contentType', formData.contentType);
+      if (formData.externalId) payload.append('external_id', formData.externalId.toLowerCase());
+      if (formData.language) payload.append('language', formData.language);
       if (formData.link) payload.append('link', formData.link);
       if (formData.mediaFile) payload.append('media_file', formData.mediaFile);
       payload.append('patientTypes', JSON.stringify(formData.patientTypes));
+      payload.append(
+        'taxonomy',
+        JSON.stringify({
+          ...(formData.primaryDiagnosis.length ? { primary_diagnosis: formData.primaryDiagnosis } : {}),
+        })
+      );
 
       const res = await apiClient.post('interventions/add', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -96,7 +148,7 @@ const AddInterventionView: React.FC = observer(() => {
 
       if (res.status === 200) {
         setSuccess(true);
-        setFormData({ ...defaultForm, mediaFile: null });
+        setFormData({ ...defaultForm, mediaFile: null, primaryDiagnosis: [], externalId: '' });
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
@@ -162,6 +214,66 @@ const AddInterventionView: React.FC = observer(() => {
                 ))}
               </Form.Control>
             </Form.Group>
+
+            <Form.Group controlId="externalId" className="mt-3">
+              <Form.Label>{t('ID')}</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="3500_web"
+                value={formData.externalId}
+                onChange={handleChange}
+                isInvalid={!!formData.externalId && !!validateExternalId(formData.externalId)}
+              />
+              <Form.Text className="text-muted">
+                {t('ID format')}{': '}
+                <code>3500_web</code> {t('(original)')} /{' '}
+                <code>30500_vid</code> {t('(self-made)')}
+                {' — '}
+                <code>vid, img, gfx, pdf, br, web, aud, app</code>
+              </Form.Text>
+              {formData.externalId && (
+                <Form.Control.Feedback type="invalid">
+                  {validateExternalId(formData.externalId)}
+                </Form.Control.Feedback>
+              )}
+            </Form.Group>
+
+            <Form.Group controlId="language" className="mt-3">
+              <Form.Label>{t('Language')}</Form.Label>
+              <Form.Select
+                id="language"
+                value={formData.language}
+                onChange={handleChange}
+              >
+                <option value="">{t('SelectType')}</option>
+                {LANGUAGES.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+
+            {diagnoses.length > 0 && (
+              <Form.Group className="mt-3">
+                <Form.Label>{t('Diagnosis')}</Form.Label>
+                <div
+                  className="border rounded p-2"
+                  style={{ maxHeight: 160, overflowY: 'auto' }}
+                >
+                  {diagnoses.map((d: string) => (
+                    <Form.Check
+                      key={d}
+                      id={`pd-${d}`}
+                      label={t(d)}
+                      checked={formData.primaryDiagnosis.includes(d)}
+                      onChange={() => handlePrimaryDiagnosisChange(d)}
+                    />
+                  ))}
+                </div>
+                <Form.Text className="text-muted">
+                  {t('SelectDiagnosis')}
+                </Form.Text>
+              </Form.Group>
+            )}
 
             <Form.Group controlId="link" className="mt-3">
               <Form.Label>{t('Link')}</Form.Label>
