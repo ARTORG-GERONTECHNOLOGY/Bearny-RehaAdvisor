@@ -898,5 +898,12 @@
   "Show last month": "Afgelopen maand tonen",
   "Recommendations": "Aanbevelingen",
   "Average per day": "Gemiddeld per dag",
-  "Blood pressure": "Bloeddruk"
+  "Blood pressure": "Bloeddruk",
+  "Not worn for": "Niet gedragen voor",
+  "yesterday": "gisteren",
+  "Last worn": "Laatst gedragen",
+  "Avg wear": "Gem. draagduur",
+  "(7d)": "(7d)",
+  "No Fitbit data": "Geen Fitbit-gegevens",
+  "Wear": "Dragen"
 }
