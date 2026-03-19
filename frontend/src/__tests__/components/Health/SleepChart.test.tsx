@@ -7,7 +7,10 @@ jest.mock('d3', () => {
     const proxy: any = new Proxy(
       {},
       {
-        get: (_t, _k) => (..._args: any[]) => proxy,
+        get:
+          (_t, _k) =>
+          (..._args: any[]) =>
+            proxy,
       }
     );
     return proxy;
@@ -32,7 +35,12 @@ jest.mock('d3', () => {
     axisLeft: () => chain(),
     axisRight: () => chain(),
     axisBottom: () => chain(),
-    line: () => { const l: any = () => ''; l.x = () => l; l.y = () => l; return l; },
+    line: () => {
+      const l: any = () => '';
+      l.x = () => l;
+      l.y = () => l;
+      return l;
+    },
     max: () => 10,
     min: () => 0,
     mean: () => 5,
@@ -83,13 +91,13 @@ describe('SleepChart', () => {
     const data: FitbitEntry[] = [
       makeSleepEntry('2026-01-01', {
         sleep_duration: 28800000, // 8h
-        minutes_asleep: 420,      // 7h
+        minutes_asleep: 420, // 7h
         sleep_start: '2026-01-01T22:00:00.000',
         sleep_end: '2026-01-02T06:00:00.000',
       }),
       makeSleepEntry('2026-01-02', {
         sleep_duration: 25200000, // 7h
-        minutes_asleep: 390,      // 6h30m
+        minutes_asleep: 390, // 6h30m
         sleep_start: '2026-01-02T23:00:00.000',
         sleep_end: '2026-01-03T06:00:00.000',
       }),
@@ -111,9 +119,7 @@ describe('SleepChart', () => {
   });
 
   test('renders when only minutes_asleep is present without duration', () => {
-    const data: FitbitEntry[] = [
-      makeSleepEntry('2026-01-04', { minutes_asleep: 360 }),
-    ];
+    const data: FitbitEntry[] = [makeSleepEntry('2026-01-04', { minutes_asleep: 360 })];
     const { container } = render(<SleepChart data={data} />);
     expect(container.querySelector('svg')).toBeInTheDocument();
   });

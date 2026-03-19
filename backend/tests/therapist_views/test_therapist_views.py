@@ -691,6 +691,7 @@ def test_patients_from_same_clinic_visible_across_therapists(mongo_mock):
 # Wear time and sleep biomarker fields
 # ---------------------------------------------------------------------------
 
+
 def test_biomarker_includes_wear_time_fields():
     """Biomarker exposes wear_time_avg_min and wear_time_days_since."""
     therapist, patient = create_therapist_with_patient()

@@ -200,9 +200,7 @@ def fetch_fitbit_today_for_user(user) -> int:
         if not dataset:
             return None
         worn_minutes = {
-            entry["time"][:5]  # "HH:MM" — unique minute slots
-            for entry in dataset
-            if entry.get("value", 0) > 0
+            entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0  # "HH:MM" — unique minute slots
         }
         return len(worn_minutes)
 

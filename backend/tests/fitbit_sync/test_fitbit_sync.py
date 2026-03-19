@@ -256,6 +256,7 @@ def test_fetch_fitbit_today_for_user_covers_branches_and_parsing(mock_objects, m
 # Wear time calculation
 # ---------------------------------------------------------------------------
 
+
 @patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
 @patch("core.views.fitbit_sync.requests.get")
 def test_wear_time_stored_from_intraday_hr(mock_get, _):
@@ -268,7 +269,7 @@ def test_wear_time_stored_from_intraday_hr(mock_get, _):
         {"time": "08:01:00", "value": 65},
         {"time": "08:01:30", "value": 67},
         {"time": "08:02:00", "value": 70},
-        {"time": "08:03:00", "value": 0},   # not worn
+        {"time": "08:03:00", "value": 0},  # not worn
     ]
 
     def mk_resp(payload):
@@ -381,6 +382,7 @@ def test_wear_time_none_when_no_intraday_data(mock_get, _):
 # Sleep: minutes_asleep (actual sleep) vs sleep_duration (time in bed)
 # ---------------------------------------------------------------------------
 
+
 @patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
 @patch("core.views.fitbit_sync.requests.get")
 def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
@@ -391,8 +393,8 @@ def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
     # 8 hours in bed (28800000 ms), but only 7h15m actually asleep (435 min)
     sleep_entry = {
         "dateOfSleep": day,
-        "duration": 28800000,    # 8 hours in ms (time in bed)
-        "minutesAsleep": 435,    # 7h15m (what Fitbit app shows)
+        "duration": 28800000,  # 8 hours in ms (time in bed)
+        "minutesAsleep": 435,  # 7h15m (what Fitbit app shows)
         "startTime": f"{day}T22:00:00.000",
         "endTime": f"{day}T06:00:00.000",
         "awakeningsCount": 3,
@@ -444,6 +446,6 @@ def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
     row = FitbitData.objects(user=user).first()
 
     assert row.sleep is not None
-    assert row.sleep.sleep_duration == 28800000   # raw time in bed (ms)
-    assert row.sleep.minutes_asleep == 435         # actual sleep (matches Fitbit app)
+    assert row.sleep.sleep_duration == 28800000  # raw time in bed (ms)
+    assert row.sleep.minutes_asleep == 435  # actual sleep (matches Fitbit app)
     assert row.sleep.awakenings == 3
