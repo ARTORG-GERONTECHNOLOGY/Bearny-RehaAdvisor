@@ -780,7 +780,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder="e.g. 3500_web or 30500_vid"
                     />
                     <Form.Text className="text-muted">
-                      4 digits = original · 5 digits = self-made · format: vid, img, gfx, pdf, br, web, aud, app
+                      4 digits = original · 5 digits = self-made · format: vid, img, gfx, pdf, br,
+                      web, aud, app
                     </Form.Text>
                   </Form.Group>
                 </Col>
