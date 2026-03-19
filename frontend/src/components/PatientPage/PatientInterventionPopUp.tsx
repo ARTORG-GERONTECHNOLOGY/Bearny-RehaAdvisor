@@ -11,7 +11,6 @@ import {
   ButtonGroup,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { Document, Page } from 'react-pdf';
 import { FaLock } from 'react-icons/fa';
 
 import apiClient from '../../api/client';
@@ -459,10 +458,16 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
         {m.media_type === 'pdf' ? (
           <>
-            <div style={{ border: '1px solid #e9ecef', borderRadius: 8, padding: 8 }}>
-              <Document file={playable}>
-                <Page pageNumber={1} width={320} />
-              </Document>
+            <div className="flex">
+              {isHttpUrl(playable) && (
+                <iframe
+                  src={playable}
+                  title={label}
+                  className="border-0 aspect-[5/7] w-full max-w-96 mx-auto"
+                >
+                  <p>{t('Failed to load media, use the link below to open it in a new tab.')}</p>
+                </iframe>
+              )}
             </div>
             <a
               href={playable}
