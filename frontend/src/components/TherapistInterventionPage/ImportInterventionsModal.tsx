@@ -99,17 +99,19 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               disabled={interventionsImportStore.loading}
             />
             <div className="text-muted small mt-1">
-              {t('The file should contain the intervention sheet (default: Content).')}
-              {' '}
+              {t('The file should contain the intervention sheet (default: Content).')}{' '}
               <span className="text-muted">
-                {t('ID format')}{': '}
+                {t('ID format')}
+                {': '}
                 <code>3500_web_de</code> {t('(original)')} /&nbsp;
                 <code>30500_vid_pt</code> {t('(self-made)')}
                 {' — '}
-                {t('formats')}{': '}
+                {t('formats')}
+                {': '}
                 <code>vid, img, pdf, web, aud, app, br, gfx</code>
                 {' — '}
-                {t('languages')}{': '}
+                {t('languages')}
+                {': '}
                 <code>de, fr, it, pt, nl, en</code>
               </span>
             </div>
@@ -177,15 +179,23 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   {t('Skipped')}: {r.skipped ?? 0}
                 </Badge>
                 {(() => {
-                  const errorsCount = r.errors_count ?? (r.errors || []).filter((e: any) => e.severity !== 'warning').length;
-                  const warningsCount = r.warnings ?? (r.errors || []).filter((e: any) => e.severity === 'warning').length;
+                  const errorsCount =
+                    r.errors_count ??
+                    (r.errors || []).filter((e: any) => e.severity !== 'warning').length;
+                  const warningsCount =
+                    r.warnings ??
+                    (r.errors || []).filter((e: any) => e.severity === 'warning').length;
                   return (
                     <>
                       {errorsCount > 0 && (
-                        <Badge bg="danger">{t('Errors')}: {errorsCount}</Badge>
+                        <Badge bg="danger">
+                          {t('Errors')}: {errorsCount}
+                        </Badge>
                       )}
                       {warningsCount > 0 && (
-                        <Badge bg="warning" text="dark">{t('Warnings')}: {warningsCount}</Badge>
+                        <Badge bg="warning" text="dark">
+                          {t('Warnings')}: {warningsCount}
+                        </Badge>
                       )}
                       {errorsCount === 0 && warningsCount === 0 && (
                         <Badge bg="success">{t('Errors')}: 0</Badge>
@@ -204,7 +214,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       return (
                         <div key={idx} className="small mb-2">
                           <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <Badge bg={isWarning ? 'warning' : 'danger'} text={isWarning ? 'dark' : undefined}>
+                            <Badge
+                              bg={isWarning ? 'warning' : 'danger'}
+                              text={isWarning ? 'dark' : undefined}
+                            >
                               {isWarning ? t('Warning') : t('Error')}
                             </Badge>
                             <span>
@@ -213,7 +226,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                               <code>{e.intervention_id ?? e.external_id ?? '-'}</code>
                             </span>
                           </div>
-                          <div className={`mt-1 ${isWarning ? 'text-warning-emphasis' : 'text-danger'}`}>
+                          <div
+                            className={`mt-1 ${isWarning ? 'text-warning-emphasis' : 'text-danger'}`}
+                          >
                             {e.error ?? '-'}
                           </div>
                           <hr className="my-2" />

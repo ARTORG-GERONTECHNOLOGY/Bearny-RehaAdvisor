@@ -183,7 +183,7 @@ _FORMAT_CODE_TO_CONTENT_TYPE: Dict[str, str] = {
     "img": "Image",
     "gfx": "Image",
     "pdf": "Text",
-    "br":  "Text",
+    "br": "Text",
     "web": "Website",
     "app": "App",
 }
@@ -264,8 +264,7 @@ def _validate_id_format(intervention_id: str) -> List[str]:
         lang_part = parts[-1]
         if not re.match(r"^\d{4,5}$", num_part):
             warnings.append(
-                f"Prefix '{num_part}' should be 4 digits (original content) "
-                f"or 5 digits (self-made content)."
+                f"Prefix '{num_part}' should be 4 digits (original content) " f"or 5 digits (self-made content)."
             )
         if fmt_part not in VALID_FORMAT_CODES:
             valid_list = ", ".join(sorted(VALID_FORMAT_CODES))
@@ -276,9 +275,7 @@ def _validate_id_format(intervention_id: str) -> List[str]:
             )
         if lang_part not in VALID_LANGS:
             valid_list = ", ".join(sorted(VALID_LANGS))
-            warnings.append(
-                f"Unknown language suffix '{lang_part}'. Valid: {valid_list}."
-            )
+            warnings.append(f"Unknown language suffix '{lang_part}'. Valid: {valid_list}.")
     elif len(parts) == 2:
         # Legacy 2-part format — accepted, no warnings
         pass
