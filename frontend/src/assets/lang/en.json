@@ -898,5 +898,12 @@
   "Show last month": "Show last month",
   "Recommendations": "Recommendations",
   "Average per day": "Average per day",
-  "Blood pressure": "Blood pressure"
+  "Blood pressure": "Blood pressure",
+  "Not worn for": "Not worn for",
+  "yesterday": "yesterday",
+  "Last worn": "Last worn",
+  "Avg wear": "Avg wear",
+  "(7d)": "(7d)",
+  "No Fitbit data": "No Fitbit data",
+  "Wear": "Wear"
 }
