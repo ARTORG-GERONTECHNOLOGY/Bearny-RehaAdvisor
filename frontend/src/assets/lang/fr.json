@@ -908,5 +908,13 @@
   "Avg wear": "Port moy.",
   "(7d)": "(7j)",
   "No Fitbit data": "Pas de données Fitbit",
-  "Wear": "Port"
+  "Wear": "Port",
+  "Todays Activity": "Activite du jour",
+  "Fitbit Connected": "Fitbit connecte",
+  "Connect Fitbit": "Connecter Fitbit",
+  "Fitbit": "Fitbit",
+  "Fitness Tracker": "Traqueur d'activite",
+  "Manual entry": "Saisie manuelle",
+  "Goal": "Objectif",
+  "CheckIn": "Check-in"
 }

@@ -905,5 +905,13 @@
   "Avg wear": "Avg wear",
   "(7d)": "(7d)",
   "No Fitbit data": "No Fitbit data",
-  "Wear": "Wear"
+  "Wear": "Wear",
+  "Todays Activity": "Today's Activity",
+  "Fitbit Connected": "Fitbit Connected",
+  "Connect Fitbit": "Connect Fitbit",
+  "Fitbit": "Fitbit",
+  "Fitness Tracker": "Fitness Tracker",
+  "Manual entry": "Manual entry",
+  "Goal": "Goal",
+  "CheckIn": "Check-in"
 }
