@@ -18,7 +18,6 @@ const config: Config = {
   transformIgnorePatterns: [
     'node_modules/(?!(@react|react-dom|mobx-react-lite)/)',
     '/node_modules/(?!axios)',
-    'node_modules/(?!react-pdf|pdfjs-dist)/',
   ],
   testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/?(*.)+(spec|test).(ts|tsx)'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
