@@ -15,18 +15,9 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
-
-jest.mock('react-pdf', () => ({
-  Document: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="pdf-document">{children}</div>
-  ),
-  Page: () => <div data-testid="pdf-page" />,
-  pdfjs: { GlobalWorkerOptions: { workerSrc: '' } },
-}));
 
 jest.mock('react-player', () => (props: any) => <div data-testid="video-player" {...props} />);
 jest.mock('react-audio-player', () => (props: any) => (
@@ -109,12 +100,20 @@ describe('PatientInterventionPopUp Component', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('PDF');
     const item = {
       ...defaultItem,
-      media_url: 'file.pdf',
-      media_file: 'file.pdf',
+      media_url: 'https://example.com/file.pdf',
+      media_file: 'https://example.com/file.pdf',
       content_type: 'PDF',
     };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
-    expect(screen.getByTestId('pdf-document')).toBeInTheDocument();
+
+    const pdfFrame = screen.getByTitle('Test Intervention');
+    expect(pdfFrame).toBeInTheDocument();
+    expect(pdfFrame.tagName).toBe('IFRAME');
+    expect(pdfFrame).toHaveAttribute('src', 'https://example.com/file.pdf');
+
+    const openPdfLink = screen.getByRole('link', { name: 'Open PDF' });
+    expect(openPdfLink).toBeInTheDocument();
+    expect(openPdfLink).toHaveAttribute('href', 'https://example.com/file.pdf');
   });
 
   it('renders Microlink preview for Link type', () => {
