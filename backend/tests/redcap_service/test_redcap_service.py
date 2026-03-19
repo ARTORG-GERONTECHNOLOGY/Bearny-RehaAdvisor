@@ -117,6 +117,7 @@ def test_export_record_by_pat_id_invalid_json_and_redcap_error(monkeypatch):
 # REDCap connection tests
 # ---------------------------------------------------------------------------
 
+
 def test_redcap_connection_success(monkeypatch):
     """A well-formed POST with a valid token and correct API URL returns data."""
     monkeypatch.setattr(
@@ -144,6 +145,7 @@ def test_redcap_connection_timeout_raises_redcap_error(monkeypatch):
         raising=False,
     )
     import requests as req_lib
+
     with patch(
         "core.services.redcap_service.requests.post",
         side_effect=req_lib.exceptions.Timeout("timed out"),
@@ -162,6 +164,7 @@ def test_redcap_connection_network_error_raises_redcap_error(monkeypatch):
         raising=False,
     )
     import requests as req_lib
+
     with patch(
         "core.services.redcap_service.requests.post",
         side_effect=req_lib.exceptions.ConnectionError("refused"),
