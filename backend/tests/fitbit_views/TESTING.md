@@ -11,13 +11,13 @@ This document describes tests in
 |---|---|---|
 | `/api/fitbit/status/<patient_id>/` | GET | 2 |
 | `/api/fitbit/callback/` | GET | 5 |
-| `/api/fitbit/health-data/<patient_id>/` | GET | 2 |
+| `/api/fitbit/health-data/<patient_id>/` | GET | 3 |
 | `/api/fitbit/manual_steps/<patient_id>/` | POST/GET | 5 |
 | `/api/fitbit/summary/(<patient_id>/)` | GET | 3 |
-| `health_combined_history(<patient_id>)` | GET (direct view test) | 3 |
+| `health_combined_history(<patient_id>)` | GET (direct view test) | 5 |
 | Helper functions | N/A | 5 |
 
-**Total: 27 tests**
+**Total: 30 tests**
 
 ---
 
@@ -43,6 +43,10 @@ This document describes tests in
   - patient-not-found branch
   - merged response success path across fitbit/questionnaire/adherence
   - invalid `from/to` input error branch
+  - **`wear_time_minutes` and `minutes_asleep` present in FitbitEntry when recorded**
+  - **`wear_time_minutes` and `minutes_asleep` are `null` in FitbitEntry when not recorded**
+- Health-data endpoint:
+  - **`minutes_asleep` returned in `sleep` object (actual sleep vs time-in-bed)**
 - Helpers: threshold defaults/merge, averaging utility, patient resolver, sleep-minute conversion, and `_date`.
 
 ---
