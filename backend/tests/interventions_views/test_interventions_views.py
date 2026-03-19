@@ -355,6 +355,139 @@ def test_add_new_intervention_get_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+_MEDIA_URL = json.dumps([{"kind": "external", "media_type": "video", "url": "https://example.com/v"}])
+_MEDIA_WEB = json.dumps([{"kind": "external", "media_type": "website", "url": "https://example.com"}])
+
+
+def test_add_new_intervention_language_pt(mongo_mock):
+    """
+    Language 'pt' (Portuguese) is accepted and stored.
+    Regression test: PT was missing from the frontend dropdown and must
+    round-trip correctly through the API.
+    """
+    payload = {
+        "title": "Yoga em Português",
+        "description": "Sessão de yoga",
+        "contentType": "video",
+        "duration": "30",
+        "language": "pt",
+        "media": _MEDIA_URL,
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()["success"] is True
+    iv = Intervention.objects(language="pt").first()
+    assert iv is not None
+    assert iv.language == "pt"
+
+
+def test_add_new_intervention_language_nl(mongo_mock):
+    """
+    Language 'nl' (Dutch) is accepted and stored.
+    Regression test: NL was missing from the frontend dropdown and must
+    round-trip correctly through the API.
+    """
+    payload = {
+        "title": "Yoga in het Nederlands",
+        "description": "Yoga sessie",
+        "contentType": "video",
+        "duration": "30",
+        "language": "nl",
+        "media": _MEDIA_URL,
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()["success"] is True
+    iv = Intervention.objects(language="nl").first()
+    assert iv is not None
+    assert iv.language == "nl"
+
+
+def test_add_new_intervention_new_format_external_id(mongo_mock):
+    """
+    External ID in the new {4-digit}_{format} format (e.g. '3500_web') is
+    stored as-is; language is provided separately.
+    """
+    payload = {
+        "title": "Web Intervention",
+        "description": "A web-based intervention",
+        "contentType": "website",
+        "duration": "15",
+        "external_id": "3500_web",
+        "language": "de",
+        "media": _MEDIA_WEB,
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    iv = Intervention.objects(external_id="3500_web", language="de").first()
+    assert iv is not None
+    assert iv.external_id == "3500_web"
+    assert iv.language == "de"
+
+
+def test_add_new_intervention_self_made_external_id(mongo_mock):
+    """
+    External ID with 5-digit prefix (self-made content, e.g. '30500_vid')
+    is accepted with any supported language including 'pt'.
+    """
+    payload = {
+        "title": "Custom Video",
+        "description": "A self-made video",
+        "contentType": "video",
+        "duration": "20",
+        "external_id": "30500_vid",
+        "language": "pt",
+        "media": _MEDIA_URL,
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    iv = Intervention.objects(external_id="30500_vid", language="pt").first()
+    assert iv is not None
+    assert iv.external_id == "30500_vid"
+
+
+def test_add_new_intervention_primary_diagnosis_stored_as_list(mongo_mock):
+    """
+    primary_diagnosis sent as a JSON array in the taxonomy field is stored
+    as a list in MongoDB (ListField), not collapsed to a string.
+    """
+    payload = {
+        "title": "Multi-diagnosis intervention",
+        "description": "Applies to several diagnoses",
+        "contentType": "video",
+        "duration": "30",
+        "media": _MEDIA_URL,
+        "taxonomy": json.dumps({"primary_diagnosis": ["Stroke", "Arrhythmia"]}),
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    iv = Intervention.objects(title="Multi-diagnosis intervention").first()
+    assert iv is not None
+    assert isinstance(iv.primary_diagnosis, list)
+    assert "Stroke" in iv.primary_diagnosis
+    assert "Arrhythmia" in iv.primary_diagnosis
+
+
+def test_add_new_intervention_primary_diagnosis_single_string_still_works(mongo_mock):
+    """
+    primary_diagnosis sent as a single string (legacy) is coerced to a list.
+    """
+    payload = {
+        "title": "Single diagnosis",
+        "description": "One diagnosis",
+        "contentType": "video",
+        "duration": "30",
+        "media": _MEDIA_URL,
+        "taxonomy": json.dumps({"primary_diagnosis": "Stroke"}),
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    iv = Intervention.objects(title="Single diagnosis").first()
+    assert iv is not None
+    assert isinstance(iv.primary_diagnosis, list)
+    assert "Stroke" in iv.primary_diagnosis
+
+
 # ===========================================================================
 # get_intervention_detail  —  GET /api/interventions/<id>/
 # ===========================================================================
