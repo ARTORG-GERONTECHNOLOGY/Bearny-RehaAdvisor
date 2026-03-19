@@ -22,8 +22,7 @@ function validateExternalId(id: string): string {
   if (parts.length < 2) return 'Expected format: {number}_{format} e.g. 3500_web';
   const num = parts.slice(0, -1).join('_');
   const fmt = parts[parts.length - 1];
-  if (!/^\d{4,5}$/.test(num))
-    return 'Prefix must be 4 digits (original) or 5 digits (self-made).';
+  if (!/^\d{4,5}$/.test(num)) return 'Prefix must be 4 digits (original) or 5 digits (self-made).';
   if (!VALID_FORMAT_CODES.has(fmt))
     return `Unknown format code "${fmt}". Valid: ${[...VALID_FORMAT_CODES].sort().join(', ')} (vid=video, img/gfx=image, pdf/br=document, web=website, aud=audio, app=app).`;
   return '';
@@ -123,7 +122,11 @@ const AddInterventionView: React.FC = observer(() => {
       // client-side external_id validation
       if (formData.externalId) {
         const idErr = validateExternalId(formData.externalId);
-        if (idErr) { setError(idErr); setIsSubmitting(false); return; }
+        if (idErr) {
+          setError(idErr);
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const payload = new FormData();
@@ -138,7 +141,9 @@ const AddInterventionView: React.FC = observer(() => {
       payload.append(
         'taxonomy',
         JSON.stringify({
-          ...(formData.primaryDiagnosis.length ? { primary_diagnosis: formData.primaryDiagnosis } : {}),
+          ...(formData.primaryDiagnosis.length
+            ? { primary_diagnosis: formData.primaryDiagnosis }
+            : {}),
         })
       );
 
@@ -225,9 +230,9 @@ const AddInterventionView: React.FC = observer(() => {
                 isInvalid={!!formData.externalId && !!validateExternalId(formData.externalId)}
               />
               <Form.Text className="text-muted">
-                {t('ID format')}{': '}
-                <code>3500_web</code> {t('(original)')} /{' '}
-                <code>30500_vid</code> {t('(self-made)')}
+                {t('ID format')}
+                {': '}
+                <code>3500_web</code> {t('(original)')} / <code>30500_vid</code> {t('(self-made)')}
                 {' — '}
                 <code>vid, img, gfx, pdf, br, web, aud, app</code>
               </Form.Text>
@@ -240,14 +245,12 @@ const AddInterventionView: React.FC = observer(() => {
 
             <Form.Group controlId="language" className="mt-3">
               <Form.Label>{t('Language')}</Form.Label>
-              <Form.Select
-                id="language"
-                value={formData.language}
-                onChange={handleChange}
-              >
+              <Form.Select id="language" value={formData.language} onChange={handleChange}>
                 <option value="">{t('SelectType')}</option>
                 {LANGUAGES.map((l) => (
-                  <option key={l.value} value={l.value}>{l.label}</option>
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -255,10 +258,7 @@ const AddInterventionView: React.FC = observer(() => {
             {diagnoses.length > 0 && (
               <Form.Group className="mt-3">
                 <Form.Label>{t('Diagnosis')}</Form.Label>
-                <div
-                  className="border rounded p-2"
-                  style={{ maxHeight: 160, overflowY: 'auto' }}
-                >
+                <div className="border rounded p-2" style={{ maxHeight: 160, overflowY: 'auto' }}>
                   {diagnoses.map((d: string) => (
                     <Form.Check
                       key={d}
@@ -269,9 +269,7 @@ const AddInterventionView: React.FC = observer(() => {
                     />
                   ))}
                 </div>
-                <Form.Text className="text-muted">
-                  {t('SelectDiagnosis')}
-                </Form.Text>
+                <Form.Text className="text-muted">{t('SelectDiagnosis')}</Form.Text>
               </Form.Group>
             )}
 

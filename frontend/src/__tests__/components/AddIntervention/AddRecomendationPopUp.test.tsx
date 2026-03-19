@@ -66,7 +66,9 @@ jest.mock('react-select', () => ({
       onChange={(e) => onChange(options.find((o: any) => o.value === e.target.value))}
     >
       {(options || []).map((o: any) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
       ))}
     </select>
   ),
@@ -76,9 +78,7 @@ import AddRecomendationPopUp from '@/components/AddIntervention/AddRecomendation
 
 describe('AddRecomendationPopUp', () => {
   const renderPopup = () =>
-    render(
-      <AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={jest.fn()} />
-    );
+    render(<AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={jest.fn()} />);
 
   describe('Language dropdown', () => {
     it('contains all 6 supported languages including PT and NL', () => {
