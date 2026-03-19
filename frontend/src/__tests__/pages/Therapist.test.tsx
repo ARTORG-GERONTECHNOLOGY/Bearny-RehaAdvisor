@@ -285,3 +285,72 @@ describe('Therapist Page', () => {
     expect(screen.getByText('Add Patient Popup')).toBeInTheDocument();
   });
 });
+
+describe('Wear time badge', () => {
+  const makePatientWithWear = (biomarker: Record<string, unknown>) => ({
+    _id: 'wear-test-patient',
+    therapist: 'T',
+    created_at: '2026-01-01T00:00:00',
+    username: 'wearuser',
+    age: '1990-01-01',
+    sex: 'Male',
+    first_name: 'Wear',
+    name: 'Patient',
+    diagnosis: ['Stroke'],
+    duration: 30,
+    biomarker,
+  });
+
+  const renderWithPatient = (patient: ReturnType<typeof makePatientWithWear>) => {
+    mockStore.patients = [patient as any];
+    return render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+  };
+
+  test('shows green Wear badge when worn recently and avg >= 12h', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: 0,
+      wear_time_avg_min: 750,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wear good')).toBeInTheDocument();
+    });
+  });
+
+  test('shows yellow Wear badge when avg wear < 12h per day', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: 0,
+      wear_time_avg_min: 480, // 8h < 12h threshold
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wear warn')).toBeInTheDocument();
+    });
+  });
+
+  test('shows red Wear badge when not worn for 2+ days', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: 3,
+      wear_time_avg_min: 700,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wear bad')).toBeInTheDocument();
+    });
+  });
+
+  test('hides Wear badge when no Fitbit data', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: null,
+      wear_time_avg_min: null,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/Wear/i)).not.toBeInTheDocument();
+    });
+  });
+});

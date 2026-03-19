@@ -250,3 +250,202 @@ def test_fetch_fitbit_today_for_user_covers_branches_and_parsing(mock_objects, m
     out = fetch_fitbit_today_for_user(user)
     assert out == 1
     mock_objects.return_value.update_one.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Wear time calculation
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_wear_time_stored_from_intraday_hr(mock_get, _):
+    """Wear time = distinct minutes with HR > 0 in intraday 1-sec dataset."""
+    user, _ = make_user_with_token(expired=False)
+    day = datetime.now().strftime("%Y-%m-%d")
+
+    # Build intraday dataset: 3 seconds across 2 minutes with HR, 1 with HR=0
+    intraday_dataset = [
+        {"time": "08:01:00", "value": 65},
+        {"time": "08:01:30", "value": 67},
+        {"time": "08:02:00", "value": 70},
+        {"time": "08:03:00", "value": 0},  # not worn
+    ]
+
+    def mk_resp(payload):
+        r = Mock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": intraday_dataset}})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day, "value": "500"}]})
+        if "activities/floors" in url:
+            return mk_resp({"activities-floors": []})
+        if "activities/distance" in url:
+            return mk_resp({"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_resp({"activities-calories": []})
+        if "minutesVeryActive" in url:
+            return mk_resp({"activities-minutesVeryActive": []})
+        if "minutesFairlyActive" in url:
+            return mk_resp({"activities-minutesFairlyActive": []})
+        if "minutesLightlyActive" in url:
+            return mk_resp({"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_resp({"activities-minutesSedentary": []})
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-activeZoneMinutes": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+
+    out = fetch_fitbit_today_for_user(user)
+    assert out == 1
+
+    row = FitbitData.objects(user=user).first()
+    # 08:01 and 08:02 have HR > 0 → 2 minutes worn
+    assert row.wear_time_minutes == 2
+    # max HR from intraday
+    assert row.max_heart_rate == 70
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_wear_time_none_when_no_intraday_data(mock_get, _):
+    """wear_time_minutes is None when the intraday endpoint returns no data."""
+    user, _ = make_user_with_token(expired=False)
+    day = datetime.now().strftime("%Y-%m-%d")
+
+    def mk_empty(payload):
+        r = Mock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "1d/1sec" in url:
+            return mk_empty({"activities-heart-intraday": {"dataset": []}})
+        if "activities/heart" in url:
+            return mk_empty({"activities-heart": []})
+        if "activities/steps" in url:
+            return mk_empty({"activities-steps": [{"dateTime": day, "value": "200"}]})
+        if "activities/floors" in url:
+            return mk_empty({"activities-floors": []})
+        if "activities/distance" in url:
+            return mk_empty({"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_empty({"activities-calories": []})
+        if "minutesVeryActive" in url:
+            return mk_empty({"activities-minutesVeryActive": []})
+        if "minutesFairlyActive" in url:
+            return mk_empty({"activities-minutesFairlyActive": []})
+        if "minutesLightlyActive" in url:
+            return mk_empty({"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_empty({"activities-minutesSedentary": []})
+        if "active-zone-minutes" in url:
+            return mk_empty({"activities-activeZoneMinutes": []})
+        if "/br/" in url:
+            return mk_empty({"br": []})
+        if "/hrv/" in url:
+            return mk_empty({"hrv": []})
+        if "/sleep/" in url:
+            return mk_empty({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_empty({"activities": []})
+        return mk_empty({})
+
+    mock_get.side_effect = side_effect
+
+    fetch_fitbit_today_for_user(user)
+    row = FitbitData.objects(user=user).first()
+    assert row.wear_time_minutes is None
+
+
+# ---------------------------------------------------------------------------
+# Sleep: minutes_asleep (actual sleep) vs sleep_duration (time in bed)
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
+    """minutes_asleep matches Fitbit app; sleep_duration includes awake time."""
+    user, _ = make_user_with_token(expired=False)
+    day = datetime.now().strftime("%Y-%m-%d")
+
+    # 8 hours in bed (28800000 ms), but only 7h15m actually asleep (435 min)
+    sleep_entry = {
+        "dateOfSleep": day,
+        "duration": 28800000,  # 8 hours in ms (time in bed)
+        "minutesAsleep": 435,  # 7h15m (what Fitbit app shows)
+        "startTime": f"{day}T22:00:00.000",
+        "endTime": f"{day}T06:00:00.000",
+        "awakeningsCount": 3,
+    }
+
+    def mk_resp(payload):
+        r = Mock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "/sleep/" in url:
+            return mk_resp({"sleep": [sleep_entry]})
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": []}})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day, "value": "0"}]})
+        if "activities/floors" in url:
+            return mk_resp({"activities-floors": []})
+        if "activities/distance" in url:
+            return mk_resp({"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_resp({"activities-calories": []})
+        if "minutesVeryActive" in url:
+            return mk_resp({"activities-minutesVeryActive": []})
+        if "minutesFairlyActive" in url:
+            return mk_resp({"activities-minutesFairlyActive": []})
+        if "minutesLightlyActive" in url:
+            return mk_resp({"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_resp({"activities-minutesSedentary": []})
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-activeZoneMinutes": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+
+    fetch_fitbit_today_for_user(user)
+    row = FitbitData.objects(user=user).first()
+
+    assert row.sleep is not None
+    assert row.sleep.sleep_duration == 28800000  # raw time in bed (ms)
+    assert row.sleep.minutes_asleep == 435  # actual sleep (matches Fitbit app)
+    assert row.sleep.awakenings == 3

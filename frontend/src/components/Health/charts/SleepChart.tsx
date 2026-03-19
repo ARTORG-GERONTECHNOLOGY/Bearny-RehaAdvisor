@@ -51,8 +51,12 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       .scaleLinear()
       .domain([
         0,
-        d3.max(filtered, (d) => (d.sleep?.sleep_duration ? d.sleep.sleep_duration / 3600000 : 0)) ||
-          8,
+        d3.max(filtered, (d) =>
+          Math.max(
+            d.sleep?.sleep_duration ? d.sleep.sleep_duration / 3600000 : 0,
+            d.sleep?.minutes_asleep ? d.sleep.minutes_asleep / 60 : 0
+          )
+        ) || 8,
       ])
       .nice()
       .range([height, 0]);
@@ -95,8 +99,12 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       .attr('fill', '#9370DB')
       .attr('opacity', 0.7)
       .on('mouseover', (ev, d) => {
+        const asleep =
+          d.sleep?.minutes_asleep != null
+            ? ` • ${t('Asleep')}: ${Math.round((d.sleep.minutes_asleep / 60) * 10) / 10}h`
+            : '';
         tt.style('opacity', 1).html(
-          `${d.date}<br/>${d.sleep?.sleep_start?.slice(11, 16)}–${d.sleep?.sleep_end?.slice(11, 16)}`
+          `${d.date}<br/>${d.sleep?.sleep_start?.slice(11, 16)}–${d.sleep?.sleep_end?.slice(11, 16)}${asleep}`
         );
       })
       .on('mousemove', (ev: any) =>
@@ -104,9 +112,9 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       )
       .on('mouseout', () => tt.style('opacity', 0));
 
-    // duration line
+    // time-in-bed line (total session duration)
     const dd = filtered.filter((d) => d.sleep?.sleep_duration);
-    const line = d3
+    const lineDur = d3
       .line<FitbitEntry>()
       .x((d) => x(d.date)! + x.bandwidth() / 2)
       .y((d) => yDur(d.sleep!.sleep_duration! / 3600000));
@@ -116,7 +124,7 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       .attr('fill', 'none')
       .attr('stroke', '#ff7f0e')
       .attr('stroke-width', 2)
-      .attr('d', line as any);
+      .attr('d', lineDur as any);
     g.selectAll('circle.d')
       .data(dd)
       .enter()
@@ -125,6 +133,30 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
       .attr('cy', (d) => yDur(d.sleep!.sleep_duration! / 3600000))
       .attr('r', 4)
       .attr('fill', '#ff7f0e');
+
+    // actual sleep line (minutes_asleep — matches Fitbit app)
+    const da = filtered.filter((d) => d.sleep?.minutes_asleep != null);
+    const lineAsleep = d3
+      .line<FitbitEntry>()
+      .x((d) => x(d.date)! + x.bandwidth() / 2)
+      .y((d) => yDur(d.sleep!.minutes_asleep! / 60));
+
+    g.append('path')
+      .datum(da)
+      .attr('fill', 'none')
+      .attr('stroke', '#2ca02c')
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '5,3')
+      .attr('d', lineAsleep as any);
+    g.selectAll('circle.a')
+      .data(da)
+      .enter()
+      .append('circle')
+      .attr('class', 'a')
+      .attr('cx', (d) => x(d.date)! + x.bandwidth() / 2)
+      .attr('cy', (d) => yDur(d.sleep!.minutes_asleep! / 60))
+      .attr('r', 4)
+      .attr('fill', '#2ca02c');
 
     svg
       .append('text')
@@ -137,7 +169,8 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
 
     renderLegend(svg as any, [
       { label: t('Sleep window'), color: '#9370DB', symbol: 'rect' },
-      { label: t('Duration (h)'), color: '#ff7f0e', symbol: 'line' },
+      { label: t('Time in bed (h)'), color: '#ff7f0e', symbol: 'line' },
+      { label: t('Asleep (h)'), color: '#2ca02c', symbol: 'line' },
     ]);
   }, [data, start, end, t]);
 

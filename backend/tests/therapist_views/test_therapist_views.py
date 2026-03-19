@@ -49,6 +49,7 @@ from core.models import (
     PatientInterventionLogs,
     QuestionnaireAssignment,
     RehabilitationPlan,
+    SleepData,
     Therapist,
     Translation,
     User,
@@ -684,3 +685,94 @@ def test_patients_from_same_clinic_visible_across_therapists(mongo_mock):
 
     assert str(patient.id) in [row["_id"] for row in resp_a.json()]
     assert str(patient.id) in [row["_id"] for row in resp_b.json()]
+
+
+# ---------------------------------------------------------------------------
+# Wear time and sleep biomarker fields
+# ---------------------------------------------------------------------------
+
+
+def test_biomarker_includes_wear_time_fields():
+    """Biomarker exposes wear_time_avg_min and wear_time_days_since."""
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+
+    FitbitData(
+        user=user,
+        date=datetime.now() - timedelta(days=1),
+        wear_time_minutes=720,
+    ).save()
+    FitbitData(
+        user=user,
+        date=datetime.now() - timedelta(days=2),
+        wear_time_minutes=480,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    bio = row["biomarker"]
+    assert bio["wear_time_avg_min"] == pytest.approx(600.0, rel=1e-3)
+    # worn 1 day ago → days_since = 1
+    assert bio["wear_time_days_since"] == 1
+
+
+def test_biomarker_wear_time_none_when_no_fitbit_data():
+    """wear_time_avg_min and wear_time_days_since are None without FitbitData."""
+    therapist, patient = create_therapist_with_patient()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    bio = row["biomarker"]
+    assert bio["wear_time_avg_min"] is None
+    assert bio["wear_time_days_since"] is None
+
+
+def test_biomarker_sleep_avg_h_uses_minutes_asleep():
+    """sleep_avg_h is derived from minutes_asleep when available."""
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+
+    # 8h in bed, only 7h (420 min) actually asleep
+    FitbitData(
+        user=user,
+        date=datetime.now() - timedelta(days=1),
+        sleep=SleepData(sleep_duration=28800000, minutes_asleep=420),
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    # sleep_avg_h must reflect actual sleep (7h), not time in bed (8h)
+    assert row["biomarker"]["sleep_avg_h"] == pytest.approx(7.0, rel=1e-3)
+
+
+def test_biomarker_sleep_falls_back_to_duration_when_no_minutes_asleep():
+    """sleep_avg_h falls back to sleep_duration when minutes_asleep is absent."""
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+
+    # No minutes_asleep set; only duration (7.5h = 27000000 ms)
+    FitbitData(
+        user=user,
+        date=datetime.now() - timedelta(days=1),
+        sleep=SleepData(sleep_duration=27000000),
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["sleep_avg_h"] == pytest.approx(7.5, rel=1e-3)
