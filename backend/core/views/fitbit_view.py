@@ -499,11 +499,11 @@ def get_fitbit_health_data(request, patient_id):
             # Sleep normalization
             sleep = None
             if entry.sleep:
-                minutes = (entry.sleep.sleep_duration or 0) / 60000
-                hours = round(minutes / 60, 2)
+                duration_min = (entry.sleep.sleep_duration or 0) / 60000
                 sleep = {
-                    "sleep_minutes": minutes,
-                    "sleep_hours": hours,
+                    "sleep_minutes": duration_min,
+                    "sleep_hours": round(duration_min / 60, 2),
+                    "minutes_asleep": entry.sleep.minutes_asleep,
                     "sleep_start": entry.sleep.sleep_start,
                     "sleep_end": entry.sleep.sleep_end,
                     "awakenings": entry.sleep.awakenings,
@@ -719,10 +719,12 @@ def health_combined_history(request, patient_id):
                     "active_minutes": f.active_minutes,
                     "sleep": {
                         "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
+                        "minutes_asleep": f.sleep.minutes_asleep if f.sleep else None,
                         "sleep_start": f.sleep.sleep_start if f.sleep else None,
                         "sleep_end": f.sleep.sleep_end if f.sleep else None,
                         "awakenings": f.sleep.awakenings if f.sleep else None,
                     },
+                    "wear_time_minutes": f.wear_time_minutes,
                     "heart_rate_zones": [
                         {
                             "name": z.name,
