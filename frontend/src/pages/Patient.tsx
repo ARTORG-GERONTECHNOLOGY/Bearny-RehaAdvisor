@@ -15,11 +15,15 @@ import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
 import authStore from '@/stores/authStore';
 import { patientUiStore } from '@/stores/patientUiStore';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
+import { Badge } from '@/components/ui/badge';
+import { ChartContainer } from '@/components/ui/chart';
+import { BarChart } from 'lucide-react';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -65,6 +69,7 @@ const PatientView: React.FC = observer(() => {
 
       // Load interventions and questionnaires if patient is authenticated
       if (patientId) {
+        patientFitbitStore.fetchStatus(patientId);
         patientInterventionsStore.fetchPlan(patientId, i18n.language);
         patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
         patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
@@ -105,12 +110,95 @@ const PatientView: React.FC = observer(() => {
           }
         />
 
-        <FitbitConnectButton />
+        <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <div className="flex p-2 pl-4 justify-between w-full">
+            <div className="text-lg font-[500] text-zinc-500">{t('Todays Activity')}</div>
+            {patientFitbitStore.connected && (
+              <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
+                {t('Fitbit Connected')}
+              </Badge>
+            )}
+          </div>
 
+          <div className="flex flex-col gap-2">
+            <div className="p-4 border border-accent rounded-3xl">
+              <div className="flex justify-between">
+                <div>
+                  <div className="font-bold text-lg text-zinc-800">{t('Steps')}</div>
+                  {patientFitbitStore.connected && (
+                    <div className="font-medium text-sm text-zinc-500">{t('Manual entry')}</div>
+                  )}
+                </div>
+                <div>
+                  {patientFitbitStore.connected ? (
+                    <div className="w-6 h-6 bg-accent" />
+                  ) : (
+                    <div className="w-6 h-6 bg-red-50" />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-end">
+                <div className="flex-1">
+                  <div className="font-bold text-[28px] text-zinc-900">--</div>
+                  <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                </div>
+
+                <div className="flex-1">
+                  <ChartContainer config={{}} className="w-full">
+                    <BarChart className="text-zinc-200" />
+                  </ChartContainer>
+                </div>
+              </div>
+            </div>
+
+            {patientFitbitStore.connected && (
+              <div className="flex gap-2">
+                <div className="flex-1 p-4 border border-accent rounded-3xl">
+                  <div className="flex justify-between">
+                    <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
+                    <div className="w-6 h-6 bg-accent" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-[28px] text-zinc-900">--</div>
+                    <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                  </div>
+                </div>
+                <div className="flex-1 p-4 border border-accent rounded-3xl">
+                  <div className="flex justify-between">
+                    <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
+                    <div className="w-6 h-6 bg-accent" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-[28px] text-zinc-900">--</div>
+                    <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!patientFitbitStore.connected && (
+              <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
+                <div className="flex flex-col">
+                  <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
+                  <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
+                </div>
+                <FitbitConnectButton />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
+          ...
+        </div>
+
+        {/*
         <DailyVitalsPrompt />
-
         {pageError ? <ErrorAlert message={pageError} onClose={() => setPageError('')} /> : null}
         <ActivitySummary selectedDate={patientUiStore.selectedDate} />
+        */}
       </div>
 
       {/* Intervention Feedback Popup */}
