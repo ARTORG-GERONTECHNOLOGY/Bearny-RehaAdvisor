@@ -11,7 +11,14 @@ export interface FitbitEntry {
   resting_heart_rate?: number;
   breathing_rate?: { breathingRate?: number };
   hrv?: { dailyRmssd?: number };
-  sleep?: { sleep_duration?: number; sleep_start?: string; sleep_end?: string };
+  sleep?: {
+    sleep_duration?: number;
+    minutes_asleep?: number;
+    sleep_start?: string;
+    sleep_end?: string;
+    awakenings?: number;
+  };
+  wear_time_minutes?: number;
   heart_rate_zones?: HeartRateZone[];
   exercise?: { name: string; duration: number }[];
 }

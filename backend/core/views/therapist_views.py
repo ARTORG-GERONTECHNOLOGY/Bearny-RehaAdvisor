@@ -440,23 +440,39 @@ def list_therapist_patients(request, therapist_id):
                 )
                 summary, last_fb_dt = [], None
 
-            steps_vals, activity_vals, sleep_hours = [], [], []
-            fitbit_docs = FitbitData.objects(user=user, date__gte=since).only("steps", "active_minutes", "sleep")
+            steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
+            last_worn_date = None
+            fitbit_docs = FitbitData.objects(user=user, date__gte=since).only(
+                "steps", "active_minutes", "sleep", "wear_time_minutes", "date"
+            ).order_by("-date")
             for doc in fitbit_docs:
                 if doc.steps is not None:
                     steps_vals.append(doc.steps)
                 if doc.active_minutes is not None:
                     activity_vals.append(doc.active_minutes)
                 try:
-                    if doc.sleep and doc.sleep.sleep_duration:
-                        sleep_hours.append(doc.sleep.sleep_duration / 3600000.0)
+                    if doc.sleep and doc.sleep.minutes_asleep is not None:
+                        sleep_mins.append(doc.sleep.minutes_asleep)
+                    elif doc.sleep and doc.sleep.sleep_duration:
+                        sleep_mins.append(doc.sleep.sleep_duration / 60000.0)
                 except Exception:
                     pass
+                if doc.wear_time_minutes is not None:
+                    wear_vals.append(doc.wear_time_minutes)
+                    if last_worn_date is None:
+                        last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
+
+            today_date = datetime.utcnow().date()
+            days_since_worn = (
+                (today_date - last_worn_date).days if last_worn_date else None
+            )
 
             biomarker = {
-                "sleep_avg_h": _avg(sleep_hours),
+                "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,
                 "activity_min": _avg(activity_vals),
                 "steps_avg": _avg(steps_vals),
+                "wear_time_avg_min": _avg(wear_vals),
+                "wear_time_days_since": days_since_worn,
             }
 
             try:

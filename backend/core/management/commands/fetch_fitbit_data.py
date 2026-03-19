@@ -58,6 +58,7 @@ class Command(BaseCommand):
                 sleep_data = {}
                 exercise_data = {}
                 max_hr_map = {}
+                wear_time_map = {}  # date -> minutes worn (from intraday HR)
 
                 # ---------------------------
                 # GENERIC FETCH FUNCTION
@@ -118,6 +119,13 @@ class Command(BaseCommand):
                     dataset = resp.json().get("activities-heart-intraday", {}).get("dataset", [])
                     if dataset:
                         max_hr_map[d] = max(x.get("value", 0) for x in dataset)
+                        # Wear time: count distinct minute slots with HR > 0
+                        worn_minutes = {
+                            entry["time"][:5]  # "HH:MM"
+                            for entry in dataset
+                            if entry.get("value", 0) > 0
+                        }
+                        wear_time_map[d] = len(worn_minutes)
 
                 # ---------------------------
                 # ACTIVE ZONE MINUTES
@@ -161,6 +169,7 @@ class Command(BaseCommand):
                         dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
                         sleep_data[dt] = SleepData(
                             sleep_duration=entry.get("duration"),
+                            minutes_asleep=entry.get("minutesAsleep"),
                             sleep_start=entry.get("startTime"),
                             sleep_end=entry.get("endTime"),
                             awakenings=entry.get("awakeningsCount"),
@@ -228,6 +237,7 @@ class Command(BaseCommand):
                     | set(sleep_data.keys())
                     | set(exercise_data.keys())
                     | set(max_hr_map.keys())
+                    | set(wear_time_map.keys())
                 )
 
                 def sleep_minutes(dt):
@@ -265,6 +275,7 @@ class Command(BaseCommand):
                         set__breathing_rate=breathing_data.get(dt),
                         set__hrv=hrv_data.get(dt),
                         set__exercise=exercise_data.get(dt, []),
+                        set__wear_time_minutes=wear_time_map.get(dt),
                         upsert=True,
                     )
 
