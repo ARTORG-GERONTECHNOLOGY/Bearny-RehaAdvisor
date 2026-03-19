@@ -23,7 +23,9 @@ import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer } from '@/components/ui/chart';
-import { BarChart } from 'lucide-react';
+import { RadialBar, BarChart, PolarAngleAxis, RadialBarChart } from 'recharts';
+import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
+import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -129,11 +131,44 @@ const PatientView: React.FC = observer(() => {
                     <div className="font-medium text-sm text-zinc-500">{t('Manual entry')}</div>
                   )}
                 </div>
-                <div>
+                <div className="w-8 h-8 shrink-0">
                   {patientFitbitStore.connected ? (
-                    <div className="w-6 h-6 bg-accent" />
+                    (() => {
+                      // TODO: Replace with real Fitbit percentage once steps and goal are wired here.
+                      const stepsProgressPercent = 30;
+                      const normalizedStepsProgress = Math.max(
+                        0,
+                        Math.min(100, stepsProgressPercent)
+                      );
+
+                      return (
+                        <RadialBarChart
+                          width={32}
+                          height={32}
+                          data={[{ name: 'Steps', value: normalizedStepsProgress }]}
+                          cx="50%"
+                          cy="50%"
+                          startAngle={90}
+                          endAngle={-270}
+                          innerRadius={11}
+                          outerRadius={15}
+                          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                        >
+                          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                          <RadialBar
+                            dataKey="value"
+                            fill="#00956C"
+                            background={{ fill: '#E4E4E7' }}
+                            cornerRadius={999}
+                          />
+                        </RadialBarChart>
+                      );
+                    })()
                   ) : (
-                    <div className="w-6 h-6 bg-red-50" />
+                    <>
+                      <CircleCheckFill className="w-full h-full" />
+                      <CircleDashedFill className="w-full h-full" />
+                    </>
                   )}
                 </div>
               </div>
@@ -153,7 +188,7 @@ const PatientView: React.FC = observer(() => {
             </div>
 
             {patientFitbitStore.connected && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <div className="flex-1 p-4 border border-accent rounded-3xl">
                   <div className="flex justify-between">
                     <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
@@ -164,6 +199,7 @@ const PatientView: React.FC = observer(() => {
                     <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
                   </div>
                 </div>
+
                 <div className="flex-1 p-4 border border-accent rounded-3xl">
                   <div className="flex justify-between">
                     <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
