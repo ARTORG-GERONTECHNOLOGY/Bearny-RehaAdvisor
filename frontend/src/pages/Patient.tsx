@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { format, type Locale } from 'date-fns';
+import { de, enUS, fr, it } from 'date-fns/locale';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
@@ -26,11 +27,24 @@ import { ChartContainer } from '@/components/ui/chart';
 import { RadialBar, BarChart, PolarAngleAxis, RadialBarChart } from 'recharts';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
+
+  const localeMap: Record<string, Locale> = { en: enUS, de, fr, it };
+  const locale = localeMap[i18n.language.slice(0, 2)] || enUS;
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -43,6 +57,9 @@ const PatientView: React.FC = observer(() => {
   const { completionCount } = useInterventions(today);
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
+
+  const [showManualWeightEntry, setShowManualWeightEntry] = useState<boolean>(false);
+  const [showManualBloodPressureEntry, setShowManualBloodPressureEntry] = useState<boolean>(false);
 
   // Safe questions array for feedback questionnaire
   const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
@@ -111,6 +128,8 @@ const PatientView: React.FC = observer(() => {
             )
           }
         />
+
+        {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
 
         <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
           <div className="flex p-2 pl-4 justify-between w-full">
@@ -248,7 +267,10 @@ const PatientView: React.FC = observer(() => {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <div className="flex-1 p-4 border border-accent rounded-3xl">
+            <div
+              className="flex-1 p-4 border border-accent rounded-3xl"
+              onClick={() => setShowManualWeightEntry(true)}
+            >
               <div className="flex justify-between">
                 <div>
                   <div className="font-bold text-lg text-zinc-800">{t('WeightLabel')}</div>
@@ -263,7 +285,10 @@ const PatientView: React.FC = observer(() => {
               <div className="font-bold text-[28px] text-zinc-900">--</div>
             </div>
 
-            <div className="flex-1 p-4 border border-accent rounded-3xl">
+            <div
+              className="flex-1 p-4 border border-accent rounded-3xl"
+              onClick={() => setShowManualBloodPressureEntry(true)}
+            >
               <div className="flex justify-between">
                 <div>
                   <div className="font-bold text-lg text-zinc-800">{t('Blood pressure')}</div>
@@ -282,7 +307,6 @@ const PatientView: React.FC = observer(() => {
 
         {/*
         <DailyVitalsPrompt />
-        {pageError ? <ErrorAlert message={pageError} onClose={() => setPageError('')} /> : null}
         <ActivitySummary selectedDate={patientUiStore.selectedDate} />
         */}
       </div>
@@ -317,6 +341,68 @@ const PatientView: React.FC = observer(() => {
           handleClose={() => patientQuestionnairesStore.closeInitial()}
         />
       )}
+
+      <Sheet
+        open={showManualWeightEntry}
+        onOpenChange={(open) => !open && setShowManualWeightEntry(false)}
+      >
+        <SheetContent side="bottom" className="flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{t('WeightLabel')}</SheetTitle>
+            <SheetDescription>
+              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex gap-3 flex-1">
+            <Input />
+            Kg
+          </div>
+
+          <SheetFooter>
+            <Button
+              onClick={() => {}}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {t('Save')}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={showManualBloodPressureEntry}
+        onOpenChange={(open) => !open && setShowManualBloodPressureEntry(false)}
+      >
+        <SheetContent side="bottom" className="flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{t('Blood pressure')}</SheetTitle>
+            <SheetDescription>
+              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex flex-col gap-4 flex-1">
+            <div>
+              SYS
+              <Input />
+            </div>
+            <div>
+              DIA
+              <Input />
+            </div>
+          </div>
+
+          <SheetFooter>
+            <Button
+              onClick={() => {}}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {t('Save')}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 });
