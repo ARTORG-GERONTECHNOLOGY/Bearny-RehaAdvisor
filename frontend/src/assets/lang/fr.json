@@ -908,5 +908,6 @@
   "Avg wear": "Port moy.",
   "(7d)": "(7j)",
   "No Fitbit data": "Pas de données Fitbit",
-  "Wear": "Port"
+  "Wear": "Port",
+  "Failed to load media, use the link below to open it in a new tab.": "Impossible de charger le média. Utilisez le lien ci-dessous pour l'ouvrir dans un nouvel onglet."
 }
