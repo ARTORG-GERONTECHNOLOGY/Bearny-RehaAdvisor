@@ -494,7 +494,7 @@ def add_new_intervention(request):
         input_from = _first_str_from_any(taxonomy.get("input_from") or taxonomy.get("inputFrom"))
         lc9_list = _list_of_str(taxonomy.get("lc9"))
         original_language = _first_str_from_any(taxonomy.get("original_language") or taxonomy.get("originalLanguage"))
-        primary_diagnosis = _first_str_from_any(taxonomy.get("primary_diagnosis") or taxonomy.get("primaryDiagnosis"))
+        primary_diagnosis = _list_of_str(taxonomy.get("primary_diagnosis") or taxonomy.get("primaryDiagnosis"))
 
         # Aim is StringField in DB: choose first
         aim_from_tax = _first_str_from_any(taxonomy.get("aim") or taxonomy.get("aims"))
