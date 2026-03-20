@@ -134,7 +134,7 @@ const PatientView: React.FC = observer(() => {
                 <div className="w-8 h-8 shrink-0">
                   {patientFitbitStore.connected ? (
                     (() => {
-                      // TODO: Replace with real Fitbit percentage once steps and goal are wired here.
+                      // TODO: replace with real data
                       const stepsProgressPercent = 30;
                       const normalizedStepsProgress = Math.max(
                         0,
@@ -157,7 +157,7 @@ const PatientView: React.FC = observer(() => {
                           <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                           <RadialBar
                             dataKey="value"
-                            fill="#00956C"
+                            fill="#16A34A"
                             background={{ fill: '#E4E4E7' }}
                             cornerRadius={999}
                           />
@@ -166,8 +166,8 @@ const PatientView: React.FC = observer(() => {
                     })()
                   ) : (
                     <>
-                      <CircleCheckFill className="w-full h-full" />
-                      <CircleDashedFill className="w-full h-full" />
+                      <CircleCheckFill className="w-full h-full text-green-600" />
+                      <CircleDashedFill className="w-full h-full text-zinc-200" />
                     </>
                   )}
                 </div>
@@ -175,11 +175,16 @@ const PatientView: React.FC = observer(() => {
 
               <div className="flex items-end">
                 <div className="flex-1">
-                  <div className="font-bold text-[28px] text-zinc-900">--</div>
-                  <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                  <div className="font-bold text-[28px] text-zinc-900">
+                    {patientFitbitStore.summary?.today?.steps || '--'}
+                  </div>
+                  <div className="font-medium text-sm text-zinc-500">
+                    {t('Goal')}: {patientFitbitStore.summary?.thresholds?.steps_goal || '--'}
+                  </div>
                 </div>
 
                 <div className="flex-1">
+                  {/* TODO: Replace with real data from last week (like in PatientProcess steps chart) */}
                   <ChartContainer config={{}} className="w-full">
                     <BarChart className="text-zinc-200" />
                   </ChartContainer>
@@ -195,8 +200,13 @@ const PatientView: React.FC = observer(() => {
                     <div className="w-6 h-6 bg-accent" />
                   </div>
                   <div>
-                    <div className="font-bold text-[28px] text-zinc-900">--</div>
-                    <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                    <div className="font-bold text-[28px] text-zinc-900">
+                      {patientFitbitStore.summary?.today?.active_minutes || '--'}
+                    </div>
+                    <div className="font-medium text-sm text-zinc-500">
+                      {t('Goal')}:{' '}
+                      {patientFitbitStore.summary?.thresholds?.active_minutes_green || '--'}
+                    </div>
                   </div>
                 </div>
 
@@ -206,8 +216,12 @@ const PatientView: React.FC = observer(() => {
                     <div className="w-6 h-6 bg-accent" />
                   </div>
                   <div>
-                    <div className="font-bold text-[28px] text-zinc-900">--</div>
-                    <div className="font-medium text-sm text-zinc-500">{t('Goal')}: --</div>
+                    <div className="font-bold text-[28px] text-zinc-900">
+                      {patientFitbitStore.summary?.today?.sleep_minutes || '--'}
+                    </div>
+                    <div className="font-medium text-sm text-zinc-500">
+                      {t('Goal')}: {patientFitbitStore.summary?.thresholds?.sleep_green_min || '--'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -226,8 +240,44 @@ const PatientView: React.FC = observer(() => {
         </div>
 
         <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-          <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
-          ...
+          <div className="flex p-2 pl-4 justify-between w-full">
+            <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
+            <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
+              {0 / 2}
+            </Badge>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex-1 p-4 border border-accent rounded-3xl">
+              <div className="flex justify-between">
+                <div>
+                  <div className="font-bold text-lg text-zinc-800">{t('WeightLabel')}</div>
+                  <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
+                </div>
+                <div className="w-8 h-8 shrink-0">
+                  <CircleCheckFill className="w-full h-full text-green-600" />
+                  <CircleDashedFill className="w-full h-full text-zinc-200" />
+                </div>
+              </div>
+
+              <div className="font-bold text-[28px] text-zinc-900">--</div>
+            </div>
+
+            <div className="flex-1 p-4 border border-accent rounded-3xl">
+              <div className="flex justify-between">
+                <div>
+                  <div className="font-bold text-lg text-zinc-800">{t('Blood pressure')}</div>
+                  <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
+                </div>
+                <div className="w-8 h-8 shrink-0">
+                  <CircleCheckFill className="w-full h-full text-green-600" />
+                  <CircleDashedFill className="w-full h-full text-zinc-200" />
+                </div>
+              </div>
+
+              <div className="font-bold text-[28px] text-zinc-900">--</div>
+            </div>
+          </div>
         </div>
 
         {/*
