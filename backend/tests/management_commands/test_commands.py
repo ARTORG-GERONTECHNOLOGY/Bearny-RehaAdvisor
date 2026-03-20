@@ -255,6 +255,6 @@ def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
 
     # Every call must carry set__wear_time_minutes=2 (10:05 and 10:06 are the two worn slots)
     for call in updater.call_args_list:
-        assert call.kwargs.get("set__wear_time_minutes") == 2, (
-            f"Expected set__wear_time_minutes=2 but got {call.kwargs.get('set__wear_time_minutes')}"
-        )
+        assert (
+            call.kwargs.get("set__wear_time_minutes") == 2
+        ), f"Expected set__wear_time_minutes=2 but got {call.kwargs.get('set__wear_time_minutes')}"
