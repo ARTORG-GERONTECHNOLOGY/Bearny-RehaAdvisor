@@ -106,6 +106,9 @@ class Command(BaseCommand):
                 # ---------------------------
                 # MAX HEART RATE (intraday 1-sec)
                 # ---------------------------
+                intraday_ok = 0
+                intraday_empty = 0
+                intraday_errors = {}  # status_code -> first date seen
                 for offset in range(31):
                     d = start_date + datetime.timedelta(days=offset)
                     d_str = d.strftime("%Y-%m-%d")
@@ -114,6 +117,8 @@ class Command(BaseCommand):
                     resp = requests.get(url, headers=headers)
 
                     if resp.status_code != 200:
+                        if resp.status_code not in intraday_errors:
+                            intraday_errors[resp.status_code] = (d_str, resp.text[:200])
                         continue
 
                     dataset = resp.json().get("activities-heart-intraday", {}).get("dataset", [])
@@ -122,6 +127,19 @@ class Command(BaseCommand):
                         # Wear time: count distinct minute slots with HR > 0
                         worn_minutes = {entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0}  # "HH:MM"
                         wear_time_map[d] = len(worn_minutes)
+                        intraday_ok += 1
+                    else:
+                        intraday_empty += 1
+
+                if intraday_errors:
+                    for code, (first_date, body) in intraday_errors.items():
+                        logger.warning(
+                            f"[Intraday HR] HTTP {code} (first seen on {first_date}): {body}"
+                        )
+                logger.info(
+                    f"[Intraday HR] {intraday_ok} days with data, "
+                    f"{intraday_empty} empty, {len(intraday_errors)} error code(s)"
+                )
 
                 # ---------------------------
                 # ACTIVE ZONE MINUTES
