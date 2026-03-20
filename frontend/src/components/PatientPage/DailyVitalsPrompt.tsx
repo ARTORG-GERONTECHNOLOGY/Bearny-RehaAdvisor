@@ -65,63 +65,69 @@ const DailyVitalsPrompt: React.FC = observer(() => {
 
         <Row className="g-3">
           <Col xs={12} md={4}>
-            <Form.Label className="mb-1">
-              {t('Weight (kg)')}{' '}
-              <span className="text-muted fw-normal small">({t('optional')})</span>
-            </Form.Label>
-            <Form.Control
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min="25"
-              max="400"
-              placeholder={t('e.g. 72.4')}
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-            />
-            <div className="form-text text-secondary small fst-italic">
-              {t('Enter your weight in kilograms.')}
-            </div>
+            <Form.Group controlId="vitals-weight">
+              <Form.Label className="mb-1">
+                {t('Weight (kg)')}{' '}
+                <span className="text-muted fw-normal small">({t('optional')})</span>
+              </Form.Label>
+              <Form.Control
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="25"
+                max="400"
+                placeholder={t('e.g. 72.4')}
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+              />
+              <div className="form-text text-secondary small fst-italic">
+                {t('Enter your weight in kilograms.')}
+              </div>
+            </Form.Group>
           </Col>
 
           <Col xs={6} md={4}>
-            <Form.Label className="mb-1">
-              {t('Systolic (mmHg)')}{' '}
-              <span className="text-muted fw-normal small">({t('optional')})</span>
-            </Form.Label>
-            <Form.Control
-              type="number"
-              inputMode="numeric"
-              step="1"
-              min="60"
-              max="250"
-              placeholder={t('e.g. 120')}
-              value={sys}
-              onChange={(e) => setSys(e.target.value)}
-            />
-            <div className="form-text text-secondary small fst-italic">
-              {t('Upper blood pressure number (while heart beats).')}
-            </div>
+            <Form.Group controlId="vitals-sys">
+              <Form.Label className="mb-1">
+                {t('Systolic (mmHg)')}{' '}
+                <span className="text-muted fw-normal small">({t('optional')})</span>
+              </Form.Label>
+              <Form.Control
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="60"
+                max="250"
+                placeholder={t('e.g. 120')}
+                value={sys}
+                onChange={(e) => setSys(e.target.value)}
+              />
+              <div className="form-text text-secondary small fst-italic">
+                {t('Upper blood pressure number (while heart beats).')}
+              </div>
+            </Form.Group>
           </Col>
 
           <Col xs={6} md={4}>
-            <Form.Label className="mb-1">
-              {t('Diastolic (mmHg)')}{' '}
-              <span className="text-muted fw-normal small">({t('optional')})</span>
-            </Form.Label>
-            <Form.Control
-              type="number"
-              inputMode="numeric"
-              step="1"
-              min="40"
-              max="150"
-              placeholder={t('e.g. 80')}
-              value={dia}
-              onChange={(e) => setDia(e.target.value)}
-            />
-            <div className="form-text text-secondary small fst-italic">
-              {t('Lower blood pressure number (while heart rests).')}
-            </div>
+            <Form.Group controlId="vitals-dia">
+              <Form.Label className="mb-1">
+                {t('Diastolic (mmHg)')}{' '}
+                <span className="text-muted fw-normal small">({t('optional')})</span>
+              </Form.Label>
+              <Form.Control
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="40"
+                max="150"
+                placeholder={t('e.g. 80')}
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+              />
+              <div className="form-text text-secondary small fst-italic">
+                {t('Lower blood pressure number (while heart rests).')}
+              </div>
+            </Form.Group>
           </Col>
         </Row>
 
