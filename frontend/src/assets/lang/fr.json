@@ -916,5 +916,6 @@
   "Fitness Tracker": "Traqueur d'activite",
   "Manual entry": "Saisie manuelle",
   "Goal": "Objectif",
-  "CheckIn": "Check-in"
+  "CheckIn": "Check-in",
+  "WeightLabel": "Poids"
 }
