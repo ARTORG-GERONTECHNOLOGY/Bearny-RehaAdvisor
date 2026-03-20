@@ -180,3 +180,81 @@ def test_fetch_fitbit_command_single_user_happy_path_with_mocks():
         cmd.handle()
 
     assert mocked_get.call_count > 5
+
+
+def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
+    """
+    Verify that wear_time_minutes is correctly derived from intraday HR data
+    and passed to FitbitData.update_one during the periodic management command.
+
+    Intraday dataset:
+      10:05:00 HR=72, 10:05:30 HR=75  → minute slot "10:05" (HR > 0)
+      10:06:00 HR=68                   → minute slot "10:06" (HR > 0)
+      10:07:00 HR=0                    → not worn — excluded
+    Expected wear_time_minutes = 2 (two distinct worn-minute slots).
+    """
+    cmd = FetchFitbitCommand()
+    token = SimpleNamespace(user="u1")
+
+    intraday_dataset = [
+        {"time": "10:05:00", "value": 72},
+        {"time": "10:05:30", "value": 75},
+        {"time": "10:06:00", "value": 68},
+        {"time": "10:07:00", "value": 0},  # not worn
+    ]
+
+    class FakeResp:
+        def __init__(self, payload=None):
+            self.status_code = 200
+            self._payload = payload or {}
+            self.text = "ok"
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers=None):
+        if "/1d/1sec.json" in url:
+            return FakeResp({"activities-heart-intraday": {"dataset": intraday_dataset}})
+        if "activities/list.json" in url:
+            return FakeResp({"activities": []})
+        if "/br/date/" in url:
+            return FakeResp({"br": []})
+        if "/hrv/date/" in url:
+            return FakeResp({"hrv": []})
+        if "/sleep/date/" in url:
+            return FakeResp({"sleep": []})
+        if "activities/heart/date/" in url:
+            return FakeResp({"activities-heart": []})
+        if "active-zone-minutes" in url:
+            return FakeResp({"activities-activeZoneMinutes": []})
+        # generic time-series (steps, floors, distance, calories, minutesVeryActive, …)
+        if "/activities/" in url:
+            key = url.split("/activities/")[1].split("/date/")[0]
+            return FakeResp({f"activities-{key}": []})
+        return FakeResp({})
+
+    updater = MagicMock()
+    objects_mock = MagicMock(return_value=SimpleNamespace(update_one=updater))
+
+    with (
+        patch(
+            "core.management.commands.fetch_fitbit_data.FitbitUserToken.objects",
+            new=SimpleNamespace(all=lambda: [token]),
+        ),
+        patch(
+            "core.management.commands.fetch_fitbit_data.get_valid_access_token",
+            return_value="access",
+        ),
+        patch("core.management.commands.fetch_fitbit_data.requests.get", side_effect=fake_get),
+        patch("core.management.commands.fetch_fitbit_data.FitbitData.objects", objects_mock),
+    ):
+        cmd.handle()
+
+    # update_one must have been called for every day that has intraday data (31 days)
+    assert updater.call_count == 31
+
+    # Every call must carry set__wear_time_minutes=2 (10:05 and 10:06 are the two worn slots)
+    for call in updater.call_args_list:
+        assert call.kwargs.get("set__wear_time_minutes") == 2, (
+            f"Expected set__wear_time_minutes=2 but got {call.kwargs.get('set__wear_time_minutes')}"
+        )
