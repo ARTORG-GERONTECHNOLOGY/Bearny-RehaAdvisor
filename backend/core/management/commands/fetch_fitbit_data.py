@@ -133,9 +133,7 @@ class Command(BaseCommand):
 
                 if intraday_errors:
                     for code, (first_date, body) in intraday_errors.items():
-                        logger.warning(
-                            f"[Intraday HR] HTTP {code} (first seen on {first_date}): {body}"
-                        )
+                        logger.warning(f"[Intraday HR] HTTP {code} (first seen on {first_date}): {body}")
                 logger.info(
                     f"[Intraday HR] {intraday_ok} days with data, "
                     f"{intraday_empty} empty, {len(intraday_errors)} error code(s)"
