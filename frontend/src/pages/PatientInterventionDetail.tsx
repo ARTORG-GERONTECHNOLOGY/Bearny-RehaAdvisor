@@ -6,7 +6,6 @@ import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Document, Page } from 'react-pdf';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
@@ -250,13 +249,17 @@ const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) =
   return (
     <div>
       {m.media_type === 'pdf' ? (
-        <>
-          <div className="border border-accent p-4 rounded-3xl mb-2">
-            <Document file={playable}>
-              <Page pageNumber={1} width={320} />
-            </Document>
-          </div>
-        </>
+        <div className="flex">
+          {isHttpUrl(playable) && (
+            <iframe
+              src={playable}
+              title={label}
+              className="border-0 aspect-[5/7] w-full max-w-96 mx-auto"
+            >
+              <p>{t('Failed to load media, use the link below to open it in a new tab.')}</p>
+            </iframe>
+          )}
+        </div>
       ) : m.media_type === 'image' ? (
         <img
           src={playable}

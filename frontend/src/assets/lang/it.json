@@ -918,5 +918,6 @@
   "Avg wear": "Port. media",
   "(7d)": "(7g)",
   "No Fitbit data": "Nessun dato Fitbit",
-  "Wear": "Utilizzo"
+  "Wear": "Utilizzo",
+  "Failed to load media, use the link below to open it in a new tab.": "Impossibile caricare il contenuto multimediale. Usa il link qui sotto per aprirlo in una nuova scheda."
 }
