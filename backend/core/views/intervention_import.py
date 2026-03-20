@@ -170,35 +170,122 @@ def _parse_duration_minutes(s: str) -> Optional[int]:
     return None
 
 
+# Valid language and format-code sets for the ICF intervention ID scheme.
+# ID format:
+#   4-digit prefix = original content  e.g. 3500_web_de
+#   5-digit prefix = self-made content e.g. 30500_vid_pt
+VALID_LANGS = {"de", "fr", "it", "pt", "nl", "en"}
+VALID_FORMAT_CODES = {"vid", "img", "pdf", "web", "aud", "app", "br", "gfx"}
+
+_FORMAT_CODE_TO_CONTENT_TYPE: Dict[str, str] = {
+    "vid": "Video",
+    "aud": "Audio",
+    "img": "Image",
+    "gfx": "Image",
+    "pdf": "Text",
+    "br": "Text",
+    "web": "Website",
+    "app": "App",
+}
+
+
 def _map_content_type(x: str) -> str:
     s = _norm(x).lower()
     if not s:
         return "Text"
-    if "video" in s:
+    # Accept format-code abbreviations directly
+    if s in _FORMAT_CODE_TO_CONTENT_TYPE:
+        return _FORMAT_CODE_TO_CONTENT_TYPE[s]
+    if "video" in s or "vid" in s:
         return "Video"
     if "audio" in s or "podcast" in s or "sound" in s:
         return "Audio"
-    if "image" in s or "picture" in s:
+    if "image" in s or "picture" in s or "graphic" in s or "gfx" in s:
         return "Image"
     if "app" in s:
         return "App"
-    if "web" in s or "site" in s or "link" in s or "website" in s:
+    if "web" in s or "site" in s or "website" in s:
         return "Website"
     if "pdf" in s or "text" in s or "brochure" in s:
         return "Text"
     return "Text"
 
 
-def _parse_external_id_and_language(intervention_id: str) -> Tuple[str, Optional[str]]:
+def _parse_external_id_and_language(
+    intervention_id: str,
+) -> Tuple[str, Optional[str], Optional[str]]:
     """
-    Excel uses e.g. '4001_de', '4001_it'. We want:
-      external_id='4001', language='de'
+    Parse an intervention ID into (external_id, language, format_code).
+
+    New 3-part format (preferred):
+      '3500_web_de'  → external_id='3500_web', language='de', format_code='web'
+      '30500_vid_pt' → external_id='30500_vid', language='pt', format_code='vid'
+
+      - 4-digit numeric prefix = original content
+      - 5-digit numeric prefix = self-made content
+
+    Legacy 2-part format (still accepted for backward compatibility):
+      '4001_de'      → external_id='4001', language='de', format_code=None
+
+    Returns (external_id, language_or_None, format_code_or_None).
     """
-    s = _norm(intervention_id)
-    m = re.match(r"^(.+?)_([a-z]{2})$", s.lower())
+    s = _norm(intervention_id).lower()
+    parts = s.split("_")
+
+    # Try new 3-part format: {num}_{fmt}_{lang}
+    if len(parts) >= 3:
+        lang_candidate = parts[-1]
+        fmt_candidate = parts[-2]
+        if lang_candidate in VALID_LANGS:
+            external_id = "_".join(parts[:-1])
+            fmt = fmt_candidate if fmt_candidate in VALID_FORMAT_CODES else None
+            return external_id, lang_candidate, fmt
+
+    # Fall back to legacy 2-part format: {anything}_{lang}
+    m = re.match(r"^(.+?)_([a-z]{2})$", s)
     if m:
-        return m.group(1), m.group(2)
-    return s, None
+        return m.group(1), m.group(2), None
+
+    return s, None, None
+
+
+def _validate_id_format(intervention_id: str) -> List[str]:
+    """
+    Return a list of human-readable warning strings for a non-conforming ID.
+    Returns an empty list when the ID is fully valid.
+    """
+    warnings: List[str] = []
+    s = _norm(intervention_id).lower()
+    parts = s.split("_")
+
+    if len(parts) >= 3:
+        num_part = "_".join(parts[:-2])
+        fmt_part = parts[-2]
+        lang_part = parts[-1]
+        if not re.match(r"^\d{4,5}$", num_part):
+            warnings.append(
+                f"Prefix '{num_part}' should be 4 digits (original content) " f"or 5 digits (self-made content)."
+            )
+        if fmt_part not in VALID_FORMAT_CODES:
+            valid_list = ", ".join(sorted(VALID_FORMAT_CODES))
+            warnings.append(
+                f"Unknown format code '{fmt_part}'. "
+                f"Valid codes: {valid_list} "
+                f"(vid=video, img/gfx=image, pdf/br=document, web=website, aud=audio, app=app)."
+            )
+        if lang_part not in VALID_LANGS:
+            valid_list = ", ".join(sorted(VALID_LANGS))
+            warnings.append(f"Unknown language suffix '{lang_part}'. Valid: {valid_list}.")
+    elif len(parts) == 2:
+        # Legacy 2-part format — accepted, no warnings
+        pass
+    else:
+        warnings.append(
+            f"Unexpected ID format '{intervention_id}'. "
+            "Expected: {{4-5 digits}}_{{format}}_{{lang}} (e.g. 3500_web_de) "
+            "or {{4-5 digits}}_{{lang}} (e.g. 4001_de)."
+        )
+    return warnings
 
 
 def _normalize_lang(raw: Any) -> Optional[str]:
@@ -213,6 +300,10 @@ def _normalize_lang(raw: Any) -> Optional[str]:
         return "fr"
     if s in ("it", "ita", "italian", "italiano"):
         return "it"
+    if s in ("pt", "por", "portuguese", "português", "portugues"):
+        return "pt"
+    if s in ("nl", "nld", "dutch", "nederlands"):
+        return "nl"
     return None
 
 
@@ -465,7 +556,10 @@ def import_interventions_from_excel(
             continue
 
         try:
-            external_id, lang_from_id = _parse_external_id_and_language(intervention_id_raw)
+            external_id, lang_from_id, format_code = _parse_external_id_and_language(intervention_id_raw)
+
+            # Collect non-fatal format warnings (still import the row)
+            id_warnings = _validate_id_format(intervention_id_raw)
 
             lang_from_col = _normalize_lang(row[col["language"]]) if col.get("language") is not None else None
             language = (lang_from_id or lang_from_col or default_lang).lower()
@@ -485,7 +579,14 @@ def import_interventions_from_excel(
             content_type_raw = _norm(row[col["content_type"]])
             duration_raw = _norm(row[col["duration"]]) if col.get("duration") is not None else ""
 
-            mapped_ct = _map_content_type(content_type_raw)
+            # Prefer explicit content_type column; fall back to format_code from ID
+            if content_type_raw:
+                mapped_ct = _map_content_type(content_type_raw)
+            elif format_code and format_code in _FORMAT_CODE_TO_CONTENT_TYPE:
+                mapped_ct = _FORMAT_CODE_TO_CONTENT_TYPE[format_code]
+            else:
+                mapped_ct = "Text"
+
             duration_min = _parse_duration_minutes(duration_raw)
 
             # Lists (store as fields)
@@ -597,19 +698,36 @@ def import_interventions_from_excel(
             else:
                 created += 1
 
+            # Append non-fatal ID format warnings (row was still imported)
+            if id_warnings:
+                errors.append(
+                    {
+                        "row": row_idx,
+                        "intervention_id": intervention_id_raw,
+                        "severity": "warning",
+                        "error": " ".join(id_warnings),
+                    }
+                )
+
         except Exception as e:
             errors.append(
                 {
                     "row": row_idx,
                     "intervention_id": intervention_id_raw,
+                    "severity": "error",
                     "error": str(e),
                 }
             )
             skipped += 1
+
+    warnings_count = sum(1 for e in errors if e.get("severity") == "warning")
+    errors_count = sum(1 for e in errors if e.get("severity") != "warning")
 
     return {
         "created": created,
         "updated": updated,
         "skipped": skipped,
         "errors": errors,
+        "warnings": warnings_count,
+        "errors_count": errors_count,
     }
