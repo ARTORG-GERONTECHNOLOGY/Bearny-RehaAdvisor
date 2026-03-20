@@ -3,7 +3,6 @@ import InterventionList from '@/components/PatientPage/InterventionList';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
-jest.mock('react-pdf');
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
