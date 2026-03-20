@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ const PatientView: React.FC = observer(() => {
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
 
+  const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
   const [showManualWeightEntry, setShowManualWeightEntry] = useState<boolean>(false);
   const [showManualBloodPressureEntry, setShowManualBloodPressureEntry] = useState<boolean>(false);
 
@@ -343,10 +345,47 @@ const PatientView: React.FC = observer(() => {
       )}
 
       <Sheet
+        open={showManualStepsEntry}
+        onOpenChange={(open) => !open && setShowManualStepsEntry(false)}
+      >
+        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
+          <SheetHeader>
+            <SheetTitle>{t('Steps')}</SheetTitle>
+            <SheetDescription>
+              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+            <Field className="w-fit flex flex-row items-center gap-3">
+              <Input
+                id="steps"
+                type="number"
+                placeholder="0"
+                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+              <FieldLabel htmlFor="steps" className="font-bold text-2xl text-zinc-300">
+                {t('Steps')}
+              </FieldLabel>
+            </Field>
+          </div>
+
+          <SheetFooter>
+            <Button
+              onClick={() => {}}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {t('Save')}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
         open={showManualWeightEntry}
         onOpenChange={(open) => !open && setShowManualWeightEntry(false)}
       >
-        <SheetContent side="bottom" className="flex flex-col">
+        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
           <SheetHeader>
             <SheetTitle>{t('WeightLabel')}</SheetTitle>
             <SheetDescription>
@@ -354,9 +393,18 @@ const PatientView: React.FC = observer(() => {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex gap-3 flex-1">
-            <Input />
-            Kg
+          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+            <Field className="w-fit flex flex-row items-center gap-3">
+              <Input
+                id="weight"
+                type="number"
+                placeholder="0"
+                className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+              <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
+                Kg
+              </FieldLabel>
+            </Field>
           </div>
 
           <SheetFooter>
@@ -374,7 +422,7 @@ const PatientView: React.FC = observer(() => {
         open={showManualBloodPressureEntry}
         onOpenChange={(open) => !open && setShowManualBloodPressureEntry(false)}
       >
-        <SheetContent side="bottom" className="flex flex-col">
+        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
           <SheetHeader>
             <SheetTitle>{t('Blood pressure')}</SheetTitle>
             <SheetDescription>
@@ -382,15 +430,29 @@ const PatientView: React.FC = observer(() => {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex flex-col gap-4 flex-1">
-            <div>
-              SYS
-              <Input />
-            </div>
-            <div>
-              DIA
-              <Input />
-            </div>
+          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+            <Field className="w-fit gap-1">
+              <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
+                SYS
+              </FieldLabel>
+              <Input
+                id="systolic"
+                type="number"
+                placeholder="0"
+                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+            </Field>
+            <Field className="w-fit gap-1">
+              <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
+                DIA
+              </FieldLabel>
+              <Input
+                id="diastolic"
+                type="number"
+                placeholder="0"
+                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+            </Field>
           </div>
 
           <SheetFooter>
