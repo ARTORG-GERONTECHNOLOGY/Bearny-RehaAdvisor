@@ -156,10 +156,12 @@ const kindOptions = [
 ];
 
 const langOptions = [
-  { value: 'de', label: 'DE' },
-  { value: 'en', label: 'EN' },
-  { value: 'fr', label: 'FR' },
-  { value: 'it', label: 'IT' },
+  { value: 'de', label: 'DE — Deutsch' },
+  { value: 'en', label: 'EN — English' },
+  { value: 'fr', label: 'FR — Français' },
+  { value: 'it', label: 'IT — Italiano' },
+  { value: 'pt', label: 'PT — Português' },
+  { value: 'nl', label: 'NL — Nederlands' },
 ];
 
 const mediaTypeOptions: { value: MediaType; label: string }[] = [
@@ -775,8 +777,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       type="text"
                       value={formData.externalId}
                       onChange={handleChange}
-                      placeholder="e.g. 4001"
+                      placeholder="e.g. 3500_web or 30500_vid"
                     />
+                    <Form.Text className="text-muted">
+                      4 digits = original · 5 digits = self-made · format: vid, img, gfx, pdf, br,
+                      web, aud, app
+                    </Form.Text>
                   </Form.Group>
                 </Col>
 
