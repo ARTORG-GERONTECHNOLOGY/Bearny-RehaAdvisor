@@ -39,6 +39,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Alert } from 'react-bootstrap';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -59,6 +60,12 @@ const PatientView: React.FC = observer(() => {
   const { completionCount } = useInterventions(today);
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
+
+  const hasWeightEntry = patientFitbitStore.summary?.today?.weight_kg != null;
+  const hasBloodPressureEntry =
+    patientFitbitStore.summary?.today?.bp_sys != null &&
+    patientFitbitStore.summary?.today?.bp_dia != null;
+  const checkInEnteredCount = Number(hasWeightEntry) + Number(hasBloodPressureEntry);
 
   // State for manual entry modals
   const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
@@ -139,6 +146,14 @@ const PatientView: React.FC = observer(() => {
         />
 
         {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
+
+        {patientFitbitStore.connected === null ||
+          (patientFitbitStore.summaryLoading && (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-56 w-full rounded-[40px]" />
+              <Skeleton className="h-56 w-full rounded-[40px]" />
+            </div>
+          ))}
 
         <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
           <div className="flex p-2 pl-4 justify-between w-full">
@@ -267,26 +282,35 @@ const PatientView: React.FC = observer(() => {
           </div>
         </div>
 
+
+
+        <ActivitySummary selectedDate={patientUiStore.selectedDate} />
+
+
+
         <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
           <div className="flex p-2 pl-4 justify-between w-full">
             <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
             <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-              {'0 / 2'}
+              {checkInEnteredCount} / 2
             </Badge>
           </div>
 
           <div className="flex gap-2 flex-wrap">
             <div
-              className="flex-1 p-4 border border-accent rounded-3xl"
+              role="button"
+              className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
               onClick={() => setShowManualWeightEntry(true)}
             >
               <div className="flex justify-between">
                 <div>
                   <div className="font-bold text-lg text-zinc-800">{t('WeightLabel')}</div>
-                  <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
+                  <div className="font-medium text-sm text-zinc-500">
+                    {format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale })}
+                  </div>
                 </div>
                 <div className="w-8 h-8 shrink-0">
-                  {patientVitalsStore.exists ? ( // TODO: destinction between weight and blood pressure entries and display entered data
+                  {hasWeightEntry ? (
                     <CircleCheckFill className="w-full h-full text-green-600" />
                   ) : (
                     <CircleDashedFill className="w-full h-full text-zinc-200" />
@@ -294,20 +318,25 @@ const PatientView: React.FC = observer(() => {
                 </div>
               </div>
 
-              <div className="font-bold text-[28px] text-zinc-900">--</div>
+              <div className="font-bold text-[28px] text-zinc-900">
+                {patientFitbitStore.summary?.today?.weight_kg || '--'} kg
+              </div>
             </div>
 
             <div
-              className="flex-1 p-4 border border-accent rounded-3xl"
+              role="button"
+              className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
               onClick={() => setShowManualBloodPressureEntry(true)}
             >
               <div className="flex justify-between">
                 <div>
                   <div className="font-bold text-lg text-zinc-800">{t('Blood pressure')}</div>
-                  <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
+                  <div className="font-medium text-sm text-zinc-500">
+                    {format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale })}
+                  </div>
                 </div>
                 <div className="w-8 h-8 shrink-0">
-                  {patientVitalsStore.exists ? ( // TODO: destinction between weight and blood pressure entries and display entered data
+                  {hasBloodPressureEntry ? (
                     <CircleCheckFill className="w-full h-full text-green-600" />
                   ) : (
                     <CircleDashedFill className="w-full h-full text-zinc-200" />
@@ -315,14 +344,13 @@ const PatientView: React.FC = observer(() => {
                 </div>
               </div>
 
-              <div className="font-bold text-[28px] text-zinc-900">--</div>
+              <div className="font-bold text-[28px] text-zinc-900">
+                {patientFitbitStore.summary?.today?.bp_sys || '--'}
+                <br />/{patientFitbitStore.summary?.today?.bp_dia || '--'} mmHg
+              </div>
             </div>
           </div>
         </div>
-
-        {/*
-        <ActivitySummary selectedDate={patientUiStore.selectedDate} />
-        */}
       </div>
 
       {/* Intervention Feedback Popup */}
