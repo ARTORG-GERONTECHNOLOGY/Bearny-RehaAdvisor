@@ -8,11 +8,11 @@ import { de, enUS, fr, it } from 'date-fns/locale';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
-import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
+import ActivitySection from '@/components/PatientPage/ActivitySection';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import HealthCheckInSection from '@/components/PatientPage/HealthCheckInSection';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
-import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import authStore from '@/stores/authStore';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
@@ -22,11 +22,6 @@ import { patientVitalsStore } from '@/stores/patientVitalsStore';
 import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
-import { Badge } from '@/components/ui/badge';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
-import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
-import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import {
   Sheet,
   SheetContent,
@@ -61,11 +56,7 @@ const PatientView: React.FC = observer(() => {
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
 
-  const hasWeightEntry = patientFitbitStore.summary?.today?.weight_kg != null;
-  const hasBloodPressureEntry =
-    patientFitbitStore.summary?.today?.bp_sys != null &&
-    patientFitbitStore.summary?.today?.bp_dia != null;
-  const checkInEnteredCount = Number(hasWeightEntry) + Number(hasBloodPressureEntry);
+  const selectedDateLabel = format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale });
 
   const stepsHistoryData = useMemo(() => {
     const dailyRows = patientFitbitStore.summary?.period?.daily;
@@ -91,14 +82,6 @@ const PatientView: React.FC = observer(() => {
     const maxReference = Math.max(maxFromHistory, stepsGoal ?? 0);
     return maxReference > 0 ? Math.ceil(maxReference * 1.1) : 1000;
   }, [stepsHistoryData, stepsGoal]);
-
-  const formatMinutesToHM = (minutes?: number | null) => {
-    if (!minutes || Number.isNaN(Number(minutes))) return '--';
-    const total = Math.max(0, Math.round(Number(minutes)));
-    const hours = Math.floor(total / 60);
-    const mins = total % 60;
-    return `${hours}h ${mins}min`;
-  };
 
   // State for manual entry modals
   const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
@@ -183,233 +166,38 @@ const PatientView: React.FC = observer(() => {
 
         {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
 
-        {(patientFitbitStore.connected === null ||
-          patientFitbitStore.summaryLoading ||
-          patientVitalsStore.loading) && (
-          <div className="flex flex-col gap-2">
+        {patientFitbitStore.connected === null ||
+        patientFitbitStore.summaryLoading ||
+        patientVitalsStore.loading ? (
+          <>
             <Skeleton className="h-[500px] w-full rounded-[40px]" />
             <Skeleton className="h-[300px] w-full rounded-[40px]" />
-          </div>
+          </>
+        ) : (
+          <>
+            <ActivitySection
+              connected={Boolean(patientFitbitStore.connected)}
+              stepsToday={patientFitbitStore.summary?.today?.steps}
+              stepsGoal={patientFitbitStore.summary?.thresholds?.steps_goal}
+              stepsHistoryData={stepsHistoryData}
+              stepsChartMax={stepsChartMax}
+              activeMinutes={patientFitbitStore.summary?.today?.active_minutes}
+              activeMinutesGoal={patientFitbitStore.summary?.thresholds?.active_minutes_green}
+              sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}
+              sleepMinutesGoal={patientFitbitStore.summary?.thresholds?.sleep_green_min}
+              onOpenManualStepsEntry={() => setShowManualStepsEntry(true)}
+            />
+
+            <HealthCheckInSection
+              selectedDateLabel={selectedDateLabel}
+              weightKg={patientFitbitStore.summary?.today?.weight_kg}
+              bpSys={patientFitbitStore.summary?.today?.bp_sys}
+              bpDia={patientFitbitStore.summary?.today?.bp_dia}
+              onOpenWeightEntry={() => setShowManualWeightEntry(true)}
+              onOpenBloodPressureEntry={() => setShowManualBloodPressureEntry(true)}
+            />
+          </>
         )}
-
-        {patientFitbitStore.connected !== null &&
-          !patientFitbitStore.summaryLoading &&
-          !patientVitalsStore.loading && (
-            <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-              <div className="flex p-2 pl-4 justify-between w-full">
-                <div className="text-lg font-[500] text-zinc-500">{t('Todays Activity')}</div>
-                {patientFitbitStore.connected && (
-                  <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-                    {t('Fitbit Connected')}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div
-                  role={!patientFitbitStore.connected && 'button'}
-                  onClick={() => {
-                    if (patientFitbitStore.connected) return;
-                    setShowManualStepsEntry(true);
-                  }}
-                  className="p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-bold text-lg text-zinc-800">{t('Steps')}</div>
-                      {!patientFitbitStore.connected && (
-                        <div className="font-medium text-sm text-zinc-500">{t('Manual entry')}</div>
-                      )}
-                    </div>
-                    <div className="w-8 h-8 shrink-0">
-                      {patientFitbitStore.connected ? (
-                        <ProgressIndicator
-                          current={patientFitbitStore.summary?.today?.steps ?? 0}
-                          goal={patientFitbitStore.summary?.thresholds?.steps_goal ?? 0}
-                        />
-                      ) : (
-                        <>
-                          {patientFitbitStore.summary?.today?.steps ? (
-                            <CircleCheckFill className="w-full h-full text-green-600" />
-                          ) : (
-                            <CircleDashedFill className="w-full h-full text-zinc-200" />
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-end">
-                    <div className="flex-1">
-                      <div className="font-bold text-[28px] text-zinc-900">
-                        {patientFitbitStore.summary?.today?.steps || '--'}
-                      </div>
-                      <div className="font-medium text-sm text-zinc-500">
-                        {t('Goal')}: {patientFitbitStore.summary?.thresholds?.steps_goal || '--'}
-                      </div>
-                    </div>
-
-                    {patientFitbitStore.connected && (
-                      <div className="flex-1">
-                        <ChartContainer
-                          config={{
-                            steps: { label: t('Steps') },
-                          }}
-                          className="w-full max-h-36"
-                        >
-                          <BarChart accessibilityLayer data={stepsHistoryData}>
-                            <CartesianGrid vertical={false} />
-                            <YAxis hide domain={[0, stepsChartMax]} />
-                            {stepsGoal !== null && (
-                              <ReferenceLine
-                                y={stepsGoal}
-                                stroke="#E4E4E7"
-                                strokeWidth={2}
-                                strokeDasharray="8 8"
-                              />
-                            )}
-                            <XAxis dataKey="date" hide />
-                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                            <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
-                          </BarChart>
-                        </ChartContainer>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {patientFitbitStore.connected && (
-                  <div className="flex gap-2 flex-wrap">
-                    <div className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between">
-                      <div className="flex justify-between">
-                        <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
-                        <div className="w-8 h-8 shrink-0">
-                          <ProgressIndicator
-                            current={patientFitbitStore.summary?.today?.active_minutes ?? 0}
-                            goal={patientFitbitStore.summary?.thresholds?.active_minutes_green ?? 0}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-bold text-[28px] text-zinc-900">
-                          {formatMinutesToHM(patientFitbitStore.summary?.today?.active_minutes)}
-                        </div>
-                        <div className="font-medium text-sm text-zinc-500">
-                          {t('Goal')}:{' '}
-                          {formatMinutesToHM(
-                            patientFitbitStore.summary?.thresholds?.active_minutes_green
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between">
-                      <div className="flex justify-between">
-                        <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
-                        <div className="w-8 h-8 shrink-0">
-                          <ProgressIndicator
-                            current={patientFitbitStore.summary?.today?.sleep_minutes ?? 0}
-                            goal={patientFitbitStore.summary?.thresholds?.sleep_green_min ?? 0}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-bold text-[28px] text-zinc-900">
-                          {formatMinutesToHM(patientFitbitStore.summary?.today?.sleep_minutes)}
-                        </div>
-                        <div className="font-medium text-sm text-zinc-500">
-                          {t('Goal')}:{' '}
-                          {formatMinutesToHM(
-                            patientFitbitStore.summary?.thresholds?.sleep_green_min
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {!patientFitbitStore.connected && (
-                  <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
-                    <div className="flex flex-col">
-                      <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
-                      <div className="font-medium text-sm text-zinc-500">
-                        {t('Fitness Tracker')}
-                      </div>
-                    </div>
-                    <FitbitConnectButton />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-        {patientFitbitStore.connected !== null &&
-          !patientFitbitStore.summaryLoading &&
-          !patientVitalsStore.loading && (
-            <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-              <div className="flex p-2 pl-4 justify-between w-full">
-                <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
-                <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-                  {checkInEnteredCount} / 2
-                </Badge>
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                <div
-                  role="button"
-                  className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
-                  onClick={() => setShowManualWeightEntry(true)}
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-bold text-lg text-zinc-800">{t('WeightLabel')}</div>
-                      <div className="font-medium text-sm text-zinc-500">
-                        {format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale })}
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 shrink-0">
-                      {hasWeightEntry ? (
-                        <CircleCheckFill className="w-full h-full text-green-600" />
-                      ) : (
-                        <CircleDashedFill className="w-full h-full text-zinc-200" />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="font-bold text-[28px] text-zinc-900">
-                    {patientFitbitStore.summary?.today?.weight_kg || '--'} kg
-                  </div>
-                </div>
-
-                <div
-                  role="button"
-                  className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
-                  onClick={() => setShowManualBloodPressureEntry(true)}
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-bold text-lg text-zinc-800">{t('Blood pressure')}</div>
-                      <div className="font-medium text-sm text-zinc-500">
-                        {format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale })}
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 shrink-0">
-                      {hasBloodPressureEntry ? (
-                        <CircleCheckFill className="w-full h-full text-green-600" />
-                      ) : (
-                        <CircleDashedFill className="w-full h-full text-zinc-200" />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="font-bold text-[28px] text-zinc-900">
-                    {patientFitbitStore.summary?.today?.bp_sys || '--'}
-                    <br />/{patientFitbitStore.summary?.today?.bp_dia || '--'} mmHg
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
       </div>
 
       {/* Intervention Feedback Popup */}
