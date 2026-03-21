@@ -12,6 +12,7 @@ import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
+import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import authStore from '@/stores/authStore';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
@@ -23,17 +24,7 @@ import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import {
@@ -232,39 +223,10 @@ const PatientView: React.FC = observer(() => {
                     </div>
                     <div className="w-8 h-8 shrink-0">
                       {patientFitbitStore.connected ? (
-                        (() => {
-                          const todaySteps = patientFitbitStore.summary?.today?.steps ?? 0;
-                          const stepsGoal = patientFitbitStore.summary?.thresholds?.steps_goal ?? 0;
-                          const stepsProgressPercent =
-                            stepsGoal > 0 ? (todaySteps / stepsGoal) * 100 : 0;
-                          const normalizedStepsProgress = Math.max(
-                            0,
-                            Math.min(100, stepsProgressPercent)
-                          );
-
-                          return (
-                            <RadialBarChart
-                              width={32}
-                              height={32}
-                              data={[{ name: 'Steps', value: normalizedStepsProgress }]}
-                              cx="50%"
-                              cy="50%"
-                              startAngle={90}
-                              endAngle={-270}
-                              innerRadius={11}
-                              outerRadius={15}
-                              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                            >
-                              <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                              <RadialBar
-                                dataKey="value"
-                                fill="#16A34A"
-                                background={{ fill: '#E4E4E7' }}
-                                cornerRadius={999}
-                              />
-                            </RadialBarChart>
-                          );
-                        })()
+                        <ProgressIndicator
+                          current={patientFitbitStore.summary?.today?.steps ?? 0}
+                          goal={patientFitbitStore.summary?.thresholds?.steps_goal ?? 0}
+                        />
                       ) : (
                         <>
                           {patientFitbitStore.summary?.today?.steps ? (
@@ -322,41 +284,10 @@ const PatientView: React.FC = observer(() => {
                       <div className="flex justify-between">
                         <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
                         <div className="w-8 h-8 shrink-0">
-                          {(() => {
-                            const activeMinutes =
-                              patientFitbitStore.summary?.today?.active_minutes ?? 0;
-                            const activeGoal =
-                              patientFitbitStore.summary?.thresholds?.active_minutes_green ?? 0;
-                            const activeProgressPercent =
-                              activeGoal > 0 ? (activeMinutes / activeGoal) * 100 : 0;
-                            const normalizedActiveProgress = Math.max(
-                              0,
-                              Math.min(100, activeProgressPercent)
-                            );
-
-                            return (
-                              <RadialBarChart
-                                width={32}
-                                height={32}
-                                data={[{ name: 'ActiveMinutes', value: normalizedActiveProgress }]}
-                                cx="50%"
-                                cy="50%"
-                                startAngle={90}
-                                endAngle={-270}
-                                innerRadius={11}
-                                outerRadius={15}
-                                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                              >
-                                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                                <RadialBar
-                                  dataKey="value"
-                                  fill="#16A34A"
-                                  background={{ fill: '#E4E4E7' }}
-                                  cornerRadius={999}
-                                />
-                              </RadialBarChart>
-                            );
-                          })()}
+                          <ProgressIndicator
+                            current={patientFitbitStore.summary?.today?.active_minutes ?? 0}
+                            goal={patientFitbitStore.summary?.thresholds?.active_minutes_green ?? 0}
+                          />
                         </div>
                       </div>
                       <div>
@@ -376,41 +307,10 @@ const PatientView: React.FC = observer(() => {
                       <div className="flex justify-between">
                         <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
                         <div className="w-8 h-8 shrink-0">
-                          {(() => {
-                            const sleepMinutes =
-                              patientFitbitStore.summary?.today?.sleep_minutes ?? 0;
-                            const sleepGoal =
-                              patientFitbitStore.summary?.thresholds?.sleep_green_min ?? 0;
-                            const sleepProgressPercent =
-                              sleepGoal > 0 ? (sleepMinutes / sleepGoal) * 100 : 0;
-                            const normalizedSleepProgress = Math.max(
-                              0,
-                              Math.min(100, sleepProgressPercent)
-                            );
-
-                            return (
-                              <RadialBarChart
-                                width={32}
-                                height={32}
-                                data={[{ name: 'Sleep', value: normalizedSleepProgress }]}
-                                cx="50%"
-                                cy="50%"
-                                startAngle={90}
-                                endAngle={-270}
-                                innerRadius={11}
-                                outerRadius={15}
-                                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                              >
-                                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                                <RadialBar
-                                  dataKey="value"
-                                  fill="#16A34A"
-                                  background={{ fill: '#E4E4E7' }}
-                                  cornerRadius={999}
-                                />
-                              </RadialBarChart>
-                            );
-                          })()}
+                          <ProgressIndicator
+                            current={patientFitbitStore.summary?.today?.sleep_minutes ?? 0}
+                            goal={patientFitbitStore.summary?.thresholds?.sleep_green_min ?? 0}
+                          />
                         </div>
                       </div>
                       <div>
