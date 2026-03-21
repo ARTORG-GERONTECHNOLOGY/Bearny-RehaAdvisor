@@ -61,7 +61,6 @@ jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
 ));
 jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div>Fitbit Status</div>);
 jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div>Activity Summary</div>);
-jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div>Vitals Prompt</div>);
 jest.mock('@/components/PatientPage/FeedbackPopup', () => () => <div>Feedback Popup</div>);
 jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => <div>Questionnaire</div>);
 

@@ -10,7 +10,6 @@ import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
 import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import ActivitySummary from '@/components/PatientPage/ActivitySummary';
-import DailyVitalsPrompt from '@/components/PatientPage/DailyVitalsPrompt';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
@@ -19,6 +18,7 @@ import { patientUiStore } from '@/stores/patientUiStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
+import { patientVitalsStore } from '@/stores/patientVitalsStore';
 import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
@@ -37,7 +37,8 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Alert } from 'react-bootstrap';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -59,9 +60,14 @@ const PatientView: React.FC = observer(() => {
   const completionBadge =
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
 
+  // State for manual entry modals
   const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
   const [showManualWeightEntry, setShowManualWeightEntry] = useState<boolean>(false);
   const [showManualBloodPressureEntry, setShowManualBloodPressureEntry] = useState<boolean>(false);
+  const [stepsInput, setStepsInput] = useState<string>('');
+  const [weightInput, setWeightInput] = useState<string>('');
+  const [bpSysInput, setBpSysInput] = useState<string>('');
+  const [bpDiaInput, setBpDiaInput] = useState<string>('');
 
   // Safe questions array for feedback questionnaire
   const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
@@ -94,6 +100,7 @@ const PatientView: React.FC = observer(() => {
         patientInterventionsStore.fetchPlan(patientId, i18n.language);
         patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
         patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
+        patientVitalsStore.checkExists(patientId);
       }
 
       setLoading(false);
@@ -264,7 +271,7 @@ const PatientView: React.FC = observer(() => {
           <div className="flex p-2 pl-4 justify-between w-full">
             <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
             <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-              {0 / 2}
+              {'0 / 2'}
             </Badge>
           </div>
 
@@ -279,8 +286,11 @@ const PatientView: React.FC = observer(() => {
                   <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
                 </div>
                 <div className="w-8 h-8 shrink-0">
-                  <CircleCheckFill className="w-full h-full text-green-600" />
-                  <CircleDashedFill className="w-full h-full text-zinc-200" />
+                  {patientVitalsStore.exists ? ( // TODO: destinction between weight and blood pressure entries and display entered data
+                    <CircleCheckFill className="w-full h-full text-green-600" />
+                  ) : (
+                    <CircleDashedFill className="w-full h-full text-zinc-200" />
+                  )}
                 </div>
               </div>
 
@@ -297,8 +307,11 @@ const PatientView: React.FC = observer(() => {
                   <div className="font-medium text-sm text-zinc-500">--:-- Uhr</div>
                 </div>
                 <div className="w-8 h-8 shrink-0">
-                  <CircleCheckFill className="w-full h-full text-green-600" />
-                  <CircleDashedFill className="w-full h-full text-zinc-200" />
+                  {patientVitalsStore.exists ? ( // TODO: destinction between weight and blood pressure entries and display entered data
+                    <CircleCheckFill className="w-full h-full text-green-600" />
+                  ) : (
+                    <CircleDashedFill className="w-full h-full text-zinc-200" />
+                  )}
                 </div>
               </div>
 
@@ -308,7 +321,6 @@ const PatientView: React.FC = observer(() => {
         </div>
 
         {/*
-        <DailyVitalsPrompt />
         <ActivitySummary selectedDate={patientUiStore.selectedDate} />
         */}
       </div>
@@ -398,7 +410,12 @@ const PatientView: React.FC = observer(() => {
               <Input
                 id="weight"
                 type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="25"
+                max="400"
                 placeholder="0"
+                onChange={(e) => setWeightInput(e.target.value)}
                 className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
               />
               <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
@@ -407,9 +424,18 @@ const PatientView: React.FC = observer(() => {
             </Field>
           </div>
 
+          {patientVitalsStore.error && (
+            <Alert variant="danger">{t(patientVitalsStore.error)}</Alert>
+          )}
+
           <SheetFooter>
             <Button
-              onClick={() => {}}
+              onClick={async () => {
+                if (patientVitalsStore.posting) return;
+                if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
+                await patientVitalsStore.submit(patientId, { weight_kg: Number(weightInput) });
+                setShowManualWeightEntry(false);
+              }}
               className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
             >
               {t('Save')}
@@ -438,9 +464,17 @@ const PatientView: React.FC = observer(() => {
               <Input
                 id="systolic"
                 type="number"
-                placeholder="0"
+                inputMode="numeric"
+                step="1"
+                min="60"
+                max="250"
+                placeholder="120"
+                onChange={(e) => setBpSysInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
               />
+              <FieldDescription className="text-sm text-zinc-500">
+                {t('Upper blood pressure number (while heart beats).')}
+              </FieldDescription>
             </Field>
             <Field className="w-fit gap-1">
               <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
@@ -449,15 +483,36 @@ const PatientView: React.FC = observer(() => {
               <Input
                 id="diastolic"
                 type="number"
-                placeholder="0"
+                inputMode="numeric"
+                step="1"
+                min="40"
+                max="150"
+                placeholder="80"
+                onChange={(e) => setBpDiaInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
               />
+              <FieldDescription className="text-sm text-zinc-500">
+                {t('Lower blood pressure number (while heart rests).')}
+              </FieldDescription>
             </Field>
           </div>
 
+          {patientVitalsStore.error && (
+            <Alert variant="danger">{t(patientVitalsStore.error)}</Alert>
+          )}
+
           <SheetFooter>
             <Button
-              onClick={() => {}}
+              onClick={async () => {
+                if (patientVitalsStore.posting) return;
+                if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
+                if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
+                await patientVitalsStore.submit(patientId, {
+                  bp_sys: Number(bpSysInput),
+                  bp_dia: Number(bpDiaInput),
+                });
+                setShowManualBloodPressureEntry(false);
+              }}
               className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
             >
               {t('Save')}

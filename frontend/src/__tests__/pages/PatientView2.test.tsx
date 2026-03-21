@@ -64,7 +64,6 @@ jest.mock('@/components/Layout', () => ({ children }: any) => (
   <div data-testid="layout">{children}</div>
 ));
 jest.mock('@/components/PatientPage/FitbitStatus', () => () => <div data-testid="fitbit-btn" />);
-jest.mock('@/components/PatientPage/DailyVitalsPrompt', () => () => <div data-testid="vitals" />);
 jest.mock('@/components/PatientPage/ActivitySummary', () => () => <div data-testid="summary" />);
 jest.mock('@/components/PatientPage/DailyInterventionCard', () => () => (
   <div data-testid="daily-card" />
