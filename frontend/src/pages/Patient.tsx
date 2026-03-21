@@ -287,30 +287,32 @@ const PatientView: React.FC = observer(() => {
                       </div>
                     </div>
 
-                    <div className="flex-1">
-                      <ChartContainer
-                        config={{
-                          steps: { label: t('Steps') },
-                        }}
-                        className="w-full max-h-36"
-                      >
-                        <BarChart accessibilityLayer data={stepsHistoryData}>
-                          <CartesianGrid vertical={false} />
-                          <YAxis hide domain={[0, stepsChartMax]} />
-                          {stepsGoal !== null && (
-                            <ReferenceLine
-                              y={stepsGoal}
-                              stroke="#E4E4E7"
-                              strokeWidth={2}
-                              strokeDasharray="8 8"
-                            />
-                          )}
-                          <XAxis dataKey="date" hide />
-                          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                          <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
-                        </BarChart>
-                      </ChartContainer>
-                    </div>
+                    {patientFitbitStore.connected && (
+                      <div className="flex-1">
+                        <ChartContainer
+                          config={{
+                            steps: { label: t('Steps') },
+                          }}
+                          className="w-full max-h-36"
+                        >
+                          <BarChart accessibilityLayer data={stepsHistoryData}>
+                            <CartesianGrid vertical={false} />
+                            <YAxis hide domain={[0, stepsChartMax]} />
+                            {stepsGoal !== null && (
+                              <ReferenceLine
+                                y={stepsGoal}
+                                stroke="#E4E4E7"
+                                strokeWidth={2}
+                                strokeDasharray="8 8"
+                              />
+                            )}
+                            <XAxis dataKey="date" hide />
+                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                            <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
+                          </BarChart>
+                        </ChartContainer>
+                      </div>
+                    )}
                   </div>
                 </div>
 
