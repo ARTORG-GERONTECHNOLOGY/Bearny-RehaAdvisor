@@ -13,8 +13,8 @@ export default function PatientSkeleton() {
       {/* Main content */}
       <div className="mt-28 flex flex-col gap-2">
         <Skeleton className="h-36 w-full rounded-[40px]" />
-        <Skeleton className="h-56 w-full rounded-[40px]" />
-        <Skeleton className="h-56 w-full rounded-[40px]" />
+        <Skeleton className="h-[500px] w-full rounded-[40px]" />
+        <Skeleton className="h-[300px] w-full rounded-[40px]" />
       </div>
     </Layout>
   );
