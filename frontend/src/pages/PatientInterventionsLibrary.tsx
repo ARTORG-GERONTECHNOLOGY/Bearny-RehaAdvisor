@@ -15,6 +15,12 @@ import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryS
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
+import { Field } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { SearchIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import BarsFilterIcon from '@/assets/icons/bars-filter-fill.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -155,6 +161,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     });
   }, [sourceItems, contentType, tagFilter, aimsFilter, searchTerm, translatedTitles]);
 
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
+
   return (
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
@@ -167,21 +175,69 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         />
       )}
 
+      <div className="flex gap-2 mt-14">
+        <Field>
+          <InputGroup className="rounded-full border border-accent bg-white h-14 !px-5 !py-4">
+            <InputGroupInput
+              id="inline-end-input"
+              type="text"
+              placeholder={t('Search')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="p-0 !text-lg font-medium placeholder:text-zinc-400"
+            />
+            <InputGroupAddon align="inline-end" className="p-0">
+              <SearchIcon className="size-5 text-zinc-300" />
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
+
+        <Button
+          onClick={() => setShowFilterSheet(true)}
+          className="rounded-full border border-accent bg-white p-4 shadow-none w-14 h-14"
+        >
+          <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
+        </Button>
+      </div>
+
       {/* Filters */}
-      <InterventionFiltersCard
-        items={sourceItems as any}
-        searchTerm={searchTerm}
-        onSearchTerm={setSearchTerm}
-        contentType={contentType}
-        onContentType={setContentType}
-        aimsFilter={aimsFilter}
-        onAimsFilter={setAimsFilter}
-        tagFilter={tagFilter}
-        onTagFilter={setTagFilter}
-        loading={storeLoading}
-        resultCount={filteredItems.length}
-        onReset={resetAllFilters}
-      />
+      <Sheet open={showFilterSheet} onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}>
+        <SheetContent side="bottom">
+          <SheetHeader>
+            <SheetTitle>{t('Filter')}</SheetTitle>
+          </SheetHeader>
+
+          <InterventionFiltersCard
+            items={sourceItems as any}
+            searchTerm={searchTerm}
+            onSearchTerm={setSearchTerm}
+            contentType={contentType}
+            onContentType={setContentType}
+            aimsFilter={aimsFilter}
+            onAimsFilter={setAimsFilter}
+            tagFilter={tagFilter}
+            onTagFilter={setTagFilter}
+            loading={storeLoading}
+            resultCount={filteredItems.length}
+            onReset={resetAllFilters}
+          />
+
+          <SheetFooter className="flex gap-2">
+            <Button
+              onClick={resetAllFilters}
+              className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
+            >
+              {t('Reset filters')}
+            </Button>
+            <Button
+              onClick={() => setShowFilterSheet(false)}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
+            >
+              {t('Apply')}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* List */}
       <InterventionList
