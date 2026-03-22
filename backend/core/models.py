@@ -280,7 +280,7 @@ class Intervention(Document):
     input_from = StringField(required=False, null=True)
     lc9 = ListField(StringField(), default=list)
     original_language = StringField(required=False, null=True)
-    primary_diagnosis = StringField(required=False, null=True)
+    primary_diagnosis = ListField(StringField(), default=list)
     aim = StringField(required=False, null=True)
     topic = ListField(StringField(), default=list)
     cognitive_level = StringField(required=False, null=True)
