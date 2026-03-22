@@ -330,7 +330,7 @@ describe('PatientView', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/patient-intervention/int-77?date=2026-03-09');
   });
 
-  it('passes computed activity and history props to ActivitySection', async () => {
+  it('passes computed activity props and mapped history to ActivitySection', async () => {
     const activitySectionMock = getActivitySectionMock();
 
     render(<PatientView />);
@@ -351,7 +351,6 @@ describe('PatientView', () => {
       { date: '03-16', steps: 4000 },
       { date: '03-17', steps: 5000 },
     ]);
-    expect(firstProps.stepsChartMax).toBe(11000);
   });
 
   it('passes selected-date and vitals props to HealthCheckInSection', async () => {

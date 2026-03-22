@@ -25,7 +25,6 @@ import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
 import { getDateFnsLocale } from '@/utils/dateLocale';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
@@ -64,15 +63,6 @@ const PatientView: React.FC = observer(() => {
       };
     });
   }, [patientFitbitStore.summary?.period?.daily]);
-
-  const stepsGoal = patientFitbitStore.summary?.thresholds?.steps_goal ?? null;
-
-  const stepsChartMax = useMemo(() => {
-    const maxFromHistory =
-      stepsHistoryData.length > 0 ? Math.max(...stepsHistoryData.map((item) => item.steps)) : 0;
-    const maxReference = Math.max(maxFromHistory, stepsGoal ?? 0);
-    return maxReference > 0 ? Math.ceil(maxReference * 1.1) : 1000;
-  }, [stepsHistoryData, stepsGoal]);
 
   // State for manual entry modals
   const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
@@ -156,7 +146,6 @@ const PatientView: React.FC = observer(() => {
           stepsToday={patientFitbitStore.summary?.today?.steps}
           stepsGoal={patientFitbitStore.summary?.thresholds?.steps_goal}
           stepsHistoryData={stepsHistoryData}
-          stepsChartMax={stepsChartMax}
           activeMinutes={patientFitbitStore.summary?.today?.active_minutes}
           activeMinutesGoal={patientFitbitStore.summary?.thresholds?.active_minutes_green}
           sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
@@ -20,7 +20,6 @@ interface ActivitySectionProps {
   stepsToday?: number | null;
   stepsGoal?: number | null;
   stepsHistoryData: StepsHistoryItem[];
-  stepsChartMax: number;
   activeMinutes?: number | null;
   activeMinutesGoal?: number | null;
   sleepMinutes?: number | null;
@@ -34,7 +33,6 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
   stepsToday,
   stepsGoal,
   stepsHistoryData,
-  stepsChartMax,
   activeMinutes,
   activeMinutesGoal,
   sleepMinutes,
@@ -42,6 +40,13 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
   onOpenManualStepsEntry,
 }) => {
   const { t } = useTranslation();
+
+  const stepsChartMax = useMemo(() => {
+    const maxFromHistory =
+      stepsHistoryData.length > 0 ? Math.max(...stepsHistoryData.map((item) => item.steps)) : 0;
+    const maxReference = Math.max(maxFromHistory, stepsGoal ?? 0);
+    return maxReference > 0 ? Math.ceil(maxReference * 1.1) : 1000;
+  }, [stepsHistoryData, stepsGoal]);
 
   const formatMinutesToHM = (minutes?: number | null) => {
     if (!minutes || Number.isNaN(Number(minutes))) return '--';
