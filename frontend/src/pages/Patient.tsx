@@ -3,8 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { format, type Locale } from 'date-fns';
-import { de, enUS, fr, it } from 'date-fns/locale';
+import { format } from 'date-fns';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
@@ -21,6 +20,7 @@ import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore'
 import { patientVitalsStore } from '@/stores/patientVitalsStore';
 import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
+import { getDateFnsLocale } from '@/utils/dateLocale';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
 import {
   Sheet,
@@ -41,8 +41,7 @@ const PatientView: React.FC = observer(() => {
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
 
-  const localeMap: Record<string, Locale> = { en: enUS, de, fr, it };
-  const locale = localeMap[i18n.language.slice(0, 2)] || enUS;
+  const locale = getDateFnsLocale(i18n.language);
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -92,7 +91,7 @@ const PatientView: React.FC = observer(() => {
   const [bpSysInput, setBpSysInput] = useState<string>('');
   const [bpDiaInput, setBpDiaInput] = useState<string>('');
   const [stepsInputError, setStepsInputError] = useState<string>('');
-  const [setpsInputSubmitting, setStepsInputSubmitting] = useState<boolean>(false);
+  const [stepsInputSubmitting, setStepsInputSubmitting] = useState<boolean>(false);
 
   // Safe questions array for feedback questionnaire
   const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
@@ -231,6 +230,8 @@ const PatientView: React.FC = observer(() => {
         />
       )}
 
+      {/* TODO: Components for manual entry modals */}
+
       <Sheet
         open={showManualStepsEntry}
         onOpenChange={(open) => !open && setShowManualStepsEntry(false)}
@@ -264,7 +265,7 @@ const PatientView: React.FC = observer(() => {
           <SheetFooter>
             <Button
               onClick={async () => {
-                if (setpsInputSubmitting) return;
+                if (stepsInputSubmitting) return;
                 if (stepsInput.trim() === '' || isNaN(Number(stepsInput))) return;
 
                 setStepsInputSubmitting(true);
