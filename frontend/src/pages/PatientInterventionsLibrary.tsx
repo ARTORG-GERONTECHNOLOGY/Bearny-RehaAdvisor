@@ -6,7 +6,6 @@ import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
-import InterventionFiltersCard from '@/components/PatientLibrary/InterventionFiltersCard';
 import Layout from '@/components/Layout';
 
 import authStore from '@/stores/authStore';
@@ -21,8 +20,38 @@ import { SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import BarsFilterIcon from '@/assets/icons/bars-filter-fill.svg?react';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+
+import EducationIcon from '@/assets/icons/interventions/education.svg?react';
+import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
+import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
+import TextIcon from '@/assets/icons/interventions/text.svg?react';
+import VideoIcon from '@/assets/icons/interventions/video.svg?react';
+import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
+
+const getTypeIcon = (value: string) => {
+  const normalized = value.trim().toLocaleLowerCase();
+
+  if (normalized.includes('exercise')) return ExerciseIcon;
+  if (normalized.includes('education')) return EducationIcon;
+  if (normalized.includes('instruction')) return EducationIcon;
+
+  return null;
+};
+
+const getContentTypeIcon = (value: string) => {
+  const normalized = value.trim().toLocaleLowerCase();
+
+  if (normalized.includes('audio')) return AudioIcon;
+  if (normalized.includes('text')) return TextIcon;
+  if (normalized.includes('video')) return VideoIcon;
+  if (normalized.includes('website')) return WebsiteIcon;
+
+  return null;
+};
 
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
@@ -48,16 +77,21 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, []);
 
   // ─────────────────────────── filters ───────────────────────────
+  const durationBuckets = [5, 20, 35, 50, 60];
+  const durationLabels = ['5 min', '20 min', '35 min', '50 min', '1h+'];
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [contentType, setContentType] = useState('');
+  const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
   const [aimsFilter, setAimsFilter] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
 
   const resetAllFilters = useCallback(() => {
     setSearchTerm('');
-    setContentType('');
+    setContentTypeFilter([]);
     setAimsFilter([]);
     setTagFilter([]);
+    setDurationFilterIndices([0, 4]);
   }, []);
 
   // ─────────────────────────── tag colors ───────────────────────────
@@ -147,21 +181,93 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     // Here we add aimsFilter: assumes items have .aims array in your new model.
     const base = filterInterventions(sourceItems as any, translatedTitles, {
       patientTypeFilter: '',
-      contentTypeFilter: contentType,
+      contentTypeFilter: '',
       tagFilter,
       benefitForFilter: [], // patient library uses aims+tags; keep this empty
       searchTerm,
     });
 
-    if (!aimsFilter.length) return base;
+    const withContentType =
+      contentTypeFilter.length > 0
+        ? base.filter((it: any) =>
+            contentTypeFilter.includes(String(it?.content_type || '').trim())
+          )
+        : base;
 
-    return base.filter((it: any) => {
-      const aims: string[] = Array.isArray(it?.aims) ? it.aims : [];
-      return aimsFilter.every((a) => aims.includes(a));
+    const withAims =
+      aimsFilter.length > 0
+        ? withContentType.filter((it: any) => {
+            const aims: string[] = Array.isArray(it?.aims) ? it.aims : [];
+            return aimsFilter.every((a) => aims.includes(a));
+          })
+        : withContentType;
+
+    const withDuration = withAims.filter((it: any) => {
+      const duration = Number(it?.duration);
+      if (isNaN(duration)) return false;
+
+      const minBucket = durationBuckets[durationFilterIndices[0]];
+      const maxBucket = durationBuckets[durationFilterIndices[1]];
+      const maxBucketValue = durationFilterIndices[1] === 4 ? Infinity : maxBucket;
+      return duration >= minBucket && duration <= maxBucketValue;
     });
-  }, [sourceItems, contentType, tagFilter, aimsFilter, searchTerm, translatedTitles]);
+
+    return withDuration;
+  }, [
+    sourceItems,
+    contentTypeFilter,
+    tagFilter,
+    aimsFilter,
+    searchTerm,
+    translatedTitles,
+    durationFilterIndices,
+    durationBuckets,
+  ]);
 
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
+
+  const typeOptions = useMemo(() => {
+    const byNormalized = new Map<string, string>();
+
+    sourceItems
+      .map((it: any) => it.aims)
+      .flat()
+      .filter(Boolean)
+      .forEach((raw: string) => {
+        const value = String(raw).trim();
+        const normalized = value.toLocaleLowerCase();
+        if (!byNormalized.has(normalized)) {
+          byNormalized.set(normalized, value);
+        }
+      });
+
+    return Array.from(byNormalized.values()).map((t) => ({
+      value: t,
+      label: t,
+      Icon: getTypeIcon(t),
+    }));
+  }, [sourceItems]);
+
+  const contentOptions = useMemo(() => {
+    const byNormalized = new Map<string, string>();
+
+    sourceItems
+      .map((it: any) => it.content_type)
+      .filter(Boolean)
+      .forEach((raw: string) => {
+        const value = String(raw).trim();
+        const normalized = value.toLocaleLowerCase();
+        if (!byNormalized.has(normalized)) {
+          byNormalized.set(normalized, value);
+        }
+      });
+
+    return Array.from(byNormalized.values()).map((t) => ({
+      value: t,
+      label: t,
+      Icon: getContentTypeIcon(t),
+    }));
+  }, [sourceItems]);
 
   return (
     <Layout>
@@ -202,27 +308,84 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
       {/* Filters */}
       <Sheet open={showFilterSheet} onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}>
-        <SheetContent side="bottom">
+        <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
           <SheetHeader>
             <SheetTitle>{t('Filter')}</SheetTitle>
           </SheetHeader>
 
-          <InterventionFiltersCard
-            items={sourceItems as any}
-            searchTerm={searchTerm}
-            onSearchTerm={setSearchTerm}
-            contentType={contentType}
-            onContentType={setContentType}
-            aimsFilter={aimsFilter}
-            onAimsFilter={setAimsFilter}
-            tagFilter={tagFilter}
-            onTagFilter={setTagFilter}
-            loading={storeLoading}
-            resultCount={filteredItems.length}
-            onReset={resetAllFilters}
-          />
+          <div className="flex flex-col gap-12 flex-1 overflow-y-auto pr-3">
+            <div className="flex flex-col gap-4">
+              <div className="font-medium text-lg text-zinc-600">{t('Type')}</div>
+              <div className="flex flex-col gap-3">
+                {typeOptions.map((option) => (
+                  <div key={option.value} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
+                      {option.Icon ? (
+                        <option.Icon className="w-6 h-6" />
+                      ) : (
+                        <div className="w-6 h-6" />
+                      )}
+                      <span>{option.label}</span>
+                    </div>
+                    <Switch
+                      checked={aimsFilter.includes(option.value)}
+                      onCheckedChange={() =>
+                        setAimsFilter((prev) =>
+                          prev.includes(option.value)
+                            ? prev.filter((v) => v !== option.value)
+                            : [...prev, option.value]
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="font-medium text-lg text-zinc-600">Medium</div>
+              <div className="flex flex-col gap-3">
+                {contentOptions.map((option) => (
+                  <div key={option.value} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
+                      {option.Icon ? (
+                        <option.Icon className="w-6 h-6" />
+                      ) : (
+                        <div className="w-6 h-6" />
+                      )}
+                      <span>{option.label}</span>
+                    </div>
+                    <Switch
+                      checked={contentTypeFilter.includes(option.value)}
+                      onCheckedChange={() =>
+                        setContentTypeFilter((prev) =>
+                          prev.includes(option.value)
+                            ? prev.filter((v) => v !== option.value)
+                            : [...prev, option.value]
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="font-medium text-lg text-zinc-600">Dauer</div>
+              <Slider
+                value={durationFilterIndices}
+                min={0}
+                max={4}
+                step={1}
+                onValueChange={(value) => setDurationFilterIndices([value[0], value[1]])}
+              />
+              <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
+                {durationLabels.map((label, i) => (
+                  <span key={i}>{label}</span>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          <SheetFooter className="flex gap-2">
+          <SheetFooter className="flex gap-2 shrink-0">
             <Button
               onClick={resetAllFilters}
               className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
