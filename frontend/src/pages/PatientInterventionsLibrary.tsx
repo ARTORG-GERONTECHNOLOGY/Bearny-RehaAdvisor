@@ -1,6 +1,5 @@
 // src/pages/PatientInterventionsLibrary.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -159,58 +158,39 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   return (
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
-      <div className="d-flex flex-column min-vh-100">
-        <div className="flex-grow-1">
-          <Container className="py-3 py-sm-4">
-            {/* Error */}
-            {storeError && (
-              <Row className="mb-3">
-                <Col>
-                  <ErrorAlert
-                    message={storeError}
-                    onClose={() => patientInterventionsLibraryStore.clearError()}
-                  />
-                </Col>
-              </Row>
-            )}
 
-            {/* Filters */}
-            <Row className="mb-3">
-              <Col>
-                <InterventionFiltersCard
-                  items={sourceItems as any}
-                  searchTerm={searchTerm}
-                  onSearchTerm={setSearchTerm}
-                  contentType={contentType}
-                  onContentType={setContentType}
-                  aimsFilter={aimsFilter}
-                  onAimsFilter={setAimsFilter}
-                  tagFilter={tagFilter}
-                  onTagFilter={setTagFilter}
-                  loading={storeLoading}
-                  resultCount={filteredItems.length}
-                  onReset={resetAllFilters}
-                />
-              </Col>
-            </Row>
+      {/* Error */}
+      {storeError && (
+        <ErrorAlert
+          message={storeError}
+          onClose={() => patientInterventionsLibraryStore.clearError()}
+        />
+      )}
 
-            {/* List */}
-            <Row>
-              <Col xs={12}>
-                <div className="w-full overflow-hidden">
-                  <InterventionList
-                    items={filteredItems as any}
-                    onClick={openDetails}
-                    t={t}
-                    tagColors={tagColors}
-                    translatedTitles={translatedTitles}
-                  />
-                </div>
-              </Col>
-            </Row>
-          </Container>
-        </div>
-      </div>
+      {/* Filters */}
+      <InterventionFiltersCard
+        items={sourceItems as any}
+        searchTerm={searchTerm}
+        onSearchTerm={setSearchTerm}
+        contentType={contentType}
+        onContentType={setContentType}
+        aimsFilter={aimsFilter}
+        onAimsFilter={setAimsFilter}
+        tagFilter={tagFilter}
+        onTagFilter={setTagFilter}
+        loading={storeLoading}
+        resultCount={filteredItems.length}
+        onReset={resetAllFilters}
+      />
+
+      {/* List */}
+      <InterventionList
+        items={filteredItems as any}
+        onClick={openDetails}
+        t={t}
+        tagColors={tagColors}
+        translatedTitles={translatedTitles}
+      />
     </Layout>
   );
 });
