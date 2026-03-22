@@ -45,7 +45,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
     return (
       <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4" aria-label={ariaLabel}>
         <div className="flex p-2 pl-4 justify-between w-full">
-          <div className="text-lg font-[500] text-zinc-600">{headerText}</div>
+          <div className="text-lg font-[500] text-zinc-500">{headerText}</div>
           {badgeText && (
             <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
               {badgeText}

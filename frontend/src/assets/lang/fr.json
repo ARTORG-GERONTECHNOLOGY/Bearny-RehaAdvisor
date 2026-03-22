@@ -909,5 +909,15 @@
   "(7d)": "(7j)",
   "No Fitbit data": "Pas de données Fitbit",
   "Wear": "Port",
-  "Failed to load media, use the link below to open it in a new tab.": "Impossible de charger le média. Utilisez le lien ci-dessous pour l'ouvrir dans un nouvel onglet."
+  "Failed to load media, use the link below to open it in a new tab.": "Impossible de charger le média. Utilisez le lien ci-dessous pour l'ouvrir dans un nouvel onglet.",
+  "Todays Activity": "Activite du jour",
+  "Fitbit Connected": "Fitbit connecte",
+  "Connect Fitbit": "Connecter Fitbit",
+  "Fitbit": "Fitbit",
+  "Fitness Tracker": "Traqueur d'activite",
+  "Manual entry": "Saisie manuelle",
+  "Goal": "Objectif",
+  "CheckIn": "Check-in",
+  "WeightLabel": "Poids",
+  "WeightUnit": "Kg"
 }

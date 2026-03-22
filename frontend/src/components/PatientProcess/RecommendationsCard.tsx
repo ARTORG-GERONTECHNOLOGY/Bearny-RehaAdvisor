@@ -40,7 +40,7 @@ const RecommendationsCard: React.FC<Props> = ({
         </div>
 
         <div className="flex-1">
-          <ChartContainer config={chartConfig} className="w-full">
+          <ChartContainer config={chartConfig} className="w-full max-h-36">
             <BarChart
               layout="vertical"
               accessibilityLayer
