@@ -11,6 +11,9 @@ import ActivitySection from '@/components/PatientPage/ActivitySection';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import HealthCheckInSection from '@/components/PatientPage/HealthCheckInSection';
+import ManualBloodPressureSheet from '@/components/PatientPage/ManualBloodPressureSheet';
+import ManualStepsSheet from '@/components/PatientPage/ManualStepsSheet';
+import ManualWeightSheet from '@/components/PatientPage/ManualWeightSheet';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
 import authStore from '@/stores/authStore';
 import { patientUiStore } from '@/stores/patientUiStore';
@@ -22,18 +25,6 @@ import { useInterventions } from '@/hooks/useInterventions';
 import type { PatientType } from '@/types';
 import { getDateFnsLocale } from '@/utils/dateLocale';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { Alert } from 'react-bootstrap';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PatientView: React.FC = observer(() => {
@@ -56,6 +47,7 @@ const PatientView: React.FC = observer(() => {
     completionCount.total > 0 ? `${completionCount.completed}/${completionCount.total}` : undefined;
 
   const selectedDateLabel = format(patientUiStore.selectedDate, 'dd.MM.yyyy', { locale });
+  const selectedDateLongLabel = format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale });
 
   const stepsHistoryData = useMemo(() => {
     const dailyRows = patientFitbitStore.summary?.period?.daily;
@@ -199,6 +191,67 @@ const PatientView: React.FC = observer(() => {
         )}
       </div>
 
+      <ManualStepsSheet
+        open={showManualStepsEntry}
+        dateLabel={selectedDateLongLabel}
+        error={stepsInputError}
+        onClose={() => setShowManualStepsEntry(false)}
+        onChange={setStepsInput}
+        onSave={async () => {
+          if (stepsInputSubmitting) return;
+          if (stepsInput.trim() === '' || isNaN(Number(stepsInput))) return;
+
+          setStepsInputSubmitting(true);
+          try {
+            await patientFitbitStore.submitManualSteps(
+              patientId,
+              format(new Date(), 'yyyy-MM-dd'),
+              Number(stepsInput)
+            );
+            setShowManualStepsEntry(false);
+          } catch {
+            setStepsInputError(t('Failed to save steps. Please try again.'));
+          } finally {
+            setStepsInputSubmitting(false);
+          }
+        }}
+      />
+
+      <ManualWeightSheet
+        open={showManualWeightEntry}
+        dateLabel={selectedDateLongLabel}
+        error={patientVitalsStore.error || ''}
+        onClose={() => setShowManualWeightEntry(false)}
+        onChange={setWeightInput}
+        onSave={async () => {
+          if (patientVitalsStore.posting) return;
+          if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
+          await patientVitalsStore.submit(patientId, { weight_kg: Number(weightInput) });
+          patientFitbitStore.fetchSummary(patientId, 7);
+          setShowManualWeightEntry(false);
+        }}
+      />
+
+      <ManualBloodPressureSheet
+        open={showManualBloodPressureEntry}
+        dateLabel={selectedDateLongLabel}
+        error={patientVitalsStore.error || ''}
+        onClose={() => setShowManualBloodPressureEntry(false)}
+        onSysChange={setBpSysInput}
+        onDiaChange={setBpDiaInput}
+        onSave={async () => {
+          if (patientVitalsStore.posting) return;
+          if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
+          if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
+          await patientVitalsStore.submit(patientId, {
+            bp_sys: Number(bpSysInput),
+            bp_dia: Number(bpDiaInput),
+          });
+          patientFitbitStore.fetchSummary(patientId, 7);
+          setShowManualBloodPressureEntry(false);
+        }}
+      />
+
       {/* Intervention Feedback Popup */}
       {patientQuestionnairesStore.showFeedbackPopup && (
         <FeedbackPopup
@@ -229,196 +282,6 @@ const PatientView: React.FC = observer(() => {
           handleClose={() => patientQuestionnairesStore.closeInitial()}
         />
       )}
-
-      {/* TODO: Components for manual entry modals */}
-
-      <Sheet
-        open={showManualStepsEntry}
-        onOpenChange={(open) => !open && setShowManualStepsEntry(false)}
-      >
-        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
-          <SheetHeader>
-            <SheetTitle>{t('Steps')}</SheetTitle>
-            <SheetDescription>
-              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-            <Field className="w-fit flex flex-row items-center gap-3">
-              <Input
-                id="steps"
-                type="number"
-                min="0"
-                placeholder="0"
-                onChange={(e) => setStepsInput(e.target.value)}
-                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-              />
-              <FieldLabel htmlFor="steps" className="font-bold text-2xl text-zinc-300">
-                {t('Steps')}
-              </FieldLabel>
-            </Field>
-          </div>
-
-          {stepsInputError && <Alert variant="danger">{t(stepsInputError)}</Alert>}
-
-          <SheetFooter>
-            <Button
-              onClick={async () => {
-                if (stepsInputSubmitting) return;
-                if (stepsInput.trim() === '' || isNaN(Number(stepsInput))) return;
-
-                setStepsInputSubmitting(true);
-                try {
-                  await patientFitbitStore.submitManualSteps(
-                    patientId,
-                    format(new Date(), 'yyyy-MM-dd'),
-                    Number(stepsInput)
-                  );
-                  setShowManualStepsEntry(false);
-                } catch {
-                  setStepsInputError(t('Failed to save steps. Please try again.'));
-                } finally {
-                  setStepsInputSubmitting(false);
-                }
-              }}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Save')}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={showManualWeightEntry}
-        onOpenChange={(open) => !open && setShowManualWeightEntry(false)}
-      >
-        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
-          <SheetHeader>
-            <SheetTitle>{t('WeightLabel')}</SheetTitle>
-            <SheetDescription>
-              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-            <Field className="w-fit flex flex-row items-center gap-3">
-              <Input
-                id="weight"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="25"
-                max="400"
-                placeholder="0"
-                onChange={(e) => setWeightInput(e.target.value)}
-                className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-              />
-              <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
-                Kg
-              </FieldLabel>
-            </Field>
-          </div>
-
-          {patientVitalsStore.error && (
-            <Alert variant="danger">{t(patientVitalsStore.error)}</Alert>
-          )}
-
-          <SheetFooter>
-            <Button
-              onClick={async () => {
-                if (patientVitalsStore.posting) return;
-                if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
-                await patientVitalsStore.submit(patientId, { weight_kg: Number(weightInput) });
-                patientFitbitStore.fetchSummary(patientId, 7);
-                setShowManualWeightEntry(false);
-              }}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Save')}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={showManualBloodPressureEntry}
-        onOpenChange={(open) => !open && setShowManualBloodPressureEntry(false)}
-      >
-        <SheetContent side="bottom" className="flex flex-col min-h-[500px]">
-          <SheetHeader>
-            <SheetTitle>{t('Blood pressure')}</SheetTitle>
-            <SheetDescription>
-              {format(patientUiStore.selectedDate, 'dd. MMMM yyyy', { locale })}
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-            <Field className="w-fit gap-1">
-              <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
-                SYS
-              </FieldLabel>
-              <Input
-                id="systolic"
-                type="number"
-                inputMode="numeric"
-                step="1"
-                min="60"
-                max="250"
-                placeholder="120"
-                onChange={(e) => setBpSysInput(e.target.value)}
-                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-              />
-              <FieldDescription className="text-sm text-zinc-500">
-                {t('Upper blood pressure number (while heart beats).')}
-              </FieldDescription>
-            </Field>
-            <Field className="w-fit gap-1">
-              <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
-                DIA
-              </FieldLabel>
-              <Input
-                id="diastolic"
-                type="number"
-                inputMode="numeric"
-                step="1"
-                min="40"
-                max="150"
-                placeholder="80"
-                onChange={(e) => setBpDiaInput(e.target.value)}
-                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-              />
-              <FieldDescription className="text-sm text-zinc-500">
-                {t('Lower blood pressure number (while heart rests).')}
-              </FieldDescription>
-            </Field>
-          </div>
-
-          {patientVitalsStore.error && (
-            <Alert variant="danger">{t(patientVitalsStore.error)}</Alert>
-          )}
-
-          <SheetFooter>
-            <Button
-              onClick={async () => {
-                if (patientVitalsStore.posting) return;
-                if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
-                if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
-                await patientVitalsStore.submit(patientId, {
-                  bp_sys: Number(bpSysInput),
-                  bp_dia: Number(bpDiaInput),
-                });
-                patientFitbitStore.fetchSummary(patientId, 7);
-                setShowManualBloodPressureEntry(false);
-              }}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Save')}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </Layout>
   );
 });
