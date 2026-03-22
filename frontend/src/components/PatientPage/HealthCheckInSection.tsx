@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface HealthCheckInSectionProps {
+  loading?: boolean;
   selectedDateLabel: string;
   weightKg?: number | null;
   bpSys?: number | null;
@@ -14,6 +16,7 @@ interface HealthCheckInSectionProps {
 }
 
 const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
+  loading,
   selectedDateLabel,
   weightKg,
   bpSys,
@@ -27,6 +30,15 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
   const hasBloodPressureEntry =
     bpSys !== null && bpSys !== undefined && bpDia !== null && bpDia !== undefined;
   const checkInEnteredCount = Number(hasWeightEntry) + Number(hasBloodPressureEntry);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+        <div className="p-2 pl-4 text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
+        <Skeleton className="w-full h-[200px] rounded-3xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">

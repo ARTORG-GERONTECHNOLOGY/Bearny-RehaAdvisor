@@ -104,7 +104,6 @@ const PatientView: React.FC = observer(() => {
 
       if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
 
-      // Load interventions and questionnaires if patient is authenticated
       if (patientId) {
         patientFitbitStore.fetchStatus(patientId);
         patientFitbitStore.fetchSummary(patientId, 7);
@@ -151,38 +150,33 @@ const PatientView: React.FC = observer(() => {
 
         {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
 
-        {patientFitbitStore.connected === null ||
-        patientFitbitStore.summaryLoading ||
-        patientVitalsStore.loading ? (
-          <>
-            <Skeleton className="h-[500px] w-full rounded-[40px]" />
-            <Skeleton className="h-[300px] w-full rounded-[40px]" />
-          </>
-        ) : (
-          <>
-            <ActivitySection
-              connected={Boolean(patientFitbitStore.connected)}
-              stepsToday={patientFitbitStore.summary?.today?.steps}
-              stepsGoal={patientFitbitStore.summary?.thresholds?.steps_goal}
-              stepsHistoryData={stepsHistoryData}
-              stepsChartMax={stepsChartMax}
-              activeMinutes={patientFitbitStore.summary?.today?.active_minutes}
-              activeMinutesGoal={patientFitbitStore.summary?.thresholds?.active_minutes_green}
-              sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}
-              sleepMinutesGoal={patientFitbitStore.summary?.thresholds?.sleep_green_min}
-              onOpenManualStepsEntry={() => setShowManualStepsEntry(true)}
-            />
+        <ActivitySection
+          loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
+          connected={Boolean(patientFitbitStore.connected)}
+          stepsToday={patientFitbitStore.summary?.today?.steps}
+          stepsGoal={patientFitbitStore.summary?.thresholds?.steps_goal}
+          stepsHistoryData={stepsHistoryData}
+          stepsChartMax={stepsChartMax}
+          activeMinutes={patientFitbitStore.summary?.today?.active_minutes}
+          activeMinutesGoal={patientFitbitStore.summary?.thresholds?.active_minutes_green}
+          sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}
+          sleepMinutesGoal={patientFitbitStore.summary?.thresholds?.sleep_green_min}
+          onOpenManualStepsEntry={() => setShowManualStepsEntry(true)}
+        />
 
-            <HealthCheckInSection
-              selectedDateLabel={selectedDateLabel}
-              weightKg={patientFitbitStore.summary?.today?.weight_kg}
-              bpSys={patientFitbitStore.summary?.today?.bp_sys}
-              bpDia={patientFitbitStore.summary?.today?.bp_dia}
-              onOpenWeightEntry={() => setShowManualWeightEntry(true)}
-              onOpenBloodPressureEntry={() => setShowManualBloodPressureEntry(true)}
-            />
-          </>
-        )}
+        <HealthCheckInSection
+          loading={
+            patientFitbitStore.connected === null ||
+            patientFitbitStore.summaryLoading ||
+            patientVitalsStore.loading
+          }
+          selectedDateLabel={selectedDateLabel}
+          weightKg={patientFitbitStore.summary?.today?.weight_kg}
+          bpSys={patientFitbitStore.summary?.today?.bp_sys}
+          bpDia={patientFitbitStore.summary?.today?.bp_dia}
+          onOpenWeightEntry={() => setShowManualWeightEntry(true)}
+          onOpenBloodPressureEntry={() => setShowManualBloodPressureEntry(true)}
+        />
       </div>
 
       <ManualStepsSheet

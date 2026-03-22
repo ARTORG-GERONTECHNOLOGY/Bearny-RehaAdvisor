@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StepsHistoryItem {
   date: string;
@@ -14,6 +15,7 @@ interface StepsHistoryItem {
 }
 
 interface ActivitySectionProps {
+  loading: boolean;
   connected: boolean;
   stepsToday?: number | null;
   stepsGoal?: number | null;
@@ -27,6 +29,7 @@ interface ActivitySectionProps {
 }
 
 const ActivitySection: React.FC<ActivitySectionProps> = ({
+  loading,
   connected,
   stepsToday,
   stepsGoal,
@@ -47,6 +50,15 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
     const mins = total % 60;
     return `${hours}h ${mins}min`;
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+        <div className="p-2 pl-4 text-lg font-[500] text-zinc-500">{t('Todays Activity')}</div>
+        <Skeleton className="w-full h-[400px] rounded-3xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
