@@ -269,6 +269,74 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     }));
   }, [sourceItems]);
 
+  const exerciseItems = useMemo(
+    () =>
+      filteredItems.filter((it: any) =>
+        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
+          String(aim).toLocaleLowerCase().includes('exercise')
+        )
+      ),
+    [filteredItems]
+  );
+
+  const educationItems = useMemo(
+    () =>
+      filteredItems.filter((it: any) =>
+        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
+          String(aim).toLocaleLowerCase().includes('education')
+        )
+      ),
+    [filteredItems]
+  );
+
+  const instructionItems = useMemo(
+    () =>
+      filteredItems.filter((it: any) =>
+        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
+          String(aim).toLocaleLowerCase().includes('instruction')
+        )
+      ),
+    [filteredItems]
+  );
+
+  const [showTypeSheet, setShowTypeSheet] = useState<boolean>(false);
+  const [activeTypeSection, setActiveTypeSection] = useState<
+    'exercise' | 'education' | 'instruction'
+  >('exercise');
+
+  const typeSections = useMemo(
+    () => [
+      {
+        key: 'exercise' as const,
+        title: t('Exercise'),
+        Icon: ExerciseIcon,
+        items: exerciseItems,
+      },
+      {
+        key: 'education' as const,
+        title: t('Education'),
+        Icon: EducationIcon,
+        items: educationItems,
+      },
+      {
+        key: 'instruction' as const,
+        title: t('Instruction'),
+        Icon: EducationIcon,
+        items: instructionItems,
+      },
+    ],
+    [t, exerciseItems, educationItems, instructionItems]
+  );
+
+  const visibleTypeSections = useMemo(
+    () => typeSections.filter((section) => section.items.length > 0),
+    [typeSections]
+  );
+
+  const activeTypeData =
+    visibleTypeSections.find((section) => section.key === activeTypeSection) ||
+    visibleTypeSections[0];
+
   return (
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
@@ -402,14 +470,58 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         </SheetContent>
       </Sheet>
 
-      {/* List */}
-      <InterventionList
-        items={filteredItems as any}
-        onClick={openDetails}
-        t={t}
-        tagColors={tagColors}
-        translatedTitles={translatedTitles}
-      />
+      {/* Lists by type */}
+      <div className="mt-6 flex flex-col gap-2">
+        {visibleTypeSections.map((section) => (
+          <section
+            key={section.key}
+            className="rounded-[40px] bg-white p-4 cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setActiveTypeSection(section.key);
+              setShowTypeSheet(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTypeSection(section.key);
+                setShowTypeSheet(true);
+              }
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 font-semibold text-lg text-zinc-900">
+                <section.Icon className="w-6 h-6" />
+                <span>{section.title}</span>
+              </div>
+              <span className="text-sm text-zinc-500">
+                {section.items.length} {t('items')}
+              </span>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <Sheet open={showTypeSheet} onOpenChange={setShowTypeSheet}>
+        <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{activeTypeData?.title}</SheetTitle>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto pr-3">
+            {activeTypeData && (
+              <InterventionList
+                items={activeTypeData.items}
+                onClick={openDetails}
+                t={t}
+                tagColors={tagColors}
+                translatedTitles={translatedTitles}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 });
