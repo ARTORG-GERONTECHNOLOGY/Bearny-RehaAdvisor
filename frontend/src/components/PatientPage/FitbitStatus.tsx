@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { patientFitbitStore } from '../../stores/patientFitbitStore';
-import authStore from '../../stores/authStore';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
+import authStore from '@/stores/authStore';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import ConnectionIcon from '@/assets/icons/wifi-fill.svg?react';
 
 const FITBIT_CLIENT_ID = '23QHGK';
 const FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/';
@@ -9,6 +12,7 @@ const FITBIT_SCOPES =
   'activity heartrate respiratory_rate oxygen_saturation temperature electrocardiogram profile sleep';
 
 const FitbitConnectButton: React.FC = observer(() => {
+  const { t } = useTranslation();
   const patientId = useMemo(() => localStorage.getItem('id') || authStore.id, []);
 
   useEffect(() => {
@@ -28,19 +32,11 @@ const FitbitConnectButton: React.FC = observer(() => {
     `&expires_in=604800`;
 
   return (
-    <a href={authUrl}>
-      <button
-        type="button"
-        style={{
-          background: '#00B0B9',
-          color: 'white',
-          padding: '0.5rem 1rem',
-          borderRadius: 5,
-          border: 'none',
-        }}
-      >
-        Connect Fitbit
-      </button>
+    <a href={authUrl} className="no-underline">
+      <Button className="rounded-full p-4 pl-5 flex gap-2 bg-[#00956C] items-center text-zinc-50 border-none shadow-none">
+        <div className="font-medium text-lg">{t('Connect Fitbit')}</div>
+        <ConnectionIcon className="w-6 h-6 !size-6" />
+      </Button>
     </a>
   );
 });
