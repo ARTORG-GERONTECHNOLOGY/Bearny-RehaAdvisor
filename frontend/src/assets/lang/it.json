@@ -919,5 +919,15 @@
   "(7d)": "(7g)",
   "No Fitbit data": "Nessun dato Fitbit",
   "Wear": "Utilizzo",
-  "Failed to load media, use the link below to open it in a new tab.": "Impossibile caricare il contenuto multimediale. Usa il link qui sotto per aprirlo in una nuova scheda."
+  "Failed to load media, use the link below to open it in a new tab.": "Impossibile caricare il contenuto multimediale. Usa il link qui sotto per aprirlo in una nuova scheda.",
+  "Todays Activity": "Attivita di oggi",
+  "Fitbit Connected": "Fitbit connesso",
+  "Connect Fitbit": "Connetti Fitbit",
+  "Fitbit": "Fitbit",
+  "Fitness Tracker": "Fitness tracker",
+  "Manual entry": "Inserimento manuale",
+  "Goal": "Obiettivo",
+  "CheckIn": "Check-in",
+  "WeightLabel": "Peso",
+  "WeightUnit": "Kg"
 }

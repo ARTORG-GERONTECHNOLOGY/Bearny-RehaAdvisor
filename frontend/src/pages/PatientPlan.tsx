@@ -4,14 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
-import { startOfWeek, addDays, format, isToday, endOfWeek, type Locale } from 'date-fns';
-import { de, enUS, fr, it } from 'date-fns/locale';
+import { startOfWeek, addDays, format, isToday, endOfWeek } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import authStore from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import { getDateFnsLocale } from '@/utils/dateLocale';
 
 type DayFilter = 'all' | 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -22,8 +22,7 @@ const PatientPlan: React.FC = observer(() => {
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
-  const localeMap: Record<string, Locale> = { en: enUS, de, fr, it };
-  const locale = localeMap[i18n.language.slice(0, 2)] || enUS;
+  const locale = getDateFnsLocale(i18n.language);
 
   const start = startOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 });
   const end = endOfWeek(patientUiStore.selectedDate, { weekStartsOn: 1 });
