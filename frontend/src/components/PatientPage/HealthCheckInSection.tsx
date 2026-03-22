@@ -26,10 +26,10 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const hasWeightEntry = weightKg !== null && weightKg !== undefined;
-  const hasBloodPressureEntry =
-    bpSys !== null && bpSys !== undefined && bpDia !== null && bpDia !== undefined;
-  const checkInEnteredCount = Number(hasWeightEntry) + Number(hasBloodPressureEntry);
+  const hasWeightEntry = weightKg != null;
+  const hasBloodPressureEntry = bpSys != null && bpDia != null;
+  const checkInEntries = [hasWeightEntry, hasBloodPressureEntry];
+  const checkInEnteredCount = checkInEntries.filter(Boolean).length;
 
   if (loading) {
     return (
@@ -45,7 +45,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-[500] text-zinc-500">{t('CheckIn')}</div>
         <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-          {checkInEnteredCount} / 2
+          {checkInEnteredCount} / {checkInEntries.length}
         </Badge>
       </div>
 
