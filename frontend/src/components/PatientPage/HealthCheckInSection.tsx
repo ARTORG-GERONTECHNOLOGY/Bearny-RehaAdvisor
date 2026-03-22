@@ -57,7 +57,9 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             </div>
           </div>
 
-          <div className="font-bold text-[28px] text-zinc-900">{weightKg || '--'} kg</div>
+          <div className="font-bold text-[28px] text-zinc-900">
+            {weightKg || '--'} {t('WeightUnit').toLocaleLowerCase()}
+          </div>
         </div>
 
         <div

@@ -914,5 +914,6 @@
   "Manual entry": "Manual entry",
   "Goal": "Goal",
   "CheckIn": "Check-in",
-  "WeightLabel": "Weight"
+  "WeightLabel": "Weight",
+  "WeightUnit": "Kg"
 }

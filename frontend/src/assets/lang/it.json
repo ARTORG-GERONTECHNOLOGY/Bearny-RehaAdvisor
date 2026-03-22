@@ -927,5 +927,6 @@
   "Manual entry": "Inserimento manuale",
   "Goal": "Obiettivo",
   "CheckIn": "Check-in",
-  "WeightLabel": "Peso"
+  "WeightLabel": "Peso",
+  "WeightUnit": "Kg"
 }

@@ -69,7 +69,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
         <div className="flex-1 flex flex-col gap-4 items-center justify-center">
           <Field className="w-fit gap-1">
             <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
-              SYS
+              {t('Systolic (mmHg)')}
             </FieldLabel>
             <Input
               id="systolic"
@@ -88,7 +88,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
           </Field>
           <Field className="w-fit gap-1">
             <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
-              DIA
+              {t('Diastolic (mmHg)')}
             </FieldLabel>
             <Input
               id="diastolic"

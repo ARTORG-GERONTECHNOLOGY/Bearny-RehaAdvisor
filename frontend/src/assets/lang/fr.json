@@ -917,5 +917,6 @@
   "Manual entry": "Saisie manuelle",
   "Goal": "Objectif",
   "CheckIn": "Check-in",
-  "WeightLabel": "Poids"
+  "WeightLabel": "Poids",
+  "WeightUnit": "Kg"
 }

@@ -914,5 +914,6 @@
   "Manual entry": "Handmatige invoer",
   "Goal": "Doel",
   "CheckIn": "Check-in",
-  "WeightLabel": "Gewicht"
+  "WeightLabel": "Gewicht",
+  "WeightUnit": "Kg"
 }

@@ -930,5 +930,6 @@
   "Manual entry": "Entrada manual",
   "Goal": "Meta",
   "CheckIn": "Check-in",
-  "WeightLabel": "Peso"
+  "WeightLabel": "Peso",
+  "WeightUnit": "Kg"
 }

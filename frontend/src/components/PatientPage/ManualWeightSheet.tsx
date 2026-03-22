@@ -77,7 +77,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
               className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
             />
             <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
-              Kg
+              {t('WeightUnit')}
             </FieldLabel>
           </Field>
         </div>
