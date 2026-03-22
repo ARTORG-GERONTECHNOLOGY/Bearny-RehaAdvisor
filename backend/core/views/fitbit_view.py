@@ -145,6 +145,7 @@ def fitbit_summary(request, patient_id=None):
 
         bp_sys_vals = []
         bp_dia_vals = []
+        weight_vals = []
 
         valid_days = 0
         last_sync = None
@@ -201,7 +202,7 @@ def fitbit_summary(request, patient_id=None):
                 awake_window = max(0, 1440 - wake_minute)
 
             # -----------------------------
-            # BP resolution: FitbitData first, else PatientVitals day map
+            # BP & Weight resolution: FitbitData first, else PatientVitals day map
             # -----------------------------
             day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
 
@@ -213,6 +214,12 @@ def fitbit_summary(request, patient_id=None):
                 bp_sys = bp_sys if bp_sys is not None else vday.get("bp_sys")
                 bp_dia = bp_dia if bp_dia is not None else vday.get("bp_dia")
 
+            weight_kg = getattr(d, "weight_kg", None)
+
+            if weight_kg is None:
+                vday = vitals_by_day.get(day_key) or {}
+                weight_kg = vday.get("weight_kg")
+
             row = {
                 "date": d.date.isoformat(),
                 "steps": st,
@@ -220,6 +227,7 @@ def fitbit_summary(request, patient_id=None):
                 "sleep_minutes": sm,
                 "bp_sys": bp_sys,
                 "bp_dia": bp_dia,
+                "weight_kg": weight_kg,
             }
             daily.append(row)
 
@@ -230,6 +238,7 @@ def fitbit_summary(request, patient_id=None):
                 or (sm not in (None, 0))
                 or (bp_sys is not None)
                 or (bp_dia is not None)
+                or (weight_kg is not None)
             )
 
             if has_real_data:
@@ -242,6 +251,8 @@ def fitbit_summary(request, patient_id=None):
                     bp_sys_vals.append(int(bp_sys))
                 if bp_dia is not None:
                     bp_dia_vals.append(int(bp_dia))
+                if weight_kg is not None:
+                    weight_vals.append(float(weight_kg))
 
             last_sync = d.date
 
@@ -265,7 +276,7 @@ def fitbit_summary(request, patient_id=None):
 
             _parse_sleep_end(sleep_end_raw, day_start_today)
 
-            # BP resolution for today
+            # BP & Weight resolution for today
             day_key_today = today.date.astimezone(timezone.get_current_timezone()).date().isoformat()
             bp_sys_today = getattr(today, "bp_sys", None)
             bp_dia_today = getattr(today, "bp_dia", None)
@@ -273,6 +284,10 @@ def fitbit_summary(request, patient_id=None):
                 vday = vitals_by_day.get(day_key_today) or {}
                 bp_sys_today = bp_sys_today if bp_sys_today is not None else vday.get("bp_sys")
                 bp_dia_today = bp_dia_today if bp_dia_today is not None else vday.get("bp_dia")
+            weight_today = getattr(today, "weight_kg", None)
+            if weight_today is None:
+                vday = vitals_by_day.get(day_key_today) or {}
+                weight_today = vday.get("weight_kg")
 
             today_payload = {
                 "steps": int(today.steps or 0),
@@ -281,6 +296,7 @@ def fitbit_summary(request, patient_id=None):
                 "resting_heart_rate": (int(today.resting_heart_rate) if today.resting_heart_rate is not None else None),
                 "bp_sys": bp_sys_today,
                 "bp_dia": bp_dia_today,
+                "weight_kg": weight_today,
             }
 
         def avg_nums(vals):
@@ -302,6 +318,7 @@ def fitbit_summary(request, patient_id=None):
                         # BP totals are not very meaningful; keep or remove as you prefer:
                         "bp_sys": (sum([int(x) for x in bp_sys_vals]) if bp_sys_vals else None),
                         "bp_dia": (sum([int(x) for x in bp_dia_vals]) if bp_dia_vals else None),
+                        "weight_kg": (sum(weight_vals) if weight_vals else None),
                     },
                     "averages": {
                         "steps": avg_excluding_zero(steps_tot),
@@ -309,6 +326,7 @@ def fitbit_summary(request, patient_id=None):
                         "sleep_minutes": avg_excluding_zero(sleep_tot),
                         "bp_sys": avg_nums(bp_sys_vals),
                         "bp_dia": avg_nums(bp_dia_vals),
+                        "weight_kg": avg_nums(weight_vals),
                     },
                     "daily": daily,
                 },

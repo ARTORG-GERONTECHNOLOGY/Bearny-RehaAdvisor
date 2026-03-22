@@ -3,7 +3,6 @@ import { observer } from 'mobx-react-lite';
 import { Button, Card, Row, Col, ToggleButtonGroup, ToggleButton, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { startOfWeek, addDays, format, isToday, isPast, endOfWeek } from 'date-fns';
-import { enUS, de, fr, it } from 'date-fns/locale';
 
 import {
   getBadgeVariantFromIntervention,
@@ -20,6 +19,8 @@ import { patientUiStore } from '../../stores/patientUiStore';
 import { patientInterventionsStore, PatientRec } from '../../stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '../../stores/patientQuestionnairesStore';
 import { generateTagColors, getTaxonomyTags } from '../../utils/interventions';
+import { getDateFnsLocale } from '@/utils/dateLocale';
+
 // ---------- helpers ----------
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -73,11 +74,8 @@ const InterventionList: React.FC = observer(() => {
   // key = `${interventionId}__${yyyy-MM-dd}`
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const localeMap: Record<string, any> = { en: enUS, de, fr, it };
-  const currentLocale = useMemo(
-    () => localeMap[(i18n.language || 'en').slice(0, 2)] || enUS,
-    [i18n.language]
-  );
+  const locale = getDateFnsLocale(i18n.language);
+
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
   useEffect(() => {
     if (!patientId) return;
@@ -249,8 +247,8 @@ const InterventionList: React.FC = observer(() => {
     const sorted = sortDayItems(listForDay, date);
     const today = isToday(date);
 
-    const dayLabel = format(date, 'EEE dd.MM', { locale: currentLocale });
-    const dayFullLabel = format(date, 'EEEE, dd.MM.yyyy', { locale: currentLocale });
+    const dayLabel = format(date, 'EEE dd.MM', { locale });
+    const dayFullLabel = format(date, 'EEEE, dd.MM.yyyy', { locale });
 
     return (
       <section
@@ -436,8 +434,8 @@ const InterventionList: React.FC = observer(() => {
     return (
       <>
         <h5 className="text-center mb-3 week-title" aria-live="polite">
-          {format(start, 'dd.MM', { locale: currentLocale })} –{' '}
-          {format(end, 'dd.MM', { locale: currentLocale })} ({t('Week')} {weekNumber})
+          {format(start, 'dd.MM', { locale })} – {format(end, 'dd.MM', { locale })} ({t('Week')}{' '}
+          {weekNumber})
         </h5>
 
         <div className="week-grid" role="grid" aria-label={t('Weekly interventions grid')}>
@@ -452,7 +450,7 @@ const InterventionList: React.FC = observer(() => {
   };
 
   const renderDayView = () => {
-    const short = format(patientUiStore.selectedDate, 'EEE dd.MM.yyyy', { locale: currentLocale });
+    const short = format(patientUiStore.selectedDate, 'EEE dd.MM.yyyy', { locale });
     const label = isToday(patientUiStore.selectedDate) ? `${short} (${t('Today')})` : short;
 
     return (
