@@ -18,6 +18,7 @@ export type DailyRow = {
   steps: number;
   active_minutes?: number;
   sleep_minutes?: number;
+  weight_kg?: number | null;
   bp_sys?: number | null;
   bp_dia?: number | null;
 };
@@ -31,6 +32,7 @@ export type FitbitSummary = {
     active_minutes?: number;
     sleep_minutes?: number;
     resting_heart_rate?: number | null;
+    weight_kg?: number | null;
     bp_sys?: number | null;
     bp_dia?: number | null;
   } | null;
@@ -40,6 +42,7 @@ export type FitbitSummary = {
       steps?: number;
       active_minutes?: number;
       sleep_minutes?: number;
+      weight_kg?: number | null;
       bp_sys?: number | null;
       bp_dia?: number | null;
     };
@@ -47,6 +50,7 @@ export type FitbitSummary = {
       steps?: number;
       active_minutes?: number;
       sleep_minutes?: number;
+      weight_kg?: number | null;
       bp_sys?: number | null;
       bp_dia?: number | null;
     };

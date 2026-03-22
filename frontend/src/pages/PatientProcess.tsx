@@ -55,7 +55,7 @@ const PatientProcess: React.FC = observer(() => {
         steps: { label: t('Steps') },
       } satisfies ChartConfig,
       activeMinutes: {
-        activeMinutes: { label: t('Active Minutes') },
+        activeMinutes: { label: t('activeMinutes') },
       } satisfies ChartConfig,
       sleepMinutes: {
         sleepMinutes: { label: t('Sleep (min)') },
@@ -84,7 +84,7 @@ const PatientProcess: React.FC = observer(() => {
     },
     {
       metricKey: 'activeMinutes' as const,
-      title: t('Active Minutes'),
+      title: t('activeMinutes'),
       average: averageMetrics.activeMinutesLabel ?? '--',
       threshold: chartThresholds.activeMinutes,
       yMax: chartYMax.activeMinutes,
