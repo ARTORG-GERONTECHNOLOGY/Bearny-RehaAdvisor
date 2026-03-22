@@ -78,12 +78,6 @@ const PatientView: React.FC = observer(() => {
   const [showManualStepsEntry, setShowManualStepsEntry] = useState<boolean>(false);
   const [showManualWeightEntry, setShowManualWeightEntry] = useState<boolean>(false);
   const [showManualBloodPressureEntry, setShowManualBloodPressureEntry] = useState<boolean>(false);
-  const [stepsInput, setStepsInput] = useState<string>('');
-  const [weightInput, setWeightInput] = useState<string>('');
-  const [bpSysInput, setBpSysInput] = useState<string>('');
-  const [bpDiaInput, setBpDiaInput] = useState<string>('');
-  const [stepsInputError, setStepsInputError] = useState<string>('');
-  const [stepsInputSubmitting, setStepsInputSubmitting] = useState<boolean>(false);
 
   // Safe questions array for feedback questionnaire
   const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
@@ -194,25 +188,16 @@ const PatientView: React.FC = observer(() => {
       <ManualStepsSheet
         open={showManualStepsEntry}
         dateLabel={selectedDateLongLabel}
-        error={stepsInputError}
         onClose={() => setShowManualStepsEntry(false)}
-        onChange={setStepsInput}
-        onSave={async () => {
-          if (stepsInputSubmitting) return;
-          if (stepsInput.trim() === '' || isNaN(Number(stepsInput))) return;
-
-          setStepsInputSubmitting(true);
+        onSubmit={async (steps) => {
           try {
             await patientFitbitStore.submitManualSteps(
               patientId,
               format(new Date(), 'yyyy-MM-dd'),
-              Number(stepsInput)
+              steps
             );
-            setShowManualStepsEntry(false);
           } catch {
-            setStepsInputError(t('Failed to save steps. Please try again.'));
-          } finally {
-            setStepsInputSubmitting(false);
+            throw new Error(t('Failed to save steps. Please try again.'));
           }
         }}
       />
@@ -220,35 +205,29 @@ const PatientView: React.FC = observer(() => {
       <ManualWeightSheet
         open={showManualWeightEntry}
         dateLabel={selectedDateLongLabel}
-        error={patientVitalsStore.error || ''}
         onClose={() => setShowManualWeightEntry(false)}
-        onChange={setWeightInput}
-        onSave={async () => {
-          if (patientVitalsStore.posting) return;
-          if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
-          await patientVitalsStore.submit(patientId, { weight_kg: Number(weightInput) });
+        onSubmit={async (weightKg) => {
+          await patientVitalsStore.submit(patientId, { weight_kg: weightKg });
+          if (patientVitalsStore.error) {
+            throw new Error(t('failedSave'));
+          }
           patientFitbitStore.fetchSummary(patientId, 7);
-          setShowManualWeightEntry(false);
         }}
       />
 
       <ManualBloodPressureSheet
         open={showManualBloodPressureEntry}
         dateLabel={selectedDateLongLabel}
-        error={patientVitalsStore.error || ''}
         onClose={() => setShowManualBloodPressureEntry(false)}
-        onSysChange={setBpSysInput}
-        onDiaChange={setBpDiaInput}
-        onSave={async () => {
-          if (patientVitalsStore.posting) return;
-          if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
-          if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
+        onSubmit={async (bpSys, bpDia) => {
           await patientVitalsStore.submit(patientId, {
-            bp_sys: Number(bpSysInput),
-            bp_dia: Number(bpDiaInput),
+            bp_sys: bpSys,
+            bp_dia: bpDia,
           });
+          if (patientVitalsStore.error) {
+            throw new Error(t('failedSave'));
+          }
           patientFitbitStore.fetchSummary(patientId, 7);
-          setShowManualBloodPressureEntry(false);
         }}
       />
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -16,21 +16,44 @@ import {
 interface ManualStepsSheetProps {
   open: boolean;
   dateLabel: string;
-  error: string;
   onClose: () => void;
-  onChange: (value: string) => void;
-  onSave: () => void;
+  onSubmit: (steps: number) => Promise<void>;
 }
 
 const ManualStepsSheet: React.FC<ManualStepsSheetProps> = ({
   open,
   dateLabel,
-  error,
   onClose,
-  onChange,
-  onSave,
+  onSubmit,
 }) => {
   const { t } = useTranslation();
+  const [stepsInput, setStepsInput] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setStepsInput('');
+      setError('');
+      setIsSubmitting(false);
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (isSubmitting) return;
+    if (stepsInput.trim() === '' || isNaN(Number(stepsInput))) return;
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await onSubmit(Number(stepsInput));
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('Failed to save steps. Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -47,7 +70,7 @@ const ManualStepsSheet: React.FC<ManualStepsSheetProps> = ({
               type="number"
               min="0"
               placeholder="0"
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => setStepsInput(e.target.value)}
               className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
             />
             <FieldLabel htmlFor="steps" className="font-bold text-2xl text-zinc-300">
@@ -60,7 +83,8 @@ const ManualStepsSheet: React.FC<ManualStepsSheetProps> = ({
 
         <SheetFooter>
           <Button
-            onClick={onSave}
+            onClick={handleSave}
+            disabled={isSubmitting}
             className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
           >
             {t('Save')}

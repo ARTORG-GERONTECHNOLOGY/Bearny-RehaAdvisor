@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -16,21 +16,44 @@ import {
 interface ManualWeightSheetProps {
   open: boolean;
   dateLabel: string;
-  error: string;
   onClose: () => void;
-  onChange: (value: string) => void;
-  onSave: () => void;
+  onSubmit: (weightKg: number) => Promise<void>;
 }
 
 const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
   open,
   dateLabel,
-  error,
   onClose,
-  onChange,
-  onSave,
+  onSubmit,
 }) => {
   const { t } = useTranslation();
+  const [weightInput, setWeightInput] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setWeightInput('');
+      setError('');
+      setIsSubmitting(false);
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (isSubmitting) return;
+    if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await onSubmit(Number(weightInput));
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('failedSave'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -50,7 +73,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
               min="25"
               max="400"
               placeholder="0"
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => setWeightInput(e.target.value)}
               className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
             />
             <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
@@ -63,7 +86,8 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
 
         <SheetFooter>
           <Button
-            onClick={onSave}
+            onClick={handleSave}
+            disabled={isSubmitting}
             className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
           >
             {t('Save')}
