@@ -29,6 +29,7 @@ import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
 import TextIcon from '@/assets/icons/interventions/text.svg?react';
 import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -341,14 +342,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
 
-      {/* Error */}
-      {storeError && (
-        <ErrorAlert
-          message={storeError}
-          onClose={() => patientInterventionsLibraryStore.clearError()}
-        />
-      )}
-
       <div className="flex gap-2 mt-14">
         <Field>
           <InputGroup className="rounded-full border border-accent bg-white h-14 !px-5 !py-4">
@@ -373,6 +366,23 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
         </Button>
       </div>
+
+      {/* Loading */}
+      {storeLoading && (
+        <div className="flex flex-col gap-2 h-full">
+          <Skeleton className="w-full h-24 rounded-[40px]" />
+          <Skeleton className="w-full h-24 rounded-[40px]" />
+          <Skeleton className="w-full h-24 rounded-[40px]" />
+        </div>
+      )}
+
+      {/* Error */}
+      {storeError && (
+        <ErrorAlert
+          message={storeError}
+          onClose={() => patientInterventionsLibraryStore.clearError()}
+        />
+      )}
 
       {/* Filters */}
       <Sheet open={showFilterSheet} onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}>
