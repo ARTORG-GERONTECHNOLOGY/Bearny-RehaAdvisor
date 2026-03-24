@@ -5,13 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
-import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
 import Layout from '@/components/Layout';
 
 import authStore from '@/stores/authStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
-import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { Field } from '@/components/ui/field';
@@ -42,6 +40,41 @@ import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
+
+type InterventionCardItem = {
+  _id?: string | number;
+  id?: string | number;
+  title?: string;
+  duration?: string | number;
+  content_type?: string;
+};
+
+type InterventionCardProps = {
+  item: InterventionCardItem;
+  Icon: React.ComponentType<{ className?: string }>;
+  containerClassName: string;
+};
+
+const InterventionCard: React.FC<InterventionCardProps> = ({ item, Icon, containerClassName }) => (
+  <div className={`${containerClassName} rounded-3xl border border-accent p-4 flex flex-col gap-6`}>
+    <Icon className="shrink-0 w-8 h-8" />
+    <div className="flex-1 flex flex-col gap-2 justify-between">
+      <div className="font-bold text-lg leading-6 text-zinc-800">{item.title || '-'}</div>
+      <div className="flex gap-1">
+        <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+          <ClockIcon className="w-4 h-4" />
+          <div className="text-[#00956C] font-medium">
+            {isNaN(Number(item.duration)) ? '-' : `${item.duration}min`}
+          </div>
+        </Badge>
+        <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+          <div className="w-4 h-4 bg-red-500 rounded-full" />
+          <div className="text-red-500">{item.content_type || '-'}</div>
+        </Badge>
+      </div>
+    </div>
+  </div>
+);
 
 const getTypeIcon = (value: string) => {
   const normalized = value.trim().toLocaleLowerCase();
@@ -104,18 +137,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     setTagFilter([]);
     setDurationFilterIndices([0, 4]);
   }, []);
-
-  // ─────────────────────────── tag colors ───────────────────────────
-  const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
-
-  const openDetails = useCallback(
-    (item: { _id?: string; id?: string; intervention_id?: string }) => {
-      const interventionId = item.intervention_id || item._id || item.id;
-      if (!interventionId) return;
-      navigate(`/patient-intervention/${interventionId}`);
-    },
-    [navigate]
-  );
 
   // ─────────────────────────── fetch list via store ───────────────────────────
   useEffect(() => {
@@ -516,27 +537,12 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
             <div className="flex gap-2 overflow-x-auto">
               {section.items.map((item: any) => (
-                <div
+                <InterventionCard
                   key={item._id || item.id}
-                  className="shrink-0 w-72 rounded-3xl border border-accent p-4 flex flex-col gap-6"
-                >
-                  <section.Icon className="shrink-0 w-8 h-8" />
-                  <div className="flex-1 flex flex-col gap-2 justify-between">
-                    <div className="font-bold text-lg leading-6 text-zinc-800">{item.title}</div>
-                    <div className="flex gap-1">
-                      <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-                        <ClockIcon className="w-4 h-4" />
-                        <div className="text-[#00956C] font-medium">
-                          {isNaN(Number(item.duration)) ? '-' : `${item.duration} min`}
-                        </div>
-                      </Badge>
-                      <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-                        <div className="w-4 h-4 bg-red-500 rounded-full" />
-                        <div className="text-red-500">{item.content_type || '-'}</div>
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                  item={item}
+                  Icon={section.Icon}
+                  containerClassName="shrink-0 w-72"
+                />
               ))}
             </div>
           </section>
@@ -554,13 +560,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
           <div className="flex-1 overflow-y-auto pr-3">
             {activeTypeData && (
-              <InterventionList
-                items={activeTypeData.items}
-                onClick={openDetails}
-                t={t}
-                tagColors={tagColors}
-                translatedTitles={translatedTitles}
-              />
+              <div className="flex flex-col gap-2">
+                {activeTypeData.items.map((item: any) => (
+                  <InterventionCard
+                    key={item._id || item.id}
+                    item={item}
+                    Icon={activeTypeData.Icon}
+                    containerClassName="w-full"
+                  />
+                ))}
+              </div>
             )}
           </div>
         </SheetContent>
