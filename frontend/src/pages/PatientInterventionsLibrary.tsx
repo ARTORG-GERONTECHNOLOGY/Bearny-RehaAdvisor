@@ -18,7 +18,14 @@ import { Field } from '@/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import BarsFilterIcon from '@/assets/icons/bars-filter-fill.svg?react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -30,6 +37,9 @@ import TextIcon from '@/assets/icons/interventions/text.svg?react';
 import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
+import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -483,31 +493,51 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       {/* Lists by type */}
       <div className="mt-6 flex flex-col gap-2">
         {visibleTypeSections.map((section) => (
-          <section
-            key={section.key}
-            className="rounded-[40px] bg-white p-4 cursor-pointer"
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              setActiveTypeSection(section.key);
-              setShowTypeSheet(true);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setActiveTypeSection(section.key);
-                setShowTypeSheet(true);
-              }
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 font-semibold text-lg text-zinc-900">
-                <section.Icon className="w-6 h-6" />
+          <section key={section.key} className="flex flex-col gap-2 rounded-[40px] bg-white p-4">
+            <div className="p-2 pl-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 font-semibold text-lg text-zinc-500">
                 <span>{section.title}</span>
               </div>
-              <span className="text-sm text-zinc-500">
-                {section.items.length} {t('items')}
-              </span>
+              <div className="flex gap-1">
+                <Badge className="px-3 py-2 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
+                  {section.items.length} {t('Recommendations')}
+                </Badge>
+                <Badge
+                  className="p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500"
+                  onClick={() => {
+                    setActiveTypeSection(section.key);
+                    setShowTypeSheet(true);
+                  }}
+                >
+                  <ArrowRightIcon className="w-4 h-4" />
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto">
+              {section.items.map((item: any) => (
+                <div
+                  key={item._id || item.id}
+                  className="shrink-0 w-72 rounded-3xl border border-accent p-4 flex flex-col gap-6"
+                >
+                  <section.Icon className="shrink-0 w-8 h-8" />
+                  <div className="flex-1 flex flex-col gap-2 justify-between">
+                    <div className="font-bold text-lg leading-6 text-zinc-800">{item.title}</div>
+                    <div className="flex gap-1">
+                      <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+                        <ClockIcon className="w-4 h-4" />
+                        <div className="text-[#00956C] font-medium">
+                          {isNaN(Number(item.duration)) ? '-' : `${item.duration} min`}
+                        </div>
+                      </Badge>
+                      <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+                        <div className="w-4 h-4 bg-red-500 rounded-full" />
+                        <div className="text-red-500">{item.content_type || '-'}</div>
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         ))}
@@ -517,6 +547,9 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
           <SheetHeader>
             <SheetTitle>{activeTypeData?.title}</SheetTitle>
+            <SheetDescription>
+              {activeTypeData?.items.length} {t('Recommendations')}
+            </SheetDescription>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto pr-3">
