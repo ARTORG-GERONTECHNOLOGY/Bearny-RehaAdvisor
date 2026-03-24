@@ -53,28 +53,42 @@ type InterventionCardProps = {
   item: InterventionCardItem;
   Icon: React.ComponentType<{ className?: string }>;
   containerClassName: string;
+  onClick: () => void;
 };
 
-const InterventionCard: React.FC<InterventionCardProps> = ({ item, Icon, containerClassName }) => (
-  <div className={`${containerClassName} rounded-3xl border border-accent p-4 flex flex-col gap-6`}>
-    <Icon className="shrink-0 w-8 h-8" />
-    <div className="flex-1 flex flex-col gap-2 justify-between">
-      <div className="font-bold text-lg leading-6 text-zinc-800">{item.title || '-'}</div>
-      <div className="flex gap-1">
-        <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-          <ClockIcon className="w-4 h-4" />
-          <div className="text-[#00956C] font-medium">
-            {isNaN(Number(item.duration)) ? '-' : `${item.duration}min`}
-          </div>
-        </Badge>
-        <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-          <div className="w-4 h-4 bg-red-500 rounded-full" />
-          <div className="text-red-500">{item.content_type || '-'}</div>
-        </Badge>
+const InterventionCard: React.FC<InterventionCardProps> = ({
+  item,
+  Icon,
+  containerClassName,
+  onClick,
+}) => {
+  const ContentTypeIcon = item.content_type ? getContentTypeIcon(item.content_type) : null;
+
+  return (
+    <div
+      role="button"
+      onClick={onClick}
+      className={`${containerClassName} rounded-3xl border border-accent p-4 flex flex-col gap-6`}
+    >
+      <Icon className="shrink-0 w-8 h-8" />
+      <div className="flex-1 flex flex-col gap-2 justify-between">
+        <div className="font-bold text-lg leading-6 text-zinc-800">{item.title || '-'}</div>
+        <div className="flex gap-1">
+          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+            <ClockIcon className="w-4 h-4" />
+            <div className="text-[#00956C] font-medium">
+              {isNaN(Number(item.duration)) ? '-' : `${item.duration}min`}
+            </div>
+          </Badge>
+          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+            {ContentTypeIcon && <ContentTypeIcon className="w-4 h-4" />}
+            <div className="text-[#00956C] font-medium">{item.content_type || '-'}</div>
+          </Badge>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const getTypeIcon = (value: string) => {
   const normalized = value.trim().toLocaleLowerCase();
@@ -100,6 +114,15 @@ const getContentTypeIcon = (value: string) => {
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+
+  const openDetails = useCallback(
+    (item: { _id?: string; id?: string; intervention_id?: string }) => {
+      const interventionId = item.intervention_id || item._id || item.id;
+      if (!interventionId) return;
+      navigate(`/patient-intervention/${interventionId}`);
+    },
+    [navigate]
+  );
 
   // ─────────────────────────── auth gate ───────────────────────────
   const [authChecked, setAuthChecked] = useState(false);
@@ -541,6 +564,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                   key={item._id || item.id}
                   item={item}
                   Icon={section.Icon}
+                  onClick={() => openDetails(item)}
                   containerClassName="shrink-0 w-72"
                 />
               ))}
@@ -566,6 +590,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                     key={item._id || item.id}
                     item={item}
                     Icon={activeTypeData.Icon}
+                    onClick={() => openDetails(item)}
                     containerClassName="w-full"
                   />
                 ))}
