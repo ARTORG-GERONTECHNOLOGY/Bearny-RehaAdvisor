@@ -1,0 +1,67 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+
+import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibraryFilterSheet';
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
+jest.mock('@/components/ui/sheet', () => ({
+  Sheet: ({ children }: any) => <div>{children}</div>,
+  SheetContent: ({ children }: any) => <div>{children}</div>,
+  SheetFooter: ({ children }: any) => <div>{children}</div>,
+  SheetHeader: ({ children }: any) => <div>{children}</div>,
+  SheetTitle: ({ children }: any) => <h2>{children}</h2>,
+}));
+
+jest.mock('@/components/ui/slider', () => ({
+  Slider: () => <div data-testid="duration-slider" />,
+}));
+
+jest.mock('@/components/ui/switch', () => ({
+  Switch: ({ checked, onCheckedChange }: any) => (
+    <button type="button" aria-pressed={checked} onClick={() => onCheckedChange(!checked)}>
+      switch
+    </button>
+  ),
+}));
+
+const MockIcon = ({ className }: { className?: string }) => <span className={className}>I</span>;
+
+describe('PatientLibraryFilterSheet', () => {
+  it('renders labels and handles reset/apply actions', () => {
+    const onOpenChange = jest.fn();
+    const onResetFilters = jest.fn();
+
+    render(
+      <PatientLibraryFilterSheet
+        open
+        onOpenChange={onOpenChange}
+        typeOptions={[{ value: 'exercise', label: 'exercise', Icon: MockIcon }]}
+        contentOptions={[{ value: 'video', label: 'video', Icon: MockIcon }]}
+        aimsFilter={[]}
+        setAimsFilter={jest.fn()}
+        contentTypeFilter={[]}
+        setContentTypeFilter={jest.fn()}
+        durationFilterIndices={[0, 4]}
+        setDurationFilterIndices={jest.fn()}
+        durationLabels={['5 min', '20 min', '35 min', '50 min', '1h+']}
+        onResetFilters={onResetFilters}
+      />
+    );
+
+    expect(screen.getByText('Filter')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(screen.getByText('Medium')).toBeInTheDocument();
+    expect(screen.getByText('Duration')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    expect(onResetFilters).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
