@@ -267,6 +267,8 @@
   "Failed to fetch pending entries. Please try again later.": "Ophalen van in behandeling zijnde vermeldingen mislukt. Probeer het later opnieuw.",
   "All": "Alles",
   "Search": "Zoeken",
+  "Close search": "Zoeken sluiten",
+  "Open filter": "Filter openen",
   "Filter": "Filter",
   "Reset": "Resetten",
   "Save Changes": "Wijzigingen opslaan",

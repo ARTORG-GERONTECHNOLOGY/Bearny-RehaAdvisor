@@ -266,6 +266,8 @@
   "Failed to fetch pending entries. Please try again later.": "Impossibile recuperare le voci in sospeso. Riprova più tardi.",
   "All": "Tutti",
   "Search": "Cerca",
+  "Close search": "Chiudi ricerca",
+  "Open filter": "Apri filtro",
   "Filter": "Filtro",
   "Reset": "Reimposta",
   "Add New": "Aggiungi nuovo",
