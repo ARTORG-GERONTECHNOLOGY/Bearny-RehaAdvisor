@@ -421,20 +421,12 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         </Button>
       </div>
 
-      {/* Loading */}
-      {storeLoading && (
-        <div className="flex flex-col gap-2 h-full">
-          <Skeleton className="w-full h-24 rounded-[40px]" />
-          <Skeleton className="w-full h-24 rounded-[40px]" />
-          <Skeleton className="w-full h-24 rounded-[40px]" />
-        </div>
-      )}
-
       {/* Error */}
       {storeError && (
         <ErrorAlert
           message={storeError}
           onClose={() => patientInterventionsLibraryStore.clearError()}
+          className="mt-6"
         />
       )}
 
@@ -536,6 +528,14 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
       {/* Lists by type */}
       <div className="mt-6 flex flex-col gap-2">
+        {storeLoading && (
+          <>
+            <Skeleton className="w-full h-24 rounded-[40px]" />
+            <Skeleton className="w-full h-24 rounded-[40px]" />
+            <Skeleton className="w-full h-24 rounded-[40px]" />
+          </>
+        )}
+
         {visibleTypeSections.map((section) => (
           <section
             key={section.key}
