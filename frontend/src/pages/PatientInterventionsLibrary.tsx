@@ -14,7 +14,7 @@ import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { Field } from '@/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { SearchIcon } from 'lucide-react';
+import { SearchIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -47,6 +47,9 @@ type InterventionCardItem = {
   title?: string;
   duration?: string | number;
   content_type?: string;
+  aims?: string[];
+  intervention_title?: string;
+  intervention_id?: string;
 };
 
 type InterventionCardProps = {
@@ -111,15 +114,17 @@ const getContentTypeIcon = (value: string) => {
   return null;
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const openDetails = useCallback(
-    (item: { _id?: string; id?: string; intervention_id?: string }) => {
+    (item: { _id?: string | number; id?: string | number; intervention_id?: string | number }) => {
       const interventionId = item.intervention_id || item._id || item.id;
       if (!interventionId) return;
-      navigate(`/patient-intervention/${interventionId}`);
+      navigate(`/patient-intervention/${String(interventionId)}`);
     },
     [navigate]
   );
@@ -160,6 +165,21 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     setTagFilter([]);
     setDurationFilterIndices([0, 4]);
   }, []);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSearchTerm('');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [searchTerm]);
 
   // ─────────────────────────── fetch list via store ───────────────────────────
   useEffect(() => {
@@ -392,33 +412,149 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     visibleTypeSections.find((section) => section.key === activeTypeSection) ||
     visibleTypeSections[0];
 
+  const normalizedSearchTerm = searchTerm.trim();
+
+  const searchResults = useMemo(() => {
+    if (!normalizedSearchTerm) return [];
+
+    const loweredSearch = normalizedSearchTerm.toLocaleLowerCase();
+    return (sourceItems as InterventionCardItem[])
+      .filter((item) => {
+        const title = String(item?.title || item?.intervention_title || '').trim();
+        return title.toLocaleLowerCase().includes(loweredSearch);
+      })
+      .slice(0, 6);
+  }, [sourceItems, normalizedSearchTerm]);
+
+  const renderHighlightedTitle = useCallback(
+    (title: string) => {
+      if (!normalizedSearchTerm) {
+        return <span className="text-zinc-400">{title}</span>;
+      }
+
+      const pattern = new RegExp(`(${escapeRegExp(normalizedSearchTerm)})`, 'ig');
+      const parts = title.split(pattern);
+
+      return parts.map((part, index) => {
+        const isMatch = part.toLocaleLowerCase() === normalizedSearchTerm.toLocaleLowerCase();
+        return (
+          <span key={`${part}-${index}`} className={isMatch ? 'text-zinc-800' : 'text-zinc-400'}>
+            {part}
+          </span>
+        );
+      });
+    },
+    [normalizedSearchTerm]
+  );
+
   return (
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
 
-      <div className="flex gap-2 mt-14">
-        <Field>
-          <InputGroup className="rounded-full border border-accent bg-white h-14 !px-5 !py-4">
-            <InputGroupInput
-              id="inline-end-input"
-              type="text"
-              placeholder={t('Search')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="p-0 !text-lg font-medium placeholder:text-zinc-400"
-            />
-            <InputGroupAddon align="inline-end" className="p-0">
-              <SearchIcon className="size-5 text-zinc-300" />
-            </InputGroupAddon>
-          </InputGroup>
-        </Field>
+      <button
+        type="button"
+        aria-label={t('Close search')}
+        onClick={() => setSearchTerm('')}
+        className={`fixed inset-0 z-10 bg-black/60 transition-opacity duration-200 ${
+          normalizedSearchTerm ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      />
 
-        <Button
-          onClick={() => setShowFilterSheet(true)}
-          className="rounded-full border border-accent bg-white p-4 shadow-none w-14 h-14"
+      <div className="relative mx-4 mt-14 h-14">
+        <div
+          className={`absolute z-20 transition-all duration-200 ease-out ${
+            normalizedSearchTerm
+              ? 'rounded-[40px] border-none bg-white -left-6 -right-6 -top-6 p-4'
+              : 'bg-transparent p-0 left-0 right-0 top-0'
+          }`}
         >
-          <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
-        </Button>
+          <div className="flex gap-2 items-center">
+            <div className="flex-1">
+              <Field>
+                <InputGroup className="rounded-full border border-accent bg-white h-14 !px-5 !py-4">
+                  <InputGroupInput
+                    id="inline-end-input"
+                    type="text"
+                    placeholder={t('Search')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="p-0 !text-lg font-medium placeholder:text-zinc-400"
+                  />
+                  <InputGroupAddon align="inline-end" className="p-0">
+                    <SearchIcon className="size-5 text-zinc-300" />
+                  </InputGroupAddon>
+                </InputGroup>
+              </Field>
+            </div>
+
+            {normalizedSearchTerm ? (
+              <Button
+                onClick={() => setSearchTerm('')}
+                className="rounded-full border border-accent bg-zinc-100 p-4 shadow-none w-14 h-14"
+                aria-label={t('Close search')}
+              >
+                <X className="w-6 h-6 text-zinc-500" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setShowFilterSheet(true)}
+                className="rounded-full border border-accent bg-white p-4 shadow-none w-14 h-14"
+              >
+                <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
+              </Button>
+            )}
+          </div>
+
+          <div
+            className={`grid overflow-hidden transition-all duration-200 ease-out ${
+              normalizedSearchTerm ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="mt-6">
+              {searchResults.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="font-medium text-sm text-zinc-500">
+                    {searchResults.length} {t('Recommendations')}
+                  </div>
+                  {searchResults.map((item) => {
+                    const title = String(item?.title || item?.intervention_title || '-').trim();
+                    const contentType = String(item?.content_type || '-').trim();
+                    const durationText = isNaN(Number(item?.duration))
+                      ? '-'
+                      : `${item.duration}min`;
+                    const ResultIcon =
+                      getTypeIcon(Array.isArray(item?.aims) ? String(item.aims[0] || '') : '') ||
+                      EducationIcon;
+                    return (
+                      <button
+                        key={item._id || item.id}
+                        type="button"
+                        onClick={() => openDetails(item)}
+                        className="w-full text-left rounded-3xl p-4 bg-zinc-50 hover:bg-zinc-100 transition-colors border border-accent"
+                      >
+                        <div className="flex gap-3">
+                          <ResultIcon className="w-8 h-8 shrink-0" />
+                          <div className="flex-1 flex flex-col gap-1 min-w-0">
+                            <div className="font-bold text-lg line-clamp-2 text-zinc-400">
+                              {renderHighlightedTitle(title)}
+                            </div>
+                            <div className="flex items-center gap-2 font-medium text-sm text-zinc-500 truncate">
+                              <span>{durationText}</span>
+                              <span>•</span>
+                              <span className="capitalize">{contentType}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-sm text-zinc-400">{t('No entries found.')}</div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Error */}
@@ -527,7 +663,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       </Sheet>
 
       {/* Lists by type */}
-      <div className="mt-6 flex flex-col gap-2">
+      <div className="mt-16 flex flex-col gap-2">
         {storeLoading && (
           <>
             <Skeleton className="w-full h-24 rounded-[40px]" />
