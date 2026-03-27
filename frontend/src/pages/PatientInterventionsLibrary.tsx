@@ -239,7 +239,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       return;
     }
 
-    // Let backend pick best variant per external_id
     const lang = (i18n.language || 'en').slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
 
