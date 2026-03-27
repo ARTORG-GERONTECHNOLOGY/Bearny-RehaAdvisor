@@ -537,22 +537,24 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       {/* Lists by type */}
       <div className="mt-6 flex flex-col gap-2">
         {visibleTypeSections.map((section) => (
-          <section key={section.key} className="flex flex-col gap-2 rounded-[40px] bg-white p-4">
+          <section
+            key={section.key}
+            role="button"
+            onClick={() => {
+              setActiveTypeSection(section.key);
+              setShowTypeSheet(true);
+            }}
+            className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
+          >
             <div className="p-2 pl-4 flex items-center justify-between">
               <div className="flex items-center gap-3 font-semibold text-lg text-zinc-500">
                 <span>{section.title}</span>
               </div>
               <div className="flex gap-1">
-                <Badge className="px-3 py-2 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
+                <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
                   {section.items.length} {t('Recommendations')}
                 </Badge>
-                <Badge
-                  className="p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500"
-                  onClick={() => {
-                    setActiveTypeSection(section.key);
-                    setShowTypeSheet(true);
-                  }}
-                >
+                <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
                   <ArrowRightIcon className="w-4 h-4" />
                 </Badge>
               </div>
