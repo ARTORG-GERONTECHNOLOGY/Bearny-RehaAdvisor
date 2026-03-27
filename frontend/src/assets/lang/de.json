@@ -275,6 +275,8 @@
   "Failed to fetch pending entries. Please try again later.": "Fehler beim Abrufen ausstehender Einträge. Bitte versuchen Sie es später erneut.",
   "All": "Alle",
   "Search": "Suche",
+  "Close search": "Suche schliessen",
+  "Open filter": "Filter öffnen",
   "Filter": "Filter",
   "Reset": "Zurücksetzen",
   "Add New": "Neue hinzufügen",

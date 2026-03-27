@@ -10,23 +10,19 @@ import Layout from '@/components/Layout';
 import authStore from '@/stores/authStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
+import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibraryFilterSheet';
+import PatientLibraryInterventionCard from '@/components/PatientLibrary/PatientLibraryInterventionCard';
+import PatientLibrarySearchPanel from '@/components/PatientLibrary/PatientLibrarySearchPanel';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
-import { Field } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { SearchIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import BarsFilterIcon from '@/assets/icons/bars-filter-fill.svg?react';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
 
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
@@ -36,7 +32,6 @@ import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
@@ -56,47 +51,6 @@ type OptionItem = {
   value: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }> | null;
-};
-
-type InterventionCardProps = {
-  item: InterventionCardItem;
-  Icon: React.ComponentType<{ className?: string }>;
-  containerClassName: string;
-  onClick: () => void;
-};
-
-const InterventionCard: React.FC<InterventionCardProps> = ({
-  item,
-  Icon,
-  containerClassName,
-  onClick,
-}) => {
-  const ContentTypeIcon = item.content_type ? getContentTypeIcon(item.content_type) : null;
-
-  return (
-    <div
-      role="button"
-      onClick={onClick}
-      className={`${containerClassName} rounded-3xl border border-accent p-4 flex flex-col gap-6`}
-    >
-      <Icon className="shrink-0 w-8 h-8" />
-      <div className="flex-1 flex flex-col gap-2 justify-between">
-        <div className="font-bold text-lg leading-6 text-zinc-800">{item.title || '-'}</div>
-        <div className="flex gap-1">
-          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-            <ClockIcon className="w-4 h-4" />
-            <div className="text-[#00956C] font-medium">
-              {isNaN(Number(item.duration)) ? '-' : `${item.duration}min`}
-            </div>
-          </Badge>
-          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-            {ContentTypeIcon && <ContentTypeIcon className="w-4 h-4" />}
-            <div className="text-[#00956C] font-medium">{item.content_type || '-'}</div>
-          </Badge>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 const getTypeIcon = (value: string) => {
@@ -429,6 +383,12 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     });
   }, [sourceItems, normalizedSearchTerm, translatedTitles]);
 
+  const getSearchResultIcon = useCallback(
+    (item: InterventionCardItem) =>
+      getTypeIcon(Array.isArray(item?.aims) ? String(item.aims[0] || '') : '') || EducationIcon,
+    []
+  );
+
   const renderHighlightedTitle = useCallback(
     (title: string) => {
       if (!normalizedSearchTerm) {
@@ -454,111 +414,18 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     <Layout>
       <h1 className="text-2xl font-bold">{t('Library')}</h1>
 
-      <button
-        type="button"
-        aria-label={t('Close search')}
-        onClick={() => setSearchTerm('')}
-        className={`fixed inset-0 z-10 bg-black/60 transition-opacity duration-200 ${
-          isSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
+      <PatientLibrarySearchPanel
+        searchTerm={searchTerm}
+        isSearchOpen={isSearchOpen}
+        searchResults={searchResults}
+        onSearchTermChange={setSearchTerm}
+        onCloseSearch={() => setSearchTerm('')}
+        onOpenFilter={() => setShowFilterSheet(true)}
+        onOpenDetails={openDetails}
+        renderHighlightedTitle={renderHighlightedTitle}
+        getDisplayTitle={(item) => getTranslatedTitle(item, translatedTitles)}
+        getResultIcon={getSearchResultIcon}
       />
-
-      <div className="relative mx-4 mt-14 h-14">
-        <div
-          className={`absolute z-20 transition-all duration-200 ease-out ${
-            isSearchOpen
-              ? 'rounded-[40px] border-none bg-white -left-6 -right-6 -top-6 p-4'
-              : 'bg-transparent p-0 left-0 right-0 top-0'
-          }`}
-        >
-          <div className="flex gap-2 items-center">
-            <div className="flex-1">
-              <Field>
-                <InputGroup className="rounded-full border border-accent bg-white h-14 !px-5 !py-4">
-                  <InputGroupInput
-                    id="inline-end-input"
-                    type="text"
-                    placeholder={t('Search')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="p-0 !text-lg font-medium placeholder:text-zinc-400"
-                  />
-                  <InputGroupAddon align="inline-end" className="p-0">
-                    <SearchIcon className="size-5 text-zinc-300" />
-                  </InputGroupAddon>
-                </InputGroup>
-              </Field>
-            </div>
-
-            {isSearchOpen ? (
-              <Button
-                onClick={() => setSearchTerm('')}
-                className="rounded-full border border-accent bg-zinc-100 p-4 shadow-none w-14 h-14"
-                aria-label={t('Close search')}
-              >
-                <X className="w-6 h-6 text-zinc-500" />
-              </Button>
-            ) : (
-              <Button
-                onClick={() => setShowFilterSheet(true)}
-                className="rounded-full border border-accent bg-white p-4 shadow-none w-14 h-14"
-              >
-                <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
-              </Button>
-            )}
-          </div>
-
-          <div
-            className={`grid overflow-hidden transition-all duration-200 ease-out ${
-              isSearchOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-            }`}
-          >
-            <div className="mt-6">
-              {searchResults.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <div className="font-medium text-sm text-zinc-500">
-                    {searchResults.length} {t('Recommendations')}
-                  </div>
-                  {searchResults.map((item) => {
-                    const title = getTranslatedTitle(item, translatedTitles);
-                    const contentType = String(item?.content_type || '-').trim();
-                    const durationText = isNaN(Number(item?.duration))
-                      ? '-'
-                      : `${item.duration}min`;
-                    const ResultIcon =
-                      getTypeIcon(Array.isArray(item?.aims) ? String(item.aims[0] || '') : '') ||
-                      EducationIcon;
-                    return (
-                      <button
-                        key={item._id || item.id}
-                        type="button"
-                        onClick={() => openDetails(item)}
-                        className="w-full text-left rounded-3xl p-4 bg-zinc-50 hover:bg-zinc-100 transition-colors border border-accent"
-                      >
-                        <div className="flex gap-3">
-                          <ResultIcon className="w-8 h-8 shrink-0" />
-                          <div className="flex-1 flex flex-col gap-1 min-w-0">
-                            <div className="font-bold text-lg line-clamp-2 text-zinc-400">
-                              {renderHighlightedTitle(title)}
-                            </div>
-                            <div className="flex items-center gap-2 font-medium text-sm text-zinc-500 truncate">
-                              <span>{durationText}</span>
-                              <span>•</span>
-                              <span className="capitalize">{contentType}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-sm text-zinc-400">{t('No entries found.')}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Error */}
       {storeError && (
@@ -570,100 +437,20 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       )}
 
       {/* Filters */}
-      <Sheet open={showFilterSheet} onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}>
-        <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
-          <SheetHeader>
-            <SheetTitle>{t('Filter')}</SheetTitle>
-          </SheetHeader>
-
-          <div className="flex flex-col gap-12 flex-1 overflow-y-auto pr-3">
-            <div className="flex flex-col gap-4">
-              <div className="font-medium text-lg text-zinc-600">{t('Type')}</div>
-              <div className="flex flex-col gap-3">
-                {typeOptions.map((option) => (
-                  <div key={option.value} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
-                      {option.Icon ? (
-                        <option.Icon className="w-6 h-6" />
-                      ) : (
-                        <div className="w-6 h-6" />
-                      )}
-                      <span>{option.label}</span>
-                    </div>
-                    <Switch
-                      checked={aimsFilter.includes(option.value)}
-                      onCheckedChange={() =>
-                        setAimsFilter((prev) =>
-                          prev.includes(option.value)
-                            ? prev.filter((v) => v !== option.value)
-                            : [...prev, option.value]
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="font-medium text-lg text-zinc-600">Medium</div>
-              <div className="flex flex-col gap-3">
-                {contentOptions.map((option) => (
-                  <div key={option.value} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
-                      {option.Icon ? (
-                        <option.Icon className="w-6 h-6" />
-                      ) : (
-                        <div className="w-6 h-6" />
-                      )}
-                      <span>{option.label}</span>
-                    </div>
-                    <Switch
-                      checked={contentTypeFilter.includes(option.value)}
-                      onCheckedChange={() =>
-                        setContentTypeFilter((prev) =>
-                          prev.includes(option.value)
-                            ? prev.filter((v) => v !== option.value)
-                            : [...prev, option.value]
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="font-medium text-lg text-zinc-600">Dauer</div>
-              <Slider
-                value={durationFilterIndices}
-                min={0}
-                max={4}
-                step={1}
-                onValueChange={(value) => setDurationFilterIndices([value[0], value[1]])}
-              />
-              <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
-                {durationLabels.map((label, i) => (
-                  <span key={i}>{label}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <SheetFooter className="flex gap-2 shrink-0">
-            <Button
-              onClick={resetAllFilters}
-              className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
-            >
-              {t('Reset filters')}
-            </Button>
-            <Button
-              onClick={() => setShowFilterSheet(false)}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Apply')}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <PatientLibraryFilterSheet
+        open={showFilterSheet}
+        onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}
+        typeOptions={typeOptions}
+        contentOptions={contentOptions}
+        aimsFilter={aimsFilter}
+        setAimsFilter={setAimsFilter}
+        contentTypeFilter={contentTypeFilter}
+        setContentTypeFilter={setContentTypeFilter}
+        durationFilterIndices={durationFilterIndices}
+        setDurationFilterIndices={setDurationFilterIndices}
+        durationLabels={durationLabels}
+        onResetFilters={resetAllFilters}
+      />
 
       {/* Lists by type */}
       <div className="mt-16 flex flex-col gap-2">
@@ -716,11 +503,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             <div className="flex gap-2 overflow-x-auto">
               {section.items.map((item: InterventionCardItem) => {
                 const displayTitle = getTranslatedTitle(item, translatedTitles);
+                const contentTypeIcon = item.content_type
+                  ? getContentTypeIcon(item.content_type)
+                  : null;
                 return (
-                  <InterventionCard
+                  <PatientLibraryInterventionCard
                     key={item._id || item.id}
-                    item={{ ...item, title: displayTitle }}
+                    item={item}
+                    displayTitle={displayTitle}
                     Icon={section.Icon}
+                    contentTypeIcon={contentTypeIcon}
                     onClick={() => openDetails(item)}
                     containerClassName="shrink-0 w-72"
                   />
@@ -745,11 +537,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
               <div className="flex flex-col gap-2">
                 {activeTypeData.items.map((item: InterventionCardItem) => {
                   const displayTitle = getTranslatedTitle(item, translatedTitles);
+                  const contentTypeIcon = item.content_type
+                    ? getContentTypeIcon(item.content_type)
+                    : null;
                   return (
-                    <InterventionCard
+                    <PatientLibraryInterventionCard
                       key={item._id || item.id}
-                      item={{ ...item, title: displayTitle }}
+                      item={item}
+                      displayTitle={displayTitle}
                       Icon={activeTypeData.Icon}
+                      contentTypeIcon={contentTypeIcon}
                       onClick={() => openDetails(item)}
                       containerClassName="w-full"
                     />

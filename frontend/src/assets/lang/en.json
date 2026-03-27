@@ -267,6 +267,8 @@
   "Failed to fetch pending entries. Please try again later.": "Failed to fetch pending entries. Please try again later.",
   "All": "All",
   "Search": "Search",
+  "Close search": "Close search",
+  "Open filter": "Open filter",
   "Filter": "Filter",
   "Reset": "Reset",
   "Save Changes": "Save Changes",
