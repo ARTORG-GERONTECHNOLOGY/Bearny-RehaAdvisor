@@ -157,6 +157,19 @@ const hasAimKeyword = (item: InterventionCardItem, keyword: string) =>
     String(aim).toLocaleLowerCase().includes(keyword)
   );
 
+const getRawTitle = (item: InterventionCardItem) =>
+  String(item?.title || item?.intervention_title || '').trim();
+
+const getTranslatedTitle = (item: InterventionCardItem, translatedTitles: TitleMap) => {
+  const key = item._id || item.id;
+  if (!key) return getRawTitle(item) || '-';
+
+  const translated = translatedTitles[String(key)]?.title;
+  if (translated && translated.trim()) return translated.trim();
+
+  return getRawTitle(item) || '-';
+};
+
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -193,14 +206,12 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const [searchTerm, setSearchTerm] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
   const [aimsFilter, setAimsFilter] = useState<string[]>([]);
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
 
   const resetAllFilters = useCallback(() => {
     setSearchTerm('');
     setContentTypeFilter([]);
     setAimsFilter([]);
-    setTagFilter([]);
     setDurationFilterIndices([0, 4]);
   }, []);
 
@@ -228,7 +239,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       return;
     }
 
-    // ✅ Let backend pick best variant per external_id
+    // Let backend pick best variant per external_id
     const lang = (i18n.language || 'en').slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
 
@@ -252,18 +263,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         return;
       }
 
-      const lang = (i18n.language || 'en').slice(0, 2);
-
       // Only translate if needed (cheap heuristic)
       const pairs = await Promise.all(
-        sourceItems.map(async (rec: any) => {
+        (sourceItems as InterventionCardItem[]).map(async (rec) => {
           const id = rec._id || rec.id;
           const rawTitle = String(rec.title || rec.intervention_title || '').trim();
           if (!id || !rawTitle)
             return [id || Math.random().toString(), { title: rawTitle, lang: null }] as const;
 
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rawTitle, lang);
+            const { translatedText, detectedSourceLanguage } = await translateText(rawTitle);
             return [
               id,
               {
@@ -295,8 +304,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     const base = filterInterventions(sourceItems as any, translatedTitles, {
       patientTypeFilter: '',
       contentTypeFilter: '',
-      tagFilter,
-      benefitForFilter: [], // patient library uses aims+tags; keep this empty
+      tagFilter: [],
+      benefitForFilter: [],
       searchTerm,
     });
 
@@ -329,7 +338,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, [
     sourceItems,
     contentTypeFilter,
-    tagFilter,
     aimsFilter,
     searchTerm,
     translatedTitles,
@@ -415,13 +423,12 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     if (!normalizedSearchTerm) return [];
 
     const loweredSearch = normalizedSearchTerm.toLocaleLowerCase();
-    return (sourceItems as InterventionCardItem[])
-      .filter((item) => {
-        const title = String(item?.title || item?.intervention_title || '').trim();
-        return title.toLocaleLowerCase().includes(loweredSearch);
-      })
-      .slice(0, 6);
-  }, [sourceItems, normalizedSearchTerm]);
+    return (sourceItems as InterventionCardItem[]).filter((item) => {
+      const originalTitle = getRawTitle(item).toLocaleLowerCase();
+      const translatedTitle = getTranslatedTitle(item, translatedTitles).toLocaleLowerCase();
+      return originalTitle.includes(loweredSearch) || translatedTitle.includes(loweredSearch);
+    });
+  }, [sourceItems, normalizedSearchTerm, translatedTitles]);
 
   const renderHighlightedTitle = useCallback(
     (title: string) => {
@@ -514,7 +521,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                     {searchResults.length} {t('Recommendations')}
                   </div>
                   {searchResults.map((item) => {
-                    const title = String(item?.title || item?.intervention_title || '-').trim();
+                    const title = getTranslatedTitle(item, translatedTitles);
                     const contentType = String(item?.content_type || '-').trim();
                     const durationText = isNaN(Number(item?.duration))
                       ? '-'
@@ -708,15 +715,18 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             </div>
 
             <div className="flex gap-2 overflow-x-auto">
-              {section.items.map((item: InterventionCardItem) => (
-                <InterventionCard
-                  key={item._id || item.id}
-                  item={item}
-                  Icon={section.Icon}
-                  onClick={() => openDetails(item)}
-                  containerClassName="shrink-0 w-72"
-                />
-              ))}
+              {section.items.map((item: InterventionCardItem) => {
+                const displayTitle = getTranslatedTitle(item, translatedTitles);
+                return (
+                  <InterventionCard
+                    key={item._id || item.id}
+                    item={{ ...item, title: displayTitle }}
+                    Icon={section.Icon}
+                    onClick={() => openDetails(item)}
+                    containerClassName="shrink-0 w-72"
+                  />
+                );
+              })}
             </div>
           </section>
         ))}
@@ -734,15 +744,18 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           <div className="flex-1 overflow-y-auto pr-3">
             {activeTypeData && (
               <div className="flex flex-col gap-2">
-                {activeTypeData.items.map((item: InterventionCardItem) => (
-                  <InterventionCard
-                    key={item._id || item.id}
-                    item={item}
-                    Icon={activeTypeData.Icon}
-                    onClick={() => openDetails(item)}
-                    containerClassName="w-full"
-                  />
-                ))}
+                {activeTypeData.items.map((item: InterventionCardItem) => {
+                  const displayTitle = getTranslatedTitle(item, translatedTitles);
+                  return (
+                    <InterventionCard
+                      key={item._id || item.id}
+                      item={{ ...item, title: displayTitle }}
+                      Icon={activeTypeData.Icon}
+                      onClick={() => openDetails(item)}
+                      containerClassName="w-full"
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
