@@ -8,13 +8,13 @@ export default function PatientInterventionsLibrarySkeleton() {
       <Skeleton className="h-8 w-32 mb-4" />
 
       {/* Search and filter bar */}
-      <div className="flex gap-2 mt-14 mb-6">
+      <div className="flex gap-2 mt-14 mb-6 mx-4">
         <Skeleton className="flex-1 h-14 rounded-full" />
         <Skeleton className="h-14 w-14 rounded-full" />
       </div>
 
       {/* Type sections */}
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-16 flex flex-col gap-4">
         {[1, 2, 3].map((section) => (
           <div key={section} className="flex flex-col gap-2 rounded-[40px] bg-white p-4">
             {/* Section header */}
