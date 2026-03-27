@@ -4,7 +4,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import RootLayout from '@/RootLayout';
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientPlanSkeleton from '@/components/skeletons/PatientPlanSkeleton';
-import PatientInterventionsSkeleton from '@/components/skeletons/PatientInterventionsSkeleton';
+import PatientInterventionsLibrarySkeleton from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
 import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
 import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
@@ -166,7 +166,7 @@ export const router = createBrowserRouter([
     path: '/patient-interventions',
     element: withSuspense(
       createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
-      createElement(PatientInterventionsSkeleton)
+      createElement(PatientInterventionsLibrarySkeleton)
     ),
   },
   {
