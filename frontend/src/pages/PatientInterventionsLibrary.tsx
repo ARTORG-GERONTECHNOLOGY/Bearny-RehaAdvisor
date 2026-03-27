@@ -52,6 +52,12 @@ type InterventionCardItem = {
   intervention_id?: string;
 };
 
+type OptionItem = {
+  value: string;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }> | null;
+};
+
 type InterventionCardProps = {
   item: InterventionCardItem;
   Icon: React.ComponentType<{ className?: string }>;
@@ -116,6 +122,41 @@ const getContentTypeIcon = (value: string) => {
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const durationBuckets = [5, 20, 35, 50, 60];
+const durationLabels = ['5 min', '20 min', '35 min', '50 min', '1h+'];
+
+const buildUniqueOptions = <T,>(
+  sourceItems: T[],
+  getValue: (item: T) => unknown,
+  getIcon: (value: string) => React.ComponentType<{ className?: string }> | null
+): OptionItem[] => {
+  const byNormalized = new Map<string, string>();
+
+  sourceItems
+    .map((item) => getValue(item))
+    .flat()
+    .filter(Boolean)
+    .forEach((raw: unknown) => {
+      const value = String(raw).trim();
+      const normalized = value.toLocaleLowerCase();
+
+      if (!byNormalized.has(normalized)) {
+        byNormalized.set(normalized, value);
+      }
+    });
+
+  return Array.from(byNormalized.values()).map((value) => ({
+    value,
+    label: value,
+    Icon: getIcon(value),
+  }));
+};
+
+const hasAimKeyword = (item: InterventionCardItem, keyword: string) =>
+  (Array.isArray(item.aims) ? item.aims : []).some((aim: string) =>
+    String(aim).toLocaleLowerCase().includes(keyword)
+  );
+
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -149,9 +190,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, []);
 
   // ─────────────────────────── filters ───────────────────────────
-  const durationBuckets = [5, 20, 35, 50, 60];
-  const durationLabels = ['5 min', '20 min', '35 min', '50 min', '1h+'];
-
   const [searchTerm, setSearchTerm] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
   const [aimsFilter, setAimsFilter] = useState<string[]>([]);
@@ -302,75 +340,33 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
 
   const typeOptions = useMemo(() => {
-    const byNormalized = new Map<string, string>();
-
-    sourceItems
-      .map((it: any) => it.aims)
-      .flat()
-      .filter(Boolean)
-      .forEach((raw: string) => {
-        const value = String(raw).trim();
-        const normalized = value.toLocaleLowerCase();
-        if (!byNormalized.has(normalized)) {
-          byNormalized.set(normalized, value);
-        }
-      });
-
-    return Array.from(byNormalized.values()).map((t) => ({
-      value: t,
-      label: t,
-      Icon: getTypeIcon(t),
-    }));
+    return buildUniqueOptions(
+      sourceItems as InterventionCardItem[],
+      (item) => item.aims,
+      getTypeIcon
+    );
   }, [sourceItems]);
 
   const contentOptions = useMemo(() => {
-    const byNormalized = new Map<string, string>();
-
-    sourceItems
-      .map((it: any) => it.content_type)
-      .filter(Boolean)
-      .forEach((raw: string) => {
-        const value = String(raw).trim();
-        const normalized = value.toLocaleLowerCase();
-        if (!byNormalized.has(normalized)) {
-          byNormalized.set(normalized, value);
-        }
-      });
-
-    return Array.from(byNormalized.values()).map((t) => ({
-      value: t,
-      label: t,
-      Icon: getContentTypeIcon(t),
-    }));
+    return buildUniqueOptions(
+      sourceItems as InterventionCardItem[],
+      (item) => item.content_type,
+      getContentTypeIcon
+    );
   }, [sourceItems]);
 
   const exerciseItems = useMemo(
-    () =>
-      filteredItems.filter((it: any) =>
-        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
-          String(aim).toLocaleLowerCase().includes('exercise')
-        )
-      ),
+    () => filteredItems.filter((item: InterventionCardItem) => hasAimKeyword(item, 'exercise')),
     [filteredItems]
   );
 
   const educationItems = useMemo(
-    () =>
-      filteredItems.filter((it: any) =>
-        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
-          String(aim).toLocaleLowerCase().includes('education')
-        )
-      ),
+    () => filteredItems.filter((item: InterventionCardItem) => hasAimKeyword(item, 'education')),
     [filteredItems]
   );
 
   const instructionItems = useMemo(
-    () =>
-      filteredItems.filter((it: any) =>
-        (Array.isArray(it?.aims) ? it.aims : []).some((aim: string) =>
-          String(aim).toLocaleLowerCase().includes('instruction')
-        )
-      ),
+    () => filteredItems.filter((item: InterventionCardItem) => hasAimKeyword(item, 'instruction')),
     [filteredItems]
   );
 
@@ -413,6 +409,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     visibleTypeSections[0];
 
   const normalizedSearchTerm = searchTerm.trim();
+  const isSearchOpen = Boolean(normalizedSearchTerm);
 
   const searchResults = useMemo(() => {
     if (!normalizedSearchTerm) return [];
@@ -456,14 +453,14 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         aria-label={t('Close search')}
         onClick={() => setSearchTerm('')}
         className={`fixed inset-0 z-10 bg-black/60 transition-opacity duration-200 ${
-          normalizedSearchTerm ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          isSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
 
       <div className="relative mx-4 mt-14 h-14">
         <div
           className={`absolute z-20 transition-all duration-200 ease-out ${
-            normalizedSearchTerm
+            isSearchOpen
               ? 'rounded-[40px] border-none bg-white -left-6 -right-6 -top-6 p-4'
               : 'bg-transparent p-0 left-0 right-0 top-0'
           }`}
@@ -487,7 +484,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
               </Field>
             </div>
 
-            {normalizedSearchTerm ? (
+            {isSearchOpen ? (
               <Button
                 onClick={() => setSearchTerm('')}
                 className="rounded-full border border-accent bg-zinc-100 p-4 shadow-none w-14 h-14"
@@ -507,7 +504,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
           <div
             className={`grid overflow-hidden transition-all duration-200 ease-out ${
-              normalizedSearchTerm ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              isSearchOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
             }`}
           >
             <div className="mt-6">
@@ -711,7 +708,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             </div>
 
             <div className="flex gap-2 overflow-x-auto">
-              {section.items.map((item: any) => (
+              {section.items.map((item: InterventionCardItem) => (
                 <InterventionCard
                   key={item._id || item.id}
                   item={item}
@@ -737,7 +734,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           <div className="flex-1 overflow-y-auto pr-3">
             {activeTypeData && (
               <div className="flex flex-col gap-2">
-                {activeTypeData.items.map((item: any) => (
+                {activeTypeData.items.map((item: InterventionCardItem) => (
                   <InterventionCard
                     key={item._id || item.id}
                     item={item}
