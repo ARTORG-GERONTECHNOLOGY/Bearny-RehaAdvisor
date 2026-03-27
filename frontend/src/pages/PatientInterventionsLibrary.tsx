@@ -536,6 +536,20 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           </>
         )}
 
+        {!storeLoading && visibleTypeSections.length === 0 && (
+          <div className="flex flex-col gap-2 items-center justify-center py-12 px-4">
+            <div className="text-lg font-medium text-zinc-600 text-center">
+              {t('No entries found.')}
+            </div>
+            <Button
+              onClick={resetAllFilters}
+              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-sm font-medium text-zinc-50"
+            >
+              {t('Reset filters')}
+            </Button>
+          </div>
+        )}
+
         {visibleTypeSections.map((section) => (
           <section
             key={section.key}
