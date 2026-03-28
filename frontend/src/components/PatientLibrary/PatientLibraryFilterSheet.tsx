@@ -57,11 +57,9 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
               {typeOptions.map((option) => (
                 <div key={option.value} className="flex items-center justify-between">
                   <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
-                    {option.Icon ? (
-                      <option.Icon className="w-6 h-6" />
-                    ) : (
-                      <div className="w-6 h-6" />
-                    )}
+                    <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
+                      {option.Icon && <option.Icon className="w-6 h-6" />}
+                    </div>
                     <span>{option.label}</span>
                   </div>
                   <Switch
@@ -85,11 +83,9 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
               {contentOptions.map((option) => (
                 <div key={option.value} className="flex items-center justify-between">
                   <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
-                    {option.Icon ? (
-                      <option.Icon className="w-6 h-6" />
-                    ) : (
-                      <div className="w-6 h-6" />
-                    )}
+                    <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
+                      {option.Icon && <option.Icon className="w-6 h-6" />}
+                    </div>
                     <span>{option.label}</span>
                   </div>
                   <Switch
