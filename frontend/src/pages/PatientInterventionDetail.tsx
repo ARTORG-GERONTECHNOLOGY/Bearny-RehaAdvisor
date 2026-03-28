@@ -683,11 +683,11 @@ const PatientInterventionDetail: React.FC = observer(() => {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {effectiveItem.intervention.duration_bucket && (
+              {effectiveItem.intervention.duration && (
                 <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
                   <ClockIcon className="w-6 h-6" />
                   <span className="font-medium text-xl text-[#00956C]">
-                    {effectiveItem.intervention.duration_bucket}
+                    {`${effectiveItem.intervention.duration}min`}
                   </span>
                 </Badge>
               )}
