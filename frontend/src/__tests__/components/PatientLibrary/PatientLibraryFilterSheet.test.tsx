@@ -48,7 +48,7 @@ describe('PatientLibraryFilterSheet', () => {
         setContentTypeFilter={jest.fn()}
         durationFilterIndices={[0, 4]}
         setDurationFilterIndices={jest.fn()}
-        durationLabels={['5 min', '20 min', '35 min', '50 min', '1h+']}
+        durationLabels={['5min', '20min', '35min', '50min', '1h+']}
         onResetFilters={onResetFilters}
       />
     );

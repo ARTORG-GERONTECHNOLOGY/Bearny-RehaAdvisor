@@ -69,7 +69,9 @@ const getContentTypeIcon = (value: string) => {
   if (normalized.includes('audio')) return AudioIcon;
   if (normalized.includes('text')) return TextIcon;
   if (normalized.includes('video')) return VideoIcon;
+  if (normalized.includes('image')) return VideoIcon;
   if (normalized.includes('website')) return WebsiteIcon;
+  if (normalized.includes('app')) return WebsiteIcon;
 
   return null;
 };
@@ -77,7 +79,7 @@ const getContentTypeIcon = (value: string) => {
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const durationBuckets = [5, 20, 35, 50, 60];
-const durationLabels = ['5 min', '20 min', '35 min', '50 min', '1h+'];
+const durationLabels = ['5min', '20min', '35min', '50min', '1h+'];
 
 const buildUniqueOptions = <T,>(
   sourceItems: T[],
