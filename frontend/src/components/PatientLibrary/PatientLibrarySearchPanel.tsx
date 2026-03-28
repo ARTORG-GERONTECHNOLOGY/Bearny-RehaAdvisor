@@ -51,14 +51,14 @@ const PatientLibrarySearchPanel: React.FC<PatientLibrarySearchPanelProps> = ({
         type="button"
         aria-label={t('Close search')}
         onClick={onCloseSearch}
-        className={`fixed inset-0 z-10 bg-black/60 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-10 bg-black/80 transition-opacity duration-300 ${
           isSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
 
       <div className="relative mx-4 mt-14 h-14">
         <div
-          className={`absolute z-20 transition-all duration-200 ease-out ${
+          className={`absolute z-20 transition-all duration-300 ease-in-out ${
             isSearchOpen
               ? 'rounded-[40px] border-none bg-white -left-6 -right-6 -top-6 p-4'
               : 'bg-transparent p-0 left-0 right-0 top-0'
@@ -103,7 +103,7 @@ const PatientLibrarySearchPanel: React.FC<PatientLibrarySearchPanelProps> = ({
           </div>
 
           <div
-            className={`grid overflow-hidden transition-all duration-200 ease-out ${
+            className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
               isSearchOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
             }`}
           >
