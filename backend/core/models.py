@@ -120,7 +120,7 @@ class FitbitData(Document):
     heart_rate_zones = ListField(EmbeddedDocumentField(HeartRateZone))
 
     # highest HR reached during the day (from intraday or activities)
-    max_heart_rate = IntField()
+    max_heart_rate = IntField(null=True)
 
     # Physical activity
     floors = IntField()
@@ -145,7 +145,7 @@ class FitbitData(Document):
     inactivity_minutes = IntField()
 
     # Fitbit wear time (minutes the device was worn, derived from intraday HR)
-    wear_time_minutes = IntField()
+    wear_time_minutes = IntField(null=True)
 
     # Imported from PatientVitals (OPTION B)
     weight_kg = FloatField()
