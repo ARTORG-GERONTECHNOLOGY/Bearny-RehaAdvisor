@@ -55,7 +55,11 @@ test.describe('Patient interventions page', () => {
     await searchInput.fill('cardio');
     await expect(searchInput).toHaveValue('cardio');
 
-    const openFilterButton = page.getByRole('button', { name: /filter/i }).first();
+    // Search mode renders a full-screen close layer that blocks filter clicks.
+    await page.keyboard.press('Escape');
+    await expect(searchInput).toHaveValue('');
+
+    const openFilterButton = page.getByRole('button', { name: /open filter/i });
     await expect(openFilterButton).toBeVisible();
     await openFilterButton.click();
 
