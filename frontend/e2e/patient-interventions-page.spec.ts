@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   const patientLogin = process.env.E2E_PATIENT_LOGIN;
@@ -23,6 +23,8 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
 }
 
 test.describe('Patient interventions page', () => {
+  const getSearchInput = (page: Page) => page.locator('#inline-end-input');
+
   test('redirects unauthenticated user away from /patient-interventions', async ({ page }) => {
     await page.goto('/patient-interventions');
     await expect(page).toHaveURL(/\/$/);
@@ -41,32 +43,34 @@ test.describe('Patient interventions page', () => {
     await expect(page).toHaveURL(/\/patient-interventions(?:\/)?$/);
     await libraryReqPromise;
 
-    await expect(page.getByPlaceholder(/search interventions/i)).toBeVisible();
+    await expect(getSearchInput(page)).toBeVisible();
   });
 
   test('supports search/content-type filter interactions and reset', async ({ page }) => {
     await loginAsSeededPatient(page);
     await page.goto('/patient-interventions');
 
-    const searchInput = page.getByPlaceholder(/search interventions/i);
+    const searchInput = getSearchInput(page);
     await expect(searchInput).toBeVisible();
     await searchInput.fill('cardio');
     await expect(searchInput).toHaveValue('cardio');
 
-    const contentTypeSelect = page.locator('select').first();
-    await expect(contentTypeSelect).toBeVisible();
-    const optionCount = await contentTypeSelect.locator('option').count();
-    if (optionCount > 1) {
-      const val = await contentTypeSelect.locator('option').nth(1).getAttribute('value');
-      if (val) {
-        await contentTypeSelect.selectOption(val);
-        await expect(contentTypeSelect).toHaveValue(val);
-      }
+    const openFilterButton = page.getByRole('button', { name: /filter/i }).first();
+    await expect(openFilterButton).toBeVisible();
+    await openFilterButton.click();
+
+    const firstSwitch = page.getByRole('switch').first();
+    if ((await firstSwitch.count()) > 0) {
+      await firstSwitch.click();
+      await expect(firstSwitch).toHaveAttribute('data-state', /^checked$/);
     }
 
     await page.getByRole('button', { name: /reset filters/i }).click();
     await expect(searchInput).toHaveValue('');
-    await expect(contentTypeSelect).toHaveValue('');
+
+    if ((await firstSwitch.count()) > 0) {
+      await expect(firstSwitch).toHaveAttribute('data-state', /^unchecked$/);
+    }
   });
 
   test('opens and closes intervention details modal when at least one intervention exists', async ({
@@ -80,7 +84,7 @@ test.describe('Patient interventions page', () => {
       test.skip(true, 'No interventions available for seeded patient library.');
     }
 
-    const firstItem = page.locator('[aria-label="Intervention"]').first();
+    const firstItem = page.locator('section[role="button"] div[role="button"]').first();
     const hasItem = (await firstItem.count()) > 0;
     test.skip(!hasItem, 'No clickable intervention row available.');
 
