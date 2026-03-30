@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from 'mobx';
+import * as Sentry from '@sentry/react';
 import apiClient from '../api/client';
 
 type ExistsResp = { exists: boolean };
@@ -41,7 +42,7 @@ class PatientVitalsStore {
       });
     } catch {
       runInAction(() => {
-        this.error = 'Failed to check today’s vitals.';
+        this.error = "Failed to check today's vitals.";
       });
     } finally {
       runInAction(() => {
@@ -65,12 +66,13 @@ class PatientVitalsStore {
       });
 
       runInAction(() => {
-        this.successMsg = 'Today’s vitals were saved successfully.';
+        this.successMsg = "Today's vitals were saved successfully.";
         this.exists = true; // hide prompt after saving
       });
     } catch (e: any) {
+      Sentry.captureException(e, { extra: { context: 'patientVitalsStore.submit', userId } });
       runInAction(() => {
-        this.error = e?.response?.data?.error || 'Failed to save today’s vitals. Please try again.';
+        this.error = e?.response?.data?.error || "Failed to save today's vitals. Please try again.";
       });
     } finally {
       runInAction(() => {
