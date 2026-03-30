@@ -1,5 +1,6 @@
 // src/stores/patientQuestionnairesStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
+import * as Sentry from '@sentry/react';
 import apiClient from '../api/client';
 
 type Translation = { language: string; text: string };
@@ -143,7 +144,9 @@ export class PatientQuestionnairesStore {
         this.showFeedbackPopup = true;
       });
     } catch (e: any) {
-      console.error('[openInterventionFeedback] failed:', e);
+      Sentry.captureException(e, {
+        extra: { context: 'openInterventionFeedback', patientId, interventionId },
+      });
       runInAction(() => {
         this.feedbackError = 'Failed to load feedback questions';
         // still open: popup can show the error state
@@ -176,8 +179,8 @@ export class PatientQuestionnairesStore {
       runInAction(() => {
         this.healthQuestions = normalized;
       });
-    } catch {
-      // ignore
+    } catch (e: any) {
+      Sentry.captureException(e, { extra: { context: 'loadHealthQuestionnaire', patientId } });
     }
   }
 
@@ -188,8 +191,8 @@ export class PatientQuestionnairesStore {
       runInAction(() => {
         this.showInitialPopup = requires;
       });
-    } catch {
-      // ignore
+    } catch (e: any) {
+      Sentry.captureException(e, { extra: { context: 'checkInitialQuestionnaire', patientId } });
     }
   }
 }

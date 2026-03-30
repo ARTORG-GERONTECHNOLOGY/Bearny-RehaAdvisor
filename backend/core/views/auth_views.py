@@ -872,11 +872,12 @@ def generate_code(length=6):
 
 
 def send_sms(phone_number, message):
-    account_sid = "your_twilio_sid"
-    auth_token = "your_twilio_auth_token"
+    account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
+    auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+    from_number = os.environ.get("TWILIO_FROM_NUMBER", "")
     client = Client(account_sid, auth_token)
 
-    client.messages.create(body=message, from_="+1234567890", to=phone_number)  # Your Twilio number
+    client.messages.create(body=message, from_=from_number, to=phone_number)
 
 
 # =============================
