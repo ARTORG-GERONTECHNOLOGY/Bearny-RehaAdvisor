@@ -884,6 +884,7 @@ const Therapist: React.FC = observer(() => {
         onHide={store.closeImportRedcap}
         loading={store.redcapLoading}
         error={store.redcapError || ''}
+        warnings={store.redcapWarnings ?? []}
         candidates={store.redcapCandidates ?? []}
         rowPasswords={store.redcapRowPasswords ?? {}}
         setRowPassword={store.setRedcapRowPassword}
