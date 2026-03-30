@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from types import SimpleNamespace
+
 from django.http import QueryDict
 from django.test import RequestFactory
 from django.utils import timezone
@@ -73,7 +74,6 @@ def test_auth_helper_password_and_code_generation():
     code = generate_code(6)
     assert code.isdigit()
     assert len(code) == 6
-
 
 
 def test_create_rehab_plan_creates_new_assignment_with_mocked_plan(monkeypatch):
