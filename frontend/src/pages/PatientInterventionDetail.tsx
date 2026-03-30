@@ -22,8 +22,8 @@ import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
 import CircleCheckFillIcon from '@/assets/icons/circle-check-fill.svg?react';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
-import MediaIcon from '@/assets/icons/interventions/media.svg?react';
-import ReaderIcon from '@/assets/icons/interventions/reader.svg?react';
+import MediaIcon from '@/assets/icons/interventions/video.svg?react';
+import ReaderIcon from '@/assets/icons/interventions/website.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
@@ -683,11 +683,11 @@ const PatientInterventionDetail: React.FC = observer(() => {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {effectiveItem.intervention.duration_bucket && (
+              {effectiveItem.intervention.duration && (
                 <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
                   <ClockIcon className="w-6 h-6" />
                   <span className="font-medium text-xl text-[#00956C]">
-                    {effectiveItem.intervention.duration_bucket}
+                    {`${effectiveItem.intervention.duration}min`}
                   </span>
                 </Badge>
               )}

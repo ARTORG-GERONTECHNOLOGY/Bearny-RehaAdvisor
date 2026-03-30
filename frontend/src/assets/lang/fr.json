@@ -267,6 +267,8 @@
   "Failed to fetch pending entries. Please try again later.": "Échec de la récupération des entrées en attente. Veuillez réessayer plus tard.",
   "All": "Tous",
   "Search": "Rechercher",
+  "Close search": "Fermer la recherche",
+  "Open filter": "Ouvrir le filtre",
   "Filter": "Filtre",
   "Reset": "Réinitialiser",
   "Add New": "Ajouter nouveau",

@@ -30,6 +30,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
 
   const completed = patientInterventionsStore.isCompletedOn(rec, date);
   const title = rec.translated_title || rec.intervention_title || '';
+  const duration = rec.duration || rec.intervention?.duration;
   const isExercise = rec.intervention?.aim?.toLowerCase() === 'exercise';
 
   return (
@@ -53,9 +54,9 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
           <EducationIcon className="flex-none w-8 h-8" aria-hidden="true" />
         )}
         <div className="flex-1 flex gap-1 flex-col min-w-0">
-          {typeof rec.duration === 'number' && (
+          {typeof duration === 'number' && (
             <div className="font-medium text-sm leading-5 text-zinc-500">
-              <span aria-label={t('Duration')}>{rec.duration}</span>min
+              <span aria-label={t('Duration')}>{duration}</span>min
             </div>
           )}
           <div className="font-bold font-lg leading-5 text-zinc-800 break-words">{title}</div>
