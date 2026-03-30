@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import ConnectionIcon from '@/assets/icons/wifi-fill.svg?react';
 
-const FITBIT_CLIENT_ID = '23QHGK';
-const FITBIT_REDIRECT_URI = 'https://dev.reha-advisor.ch/api/fitbit/callback/';
+const FITBIT_CLIENT_ID = import.meta.env.VITE_FITBIT_CLIENT_ID as string;
+const FITBIT_REDIRECT_URI = import.meta.env.VITE_FITBIT_REDIRECT_URI as string;
 const FITBIT_SCOPES =
   'activity heartrate respiratory_rate oxygen_saturation temperature electrocardiogram profile sleep';
 

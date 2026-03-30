@@ -3260,6 +3260,24 @@ def add_manual_vitals(request, patient_id: str):
 
     rec.save()
 
+    try:
+        fields = []
+        if weight_kg is not None:
+            fields.append(f"weight_kg={weight_kg}")
+        if bp_sys is not None:
+            fields.append(f"bp_sys={bp_sys}")
+        if bp_dia is not None:
+            fields.append(f"bp_dia={bp_dia}")
+        Logs.objects.create(
+            userId=patient.userId,
+            action="VITALS_SUBMIT",
+            userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+            patient=patient,
+            details=", ".join(fields),
+        )
+    except Exception:
+        pass
+
     return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
 
 
@@ -3392,3 +3410,44 @@ def vitals_exists_for_day(request, patient_id: str):
             exists = weight_present or systolic_present or diastolic_present
 
     return JsonResponse({"exists": bool(exists)}, status=200)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def log_intervention_view(request, patient_id: str):
+    """
+    POST /api/patients/vitals/intervention-view/<patient_id>/
+    Records how long a patient spent viewing an intervention detail page.
+    Body: { intervention_id, date, seconds_viewed }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        body = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    intervention_id = (body.get("intervention_id") or "").strip()
+    seconds_viewed = int(body.get("seconds_viewed") or 0)
+    date = (body.get("date") or "").strip()
+
+    if not intervention_id or seconds_viewed < 1:
+        return JsonResponse({"ok": False}, status=400)
+
+    patient = _resolve_patient(patient_id)
+    if not patient:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+
+    try:
+        Logs.objects.create(
+            userId=patient.userId,
+            action="INTERVENTION_VIEW",
+            userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+            patient=patient,
+            details=f"intervention_id={intervention_id} date={date} seconds={seconds_viewed}",
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({"ok": True}, status=200)

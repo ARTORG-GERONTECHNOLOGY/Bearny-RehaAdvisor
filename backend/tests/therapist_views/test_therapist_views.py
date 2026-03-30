@@ -776,3 +776,23 @@ def test_biomarker_sleep_falls_back_to_duration_when_no_minutes_asleep():
     assert resp.status_code == 200
     row = next(r for r in resp.json() if r["_id"] == str(patient.id))
     assert row["biomarker"]["sleep_avg_h"] == pytest.approx(7.5, rel=1e-3)
+
+
+def test_list_therapist_patients_creates_open_patient_log(mongo_mock):
+    """
+    GET /api/therapists/<id>/patients/ must write a ``Logs`` document with
+    ``action="OPEN_PATIENT"`` linked to the therapist User.
+    The details field records how many patients were returned.
+    """
+    therapist, _ = create_therapist_with_patient()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    log = Logs.objects(action="OPEN_PATIENT").first()
+    assert log is not None, "Expected an OPEN_PATIENT log entry"
+    assert log.userId.id == therapist.userId.id
+    assert "patient_count=" in (log.details or "")

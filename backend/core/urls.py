@@ -239,6 +239,11 @@ urlpatterns = [
         name="vitals_exists_for_day",
     ),
     path(
+        "api/patients/vitals/intervention-view/<str:patient_id>/",
+        patient_views.log_intervention_view,
+        name="log_intervention_view",
+    ),
+    path(
         "api/fitbit/manual_steps/<str:patient_id>/",
         fitbit_views.manual_steps,
         name="manual-steps",
