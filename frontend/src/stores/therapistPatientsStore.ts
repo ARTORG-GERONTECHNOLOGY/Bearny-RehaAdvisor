@@ -227,15 +227,18 @@ export class TherapistPatientsStore {
           ? ((data as { candidates: RedcapCandidate[] }).candidates as RedcapCandidate[])
           : [];
 
-      const apiErrors: Array<{ project?: string; error?: string }> =
-        Array.isArray((res.data as any)?.errors) ? (res.data as any).errors : [];
+      const apiErrors: Array<{ project?: string; error?: string }> = Array.isArray(
+        (res.data as any)?.errors
+      )
+        ? (res.data as any).errors
+        : [];
 
       runInAction(() => {
         this.redcapCandidates = candidates;
 
         // Surface per-project errors as warnings (partial failure is ok)
         this.redcapWarnings = apiErrors.map((e) =>
-          e.project ? `${e.project}: ${e.error ?? 'Unknown error'}` : (e.error ?? 'Unknown error'),
+          e.project ? `${e.project}: ${e.error ?? 'Unknown error'}` : (e.error ?? 'Unknown error')
         );
 
         // keep existing rowPasswords for still-present keys
