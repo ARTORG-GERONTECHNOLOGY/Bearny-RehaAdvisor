@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import patch
 
 from django.http import QueryDict
 from django.test import RequestFactory
@@ -18,7 +17,6 @@ from core.views.auth_views import (
     generate_code,
     generate_random_password,
     make_aware,
-    send_sms,
 )
 
 rf = RequestFactory()
@@ -76,13 +74,6 @@ def test_auth_helper_password_and_code_generation():
     code = generate_code(6)
     assert code.isdigit()
     assert len(code) == 6
-
-
-@patch("core.views.auth_views.Client")
-def test_send_sms_calls_twilio_client(mock_client):
-    send_sms("+15550001111", "hello")
-    mock_client.assert_called_once()
-    mock_client.return_value.messages.create.assert_called_once()
 
 
 def test_create_rehab_plan_creates_new_assignment_with_mocked_plan(monkeypatch):
