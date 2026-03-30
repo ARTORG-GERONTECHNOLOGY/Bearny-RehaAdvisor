@@ -267,6 +267,8 @@
   "Failed to fetch pending entries. Please try again later.": "Falha ao obter entradas pendentes. Por favor tente novamente mais tarde.",
   "All": "Todos",
   "Search": "Pesquisar",
+  "Close search": "Fechar pesquisa",
+  "Open filter": "Abrir filtro",
   "Filter": "Filtrar",
   "Reset": "Repor",
   "Save Changes": "Guardar Alterações",
