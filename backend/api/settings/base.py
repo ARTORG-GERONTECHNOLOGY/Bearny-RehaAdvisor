@@ -128,13 +128,47 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # "nrk37CAYsTW&3sJ"
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 import sys
 
 print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
 print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+            "datefmt": "%Y-%m-%dT%H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "core": {
+            "handlers": ["console"],
+            "level": os.getenv("APP_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
 
 import sentry_sdk
 

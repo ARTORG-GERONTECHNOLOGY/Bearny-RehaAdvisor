@@ -476,3 +476,31 @@ def test_import_patient_success(mock_get_th, mock_tok, mock_export):
     assert body["identifier"] == "P17"
     assert body["project"] == "COPAIN"
     assert Patient.objects(patient_code="P17").count() == 1
+
+
+@patch("core.views.redcap_import_views.redcap_export_minimal")
+@patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
+@patch("core.views.redcap_import_views.get_therapist_for_user")
+def test_import_patient_creates_redcap_import_log(mock_get_th, mock_tok, mock_export):
+    """
+    A successful REDCap import must write a ``Logs`` document with
+    ``action="REDCAP_IMPORT"`` containing the project name and identifier.
+    """
+    from core.models import Logs
+
+    _, th = create_therapist(projects=["COPAIN"])
+    mock_get_th.return_value = th
+    mock_export.return_value = [{"record_id": "R2", "pat_id": "P99", "redcap_data_access_group": ""}]
+
+    resp = client.post(
+        "/api/redcap/import-patient/",
+        data=json.dumps({"project": "COPAIN", "patient_code": "P99", "password": "Strong1!"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 201
+
+    log = Logs.objects(action="REDCAP_IMPORT").first()
+    assert log is not None, "Expected a REDCAP_IMPORT log entry"
+    assert "COPAIN" in (log.details or "")
+    assert "P99" in (log.details or "")
