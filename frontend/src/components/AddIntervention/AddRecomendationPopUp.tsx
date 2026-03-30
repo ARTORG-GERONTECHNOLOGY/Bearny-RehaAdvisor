@@ -337,9 +337,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     const handlePreviewChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0] || null;
       if (file) {
-        const maxBytes = 50 * 1024 * 1024;
+        const maxBytes = 1024 * 1024 * 1024;
         if (file.size > maxBytes) {
-          setErrors((prev) => ({ ...prev, previewImage: t('File is too large (max 50MB).') }));
+          setErrors((prev) => ({ ...prev, previewImage: t('File is too large (max 1GB).') }));
           return;
         }
         if (!file.type.startsWith('image/')) {
@@ -409,11 +409,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     const handleMediaFileChange = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0] || null;
       if (file) {
-        const maxBytes = 50 * 1024 * 1024;
+        const maxBytes = 1024 * 1024 * 1024;
         if (file.size > maxBytes) {
           setErrors((prev) => ({
             ...prev,
-            [`media.${idx}.file`]: t('File is too large (max 50MB).'),
+            [`media.${idx}.file`]: t('File is too large (max 1GB).'),
           }));
           return;
         }
