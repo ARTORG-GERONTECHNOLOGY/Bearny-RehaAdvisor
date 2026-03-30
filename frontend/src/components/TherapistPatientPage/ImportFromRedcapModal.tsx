@@ -15,6 +15,7 @@ type Props = {
 
   loading: boolean;
   error: string;
+  warnings?: string[];
 
   candidates: Candidate[];
 
@@ -40,6 +41,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
     onHide,
     loading,
     error,
+    warnings = [],
     candidates: candidatesRaw,
     rowPasswords: rowPasswordsRaw,
     setRowPassword,
@@ -92,6 +94,17 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
         </div>
 
         {error ? <Alert variant="danger">{error}</Alert> : null}
+
+        {warnings.length > 0 && (
+          <Alert variant="warning">
+            <strong>Some projects could not be queried:</strong>
+            <ul className="mb-0 mt-1">
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
 
         {loading ? (
           <div className="text-center py-4">

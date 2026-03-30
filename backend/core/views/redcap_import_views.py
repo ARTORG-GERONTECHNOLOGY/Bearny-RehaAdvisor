@@ -128,45 +128,8 @@ class RedcapError(Exception):
         self.detail = detail
 
 
-def redcap_export_minimal(
-    token: str,
-    project: str,
-    patient_id: Optional[str] = None,
-    record_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Minimal export:
-      fields: record_id, pat_id
-      and DAG field via exportDataAccessGroups=true
-
-    If patient_id provided: filter by pat_id in REDCap (not always supported directly),
-    so we filter client-side.
-    If record_id provided: we can request that record specifically.
-    """
-    api_url = get_redcap_api_url()
-
-    data = {
-        "token": token,
-        "content": "record",
-        "action": "export",
-        "format": "json",
-        "type": "flat",
-        "rawOrLabel": "raw",
-        "rawOrLabelHeaders": "raw",
-        "exportCheckboxLabel": "false",
-        "exportSurveyFields": "false",
-        "exportDataAccessGroups": "true",  # ✅ ensures redcap_data_access_group returned
-        "returnFormat": "json",
-        "fields[0]": "record_id",
-        "fields[1]": "pat_id",
-        # optionally restrict forms (keeps export small)
-        # "forms[0]": "eligibility",
-    }
-
-    # REDCap supports exporting specific record ids via records[i]
-    if record_id:
-        data["records[0]"] = record_id
-
+def _redcap_post(api_url: str, data: dict) -> List[Dict[str, Any]]:
+    """Execute a REDCap API POST and return the parsed JSON list."""
     try:
         r = requests.post(api_url, data=data, timeout=30)
     except Exception as e:
@@ -186,13 +149,71 @@ def redcap_export_minimal(
     if not isinstance(rows, list):
         raise RedcapError("Unexpected REDCap response format.", detail=rows)
 
+    return rows
+
+
+def _is_unknown_field_error(text: str, field: str) -> bool:
+    """Return True when REDCap 400 response says `field` is not a valid field."""
+    return field in text and ("not valid" in text or "invalid" in text.lower())
+
+
+def redcap_export_minimal(
+    token: str,
+    project: str,
+    patient_id: Optional[str] = None,
+    record_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Minimal export: record_id + pat_id (if supported) + DAG.
+
+    Not every project has a pat_id field.  When REDCap rejects the request
+    because pat_id is unknown we retry with record_id only and mark every
+    returned row's pat_id as empty so callers can use record_id as the
+    identifier instead.
+    """
+    api_url = get_redcap_api_url()
+
+    base = {
+        "token": token,
+        "content": "record",
+        "action": "export",
+        "format": "json",
+        "type": "flat",
+        "rawOrLabel": "raw",
+        "rawOrLabelHeaders": "raw",
+        "exportCheckboxLabel": "false",
+        "exportSurveyFields": "false",
+        "exportDataAccessGroups": "true",
+        "returnFormat": "json",
+    }
+
+    if record_id:
+        base["records[0]"] = record_id
+
+    # First attempt: request both record_id and pat_id
+    data_with_pat = {**base, "fields[0]": "record_id", "fields[1]": "pat_id"}
+    try:
+        rows = _redcap_post(api_url, data_with_pat)
+    except RedcapError as e:
+        # If REDCap says pat_id is not a valid field, retry without it
+        detail_text = str(e.detail) if e.detail else ""
+        if e.args[0] == "REDCap API returned non-200." and _is_unknown_field_error(detail_text, "pat_id"):
+            logger.info("Project %s has no pat_id field — retrying without it", project)
+            data_without_pat = {**base, "fields[0]": "record_id"}
+            rows = _redcap_post(api_url, data_without_pat)
+            # normalise: ensure pat_id key is present but empty
+            for row in rows:
+                row.setdefault("pat_id", "")
+        else:
+            raise
+
     # client-side filter by patient_id (pat_id)
     if patient_id:
         pid = _norm(patient_id)
         rows = [x for x in rows if _norm(x.get("pat_id")) == pid]
 
     # client-side filter by record_id (if not passed as records[0])
-    if record_id and "records[0]" not in data:
+    if record_id and "records[0]" not in base:
         rid = _norm(record_id)
         rows = [x for x in rows if _norm(x.get("record_id")) == rid]
 
