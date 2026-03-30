@@ -99,6 +99,7 @@ export class TherapistPatientsStore {
   showImportRedcapModal = false;
   redcapLoading = false;
   redcapError = '';
+  redcapWarnings: string[] = []; // non-fatal per-project errors
   redcapCandidates: RedcapCandidate[] = [];
 
   // ✅ per-row passwords
@@ -191,6 +192,7 @@ export class TherapistPatientsStore {
     if (this.importingKey) return; // don't close while importing
     this.showImportRedcapModal = false;
     this.redcapError = '';
+    this.redcapWarnings = [];
     this.redcapRowPasswords = {};
     this.importingKey = null;
     this.importedKeys = {};
@@ -225,8 +227,16 @@ export class TherapistPatientsStore {
           ? ((data as { candidates: RedcapCandidate[] }).candidates as RedcapCandidate[])
           : [];
 
+      const apiErrors: Array<{ project?: string; error?: string }> =
+        Array.isArray((res.data as any)?.errors) ? (res.data as any).errors : [];
+
       runInAction(() => {
         this.redcapCandidates = candidates;
+
+        // Surface per-project errors as warnings (partial failure is ok)
+        this.redcapWarnings = apiErrors.map((e) =>
+          e.project ? `${e.project}: ${e.error ?? 'Unknown error'}` : (e.error ?? 'Unknown error'),
+        );
 
         // keep existing rowPasswords for still-present keys
         const nextPw: Record<string, string> = {};
