@@ -60,13 +60,12 @@ def _post_redcap(token: str, payload: Dict[str, Any], timeout: int = 30) -> str:
     return r.text
 
 
-def _post_redcap_with_field_fallback(
-    token: str, payload: Dict[str, Any], fields: List[str], timeout: int = 30
-) -> str:
+def _post_redcap_with_field_fallback(token: str, payload: Dict[str, Any], fields: List[str], timeout: int = 30) -> str:
     """
     Like _post_redcap but automatically removes fields that REDCap says are
     invalid and retries once.  Returns the response text of the successful call.
     """
+
     # Inject field list into payload
     def _with_fields(f_list: List[str]) -> Dict[str, Any]:
         p = {k: v for k, v in payload.items() if not k.startswith("fields[")}
@@ -84,9 +83,7 @@ def _post_redcap_with_field_fallback(
         trimmed = [f for f in fields if f not in invalid]
         if not trimmed or trimmed == fields:
             raise
-        logger.info(
-            "Retrying REDCap export without unsupported fields: %s", sorted(invalid)
-        )
+        logger.info("Retrying REDCap export without unsupported fields: %s", sorted(invalid))
         return _post_redcap(token, _with_fields(trimmed), timeout)
 
 
