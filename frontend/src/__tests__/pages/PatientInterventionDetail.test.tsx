@@ -100,6 +100,15 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
   },
 }));
 
+const mockApiPost = jest.fn().mockResolvedValue({});
+jest.mock('@/api/client', () => ({
+  __esModule: true,
+  default: {
+    post: (...args: unknown[]) => mockApiPost(...args),
+    get: jest.fn().mockResolvedValue({}),
+  },
+}));
+
 import PatientInterventionDetail from '@/pages/PatientInterventionDetail';
 import authStore from '@/stores/authStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
@@ -227,5 +236,29 @@ describe('PatientInterventionDetail', () => {
       '2026-03-16',
       'en'
     );
+  });
+
+  it('posts intervention view duration to backend on unmount', async () => {
+    (patientInterventionsStore as any).items = [buildRec()];
+
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    // Advance real time so seconds_viewed > 0 (component reads Date.now())
+    jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 10_000);
+
+    unmount();
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        expect.stringContaining('/patients/vitals/intervention-view/'),
+        expect.objectContaining({
+          intervention_id: 'int-1',
+          seconds_viewed: expect.any(Number),
+        })
+      );
+    });
+
+    jest.restoreAllMocks();
   });
 });

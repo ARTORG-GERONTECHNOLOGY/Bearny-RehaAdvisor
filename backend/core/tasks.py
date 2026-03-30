@@ -1,6 +1,7 @@
 # core/tasks.py
 import logging
 import os
+import time
 
 from celery import shared_task
 from django.core.management import call_command
@@ -38,12 +39,19 @@ def run_delete_expired_videos():
     """
     enabled = os.environ.get("ENABLE_MEDIA_AUTO_DELETE", "").strip().lower()
     if enabled not in ("true", "1", "yes"):
-        logger.info("ENABLE_MEDIA_AUTO_DELETE is not set to true — skipping media cleanup")
+        logger.info("[delete_expired_videos] skipped (ENABLE_MEDIA_AUTO_DELETE not set)")
         return "skipped"
 
-    call_command("delete_expired_videos")
-    logger.info("✅ delete_expired_videos finished")
-    return "ok"
+    t0 = time.time()
+    try:
+        call_command("delete_expired_videos")
+        elapsed = time.time() - t0
+        logger.info("[delete_expired_videos] ✅ finished in %.1fs", elapsed)
+        return "ok"
+    except Exception:
+        elapsed = time.time() - t0
+        logger.exception("[delete_expired_videos] ❌ failed after %.1fs", elapsed)
+        raise
 
 
 # If your PeriodicTask points to "core.tasks.run_fetch_fitbit_data"
@@ -54,12 +62,15 @@ def run_delete_expired_videos():
     max_retries=3,
 )
 def run_fetch_fitbit_data():
+    t0 = time.time()
     try:
-        call_command("fetch_fitbit_data")  # ✅ correct command name
-        logger.info("✅ fetch_fitbit finished")
+        call_command("fetch_fitbit_data")
+        elapsed = time.time() - t0
+        logger.info("[fetch_fitbit_data] ✅ finished in %.1fs", elapsed)
         return "ok"
     except Exception:
-        logger.exception("❌ fetch_fitbit failed")
+        elapsed = time.time() - t0
+        logger.exception("[fetch_fitbit_data] ❌ failed after %.1fs", elapsed)
         raise
 
 

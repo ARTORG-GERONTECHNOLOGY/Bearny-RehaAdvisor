@@ -16,7 +16,6 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from twilio.rest import Client
 
 from core.tasks import fetch_fitbit_data_async
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
@@ -869,14 +868,6 @@ def register_view(request):
 
 def generate_code(length=6):
     return "".join(random.choices(string.digits, k=length))
-
-
-def send_sms(phone_number, message):
-    account_sid = "your_twilio_sid"
-    auth_token = "your_twilio_auth_token"
-    client = Client(account_sid, auth_token)
-
-    client.messages.create(body=message, from_="+1234567890", to=phone_number)  # Your Twilio number
 
 
 # =============================

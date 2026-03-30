@@ -12,8 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import Patient  # MongoEngine models (as in your project)
-from core.models import Therapist, User
+from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
 
 logger = logging.getLogger(__name__)
 
@@ -575,6 +574,25 @@ def import_patient_from_redcap(request):
             pass
 
         patient.save()
+
+        logger.info(
+            "[REDCAP_IMPORT] project=%s identifier=%s patient_id=%s user_id=%s therapist=%s",
+            project,
+            final_identifier,
+            patient.id,
+            user.id,
+            therapist.id,
+        )
+        try:
+            Logs.objects.create(
+                userId=therapist.userId,
+                action="REDCAP_IMPORT",
+                userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+                patient=patient,
+                details=f"project={project} identifier={final_identifier} dag={dag}",
+            )
+        except Exception:
+            pass
 
         return JsonResponse(
             {

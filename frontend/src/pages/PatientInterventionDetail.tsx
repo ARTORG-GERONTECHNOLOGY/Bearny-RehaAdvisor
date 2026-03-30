@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import Layout from '@/components/Layout';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { Skeleton } from '@/components/ui/skeleton';
+import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
@@ -341,6 +342,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
+  const viewOpenedAt = useRef<number>(Date.now());
 
   useEffect(() => {
     let alive = true;
@@ -525,6 +527,26 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     return null;
   }, [selectedRec, selectedLibraryItem]);
+
+  // Track time spent on this intervention detail page
+  useEffect(() => {
+    const openedAt = viewOpenedAt.current;
+    return () => {
+      const seconds = Math.round((Date.now() - openedAt) / 1000);
+      if (seconds < 2 || !patientId || !interventionId) return;
+      const date = searchParams.get('date') || '';
+      apiClient
+        .post(`/patients/vitals/intervention-view/${patientId}/`, {
+          intervention_id: interventionId,
+          date,
+          seconds_viewed: seconds,
+        })
+        .catch(() => {
+          /* best-effort, no noise */
+        });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // keep translations in sync with effectiveItem
   useEffect(() => {
