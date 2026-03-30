@@ -35,6 +35,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionMedia,
+    Logs,
     Patient,
     PatientInterventionLogs,
     PatientType,
@@ -100,7 +101,7 @@ ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 # Accept any casing from frontend and normalize to canonical backend values.
 
 
-MAX_FILE_SIZE_BYTES = 400 * 1024 * 1024  # 400MB
+MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB
 MAX_LIST_ITEMS = 30
 MAX_ITEM_LEN = 80
 
@@ -260,6 +261,25 @@ def apply_template_to_patient(request, therapist_id):
 
         plan.updatedAt = timezone.now()
         plan.save()
+
+        logger.info(
+            "[ASSIGN_INTERVENTION] therapist=%s patient=%s diagnosis=%s applied=%d sessions=%d",
+            therapist_id,
+            patient_id,
+            diagnosis,
+            applied,
+            total_sessions,
+        )
+        try:
+            Logs.objects.create(
+                userId=therapist.userId,
+                action="ASSIGN_INTERVENTION",
+                userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+                patient=patient,
+                details=f"diagnosis={diagnosis} applied={applied} sessions={total_sessions}",
+            )
+        except Exception:
+            pass
 
         return JsonResponse(
             {"success": True, "applied": applied, "sessions_created": total_sessions},

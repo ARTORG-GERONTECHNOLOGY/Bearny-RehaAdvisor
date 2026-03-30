@@ -6,7 +6,14 @@ export type ImportResult = {
   created?: number;
   updated?: number;
   skipped?: number;
-  errors?: Array<{ row?: number; intervention_id?: string; error?: string }>;
+  errors?: Array<{
+    row?: number;
+    intervention_id?: string;
+    error?: string;
+    severity?: 'warning' | 'error';
+  }>;
+  errors_count?: number;
+  warnings?: number;
   message?: string;
 };
 
