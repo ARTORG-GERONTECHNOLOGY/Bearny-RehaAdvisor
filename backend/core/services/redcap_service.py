@@ -41,8 +41,9 @@ def _parse_invalid_fields(error_text: str) -> Set[str]:
     m = re.search(r"not valid[:\s]+(.*)", error_text, re.IGNORECASE)
     if not m:
         return set()
-    raw = m.group(1)
-    return {f.strip().strip("'\"") for f in raw.split(",") if f.strip().strip("'\"")}
+    # Extract only valid REDCap field name characters (word chars) from each
+    # comma-separated token so trailing JSON punctuation ('"}') is ignored.
+    return {name for token in m.group(1).split(",") for name in re.findall(r"\w+", token)}
 
 
 def _post_redcap(token: str, payload: Dict[str, Any], timeout: int = 30) -> str:
