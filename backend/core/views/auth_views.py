@@ -870,7 +870,6 @@ def generate_code(length=6):
     return "".join(random.choices(string.digits, k=length))
 
 
-
 # =============================
 # SEND 2FA CODE (Therapist)
 # - Fixes MongoEngine ValidationError by forcing str(user.id)
