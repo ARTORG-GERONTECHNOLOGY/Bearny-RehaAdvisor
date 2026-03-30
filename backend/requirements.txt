@@ -16,7 +16,6 @@ django-cors-headers
 djangorestframework
 djangorestframework-simplejwt
 python-dateutil
-twilio
 pydub
 celery
 django-celery-beat
