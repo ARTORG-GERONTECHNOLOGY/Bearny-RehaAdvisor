@@ -75,8 +75,14 @@ MEDIA_ROOT = "/app/media"
 
 import os
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "1073741824"))
-FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", "1073741824"))
+# FILE_UPLOAD_MAX_MEMORY_SIZE: files smaller than this are kept in RAM;
+# larger files are streamed to a temp file on disk (TemporaryUploadedFile).
+# Keep this small so large video/audio uploads don't exhaust server memory.
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", str(5 * 1024 * 1024)))  # 5 MB
+
+# DATA_UPLOAD_MAX_MEMORY_SIZE caps non-file form field data (not file content).
+# 10 MB is generous for any JSON/text fields we send alongside a file.
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024)))  # 10 MB
 
 
 REST_FRAMEWORK = {
