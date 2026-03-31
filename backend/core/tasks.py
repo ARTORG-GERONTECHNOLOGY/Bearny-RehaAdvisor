@@ -80,3 +80,55 @@ def fetch_fitbit_data_async(user_id):
     user = User.objects(pk=user_id).first()
     if user:
         fetch_fitbit_today_for_user(user)
+
+
+@shared_task(
+    name="core.tasks.sync_wearables_to_redcap_patient",
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    max_retries=3,
+)
+def sync_wearables_to_redcap_patient(patient_id: str):
+    """Sync wearables data to REDCap for a single patient by Patient ID."""
+    from core.services.wearables_redcap_service import export_wearables_to_redcap
+
+    patient = Patient.objects(pk=patient_id).first()
+    if not patient:
+        logger.warning("[sync_wearables] Patient not found: %s", patient_id)
+        return {"error": "Patient not found"}
+
+    results = export_wearables_to_redcap(patient)
+    logger.info("[sync_wearables] %s → %s", patient.patient_code, results)
+    return results
+
+
+@shared_task(
+    name="core.tasks.sync_wearables_to_redcap_all",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=2,
+)
+def sync_wearables_to_redcap_all():
+    """
+    Nightly task: sync wearables to REDCap for all patients that have both
+    a project and a reha_end_date set.
+    """
+    from core.services.wearables_redcap_service import export_wearables_to_redcap
+
+    patients = Patient.objects(project__ne="", reha_end_date__ne=None)
+
+    synced = 0
+    errors = 0
+    for patient in patients:
+        if not (patient.project or "").strip():
+            continue
+        try:
+            results = export_wearables_to_redcap(patient)
+            logger.info("[sync_wearables_all] %s → %s", patient.patient_code, results)
+            synced += 1
+        except Exception as e:
+            logger.warning("[sync_wearables_all] Skipped %s: %s", patient.patient_code, e)
+            errors += 1
+
+    logger.info("[sync_wearables_all] Done: %d synced, %d errors/skipped", synced, errors)
+    return {"synced": synced, "errors": errors}
