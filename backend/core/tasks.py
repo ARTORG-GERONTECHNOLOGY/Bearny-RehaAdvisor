@@ -127,9 +127,7 @@ def sync_wearables_to_redcap_all():
             logger.info("[sync_wearables_all] %s → %s", patient.patient_code, results)
             synced += 1
         except Exception as e:
-            logger.warning(
-                "[sync_wearables_all] Skipped %s: %s", patient.patient_code, e
-            )
+            logger.warning("[sync_wearables_all] Skipped %s: %s", patient.patient_code, e)
             errors += 1
 
     logger.info("[sync_wearables_all] Done: %d synced, %d errors/skipped", synced, errors)

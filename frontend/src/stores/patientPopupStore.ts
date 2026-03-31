@@ -737,7 +737,7 @@ export class PatientPopupStore {
   async syncWearablesToRedcap(
     t: (k: string) => string,
     eventBaseline?: string,
-    eventFollowup?: string,
+    eventFollowup?: string
   ) {
     this.wearablesSyncing = true;
     this.wearablesSyncResult = null;
@@ -746,10 +746,7 @@ export class PatientPopupStore {
       const body: Record<string, string> = {};
       if (eventBaseline) body.event_baseline = eventBaseline;
       if (eventFollowup) body.event_followup = eventFollowup;
-      const res = await apiClient.post(
-        `/wearables/sync-to-redcap/${this.patientId}/`,
-        body,
-      );
+      const res = await apiClient.post(`/wearables/sync-to-redcap/${this.patientId}/`, body);
       runInAction(() => {
         this.wearablesSyncResult = (res.data as any)?.results ?? {};
       });

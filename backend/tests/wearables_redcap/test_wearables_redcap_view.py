@@ -18,7 +18,8 @@ Coverage
 """
 
 import json
-from datetime import datetime, timezone as dt_tz
+from datetime import datetime
+from datetime import timezone as dt_tz
 from unittest.mock import patch
 
 import mongomock
@@ -154,8 +155,12 @@ def test_success_returns_results_and_summary():
     patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
 
     fake_summary = {
-        "baseline": {"monitoring_start": "03-01-2024", "monitoring_end": "09-01-2024",
-                     "monitoring_days": 7, "fitbit_steps": 5000},
+        "baseline": {
+            "monitoring_start": "03-01-2024",
+            "monitoring_end": "09-01-2024",
+            "monitoring_days": 7,
+            "fitbit_steps": 5000,
+        },
         "followup": None,
     }
     fake_results = {"baseline": "ok", "followup": "skipped"}
@@ -197,10 +202,12 @@ def test_event_names_from_body_passed_to_service():
         ) as mock_export:
             resp = client.post(
                 URL(patient.id),
-                data=json.dumps({
-                    "event_baseline": "custom_bl_arm_1",
-                    "event_followup": "custom_fu_arm_1",
-                }),
+                data=json.dumps(
+                    {
+                        "event_baseline": "custom_bl_arm_1",
+                        "event_followup": "custom_fu_arm_1",
+                    }
+                ),
                 content_type="application/json",
                 **AUTH,
             )

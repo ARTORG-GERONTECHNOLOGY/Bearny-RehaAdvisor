@@ -2,7 +2,8 @@ import json
 import logging
 import os
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone as dt_tz
+from datetime import datetime, timedelta
+from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import FitbitData, Patient
@@ -182,9 +183,7 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     try:
         user = patient.userId  # triggers MongoEngine dereference
     except Exception as e:
-        raise ValueError(
-            f"Could not resolve userId for patient {patient.patient_code}: {e}"
-        ) from e
+        raise ValueError(f"Could not resolve userId for patient {patient.patient_code}: {e}") from e
 
     return {
         "baseline": _summarize_period(user, baseline_start, baseline_end, sleep_fmt),
@@ -207,15 +206,11 @@ def _resolve_event_names(
     proj_defaults = _PROJECT_CONFIG.get(project_name.upper(), {})
 
     ev_baseline = (
-        event_baseline
-        or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip()
-        or proj_defaults.get("baseline")
+        event_baseline or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip() or proj_defaults.get("baseline")
     ) or None
 
     ev_followup = (
-        event_followup
-        or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip()
-        or proj_defaults.get("followup")
+        event_followup or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip() or proj_defaults.get("followup")
     ) or None
 
     return ev_baseline, ev_followup
@@ -245,14 +240,11 @@ def export_wearables_to_redcap(
     rows = export_record_by_pat_id(project_name, patient.patient_code)
     if not rows:
         raise ValueError(
-            f"No REDCap record found for patient_code={patient.patient_code} "
-            f"in project={project_name}"
+            f"No REDCap record found for patient_code={patient.patient_code} " f"in project={project_name}"
         )
     record_id = str(rows[0].get("record_id") or "").strip()
     if not record_id:
-        raise ValueError(
-            f"REDCap record for {patient.patient_code} has no record_id"
-        )
+        raise ValueError(f"REDCap record for {patient.patient_code} has no record_id")
 
     summary = compute_wearables_summary(patient)
     ev_baseline, ev_followup = _resolve_event_names(project_name, event_baseline, event_followup)

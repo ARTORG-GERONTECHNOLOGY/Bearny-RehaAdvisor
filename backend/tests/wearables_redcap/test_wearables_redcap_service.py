@@ -31,7 +31,8 @@ DB-backed tests (mongomock):
 """
 
 import json
-from datetime import datetime, timedelta, timezone as dt_tz
+from datetime import datetime, timedelta
+from datetime import timezone as dt_tz
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -51,7 +52,6 @@ from core.services.wearables_redcap_service import (
     compute_wearables_summary,
     export_wearables_to_redcap,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -105,8 +105,7 @@ def _make_patient(project="COMPASS", reha_end_date=None, study_end_date=None):
     return pt_user, patient
 
 
-def _make_fitbit_day(user, date: datetime, steps=5000, active_min=30, inactive_min=300,
-                     wear_min=600, sleep_ms=None):
+def _make_fitbit_day(user, date: datetime, steps=5000, active_min=30, inactive_min=300, wear_min=600, sleep_ms=None):
     """Save a single FitbitData record and return it."""
     sleep = SleepData(sleep_duration=sleep_ms) if sleep_ms is not None else None
     return FitbitData(
@@ -202,28 +201,27 @@ class TestComputeAverages:
     def test_basic_averages(self):
         user, patient = _make_patient()
         records = [
-            _make_fitbit_day(user, datetime(2024, 3, d, tzinfo=dt_tz.utc),
-                             steps=s, active_min=a, inactive_min=i, wear_min=600)
+            _make_fitbit_day(
+                user, datetime(2024, 3, d, tzinfo=dt_tz.utc), steps=s, active_min=a, inactive_min=i, wear_min=600
+            )
             for d, s, a, i in [(4, 4000, 20, 400), (5, 6000, 40, 200)]
         ]
         avgs = _compute_averages(records, "hours_int")
-        assert avgs["fitbit_steps"] == 5000   # (4000+6000)/2
-        assert avgs["fitbit_pa"] == 30        # (20+40)/2
+        assert avgs["fitbit_steps"] == 5000  # (4000+6000)/2
+        assert avgs["fitbit_pa"] == 30  # (20+40)/2
         assert avgs["fitbit_inactivity"] == 300  # (400+200)/2
 
     def test_sleep_compass_hours_int(self):
         user, patient = _make_patient()
         # 7h = 7*3600000 ms = 25200000 ms → 420 min → "7" hours
-        records = [_make_fitbit_day(user, datetime(2024, 3, 4, tzinfo=dt_tz.utc),
-                                    sleep_ms=7 * 3_600_000)]
+        records = [_make_fitbit_day(user, datetime(2024, 3, 4, tzinfo=dt_tz.utc), sleep_ms=7 * 3_600_000)]
         avgs = _compute_averages(records, "hours_int")
         assert avgs["sleep_duration"] == "7"
 
     def test_sleep_copain_hhmm(self):
         user, patient = _make_patient()
         # 7.5h = 450 min → "07:30"
-        records = [_make_fitbit_day(user, datetime(2024, 3, 4, tzinfo=dt_tz.utc),
-                                    sleep_ms=int(7.5 * 3_600_000))]
+        records = [_make_fitbit_day(user, datetime(2024, 3, 4, tzinfo=dt_tz.utc), sleep_ms=int(7.5 * 3_600_000))]
         avgs = _compute_averages(records, "hhmm")
         assert avgs["sleep_duration"] == "07:30"
 
@@ -322,9 +320,7 @@ class TestComputeWearablesSummary:
     def test_followup_uses_study_end_date_when_set(self):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         study_end = datetime(2024, 7, 1, tzinfo=dt_tz.utc)  # 6 months later
-        user, patient = _make_patient(
-            reha_end_date=reha_end, study_end_date=study_end
-        )
+        user, patient = _make_patient(reha_end_date=reha_end, study_end_date=study_end)
         # Put data in the last 4 weeks before study_end
         in_followup = study_end - timedelta(days=10)
         _make_fitbit_day(user, in_followup, steps=7777, wear_min=500)
@@ -351,16 +347,12 @@ class TestComputeWearablesSummary:
         user, patient = _make_patient(reha_end_date=reha_end)
 
         # Week 1 (days 2-3): low wear, steps=1000
-        _make_fitbit_day(user, reha_end + timedelta(days=2),
-                         steps=1000, wear_min=100)
-        _make_fitbit_day(user, reha_end + timedelta(days=3),
-                         steps=1000, wear_min=100)
+        _make_fitbit_day(user, reha_end + timedelta(days=2), steps=1000, wear_min=100)
+        _make_fitbit_day(user, reha_end + timedelta(days=3), steps=1000, wear_min=100)
 
         # Week 2 (days 9-10): high wear, steps=9000  ← should be selected
-        _make_fitbit_day(user, reha_end + timedelta(days=9),
-                         steps=9000, wear_min=600)
-        _make_fitbit_day(user, reha_end + timedelta(days=10),
-                         steps=9000, wear_min=600)
+        _make_fitbit_day(user, reha_end + timedelta(days=9), steps=9000, wear_min=600)
+        _make_fitbit_day(user, reha_end + timedelta(days=10), steps=9000, wear_min=600)
 
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["fitbit_steps"] == 9000
@@ -369,8 +361,10 @@ class TestComputeWearablesSummary:
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
         _make_fitbit_day(
-            user, reha_end + timedelta(days=2),
-            sleep_ms=8 * 3_600_000, wear_min=500,  # 8 hours
+            user,
+            reha_end + timedelta(days=2),
+            sleep_ms=8 * 3_600_000,
+            wear_min=500,  # 8 hours
         )
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "8"
@@ -379,8 +373,10 @@ class TestComputeWearablesSummary:
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
         _make_fitbit_day(
-            user, reha_end + timedelta(days=2),
-            sleep_ms=int(7.5 * 3_600_000), wear_min=500,  # 7h30m
+            user,
+            reha_end + timedelta(days=2),
+            sleep_ms=int(7.5 * 3_600_000),
+            wear_min=500,  # 7h30m
         )
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "07:30"
@@ -424,8 +420,7 @@ class TestExportWearablesToRedcap:
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         _, patient = _make_patient(reha_end_date=reha_end)
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[]):
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[]):
             with pytest.raises(ValueError, match="No REDCap record"):
                 export_wearables_to_redcap(patient)
 
@@ -433,8 +428,9 @@ class TestExportWearablesToRedcap:
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         _, patient = _make_patient(reha_end_date=reha_end)
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "42"}]):
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]
+        ):
             results = export_wearables_to_redcap(patient)
         assert results["baseline"] == "skipped"
         assert results["followup"] == "skipped"
@@ -442,9 +438,15 @@ class TestExportWearablesToRedcap:
     def test_writes_correct_payload_to_redcap(self, monkeypatch):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
-        _make_fitbit_day(user, reha_end + timedelta(days=2),
-                         steps=5000, active_min=30, inactive_min=300,
-                         wear_min=600, sleep_ms=7 * 3_600_000)
+        _make_fitbit_day(
+            user,
+            reha_end + timedelta(days=2),
+            steps=5000,
+            active_min=30,
+            inactive_min=300,
+            wear_min=600,
+            sleep_ms=7 * 3_600_000,
+        )
 
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
 
@@ -454,10 +456,10 @@ class TestExportWearablesToRedcap:
             captured_payloads.append(payload)
             return '{"count": 1}'
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "99"}]):
-            with patch("core.services.wearables_redcap_service._post_redcap",
-                       side_effect=_fake_post):
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "99"}]
+        ):
+            with patch("core.services.wearables_redcap_service._post_redcap", side_effect=_fake_post):
                 results = export_wearables_to_redcap(patient)
 
         # Baseline was written (follow-up has no data → skipped)
@@ -474,7 +476,7 @@ class TestExportWearablesToRedcap:
         assert record["fitbit_steps"] == "5000"
         assert record["fitbit_pa"] == "30"
         assert record["fitbit_inactivity"] == "300"
-        assert record["sleep_duration"] == "7"      # COMPASS: integer hours
+        assert record["sleep_duration"] == "7"  # COMPASS: integer hours
         assert record["wearables_complete"] == "1"  # Unverified
         assert record["redcap_event_name"] == "visit_baseline_arm_1"
 
@@ -485,16 +487,16 @@ class TestExportWearablesToRedcap:
     def test_copain_sleep_format_in_payload(self, monkeypatch):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
-        _make_fitbit_day(user, reha_end + timedelta(days=2),
-                         wear_min=600, sleep_ms=int(7.5 * 3_600_000))
+        _make_fitbit_day(user, reha_end + timedelta(days=2), wear_min=600, sleep_ms=int(7.5 * 3_600_000))
 
         monkeypatch.setenv("REDCAP_TOKEN_COPAIN", "tok")
         captured = []
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "7"}]):
-            with patch("core.services.wearables_redcap_service._post_redcap",
-                       side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}'):
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "7"}]):
+            with patch(
+                "core.services.wearables_redcap_service._post_redcap",
+                side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}',
+            ):
                 export_wearables_to_redcap(patient)
 
         record = json.loads(captured[0]["data"])[0]
@@ -507,10 +509,8 @@ class TestExportWearablesToRedcap:
         _make_fitbit_day(user, reha_end + timedelta(days=2), wear_min=600)
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "5"}]):
-            with patch("core.services.wearables_redcap_service._post_redcap",
-                       side_effect=RedcapError("write failed")):
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "5"}]):
+            with patch("core.services.wearables_redcap_service._post_redcap", side_effect=RedcapError("write failed")):
                 results = export_wearables_to_redcap(patient)
 
         assert results["baseline"].startswith("error:")
@@ -523,12 +523,12 @@ class TestExportWearablesToRedcap:
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
         captured = []
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "1"}]):
-            with patch("core.services.wearables_redcap_service._post_redcap",
-                       side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}'):
-                export_wearables_to_redcap(patient,
-                                           event_baseline="custom_baseline_arm_1")
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "1"}]):
+            with patch(
+                "core.services.wearables_redcap_service._post_redcap",
+                side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}',
+            ):
+                export_wearables_to_redcap(patient, event_baseline="custom_baseline_arm_1")
 
         record = json.loads(captured[0]["data"])[0]
         assert record["redcap_event_name"] == "custom_baseline_arm_1"
@@ -545,10 +545,11 @@ class TestExportWearablesToRedcap:
         monkeypatch.delenv("REDCAP_WEARABLES_EVENT_FOLLOWUP", raising=False)
         captured = []
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id",
-                   return_value=[{"record_id": "1"}]):
-            with patch("core.services.wearables_redcap_service._post_redcap",
-                       side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}'):
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "1"}]):
+            with patch(
+                "core.services.wearables_redcap_service._post_redcap",
+                side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}',
+            ):
                 export_wearables_to_redcap(patient)
 
         record = json.loads(captured[0]["data"])[0]
