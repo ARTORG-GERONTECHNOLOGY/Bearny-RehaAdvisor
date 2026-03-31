@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Layout from '@/components/Layout';
 
 const PrivacyPolicy: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
-    <Layout>
-      <h1 aria-label="Privacy Policy">Privacy Policy</h1>
+    <Layout aria-label={t('Privacy Policy')} title={t('Privacy Policy')}>
       <p>
         <strong>Effective Date:</strong> May 9, 2025
       </p>

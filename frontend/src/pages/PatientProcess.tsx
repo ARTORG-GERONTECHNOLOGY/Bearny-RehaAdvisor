@@ -129,15 +129,10 @@ const PatientProcess: React.FC = observer(() => {
   }
 
   return (
-    <Layout>
-      <div>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">{t('Process')}</h1>
-        <h2 className="text-lg p-0 m-0 text-zinc-600">
-          {format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} -{' '}
-          {format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}
-        </h2>
-      </div>
-
+    <Layout
+      title={t('Process')}
+      subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
+    >
       <div
         className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
         role="group"

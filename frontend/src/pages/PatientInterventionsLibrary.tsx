@@ -414,9 +414,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   );
 
   return (
-    <Layout>
-      <h1 className="text-2xl font-bold">{t('Library')}</h1>
-
+    <Layout title={t('Library')}>
       <PatientLibrarySearchPanel
         searchTerm={searchTerm}
         isSearchOpen={isSearchOpen}
