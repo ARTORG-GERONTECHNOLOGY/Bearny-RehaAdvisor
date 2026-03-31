@@ -489,7 +489,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
           >
             <div className="p-2 pl-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 font-semibold text-lg text-zinc-500">
+              <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
                 <span>{section.title}</span>
               </div>
               <div className="flex gap-1">
