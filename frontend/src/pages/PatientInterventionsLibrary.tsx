@@ -458,9 +458,9 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       <div className="mt-16 flex flex-col gap-2">
         {storeLoading && (
           <>
-            <Skeleton className="w-full h-24 rounded-[40px]" />
-            <Skeleton className="w-full h-24 rounded-[40px]" />
-            <Skeleton className="w-full h-24 rounded-[40px]" />
+            <Skeleton className="w-full h-80 rounded-[40px]" />
+            <Skeleton className="w-full h-80 rounded-[40px]" />
+            <Skeleton className="w-full h-80 rounded-[40px]" />
           </>
         )}
 
@@ -478,51 +478,52 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           </div>
         )}
 
-        {visibleTypeSections.map((section) => (
-          <section
-            key={section.key}
-            role="button"
-            onClick={() => {
-              setActiveTypeSection(section.key);
-              setShowTypeSheet(true);
-            }}
-            className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
-          >
-            <div className="p-2 pl-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
-                <span>{section.title}</span>
+        {!storeLoading &&
+          visibleTypeSections.map((section) => (
+            <section
+              key={section.key}
+              role="button"
+              onClick={() => {
+                setActiveTypeSection(section.key);
+                setShowTypeSheet(true);
+              }}
+              className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
+            >
+              <div className="p-2 pl-4 flex items-center justify-between">
+                <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
+                  <span>{section.title}</span>
+                </div>
+                <div className="flex gap-1">
+                  <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
+                    {section.items.length} {t('Recommendations')}
+                  </Badge>
+                  <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
+                    <ArrowRightIcon className="w-4 h-4" />
+                  </Badge>
+                </div>
               </div>
-              <div className="flex gap-1">
-                <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
-                  {section.items.length} {t('Recommendations')}
-                </Badge>
-                <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
-                  <ArrowRightIcon className="w-4 h-4" />
-                </Badge>
-              </div>
-            </div>
 
-            <div className="flex gap-2 overflow-x-auto">
-              {section.items.map((item: InterventionCardItem) => {
-                const displayTitle = getTranslatedTitle(item, translatedTitles);
-                const contentTypeIcon = item.content_type
-                  ? getContentTypeIcon(item.content_type)
-                  : null;
-                return (
-                  <PatientLibraryInterventionCard
-                    key={item._id || item.id}
-                    item={item}
-                    displayTitle={displayTitle}
-                    Icon={section.Icon}
-                    contentTypeIcon={contentTypeIcon}
-                    onClick={() => openDetails(item)}
-                    containerClassName="shrink-0 w-72"
-                  />
-                );
-              })}
-            </div>
-          </section>
-        ))}
+              <div className="flex gap-2 overflow-x-auto">
+                {section.items.map((item: InterventionCardItem) => {
+                  const displayTitle = getTranslatedTitle(item, translatedTitles);
+                  const contentTypeIcon = item.content_type
+                    ? getContentTypeIcon(item.content_type)
+                    : null;
+                  return (
+                    <PatientLibraryInterventionCard
+                      key={item._id || item.id}
+                      item={item}
+                      displayTitle={displayTitle}
+                      Icon={section.Icon}
+                      contentTypeIcon={contentTypeIcon}
+                      onClick={() => openDetails(item)}
+                      containerClassName="shrink-0 w-72"
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))}
       </div>
 
       <Sheet open={showTypeSheet} onOpenChange={setShowTypeSheet}>
