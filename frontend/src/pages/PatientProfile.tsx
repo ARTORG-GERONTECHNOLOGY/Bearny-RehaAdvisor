@@ -97,8 +97,7 @@ const PatientProfile: React.FC = observer(() => {
 
   return (
     <>
-      <Layout>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">{displayName}</h1>
+      <Layout title={displayName}>
         <Section className="mt-8">
           <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
