@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientPlanSkeleton() {
@@ -20,7 +21,7 @@ export default function PatientPlanSkeleton() {
       {/* Day Cards */}
       <div className="flex flex-col gap-2 mt-6 md:grid md:grid-cols-2">
         {Array.from({ length: 7 }).map((_, dayIndex) => (
-          <div key={dayIndex} className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section key={dayIndex}>
             {/* Date Header */}
             <div className="flex p-2 pl-4 justify-between w-full">
               <Skeleton className="h-6 w-48" />
@@ -36,7 +37,7 @@ export default function PatientPlanSkeleton() {
                 </div>
               </div>
             ))}
-          </div>
+          </Section>
         ))}
       </div>
     </Layout>
