@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
+import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -33,15 +34,15 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+      <Section>
         <div className="p-2 pl-4 text-lg font-medium text-zinc-500">{t('CheckIn')}</div>
         <Skeleton className="w-full h-[200px] rounded-3xl" />
-      </div>
+      </Section>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+    <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('CheckIn')}</div>
         <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
@@ -99,7 +100,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </Section>
   );
 };
 

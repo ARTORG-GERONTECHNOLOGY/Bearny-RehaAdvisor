@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import type { ChartConfig } from '@/components/ui/chart';
 import { format } from 'date-fns';
@@ -168,7 +169,7 @@ const PatientProcess: React.FC = observer(() => {
 
       {!loading && (
         <div className="flex flex-col gap-2 mt-6">
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section>
             <div className="flex flex-col gap-2">
               <RecommendationsCard
                 title={t('Recommendations')}
@@ -180,9 +181,9 @@ const PatientProcess: React.FC = observer(() => {
                 accentSoftColor={CHART_ACCENT_SOFT}
               />
             </div>
-          </div>
+          </Section>
 
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section>
             <div className="flex flex-col gap-2">
               {barMetricCards.map((card) => (
                 <MetricBarCard
@@ -200,9 +201,9 @@ const PatientProcess: React.FC = observer(() => {
                 />
               ))}
             </div>
-          </div>
+          </Section>
 
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section>
             <div className="flex flex-col gap-2">
               <BloodPressureCard
                 title={t('Blood pressure')}
@@ -219,7 +220,7 @@ const PatientProcess: React.FC = observer(() => {
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
               />
             </div>
-          </div>
+          </Section>
         </div>
       )}
     </Layout>

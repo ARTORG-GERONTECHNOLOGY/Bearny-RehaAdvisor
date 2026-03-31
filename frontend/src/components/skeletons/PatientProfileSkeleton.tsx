@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientProfileSkeleton() {
@@ -8,7 +9,7 @@ export default function PatientProfileSkeleton() {
       <Skeleton className="h-8 w-48" />
 
       {/* Settings Section */}
-      <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+      <Section className="mt-8">
         {/* Section header */}
         <div className="p-2 pl-4">
           <Skeleton className="h-7 w-24" />
@@ -28,10 +29,10 @@ export default function PatientProfileSkeleton() {
             <Skeleton className="h-6 w-11 rounded-full" />
           </div>
         </div>
-      </div>
+      </Section>
 
       {/* Contact Section */}
-      <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+      <Section className="mt-8">
         {/* Section header with help badge */}
         <div className="flex justify-between items-center p-2 pl-4">
           <Skeleton className="h-7 w-20" />
@@ -47,7 +48,7 @@ export default function PatientProfileSkeleton() {
           <Skeleton className="h-10 w-56 rounded-xl" />
           <Skeleton className="h-10 w-44 rounded-xl" />
         </div>
-      </div>
+      </Section>
 
       {/* Logos Section */}
       <div className="flex flex-col items-center gap-6 mt-4 mb-12">
@@ -57,9 +58,9 @@ export default function PatientProfileSkeleton() {
       </div>
 
       {/* Logout Section */}
-      <div className="mt-8 bg-white rounded-[40px] p-4">
+      <Section className="mt-8">
         <Skeleton className="h-14 w-full rounded-full" />
-      </div>
+      </Section>
     </Layout>
   );
 }

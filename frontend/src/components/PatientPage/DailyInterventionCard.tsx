@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { observer } from 'mobx-react-lite';
+import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InterventionItem from '@/components/PatientPage/InterventionItem';
@@ -43,7 +44,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
         : format(date, 'EEEE, dd. MMMM yyyy'));
 
     return (
-      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4" aria-label={ariaLabel}>
+      <Section aria-label={ariaLabel}>
         <div className="flex p-2 pl-4 justify-between w-full">
           <div className="text-lg font-medium text-zinc-500">{headerText}</div>
           {badgeText && (
@@ -85,7 +86,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
             </div>
           </div>
         )}
-      </div>
+      </Section>
     );
   }
 );

@@ -33,6 +33,7 @@ import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
+import Section from '@/components/Section';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -480,14 +481,13 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
         {!storeLoading &&
           visibleTypeSections.map((section) => (
-            <section
+            <Section
               key={section.key}
               role="button"
               onClick={() => {
                 setActiveTypeSection(section.key);
                 setShowTypeSheet(true);
               }}
-              className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
             >
               <div className="p-2 pl-4 flex items-center justify-between">
                 <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
@@ -522,7 +522,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                   );
                 })}
               </div>
-            </section>
+            </Section>
           ))}
       </div>
 

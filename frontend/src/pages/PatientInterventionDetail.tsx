@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -674,7 +675,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
-        <div className="bg-white rounded-[40px] p-4">
+        <Section>
           <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
             <Badge className="bg-white py-2 pl-[10px] pr-3 border border-accent rounded-xl flex gap-1 shadow-none">
               {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
@@ -722,9 +723,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
               </Badge>
             </div>
           </div>
-        </div>
+        </Section>
 
-        <div className="bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        <Section>
           <MediaContent mediaList={effectiveMediaList} />
 
           <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
@@ -736,15 +737,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
               effectiveItem?.description || ''
             )}
           </div>
-        </div>
+        </Section>
 
         {getMetaTags(effectiveItem).length > 0 && (
-          <div className="bg-white rounded-[40px] p-4">
+          <Section>
             <div className="p-4 flex flex-col gap-2">
               <div className="font-medium text-lg text-zinc-500">Tags</div>
               <MetaTags item={effectiveItem} />
             </div>
-          </div>
+          </Section>
         )}
 
         {!!mediaLinks.length && (
