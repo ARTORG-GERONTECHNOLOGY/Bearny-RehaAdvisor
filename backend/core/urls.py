@@ -41,6 +41,7 @@ from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
 from core.views.therapist_projects import therapist_projects
+from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -281,6 +282,12 @@ urlpatterns = [
         name="therapist_access_admin",
     ),
     path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
+    # Wearables → REDCap sync
+    path(
+        "api/wearables/sync-to-redcap/<str:patient_id>/",
+        sync_wearables_to_redcap_view,
+        name="sync-wearables-to-redcap",
+    ),
     path(
         "api/interventions/import/excel",
         import_interventions,

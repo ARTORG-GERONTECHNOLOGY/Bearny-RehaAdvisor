@@ -12,6 +12,7 @@ import {
   FaCloudDownloadAlt,
   FaSyncAlt,
   FaKey,
+  FaUpload,
 } from 'react-icons/fa';
 
 import config from '../../config/config.json';
@@ -286,6 +287,18 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 {store.redcapLoading ? t('Loading...') : t('Refresh REDCap')}
               </Button>
 
+              {store.redcapProject && (
+                <Button
+                  variant="outline-primary"
+                  onClick={() => store.syncWearablesToRedcap(t)}
+                  disabled={store.loading || store.wearablesSyncing}
+                  title={t('Sync Fitbit wearables data to REDCap')}
+                >
+                  <FaUpload className="me-2" />
+                  {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}
+                </Button>
+              )}
+
               <Button
                 variant="danger"
                 onClick={() => store.setShowConfirmDelete(true)}
@@ -313,6 +326,34 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 <ErrorAlert
                   message={store.redcapError}
                   onClose={() => (store.redcapError = null)}
+                />
+              </div>
+            )}
+
+            {store.wearablesSyncError && (
+              <div className="mb-3">
+                <ErrorAlert
+                  message={store.wearablesSyncError}
+                  onClose={() => (store.wearablesSyncError = null)}
+                />
+              </div>
+            )}
+
+            {store.wearablesSyncResult && (
+              <div className="alert alert-success alert-dismissible mb-3" role="alert">
+                <strong>{t('Wearables synced to REDCap')}</strong>
+                <ul className="mb-0 mt-1">
+                  {Object.entries(store.wearablesSyncResult).map(([period, status]) => (
+                    <li key={period}>
+                      {t(period)}: <code>{status}</code>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => (store.wearablesSyncResult = null)}
+                  aria-label={t('Close')}
                 />
               </div>
             )}
