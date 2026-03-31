@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,7 @@ const PatientProfile: React.FC = observer(() => {
     <>
       <Layout>
         <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">{displayName}</h1>
-        <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        <Section className="mt-8">
           <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
           <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
@@ -143,9 +144,9 @@ const PatientProfile: React.FC = observer(() => {
               <Switch checked={enabled} onCheckedChange={toggleNotifications} />
             </div>
           </div>
-        </div>
+        </Section>
 
-        <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        <Section className="mt-8">
           <div className="flex justify-between w-full">
             <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
             <Badge
@@ -184,7 +185,7 @@ const PatientProfile: React.FC = observer(() => {
               </Badge>
             )}
           </div>
-        </div>
+        </Section>
 
         <div className="flex flex-col items-center gap-6 mt-4 mb-12">
           <img
@@ -200,7 +201,7 @@ const PatientProfile: React.FC = observer(() => {
           <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
         </div>
 
-        <div className="mt-8 bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        <Section className="mt-8">
           <Button
             onClick={() => {
               handleLogout();
@@ -214,7 +215,7 @@ const PatientProfile: React.FC = observer(() => {
             {t('Logout')}
             <LogoutFill className="w-6 h-6" />
           </Button>
-        </div>
+        </Section>
 
         <div className="flex flex-col gap-1 mt-8">
           <Link to="/terms">{t('Terms & Conditions')}</Link>
