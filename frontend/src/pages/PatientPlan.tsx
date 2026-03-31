@@ -74,16 +74,11 @@ const PatientPlan: React.FC = observer(() => {
   }, [navigate]);
 
   return (
-    <Layout>
-      <div aria-label={t('Week range and current month')}>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">
-          {format(start, 'dd.MM.')} - {format(end, 'dd.MM.')}
-        </h1>
-        <h2 className="text-lg p-0 m-0 text-zinc-600">
-          {format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
-        </h2>
-      </div>
-
+    <Layout
+      aria-label={t('Week range and current month')}
+      title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
+      subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
+    >
       {/* Day Filter */}
       <div
         className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
