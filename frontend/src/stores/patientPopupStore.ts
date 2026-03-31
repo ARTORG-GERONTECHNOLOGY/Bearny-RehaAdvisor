@@ -728,6 +728,45 @@ export class PatientPopupStore {
   }
 
   // -------------------------
+  // Wearables → REDCap sync
+  // -------------------------
+  wearablesSyncing = false;
+  wearablesSyncResult: Record<string, string> | null = null;
+  wearablesSyncError: string | null = null;
+
+  async syncWearablesToRedcap(
+    t: (k: string) => string,
+    eventBaseline?: string,
+    eventFollowup?: string,
+  ) {
+    this.wearablesSyncing = true;
+    this.wearablesSyncResult = null;
+    this.wearablesSyncError = null;
+    try {
+      const body: Record<string, string> = {};
+      if (eventBaseline) body.event_baseline = eventBaseline;
+      if (eventFollowup) body.event_followup = eventFollowup;
+      const res = await apiClient.post(
+        `/wearables/sync-to-redcap/${this.patientId}/`,
+        body,
+      );
+      runInAction(() => {
+        this.wearablesSyncResult = (res.data as any)?.results ?? {};
+      });
+    } catch (err: any) {
+      const api = err?.response?.data;
+      runInAction(() => {
+        this.wearablesSyncError =
+          api?.error || api?.message || err?.message || t('Failed to sync wearables to REDCap.');
+      });
+    } finally {
+      runInAction(() => {
+        this.wearablesSyncing = false;
+      });
+    }
+  }
+
+  // -------------------------
   // Optional helper: copy missing values from REDCap
   // -------------------------
   copyRedcapIntoManual() {

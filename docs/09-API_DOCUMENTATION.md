@@ -927,22 +927,52 @@ JWT required. When `patient_id` is provided, filters interventions relevant to t
 
 #### `POST /api/interventions/add/`
 
-JWT required.
+JWT required. **`multipart/form-data`** (not JSON) — required when uploading files.
 
-**Request body:**
+**Form fields:**
 
-| Field          | Type          | Required |
-|----------------|---------------|----------|
-| `title`        | string        | yes      |
-| `contentType`  | string        | yes      | e.g. `"Video"`, `"Audio"`, `"Text"` |
-| `description`  | string        | no       |
-| `media`        | array[object] | no       | Each: `{ contentType, language, url, text }` |
-| `function`     | array[string] | no       | Specialities this applies to |
-| `diagnosis`    | array[string] | no       |
+| Field          | Type          | Required | Notes |
+|----------------|---------------|----------|-------|
+| `title`        | string        | yes      | |
+| `description`  | string        | yes      | |
+| `contentType`  | string        | yes      | `"Video"`, `"Audio"`, `"Text"`, `"Image"`, `"PDF"`, `"Website"`, `"App"`, `"Streaming"` |
+| `duration`     | integer       | yes      | Minutes; must be > 0 |
+| `language`     | string        | no       | ISO code, default `"en"` |
+| `media`        | JSON string   | no       | Array of `{ contentType, language, url, text }` — preferred over `media_file` |
+| `img_file`     | file          | no       | Preview image (max 1 GB) |
+| `media_file`   | file          | no       | Legacy single-file upload (max 1 GB) |
+| `taxonomy`     | JSON string   | no       | Taxonomy metadata object (see below) |
+| `patientTypes` | JSON string   | no       | Array of `{ type, diagnosis, frequency, includeOption }` for public interventions |
+| `isPrivate`    | boolean       | no       | `"true"` to restrict to one patient |
+| `patientId`    | string        | no       | Required when `isPrivate=true` |
+| `external_id`  | string        | no       | Deduplicated per `(external_id, language)` |
+| `provider`     | string        | no       | Source/provider name |
+
+**`taxonomy` JSON object fields:**
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `input_from` | string | Input source |
+| `lc9` | array[string] | LC9 classification codes |
+| `original_language` | string | |
+| `primary_diagnosis` | array[string] | |
+| `aim` / `aims` | string | Therapeutic aim |
+| `topic` / `topics` | array[string] | |
+| `cognitive_level` | string | |
+| `physical_level` | string | |
+| `frequency_time` | string | |
+| `timing` | string | |
+| `duration_bucket` | string | |
+| `sex_specific` | string | |
+| `where` | array[string] | Setting location |
+| `setting` | array[string] | Environment type |
+| `keywords` | array[string] | |
+
+**File upload limits:** max **1 GB** per file. Files above 5 MB are streamed to disk; no in-memory buffering.
 
 **Response 201:** `{ "success": true, "id": "..." }`
 
-**Errors:** 400 · 500
+**Errors:** 400 validation (field_errors map) · 400 duplicate external_id · 500
 
 ---
 
@@ -1459,6 +1489,75 @@ JWT required.
 ```
 
 **Errors:** 400 validation / already exists / therapist not found · 404 clinic or project not found · 500
+
+---
+
+#### `POST /api/wearables/sync-to-redcap/<patient_id>/`
+
+No JWT enforcement (view uses `@csrf_exempt`). Intended for internal/therapist use only.
+
+Manually triggers the Fitbit → REDCap wearables sync for a single patient. Selects the ISO week with the highest wear time within the baseline and follow-up periods, averages the metrics, and writes to the REDCap `wearables` instrument.
+
+**URL parameter:** `patient_id` — MongoDB ObjectId of the patient.
+
+**Request body** (all fields optional):
+
+| Field            | Type   | Description                                            |
+|------------------|--------|--------------------------------------------------------|
+| `event_baseline` | string | Override REDCap event name for the baseline write      |
+| `event_followup` | string | Override REDCap event name for the follow-up write     |
+
+If omitted, defaults come from `REDCAP_WEARABLES_EVENT_BASELINE` / `REDCAP_WEARABLES_EVENT_FOLLOWUP` env vars, then from the per-project hard-coded defaults (COMPASS: `visit_baseline_arm_1` / `visit_6m_arm_1`; COPAIN: `t0_at_disch_arm_1` / `t2_six_months_afte_arm_1`).
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "results": {
+    "baseline": "ok",
+    "followup": "skipped"
+  },
+  "summary": {
+    "baseline": {
+      "monitoring_start": "03-01-2024",
+      "monitoring_end": "09-01-2024",
+      "monitoring_days": 7,
+      "fitbit_steps": 6843,
+      "fitbit_pa": 42,
+      "fitbit_inactivity": 891,
+      "sleep_duration": "07:30"
+    },
+    "followup": null
+  }
+}
+```
+
+`results` values: `"ok"` (written), `"skipped"` (no Fitbit data in period), or `"error: <message>"`.
+
+**Errors:**
+
+| Status | Cause |
+|--------|-------|
+| 400    | Patient has no `reha_end_date`, or no `project` set |
+| 404    | `patient_id` not found |
+| 502    | REDCap API rejected the write (`detail` field contains REDCap error) |
+| 500    | Unexpected server error |
+
+**REDCap fields written:**
+
+| REDCap field        | Value                                                        |
+|---------------------|--------------------------------------------------------------|
+| `monitoring_start`  | First day of best wear week (`DD-MM-YYYY`)                   |
+| `monitoring_end`    | Last day of best wear week (`DD-MM-YYYY`)                    |
+| `monitoring_days`   | Number of days in the selected week                          |
+| `fitbit_pa`         | Average Active Zone Minutes/day                              |
+| `fitbit_inactivity` | Average inactivity minutes/day                               |
+| `fitbit_steps`      | Average steps/day                                            |
+| `sleep_duration`    | Average sleep — integer hours (COMPASS) or `HH:MM` (COPAIN) |
+| `wearables_complete`| Always `"1"` (Unverified — researcher marks Complete)        |
+
+The nightly Celery task `core.tasks.sync_wearables_to_redcap_all` runs this for all eligible patients at **02:30 UTC** automatically.
 
 ---
 
