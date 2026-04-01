@@ -458,11 +458,9 @@ describe('LoginForm', () => {
       authStore.id = 'ther1';
     });
 
-    apiPost
-      .mockResolvedValueOnce({ status: 200, data: {} })
-      .mockRejectedValueOnce({
-        response: { data: { error: 'Missing user ID or verification code' } },
-      });
+    apiPost.mockResolvedValueOnce({ status: 200, data: {} }).mockRejectedValueOnce({
+      response: { data: { error: 'Missing user ID or verification code' } },
+    });
 
     openModal();
     fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
@@ -475,9 +473,7 @@ describe('LoginForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Missing user ID or verification code'
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent('Missing user ID or verification code');
     });
   });
 
@@ -503,9 +499,7 @@ describe('LoginForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Verification failed. Please try again.'
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent('Verification failed. Please try again.');
     });
   });
 });
