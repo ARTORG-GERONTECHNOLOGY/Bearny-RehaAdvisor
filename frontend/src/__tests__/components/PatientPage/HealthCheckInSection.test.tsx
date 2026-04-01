@@ -34,7 +34,7 @@ describe('HealthCheckInSection', () => {
   it('renders empty check-in cards with 0/2 badge', () => {
     render(<HealthCheckInSection {...baseProps} />);
 
-    expect(screen.getByText('0 / 2')).toBeInTheDocument();
+    expect(screen.getByText('0/2')).toBeInTheDocument();
     expect(screen.getByText(/-- kg/i)).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => {
@@ -47,7 +47,7 @@ describe('HealthCheckInSection', () => {
   it('renders complete check-in values and 2/2 badge', () => {
     render(<HealthCheckInSection {...baseProps} weightKg={72.4} bpSys={121} bpDia={79} />);
 
-    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByText('2/2')).toBeInTheDocument();
     expect(screen.getByText('72.4 kg')).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => {
