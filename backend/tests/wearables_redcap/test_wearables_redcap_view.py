@@ -29,6 +29,7 @@ from django.test import Client
 
 from core.models import Patient, Therapist, User
 from core.services.redcap_service import RedcapError
+from core.services.wearables_redcap_service import WearablesSyncError
 
 client = Client()
 
@@ -107,7 +108,9 @@ def test_missing_reha_end_date_returns_400():
     patient = _make_patient(reha_end_date=None)
     resp = client.post(URL(patient.id), **AUTH)
     assert resp.status_code == 400
-    assert "reha_end_date" in resp.json()["error"]
+    body = resp.json()
+    assert "Rehabilitation End Date" in body["error"]
+    assert body["code"] == "wearables_missing_reha_end_date"
 
 
 def test_missing_project_returns_400():
@@ -129,7 +132,27 @@ def test_missing_project_returns_400():
             resp = client.post(URL(patient.id), **AUTH)
 
     assert resp.status_code == 400
-    assert "no project" in resp.json()["error"]
+    body = resp.json()
+    assert "project" in body["error"]
+
+
+def test_wearables_sync_error_returns_code():
+    """WearablesSyncError should include the translatable code in the response."""
+    patient = _make_patient(reha_end_date=None)
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        side_effect=WearablesSyncError(
+            "Patient P-X is missing the Rehabilitation End Date.",
+            code="wearables_missing_reha_end_date",
+        ),
+    ):
+        resp = client.post(URL(patient.id), **AUTH)
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["code"] == "wearables_missing_reha_end_date"
+    assert "Rehabilitation End Date" in body["error"]
 
 
 def test_redcap_error_returns_502():

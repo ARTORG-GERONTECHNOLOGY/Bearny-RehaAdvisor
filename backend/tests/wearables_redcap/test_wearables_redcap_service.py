@@ -284,7 +284,7 @@ class TestResolveEventNames:
 class TestComputeWearablesSummary:
     def test_raises_if_no_reha_end_date(self):
         _, patient = _make_patient(reha_end_date=None)
-        with pytest.raises(ValueError, match="reha_end_date"):
+        with pytest.raises(ValueError, match="Rehabilitation End Date"):
             compute_wearables_summary(patient)
 
     def test_returns_none_for_both_periods_when_no_fitbit_data(self):
@@ -413,7 +413,7 @@ class TestExportWearablesToRedcap:
         _, patient = _make_patient(project="COMPASS")
         patient.project = ""  # blank out after saving to bypass Therapist validation
         patient.save()
-        with pytest.raises(ValueError, match="no project"):
+        with pytest.raises(ValueError, match="no REDCap project"):
             export_wearables_to_redcap(patient)
 
     def test_raises_if_no_redcap_record(self, monkeypatch):
