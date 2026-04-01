@@ -65,9 +65,7 @@ def _post_redcap(token: str, payload: Dict[str, Any], timeout: int = 30) -> str:
     return r.text
 
 
-def _post_redcap_with_field_fallback(
-    token: str, payload: Dict[str, Any], fields: List[str], timeout: int = 30
-) -> str:
+def _post_redcap_with_field_fallback(token: str, payload: Dict[str, Any], fields: List[str], timeout: int = 30) -> str:
     """
     Like _post_redcap but automatically removes fields REDCap says are invalid
     and retries once. Useful for projects (e.g. COMPASS) that lack some fields
