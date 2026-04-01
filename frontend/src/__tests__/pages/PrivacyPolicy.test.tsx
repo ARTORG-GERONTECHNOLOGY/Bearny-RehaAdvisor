@@ -4,9 +4,7 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
+  default: require('@/__mocks__/components/Layout').default,
 }));
 
 describe('PrivacyPolicy', () => {

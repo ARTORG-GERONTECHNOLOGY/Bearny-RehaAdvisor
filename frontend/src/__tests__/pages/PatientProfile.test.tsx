@@ -70,12 +70,9 @@ jest.mock('@/components/ui/switch', () => ({
   }) => <button role="switch" aria-checked={checked} onClick={() => onCheckedChange(!checked)} />,
 }));
 
-// Mock Layout
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
+  default: require('@/__mocks__/components/Layout').default,
 }));
 
 // Mock HelpCenter

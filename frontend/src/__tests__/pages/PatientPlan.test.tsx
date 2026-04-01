@@ -81,8 +81,10 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
   },
 }));
 
-// Mock Layout component
-jest.mock('@/components/Layout', () => ({ children }: any) => <div>{children}</div>);
+jest.mock('@/components/Layout', () => ({
+  __esModule: true,
+  default: require('@/__mocks__/components/Layout').default,
+}));
 
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({
   __esModule: true,
