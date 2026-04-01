@@ -86,6 +86,17 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   const formSteps = (config as any).PatientForm;
   const specialityDiagnosisMap: Record<string, string[]> = (config as any).patientInfo.functionPat;
 
+  // Flat label map used to build readable error banners: { fieldName → label key }
+  const fieldLabelMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    (formSteps as any[]).forEach((s: any) => {
+      s.fields.forEach((f: any) => {
+        map[f.name] = f.label;
+      });
+    });
+    return map;
+  }, [formSteps]);
+
   // ---- helpers ----
   const isValidDate = (s: string) => {
     const d = new Date(s);
@@ -128,13 +139,57 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     });
   };
 
+  const validateRehaEndDate = (value: string) => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (!value) {
+        delete next.rehaEndDate;
+        return next;
+      }
+      if (!isValidDate(value)) {
+        next.rehaEndDate = t('Enter a valid date (YYYY-MM-DD).');
+        return next;
+      }
+      const study = String(formData.studyEndDate || '');
+      if (study && isValidDate(study) && new Date(value) > new Date(study)) {
+        next.rehaEndDate = t('Rehabilitation end date must be before the study end date.');
+        return next;
+      }
+      delete next.rehaEndDate;
+      // also clear any stale studyEndDate cross-field error now that reha changed
+      delete next.studyEndDate;
+      return next;
+    });
+  };
+
+  const validateStudyEndDate = (value: string, rehaEndDateValue?: string) => {
+    const reha = rehaEndDateValue ?? String(formData.rehaEndDate || '');
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (!value) {
+        delete next.studyEndDate;
+        return next;
+      }
+      if (!isValidDate(value)) {
+        next.studyEndDate = t('Enter a valid date (YYYY-MM-DD).');
+        return next;
+      }
+      if (reha && isValidDate(reha) && new Date(value) < new Date(reha)) {
+        next.studyEndDate = t('Must be on or after the rehabilitation end date.');
+        return next;
+      }
+      delete next.studyEndDate;
+      return next;
+    });
+  };
+
   const clearServerErrors = () => {
     setApiError(null);
     setApiFieldErrors({});
   };
 
   const prettifyServerErrors = (payload: BackendErrorPayload | any) => {
-    const msg =
+    const rawMsg =
       payload?.message ||
       payload?.error ||
       payload?.detail ||
@@ -154,9 +209,20 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       : '';
     const details = payload?.details ? String(payload.details) : '';
 
-    // Build a human readable banner message (no JSON)
-    const parts = [msg, nonField, details].filter(Boolean);
-    const banner = parts.join(' ');
+    // When field errors exist, build a descriptive summary instead of the generic backend message
+    let banner: string;
+    if (Object.keys(fieldErrs).length > 0) {
+      const summary = Object.entries(fieldErrs)
+        .map(([key, err]) => {
+          const label = fieldLabelMap[key] ? t(fieldLabelMap[key]) : key;
+          return `${label}: ${err}`;
+        })
+        .join(' \u2014 ');
+      banner = summary;
+    } else {
+      const parts = [rawMsg, nonField, details].filter(Boolean);
+      banner = parts.join(' ');
+    }
 
     return { banner: banner || t('An unexpected error occurred. Please try again.'), fieldErrs };
   };
@@ -193,10 +259,25 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     fieldName: string
   ) => {
     const selectedValues = selectedOptions?.map((option) => option.value) || [];
-    setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
+
+    // When speciality changes, clear diagnosis — the valid options depend on speciality
+    if (fieldName === 'function') {
+      setFormData((prev) => ({ ...prev, function: selectedValues, diagnosis: [] }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.diagnosis;
+        return next;
+      });
+    } else {
+      setFormData((prev) => ({ ...prev, [fieldName]: selectedValues }));
+    }
 
     // clear client + server error for this field
-    setErrors((prev) => ({ ...prev, [fieldName]: '' }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[fieldName];
+      return next;
+    });
     setApiFieldErrors((prev) => {
       const next = { ...prev };
       delete next[fieldName];
@@ -253,6 +334,49 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       }
     }
 
+    if (currentStep.fields.some((f: any) => f.name === 'rehaEndDate')) {
+      const val = String(formData.rehaEndDate || '');
+      if (val) {
+        if (!isValidDate(val)) {
+          newErrors.rehaEndDate = t('Enter a valid date (YYYY-MM-DD).');
+        } else {
+          const study = String(formData.studyEndDate || '');
+          if (study && isValidDate(study) && new Date(val) > new Date(study)) {
+            newErrors.rehaEndDate = t('Rehabilitation end date must be before the study end date.');
+          }
+        }
+      }
+    }
+
+    if (currentStep.fields.some((f: any) => f.name === 'studyEndDate')) {
+      const val = String(formData.studyEndDate || '');
+      if (val) {
+        if (!isValidDate(val)) {
+          newErrors.studyEndDate = t('Enter a valid date (YYYY-MM-DD).');
+        } else {
+          const reha = String(formData.rehaEndDate || '');
+          if (reha && isValidDate(reha) && new Date(val) < new Date(reha)) {
+            newErrors.studyEndDate = t('Must be on or after the rehabilitation end date.');
+          }
+        }
+      }
+    }
+
+    // Validate that selected diagnoses match the chosen specialities
+    if (
+      currentStep.fields.some((f: any) => f.name === 'diagnosis') &&
+      (formData.diagnosis as string[]).length > 0 &&
+      (formData.function as string[]).length > 0
+    ) {
+      const validDiagnoses = (formData.function as string[]).flatMap(
+        (spec) => specialityDiagnosisMap[spec] || []
+      );
+      const invalid = (formData.diagnosis as string[]).filter((d) => !validDiagnoses.includes(d));
+      if (invalid.length > 0) {
+        newErrors.diagnosis = t('Some diagnoses are not valid for the selected specialities.');
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -292,8 +416,18 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       if (Object.keys(fieldErrs).length > 0) {
         setApiFieldErrors(fieldErrs);
 
-        // optional: also set client errors so bootstrap highlights fields consistently
+        // also set client errors so Bootstrap highlights fields consistently
         setErrors((prev) => ({ ...prev, ...fieldErrs }));
+
+        // Navigate to the first step that contains one of the errored fields
+        // so the highlighted field is actually visible
+        const firstErrField = Object.keys(fieldErrs)[0];
+        for (let i = 0; i < (formSteps as any[]).length; i++) {
+          if ((formSteps[i] as any).fields.some((f: any) => f.name === firstErrField)) {
+            setStep(i);
+            break;
+          }
+        }
       }
     }
   };
@@ -428,9 +562,15 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 required={required}
                 aria-required={required}
                 aria-invalid={invalid}
-                placeholder={field.name === 'age' ? 'YYYY-MM-DD' : undefined}
+                placeholder={field.type === 'date' ? 'YYYY-MM-DD' : undefined}
                 onBlur={
-                  field.name === 'age' ? (e) => validateAge(e.currentTarget.value) : undefined
+                  field.name === 'age'
+                    ? (e) => validateAge(e.currentTarget.value)
+                    : field.name === 'rehaEndDate'
+                      ? (e) => validateRehaEndDate(e.currentTarget.value)
+                      : field.name === 'studyEndDate'
+                        ? (e) => validateStudyEndDate(e.currentTarget.value)
+                        : undefined
                 }
               />
             )}
