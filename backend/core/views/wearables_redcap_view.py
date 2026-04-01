@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Patient
 from core.services.redcap_service import RedcapError
 from core.services.wearables_redcap_service import (
+    WearablesSyncError,
     compute_wearables_summary,
     export_wearables_to_redcap,
 )
@@ -60,6 +61,8 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
     try:
         summary = compute_wearables_summary(patient)
         results = export_wearables_to_redcap(patient, event_baseline, event_followup)
+    except WearablesSyncError as e:
+        return JsonResponse({"error": str(e), "code": e.code}, status=400)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
     except RedcapError as e:
