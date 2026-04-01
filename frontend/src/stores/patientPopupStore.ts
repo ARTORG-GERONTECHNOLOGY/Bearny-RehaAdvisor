@@ -540,8 +540,10 @@ export class PatientPopupStore {
       runInAction(() => {
         this.redcapRows = [];
         this.redcapFlat = {};
-        this.redcapError =
-          api?.error || api?.message || err?.message || t('Failed to fetch REDCap data.');
+        const code: string | undefined = api?.code;
+        this.redcapError = code
+          ? t(code)
+          : api?.error || api?.message || err?.message || t('redcap_fetch_failed');
       });
     } finally {
       runInAction(() => {
@@ -753,8 +755,10 @@ export class PatientPopupStore {
     } catch (err: any) {
       const api = err?.response?.data;
       runInAction(() => {
-        this.wearablesSyncError =
-          api?.error || api?.message || err?.message || t('Failed to sync wearables to REDCap.');
+        const code: string | undefined = api?.code;
+        this.wearablesSyncError = code
+          ? t(code)
+          : api?.error || api?.message || err?.message || t('wearables_sync_failed');
       });
     } finally {
       runInAction(() => {
