@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Set
 
 import requests
 from django.conf import settings
@@ -22,20 +23,27 @@ def _norm(v: Any) -> str:
 
 
 def _get_redcap_api_url() -> str:
-    """
-    Prefer Django settings, then env, then a safe default.
-    This fixes: "REDCap API URL is missing from config.redcap.api_url"
-    """
     url = getattr(settings, "REDCAP_API_URL", None)
     if url and str(url).strip():
         return str(url).strip()
-
     env_url = os.getenv("REDCAP_API_URL", "").strip()
     if env_url:
         return env_url
-
-    # final fallback
     return "https://redcap.unibe.ch/api/"
+
+
+def _parse_invalid_fields(error_text: str) -> Set[str]:
+    """
+    Extract field names from a REDCap 'not valid' error message such as:
+      'The following values in the parameter "fields" are not valid: 'pat_id','diabetes''
+    Returns a set of field name strings (bare identifiers only).
+    """
+    m = re.search(r"not valid[:\s]+(.*)", error_text, re.IGNORECASE)
+    if not m:
+        return set()
+    # Extract only valid REDCap field name characters (word chars) from each
+    # comma-separated token so trailing JSON punctuation ('"}') is ignored.
+    return {name for token in m.group(1).split(",") for name in re.findall(r"\w+", token)}
 
 
 def _post_redcap(token: str, payload: Dict[str, Any], timeout: int = 30) -> str:
@@ -55,6 +63,35 @@ def _post_redcap(token: str, payload: Dict[str, Any], timeout: int = 30) -> str:
         )
 
     return r.text
+
+
+def _post_redcap_with_field_fallback(
+    token: str, payload: Dict[str, Any], fields: List[str], timeout: int = 30
+) -> str:
+    """
+    Like _post_redcap but automatically removes fields REDCap says are invalid
+    and retries once. Useful for projects (e.g. COMPASS) that lack some fields
+    present in the shared config list.
+    """
+
+    def _with_fields(f_list: List[str]) -> Dict[str, Any]:
+        p = {k: v for k, v in payload.items() if not k.startswith("fields[")}
+        for i, f in enumerate(f_list):
+            p[f"fields[{i}]"] = f
+        return p
+
+    try:
+        return _post_redcap(token, _with_fields(fields), timeout)
+    except RedcapError as e:
+        detail_text = e.detail.get("text", "") if isinstance(e.detail, dict) else str(e.detail or "")
+        invalid = _parse_invalid_fields(detail_text)
+        if not invalid or e.args[0] != "REDCap API returned non-200.":
+            raise
+        trimmed = [f for f in fields if f not in invalid]
+        if not trimmed or trimmed == fields:
+            raise
+        logger.info("Retrying REDCap export without unsupported fields: %s", sorted(invalid))
+        return _post_redcap(token, _with_fields(trimmed), timeout)
 
 
 # -------------------------------------------------------------------
@@ -97,26 +134,21 @@ def export_record_by_pat_id(project_name: str, pat_id: str) -> List[Dict[str, An
     # Keep this list "small but useful". Add more if you need them.
     fields = config["RedCap_Characteristics"]
 
+    base_payload: Dict[str, Any] = {
+        "content": "record",
+        "format": "json",
+        "type": "flat",
+        "rawOrLabel": "raw",
+        "rawOrLabelHeaders": "raw",
+        "exportCheckboxLabel": "false",
+        "exportSurveyFields": "false",
+        "exportDataAccessGroups": "true",
+        "returnFormat": "json",
+    }
+
     def _export_with_filter(filter_logic: str) -> List[Dict[str, Any]]:
-        payload: Dict[str, Any] = {
-            "content": "record",
-            "format": "json",
-            "type": "flat",
-            "rawOrLabel": "raw",
-            "rawOrLabelHeaders": "raw",
-            "exportCheckboxLabel": "false",
-            "exportSurveyFields": "false",
-            # IMPORTANT: include DAG and event metadata
-            "exportDataAccessGroups": "true",
-            "returnFormat": "json",
-            "filterLogic": filter_logic,
-        }
-
-        # include fields[] (REDCap expects fields[0], fields[1], ...)
-        for i, f in enumerate(fields):
-            payload[f"fields[{i}]"] = f
-
-        text = _post_redcap(token, payload)
+        payload = {**base_payload, "filterLogic": filter_logic}
+        text = _post_redcap_with_field_fallback(token, payload, fields)
 
         try:
             data = json.loads(text)
