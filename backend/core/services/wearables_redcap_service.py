@@ -17,6 +17,15 @@ from core.services.redcap_service import (
 
 logger = logging.getLogger(__name__)
 
+
+class WearablesSyncError(ValueError):
+    """ValueError with a stable frontend-translatable code."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
+
+
 # How many weeks to take from each end of the follow-up period
 BASELINE_WEEKS = 4
 FOLLOWUP_WEEKS = 4
@@ -166,7 +175,11 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     Raises ValueError if patient has no reha_end_date or userId.
     """
     if not patient.reha_end_date:
-        raise ValueError(f"Patient {patient.patient_code} has no reha_end_date set")
+        raise WearablesSyncError(
+            f"Patient {patient.patient_code} is missing the Rehabilitation End Date. "
+            "Please set it in the patient profile before syncing.",
+            code="wearables_missing_reha_end_date",
+        )
 
     project_name = (patient.project or "").strip().upper()
     sleep_fmt = _PROJECT_CONFIG.get(project_name, {}).get("sleep_duration_format", "hours_int")
@@ -231,7 +244,11 @@ def export_wearables_to_redcap(
     """
     project_name = (patient.project or "").strip()
     if not project_name:
-        raise ValueError(f"Patient {patient.patient_code} has no project set")
+        raise WearablesSyncError(
+            f"Patient {patient.patient_code} has no REDCap project assigned. "
+            "Please set the project in the patient profile before syncing.",
+            code="wearables_missing_project",
+        )
 
     project = resolve_project(project_name)
     token = get_token_for_project(project)
