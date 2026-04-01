@@ -7,9 +7,9 @@ import { useTranslation } from 'react-i18next';
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '../../stores/interventionsImportStore';
 import {
-  interventionsVideoUploadStore,
-  VideoUploadFileResult,
-} from '../../stores/interventionsVideoUploadStore';
+  interventionsMediaUploadStore,
+  MediaUploadFileResult,
+} from '../../stores/interventionsMediaUploadStore';
 
 type Props = {
   show: boolean;
@@ -63,7 +63,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   const { t } = useTranslation();
 
   // ── Tab state ──────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'excel' | 'video'>('excel');
+  const [activeTab, setActiveTab] = useState<'excel' | 'media'>('excel');
 
   // ── Excel tab state ────────────────────────────────────────────────────────
   const [file, setFile] = useState<File | null>(null);
@@ -76,7 +76,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   const [limit, setLimit] = useState<string>('');
 
   // ── Video tab state ────────────────────────────────────────────────────────
-  const [videoFiles, setVideoFiles] = useState<File[]>([]);
+  const [mediaFiles, setVideoFiles] = useState<File[]>([]);
 
   // ── Reset on open/close ────────────────────────────────────────────────────
   useEffect(() => {
@@ -88,7 +88,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     setVideoFiles([]);
     setActiveTab('excel');
     interventionsImportStore.reset();
-    interventionsVideoUploadStore.reset();
+    interventionsMediaUploadStore.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
@@ -100,9 +100,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   );
 
   const close = () => {
-    if (interventionsImportStore.loading || interventionsVideoUploadStore.loading) return;
+    if (interventionsImportStore.loading || interventionsMediaUploadStore.loading) return;
     interventionsImportStore.reset();
-    interventionsVideoUploadStore.reset();
+    interventionsMediaUploadStore.reset();
     setFile(null);
     setVideoFiles([]);
     setSheetName(defaultSheet);
@@ -130,10 +130,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   };
 
   // ── Video tab helpers ──────────────────────────────────────────────────────
-  const validatedVideoFiles: ValidatedFile[] = videoFiles.map(validateMediaFile);
-  const hasValidVideoFiles = validatedVideoFiles.some((vf) => vf.valid && !vf.tooLarge);
+  const validatedMediaFiles: ValidatedFile[] = mediaFiles.map(validateMediaFile);
+  const hasValidMediaFiles = validatedMediaFiles.some((vf) => vf.valid && !vf.tooLarge);
 
-  const handleVideoFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
     setVideoFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name));
@@ -145,7 +145,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
   const ACCEPTED_EXTS_SET = new Set(['mp4', 'mp3', 'wav', 'pdf', 'jpg', 'jpeg', 'png']);
 
-  const handleVideoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleMediaDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const dropped = Array.from(e.dataTransfer.files).filter((f) => {
       const ext = f.name.split('.').pop()?.toLowerCase() || '';
@@ -157,20 +157,20 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     });
   };
 
-  const removeVideoFile = (idx: number) => {
+  const removeMediaFile = (idx: number) => {
     setVideoFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const submitVideos = async () => {
-    const filesToUpload = validatedVideoFiles
+  const submitMedia = async () => {
+    const filesToUpload = validatedMediaFiles
       .filter((vf) => vf.valid && !vf.tooLarge)
       .map((vf) => vf.file);
     if (filesToUpload.length === 0) return;
-    await interventionsVideoUploadStore.uploadVideos(filesToUpload);
+    await interventionsMediaUploadStore.uploadMedia(filesToUpload);
   };
 
   const r = interventionsImportStore.result;
-  const vr = interventionsVideoUploadStore.results;
+  const vr = interventionsMediaUploadStore.results;
 
   return (
     <Modal show={show} onHide={close} centered size="lg" backdrop="static" keyboard>
@@ -184,7 +184,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
           variant="tabs"
           activeKey={activeTab}
           onSelect={(k) => {
-            if (k === 'excel' || k === 'video') setActiveTab(k);
+            if (k === 'excel' || k === 'media') setActiveTab(k);
           }}
           className="mb-3"
         >
@@ -192,7 +192,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             <Nav.Link eventKey="excel">{t('Excel Import')}</Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="video">{t('Upload Media')}</Nav.Link>
+            <Nav.Link eventKey="media">{t('Upload Media')}</Nav.Link>
           </Nav.Item>
         </Nav>
 
@@ -373,11 +373,11 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         {/* ══════════════════════════════════════════════════════════════════
             Upload Videos tab
         ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'video' && (
+        {activeTab === 'media' && (
           <>
-            {interventionsVideoUploadStore.error && (
+            {interventionsMediaUploadStore.error && (
               <Alert variant="danger" role="alert">
-                {interventionsVideoUploadStore.error}
+                {interventionsMediaUploadStore.error}
               </Alert>
             )}
 
@@ -413,8 +413,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               className="border rounded p-4 mb-3 text-center"
               style={{ borderStyle: 'dashed', cursor: 'pointer', borderWidth: 2 }}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={handleVideoDrop}
-              onClick={() => document.getElementById('video-file-input')?.click()}
+              onDrop={handleMediaDrop}
+              onClick={() => document.getElementById('media-file-input')?.click()}
               role="button"
               aria-label={t('Drop zone for media files')}
             >
@@ -423,23 +423,23 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 mp4 · mp3 · wav · pdf · jpg · png
               </div>
               <Form.Control
-                id="video-file-input"
+                id="media-file-input"
                 type="file"
                 multiple
                 accept={`${ACCEPTED_EXTENSIONS},${ACCEPTED_MIME}`}
                 style={{ display: 'none' }}
-                onChange={handleVideoFilesChange}
-                disabled={interventionsVideoUploadStore.loading}
+                onChange={handleMediaFilesChange}
+                disabled={interventionsMediaUploadStore.loading}
               />
             </div>
 
             {/* Per-file validation list */}
-            {validatedVideoFiles.length > 0 && (
+            {validatedMediaFiles.length > 0 && (
               <div
                 className="border rounded p-2 mb-3"
                 style={{ maxHeight: 240, overflowY: 'auto' }}
               >
-                {validatedVideoFiles.map((vf, idx) => (
+                {validatedMediaFiles.map((vf, idx) => (
                   <div
                     key={idx}
                     className="d-flex align-items-center gap-2 mb-1 small"
@@ -482,7 +482,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       variant="link"
                       size="sm"
                       className="p-0 ms-1 text-muted"
-                      onClick={() => removeVideoFile(idx)}
+                      onClick={() => removeMediaFile(idx)}
                       aria-label={t('Remove file')}
                     >
                       ×
@@ -505,7 +505,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   </Badge>
                 </div>
                 <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-                  {vr.map((res: VideoUploadFileResult, idx: number) => (
+                  {vr.map((res: MediaUploadFileResult, idx: number) => (
                     <div key={idx} className="small mb-2">
                       <div className="d-flex align-items-center gap-2 flex-wrap">
                         <Badge bg={res.status === 'ok' ? 'success' : 'danger'}>
@@ -544,7 +544,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         <Button
           variant="outline-secondary"
           onClick={close}
-          disabled={interventionsImportStore.loading || interventionsVideoUploadStore.loading}
+          disabled={interventionsImportStore.loading || interventionsMediaUploadStore.loading}
         >
           {t('Close')}
         </Button>
@@ -561,13 +561,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
           </Button>
         )}
 
-        {activeTab === 'video' && (
+        {activeTab === 'media' && (
           <Button
             variant="primary"
-            onClick={submitVideos}
-            disabled={!hasValidVideoFiles || interventionsVideoUploadStore.loading}
+            onClick={submitMedia}
+            disabled={!hasValidMediaFiles || interventionsMediaUploadStore.loading}
           >
-            {interventionsVideoUploadStore.loading ? (
+            {interventionsMediaUploadStore.loading ? (
               <span className="d-inline-flex align-items-center gap-2">
                 <Spinner animation="border" size="sm" /> {t('Uploading...')}
               </span>
