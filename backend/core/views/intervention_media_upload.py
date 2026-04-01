@@ -119,9 +119,9 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
-def upload_intervention_videos(request):
+def upload_intervention_media(request):
     """
-    POST /api/interventions/import/videos/
+    POST /api/interventions/import/media/
     multipart/form-data, files under key 'files[]'
 
     Each file must:

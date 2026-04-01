@@ -27,15 +27,15 @@ const mockVideoStore = {
   results: null,
   reset: jest.fn(),
   clearError: jest.fn(),
-  uploadVideos: jest.fn(),
+  uploadMedia: jest.fn(),
 };
 
 jest.mock('@/stores/interventionsImportStore', () => ({
   interventionsImportStore: mockImportStore,
 }));
 
-jest.mock('@/stores/interventionsVideoUploadStore', () => ({
-  interventionsVideoUploadStore: mockVideoStore,
+jest.mock('@/stores/interventionsMediaUploadStore', () => ({
+  interventionsMediaUploadStore: mockVideoStore,
 }));
 
 jest.mock('@/config/interventions.json', () => ({
@@ -147,7 +147,7 @@ describe('Media file validation', () => {
   }
 
   function addFile(file: File) {
-    const input = document.getElementById('video-file-input') as HTMLInputElement;
+    const input = document.getElementById('media-file-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
   }
 
@@ -220,7 +220,7 @@ describe('Media file validation', () => {
 
   it('shows mixed badges when both valid and invalid files are added', () => {
     openMediaTab();
-    const input = document.getElementById('video-file-input') as HTMLInputElement;
+    const input = document.getElementById('media-file-input') as HTMLInputElement;
     fireEvent.change(input, {
       target: { files: [new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' })] },
     });
@@ -259,7 +259,7 @@ describe('Media file validation', () => {
 
   it('Upload button is enabled when a valid-size file is present alongside a too-large one', () => {
     openMediaTab();
-    const input = document.getElementById('video-file-input') as HTMLInputElement;
+    const input = document.getElementById('media-file-input') as HTMLInputElement;
     const bigFile = new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' });
     Object.defineProperty(bigFile, 'size', { value: 1100 * 1024 * 1024 });
     fireEvent.change(input, { target: { files: [bigFile] } });
