@@ -94,9 +94,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
         setError(t('Verification failed. Please try again.'));
       }
     } catch (err: any) {
-      setError(
-        err?.response?.data?.detail || err?.message || t('Verification failed. Please try again.')
-      );
+      const backendMsg = err?.response?.data?.error || err?.response?.data?.detail;
+      setError(backendMsg ? t(backendMsg) : t('Verification failed. Please try again.'));
     }
   };
 
