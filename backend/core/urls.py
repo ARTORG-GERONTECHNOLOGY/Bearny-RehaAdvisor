@@ -25,6 +25,7 @@ from core.views.eva_view import (
     submit_healthslider_item,
 )
 from core.views.intervention_import import import_interventions
+from core.views.intervention_video_upload import upload_intervention_videos
 from core.views.patient_thresholds import patient_thresholds_view
 from core.views.questionaires_view import (
     assign_questionnaire,
@@ -292,6 +293,11 @@ urlpatterns = [
         "api/interventions/import/excel",
         import_interventions,
         name="import_interventions",
+    ),
+    path(
+        "api/interventions/import/videos/",
+        upload_intervention_videos,
+        name="import_intervention_videos",
     ),
     path(
         "api/patients/<str:patient_id>/thresholds/",

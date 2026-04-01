@@ -1,9 +1,11 @@
 # core/services/intervention_import.py
 
+import json
 import os
 import re
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import openpyxl
 from django.http import JsonResponse
@@ -13,6 +15,65 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
+
+# ---------------- taxonomy ----------------
+
+_INTERVENTIONS_JSON = Path(__file__).parent.parent.parent / "interventions.json"
+with open(_INTERVENTIONS_JSON) as _f:
+    _TAXONOMY: Dict[str, List[str]] = json.load(_f).get("interventionsTaxonomy", {})
+
+
+def _make_lookup(values: List[str]) -> Dict[str, str]:
+    """Case-insensitive lookup: lowercase input → canonical taxonomy value."""
+    return {v.lower(): v for v in (values or [])}
+
+
+_TX: Dict[str, Dict[str, str]] = {
+    "aims": _make_lookup(_TAXONOMY.get("aims", [])),
+    "topics": _make_lookup(_TAXONOMY.get("topics", [])),
+    "lc9": _make_lookup(_TAXONOMY.get("lc9", [])),
+    "where": _make_lookup(_TAXONOMY.get("where", [])),
+    "setting": _make_lookup(_TAXONOMY.get("setting", [])),
+    "cognitive_levels": _make_lookup(_TAXONOMY.get("cognitive_levels", [])),
+    "physical_levels": _make_lookup(_TAXONOMY.get("physical_levels", [])),
+    "frequency_time": _make_lookup(_TAXONOMY.get("frequency_time", [])),
+    "timing": _make_lookup(_TAXONOMY.get("timing", [])),
+    "duration_buckets": _make_lookup(_TAXONOMY.get("duration_buckets", [])),
+    "sex_specific": _make_lookup(_TAXONOMY.get("sex_specific", [])),
+    "content_types": _make_lookup(_TAXONOMY.get("content_types", [])),
+    "primary_diagnoses": _make_lookup(_TAXONOMY.get("primary_diagnoses", [])),
+    "input_from": _make_lookup(_TAXONOMY.get("input_from", [])),
+}
+
+
+def _validate_single(
+    raw: str, lookup: Dict[str, str], field_label: str, allowed: List[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Returns (canonical_value | None, warning_message | None)."""
+    if not raw:
+        return None, None
+    canonical = lookup.get(raw.lower())
+    if canonical is not None:
+        return canonical, None
+    allowed_str = ", ".join(f'"{v}"' for v in allowed)
+    return None, f'"{raw}" is not a valid {field_label}. Allowed: {allowed_str}.'
+
+
+def _validate_list(
+    raw_list: List[str], lookup: Dict[str, str], field_label: str, allowed: List[str]
+) -> Tuple[List[str], List[str]]:
+    """Returns ([valid canonical values], [warning strings for invalid items])."""
+    valid: List[str] = []
+    warns: List[str] = []
+    allowed_str = ", ".join(f'"{v}"' for v in allowed)
+    for raw in raw_list:
+        canonical = lookup.get(raw.lower())
+        if canonical is not None:
+            valid.append(canonical)
+        else:
+            warns.append(f'"{raw}" is not a valid {field_label}. Allowed: {allowed_str}.')
+    return valid, warns
+
 
 # ---------------- view helpers ----------------
 
@@ -596,6 +657,99 @@ def import_interventions_from_excel(
             setting_list = _split_any(setting_raw)
             keywords_list = _split_any(keywords_raw)
 
+            # Optional extra columns (may be None if column not found in sheet)
+            input_from_raw = _norm(row[col["input_from"]]) if col.get("input_from") is not None else ""
+            primary_diagnosis_raw = (
+                _norm(row[col["primary_diagnosis"]]) if col.get("primary_diagnosis") is not None else ""
+            )
+            cognitive_level_raw = _norm(row[col["cognitive_level"]]) if col.get("cognitive_level") is not None else ""
+            physical_level_raw = _norm(row[col["physical_level"]]) if col.get("physical_level") is not None else ""
+            frequency_time_raw = _norm(row[col["frequency_time"]]) if col.get("frequency_time") is not None else ""
+            timing_raw = _norm(row[col["timing"]]) if col.get("timing") is not None else ""
+            sex_specific_raw = _norm(row[col["sex_specific"]]) if col.get("sex_specific") is not None else ""
+            duration_bucket_raw = (
+                _norm(row[col["duration_bucket"]]) if col.get("duration_bucket") is not None else duration_raw
+            )
+
+            # ---- Taxonomy validation ----
+            row_warnings: List[str] = []
+
+            aim_val, aim_warn = _validate_single(aim, _TX["aims"], "aim", _TAXONOMY.get("aims", []))
+            if aim_warn:
+                row_warnings.append(f"aim: {aim_warn}")
+
+            topic_list, topic_warns = _validate_list(topic_list, _TX["topics"], "topic", _TAXONOMY.get("topics", []))
+            for w in topic_warns:
+                row_warnings.append(f"topic: {w}")
+
+            lc9_list, lc9_warns = _validate_list(lc9_list, _TX["lc9"], "lc9", _TAXONOMY.get("lc9", []))
+            for w in lc9_warns:
+                row_warnings.append(f"lc9: {w}")
+
+            where_list, where_warns = _validate_list(where_list, _TX["where"], "where", _TAXONOMY.get("where", []))
+            for w in where_warns:
+                row_warnings.append(f"where: {w}")
+
+            setting_list, setting_warns = _validate_list(
+                setting_list, _TX["setting"], "setting", _TAXONOMY.get("setting", [])
+            )
+            for w in setting_warns:
+                row_warnings.append(f"setting: {w}")
+
+            cognitive_level_val, cl_warn = _validate_single(
+                cognitive_level_raw, _TX["cognitive_levels"], "cognitive level", _TAXONOMY.get("cognitive_levels", [])
+            )
+            if cl_warn:
+                row_warnings.append(f"cognitive_level: {cl_warn}")
+
+            physical_level_val, pl_warn = _validate_single(
+                physical_level_raw, _TX["physical_levels"], "physical level", _TAXONOMY.get("physical_levels", [])
+            )
+            if pl_warn:
+                row_warnings.append(f"physical_level: {pl_warn}")
+
+            frequency_time_val, ft_warn = _validate_single(
+                frequency_time_raw, _TX["frequency_time"], "frequency/time", _TAXONOMY.get("frequency_time", [])
+            )
+            if ft_warn:
+                row_warnings.append(f"frequency_time: {ft_warn}")
+
+            timing_val, timing_warn = _validate_single(timing_raw, _TX["timing"], "timing", _TAXONOMY.get("timing", []))
+            if timing_warn:
+                row_warnings.append(f"timing: {timing_warn}")
+
+            sex_specific_val, ss_warn = _validate_single(
+                sex_specific_raw, _TX["sex_specific"], "sex_specific", _TAXONOMY.get("sex_specific", [])
+            )
+            if ss_warn:
+                row_warnings.append(f"sex_specific: {ss_warn}")
+
+            duration_bucket_val, db_warn = _validate_single(
+                duration_bucket_raw, _TX["duration_buckets"], "duration bucket", _TAXONOMY.get("duration_buckets", [])
+            )
+            if db_warn and duration_bucket_raw:
+                row_warnings.append(f"duration_bucket: {db_warn}")
+
+            primary_diagnosis_val, pd_warn = _validate_single(
+                primary_diagnosis_raw,
+                _TX["primary_diagnoses"],
+                "primary diagnosis",
+                _TAXONOMY.get("primary_diagnoses", []),
+            )
+            if pd_warn:
+                row_warnings.append(f"primary_diagnosis: {pd_warn}")
+
+            input_from_list = _split_any(input_from_raw)
+            input_from_list, if_warns = _validate_list(
+                input_from_list, _TX["input_from"], "input_from", _TAXONOMY.get("input_from", [])
+            )
+            for w in if_warns:
+                row_warnings.append(f"input_from: {w}")
+
+            # Warn when content_type fuzzy-mapped to fallback "Text" from unrecognized value
+            if content_type_raw and mapped_ct == "Text" and not _TX["content_types"].get(content_type_raw.lower()):
+                row_warnings.append(f'content_type: "{content_type_raw}" not recognized; stored as "Text".')
+
             existing = Intervention.objects(external_id=external_id, language=language).first()
             doc = existing or Intervention(external_id=external_id, language=language)
 
@@ -608,8 +762,8 @@ def import_interventions_from_excel(
                 _set_if_exists(doc, "duration", duration_min)
 
             # store simple metadata if model has them
-            if aim:
-                _set_if_exists(doc, "aim", aim)
+            if aim_val:
+                _set_if_exists(doc, "aim", aim_val)
 
             orig_lang_val = lang_from_col or lang_from_id or language
             _set_if_exists(doc, "original_language", orig_lang_val)
@@ -619,13 +773,28 @@ def import_interventions_from_excel(
             if lc9_list:
                 _set_if_exists(doc, "lc9", lc9_list)
             if where_list:
-                _set_if_exists(doc, "where", where_list)  # <-- should now fill: ["outside"]
+                _set_if_exists(doc, "where", where_list)
             if setting_list:
-                _set_if_exists(doc, "setting", setting_list)  # <-- should now fill: ["individual"]
+                _set_if_exists(doc, "setting", setting_list)
             if keywords_list:
                 _set_if_exists(doc, "keywords", keywords_list)
-
-            if duration_raw:
+            if cognitive_level_val:
+                _set_if_exists(doc, "cognitive_level", cognitive_level_val)
+            if physical_level_val:
+                _set_if_exists(doc, "physical_level", physical_level_val)
+            if frequency_time_val:
+                _set_if_exists(doc, "frequency_time", frequency_time_val)
+            if timing_val:
+                _set_if_exists(doc, "timing", timing_val)
+            if sex_specific_val:
+                _set_if_exists(doc, "sex_specific", sex_specific_val)
+            if primary_diagnosis_val:
+                _set_if_exists(doc, "primary_diagnosis", primary_diagnosis_val)
+            if input_from_list:
+                _set_if_exists(doc, "input_from", input_from_list)
+            if duration_bucket_val:
+                _set_if_exists(doc, "duration_bucket", duration_bucket_val)
+            elif duration_raw and not duration_bucket_val:
                 _set_if_exists(doc, "duration_bucket", duration_raw)
 
             # ---- media from link ----
@@ -706,6 +875,17 @@ def import_interventions_from_excel(
                         "intervention_id": intervention_id_raw,
                         "severity": "warning",
                         "error": " ".join(id_warnings),
+                    }
+                )
+
+            # Append taxonomy validation warnings (row was still imported with valid values)
+            for warn_msg in row_warnings:
+                errors.append(
+                    {
+                        "row": row_idx,
+                        "intervention_id": intervention_id_raw,
+                        "severity": "warning",
+                        "error": warn_msg,
                     }
                 )
 
