@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
 
-export type VideoUploadFileResult = {
+export type MediaUploadFileResult = {
   filename: string;
   status: 'ok' | 'error';
   external_id: string | null;
@@ -9,10 +9,10 @@ export type VideoUploadFileResult = {
   error?: string;
 };
 
-export class InterventionsVideoUploadStore {
+export class InterventionsMediaUploadStore {
   loading = false;
   error = '';
-  results: VideoUploadFileResult[] | null = null;
+  results: MediaUploadFileResult[] | null = null;
 
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
@@ -29,11 +29,11 @@ export class InterventionsVideoUploadStore {
   }
 
   /**
-   * Uploads one or more .mp4 files to the batch video import endpoint.
-   * POST /api/interventions/import/videos/
+   * Uploads one or more media files to the batch media import endpoint.
+   * POST /api/interventions/import/media/
    * multipart/form-data, key: files[]
    */
-  async uploadVideos(files: File[]): Promise<void> {
+  async uploadMedia(files: File[]): Promise<void> {
     if (this.loading) return;
 
     this.loading = true;
@@ -46,12 +46,12 @@ export class InterventionsVideoUploadStore {
         fd.append('files[]', file);
       }
 
-      const res = await apiClient.post('/interventions/import/videos/', fd, {
+      const res = await apiClient.post('/interventions/import/media/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       runInAction(() => {
-        this.results = (res.data?.results ?? null) as VideoUploadFileResult[] | null;
+        this.results = (res.data?.results ?? null) as MediaUploadFileResult[] | null;
       });
     } catch (e: any) {
       const backend =
@@ -69,4 +69,4 @@ export class InterventionsVideoUploadStore {
   }
 }
 
-export const interventionsVideoUploadStore = new InterventionsVideoUploadStore();
+export const interventionsMediaUploadStore = new InterventionsMediaUploadStore();

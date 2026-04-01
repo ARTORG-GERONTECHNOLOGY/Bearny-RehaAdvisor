@@ -109,7 +109,7 @@ test.describe('Import Interventions modal', () => {
     const modal = page.locator('.modal.show');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
-    const fileInput = modal.locator('#video-file-input');
+    const fileInput = modal.locator('#media-file-input');
     const accept = await fileInput.getAttribute('accept');
     expect(accept).toMatch(/mp4/i);
     expect(accept).toMatch(/mp3/i);
@@ -136,7 +136,7 @@ test.describe('Import Interventions modal', () => {
     const modal = page.locator('.modal.show');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
-    await page.locator('#video-file-input').setInputFiles({
+    await page.locator('#media-file-input').setInputFiles({
       name: '3500_web_de.mp4',
       mimeType: 'video/mp4',
       buffer: Buffer.from('fake-mp4-data'),
@@ -154,7 +154,7 @@ test.describe('Import Interventions modal', () => {
     const modal = page.locator('.modal.show');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
-    await page.locator('#video-file-input').setInputFiles({
+    await page.locator('#media-file-input').setInputFiles({
       name: '3500_pdf_de.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('fake-pdf-data'),
@@ -172,7 +172,7 @@ test.describe('Import Interventions modal', () => {
     const modal = page.locator('.modal.show');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
-    await page.locator('#video-file-input').setInputFiles({
+    await page.locator('#media-file-input').setInputFiles({
       name: 'random_video.mp4',
       mimeType: 'video/mp4',
       buffer: Buffer.from('fake-mp4-data'),

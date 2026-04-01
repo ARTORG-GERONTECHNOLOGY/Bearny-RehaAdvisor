@@ -1,5 +1,5 @@
 """
-Tests for POST /api/interventions/import/videos/
+Tests for POST /api/interventions/import/media/
 
 Pattern mirrors test_intervention_import_view.py:
 - mongomock fixture (autouse, function-scope)
@@ -15,13 +15,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
 from core.models import Intervention, InterventionMedia
-from core.views.intervention_video_upload import (
+from core.views.intervention_media_upload import (
     _FILENAME_RE,
     _parse_external_id_and_lang,
 )
 
 client = Client()
-URL = "/api/interventions/import/videos/"
+URL = "/api/interventions/import/media/"
 AUTH = {"HTTP_AUTHORIZATION": "Bearer test"}
 
 
@@ -215,7 +215,7 @@ def test_wrong_language_variant_gives_specific_error():
 # ── Successful uploads ────────────────────────────────────────────────────────
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="videos/3500_web.mp4")
+@patch("core.views.intervention_media_upload._save_file", return_value="videos/3500_web.mp4")
 def test_valid_mp4_returns_ok_and_updates_correct_language(mock_save):
     _make_intervention("3500_web", "de", "German Video")
     _make_intervention("3500_web", "en", "English Video")  # should NOT be updated
@@ -241,7 +241,7 @@ def test_valid_mp4_returns_ok_and_updates_correct_language(mock_save):
     assert len(en_doc.media) == 0
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="audio/3500_aud.mp3")
+@patch("core.views.intervention_media_upload._save_file", return_value="audio/3500_aud.mp3")
 def test_mp3_upload_sets_audio_media_type(mock_save):
     _make_intervention("3500_aud", "de", "German Audio")
 
@@ -258,7 +258,7 @@ def test_mp3_upload_sets_audio_media_type(mock_save):
     assert doc.media[0].mime == "audio/mpeg"
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="documents/3500_pdf.pdf")
+@patch("core.views.intervention_media_upload._save_file", return_value="documents/3500_pdf.pdf")
 def test_pdf_upload_sets_pdf_media_type(mock_save):
     _make_intervention("3500_pdf", "fr", "French PDF")
 
@@ -273,7 +273,7 @@ def test_pdf_upload_sets_pdf_media_type(mock_save):
     assert doc.media[0].mime == "application/pdf"
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="images/3500_img.jpg")
+@patch("core.views.intervention_media_upload._save_file", return_value="images/3500_img.jpg")
 def test_jpg_upload_sets_image_media_type(mock_save):
     _make_intervention("3500_img", "it", "Italian Image")
 
@@ -289,7 +289,7 @@ def test_jpg_upload_sets_image_media_type(mock_save):
 # ── Language isolation: only the matching language is updated ─────────────────
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="videos/lang_test.mp4")
+@patch("core.views.intervention_media_upload._save_file", return_value="videos/lang_test.mp4")
 def test_only_matching_language_variant_receives_file(mock_save):
     for lang in ("de", "en", "fr", "it", "pt", "nl"):
         _make_intervention("5000_web", lang, f"{lang} title")
@@ -314,7 +314,7 @@ def test_only_matching_language_variant_receives_file(mock_save):
 # ── Dedup: same file_path not added twice ─────────────────────────────────────
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="videos/dedup.mp4")
+@patch("core.views.intervention_media_upload._save_file", return_value="videos/dedup.mp4")
 def test_dedup_does_not_add_duplicate_media(mock_save):
     doc = _make_intervention("4000_web", "en", "Dedup Test")
 
@@ -328,7 +328,7 @@ def test_dedup_does_not_add_duplicate_media(mock_save):
 # ── Mixed batch ───────────────────────────────────────────────────────────────
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="videos/ok.mp4")
+@patch("core.views.intervention_media_upload._save_file", return_value="videos/ok.mp4")
 def test_mixed_batch_partial_results(mock_save):
     _make_intervention("9999_vid", "en", "Good One")
 
@@ -349,14 +349,14 @@ def test_mixed_batch_partial_results(mock_save):
 # ── Storage folder matches file type ─────────────────────────────────────────
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="videos/saved.mp4")
+@patch("core.views.intervention_media_upload._save_file", return_value="videos/saved.mp4")
 def test_mp4_uses_videos_folder(mock_save):
     _make_intervention("1234_web", "en", "Folder Test")
     client.post(URL, data={"files[]": _mp4("1234_web_en.mp4")}, **AUTH)
     assert mock_save.call_args[0][1] == "videos"
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="audio/saved.mp3")
+@patch("core.views.intervention_media_upload._save_file", return_value="audio/saved.mp3")
 def test_mp3_uses_audio_folder(mock_save):
     _make_intervention("1234_aud", "en", "Audio Folder Test")
     f = _file("1234_aud_en.mp3", b"data", "audio/mpeg")
@@ -364,7 +364,7 @@ def test_mp3_uses_audio_folder(mock_save):
     assert mock_save.call_args[0][1] == "audio"
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="documents/saved.pdf")
+@patch("core.views.intervention_media_upload._save_file", return_value="documents/saved.pdf")
 def test_pdf_uses_documents_folder(mock_save):
     _make_intervention("1234_pdf", "en", "PDF Folder Test")
     f = _file("1234_pdf_en.pdf", b"data", "application/pdf")
@@ -372,7 +372,7 @@ def test_pdf_uses_documents_folder(mock_save):
     assert mock_save.call_args[0][1] == "documents"
 
 
-@patch("core.views.intervention_video_upload._save_file", return_value="images/saved.jpg")
+@patch("core.views.intervention_media_upload._save_file", return_value="images/saved.jpg")
 def test_jpg_uses_images_folder(mock_save):
     _make_intervention("1234_img", "en", "Image Folder Test")
     f = _file("1234_img_en.jpg", b"data", "image/jpeg")
@@ -384,7 +384,7 @@ def test_jpg_uses_images_folder(mock_save):
 
 
 @patch(
-    "core.views.intervention_video_upload._save_file",
+    "core.views.intervention_media_upload._save_file",
     side_effect=RuntimeError("disk full"),
 )
 def test_unexpected_error_is_caught_per_file(mock_save):
