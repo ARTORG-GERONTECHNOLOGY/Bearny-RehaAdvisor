@@ -371,7 +371,7 @@ describe('LoginForm', () => {
     });
   });
 
-  it('2FA failure shows informative error (try/catch path)', async () => {
+  it('2FA failure shows error from data.error key (primary backend path)', async () => {
     authStore.loginWithHttp.mockImplementation(async () => {
       authStore.userType = 'Therapist';
       authStore.loginErrorMessage = '';
@@ -380,7 +380,7 @@ describe('LoginForm', () => {
 
     apiPost
       .mockResolvedValueOnce({ status: 200, data: {} }) // send-verification-code
-      .mockRejectedValueOnce({ response: { data: { detail: 'Invalid code' } } }); // verify-code
+      .mockRejectedValueOnce({ response: { data: { error: 'Invalid verification code' } } }); // verify-code
 
     openModal();
     fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
@@ -393,8 +393,119 @@ describe('LoginForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Invalid code');
+      expect(screen.getByRole('alert')).toHaveTextContent('Invalid verification code');
       expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('2FA failure still shows error from data.detail key (legacy path)', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Therapist';
+      authStore.loginErrorMessage = '';
+      authStore.id = 'ther1';
+    });
+
+    apiPost
+      .mockResolvedValueOnce({ status: 200, data: {} }) // send-verification-code
+      .mockRejectedValueOnce({ response: { data: { detail: 'Some detail error' } } }); // verify-code
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByLabelText('verificationCode')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('verificationCode'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Some detail error');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('2FA shows "Verification code expired" from backend', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Therapist';
+      authStore.loginErrorMessage = '';
+      authStore.id = 'ther1';
+    });
+
+    apiPost
+      .mockResolvedValueOnce({ status: 200, data: {} })
+      .mockRejectedValueOnce({ response: { data: { error: 'Verification code expired' } } });
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByLabelText('verificationCode')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('verificationCode'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Verification code expired');
+    });
+  });
+
+  it('2FA shows "Missing user ID or verification code" from backend', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Therapist';
+      authStore.loginErrorMessage = '';
+      authStore.id = 'ther1';
+    });
+
+    apiPost
+      .mockResolvedValueOnce({ status: 200, data: {} })
+      .mockRejectedValueOnce({
+        response: { data: { error: 'Missing user ID or verification code' } },
+      });
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByLabelText('verificationCode')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('verificationCode'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Missing user ID or verification code'
+      );
+    });
+  });
+
+  it('2FA shows fallback message when no backend error message is present', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Therapist';
+      authStore.loginErrorMessage = '';
+      authStore.id = 'ther1';
+    });
+
+    apiPost
+      .mockResolvedValueOnce({ status: 200, data: {} })
+      .mockRejectedValueOnce({ response: { data: {} } }); // no error/detail key
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByLabelText('verificationCode')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('verificationCode'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Verification failed. Please try again.'
+      );
     });
   });
 });
