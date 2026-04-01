@@ -268,7 +268,7 @@ def test_import_interventions_from_excel_header_fallback_and_update_dedupe():
                 "D1",
                 "Web",
                 "https://example.com/item",
-                "home\nclinic",
+                "home\noutside",
                 "individual|group",
                 "balance|mobility",
                 "tag1\ntag2",
@@ -287,6 +287,6 @@ def test_import_interventions_from_excel_header_fallback_and_update_dedupe():
 
         doc = Intervention.objects(external_id="5001", language="en").first()
         assert doc is not None
-        assert "home" in doc.where and "clinic" in doc.where
+        assert "home" in doc.where and "outside" in doc.where
         assert "individual" in doc.setting and "group" in doc.setting
         assert len(doc.media or []) >= 1
