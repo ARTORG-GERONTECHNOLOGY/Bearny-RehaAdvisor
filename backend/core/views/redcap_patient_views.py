@@ -92,6 +92,7 @@ def redcap_patient(request):
                 {
                     "ok": False,
                     "error": "Failed to retrieve REDCap records (one or more projects errored).",
+                    "code": "redcap_fetch_error",
                     "patient_code": patient_code,
                     "allowedProjects": allowed,
                     "errors": errors,
@@ -103,6 +104,7 @@ def redcap_patient(request):
             {
                 "ok": False,
                 "error": "No REDCap record found for this patient_code in the allowed projects.",
+                "code": "redcap_not_found",
                 "patient_code": patient_code,
                 "allowedProjects": allowed,
             },
