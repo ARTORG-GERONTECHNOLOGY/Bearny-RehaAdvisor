@@ -572,8 +572,6 @@
         "primarydiagnose",
         "referral_diagnosis",
         "referral_intervention",
-        "referral_diagnosis",
-        "referral_intervention",
         "hypertension",
         "arrhythmia",
         "vhd",
