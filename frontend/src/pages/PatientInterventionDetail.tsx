@@ -615,19 +615,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return (
       <Layout>
         <div className="flex flex-col gap-2">
-          <Button
-            onClick={() => navigate(-1)}
-            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
-          >
-            <ArrowLeftIcon className="w-6 h-6" />
+          <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
+            <ArrowLeftIcon />
             <span className="sr-only">{t('Back')}</span>
           </Button>
 
-          <ErrorAlert
-            message={t('Intervention not found.')}
-            onClose={() => navigate(-1)}
-            className="mb-0"
-          />
+          <ErrorAlert message={t('Intervention not found.')} onClose={() => navigate(-1)} />
         </div>
       </Layout>
     );
@@ -640,22 +633,18 @@ const PatientInterventionDetail: React.FC = observer(() => {
     <Layout>
       <div className="flex flex-col gap-2">
         <div className="flex justify-between align-items-center">
-          <Button
-            onClick={() => navigate(-1)}
-            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
-          >
-            <ArrowLeftIcon className="w-6 h-6" />
+          <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
+            <ArrowLeftIcon />
             <span className="sr-only">{t('Back')}</span>
           </Button>
 
           {targetDate && (
             <Button
-              onClick={handleToggleCompleted}
               disabled={isBusy}
               aria-pressed={completed}
-              className={`rounded-full border border-accent p-4 pl-5 shadow-none font-medium text-lg flex gap-2 ${
-                completed ? 'bg-[#00956C] text-zinc-50' : 'bg-white text-zinc-400'
-              }`}
+              onClick={handleToggleCompleted}
+              variant={completed ? 'default' : 'secondary'}
+              className={!completed && 'bg-white text-zinc-400'}
             >
               {isBusy ? (
                 <Skeleton className="w-20 h-6 rounded-full" />
@@ -664,11 +653,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               ) : (
                 t('Mark as done')
               )}
-              {completed ? (
-                <CircleCheckFillIcon className="w-6 h-6" />
-              ) : (
-                <CircleHalfCheckIcon className="w-6 h-6" />
-              )}
+              {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
             </Button>
           )}
         </div>
