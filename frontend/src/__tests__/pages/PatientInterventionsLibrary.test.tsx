@@ -4,6 +4,7 @@ import { act, render, waitFor } from '@testing-library/react';
 const mockNavigate = jest.fn();
 const mockSearchPanel = jest.fn(() => <div data-testid="search-panel" />);
 const mockFilterSheet = jest.fn(() => <div data-testid="filter-sheet" />);
+const mockDesktopFilters = jest.fn(() => <div data-testid="desktop-filters" />);
 const mockInterventionCard = jest.fn(() => <div data-testid="intervention-card" />);
 
 const mockTranslateText = jest.fn(async (text: string) => {
@@ -59,6 +60,14 @@ jest.mock('@/components/PatientLibrary/PatientLibraryFilterSheet', () => ({
   default: (props: any) => {
     mockFilterSheet(props);
     return <div data-testid="filter-sheet" />;
+  },
+}));
+
+jest.mock('@/components/PatientLibrary/PatientLibraryDesktopFilters', () => ({
+  __esModule: true,
+  default: (props: any) => {
+    mockDesktopFilters(props);
+    return <div data-testid="desktop-filters" />;
   },
 }));
 
