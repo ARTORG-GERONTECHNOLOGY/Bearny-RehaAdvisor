@@ -466,7 +466,10 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         const banner = applyFieldErrors(data.field_errors);
         setFormError(banner);
       } else {
-        const message = extractServerMessage(data, t('Registration failed. Please try again later.'));
+        const message = extractServerMessage(
+          data,
+          t('Registration failed. Please try again later.')
+        );
         setFormError(message);
         setServerDetail({ status, message });
       }
