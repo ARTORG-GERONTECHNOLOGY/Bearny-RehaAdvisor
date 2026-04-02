@@ -102,7 +102,7 @@ const PatientPlan: React.FC = observer(() => {
       </div>
 
       <div
-        className="flex flex-col gap-2 mt-6 md:grid md:grid-cols-2 md:items-start"
+        className="flex flex-col gap-2 mt-6 lg:grid lg:grid-cols-2 lg:items-start"
         role="region"
         aria-label={t('Weekly interventions')}
       >
