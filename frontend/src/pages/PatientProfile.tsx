@@ -98,114 +98,116 @@ const PatientProfile: React.FC = observer(() => {
   return (
     <>
       <Layout title={displayName}>
-        <Section className="mt-8">
-          <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
+        <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-2">
+          <Section className="mt-8">
+            <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
-            <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
-            <Select onValueChange={(value) => handleLanguageChange(value)} defaultValue={lang}>
-              <SelectTrigger className="bg-white border-white shadow-none p-0">
-                <SelectValue placeholder={t('Select language')} />
-              </SelectTrigger>
-              <SelectContent className="bg-accent rounded-3xl p-1">
-                <SelectGroup>
-                  {languages.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      <span className="font-bold text-lg leading-6 text-zinc-800">
-                        {languageNames[l]}
-                      </span>
-                      <img src={flagMap[l]} className="h-4 w-4 rounded-full ml-1 -mt-1" />
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+              <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
+              <Select onValueChange={(value) => handleLanguageChange(value)} defaultValue={lang}>
+                <SelectTrigger className="bg-white border-white shadow-none p-0">
+                  <SelectValue placeholder={t('Select language')} />
+                </SelectTrigger>
+                <SelectContent className="bg-accent rounded-3xl p-1">
+                  <SelectGroup>
+                    {languages.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        <span className="font-bold text-lg leading-6 text-zinc-800">
+                          {languageNames[l]}
+                        </span>
+                        <img src={flagMap[l]} className="h-4 w-4 rounded-full ml-1 -mt-1" />
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
-            <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <div className="font-bold text-lg leading-6 text-zinc-800">
-                  {t('Receive daily reminders')}
+            <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+              <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <div className="font-bold text-lg leading-6 text-zinc-800">
+                    {t('Receive daily reminders')}
+                  </div>
+                  {permission === 'denied' && (
+                    <div className="text-red-600 text-xs">
+                      {t('Notification permission denied. Please enable in browser settings.')}
+                    </div>
+                  )}
+                  {!supportsPeriodicSync && (
+                    <div className="text-amber-600 text-xs">
+                      {t('Background notifications not supported in this browser.')}
+                    </div>
+                  )}
                 </div>
-                {permission === 'denied' && (
-                  <div className="text-red-600 text-xs">
-                    {t('Notification permission denied. Please enable in browser settings.')}
-                  </div>
-                )}
-                {!supportsPeriodicSync && (
-                  <div className="text-amber-600 text-xs">
-                    {t('Background notifications not supported in this browser.')}
-                  </div>
-                )}
+                <Switch checked={enabled} onCheckedChange={toggleNotifications} />
               </div>
-              <Switch checked={enabled} onCheckedChange={toggleNotifications} />
             </div>
-          </div>
-        </Section>
+          </Section>
 
-        <Section className="mt-8">
-          <div className="flex justify-between w-full">
-            <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
-            <Badge
-              onClick={() => setHelpOpen(true)}
-              className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none"
-            >
-              {t('Help')}
-              <QuestionFill className="w-4 h-4 ml-1" />
-            </Badge>
-          </div>
-
-          <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
-            <div className="font-bold text-lg leading-6 text-zinc-800">
-              {t('Research Project Contact')}
+          <Section className="mt-8">
+            <div className="flex justify-between w-full">
+              <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
+              <Badge
+                onClick={() => setHelpOpen(true)}
+                className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none"
+              >
+                {t('Help')}
+                <QuestionFill className="w-4 h-4 ml-1" />
+              </Badge>
             </div>
-            {config.contact.email && (
-              <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
-                <a
-                  href={`mailto:${config.contact.email}`}
-                  className="flex items-center gap-1 no-underline text-[#00956C]"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span className="font-medium">{config.contact.email}</span>
-                </a>
-              </Badge>
-            )}
-            {config.contact.phone && (
-              <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
-                <a
-                  href={`tel:${config.contact.phone}`}
-                  className="flex items-center gap-1 no-underline text-[#00956C]"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span className="font-medium">{config.contact.phone}</span>
-                </a>
-              </Badge>
-            )}
+
+            <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
+              <div className="font-bold text-lg leading-6 text-zinc-800">
+                {t('Research Project Contact')}
+              </div>
+              {config.contact.email && (
+                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                  <a
+                    href={`mailto:${config.contact.email}`}
+                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span className="font-medium">{config.contact.email}</span>
+                  </a>
+                </Badge>
+              )}
+              {config.contact.phone && (
+                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                  <a
+                    href={`tel:${config.contact.phone}`}
+                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span className="font-medium">{config.contact.phone}</span>
+                  </a>
+                </Badge>
+              )}
+            </div>
+          </Section>
+
+          <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
+            <img
+              src="/artorg_unibern_logo.gif"
+              alt="ARTORG Center for Biomedical Engineering Research"
+              className="w-[80px]"
+            />
+            <img
+              src="/insel_logo.svg"
+              alt="Inselspital - Universitätsspital Bern"
+              className="w-[160px]"
+            />
+            <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
           </div>
-        </Section>
 
-        <div className="flex flex-col items-center gap-6 mt-4 mb-12">
-          <img
-            src="/artorg_unibern_logo.gif"
-            alt="ARTORG Center for Biomedical Engineering Research"
-            className="w-[80px]"
-          />
-          <img
-            src="/insel_logo.svg"
-            alt="Inselspital - Universitätsspital Bern"
-            className="w-[160px]"
-          />
-          <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
-        </div>
-
-        <Section className="mt-8">
+          <Section className="mt-8">
             <Button variant="secondary" onClick={handleLogout}>
-            {t('Logout')}
+              {t('Logout')}
               <LogoutFill />
-          </Button>
-        </Section>
+            </Button>
+          </Section>
+        </div>
 
         <div className="flex flex-col gap-1 mt-8">
           <Link to="/terms">{t('Terms & Conditions')}</Link>
