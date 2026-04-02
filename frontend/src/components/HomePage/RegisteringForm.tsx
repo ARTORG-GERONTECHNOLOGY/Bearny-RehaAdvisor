@@ -380,19 +380,43 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const nextStep = () => validateStep() && step < formSteps.length - 1 && setStep(step + 1);
   const prevStep = () => step > 0 && setStep(step - 1);
 
-  const extractServerMessage = (data: any, fallback: string) => {
-    if (typeof data === 'string') return data;
+  const applyFieldErrors = (fieldErrors: Record<string, string | string[]>) => {
+    const mapped: Record<string, string> = {};
+    for (const [key, val] of Object.entries(fieldErrors)) {
+      const msg = Array.isArray(val) ? val[0] : val;
+      mapped[key] = t(String(msg));
+    }
+    setErrors((prev) => ({ ...prev, ...mapped }));
 
+    // Navigate to the first step that has an errored field
+    const firstErrField = Object.keys(mapped)[0];
+    if (firstErrField) {
+      for (let i = 0; i < (formSteps as any[]).length; i++) {
+        if ((formSteps[i] as any).fields.some((f: any) => f.name === firstErrField)) {
+          setStep(i);
+          break;
+        }
+      }
+    }
+
+    // Build a readable banner from all field errors
+    return Object.entries(mapped)
+      .map(([, msg]) => msg)
+      .join(' — ');
+  };
+
+  const extractServerMessage = (data: any, fallback: string): string => {
+    if (typeof data === 'string') return t(data);
     if (data && typeof data === 'object') {
-      if (typeof data.error === 'string') return data.error;
-      if (typeof data.message === 'string') return data.message;
-      if (typeof data.detail === 'string') return data.detail;
+      if (typeof data.error === 'string') return t(data.error);
+      if (typeof data.message === 'string') return t(data.message);
+      if (typeof data.detail === 'string') return t(data.detail);
       if (Array.isArray(data.non_field_errors) && data.non_field_errors.length) {
-        return String(data.non_field_errors[0]);
+        return t(String(data.non_field_errors[0]));
       }
       for (const v of Object.values(data)) {
-        if (typeof v === 'string') return v;
-        if (Array.isArray(v) && v.length) return String(v[0]);
+        if (typeof v === 'string') return t(v);
+        if (Array.isArray(v) && v.length) return t(String((v as any[])[0]));
       }
     }
     return fallback;
@@ -430,19 +454,22 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     } catch (err: any) {
       const status = err?.response?.status;
-      const message = extractServerMessage(
-        err?.response?.data,
-        t('Registration failed. Please try again later.')
-      );
+      const data = err?.response?.data;
 
       if (status >= 500) {
         setFormError(
           `${t('The server is busy or temporarily unavailable. Please try again.')}\n${t('Error')}: ${status}`
         );
+        setServerDetail({ status, message: extractServerMessage(data, '') });
+      } else if (data?.field_errors && typeof data.field_errors === 'object') {
+        // Show each field error inline and navigate to the right step
+        const banner = applyFieldErrors(data.field_errors);
+        setFormError(banner);
       } else {
+        const message = extractServerMessage(data, t('Registration failed. Please try again later.'));
         setFormError(message);
+        setServerDetail({ status, message });
       }
-      setServerDetail({ status, message });
       setSuccessMsg(null);
     } finally {
       setLoading(false);
