@@ -122,7 +122,7 @@ const PatientView: React.FC = observer(() => {
     >
       <HomeIllustration className="absolute right-0 top-12 md:top-24" />
 
-      <div className="mt-28 flex flex-col gap-2">
+      <div className="mt-28 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
         <DailyInterventionCard
           date={today}
           title={t('Your recommendations')}

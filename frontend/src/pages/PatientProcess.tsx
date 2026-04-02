@@ -163,7 +163,7 @@ const PatientProcess: React.FC = observer(() => {
       )}
 
       {!loading && (
-        <div className="flex flex-col gap-2 mt-6">
+        <div className="flex flex-col gap-2 mt-6 lg:grid lg:grid-cols-3 lg:items-start">
           <Section>
             <div className="flex flex-col gap-2">
               <RecommendationsCard
