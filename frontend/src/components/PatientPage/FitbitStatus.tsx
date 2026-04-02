@@ -33,9 +33,9 @@ const FitbitConnectButton: React.FC = observer(() => {
 
   return (
     <a href={authUrl} className="no-underline">
-      <Button className="rounded-full p-4 pl-5 flex gap-2 bg-[#00956C] items-center text-zinc-50 border-none shadow-none">
-        <div className="font-medium text-lg">{t('Connect Fitbit')}</div>
-        <ConnectionIcon className="w-6 h-6 !size-6" />
+      <Button>
+        {t('Connect Fitbit')}
+        <ConnectionIcon />
       </Button>
     </a>
   );
