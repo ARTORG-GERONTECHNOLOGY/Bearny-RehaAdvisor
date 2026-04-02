@@ -20,8 +20,6 @@ name: Production Deployment
 #   before the deploy job actually runs.
 
 on:
-  push:
-    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
