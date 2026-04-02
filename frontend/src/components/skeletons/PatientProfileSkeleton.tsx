@@ -29,6 +29,12 @@ export default function PatientProfileSkeleton() {
             <Skeleton className="h-6 w-11 rounded-full" />
           </div>
         </div>
+
+        {/* Fitbit card */}
+        <div className="border border-accent p-4 rounded-3xl flex flex-col gap-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-6 w-32" />
+        </div>
       </Section>
 
       {/* Contact Section */}

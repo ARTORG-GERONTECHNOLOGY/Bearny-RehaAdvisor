@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import HelpCenter from '@/components/help/HelpCenter';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import authStore from '@/stores/authStore';
 import flagDe from '@/assets/flags/de.png';
@@ -29,12 +31,14 @@ import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
 import config from '@/config/config.json';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 const PatientProfile: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { enabled, permission, supportsPeriodicSync, toggleNotifications } = useNotifications();
 
+  const patientId = localStorage.getItem('id') || authStore.id || '';
   const displayName = authStore.firstName || t('Profile');
 
   const getInitialLang = () =>
@@ -85,6 +89,10 @@ const PatientProfile: React.FC = observer(() => {
       if (!alive) return;
       if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
         navigate('/');
+      }
+
+      if (patientId) {
+        patientFitbitStore.fetchStatus(patientId);
       }
     };
 
@@ -143,6 +151,30 @@ const PatientProfile: React.FC = observer(() => {
                 </div>
                 <Switch checked={enabled} onCheckedChange={toggleNotifications} />
               </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-3xl flex gap-1 justify-between items-center ${patientFitbitStore.connected === false ? 'bg-zinc-100' : 'border border-accent'}`}
+            >
+              {patientFitbitStore.connected === true ? (
+                <div className="flex flex-col">
+                  <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
+                  <div className="font-bold text-lg text-zinc-800">{t('Fitbit Connected')}</div>
+                </div>
+              ) : patientFitbitStore.connected === false ? (
+                <>
+                  <div className="flex flex-col">
+                    <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
+                    <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
+                  </div>
+                  <FitbitConnectButton />
+                </>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-6 w-32" />
+                </div>
+              )}
             </div>
           </Section>
 
