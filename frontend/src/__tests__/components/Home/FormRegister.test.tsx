@@ -158,9 +158,9 @@ function fillStep1AndAdvance() {
   });
   fireEvent.change(screen.getByLabelText(/\[t\]Repeat/i), { target: { value: 'Aa1!aaaa' } });
   // Find Next by text content — robust against prop-forwarding quirks in the Bootstrap mock
-  const nextBtn = screen.getAllByRole('button').find(
-    (btn) => btn.textContent?.trim() === '[t]Next'
-  );
+  const nextBtn = screen
+    .getAllByRole('button')
+    .find((btn) => btn.textContent?.trim() === '[t]Next');
   expect(nextBtn).toBeTruthy();
   fireEvent.click(nextBtn!);
 }
@@ -203,9 +203,12 @@ describe('FormRegister — client-side validation', () => {
   // Live password-repeat comparison fires on every keystroke in the repeat field.
   it('shows translated password mismatch error inline', () => {
     renderOpen();
-    fireEvent.change(screen.getByLabelText(/\[t\]Password/i, { selector: 'input[id="password"]' }), {
-      target: { value: 'Aa1!aaaa' },
-    });
+    fireEvent.change(
+      screen.getByLabelText(/\[t\]Password/i, { selector: 'input[id="password"]' }),
+      {
+        target: { value: 'Aa1!aaaa' },
+      }
+    );
     fireEvent.change(screen.getByLabelText(/\[t\]Repeat/i), { target: { value: 'different' } });
     expect(screen.getByText('[t]Passwords do not match.')).toBeInTheDocument();
   });
@@ -214,9 +217,12 @@ describe('FormRegister — client-side validation', () => {
   // The translation key must exist in all lang files so it renders in the user's language.
   it('shows translated password policy error inline', () => {
     renderOpen();
-    fireEvent.change(screen.getByLabelText(/\[t\]Password/i, { selector: 'input[id="password"]' }), {
-      target: { value: 'weak' },
-    });
+    fireEvent.change(
+      screen.getByLabelText(/\[t\]Password/i, { selector: 'input[id="password"]' }),
+      {
+        target: { value: 'weak' },
+      }
+    );
     expect(
       screen.getByText(
         '[t]Password must include 8+ characters, an uppercase, lowercase, number and special character.'
@@ -400,9 +406,7 @@ describe('FormRegister — server response handling', () => {
     await waitFor(() => {
       // step 2 clinic field remains visible
       expect(screen.getByTestId('select-clinic-disabled')).toBeInTheDocument();
-      expect(
-        screen.getAllByText('[t]Clinic is required.').length
-      ).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('[t]Clinic is required.').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -426,9 +430,7 @@ describe('FormRegister — server response handling', () => {
       expect(
         screen.getByLabelText(/\[t\]Password/i, { selector: 'input[id="password"]' })
       ).toBeInTheDocument();
-      expect(
-        screen.getAllByText('[t]This field is required.').length
-      ).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('[t]This field is required.').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -540,9 +542,7 @@ describe('FormRegister — server response handling', () => {
     });
 
     // Both translated errors should appear somewhere in the document
-    expect(
-      screen.getByText('[t]An account with this email already exists.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('[t]An account with this email already exists.')).toBeInTheDocument();
     expect(screen.getByText('[t]This field is required.')).toBeInTheDocument();
   });
 });
@@ -605,9 +605,9 @@ describe('FormRegister — UX behaviour', () => {
     expect(screen.getByTestId('select-clinic-disabled')).toBeInTheDocument();
 
     // find the Back button by its text content
-    const backBtn = screen.getAllByRole('button').find(
-      (btn) => btn.textContent?.includes('[t]Back')
-    );
+    const backBtn = screen
+      .getAllByRole('button')
+      .find((btn) => btn.textContent?.includes('[t]Back'));
     expect(backBtn).toBeTruthy();
     fireEvent.click(backBtn!);
 
