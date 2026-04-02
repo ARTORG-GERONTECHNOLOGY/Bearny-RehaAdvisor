@@ -107,12 +107,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
             </Alert>
           </div>
           <SheetFooter>
-            <Button
-              onClick={onClose}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Close')}
-            </Button>
+            <Button onClick={onClose}>{t('Close')}</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -475,7 +470,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
           return (
             <Button
               key={i}
-              className={`px-5 py-4 shadow-none rounded-full text-lg font-medium flex gap-2 items-center justify-center hover:bg-accent ${active ? 'bg-[#00956C33] border-none text-[#00956C]' : 'bg-white border border-zinc-200 text-zinc-800'}`}
+              className={
+                active
+                  ? 'bg-[#00956C33] hover:bg-[#00956C33] text-[#00956C]'
+                  : 'bg-white border border-zinc-200 text-zinc-800'
+              }
               onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
               aria-pressed={active}
               aria-label={label}
@@ -550,17 +549,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 ) : (
                   <div className="flex flex-col items-center my-3 gap-2">
                     {recording ? (
-                      <Button
-                        onClick={stopRecording}
-                        className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                      >
+                      <Button onClick={stopRecording} className="bg-[#EFA73B]">
                         {t('Stop')} ({recordingTime}s) <FaStop />
                       </Button>
                     ) : (
-                      <Button
-                        onClick={startRecording}
-                        className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                      >
+                      <Button onClick={startRecording} className="bg-[#EFA73B]">
                         {t('Start Recording')} <FaMicrophone />
                       </Button>
                     )}
@@ -568,10 +561,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     {audioURL && (
                       <div className="flex justify-center items-center flex-wrap gap-2">
                         <audio controls src={audioURL} />
-                        <Button
-                          onClick={deleteAudio}
-                          className="px-5 py-4 bg-[#F1ADCF] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                        >
+                        <Button onClick={deleteAudio} className="bg-[#F1ADCF]">
                           {t('Delete')} <FaTrash />
                         </Button>
                       </div>
@@ -590,10 +580,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 {videoURL ? (
                   <>
                     <ReactPlayer url={videoURL} controls width="100%" height="100%" />
-                    <Button
-                      onClick={deleteVideo}
-                      className="px-5 py-4 bg-[#F1ADCF] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                    >
+                    <Button onClick={deleteVideo} className="bg-[#F1ADCF]">
                       {t('Delete')} <FaTrash />
                     </Button>
                     <p className="text-sm text-center text-zinc-500">
@@ -615,17 +602,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     ) : (
                       <div className="flex items-center gap-2">
                         {recording ? (
-                          <Button
-                            onClick={stopVideoRecording}
-                            className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                          >
+                          <Button onClick={stopVideoRecording} className="bg-[#EFA73B]">
                             {t('Stop')} <FaStop />
                           </Button>
                         ) : (
-                          <Button
-                            onClick={startVideoRecording}
-                            className="px-5 py-4 bg-[#EFA73B] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-                          >
+                          <Button onClick={startVideoRecording} className="bg-[#EFA73B]">
                             {t('Record Video')}
                           </Button>
                         )}
@@ -653,26 +634,14 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
 
         <SheetFooter className="flex gap-2">
           {currentQuestionIndex > 0 && (
-            <Button
-              onClick={() => setCurrentQuestionIndex((i) => i - 1)}
-              className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
-            >
+            <Button variant="secondary" onClick={() => setCurrentQuestionIndex((i) => i - 1)}>
               {t('Back')}
             </Button>
           )}
           {currentQuestionIndex + 1 < normalizedQuestions.length ? (
-            <Button
-              onClick={() => setCurrentQuestionIndex((i) => i + 1)}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
-              {t('Next')}
-            </Button>
+            <Button onClick={() => setCurrentQuestionIndex((i) => i + 1)}>{t('Next')}</Button>
           ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-            >
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? t('Submitting...') : t('Submit')}
             </Button>
           )}

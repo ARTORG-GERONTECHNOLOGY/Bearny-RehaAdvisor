@@ -201,18 +201,9 @@ const PatientProfile: React.FC = observer(() => {
         </div>
 
         <Section className="mt-8">
-          <Button
-            onClick={() => {
-              handleLogout();
-            }}
-            className="
-            rounded-full border border-accent p-4 pl-5 gap-2
-            shadow-none bg-zinc-50
-            text-zinc-800 text-lg font-medium
-            hover:bg-zinc-100 focus:bg-zinc-100"
-          >
+            <Button variant="secondary" onClick={handleLogout}>
             {t('Logout')}
-            <LogoutFill className="w-6 h-6" />
+              <LogoutFill />
           </Button>
         </Section>
 

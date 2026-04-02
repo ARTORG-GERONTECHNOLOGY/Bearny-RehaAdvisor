@@ -468,12 +468,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             <div className="text-lg font-medium text-zinc-600 text-center">
               {t('No entries found.')}
             </div>
-            <Button
-              onClick={resetAllFilters}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-sm font-medium text-zinc-50"
-            >
-              {t('Reset filters')}
-            </Button>
+            <Button onClick={resetAllFilters}>{t('Reset filters')}</Button>
           </div>
         )}
 
