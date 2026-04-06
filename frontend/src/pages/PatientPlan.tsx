@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import { patientUiStore } from '@/stores/patientUiStore';
@@ -74,11 +75,11 @@ const PatientPlan: React.FC = observer(() => {
   }, [navigate]);
 
   return (
-    <Layout
-      aria-label={t('Week range and current month')}
-      title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
-      subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
-    >
+    <Layout aria-label={t('Week range and current month')}>
+      <PageHeader
+        title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
+        subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
+      />
       {/* Day Filter */}
       <div
         className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"

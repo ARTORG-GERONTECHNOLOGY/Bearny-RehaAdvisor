@@ -6,6 +6,7 @@ import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 
 import authStore from '@/stores/authStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
@@ -415,7 +416,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   );
 
   return (
-    <Layout title={t('Library')}>
+    <Layout>
+      <PageHeader title={t('Library')} />
       <div className="lg:hidden">
         <PatientLibrarySearchPanel
           searchTerm={searchTerm}

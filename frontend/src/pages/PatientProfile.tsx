@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import Section from '@/components/Section';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
@@ -105,7 +106,8 @@ const PatientProfile: React.FC = observer(() => {
 
   return (
     <>
-      <Layout title={displayName}>
+      <Layout>
+        <PageHeader title={displayName} />
         <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-2">
           <Section className="mt-8">
             <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>

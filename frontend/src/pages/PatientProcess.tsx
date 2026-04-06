@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import type { ChartConfig } from '@/components/ui/chart';
@@ -129,10 +130,11 @@ const PatientProcess: React.FC = observer(() => {
   }
 
   return (
-    <Layout
-      title={t('Process')}
-      subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
-    >
+    <Layout>
+      <PageHeader
+        title={t('Process')}
+        subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
+      />
       <div
         className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
         role="group"

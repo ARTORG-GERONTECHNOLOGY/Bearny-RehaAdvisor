@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
@@ -116,10 +117,11 @@ const PatientView: React.FC = observer(() => {
   if (loading) return null;
 
   return (
-    <Layout
-      title={t('today')}
-      subtitle={new Date().toLocaleDateString(t('locale'), { day: 'numeric', month: 'long' })}
-    >
+    <Layout>
+      <PageHeader
+        title={t('today')}
+        subtitle={new Date().toLocaleDateString(t('locale'), { day: 'numeric', month: 'long' })}
+      />
       <HomeIllustration className="absolute right-0 top-12 md:top-24" />
 
       <div className="mt-28 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
