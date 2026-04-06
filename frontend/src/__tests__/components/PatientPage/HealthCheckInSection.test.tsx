@@ -26,8 +26,10 @@ describe('HealthCheckInSection', () => {
   });
 
   it('renders loading state', () => {
-    render(<HealthCheckInSection {...baseProps} loading={true} />);
-    expect(screen.getByText('CheckIn')).toBeInTheDocument();
+    const { container } = render(<HealthCheckInSection {...baseProps} loading={true} />);
+
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+    expect(screen.queryByText('CheckIn')).not.toBeInTheDocument();
     expect(screen.queryByText('0 / 2')).not.toBeInTheDocument();
   });
 
