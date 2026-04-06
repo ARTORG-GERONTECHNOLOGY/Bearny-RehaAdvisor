@@ -131,29 +131,31 @@ const PatientProcess: React.FC = observer(() => {
 
   return (
     <Layout>
-      <PageHeader
-        title={t('Process')}
-        subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
-      />
-      <div
-        className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
-        role="group"
-        aria-label={t('Filter by time period')}
-      >
-        {filterOptions.map(({ value, label }) => (
-          <Badge
-            key={value}
-            onClick={() => setProcessFilter(value)}
-            className={`font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-              processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-            }`}
-            role="button"
-            aria-pressed={processFilter === value}
-            aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
-          >
-            {label}
-          </Badge>
-        ))}
+      <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
+        <PageHeader
+          title={t('Process')}
+          subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
+        />
+        <div
+          className="flex gap-1 no-scrollbar overflow-y-auto"
+          role="group"
+          aria-label={t('Filter by time period')}
+        >
+          {filterOptions.map(({ value, label }) => (
+            <Badge
+              key={value}
+              onClick={() => setProcessFilter(value)}
+              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
+                processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+              }`}
+              role="button"
+              aria-pressed={processFilter === value}
+              aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
+            >
+              {label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       {loading && (

@@ -76,30 +76,32 @@ const PatientPlan: React.FC = observer(() => {
 
   return (
     <Layout aria-label={t('Week range and current month')}>
-      <PageHeader
-        title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
-        subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
-      />
-      {/* Day Filter */}
-      <div
-        className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
-        role="group"
-        aria-label={t('Filter by day')}
-      >
-        {dayLabels.map(({ value, label }) => (
-          <Badge
-            key={value}
-            onClick={() => setDayFilter(value)}
-            className={`font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-              dayFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-            }`}
-            role="button"
-            aria-pressed={dayFilter === value}
-            aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
-          >
-            {label}
-          </Badge>
-        ))}
+      <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
+        <PageHeader
+          title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
+          subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
+        />
+        {/* Day Filter */}
+        <div
+          className="flex gap-1 no-scrollbar overflow-y-auto"
+          role="group"
+          aria-label={t('Filter by day')}
+        >
+          {dayLabels.map(({ value, label }) => (
+            <Badge
+              key={value}
+              onClick={() => setDayFilter(value)}
+              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
+                dayFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+              }`}
+              role="button"
+              aria-pressed={dayFilter === value}
+              aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
+            >
+              {label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       <div

@@ -7,7 +7,9 @@ describe('PageHeader', () => {
     render(<PageHeader title="Library" subtitle="Patient resources" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Patient resources' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Patient resources' })
+    ).toBeInTheDocument();
   });
 
   it('renders nothing when no header content is provided', () => {
