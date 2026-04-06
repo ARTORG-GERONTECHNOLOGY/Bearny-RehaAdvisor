@@ -13,7 +13,7 @@ import RecommendationsCard from '@/components/PatientProcess/RecommendationsCard
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
 
 const CHART_ACCENT = '#F1ADCF';
 const CHART_ACCENT_LIGHT = '#F1ADCF80';
@@ -158,13 +158,7 @@ const PatientProcess: React.FC = observer(() => {
         </div>
       </div>
 
-      {loading && (
-        <div className="flex flex-col gap-2 mt-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
-          ))}
-        </div>
-      )}
+      {loading && <PatientProcessLoadingContent />}
 
       {!loading && (
         <div className="flex flex-col gap-2 mt-6 lg:grid lg:grid-cols-3 lg:items-start">

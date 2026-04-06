@@ -4,7 +4,7 @@ import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PatientHealthCheckInSectionSkeleton } from '@/components/skeletons/PatientSkeleton';
 
 interface HealthCheckInSectionProps {
   loading?: boolean;
@@ -33,12 +33,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
   const checkInEnteredCount = checkInEntries.filter(Boolean).length;
 
   if (loading) {
-    return (
-      <Section>
-        <div className="p-2 pl-4 text-lg font-medium text-zinc-500">{t('CheckIn')}</div>
-        <Skeleton className="w-full h-[200px] rounded-3xl" />
-      </Section>
-    );
+    return <PatientHealthCheckInSectionSkeleton />;
   }
 
   return (

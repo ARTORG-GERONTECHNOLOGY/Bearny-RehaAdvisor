@@ -108,8 +108,8 @@ const PatientProfile: React.FC = observer(() => {
     <>
       <Layout>
         <PageHeader title={displayName} />
-        <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-2">
-          <Section className="mt-8">
+        <div className="mt-8 grid grid-cols-1 gap-2 lg:grid-cols-3 lg:items-start">
+          <Section>
             <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
             <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
@@ -180,7 +180,7 @@ const PatientProfile: React.FC = observer(() => {
             </div>
           </Section>
 
-          <Section className="mt-8">
+          <Section>
             <div className="flex justify-between w-full">
               <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
               <Badge
@@ -235,7 +235,7 @@ const PatientProfile: React.FC = observer(() => {
             <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
           </div>
 
-          <Section className="mt-8">
+          <Section>
             <Button variant="secondary" onClick={handleLogout}>
               {t('Logout')}
               <LogoutFill />
@@ -243,7 +243,7 @@ const PatientProfile: React.FC = observer(() => {
           </Section>
         </div>
 
-        <div className="flex flex-col gap-1 mt-8">
+        <div className="flex flex-col gap-1 mt-16">
           <Link to="/terms">{t('Terms & Conditions')}</Link>
           <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
           <div>

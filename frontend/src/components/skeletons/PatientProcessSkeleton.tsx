@@ -1,28 +1,55 @@
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+
+export function PatientProcessLoadingContent() {
+  return (
+    <div className="mt-6 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
+      <Section>
+        <div className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
+        </div>
+      </Section>
+
+      <Section>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section>
+        <div className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
+        </div>
+      </Section>
+    </div>
+  );
+}
 
 export default function PatientProcessSkeleton() {
   return (
     <Layout>
-      {/* Header */}
-      <div>
-        <Skeleton className="h-8 w-48 mb-1" />
-        <Skeleton className="h-6 w-32" />
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-1">
+          <div className="h-8 w-48 rounded-full bg-zinc-200/80 animate-pulse" />
+          <div className="h-6 w-32 rounded-full bg-zinc-200/80 animate-pulse" />
+        </div>
+
+        <div className="flex gap-1 no-scrollbar overflow-y-auto">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-9 w-20 shrink-0 rounded-full bg-zinc-200/80 animate-pulse" />
+          ))}
+        </div>
       </div>
 
-      {/* Day Filter Badges */}
-      <div className="mt-8 flex gap-1 no-scrollbar overflow-y-auto">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-20 rounded-full flex-shrink-0" />
-        ))}
-      </div>
-
-      {/* Day Cards */}
-      <div className="flex flex-col gap-2 mt-6">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
-        ))}
-      </div>
+      <PatientProcessLoadingContent />
     </Layout>
   );
 }

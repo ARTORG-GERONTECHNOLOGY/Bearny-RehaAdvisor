@@ -32,10 +32,10 @@ import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
 import TextIcon from '@/assets/icons/interventions/text.svg?react';
 import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 import Section from '@/components/Section';
+import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -477,13 +477,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
         {/* Lists by type */}
         <div className="mt-16 flex flex-col gap-2 lg:mt-0">
-          {storeLoading && (
-            <>
-              <Skeleton className="w-full h-80 rounded-[40px]" />
-              <Skeleton className="w-full h-80 rounded-[40px]" />
-              <Skeleton className="w-full h-80 rounded-[40px]" />
-            </>
-          )}
+          {storeLoading && <PatientInterventionsLibrarySectionsSkeleton />}
 
           {!storeLoading && visibleTypeSections.length === 0 && (
             <div className="flex flex-col gap-2 items-center justify-center py-12 px-4">
