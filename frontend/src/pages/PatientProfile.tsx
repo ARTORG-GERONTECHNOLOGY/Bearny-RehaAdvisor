@@ -247,7 +247,7 @@ const PatientProfile: React.FC = observer(() => {
           <Link to="/terms">{t('Terms & Conditions')}</Link>
           <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
           <div>
-            &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('All rights reserved.')}
+            &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
           </div>
         </div>
       </Layout>

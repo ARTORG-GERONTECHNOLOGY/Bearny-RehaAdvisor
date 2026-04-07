@@ -114,7 +114,7 @@ const PatientPlan: React.FC = observer(() => {
             key={format(date, 'yyyy-MM-dd')}
             date={date}
             locale={locale}
-            badgeText={isToday(date) ? t('Today') : undefined}
+            badgeText={isToday(date) ? t('today') : undefined}
             onOpenIntervention={(rec, openDate) =>
               navigate(
                 `/patient-intervention/${rec.intervention_id}?date=${format(openDate, 'yyyy-MM-dd')}`

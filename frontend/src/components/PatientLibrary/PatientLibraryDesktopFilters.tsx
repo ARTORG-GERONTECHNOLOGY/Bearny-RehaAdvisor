@@ -103,7 +103,7 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
                       <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
                         {option.Icon && <option.Icon className="w-6 h-6" />}
                       </div>
-                      <span>{option.label}</span>
+                      <span>{t(option.label)}</span>
                     </div>
                     <Switch
                       checked={aimsFilter.includes(option.value)}
@@ -128,7 +128,7 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
                       <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
                         {option.Icon && <option.Icon className="w-6 h-6" />}
                       </div>
-                      <span>{option.label}</span>
+                      <span>{t(option.label)}</span>
                     </div>
                     <Switch
                       checked={contentTypeFilter.includes(option.value)}

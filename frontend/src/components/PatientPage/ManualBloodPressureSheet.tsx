@@ -83,7 +83,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
               className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
             />
             <FieldDescription className="text-sm text-zinc-500">
-              {t('Upper blood pressure number (while heart beats).')}
+              {t('systolicHint')}
             </FieldDescription>
           </Field>
           <Field className="w-fit gap-1">
@@ -102,7 +102,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
               className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
             />
             <FieldDescription className="text-sm text-zinc-500">
-              {t('Lower blood pressure number (while heart rests).')}
+              {t('diastolicHint')}
             </FieldDescription>
           </Field>
         </div>

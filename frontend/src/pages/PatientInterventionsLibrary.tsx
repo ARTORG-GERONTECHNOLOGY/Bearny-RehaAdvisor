@@ -357,7 +357,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       },
       {
         key: 'instruction' as const,
-        title: t('Instruction'),
+        title: t('Instructions'),
         Icon: EducationIcon,
         items: instructionItems,
       },
