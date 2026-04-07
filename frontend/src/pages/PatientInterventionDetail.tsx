@@ -671,7 +671,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               <span
                 className={`font-medium text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
               >
-                {effectiveItem.intervention.aim}
+                {t(effectiveItem.intervention.aim)}
               </span>
             </Badge>
             {effectiveIsPrivate && (
