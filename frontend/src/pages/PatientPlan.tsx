@@ -83,7 +83,7 @@ const PatientPlan: React.FC = observer(() => {
         />
         {/* Day Filter */}
         <div
-          className="flex gap-1 no-scrollbar overflow-y-auto"
+          className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden no-scrollbar w-full lg:w-auto"
           role="group"
           aria-label={t('Filter by day')}
         >
