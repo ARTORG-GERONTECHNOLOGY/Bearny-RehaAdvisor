@@ -103,12 +103,10 @@ jest.mock('@/utils/dateLocale', () => ({
   getDateFnsLocale: jest.fn(() => undefined),
 }));
 
-jest.mock('@/components/Layout', () => {
-  const MockLayout = jest.fn(({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ));
-  return MockLayout;
-});
+jest.mock('@/components/Layout', () => ({
+  __esModule: true,
+  default: require('@/__mocks__/components/Layout').default,
+}));
 
 jest.mock('@/components/PatientPage/DailyInterventionCard', () => {
   const MockDailyInterventionCard = jest.fn(() => <div data-testid="daily-card">Daily card</div>);

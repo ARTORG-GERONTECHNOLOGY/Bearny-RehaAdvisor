@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import { patientUiStore } from '@/stores/patientUiStore';
@@ -74,40 +75,37 @@ const PatientPlan: React.FC = observer(() => {
   }, [navigate]);
 
   return (
-    <Layout>
-      <div aria-label={t('Week range and current month')}>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">
-          {format(start, 'dd.MM.')} - {format(end, 'dd.MM.')}
-        </h1>
-        <h2 className="text-lg p-0 m-0 text-zinc-600">
-          {format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
-        </h2>
-      </div>
-
-      {/* Day Filter */}
-      <div
-        className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
-        role="group"
-        aria-label={t('Filter by day')}
-      >
-        {dayLabels.map(({ value, label }) => (
-          <Badge
-            key={value}
-            onClick={() => setDayFilter(value)}
-            className={`font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-              dayFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-            }`}
-            role="button"
-            aria-pressed={dayFilter === value}
-            aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
-          >
-            {label}
-          </Badge>
-        ))}
+    <Layout aria-label={t('Week range and current month')}>
+      <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
+        <PageHeader
+          title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
+          subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
+        />
+        {/* Day Filter */}
+        <div
+          className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden no-scrollbar w-full lg:w-auto"
+          role="group"
+          aria-label={t('Filter by day')}
+        >
+          {dayLabels.map(({ value, label }) => (
+            <Badge
+              key={value}
+              onClick={() => setDayFilter(value)}
+              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
+                dayFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+              }`}
+              role="button"
+              aria-pressed={dayFilter === value}
+              aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
+            >
+              {label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       <div
-        className="flex flex-col gap-2 mt-6 md:grid md:grid-cols-2 md:items-start"
+        className="flex flex-col gap-2 mt-6 lg:grid lg:grid-cols-2 lg:items-start"
         role="region"
         aria-label={t('Weekly interventions')}
       >
@@ -116,7 +114,7 @@ const PatientPlan: React.FC = observer(() => {
             key={format(date, 'yyyy-MM-dd')}
             date={date}
             locale={locale}
-            badgeText={isToday(date) ? t('Today') : undefined}
+            badgeText={isToday(date) ? t('today') : undefined}
             onOpenIntervention={(rec, openDate) =>
               navigate(
                 `/patient-intervention/${rec.intervention_id}?date=${format(openDate, 'yyyy-MM-dd')}`

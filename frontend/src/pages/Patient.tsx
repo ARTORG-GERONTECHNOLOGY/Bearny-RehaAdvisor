@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
@@ -117,16 +118,13 @@ const PatientView: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div aria-label={t('Week range and current month')}>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">{t('today')}</h1>
-        <h2 className="text-lg p-0 m-0 text-zinc-600">
-          {new Date().toLocaleDateString(t('locale'), { day: 'numeric', month: 'long' })}
-        </h2>
-      </div>
-
+      <PageHeader
+        title={t('today')}
+        subtitle={new Date().toLocaleDateString(t('locale'), { day: 'numeric', month: 'long' })}
+      />
       <HomeIllustration className="absolute right-0 top-12 md:top-24" />
 
-      <div className="mt-28 flex flex-col gap-2">
+      <div className="mt-28 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
         <DailyInterventionCard
           date={today}
           title={t('Your recommendations')}

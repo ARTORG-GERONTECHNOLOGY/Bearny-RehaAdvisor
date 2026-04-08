@@ -6,11 +6,13 @@ import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 
 import authStore from '@/stores/authStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
 import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibraryFilterSheet';
+import PatientLibraryDesktopFilters from '@/components/PatientLibrary/PatientLibraryDesktopFilters';
 import PatientLibraryInterventionCard from '@/components/PatientLibrary/PatientLibraryInterventionCard';
 import PatientLibrarySearchPanel from '@/components/PatientLibrary/PatientLibrarySearchPanel';
 import { filterInterventions } from '@/utils/filterUtils';
@@ -30,9 +32,10 @@ import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
 import TextIcon from '@/assets/icons/interventions/text.svg?react';
 import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
+import Section from '@/components/Section';
+import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -354,7 +357,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       },
       {
         key: 'instruction' as const,
-        title: t('Instruction'),
+        title: t('Instructions'),
         Icon: EducationIcon,
         items: instructionItems,
       },
@@ -414,20 +417,21 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold">{t('Library')}</h1>
-
-      <PatientLibrarySearchPanel
-        searchTerm={searchTerm}
-        isSearchOpen={isSearchOpen}
-        searchResults={searchResults}
-        onSearchTermChange={setSearchTerm}
-        onCloseSearch={() => setSearchTerm('')}
-        onOpenFilter={() => setShowFilterSheet(true)}
-        onOpenDetails={openDetails}
-        renderHighlightedTitle={renderHighlightedTitle}
-        getDisplayTitle={(item) => getTranslatedTitle(item, translatedTitles)}
-        getResultIcon={getSearchResultIcon}
-      />
+      <PageHeader title={t('Library')} />
+      <div className="lg:hidden">
+        <PatientLibrarySearchPanel
+          searchTerm={searchTerm}
+          isSearchOpen={isSearchOpen}
+          searchResults={searchResults}
+          onSearchTermChange={setSearchTerm}
+          onCloseSearch={() => setSearchTerm('')}
+          onOpenFilter={() => setShowFilterSheet(true)}
+          onOpenDetails={openDetails}
+          renderHighlightedTitle={renderHighlightedTitle}
+          getDisplayTitle={(item) => getTranslatedTitle(item, translatedTitles)}
+          getResultIcon={getSearchResultIcon}
+        />
+      </div>
 
       {/* Error */}
       {storeError && (
@@ -438,91 +442,98 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         />
       )}
 
-      {/* Filters */}
-      <PatientLibraryFilterSheet
-        open={showFilterSheet}
-        onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}
-        typeOptions={typeOptions}
-        contentOptions={contentOptions}
-        aimsFilter={aimsFilter}
-        setAimsFilter={setAimsFilter}
-        contentTypeFilter={contentTypeFilter}
-        setContentTypeFilter={setContentTypeFilter}
-        durationFilterIndices={durationFilterIndices}
-        setDurationFilterIndices={setDurationFilterIndices}
-        durationLabels={durationLabels}
-        onResetFilters={resetAllFilters}
-      />
+      {/* Mobile Filters */}
+      <div className="lg:hidden">
+        <PatientLibraryFilterSheet
+          open={showFilterSheet}
+          onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}
+          typeOptions={typeOptions}
+          contentOptions={contentOptions}
+          aimsFilter={aimsFilter}
+          setAimsFilter={setAimsFilter}
+          contentTypeFilter={contentTypeFilter}
+          setContentTypeFilter={setContentTypeFilter}
+          durationFilterIndices={durationFilterIndices}
+          setDurationFilterIndices={setDurationFilterIndices}
+          durationLabels={durationLabels}
+          onResetFilters={resetAllFilters}
+        />
+      </div>
 
-      {/* Lists by type */}
-      <div className="mt-16 flex flex-col gap-2">
-        {storeLoading && (
-          <>
-            <Skeleton className="w-full h-24 rounded-[40px]" />
-            <Skeleton className="w-full h-24 rounded-[40px]" />
-            <Skeleton className="w-full h-24 rounded-[40px]" />
-          </>
-        )}
+      <div className="lg:mt-8 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6">
+        <PatientLibraryDesktopFilters
+          searchTerm={searchTerm}
+          onSearchTermChange={setSearchTerm}
+          typeOptions={typeOptions}
+          contentOptions={contentOptions}
+          aimsFilter={aimsFilter}
+          setAimsFilter={setAimsFilter}
+          contentTypeFilter={contentTypeFilter}
+          setContentTypeFilter={setContentTypeFilter}
+          durationFilterIndices={durationFilterIndices}
+          setDurationFilterIndices={setDurationFilterIndices}
+          durationLabels={durationLabels}
+        />
 
-        {!storeLoading && visibleTypeSections.length === 0 && (
-          <div className="flex flex-col gap-2 items-center justify-center py-12 px-4">
-            <div className="text-lg font-medium text-zinc-600 text-center">
-              {t('No entries found.')}
-            </div>
-            <Button
-              onClick={resetAllFilters}
-              className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-sm font-medium text-zinc-50"
-            >
-              {t('Reset filters')}
-            </Button>
-          </div>
-        )}
+        {/* Lists by type */}
+        <div className="mt-16 flex flex-col gap-2 lg:mt-0">
+          {storeLoading && <PatientInterventionsLibrarySectionsSkeleton />}
 
-        {visibleTypeSections.map((section) => (
-          <section
-            key={section.key}
-            role="button"
-            onClick={() => {
-              setActiveTypeSection(section.key);
-              setShowTypeSheet(true);
-            }}
-            className="flex flex-col gap-2 rounded-[40px] bg-white p-4"
-          >
-            <div className="p-2 pl-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
-                <span>{section.title}</span>
+          {!storeLoading && visibleTypeSections.length === 0 && (
+            <div className="flex flex-col gap-2 items-center justify-center py-12 px-4">
+              <div className="text-lg font-medium text-zinc-600 text-center">
+                {t('No entries found.')}
               </div>
-              <div className="flex gap-1">
-                <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
-                  {section.items.length} {t('Recommendations')}
-                </Badge>
-                <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
-                  <ArrowRightIcon className="w-4 h-4" />
-                </Badge>
-              </div>
+              <Button onClick={resetAllFilters}>{t('Reset filters')}</Button>
             </div>
+          )}
 
-            <div className="flex gap-2 overflow-x-auto">
-              {section.items.map((item: InterventionCardItem) => {
-                const displayTitle = getTranslatedTitle(item, translatedTitles);
-                const contentTypeIcon = item.content_type
-                  ? getContentTypeIcon(item.content_type)
-                  : null;
-                return (
-                  <PatientLibraryInterventionCard
-                    key={item._id || item.id}
-                    item={item}
-                    displayTitle={displayTitle}
-                    Icon={section.Icon}
-                    contentTypeIcon={contentTypeIcon}
-                    onClick={() => openDetails(item)}
-                    containerClassName="shrink-0 w-72"
-                  />
-                );
-              })}
-            </div>
-          </section>
-        ))}
+          {!storeLoading &&
+            visibleTypeSections.map((section) => (
+              <Section
+                key={section.key}
+                role="button"
+                onClick={() => {
+                  setActiveTypeSection(section.key);
+                  setShowTypeSheet(true);
+                }}
+              >
+                <div className="p-2 pl-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 font-medium text-lg text-zinc-500">
+                    <span>{section.title}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
+                      {section.items.length} {t('Recommendations')}
+                    </Badge>
+                    <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
+                      <ArrowRightIcon className="w-4 h-4" />
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto">
+                  {section.items.map((item: InterventionCardItem) => {
+                    const displayTitle = getTranslatedTitle(item, translatedTitles);
+                    const contentTypeIcon = item.content_type
+                      ? getContentTypeIcon(item.content_type)
+                      : null;
+                    return (
+                      <PatientLibraryInterventionCard
+                        key={item._id || item.id}
+                        item={item}
+                        displayTitle={displayTitle}
+                        Icon={section.Icon}
+                        contentTypeIcon={contentTypeIcon}
+                        onClick={() => openDetails(item)}
+                        containerClassName="shrink-0 w-72"
+                      />
+                    );
+                  })}
+                </div>
+              </Section>
+            ))}
+        </div>
       </div>
 
       <Sheet open={showTypeSheet} onOpenChange={setShowTypeSheet}>

@@ -2,13 +2,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { observer } from 'mobx-react-lite';
+import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import InterventionItem from '@/components/PatientPage/InterventionItem';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { useInterventions } from '@/hooks/useInterventions';
 import type { Locale } from 'date-fns';
 import EmptyIcon from '@/assets/icons/interventions/empty.svg?react';
+import { PatientDailyInterventionCardSkeleton } from '@/components/skeletons/PatientSkeleton';
 
 interface DailyInterventionCardProps {
   date: Date;
@@ -42,8 +43,12 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
         ? format(date, 'EEEE, dd. MMMM yyyy', { locale })
         : format(date, 'EEEE, dd. MMMM yyyy'));
 
+    if (patientInterventionsStore.loading) {
+      return <PatientDailyInterventionCardSkeleton />;
+    }
+
     return (
-      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4" aria-label={ariaLabel}>
+      <Section aria-label={ariaLabel}>
         <div className="flex p-2 pl-4 justify-between w-full">
           <div className="text-lg font-medium text-zinc-500">{headerText}</div>
           {badgeText && (
@@ -53,16 +58,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
           )}
         </div>
 
-        {patientInterventionsStore.loading ? (
-          <div
-            className="flex items-center border border-accent rounded-3xl p-4 gap-3"
-            role="status"
-            aria-label={t('Loading')}
-          >
-            <Skeleton className="flex-none w-8 h-8 rounded-full" />
-            <Skeleton className="h-5 w-1/2" />
-          </div>
-        ) : sortedInterventions.length > 0 ? (
+        {sortedInterventions.length > 0 ? (
           sortedInterventions.map((rec) => (
             <InterventionItem
               key={rec.intervention_id}
@@ -85,7 +81,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
             </div>
           </div>
         )}
-      </div>
+      </Section>
     );
   }
 );

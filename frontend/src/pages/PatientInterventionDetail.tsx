@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
+import Section from '@/components/Section';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -614,19 +615,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return (
       <Layout>
         <div className="flex flex-col gap-2">
-          <Button
-            onClick={() => navigate(-1)}
-            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
-          >
-            <ArrowLeftIcon className="w-6 h-6" />
+          <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
+            <ArrowLeftIcon />
             <span className="sr-only">{t('Back')}</span>
           </Button>
 
-          <ErrorAlert
-            message={t('Intervention not found.')}
-            onClose={() => navigate(-1)}
-            className="mb-0"
-          />
+          <ErrorAlert message={t('Intervention not found.')} onClose={() => navigate(-1)} />
         </div>
       </Layout>
     );
@@ -639,22 +633,18 @@ const PatientInterventionDetail: React.FC = observer(() => {
     <Layout>
       <div className="flex flex-col gap-2">
         <div className="flex justify-between align-items-center">
-          <Button
-            onClick={() => navigate(-1)}
-            className="rounded-full border border-accent bg-white text-zinc-800 p-4 shadow-none flex items-center justify-center h-14 w-14"
-          >
-            <ArrowLeftIcon className="w-6 h-6" />
+          <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
+            <ArrowLeftIcon />
             <span className="sr-only">{t('Back')}</span>
           </Button>
 
           {targetDate && (
             <Button
-              onClick={handleToggleCompleted}
               disabled={isBusy}
               aria-pressed={completed}
-              className={`rounded-full border border-accent p-4 pl-5 shadow-none font-medium text-lg flex gap-2 ${
-                completed ? 'bg-[#00956C] text-zinc-50' : 'bg-white text-zinc-400'
-              }`}
+              onClick={handleToggleCompleted}
+              variant={completed ? 'default' : 'secondary'}
+              className={!completed && 'bg-white text-zinc-400'}
             >
               {isBusy ? (
                 <Skeleton className="w-20 h-6 rounded-full" />
@@ -663,18 +653,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
               ) : (
                 t('Mark as done')
               )}
-              {completed ? (
-                <CircleCheckFillIcon className="w-6 h-6" />
-              ) : (
-                <CircleHalfCheckIcon className="w-6 h-6" />
-              )}
+              {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
             </Button>
           )}
         </div>
 
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
-        <div className="bg-white rounded-[40px] p-4">
+        <Section>
           <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
             <Badge className="bg-white py-2 pl-[10px] pr-3 border border-accent rounded-xl flex gap-1 shadow-none">
               {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
@@ -685,7 +671,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               <span
                 className={`font-medium text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
               >
-                {effectiveItem.intervention.aim}
+                {t(effectiveItem.intervention.aim)}
               </span>
             </Badge>
             {effectiveIsPrivate && (
@@ -722,9 +708,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
               </Badge>
             </div>
           </div>
-        </div>
+        </Section>
 
-        <div className="bg-white rounded-[40px] p-4 flex flex-col gap-2">
+        <Section>
           <MediaContent mediaList={effectiveMediaList} />
 
           <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
@@ -736,15 +722,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
               effectiveItem?.description || ''
             )}
           </div>
-        </div>
+        </Section>
 
         {getMetaTags(effectiveItem).length > 0 && (
-          <div className="bg-white rounded-[40px] p-4">
+          <Section>
             <div className="p-4 flex flex-col gap-2">
               <div className="font-medium text-lg text-zinc-500">Tags</div>
               <MetaTags item={effectiveItem} />
             </div>
-          </div>
+          </Section>
         )}
 
         {!!mediaLinks.length && (
