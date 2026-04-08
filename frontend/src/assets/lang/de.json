@@ -540,7 +540,7 @@
   "Settings": "Einstellungen",
   "Notifications": "Mitteilungen",
   "Language": "Sprache",
-  "Receive daily reminders": "Tägliche Erinnerungen erhalten",
+  "Receive reminders": "Erinnerungen erhalten",
   "Notification permission denied. Please enable in browser settings.": "Benachrichtigungsberechtigung verweigert. Bitte aktivieren Sie sie in den Browsereinstellungen.",
   "Background notifications not supported in this browser.": "Hintergrundbenachrichtigungen werden in diesem Browser nicht unterstützt.",
   "Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes": "Geben Sie die ungefähre Dauer der Intervention in Minuten an",
