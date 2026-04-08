@@ -2,6 +2,7 @@ import { createElement, lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 import RootLayout from '@/RootLayout';
+import HomeSkeleton from '@/components/skeletons/HomeSkeleton';
 import PatientSkeleton from '@/components/skeletons/PatientSkeleton';
 import PatientPlanSkeleton from '@/components/skeletons/PatientPlanSkeleton';
 import PatientInterventionsLibrarySkeleton from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
@@ -51,7 +52,7 @@ const withSuspense = (
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: withSuspense(createElement(Home)),
+    element: withSuspense(createElement(Home), createElement(HomeSkeleton)),
   },
   {
     path: '/error',
