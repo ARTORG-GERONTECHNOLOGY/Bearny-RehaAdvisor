@@ -1,6 +1,12 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useNotifications } from '@/hooks/useNotifications';
 
+jest.mock('i18next', () => ({
+  language: 'en',
+  on: jest.fn(),
+  off: jest.fn(),
+}));
+
 describe('useNotifications', () => {
   let mockNotification: any;
   let mockServiceWorker: any;
@@ -149,7 +155,7 @@ describe('useNotifications', () => {
     });
 
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith('daily-reminder', {
+      expect(mockRegister).toHaveBeenCalledWith('twice-weekly-reminder', {
         minInterval: 24 * 60 * 60 * 1000,
       });
     });
@@ -173,7 +179,7 @@ describe('useNotifications', () => {
     });
 
     await waitFor(() => {
-      expect(mockUnregister).toHaveBeenCalledWith('daily-reminder');
+      expect(mockUnregister).toHaveBeenCalledWith('twice-weekly-reminder');
     });
   });
 

@@ -544,7 +544,7 @@
   "Settings": "Definições",
   "Notifications": "Notificações",
   "Language": "Idioma",
-  "Receive daily reminders": "Receber lembretes diários",
+  "Receive reminders": "Receber lembretes",
   "Notification permission denied. Please enable in browser settings.": "Permissão de notificação negada. Por favor ative nas definições do navegador.",
   "Background notifications not supported in this browser.": "Notificações em segundo plano não suportadas neste navegador.",
   "Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes": "Introduza a duração aproximada da intervenção em minutos",

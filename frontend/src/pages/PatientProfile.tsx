@@ -138,7 +138,7 @@ const PatientProfile: React.FC = observer(() => {
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <div className="font-bold text-lg leading-6 text-zinc-800">
-                    {t('Receive daily reminders')}
+                    {t('Receive reminders')}
                   </div>
                   {permission === 'denied' && (
                     <div className="text-red-600 text-xs">

@@ -545,7 +545,7 @@
   "Settings": "Paramètres",
   "Notifications": "Notifications",
   "Language": "Langue",
-  "Receive daily reminders": "Recevoir des rappels quotidiens",
+  "Receive reminders": "Recevoir des rappels",
   "Notification permission denied. Please enable in browser settings.": "Autorisation de notification refusée. Veuillez l'activer dans les paramètres du navigateur.",
   "Background notifications not supported in this browser.": "Les notifications en arrière-plan ne sont pas prises en charge dans ce navigateur.",
   "Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes": "Indiquez ici la durée approximative de l’intervention en minutes",
