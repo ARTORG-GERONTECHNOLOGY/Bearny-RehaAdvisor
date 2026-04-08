@@ -544,7 +544,7 @@
   "Settings": "Instellingen",
   "Notifications": "Meldingen",
   "Language": "Taal",
-  "Receive daily reminders": "Dagelijkse herinneringen ontvangen",
+  "Receive reminders": "Herinneringen ontvangen",
   "Notification permission denied. Please enable in browser settings.": "Meldingspermissie geweigerd. Schakel in uw browserinstellingen in.",
   "Background notifications not supported in this browser.": "Achtergronsmeldingen worden niet ondersteund in deze browser.",
   "Putthedurationofthethattheinterventionshouldlasthereaproximatelyinminutes": "Voer de geschatte duur van de interventie in minuten in",

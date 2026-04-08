@@ -147,7 +147,7 @@ describe('PatientProfile - Notifications', () => {
   it('renders notification settings card', () => {
     renderPatientProfile();
     expect(screen.getByText('Notifications')).toBeInTheDocument();
-    expect(screen.getByText('Receive daily reminders')).toBeInTheDocument();
+    expect(screen.getByText('Receive reminders')).toBeInTheDocument();
   });
 
   it('displays notification switch in unchecked state by default', () => {
