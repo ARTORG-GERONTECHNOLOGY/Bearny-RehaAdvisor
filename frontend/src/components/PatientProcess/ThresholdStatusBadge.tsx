@@ -13,7 +13,7 @@ const ThresholdStatusBadge: React.FC<Props> = ({ isReached }) => {
 
   return (
     <div className={`flex gap-2 ${isReached ? 'text-[#16A34A]' : 'text-red-600'}`}>
-      <div className="font-bold text-lg">{isReached ? t('Done') : t('Not reached')}</div>
+      <div className="font-bold text-lg">{isReached ? t('Reached') : t('Not reached')}</div>
       {isReached ? <CircleCheckFill className="w-8 h-8" /> : <CircleXFill className="w-8 h-8" />}
     </div>
   );

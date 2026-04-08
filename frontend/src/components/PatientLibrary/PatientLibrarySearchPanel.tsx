@@ -85,19 +85,23 @@ const PatientLibrarySearchPanel: React.FC<PatientLibrarySearchPanelProps> = ({
 
             {isSearchOpen ? (
               <Button
+                size="icon"
+                variant="secondary"
                 onClick={onCloseSearch}
-                className="rounded-full border border-accent bg-zinc-100 p-4 shadow-none w-14 h-14"
+                className="bg-zinc-100"
                 aria-label={t('Close search')}
               >
-                <X className="w-6 h-6 text-zinc-500" />
+                <X className="text-zinc-500" />
               </Button>
             ) : (
               <Button
+                size="icon"
+                variant="secondary"
                 onClick={onOpenFilter}
-                className="rounded-full border border-accent bg-white p-4 shadow-none w-14 h-14"
+                className="bg-white"
                 aria-label={t('Open filter')}
               >
-                <BarsFilterIcon className="w-6 h-6 text-zinc-800" />
+                <BarsFilterIcon />
               </Button>
             )}
           </div>

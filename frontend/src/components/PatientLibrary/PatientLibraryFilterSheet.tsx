@@ -60,7 +60,7 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
                     <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
                       {option.Icon && <option.Icon className="w-6 h-6" />}
                     </div>
-                    <span>{option.label}</span>
+                    <span>{t(option.label)}</span>
                   </div>
                   <Switch
                     checked={aimsFilter.includes(option.value)}
@@ -86,7 +86,7 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
                     <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
                       {option.Icon && <option.Icon className="w-6 h-6" />}
                     </div>
-                    <span>{option.label}</span>
+                    <span>{t(option.label)}</span>
                   </div>
                   <Switch
                     checked={contentTypeFilter.includes(option.value)}
@@ -121,18 +121,10 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
         </div>
 
         <SheetFooter className="flex gap-2 shrink-0">
-          <Button
-            onClick={onResetFilters}
-            className="px-5 py-4 bg-zinc-50 shadow-none border border-accent rounded-full text-lg font-medium text-zinc-800"
-          >
+          <Button variant="secondary" onClick={onResetFilters}>
             {t('Reset filters')}
           </Button>
-          <Button
-            onClick={() => onOpenChange(false)}
-            className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-          >
-            {t('Apply')}
-          </Button>
+          <Button onClick={() => onOpenChange(false)}>{t('Apply')}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

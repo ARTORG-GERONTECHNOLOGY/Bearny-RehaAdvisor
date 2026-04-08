@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
+async function loginAsSeededPatient(page: Page) {
   const patientLogin = process.env.E2E_PATIENT_LOGIN;
   const patientPassword = process.env.E2E_PATIENT_PASSWORD;
 
@@ -23,6 +23,8 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
 }
 
 test.describe('Patient interventions page', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
   const getSearchInput = (page: Page) => page.locator('#inline-end-input');
 
   test('redirects unauthenticated user away from /patient-interventions', async ({ page }) => {
