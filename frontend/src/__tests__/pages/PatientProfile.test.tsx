@@ -25,8 +25,22 @@ jest.mock('@/stores/authStore', () => ({
     isAuthenticated: true,
     userType: 'Patient',
     firstName: null,
+    id: 'test-patient-id',
     logout: jest.fn().mockResolvedValue(undefined),
     checkAuthentication: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Mock patientFitbitStore
+const mockFetchStatus = jest.fn();
+let mockFitbitConnected: boolean | null = false;
+
+jest.mock('@/stores/patientFitbitStore', () => ({
+  patientFitbitStore: {
+    get connected() {
+      return mockFitbitConnected;
+    },
+    fetchStatus: (...args: unknown[]) => mockFetchStatus(...args),
   },
 }));
 
@@ -70,12 +84,9 @@ jest.mock('@/components/ui/switch', () => ({
   }) => <button role="switch" aria-checked={checked} onClick={() => onCheckedChange(!checked)} />,
 }));
 
-// Mock Layout
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
+  default: require('@/__mocks__/components/Layout').default,
 }));
 
 // Mock HelpCenter
@@ -85,6 +96,19 @@ jest.mock('@/components/help/HelpCenter', () => ({
     <div data-testid="help-center" data-open={open}>
       <button onClick={onClose}>Close Help</button>
     </div>
+  ),
+}));
+
+// Mock FitbitConnectButton
+jest.mock('@/components/PatientPage/FitbitStatus', () => ({
+  __esModule: true,
+  default: () => <button data-testid="fitbit-connect-button">Connect Fitbit</button>,
+}));
+
+// Mock Skeleton component
+jest.mock('@/components/ui/skeleton', () => ({
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={className} />
   ),
 }));
 
@@ -100,6 +124,8 @@ const renderPatientProfile = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockNavigate.mockClear();
+  mockFetchStatus.mockClear();
+  mockFitbitConnected = false;
   mockUseNotifications.mockReturnValue({
     enabled: false,
     permission: 'default' as NotificationPermission,
@@ -254,5 +280,97 @@ describe('PatientProfile - General UI', () => {
 
     const helpCenter = screen.getByTestId('help-center');
     expect(helpCenter).toHaveAttribute('data-open', 'true');
+  });
+});
+
+describe('PatientProfile - Fitbit', () => {
+  it('renders fitbit card in the profile', () => {
+    renderPatientProfile();
+    expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
+  });
+
+  it('displays connected state when fitbit is connected', () => {
+    mockFitbitConnected = true;
+    renderPatientProfile();
+
+    expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
+    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
+    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+  });
+
+  it('displays disconnected state with connect button when fitbit is not connected', () => {
+    mockFitbitConnected = false;
+    renderPatientProfile();
+
+    expect(screen.getByText('Fitbit')).toBeInTheDocument();
+    expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
+    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+  });
+
+  it('displays loading skeletons when fitbit connection status is unknown', () => {
+    mockFitbitConnected = null;
+    renderPatientProfile();
+
+    // When connected is null, the card should display skeleton loaders
+    const skeletons = screen.getAllByTestId('skeleton');
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it('applies correct styling for connected state', () => {
+    mockFitbitConnected = true;
+    renderPatientProfile();
+
+    // Find the fitbit card container by looking for the element with the styling classes
+    // The container should have p-4, rounded-3xl, and border/accent classes
+    const fitbitTextEl = screen.getByText('Fitbit Connected');
+    let cardContainer = fitbitTextEl.closest('div');
+
+    // Navigate up the DOM to find the container with p-4 class
+    while (cardContainer && !cardContainer.className.includes('p-4')) {
+      cardContainer = cardContainer.parentElement;
+    }
+
+    expect(cardContainer?.className).toContain('p-4');
+    expect(cardContainer?.className).toContain('rounded-3xl');
+    expect(cardContainer?.className).toMatch(/border/);
+    expect(cardContainer?.className).toMatch(/accent/);
+  });
+
+  it('applies correct styling for disconnected state', () => {
+    mockFitbitConnected = false;
+    renderPatientProfile();
+
+    // Find the disconnect fitbit card container
+    const fitbitTextEl = screen.getByText('Fitbit');
+    let cardContainer = fitbitTextEl.closest('div');
+
+    // Navigate up the DOM to find the container with p-4 class
+    while (cardContainer && !cardContainer.className.includes('p-4')) {
+      cardContainer = cardContainer.parentElement;
+    }
+
+    expect(cardContainer?.className).toContain('p-4');
+    expect(cardContainer?.className).toContain('rounded-3xl');
+    expect(cardContainer?.className).toContain('bg-zinc-100');
+  });
+
+  it('displays proper labels and hierarchy in connected state', () => {
+    mockFitbitConnected = true;
+    renderPatientProfile();
+
+    // Check that the small label appears before the large label
+    const labels = screen.getAllByText('Fitness Tracker');
+    expect(labels[0]).toBeInTheDocument();
+    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
+  });
+
+  it('displays proper labels and hierarchy in disconnected state', () => {
+    mockFitbitConnected = false;
+    renderPatientProfile();
+
+    expect(screen.getByText('Fitbit')).toBeInTheDocument();
+    expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
+    const button = screen.getByTestId('fitbit-connect-button');
+    expect(button).toBeInTheDocument();
   });
 });

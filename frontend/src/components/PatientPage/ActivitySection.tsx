@@ -7,7 +7,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
-import { Skeleton } from '@/components/ui/skeleton';
+import Section from '@/components/Section';
+import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';
 
 interface StepsHistoryItem {
   date: string;
@@ -57,16 +58,11 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
-        <div className="p-2 pl-4 text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
-        <Skeleton className="w-full h-[400px] rounded-3xl" />
-      </div>
-    );
+    return <PatientActivitySectionSkeleton />;
   }
 
   return (
-    <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+    <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
         {connected && (
@@ -188,7 +184,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 };
 

@@ -35,7 +35,10 @@ jest.mock('react-icons/fa', () => ({
   FaLock: () => <span data-testid="fa-lock" />,
 }));
 
-jest.mock('@/components/Layout', () => ({ children }: any) => <div>{children}</div>);
+jest.mock('@/components/Layout', () => ({
+  __esModule: true,
+  default: require('@/__mocks__/components/Layout').default,
+}));
 
 jest.mock('@/components/common/ErrorAlert', () => ({ message, onClose }: any) => (
   <div>

@@ -56,35 +56,39 @@ const RecommendationsCard: React.FC<Props> = ({
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
 
               <Bar dataKey="completed" stackId="a" fill={accentColor} radius={18}>
-                <LabelList
-                  dataKey="completed"
-                  content={({ x, y, height, value }) => (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) + Number(height) + 16}
-                      textAnchor="start"
-                      className="fill-zinc-400 text-xs font-medium"
-                    >
-                      {String(value)}
-                    </text>
-                  )}
-                />
+                {adherenceTotals.completed > 0 && (
+                  <LabelList
+                    dataKey="completed"
+                    content={({ x, y, height, value }) => (
+                      <text
+                        x={Number(x)}
+                        y={Number(y) + Number(height) + 16}
+                        textAnchor="start"
+                        className="fill-zinc-400 text-xs font-medium"
+                      >
+                        {String(value)}
+                      </text>
+                    )}
+                  />
+                )}
               </Bar>
 
               <Bar dataKey="uncompleted" stackId="a" fill={accentSoftColor} radius={18}>
-                <LabelList
-                  dataKey="uncompleted"
-                  content={({ x, y, height, value }) => (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) + Number(height) + 16}
-                      textAnchor="start"
-                      className="fill-zinc-400 text-xs font-medium"
-                    >
-                      {String(value)}
-                    </text>
-                  )}
-                />
+                {adherenceTotals.completed > 0 && (
+                  <LabelList
+                    dataKey="uncompleted"
+                    content={({ x, y, height, value }) => (
+                      <text
+                        x={Number(x)}
+                        y={Number(y) + Number(height) + 16}
+                        textAnchor="start"
+                        className="fill-zinc-400 text-xs font-medium"
+                      >
+                        {String(value)}
+                      </text>
+                    )}
+                  />
+                )}
               </Bar>
             </BarChart>
           </ChartContainer>

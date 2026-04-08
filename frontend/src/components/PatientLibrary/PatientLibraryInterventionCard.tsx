@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { useTranslation } from 'react-i18next';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import { Badge } from '@/components/ui/badge';
 
@@ -25,6 +25,8 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
   containerClassName,
   onClick,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div
       role="button"
@@ -43,7 +45,7 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
           </Badge>
           <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
             {ContentTypeIcon && <ContentTypeIcon className="w-4 h-4" />}
-            <div className="text-[#00956C] font-medium">{item.content_type || '-'}</div>
+            <div className="text-[#00956C] font-medium">{t(item.content_type) || '-'}</div>
           </Badge>
         </div>
       </div>

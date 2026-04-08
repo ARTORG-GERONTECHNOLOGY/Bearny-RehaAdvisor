@@ -20,7 +20,7 @@ describe('Footer component', () => {
     const currentYear = new Date().getFullYear();
 
     // Use regex with flags to match across line breaks and spacing
-    const regex = new RegExp(`${currentYear}.*YourCompanyName.*All rights reserved.`, 'i');
+    const regex = new RegExp(`${currentYear}.*YourCompanyName.*Allrightsreserved`, 'i');
 
     expect(screen.getByText(regex)).toBeInTheDocument();
   });

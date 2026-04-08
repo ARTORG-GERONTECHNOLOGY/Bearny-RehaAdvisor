@@ -1,14 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 
 const TermsAndConditions: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <Layout>
-      <h1>{t('Terms and Conditions')}</h1>
-
+    <Layout aria-label={t('Terms and Conditions')}>
+      <PageHeader title={t('Terms and Conditions')} />
       <p>
         {t(
           'This web application is provided for research purposes only. By accessing or using this platform, you agree to the following terms.'
