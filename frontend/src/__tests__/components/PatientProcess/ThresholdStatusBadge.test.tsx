@@ -16,7 +16,7 @@ describe('ThresholdStatusBadge', () => {
   it('renders success state text and icon when threshold is reached', () => {
     render(<ThresholdStatusBadge isReached={true} />);
 
-    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.getByText('Reached')).toBeInTheDocument();
     expect(screen.getByTestId('svg-mock')).toBeInTheDocument();
   });
 

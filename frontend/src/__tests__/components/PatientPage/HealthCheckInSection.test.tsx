@@ -26,15 +26,17 @@ describe('HealthCheckInSection', () => {
   });
 
   it('renders loading state', () => {
-    render(<HealthCheckInSection {...baseProps} loading={true} />);
-    expect(screen.getByText('CheckIn')).toBeInTheDocument();
+    const { container } = render(<HealthCheckInSection {...baseProps} loading={true} />);
+
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+    expect(screen.queryByText('CheckIn')).not.toBeInTheDocument();
     expect(screen.queryByText('0 / 2')).not.toBeInTheDocument();
   });
 
   it('renders empty check-in cards with 0/2 badge', () => {
     render(<HealthCheckInSection {...baseProps} />);
 
-    expect(screen.getByText('0 / 2')).toBeInTheDocument();
+    expect(screen.getByText('0/2')).toBeInTheDocument();
     expect(screen.getByText(/-- kg/i)).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => {
@@ -47,7 +49,7 @@ describe('HealthCheckInSection', () => {
   it('renders complete check-in values and 2/2 badge', () => {
     render(<HealthCheckInSection {...baseProps} weightKg={72.4} bpSys={121} bpDia={79} />);
 
-    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByText('2/2')).toBeInTheDocument();
     expect(screen.getByText('72.4 kg')).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => {

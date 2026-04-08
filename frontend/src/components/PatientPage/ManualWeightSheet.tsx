@@ -85,11 +85,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
         {error && <Alert variant="danger">{t(error)}</Alert>}
 
         <SheetFooter>
-          <Button
-            onClick={handleSave}
-            disabled={isSubmitting}
-            className="px-5 py-4 bg-[#00956C] shadow-none border-none rounded-full text-lg font-medium text-zinc-50"
-          >
+          <Button onClick={handleSave} disabled={isSubmitting}>
             {t('Save')}
           </Button>
         </SheetFooter>

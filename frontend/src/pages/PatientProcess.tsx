@@ -3,6 +3,8 @@ import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
+import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import type { ChartConfig } from '@/components/ui/chart';
 import { format } from 'date-fns';
@@ -11,7 +13,7 @@ import RecommendationsCard from '@/components/PatientProcess/RecommendationsCard
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
 
 const CHART_ACCENT = '#F1ADCF';
 const CHART_ACCENT_LIGHT = '#F1ADCF80';
@@ -129,46 +131,38 @@ const PatientProcess: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div>
-        <h1 className="text-2xl font-bold p-0 m-0 text-zinc-800">{t('Process')}</h1>
-        <h2 className="text-lg p-0 m-0 text-zinc-600">
-          {format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} -{' '}
-          {format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}
-        </h2>
-      </div>
-
-      <div
-        className="mt-8 flex gap-1 no-scrollbar overflow-y-auto"
-        role="group"
-        aria-label={t('Filter by time period')}
-      >
-        {filterOptions.map(({ value, label }) => (
-          <Badge
-            key={value}
-            onClick={() => setProcessFilter(value)}
-            className={`font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-              processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-            }`}
-            role="button"
-            aria-pressed={processFilter === value}
-            aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
-          >
-            {label}
-          </Badge>
-        ))}
-      </div>
-
-      {loading && (
-        <div className="flex flex-col gap-2 mt-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-80 w-full rounded-[40px]" />
+      <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
+        <PageHeader
+          title={t('Process')}
+          subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
+        />
+        <div
+          className="flex gap-1 no-scrollbar overflow-y-auto"
+          role="group"
+          aria-label={t('Filter by time period')}
+        >
+          {filterOptions.map(({ value, label }) => (
+            <Badge
+              key={value}
+              onClick={() => setProcessFilter(value)}
+              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
+                processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
+              }`}
+              role="button"
+              aria-pressed={processFilter === value}
+              aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
+            >
+              {label}
+            </Badge>
           ))}
         </div>
-      )}
+      </div>
+
+      {loading && <PatientProcessLoadingContent />}
 
       {!loading && (
-        <div className="flex flex-col gap-2 mt-6">
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+        <div className="flex flex-col gap-2 mt-6 lg:grid lg:grid-cols-3 lg:items-start">
+          <Section>
             <div className="flex flex-col gap-2">
               <RecommendationsCard
                 title={t('Recommendations')}
@@ -180,9 +174,9 @@ const PatientProcess: React.FC = observer(() => {
                 accentSoftColor={CHART_ACCENT_SOFT}
               />
             </div>
-          </div>
+          </Section>
 
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section>
             <div className="flex flex-col gap-2">
               {barMetricCards.map((card) => (
                 <MetricBarCard
@@ -200,9 +194,9 @@ const PatientProcess: React.FC = observer(() => {
                 />
               ))}
             </div>
-          </div>
+          </Section>
 
-          <div className="flex flex-col gap-2 bg-white rounded-[40px] p-4">
+          <Section>
             <div className="flex flex-col gap-2">
               <BloodPressureCard
                 title={t('Blood pressure')}
@@ -219,7 +213,7 @@ const PatientProcess: React.FC = observer(() => {
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
               />
             </div>
-          </div>
+          </Section>
         </div>
       )}
     </Layout>

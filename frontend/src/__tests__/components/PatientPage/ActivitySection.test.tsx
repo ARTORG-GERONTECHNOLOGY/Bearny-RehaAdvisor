@@ -52,9 +52,10 @@ describe('ActivitySection', () => {
   });
 
   it('renders loading state', () => {
-    render(<ActivitySection {...baseProps} loading={true} />);
+    const { container } = render(<ActivitySection {...baseProps} loading={true} />);
 
-    expect(screen.getByText('Todays Activity')).toBeInTheDocument();
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Todays Activity')).not.toBeInTheDocument();
     expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
   });
 
