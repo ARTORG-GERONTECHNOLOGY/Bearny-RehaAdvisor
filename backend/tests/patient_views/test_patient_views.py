@@ -32,6 +32,27 @@ Resource not found (404)
 HTTP method enforcement (405)
   * Each endpoint refuses wrong HTTP verbs.
 
+Language-variant selection (?lang= query param)
+  * Without ``?lang=`` the originally assigned language variant is returned
+    (backward-compatible default behaviour).
+  * ``?lang=de`` returns the German variant's title/description when a document
+    with the same ``external_id`` and ``language="de"`` exists in the DB.
+  * Falls back to English (then ``de``) when the requested language variant is
+    absent, matching the ``_lang_chain`` fallback order.
+  * Completion logs are always queried against the originally assigned document,
+    so existing completion dates are not lost when a language variant is swapped
+    in for display.
+  * Interventions without an ``external_id`` are served as-is; ``?lang=`` is
+    silently ignored and no error is raised.
+
+Background
+  The frontend calls LibreTranslate to auto-translate intervention titles that
+  are not in the patient's UI language.  Machine translations are sometimes
+  incorrect (e.g. "Medication Reminder" → "Medizinische Erinnerung" instead of
+  "Medikamentenerinnerung").  By returning the correct language variant from the
+  DB, LibreTranslate detects a source == target match and skips translation,
+  showing the human-curated title instead.
+
 Framework: Django Test Client + pytest + mongomock
 """
 
@@ -1333,3 +1354,167 @@ def test_get_patient_plan_unknown_id_returns_404(mongo_mock):
     )
     assert resp.status_code == 404
     assert "Patient not found" in resp.json().get("error", "")
+
+
+# ===========================================================================
+# ?lang= language-variant selection in get_patient_plan
+# ===========================================================================
+
+
+def _setup_plan_with_multilang_intervention():
+    """
+    Creates a patient + plan where the assigned intervention is the English
+    variant, but a German variant (same external_id) also exists in the DB.
+    Returns (patient, en_intervention, de_intervention).
+    """
+    patient, therapist, en_intervention, _ = setup_patient_with_plan()
+
+    de_intervention = Intervention(
+        title="Dehnübungen",
+        description="Dehnübungen Beschreibung",
+        content_type="Video",
+        external_id="INT_STRETCH_001",  # same external_id as the EN variant
+        language="de",
+    ).save()
+
+    return patient, en_intervention, de_intervention
+
+
+def test_get_patient_plan_without_lang_returns_assigned_variant(mongo_mock):
+    """
+    Without ?lang= the endpoint returns the originally assigned language variant
+    (English), preserving the existing behaviour.
+    """
+    patient, en_intervention, _ = _setup_plan_with_multilang_intervention()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+
+    row = data[0]
+    assert row["intervention_title"] == "Stretching"
+    assert row["intervention"]["title"] == "Stretching"
+    # intervention_id must still point to the assigned (EN) document
+    assert row["intervention_id"] == str(en_intervention.id)
+
+
+def test_get_patient_plan_lang_de_returns_german_variant(mongo_mock):
+    """
+    With ?lang=de the endpoint substitutes the German variant for display
+    fields (title, description) while intervention_id stays as the originally
+    assigned document so completion logs resolve correctly.
+    """
+    patient, en_intervention, de_intervention = _setup_plan_with_multilang_intervention()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/?lang=de",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+
+    row = data[0]
+    # Display fields come from the DE variant
+    assert row["intervention_title"] == "Dehnübungen"
+    assert row["intervention"]["title"] == "Dehnübungen"
+    # intervention_id must remain the originally assigned EN document
+    assert row["intervention_id"] == str(en_intervention.id)
+
+
+def test_get_patient_plan_lang_fallback_to_en_when_no_variant(mongo_mock):
+    """
+    With ?lang=fr when no French variant exists, the endpoint falls back to the
+    English variant (next in the fallback chain: fr → en → de).
+    """
+    patient, en_intervention, _ = _setup_plan_with_multilang_intervention()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/?lang=fr",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+
+    row = data[0]
+    # No FR variant exists, falls back to EN
+    assert row["intervention_title"] == "Stretching"
+    assert row["intervention_id"] == str(en_intervention.id)
+
+
+def test_get_patient_plan_lang_de_completion_logs_use_assigned_intervention(mongo_mock):
+    """
+    Even when ?lang=de swaps the display variant, completion logs are still
+    fetched against the originally assigned (EN) document, so existing
+    completion dates are not lost.
+    """
+    patient, en_intervention, de_intervention = _setup_plan_with_multilang_intervention()
+    rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+
+    # Store a log against the EN intervention (the assigned one)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=en_intervention,
+        rehabilitationPlanId=rehab_plan,
+        date=_mk_dt_aware(days_offset=0, hour=9),
+        status=["completed"],
+        feedback=[],
+        comments="",
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/?lang=de",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+
+    row = data[0]
+    # Display title is German
+    assert row["intervention_title"] == "Dehnübungen"
+    # But the completion date logged against the EN variant is still visible
+    today_key = timezone.localdate().isoformat()
+    assert today_key in row["completion_dates"]
+
+
+def test_get_patient_plan_lang_param_ignored_for_intervention_without_external_id(mongo_mock):
+    """
+    If an intervention has no external_id (edge case), ?lang= is silently
+    ignored and the assigned document is returned as-is.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+
+    # Patch the assigned intervention to have no external_id
+    intervention_no_ext = Intervention(
+        title="No External ID",
+        description="",
+        content_type="Video",
+        external_id="",  # empty external_id — variant lookup will skip
+        language="en",
+    ).save()
+
+    rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+    # Add a second assignment for the no-ext intervention
+    rehab_plan.interventions.append(
+        InterventionAssignment(
+            interventionId=intervention_no_ext,
+            frequency="Weekly",
+            notes="",
+            dates=[],
+        )
+    )
+    rehab_plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/?lang=de",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2  # both assignments returned without error
