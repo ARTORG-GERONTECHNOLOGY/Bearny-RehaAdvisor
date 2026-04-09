@@ -17,7 +17,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/interventions/remove-from-patient/` | POST | `remove_intervention_from_patient` | 4 |
 | `/api/interventions/add-to-patient/` | POST | `add_intervention_to_patient` | 3 |
 | `/api/interventions/modify-patient/` | POST | `modify_intervention_from_date` | 13 |
-| `/api/patients/rehabilitation-plan/patient/<id>/` | GET | `get_patient_plan` | 11 |
+| `/api/patients/rehabilitation-plan/patient/<id>/` | GET | `get_patient_plan` | 16 |
 | `/api/patients/rehabilitation-plan/therapist/<id>/` | GET | `get_patient_plan_for_therapist` | 4 |
 | `/api/patients/get-questions/<type>/<id>/` | GET | `get_feedback_questions` | 7 |
 | `/api/users/<id>/initial-questionaire/` | GET, POST | `initial_patient_questionaire` | 7 |
@@ -26,7 +26,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/patients/healthstatus-history/<id>/` | GET | `get_patient_healthstatus_history` | 3 |
 | `/api/patients/feedback/questionaire/` (audio) | POST | `submit_patient_feedback` | 1 |
 
-**Total: 93 tests**
+**Total: 98 tests**
 
 ---
 
@@ -197,6 +197,14 @@ JSON body: `{ patientId, interventionId, effectiveFrom, keep_current?, schedule?
 
 Returns the rehabilitation plan as a list of assignment rows, each containing full intervention metadata, scheduled dates, completion dates, and today's feedback.
 
+### `?lang=` query parameter
+
+An optional `?lang=<ISO 639-1>` query parameter (e.g. `?lang=de`) enables server-side language-variant selection.  When supplied, the endpoint looks up the best available `Intervention` document sharing the same `external_id` in the requested language, using the fallback chain `requested → en → de → any`.  The display fields (`intervention_title`, `description`, nested `intervention` object) are taken from the language-preferred variant.
+
+The `intervention_id` field in every row **always** refers to the originally assigned document, so completion logs posted by the frontend continue to resolve correctly regardless of which display variant was returned.
+
+**Motivation:** the frontend auto-translates titles via LibreTranslate when the stored language differs from the user's UI language.  Machine translations are sometimes poor (e.g. "Medication Reminder" → "Medizinische Erinnerung" instead of "Medikamentenerinnerung").  Returning a human-curated variant causes LibreTranslate to detect source == target and skip translation entirely.
+
 ### Tests (`test_patient_views.py`, `test_get_endpoints.py`)
 
 | Test | Scenario | Expected |
@@ -212,6 +220,11 @@ Returns the rehabilitation plan as a list of assignment rows, each containing fu
 | `test_get_patient_plan_multiple_assignments` | Two-assignment plan | Two rows returned |
 | `test_get_patient_plan_patient_not_found_404` | Unknown ObjectId | 404 |
 | `test_get_patient_plan_post_method_not_allowed` | POST | 405 |
+| `test_get_patient_plan_without_lang_returns_assigned_variant` | No `?lang=` | English title returned; backward-compatible |
+| `test_get_patient_plan_lang_de_returns_german_variant` | `?lang=de`, DE variant exists | German title in display fields; `intervention_id` stays as assigned EN doc |
+| `test_get_patient_plan_lang_fallback_to_en_when_no_variant` | `?lang=fr`, no FR variant | Falls back to EN title silently |
+| `test_get_patient_plan_lang_de_completion_logs_use_assigned_intervention` | `?lang=de`, log recorded against EN doc | Today's completion date visible despite display swap |
+| `test_get_patient_plan_lang_param_ignored_for_intervention_without_external_id` | `?lang=de`, intervention has empty `external_id` | Both rows returned without error |
 
 ---
 

@@ -86,10 +86,11 @@ class PatientInterventionsStore {
     this.clearError();
 
     try {
-      const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`);
-      const list = asArray<any>(data);
-
       const lang = (uiLang || 'en').slice(0, 2);
+      const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`, {
+        params: { lang },
+      });
+      const list = asArray<any>(data);
 
       const translated: PatientRec[] = await Promise.all(
         list.map(async (row: any) => {
