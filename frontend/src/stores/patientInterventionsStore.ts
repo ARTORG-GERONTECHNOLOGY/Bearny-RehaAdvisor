@@ -87,10 +87,9 @@ class PatientInterventionsStore {
 
     try {
       const lang = (uiLang || 'en').slice(0, 2);
-      const { data } = await apiClient.get(
-        `/patients/rehabilitation-plan/patient/${patientId}/`,
-        { params: { lang } }
-      );
+      const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`, {
+        params: { lang },
+      });
       const list = asArray<any>(data);
 
       const translated: PatientRec[] = await Promise.all(
