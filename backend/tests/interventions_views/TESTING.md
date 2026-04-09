@@ -12,7 +12,7 @@ endpoints exposed under `/api/interventions/` and `/api/therapists/`.
 |---|---|---|---|
 | `/api/interventions/all/` | GET | `list_all_interventions` | 3 |
 | `/api/interventions/all/<patient_id>/` | GET | `list_all_interventions` | (shared above) |
-| `/api/interventions/add/` | POST | `add_new_intervention` | 7 |
+| `/api/interventions/add/` | POST | `add_new_intervention` | 9 |
 | `/api/interventions/<id>/` | GET | `get_intervention_detail` | 4 |
 | `/api/interventions/<id>/assigned-diagnoses/<spec>/therapist/<th_id>/` | GET | `list_intervention_diagnoses` | 3 |
 | `/api/therapists/<th_id>/interventions/assign-to-patient-types/` | POST | `assign_intervention_to_types` | 6 |
@@ -21,7 +21,7 @@ endpoints exposed under `/api/interventions/` and `/api/therapists/`.
 | `/api/therapists/<th_id>/template-plan` | GET | `template_plan_preview` | 3 |
 | `/api/therapists/<th_id>/templates/apply` | POST | `apply_template_to_patient` | 5 |
 
-**Total: 44 tests**
+**Total: 46 tests**
 
 ---
 
@@ -84,8 +84,9 @@ Accepts `multipart/form-data`.  Required fields: `title`, `description`,
 | `title` | Required, non-empty |
 | `description` | Required, non-empty |
 | `contentType` | Required; normalised to TitleCase; must be in `ALLOWED_CONTENT_TYPES` |
-| `duration` | Required; must be parseable integer > 0 |
+| `duration` | Required; must be parseable integer > 0. **Note**: the frontend `AddInterventionView` previously omitted this field, causing every manual upload to fail silently. Fixed by adding a duration input (default 30 min) to the form. |
 | `external_id` + `language` | If provided, must be unique (no existing document with same pair) |
+| `media` / `media_file` | At least one media entry required. Filename for `media_file` is arbitrary (unlike the batch import endpoint which enforces `{id}_{format}_{lang}.{ext}`). |
 
 #### Tests
 
@@ -97,6 +98,8 @@ Accepts `multipart/form-data`.  Required fields: `title`, `description`,
 | `test_add_new_intervention_missing_description` | No `description` | 400, `field_errors.description` |
 | `test_add_new_intervention_missing_content_type` | No `contentType` | 400, `field_errors.contentType` |
 | `test_add_new_intervention_duration_zero_or_missing` | `duration=0` | 400, `field_errors.duration` |
+| `test_add_new_intervention_missing_duration` | `duration` key absent entirely | 400, `field_errors.duration` |
+| `test_add_new_intervention_arbitrary_filename` | File with arbitrary Dutch name (`Combinatieoefeningen 1.MP4`) via regular endpoint | 200, `success: true`; media stored with correct type and path |
 | `test_add_new_intervention_duplicate_external_id` | Same `external_id`+`language` as existing | 400, `error` key present (no `success` key) |
 | `test_add_new_intervention_get_method_not_allowed` | GET | 405 |
 
