@@ -32,6 +32,7 @@ const defaultForm = {
   title: '',
   description: '',
   contentType: 'blog',
+  duration: 30,
   externalId: '',
   language: '',
   link: '',
@@ -133,6 +134,7 @@ const AddInterventionView: React.FC = observer(() => {
       payload.append('title', formData.title);
       payload.append('description', formData.description);
       payload.append('contentType', formData.contentType);
+      payload.append('duration', String(formData.duration));
       if (formData.externalId) payload.append('external_id', formData.externalId.toLowerCase());
       if (formData.language) payload.append('language', formData.language);
       if (formData.link) payload.append('link', formData.link);
@@ -153,11 +155,18 @@ const AddInterventionView: React.FC = observer(() => {
 
       if (res.status === 200) {
         setSuccess(true);
-        setFormData({ ...defaultForm, mediaFile: null, primaryDiagnosis: [], externalId: '' });
+        setFormData({ ...defaultForm, mediaFile: null, primaryDiagnosis: [], externalId: '', duration: 30 });
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
-        setError(err.response.data.error || t('Erroraddingintervention'));
+        const data = err.response.data;
+        const msg = data.message || data.error || t('Erroraddingintervention');
+        const fieldMsgs = data.field_errors
+          ? Object.entries(data.field_errors)
+              .map(([k, v]: [string, any]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`)
+              .join('\n')
+          : '';
+        setError(fieldMsgs ? `${msg}\n${fieldMsgs}` : msg);
       } else {
         setError(t('Unexpectederror'));
       }
@@ -199,6 +208,19 @@ const AddInterventionView: React.FC = observer(() => {
                 placeholder={t('Enterdescription')}
                 value={formData.description}
                 onChange={handleChange}
+                required
+              />
+            </Form.Group>
+
+            <Form.Group controlId="duration" className="mt-3">
+              <Form.Label>{t('Duration')} ({t('minutes')})</Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                value={formData.duration}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, duration: Math.max(1, parseInt(e.target.value) || 1) }))
+                }
                 required
               />
             </Form.Group>
