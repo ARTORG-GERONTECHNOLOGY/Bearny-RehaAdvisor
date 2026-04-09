@@ -1495,7 +1495,7 @@ def test_get_patient_plan_lang_param_ignored_for_intervention_without_external_i
         title="No External ID",
         description="",
         content_type="Video",
-        external_id="",   # empty external_id — variant lookup will skip
+        external_id="",  # empty external_id — variant lookup will skip
         language="en",
     ).save()
 
