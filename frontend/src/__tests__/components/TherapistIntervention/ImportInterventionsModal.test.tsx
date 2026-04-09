@@ -71,8 +71,8 @@ beforeEach(() => {
 describe('Tab rendering', () => {
   it('renders the modal with both tab links visible', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    expect(screen.getByRole('link', { name: /Excel Import/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Upload Media/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Excel Import/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Upload Media/i })).toBeInTheDocument();
   });
 
   it('shows Excel content by default', () => {
@@ -83,30 +83,31 @@ describe('Tab rendering', () => {
 
   it('switches to Upload Media tab and shows upload UI', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
     expect(screen.getByText(/Drag & drop/i)).toBeInTheDocument();
     expect(screen.queryByText(/Excel file/i)).not.toBeInTheDocument();
   });
 
   it('switching back to Excel tab restores Excel UI', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
-    fireEvent.click(screen.getByRole('link', { name: /Excel Import/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Excel Import/i }));
     expect(screen.getByText(/Excel file/i)).toBeInTheDocument();
     expect(screen.queryByText(/Drag & drop/i)).not.toBeInTheDocument();
   });
 
   it('shows the naming convention help text on the media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
     expect(screen.getByText(/Naming convention/i)).toBeInTheDocument();
     expect(screen.getByText(/3500_web_de\.mp4/)).toBeInTheDocument();
   });
 
   it('shows valid extensions on the media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
-    expect(screen.getByText(/mp4.*mp3.*wav.*pdf.*jpg/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    // Target the <code> element specifically — the drop-zone div also matches the regex
+    expect(screen.getByText(/mp4.*mp3.*wav.*pdf.*jpg/i, { selector: 'code' })).toBeInTheDocument();
   });
 });
 
@@ -121,7 +122,7 @@ describe('Footer buttons', () => {
 
   it('shows Upload button on media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
     expect(screen.getByRole('button', { name: /^Upload$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Import$/i })).not.toBeInTheDocument();
   });
@@ -133,7 +134,7 @@ describe('Footer buttons', () => {
 
   it('Upload button is disabled when no files are selected', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
     expect(screen.getByRole('button', { name: /^Upload$/i })).toBeDisabled();
   });
 });
@@ -143,7 +144,7 @@ describe('Footer buttons', () => {
 describe('Media file validation', () => {
   function openMediaTab() {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
   }
 
   function addFile(file: File) {
@@ -174,35 +175,36 @@ describe('Media file validation', () => {
     openMediaTab();
     addFile(new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' }));
     expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText(/3500_web/)).toBeInTheDocument();
+    // Exact match on the extracted external_id — the naming convention also has "3500_web_de.mp4"
+    expect(screen.getByText('3500_web')).toBeInTheDocument();
   });
 
   it('shows ✓ badge for valid mp3', () => {
     openMediaTab();
     addFile(new File(['data'], '3500_aud_de.mp3', { type: 'audio/mpeg' }));
     expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText(/3500_aud/)).toBeInTheDocument();
+    expect(screen.getByText('3500_aud')).toBeInTheDocument();
   });
 
   it('shows ✓ badge for valid pdf', () => {
     openMediaTab();
     addFile(new File(['data'], '3500_pdf_fr.pdf', { type: 'application/pdf' }));
     expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText(/3500_pdf/)).toBeInTheDocument();
+    expect(screen.getByText('3500_pdf')).toBeInTheDocument();
   });
 
   it('shows ✓ badge for valid jpg image', () => {
     openMediaTab();
     addFile(new File(['data'], '3500_img_it.jpg', { type: 'image/jpeg' }));
     expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText(/3500_img/)).toBeInTheDocument();
+    expect(screen.getByText('3500_img')).toBeInTheDocument();
   });
 
   it('shows ✓ badge for valid self-made format', () => {
     openMediaTab();
     addFile(new File(['data'], '30500_vid_pt.mp4', { type: 'video/mp4' }));
     expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText(/30500_vid/)).toBeInTheDocument();
+    expect(screen.getByText('30500_vid')).toBeInTheDocument();
   });
 
   it('Upload button becomes enabled after a valid file is added', () => {
@@ -234,9 +236,11 @@ describe('Media file validation', () => {
   it('remove button deletes the file from the list', () => {
     openMediaTab();
     addFile(new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' }));
-    expect(screen.getByText('3500_web_de.mp4')).toBeInTheDocument();
+    // The filename appears in both the file row span and the naming-convention code example,
+    // so use the data-testid to count actual file rows instead.
+    expect(screen.getAllByTestId('video-file-row')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: /Remove file/i }));
-    expect(screen.queryByText('3500_web_de.mp4')).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId('video-file-row')).toHaveLength(0);
   });
 
   it('shows ⚠ badge and size info for a valid-name file that exceeds the 1 GB limit', () => {
@@ -295,7 +299,7 @@ describe('Upload results display', () => {
     ];
 
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
 
     expect(screen.getByText(/Upload results/i)).toBeInTheDocument();
     expect(screen.getByText(/Updated 1 intervention/i)).toBeInTheDocument();
@@ -314,9 +318,10 @@ describe('Upload results display', () => {
     ];
 
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('link', { name: /Upload Media/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
 
-    expect(screen.getByText(/fr/)).toBeInTheDocument();
-    expect(screen.getByText(/3500_pdf/)).toBeInTheDocument();
+    // Exact matches avoid collisions with naming-convention example text
+    expect(screen.getByText('fr')).toBeInTheDocument();
+    expect(screen.getByText('3500_pdf')).toBeInTheDocument();
   });
 });
