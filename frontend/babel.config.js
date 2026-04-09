@@ -12,17 +12,9 @@ module.exports = {
       return {
         visitor: {
           MetaProperty(path) {
-            if (
-              path.node.meta.name === 'import' &&
-              path.node.property.name === 'meta'
-            ) {
+            if (path.node.meta.name === 'import' && path.node.property.name === 'meta') {
               path.replaceWith(
-                t.objectExpression([
-                  t.objectProperty(
-                    t.identifier('env'),
-                    t.objectExpression([])
-                  ),
-                ])
+                t.objectExpression([t.objectProperty(t.identifier('env'), t.objectExpression([]))])
               );
             }
           },
