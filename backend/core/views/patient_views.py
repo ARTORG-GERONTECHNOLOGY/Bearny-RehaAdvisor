@@ -969,9 +969,36 @@ def get_patient_plan(request, patient_id):
       - assignment fields (dates/notes/frequency/require_video_feedback)
       - completion_dates as YYYY-MM-DD
       - today's feedback entries (same as before)
+
+    Optional query param: ?lang=de  — if supplied, the best available language
+    variant of each intervention is returned instead of the stored assignment
+    variant, so the frontend can skip LibreTranslate auto-translation.
     """
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    ui_lang = (request.GET.get("lang") or "").strip().lower()[:5]
+
+    def _lang_chain(lang: str):
+        chain, seen = [], set()
+        for l in [lang, "en", "de"]:
+            if l and l not in seen:
+                chain.append(l)
+                seen.add(l)
+        return chain or ["en", "de"]
+
+    def _best_variant(base_intervention, lang: str):
+        """Return the lang-preferred variant of an intervention, or the original."""
+        if not lang:
+            return base_intervention
+        ext_id = getattr(base_intervention, "external_id", None)
+        if not ext_id:
+            return base_intervention
+        for l in _lang_chain(lang):
+            doc = Intervention.objects(external_id=ext_id, language=l).first()
+            if doc:
+                return doc
+        return base_intervention
 
     try:
         try:
@@ -990,14 +1017,19 @@ def get_patient_plan(request, patient_id):
         out = []
 
         for assignment in getattr(rehab_plan, "interventions", None) or []:
-            intervention = getattr(assignment, "interventionId", None)
-            if not intervention:
+            assigned_intervention = getattr(assignment, "interventionId", None)
+            if not assigned_intervention:
                 continue
+
+            # Use the language-preferred variant for title/metadata display, but
+            # always look up logs against the originally assigned document so that
+            # completion records are not lost when a language variant is swapped in.
+            intervention = _best_variant(assigned_intervention, ui_lang) if ui_lang else assigned_intervention
 
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=rehab_plan,
-                interventionId=intervention,
+                interventionId=assigned_intervention,
             )
 
             completion_dates = _completion_day_keys_from_logs(logs)
@@ -1033,10 +1065,11 @@ def get_patient_plan(request, patient_id):
 
             out.append(
                 {
-                    # ✅ full intervention doc (as requested)
+                    # ✅ full intervention doc (language-preferred variant for display)
                     "intervention": _intervention_meta(intervention),
-                    # ✅ keep the older flat fields too (so you don't have to refactor all FE at once)
-                    "intervention_id": str(getattr(intervention, "id", "")),
+                    # intervention_id must stay as the originally assigned variant so
+                    # that completion logs posted by the frontend resolve correctly.
+                    "intervention_id": str(getattr(assigned_intervention, "id", "")),
                     "intervention_title": _as_str(getattr(intervention, "title", ""), ""),
                     "description": _as_str(getattr(intervention, "description", ""), ""),
                     "content_type": getattr(intervention, "content_type", "") or "",
