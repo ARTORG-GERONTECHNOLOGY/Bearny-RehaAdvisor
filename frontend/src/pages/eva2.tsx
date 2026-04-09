@@ -263,7 +263,9 @@ export default function HealthSlider() {
     el.onended = () => {
       const rec = recorderRef.current;
       if (rec?.state === 'paused') {
-        try { rec.resume(); } catch {}
+        try {
+          rec.resume();
+        } catch {}
       }
     };
 
