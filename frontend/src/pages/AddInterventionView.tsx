@@ -155,7 +155,13 @@ const AddInterventionView: React.FC = observer(() => {
 
       if (res.status === 200) {
         setSuccess(true);
-        setFormData({ ...defaultForm, mediaFile: null, primaryDiagnosis: [], externalId: '', duration: 30 });
+        setFormData({
+          ...defaultForm,
+          mediaFile: null,
+          primaryDiagnosis: [],
+          externalId: '',
+          duration: 30,
+        });
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
@@ -213,13 +219,18 @@ const AddInterventionView: React.FC = observer(() => {
             </Form.Group>
 
             <Form.Group controlId="duration" className="mt-3">
-              <Form.Label>{t('Duration')} ({t('minutes')})</Form.Label>
+              <Form.Label>
+                {t('Duration')} ({t('minutes')})
+              </Form.Label>
               <Form.Control
                 type="number"
                 min={1}
                 value={formData.duration}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, duration: Math.max(1, parseInt(e.target.value) || 1) }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    duration: Math.max(1, parseInt(e.target.value) || 1),
+                  }))
                 }
                 required
               />
