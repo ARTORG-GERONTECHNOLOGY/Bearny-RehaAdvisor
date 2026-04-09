@@ -72,8 +72,8 @@ const VERSION = 'Version 2.2 (ICF Monitor - Full Sync), 2026';
 const AUDIO_BASE = '/audio/items';
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const getItemAudioSrc = (isPractice: boolean, idx: number) => {
-  if (isPractice) return `${AUDIO_BASE}/ubung.m4a`;
-  return `${AUDIO_BASE}/q${pad2(idx + 1)}.m4a`;
+  if (isPractice) return `${AUDIO_BASE}/ubung.wav`;
+  return `${AUDIO_BASE}/q${pad2(idx + 1)}.wav`;
 };
 
 /** ===== Helpers ===== */
@@ -259,6 +259,14 @@ export default function HealthSlider() {
     const absolute = `${window.location.origin}${src}`;
     if (el.src !== absolute) el.src = src;
 
+    // After audio ends, resume recording if it was paused by the OS audio session (iOS)
+    el.onended = () => {
+      const rec = recorderRef.current;
+      if (rec?.state === 'paused') {
+        try { rec.resume(); } catch {}
+      }
+    };
+
     try {
       await el.play();
     } catch {
@@ -304,22 +312,28 @@ export default function HealthSlider() {
     }
   }, [questionIndex, isPracticeMode]);
 
+  /** --- keep a stable ref to playDing so bell toggle doesn't restart the lock timer --- */
+  const playDingRef = useRef(playDing);
+  useEffect(() => {
+    playDingRef.current = playDing;
+  }, [playDing]);
+
   /** --- cue on new question (no auto speech) --- */
   useEffect(() => {
     if (testMode || showSummary) return;
 
     setShowFlash(true);
     setIsLocked(true);
-    playDing(550);
+    playDingRef.current(550);
     if (navigator.vibrate) navigator.vibrate(20);
 
     const flashTimer = setTimeout(() => setShowFlash(false), 250);
-    const lockTimer = setTimeout(() => setIsLocked(false), 5000);
+    const lockTimer = setTimeout(() => setIsLocked(false), 3000);
     return () => {
       clearTimeout(flashTimer);
       clearTimeout(lockTimer);
     };
-  }, [questionIndex, testMode, showSummary, playDing]);
+  }, [questionIndex, testMode, showSummary]); // ← playDing intentionally omitted via ref
 
   /** --- recording helpers (PER ITEM, self-contained blobs) --- */
   const startItemRecorder = useCallback(() => {
@@ -544,7 +558,7 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     const pct = Math.round(100 - (y / rect.height) * 100);
-    const clamped = Math.min(97, Math.max(3, pct));
+    const clamped = Math.min(100, Math.max(0, pct));
     setSliderPosition(clamped);
     setSliderMoved(true);
   }, []);
@@ -671,8 +685,9 @@ export default function HealthSlider() {
     <main
       style={{
         ...styles.app,
-        backgroundColor: showFlash ? '#87CEEB' : '#f6f4f0',
+        backgroundColor: showFlash ? '#858585' : '#f6f4f0',
         transition: 'background 0.2s',
+        zoom: isMobile ? 0.85 : 0.75,
       }}
     >
       <audio
@@ -712,9 +727,9 @@ export default function HealthSlider() {
             title={dingActive ? 'Ton an' : 'Ton aus'}
           >
             {dingActive ? (
-              <BellFill size={isMobile ? 18 : 20} />
+              <BellFill size={isMobile ? 24 : 28} />
             ) : (
-              <BellSlashFill size={isMobile ? 18 : 20} />
+              <BellSlashFill size={isMobile ? 24 : 28} />
             )}
           </button>
 
@@ -725,7 +740,7 @@ export default function HealthSlider() {
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
-            <PlayFill size={isMobile ? 18 : 20} />
+            <PlayFill size={isMobile ? 24 : 28} />
           </button>
         </div>
       </div>
@@ -951,8 +966,8 @@ const styles: Record<string, React.CSSProperties> = {
   audioBtn: {
     border: '1px solid #ccc',
     borderRadius: '50%',
-    width: 'clamp(44px, 10vw, 52px)',
-    height: 'clamp(44px, 10vw, 52px)',
+    width: 'clamp(56px, 13vw, 72px)',
+    height: 'clamp(56px, 13vw, 72px)',
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
