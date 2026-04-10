@@ -6,14 +6,16 @@ beforeEach(() => {
   // Clear localStorage before each test
   localStorage.clear();
 
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: {
-      ...window.location,
-      reload: jest.fn(),
-    },
-  });
-
+  // jsdom ≥v22: location non-configurable but extensible — shadow reload with own prop
+  // jsdom <v22: location configurable but reload own-prop is not — replace location ref
+  try {
+    Object.defineProperty(window.location, 'reload', { configurable: true, value: jest.fn() });
+  } catch {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload: jest.fn() },
+    });
+  }
   jest.spyOn(window, 'prompt').mockReturnValue('test-patient-id');
   jest.spyOn(window, 'alert').mockImplementation(() => {});
   global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
