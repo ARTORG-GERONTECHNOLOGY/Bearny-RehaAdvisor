@@ -22,7 +22,7 @@ describe('usePatientProcess', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-16T12:00:00Z'));
+    jest.setSystemTime(new Date('2026-03-16T12:00:00Z').getTime());
     localStorage.clear();
     localStorage.setItem('id', 'patient-123');
     mockedUsePatientAuthGate.mockReturnValue({ isAllowed: true });
