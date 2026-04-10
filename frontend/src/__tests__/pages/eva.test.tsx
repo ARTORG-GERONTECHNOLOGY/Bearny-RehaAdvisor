@@ -6,14 +6,7 @@ beforeEach(() => {
   // Clear localStorage before each test
   localStorage.clear();
 
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: {
-      ...window.location,
-      reload: jest.fn(),
-    },
-  });
-
+  jest.spyOn(window.location, 'reload').mockImplementation(() => {});
   jest.spyOn(window, 'prompt').mockReturnValue('test-patient-id');
   jest.spyOn(window, 'alert').mockImplementation(() => {});
   global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
