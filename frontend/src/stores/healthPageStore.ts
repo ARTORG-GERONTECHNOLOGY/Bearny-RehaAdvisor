@@ -320,41 +320,53 @@ export class HealthPageStore {
       return;
     }
 
+    // fetch thresholds in parallel (don't block if it fails)
+    void this.fetchThresholds(userId, t);
+
+    await this.fetchCombinedHistoryForPatient(
+      userId,
+      from.toISOString().slice(0, 10),
+      to.toISOString().slice(0, 10),
+      t
+    );
+  }
+
+  // ───────────────────────────
+  // Fetch combined history by explicit patient ID (patient self-view)
+  // ───────────────────────────
+  async fetchCombinedHistoryForPatient(
+    patientId: string,
+    from: string,
+    to: string,
+    t: (k: string) => string = (k) => k
+  ) {
+    if (!patientId) return;
+
     this.loading = true;
     this.error = '';
 
     try {
-      // fetch thresholds in parallel (don’t block if it fails)
-      void this.fetchThresholds(userId, t);
-
-      const params = {
-        from: from.toISOString().slice(0, 10),
-        to: to.toISOString().slice(0, 10),
-      };
-
       const res = await apiClient.get<CombinedHealthResponseRaw>(
-        `/patients/health-combined-history/${userId}/`,
-        { params }
+        `/patients/health-combined-history/${patientId}/`,
+        { params: { from, to } }
       );
 
       const raw = res.data;
-
       const fitbitRaw = isRecord(raw) ? raw.fitbit : undefined;
       const questionnaireRaw = isRecord(raw) ? raw.questionnaire : undefined;
       const adherenceRaw = isRecord(raw) ? raw.adherence : undefined;
 
-      const normalizedFitbit = normalizeFitbitList(fitbitRaw);
-      const normalizedQuestionnaire = normalizeQuestionnaireList(questionnaireRaw);
-      const normalizedAdherence = normalizeAdherenceList(adherenceRaw);
-
       runInAction(() => {
-        this.fitbitData = normalizedFitbit;
-        this.questionnaireData = normalizedQuestionnaire;
-        this.adherenceData = normalizedAdherence;
+        this.fitbitData = normalizeFitbitList(fitbitRaw);
+        this.questionnaireData = normalizeQuestionnaireList(questionnaireRaw);
+        this.adherenceData = normalizeAdherenceList(adherenceRaw);
         this._rebuildVisibleQuestionsFromData();
       });
     } catch (err: unknown) {
       runInAction(() => {
+        this.fitbitData = [];
+        this.questionnaireData = [];
+        this.adherenceData = [];
         this.error = extractApiErrorMessage(err, t('Failed to load health data.'));
       });
     } finally {

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import apiClient from '@/api/client';
 import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
 import authStore from '@/stores/authStore';
+import HealthPageStore from '@/stores/healthPageStore';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
@@ -140,6 +141,7 @@ export function usePatientProcess() {
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
   const { from, to } = useMemo(() => getDateWindow(processFilter), [processFilter]);
+  const healthStore = useMemo(() => new HealthPageStore(), []);
 
   useEffect(() => {
     let alive = true;
@@ -151,34 +153,33 @@ export function usePatientProcess() {
       setError('');
 
       try {
-        const [combinedHistoryRes, fitbitSummaryRes] = await Promise.all([
-          apiClient.get<CombinedHealthResponse>(`/patients/health-combined-history/${patientId}/`, {
-            params: { from, to },
-          }),
-          apiClient.get<FitbitSummaryResponse>(`/fitbit/summary/${patientId}/`, {
-            params: { days: processFilter === 'week' ? 7 : 30 },
-          }),
+        await Promise.all([
+          healthStore.fetchCombinedHistoryForPatient(patientId, from, to),
+          patientFitbitStore.fetchSummary(patientId, processFilter === 'week' ? 7 : 30),
         ]);
 
         if (!alive) return;
-        setAdherenceItems(
-          Array.isArray(combinedHistoryRes?.data?.adherence)
-            ? combinedHistoryRes.data.adherence
-            : []
-        );
-        setFitbitSummary(fitbitSummaryRes?.data || null);
-        setThresholds(fitbitSummaryRes?.data?.thresholds || null);
-      } catch (err: unknown) {
-        const errObj = err as {
-          response?: { data?: { error?: string; message?: string; detail?: string } };
-        };
-        const msg = errObj?.response?.data;
 
+        const storeError = healthStore.error || patientFitbitStore.error;
+        if (storeError) {
+          setAdherenceItems([]);
+          setFitbitSummary(null);
+          setThresholds(null);
+          setError(storeError);
+          return;
+        }
+
+        setAdherenceItems(healthStore.adherenceData);
+        setFitbitSummary(patientFitbitStore.summary as FitbitSummaryResponse | null);
+        setThresholds(
+          (patientFitbitStore.summary?.thresholds ?? null) as ThresholdsResponse | null
+        );
+      } catch {
         if (!alive) return;
         setAdherenceItems([]);
         setFitbitSummary(null);
         setThresholds(null);
-        setError(String(msg?.error || msg?.message || msg?.detail || 'Request failed'));
+        setError(healthStore.error || patientFitbitStore.error || 'Request failed');
       } finally {
         if (alive) setLoading(false);
       }
@@ -189,7 +190,7 @@ export function usePatientProcess() {
     return () => {
       alive = false;
     };
-  }, [patientId, isAllowed, from, to, processFilter]);
+  }, [patientId, isAllowed, from, to, processFilter, healthStore]);
 
   const dailyMetrics = useMemo<DailyMetricsDatum[]>(() => {
     const byDay = new Map<string, Omit<DailyMetricsDatum, 'date'>>();
