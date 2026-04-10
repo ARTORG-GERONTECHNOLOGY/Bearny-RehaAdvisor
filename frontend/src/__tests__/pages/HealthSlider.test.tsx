@@ -17,31 +17,7 @@ describe('HealthSlider', () => {
     window.prompt = jest.fn(() => 'PAT_123') as any;
     window.alert = jest.fn() as any;
 
-    // jsdom ≥v22 makes window.location non-configurable but the instance is extensible,
-    // so we can shadow reload with an own property.
-    // jsdom <v22 makes window.location configurable but reload is a non-configurable
-    // own property — we must replace the whole location object instead.
-    try {
-      Object.defineProperty(window.location, 'reload', { configurable: true, value: jest.fn() });
-    } catch {
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        value: {
-          href: 'http://localhost/',
-          protocol: 'http:',
-          host: 'localhost',
-          hostname: 'localhost',
-          port: '',
-          pathname: '/',
-          search: '',
-          hash: '',
-          origin: 'http://localhost',
-          reload: jest.fn(),
-          assign: jest.fn(),
-          replace: jest.fn(),
-        },
-      });
-    }
+    jest.spyOn(window.location, 'reload').mockImplementation(() => {});
 
     // Mock URL methods before spying on them
     if (!URL.createObjectURL) {
