@@ -365,7 +365,8 @@ describe('InterventionList Component', () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(
-        '/patients/rehabilitation-plan/patient/67d588798c0494979e4633e4/'
+        '/patients/rehabilitation-plan/patient/67d588798c0494979e4633e4/',
+        { params: { lang: 'en' } }
       );
     });
   });
@@ -394,7 +395,8 @@ describe('InterventionList Component', () => {
     render(<InterventionList />);
     await waitFor(() =>
       expect(apiClient.get).toHaveBeenCalledWith(
-        expect.stringContaining('/patients/rehabilitation-plan/patient/')
+        expect.stringContaining('/patients/rehabilitation-plan/patient/'),
+        expect.objectContaining({ params: expect.objectContaining({ lang: expect.any(String) }) })
       )
     );
   });
