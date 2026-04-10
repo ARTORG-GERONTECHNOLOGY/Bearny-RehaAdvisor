@@ -73,7 +73,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@sentry/react": "^9.0.0",
     "@types/node": "^22.13.5",
-    "axios": "^1.8.1",
+    "axios": "^1.15.0",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.13.1",
     "class-variance-authority": "^0.7.1",
