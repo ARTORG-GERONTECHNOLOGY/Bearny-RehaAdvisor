@@ -2,10 +2,10 @@ import type { Config } from 'jest';
 
 const config: Config = {
   preset: 'ts-jest',
-  testEnvironment: 'jsdom', // More common way of writing this
+  testEnvironment: '<rootDir>/jest-env-location-patch.cjs',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { babelConfig: true }],
+    '^.+\\.(ts|tsx)$': '<rootDir>/jest-import-meta-transform.js',
     '^.+\\.(js|jsx)$': 'babel-jest',
   },
   moduleNameMapper: {
@@ -21,11 +21,7 @@ const config: Config = {
   ],
   testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/?(*.)+(spec|test).(ts|tsx)'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts', // Optional: skip barrel files
-  ],
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/**/index.ts'],
   coverageDirectory: 'coverage',
   collectCoverage: true,
   coverageReporters: ['text', 'lcov', 'html'],
@@ -37,7 +33,6 @@ const config: Config = {
       statements: 90,
     },
   },
-
   clearMocks: true,
 };
 

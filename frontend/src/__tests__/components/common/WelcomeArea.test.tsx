@@ -18,7 +18,7 @@ jest.mock('@/stores/authStore', () => ({
 
 describe('WelcomeArea Component', () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2025-04-30T08:00:00Z')); // Morning UTC
+    jest.useFakeTimers().setSystemTime(new Date('2025-04-30T08:00:00Z').getTime()); // Morning UTC
   });
 
   afterEach(() => {
@@ -34,7 +34,7 @@ describe('WelcomeArea Component', () => {
   });
 
   it('renders afternoon greeting for therapist', () => {
-    jest.setSystemTime(new Date('2025-04-30T13:00:00')); // 1 PM
+    jest.setSystemTime(new Date('2025-04-30T13:00:00').getTime()); // 1 PM
     render(<WelcomeArea user="therapist" />);
     expect(screen.getByText(/Good Afternoon, Alex/i)).toBeInTheDocument();
     expect(
@@ -43,13 +43,13 @@ describe('WelcomeArea Component', () => {
   });
 
   it('renders evening greeting', () => {
-    jest.setSystemTime(new Date('2025-04-30T18:00:00')); // 6 PM
+    jest.setSystemTime(new Date('2025-04-30T18:00:00').getTime()); // 6 PM
     render(<WelcomeArea user="therapist" />);
     expect(screen.getByText(/Good Evening, Alex/i)).toBeInTheDocument();
   });
 
   it('renders night greeting', () => {
-    jest.setSystemTime(new Date('2025-04-30T23:00:00')); // 11 PM
+    jest.setSystemTime(new Date('2025-04-30T23:00:00').getTime()); // 11 PM
     render(<WelcomeArea user="therapist" />);
     expect(screen.getByText(/Good Night, Alex/i)).toBeInTheDocument();
   });
