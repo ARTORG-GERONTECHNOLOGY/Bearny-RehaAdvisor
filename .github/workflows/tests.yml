@@ -107,11 +107,10 @@ jobs:
 
       - name: Run tests
         working-directory: frontend
-        # Coverage failures (threshold breaches) are warnings only — || true prevents
-        # a coverage shortfall from blocking the workflow.  Test failures still surface
-        # via the exit-code that Jest returns before coverage is evaluated; we accept
-        # that trade-off so coverage never gates a merge.
-        run: npm test -- --coverage --watchAll=false --testTimeout=10000 || true
+        # --coverageThreshold='{}' overrides config thresholds so coverage shortfalls
+        # are warnings only and never block CI. || true removed so actual test
+        # failures and suite errors DO fail this step.
+        run: npm test -- --coverage --watchAll=false --testTimeout=10000 "--coverageThreshold={}"
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
