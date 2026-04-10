@@ -4,7 +4,6 @@ import HealthSlider from '@/pages/eva';
 describe('HealthSlider', () => {
   const originalPrompt = window.prompt;
   const originalAlert = window.alert;
-  const originalLocation = window.location;
   const originalCreateElement = document.createElement.bind(document);
 
   function setLocalStorage(key: string, value: string) {
@@ -18,23 +17,31 @@ describe('HealthSlider', () => {
     window.prompt = jest.fn(() => 'PAT_123') as any;
     window.alert = jest.fn() as any;
 
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: {
-        href: 'http://localhost/',
-        reload: jest.fn(),
-        assign: jest.fn(),
-        replace: jest.fn(),
-        pathname: '/',
-        search: '',
-        hash: '',
-        host: 'localhost',
-        hostname: 'localhost',
-        port: '',
-        protocol: 'http:',
-        origin: 'http://localhost',
-      },
-    });
+    // jsdom ≥v22 makes window.location non-configurable but the instance is extensible,
+    // so we can shadow reload with an own property.
+    // jsdom <v22 makes window.location configurable but reload is a non-configurable
+    // own property — we must replace the whole location object instead.
+    try {
+      Object.defineProperty(window.location, 'reload', { configurable: true, value: jest.fn() });
+    } catch {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          href: 'http://localhost/',
+          protocol: 'http:',
+          host: 'localhost',
+          hostname: 'localhost',
+          port: '',
+          pathname: '/',
+          search: '',
+          hash: '',
+          origin: 'http://localhost',
+          reload: jest.fn(),
+          assign: jest.fn(),
+          replace: jest.fn(),
+        },
+      });
+    }
 
     // Mock URL methods before spying on them
     if (!URL.createObjectURL) {
@@ -76,10 +83,6 @@ describe('HealthSlider', () => {
   afterAll(() => {
     window.prompt = originalPrompt;
     window.alert = originalAlert;
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: originalLocation,
-    });
   });
 
   it('prompts for patient id on first mount and stores it', () => {
