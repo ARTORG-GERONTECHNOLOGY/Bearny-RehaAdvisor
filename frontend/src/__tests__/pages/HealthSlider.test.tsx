@@ -18,10 +18,23 @@ describe('HealthSlider', () => {
     window.prompt = jest.fn(() => 'PAT_123') as any;
     window.alert = jest.fn() as any;
 
-    // @ts-ignore
-    delete window.location;
-    // @ts-ignore
-    window.location = { ...originalLocation, reload: jest.fn() };
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'http://localhost/',
+        reload: jest.fn(),
+        assign: jest.fn(),
+        replace: jest.fn(),
+        pathname: '/',
+        search: '',
+        hash: '',
+        host: 'localhost',
+        hostname: 'localhost',
+        port: '',
+        protocol: 'http:',
+        origin: 'http://localhost',
+      },
+    });
 
     // Mock URL methods before spying on them
     if (!URL.createObjectURL) {
@@ -63,8 +76,10 @@ describe('HealthSlider', () => {
   afterAll(() => {
     window.prompt = originalPrompt;
     window.alert = originalAlert;
-    // @ts-ignore
-    window.location = originalLocation;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 
   it('prompts for patient id on first mount and stores it', () => {
@@ -276,7 +291,7 @@ describe('HealthSlider', () => {
   // ✅ NEW: CSV filename includes patient id + version + date
   it('export CSV filename includes patient id + version + date', () => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-23T10:15:00.000Z'));
+    jest.setSystemTime(new Date('2026-01-23T10:15:00.000Z').getTime());
 
     setLocalStorage('patient_id', 'PAT_777');
     setLocalStorage('survey_testMode', 'false');
