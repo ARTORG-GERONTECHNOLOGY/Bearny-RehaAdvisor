@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import QuestionFill from '@/assets/icons/question-fill.svg?react';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
