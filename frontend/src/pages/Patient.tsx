@@ -187,7 +187,7 @@ const PatientView: React.FC = observer(() => {
           if (patientVitalsStore.error) {
             throw new Error(t('failedSave'));
           }
-          patientFitbitStore.fetchSummary(patientId, 7);
+          patientFitbitStore.fetchSummary(patientId, 7, true);
         }}
       />
 
@@ -203,7 +203,7 @@ const PatientView: React.FC = observer(() => {
           if (patientVitalsStore.error) {
             throw new Error(t('failedSave'));
           }
-          patientFitbitStore.fetchSummary(patientId, 7);
+          patientFitbitStore.fetchSummary(patientId, 7, true);
         }}
       />
 
