@@ -13,6 +13,8 @@ import { observer } from 'mobx-react-lite';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import { getDateFnsLocale } from '@/utils/dateLocale';
+import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
+import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 
 type DayFilter = 'all' | 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -41,6 +43,14 @@ const PatientPlan: React.FC = observer(() => {
     { value: 5 as const, label: t('Sat') },
     { value: 6 as const, label: t('Sun') },
   ];
+
+  const goToPreviousWeek = () => {
+    patientUiStore.setSelectedDate(addDays(patientUiStore.selectedDate, -7));
+  };
+
+  const goToNextWeek = () => {
+    patientUiStore.setSelectedDate(addDays(patientUiStore.selectedDate, 7));
+  };
 
   // Safe questions array for feedback questionnaire
   const safeInterventionQuestions = Array.isArray(patientQuestionnairesStore.feedbackQuestions)
@@ -77,10 +87,15 @@ const PatientPlan: React.FC = observer(() => {
   return (
     <Layout aria-label={t('Week range and current month')}>
       <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
-        <PageHeader
-          title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
-          subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
-        />
+        <div className="flex gap-2">
+          <ArrowLeftIcon className="mt-2 h-4 w-4 hover:cursor-pointer" onClick={goToPreviousWeek} />
+          <PageHeader
+            title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}
+            subtitle={format(patientUiStore.selectedDate, 'MMMM yyyy', { locale })}
+          />
+          <ArrowRightIcon className="mt-2 h-4 w-4 hover:cursor-pointer" onClick={goToNextWeek} />
+        </div>
+
         {/* Day Filter */}
         <div
           className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden no-scrollbar w-full lg:w-auto"
