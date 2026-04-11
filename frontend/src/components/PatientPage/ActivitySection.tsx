@@ -101,7 +101,9 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
 
           <div className="flex items-end">
             <div className="flex-1">
-              <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">{stepsToday || '--'}</div>
+              <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
+                {stepsToday || '--'}
+              </div>
               <div className="font-medium text-sm text-zinc-500">
                 {t('Goal')}: {stepsGoal || '--'}
               </div>
