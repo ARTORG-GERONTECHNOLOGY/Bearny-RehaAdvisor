@@ -101,7 +101,6 @@ const PatientView: React.FC = observer(() => {
         patientInterventionsStore.fetchPlan(patientId, i18n.language);
         patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
         patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
-        patientVitalsStore.checkExists(patientId);
       }
 
       setLoading(false);
@@ -152,11 +151,7 @@ const PatientView: React.FC = observer(() => {
         />
 
         <HealthCheckInSection
-          loading={
-            patientFitbitStore.connected === null ||
-            patientFitbitStore.summaryLoading ||
-            patientVitalsStore.loading
-          }
+          loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
           selectedDateLabel={selectedDateLabel}
           weightKg={patientFitbitStore.summary?.today?.weight_kg}
           bpSys={patientFitbitStore.summary?.today?.bp_sys}

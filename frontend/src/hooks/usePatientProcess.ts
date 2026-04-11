@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
 import authStore from '@/stores/authStore';
-import HealthPageStore from '@/stores/healthPageStore';
+import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 export type ProcessFilter = 'week' | 'month';
@@ -118,7 +118,7 @@ const formatMinutesToHM = (minutes: number | null) => {
   return `${hours}h ${remainingMinutes}min`;
 };
 
-const getDateWindow = (filter: ProcessFilter) => {
+export const getDateWindow = (filter: ProcessFilter) => {
   const days = filter === 'week' ? 7 : 30;
   const to = new Date();
   const from = new Date(to);
@@ -141,45 +141,63 @@ export function usePatientProcess() {
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
   const { from, to } = useMemo(() => getDateWindow(processFilter), [processFilter]);
-  const healthStore = useMemo(() => new HealthPageStore(), []);
 
   useEffect(() => {
     let alive = true;
 
+    const days = processFilter === 'week' ? 7 : 30;
+
     const loadData = async () => {
       if (!patientId || !isAllowed) return;
-
-      setLoading(true);
       setError('');
 
-      try {
-        await Promise.all([
-          healthStore.fetchCombinedHistoryForPatient(patientId, from, to),
-          patientFitbitStore.fetchSummary(patientId, processFilter === 'week' ? 7 : 30),
-        ]);
+      // Fire both fetches — stores synchronously seed from cache before the network call
+      const healthPromise = healthPageStore.fetchCombinedHistoryForPatient(patientId, from, to);
+      const fitbitPromise = patientFitbitStore.fetchSummary(patientId, days);
 
+      // Seed state from cache while fetches are in-flight
+      const cachedAdherence = healthPageStore.adherenceData;
+      const cachedFitbit =
+        patientFitbitStore.summary?.period?.days === days ? patientFitbitStore.summary : null;
+
+      if (cachedAdherence.length > 0) setAdherenceItems(cachedAdherence as AdherenceItem[]);
+      if (cachedFitbit) {
+        setFitbitSummary(cachedFitbit as FitbitSummaryResponse | null);
+        setThresholds((cachedFitbit.thresholds ?? null) as ThresholdsResponse | null);
+      }
+      setLoading(cachedAdherence.length === 0 || !cachedFitbit);
+
+      const hasCachedData = cachedAdherence.length > 0 || !!cachedFitbit;
+
+      try {
+        await Promise.all([healthPromise, fitbitPromise]);
         if (!alive) return;
 
-        const storeError = healthStore.error || patientFitbitStore.error;
-        if (storeError) {
-          setAdherenceItems([]);
-          setFitbitSummary(null);
-          setThresholds(null);
-          setError(storeError);
-          return;
-        }
+        const storeError = healthPageStore.error || patientFitbitStore.error;
+        if (storeError) throw storeError;
 
-        setAdherenceItems(healthStore.adherenceData);
+        setAdherenceItems(healthPageStore.adherenceData);
         setFitbitSummary(patientFitbitStore.summary as FitbitSummaryResponse | null);
         setThresholds(
           (patientFitbitStore.summary?.thresholds ?? null) as ThresholdsResponse | null
         );
+
+        // Silently prefetch the alternate filter to warm the cache
+        if (alive) {
+          const otherFilter: ProcessFilter = processFilter === 'week' ? 'month' : 'week';
+          const otherDays = otherFilter === 'week' ? 7 : 30;
+          const { from: otherFrom, to: otherTo } = getDateWindow(otherFilter);
+          void healthPageStore.fetchCombinedHistoryForPatient(patientId, otherFrom, otherTo);
+          void patientFitbitStore.fetchSummary(patientId, otherDays);
+        }
       } catch {
         if (!alive) return;
-        setAdherenceItems([]);
-        setFitbitSummary(null);
-        setThresholds(null);
-        setError(healthStore.error || patientFitbitStore.error || 'Request failed');
+        if (!hasCachedData) {
+          setAdherenceItems([]);
+          setFitbitSummary(null);
+          setThresholds(null);
+        }
+        setError(healthPageStore.error || patientFitbitStore.error || 'Request failed');
       } finally {
         if (alive) setLoading(false);
       }
@@ -190,7 +208,7 @@ export function usePatientProcess() {
     return () => {
       alive = false;
     };
-  }, [patientId, isAllowed, from, to, processFilter, healthStore]);
+  }, [patientId, isAllowed, from, to, processFilter]);
 
   const dailyMetrics = useMemo<DailyMetricsDatum[]>(() => {
     const byDay = new Map<string, Omit<DailyMetricsDatum, 'date'>>();

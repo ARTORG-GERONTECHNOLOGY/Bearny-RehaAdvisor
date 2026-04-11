@@ -1,4 +1,4 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '../api/client';
 
 export type Thresholds = {
@@ -76,6 +76,8 @@ export const mergeThresholds = (api?: Partial<Thresholds>): Thresholds => ({
 });
 
 class PatientFitbitStore {
+  private static STORAGE_KEY = 'patientFitbitStore';
+
   connected: boolean | null = null;
   statusLoading = false;
 
@@ -86,6 +88,61 @@ class PatientFitbitStore {
 
   constructor() {
     makeAutoObservable(this);
+    this.loadConnectedFromStorage();
+
+    reaction(
+      () => this.connected,
+      () => this.saveConnectedToStorage()
+    );
+  }
+
+  private saveConnectedToStorage() {
+    try {
+      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
+      const store: Record<string, unknown> = raw
+        ? (JSON.parse(raw) as Record<string, unknown>)
+        : {};
+      store['connected'] = this.connected;
+      sessionStorage.setItem(PatientFitbitStore.STORAGE_KEY, JSON.stringify(store));
+    } catch {
+      // storage quota — ignore
+    }
+  }
+
+  private loadConnectedFromStorage() {
+    try {
+      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw) as Record<string, unknown>;
+        this.connected = typeof data['connected'] === 'boolean' ? data['connected'] : null;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private static saveSummaryToStorage(cacheKey: string, data: FitbitSummary) {
+    try {
+      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
+      const store: Record<string, unknown> = raw
+        ? (JSON.parse(raw) as Record<string, unknown>)
+        : {};
+      store[cacheKey] = data;
+      sessionStorage.setItem(PatientFitbitStore.STORAGE_KEY, JSON.stringify(store));
+    } catch {
+      // storage quota — ignore
+    }
+  }
+
+  private static loadSummaryFromStorage(cacheKey: string): FitbitSummary | null {
+    try {
+      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
+      if (!raw) return null;
+      const store = JSON.parse(raw) as Record<string, unknown>;
+      return (store[cacheKey] as FitbitSummary) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   clearError() {
@@ -93,7 +150,7 @@ class PatientFitbitStore {
   }
 
   async fetchStatus(patientId: string) {
-    this.statusLoading = true;
+    if (this.connected === null) this.statusLoading = true;
     this.error = '';
     try {
       const { data } = await apiClient.get(`/fitbit/status/${patientId}/`);
@@ -111,18 +168,28 @@ class PatientFitbitStore {
     }
   }
 
-  async fetchSummary(patientId: string, days = 7) {
-    this.summaryLoading = true;
+  async fetchSummary(patientId: string, days = 7, force = false) {
+    const cacheKey = `${patientId}_${days}`;
+    const cached = PatientFitbitStore.loadSummaryFromStorage(cacheKey);
+    if (cached && !force) {
+      runInAction(() => {
+        this.summary = cached;
+      });
+    }
+    if (!cached || force) this.summaryLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/?days=${days}`);
+      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/`, { params: { days } });
       runInAction(() => {
         this.summary = data;
       });
+      PatientFitbitStore.saveSummaryToStorage(cacheKey, data as FitbitSummary);
     } catch {
       runInAction(() => {
-        this.summary = null;
-        this.error = 'error_f';
+        if (!cached) {
+          this.summary = null;
+          this.error = 'error_f';
+        }
       });
     } finally {
       runInAction(() => {
@@ -139,7 +206,7 @@ class PatientFitbitStore {
   async submitManualSteps(patientId: string, date: string, steps: number) {
     this.error = '';
     await apiClient.post(`/fitbit/manual_steps/${patientId}/`, { date, steps });
-    await this.fetchSummary(patientId, 7);
+    await this.fetchSummary(patientId, 7, true);
   }
 }
 

@@ -1,5 +1,5 @@
 // src/stores/interventionsLibraryStore.ts
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '../api/client';
 import type { InterventionTypeTh } from '../types';
 
@@ -133,8 +133,35 @@ export class InterventionsLibraryStore {
   lastMode: LibraryMode | null = null;
   lastFetch: FetchOptions | null = null;
 
-  constructor() {
+  private storageKey: string;
+
+  constructor(storageKey: string) {
+    this.storageKey = storageKey;
     makeAutoObservable(this, {}, { autoBind: true });
+    this.loadFromSessionStorage();
+
+    reaction(
+      () => this.items,
+      () => {
+        this.saveToSessionStorage();
+      }
+    );
+  }
+
+  saveToSessionStorage() {
+    sessionStorage.setItem(this.storageKey, JSON.stringify({ items: this.items }));
+  }
+
+  loadFromSessionStorage() {
+    const dataStr = sessionStorage.getItem(this.storageKey);
+    if (dataStr) {
+      try {
+        const data = JSON.parse(dataStr);
+        this.items = data.items ?? [];
+      } catch {
+        sessionStorage.removeItem(this.storageKey);
+      }
+    }
   }
 
   get count() {
@@ -171,7 +198,7 @@ export class InterventionsLibraryStore {
     const { mode, patientId, includePrivate, lang } = opts;
     if (this.loading) return;
 
-    this.loading = true;
+    if (!this.items.length) this.loading = true;
     this.error = '';
     this.lastMode = mode;
     this.lastFetch = opts;
@@ -226,5 +253,9 @@ export class InterventionsLibraryStore {
   }
 }
 
-export const patientInterventionsLibraryStore = new InterventionsLibraryStore();
-export const therapistInterventionsLibraryStore = new InterventionsLibraryStore();
+export const patientInterventionsLibraryStore = new InterventionsLibraryStore(
+  'patientInterventionsLibraryStore'
+);
+export const therapistInterventionsLibraryStore = new InterventionsLibraryStore(
+  'therapistInterventionsLibraryStore'
+);

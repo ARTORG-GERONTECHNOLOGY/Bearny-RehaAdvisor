@@ -1,4 +1,4 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '../api/client';
 import { translateText } from '../utils/translate';
 import { format } from 'date-fns';
@@ -68,6 +68,30 @@ class PatientInterventionsStore {
 
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
+    this.loadFromSessionStorage();
+
+    reaction(
+      () => this.items,
+      () => {
+        this.saveToSessionStorage();
+      }
+    );
+  }
+
+  saveToSessionStorage() {
+    sessionStorage.setItem('patientInterventionsStore', JSON.stringify({ items: this.items }));
+  }
+
+  loadFromSessionStorage() {
+    const dataStr = sessionStorage.getItem('patientInterventionsStore');
+    if (dataStr) {
+      try {
+        const data = JSON.parse(dataStr);
+        this.items = data.items ?? [];
+      } catch {
+        sessionStorage.removeItem('patientInterventionsStore');
+      }
+    }
   }
 
   clearError() {
@@ -82,7 +106,7 @@ class PatientInterventionsStore {
   }
 
   async fetchPlan(patientId: string, uiLang: string) {
-    this.loading = true;
+    if (!this.items.length) this.loading = true;
     this.clearError();
 
     try {

@@ -174,6 +174,64 @@ export class HealthPageStore {
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
+  private static STORAGE_KEY = 'healthPageStore';
+
+  private static saveToSessionStorage(
+    cacheKey: string,
+    data: {
+      fitbitData: FitbitEntry[];
+      questionnaireData: QuestionnaireEntry[];
+      adherenceData: AdherenceEntry[];
+    }
+  ) {
+    try {
+      const raw = sessionStorage.getItem(HealthPageStore.STORAGE_KEY);
+      let store: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(raw ?? '{}');
+        // migrate old single-entry format
+        if (parsed?.cacheKey) store = {};
+        else if (parsed && typeof parsed === 'object') store = parsed;
+      } catch {
+        /* ignore */
+      }
+      store[cacheKey] = data;
+      // keep at most 4 entries
+      const keys = Object.keys(store);
+      if (keys.length > 4) keys.slice(0, keys.length - 4).forEach((k) => delete store[k]);
+      sessionStorage.setItem(HealthPageStore.STORAGE_KEY, JSON.stringify(store));
+    } catch {
+      // storage quota — ignore
+    }
+  }
+
+  static loadFromSessionStorage(cacheKey: string) {
+    try {
+      const raw = sessionStorage.getItem(HealthPageStore.STORAGE_KEY);
+      if (!raw) return null;
+      const store = JSON.parse(raw);
+      // new map format
+      if (store?.[cacheKey]) {
+        return store[cacheKey] as {
+          fitbitData: FitbitEntry[];
+          questionnaireData: QuestionnaireEntry[];
+          adherenceData: AdherenceEntry[];
+        };
+      }
+      // old flat format
+      if (store?.cacheKey === cacheKey) {
+        return store as {
+          fitbitData: FitbitEntry[];
+          questionnaireData: QuestionnaireEntry[];
+          adherenceData: AdherenceEntry[];
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   // ───────────────────────────
   // Derived ranges (data window)
   // ───────────────────────────
@@ -342,7 +400,18 @@ export class HealthPageStore {
   ) {
     if (!patientId) return;
 
-    this.loading = true;
+    const cacheKey = `${patientId}_${from}_${to}`;
+    const cached = HealthPageStore.loadFromSessionStorage(cacheKey);
+    if (cached) {
+      runInAction(() => {
+        this.fitbitData = cached.fitbitData;
+        this.questionnaireData = cached.questionnaireData;
+        this.adherenceData = cached.adherenceData;
+        this._rebuildVisibleQuestionsFromData();
+      });
+    }
+
+    if (!cached) this.loading = true;
     this.error = '';
 
     try {
@@ -362,6 +431,12 @@ export class HealthPageStore {
         this.adherenceData = normalizeAdherenceList(adherenceRaw);
         this._rebuildVisibleQuestionsFromData();
       });
+
+      HealthPageStore.saveToSessionStorage(cacheKey, {
+        fitbitData: this.fitbitData,
+        questionnaireData: this.questionnaireData,
+        adherenceData: this.adherenceData,
+      });
     } catch (err: unknown) {
       runInAction(() => {
         this.fitbitData = [];
@@ -377,4 +452,5 @@ export class HealthPageStore {
   }
 }
 
+export const healthPageStore = new HealthPageStore();
 export default HealthPageStore;

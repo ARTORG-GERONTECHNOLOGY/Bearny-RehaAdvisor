@@ -5,6 +5,7 @@ jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
 describe('authStore', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     localStorage.clear();
     jest.clearAllMocks();
     authStore.reset();
@@ -30,6 +31,11 @@ describe('authStore', () => {
   });
 
   it('logs out and resets state', async () => {
+    localStorage.setItem('authToken', 'tok');
+    localStorage.setItem('i18nextLng', 'de');
+    localStorage.setItem('notifications-enabled', 'true');
+    sessionStorage.setItem('healthPageStore', '{"key":"value"}');
+
     authStore.setId('1');
     authStore.setFirstName('Name');
     const callback = jest.fn();
@@ -39,6 +45,16 @@ describe('authStore', () => {
 
     expect(authStore.firstName).toBe('');
     expect(callback).toHaveBeenCalled();
+
+    // sessionStorage must be fully cleared
+    expect(sessionStorage.length).toBe(0);
+
+    // auth keys must be gone from localStorage
+    expect(localStorage.getItem('authToken')).toBeNull();
+
+    // language and notification prefs must be preserved
+    expect(localStorage.getItem('i18nextLng')).toBe('de');
+    expect(localStorage.getItem('notifications-enabled')).toBe('true');
   });
 
   it('restores session if session is still valid', () => {
