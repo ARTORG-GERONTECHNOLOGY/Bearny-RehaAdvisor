@@ -39,10 +39,10 @@ export function useIsStandalone(): boolean {
   });
 
   useEffect(() => {
-    const mq = window.matchMedia('(display-mode: standalone)');
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
     const handler = (e: MediaQueryListEvent) => setStandalone(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
   return standalone;
