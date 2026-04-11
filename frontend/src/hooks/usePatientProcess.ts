@@ -148,7 +148,6 @@ export function usePatientProcess() {
 
     const loadData = async () => {
       if (!patientId || !isAllowed) return;
-      setLoading(true);
       setError('');
 
       // Fire both fetches
