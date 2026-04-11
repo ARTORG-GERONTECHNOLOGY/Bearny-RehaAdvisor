@@ -228,6 +228,7 @@ describe('PatientProfile - General UI', () => {
     expect(screen.getByText('Notifications')).toBeInTheDocument();
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
     expect(screen.getByText('Contact')).toBeInTheDocument();
+    expect(screen.getByText('Logout')).toBeInTheDocument();
   });
 
   it('shows logout button when authenticated', () => {

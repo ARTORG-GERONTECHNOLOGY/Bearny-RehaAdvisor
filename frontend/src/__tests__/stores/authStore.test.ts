@@ -48,10 +48,8 @@ describe('authStore', () => {
 
     // sessionStorage must be fully cleared
     expect(sessionStorage.length).toBe(0);
-
     // auth keys must be gone from localStorage
     expect(localStorage.getItem('authToken')).toBeNull();
-
     // language and notification prefs must be preserved
     expect(localStorage.getItem('i18nextLng')).toBe('de');
     expect(localStorage.getItem('notifications-enabled')).toBe('true');
