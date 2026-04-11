@@ -1,6 +1,7 @@
 // src/stores/healthPageStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { SessionCache } from '@/utils/sessionCache';
 import type {
   FitbitEntry,
   QuestionnaireEntry,
@@ -170,11 +171,11 @@ export class HealthPageStore {
   loading = false;
   error = '';
 
+  private static cache = new SessionCache('healthPageStore');
+
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
   }
-
-  private static STORAGE_KEY = 'healthPageStore';
 
   private static saveToSessionStorage(
     cacheKey: string,
@@ -184,52 +185,15 @@ export class HealthPageStore {
       adherenceData: AdherenceEntry[];
     }
   ) {
-    try {
-      const raw = sessionStorage.getItem(HealthPageStore.STORAGE_KEY);
-      let store: Record<string, unknown> = {};
-      try {
-        const parsed = JSON.parse(raw ?? '{}');
-        // migrate old single-entry format
-        if (parsed?.cacheKey) store = {};
-        else if (parsed && typeof parsed === 'object') store = parsed;
-      } catch {
-        /* ignore */
-      }
-      store[cacheKey] = data;
-      // keep at most 4 entries
-      const keys = Object.keys(store);
-      if (keys.length > 4) keys.slice(0, keys.length - 4).forEach((k) => delete store[k]);
-      sessionStorage.setItem(HealthPageStore.STORAGE_KEY, JSON.stringify(store));
-    } catch {
-      // storage quota — ignore
-    }
+    HealthPageStore.cache.set(cacheKey, data);
   }
 
   static loadFromSessionStorage(cacheKey: string) {
-    try {
-      const raw = sessionStorage.getItem(HealthPageStore.STORAGE_KEY);
-      if (!raw) return null;
-      const store = JSON.parse(raw);
-      // new map format
-      if (store?.[cacheKey]) {
-        return store[cacheKey] as {
-          fitbitData: FitbitEntry[];
-          questionnaireData: QuestionnaireEntry[];
-          adherenceData: AdherenceEntry[];
-        };
-      }
-      // old flat format
-      if (store?.cacheKey === cacheKey) {
-        return store as {
-          fitbitData: FitbitEntry[];
-          questionnaireData: QuestionnaireEntry[];
-          adherenceData: AdherenceEntry[];
-        };
-      }
-      return null;
-    } catch {
-      return null;
-    }
+    return HealthPageStore.cache.get<{
+      fitbitData: FitbitEntry[];
+      questionnaireData: QuestionnaireEntry[];
+      adherenceData: AdherenceEntry[];
+    }>(cacheKey);
   }
 
   // ───────────────────────────

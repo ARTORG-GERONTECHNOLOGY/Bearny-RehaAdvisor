@@ -1,5 +1,6 @@
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { SessionCache } from '@/utils/sessionCache';
 
 export type Thresholds = {
   steps_goal: number;
@@ -76,7 +77,7 @@ export const mergeThresholds = (api?: Partial<Thresholds>): Thresholds => ({
 });
 
 class PatientFitbitStore {
-  private static STORAGE_KEY = 'patientFitbitStore';
+  private static cache = new SessionCache('patientFitbitStore');
 
   connected: boolean | null = null;
   statusLoading = false;
@@ -97,52 +98,20 @@ class PatientFitbitStore {
   }
 
   private saveConnectedToStorage() {
-    try {
-      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
-      const store: Record<string, unknown> = raw
-        ? (JSON.parse(raw) as Record<string, unknown>)
-        : {};
-      store['connected'] = this.connected;
-      sessionStorage.setItem(PatientFitbitStore.STORAGE_KEY, JSON.stringify(store));
-    } catch {
-      // storage quota — ignore
-    }
+    PatientFitbitStore.cache.set('connected', this.connected);
   }
 
   private loadConnectedFromStorage() {
-    try {
-      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
-      if (raw) {
-        const data = JSON.parse(raw) as Record<string, unknown>;
-        this.connected = typeof data['connected'] === 'boolean' ? data['connected'] : null;
-      }
-    } catch {
-      // ignore
-    }
+    const val = PatientFitbitStore.cache.get<boolean>('connected');
+    if (typeof val === 'boolean') this.connected = val;
   }
 
   private static saveSummaryToStorage(cacheKey: string, data: FitbitSummary) {
-    try {
-      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
-      const store: Record<string, unknown> = raw
-        ? (JSON.parse(raw) as Record<string, unknown>)
-        : {};
-      store[cacheKey] = data;
-      sessionStorage.setItem(PatientFitbitStore.STORAGE_KEY, JSON.stringify(store));
-    } catch {
-      // storage quota — ignore
-    }
+    PatientFitbitStore.cache.set(cacheKey, data);
   }
 
   private static loadSummaryFromStorage(cacheKey: string): FitbitSummary | null {
-    try {
-      const raw = sessionStorage.getItem(PatientFitbitStore.STORAGE_KEY);
-      if (!raw) return null;
-      const store = JSON.parse(raw) as Record<string, unknown>;
-      return (store[cacheKey] as FitbitSummary) ?? null;
-    } catch {
-      return null;
-    }
+    return PatientFitbitStore.cache.get<FitbitSummary>(cacheKey);
   }
 
   clearError() {
