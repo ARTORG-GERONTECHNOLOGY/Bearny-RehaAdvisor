@@ -65,6 +65,24 @@ const PatientProfile: React.FC = observer(() => {
     nl: 'Nederlands',
   };
 
+  const partnerLogos = [
+    {
+      src: '/artorg_unibern_logo.gif',
+      alt: 'ARTORG Center for Biomedical Engineering Research',
+      className: 'w-[80px]',
+    },
+    {
+      src: '/insel_logo.svg',
+      alt: 'Inselspital - Universitatsspital Bern',
+      className: 'w-[160px]',
+    },
+    {
+      src: '/brz_logo.png',
+      alt: 'Berner Reha Zentrum',
+      className: 'w-[160px]',
+    },
+  ];
+
   const lang = currentLanguage.slice(0, 2);
 
   const handleLanguageChange = (l: string) => {
@@ -210,17 +228,9 @@ const PatientProfile: React.FC = observer(() => {
           </Section>
 
           <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
-            <img
-              src="/artorg_unibern_logo.gif"
-              alt="ARTORG Center for Biomedical Engineering Research"
-              className="w-[80px]"
-            />
-            <img
-              src="/insel_logo.svg"
-              alt="Inselspital - Universitätsspital Bern"
-              className="w-[160px]"
-            />
-            <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
+            {partnerLogos.map((logo) => (
+              <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
+            ))}
           </div>
 
           <Section>
@@ -229,6 +239,12 @@ const PatientProfile: React.FC = observer(() => {
               <LogoutFill />
             </Button>
           </Section>
+        </div>
+
+        <div className="hidden lg:flex lg:items-end lg:justify-start lg:gap-6 lg:mt-16">
+          {partnerLogos.map((logo) => (
+            <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
+          ))}
         </div>
 
         <div className="flex flex-col gap-1 mt-16">
