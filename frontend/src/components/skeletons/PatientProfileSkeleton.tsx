@@ -60,7 +60,7 @@ export default function PatientProfileSkeleton() {
         <Skeleton className="h-[40px] w-[160px]" />
       </div>
 
-      <div className="flex flex-col gap-3 mt-16">
+      <div className="flex flex-col gap-1 mt-16">
         <Skeleton className="h-5 w-36" />
         <Skeleton className="h-5 w-28" />
         <Skeleton className="h-5 w-52" />
