@@ -89,16 +89,6 @@ jest.mock('@/components/Layout', () => ({
   default: require('@/__mocks__/components/Layout').default,
 }));
 
-// Mock HelpCenter
-jest.mock('@/components/help/HelpCenter', () => ({
-  __esModule: true,
-  default: ({ open, onClose }: { open: boolean; onClose: () => void }) => (
-    <div data-testid="help-center" data-open={open}>
-      <button onClick={onClose}>Close Help</button>
-    </div>
-  ),
-}));
-
 // Mock FitbitConnectButton
 jest.mock('@/components/PatientPage/FitbitStatus', () => ({
   __esModule: true,
@@ -234,9 +224,10 @@ describe('PatientProfile - General UI', () => {
 
   it('renders all patient profile sections', () => {
     renderPatientProfile();
-    expect(screen.getByText('Notifications')).toBeInTheDocument();
     expect(screen.getByText('Language')).toBeInTheDocument();
-    expect(screen.getAllByText('Help')[0]).toBeInTheDocument(); // Title
+    expect(screen.getByText('Notifications')).toBeInTheDocument();
+    expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
+    expect(screen.getByText('Contact')).toBeInTheDocument();
   });
 
   it('shows logout button when authenticated', () => {
@@ -272,14 +263,6 @@ describe('PatientProfile - General UI', () => {
     await waitFor(() => {
       expect(mockAuthStore.logout).toHaveBeenCalled();
     });
-  });
-
-  it('opens help center when help button is clicked', () => {
-    renderPatientProfile();
-    fireEvent.click(screen.getByText('Help'));
-
-    const helpCenter = screen.getByTestId('help-center');
-    expect(helpCenter).toHaveAttribute('data-open', 'true');
   });
 });
 
