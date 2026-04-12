@@ -1123,5 +1123,15 @@
   "Export CSV": "CSV exportieren",
   "Edit Profile Form": "Profilformular bearbeiten",
   "Invalid phone number format.": "Ungültiges Telefonnummernformat.",
-  "Update failed": "Aktualisierung fehlgeschlagen"
+  "Update failed": "Aktualisierung fehlgeschlagen",
+  "No exercise sessions in this period.": "Keine Übungseinheiten in diesem Zeitraum.",
+  "Avg HR": "Ø Herzfreq.",
+  "Peak zone (bpm)": "Spitzenzone (bpm)",
+  "Fitbit Peak heart-rate zone range (bpm)": "Fitbit Spitzenzone Herzfrequenzbereich (bpm)",
+  "Peak minutes": "Spitzenminuten",
+  "Calories": "Kalorien",
+  "More information": "Mehr Informationen",
+  "Open language options": "Sprachoptionen öffnen",
+  "Other languages": "Andere Sprachen",
+  "No other languages": "Keine anderen Sprachen"
 }

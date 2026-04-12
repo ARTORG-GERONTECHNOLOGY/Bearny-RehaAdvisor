@@ -1131,5 +1131,18 @@
   "Import": "Importar",
   "No template items": "Sem itens no modelo",
   "Ask video feedback for all": "Pedir feedback de vídeo para todos",
-  "Upload": "Carregar"
+  "Upload": "Carregar",
+  "Edit Profile Form": "Formulário de Edição de Perfil",
+  "Invalid phone number format.": "Formato de número de telefone inválido.",
+  "Update failed": "Atualização falhada",
+  "No exercise sessions in this period.": "Nenhuma sessão de exercício neste período.",
+  "Avg HR": "FC méd.",
+  "Peak zone (bpm)": "Zona de pico (bpm)",
+  "Fitbit Peak heart-rate zone range (bpm)": "Intervalo da zona de frequência cardíaca de pico Fitbit (bpm)",
+  "Peak minutes": "Minutos na zona de pico",
+  "Calories": "Calorias",
+  "More information": "Mais informações",
+  "Open language options": "Abrir opções de idioma",
+  "Other languages": "Outros idiomas",
+  "No other languages": "Sem outros idiomas"
 }

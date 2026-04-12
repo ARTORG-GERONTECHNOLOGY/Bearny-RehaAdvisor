@@ -1118,5 +1118,15 @@
   "Upload": "Uploaden",
   "Edit Profile Form": "Profielformulier bewerken",
   "Invalid phone number format.": "Ongeldig telefoonnummerformaat.",
-  "Update failed": "Bijwerken mislukt"
+  "Update failed": "Bijwerken mislukt",
+  "No exercise sessions in this period.": "Geen trainingssessies in deze periode.",
+  "Avg HR": "Gem. HF",
+  "Peak zone (bpm)": "Piekzone (bpm)",
+  "Fitbit Peak heart-rate zone range (bpm)": "Fitbit piekzone hartslagbereik (bpm)",
+  "Peak minutes": "Minuten in piekzone",
+  "Calories": "Calorieën",
+  "More information": "Meer informatie",
+  "Open language options": "Taalopties openen",
+  "Other languages": "Andere talen",
+  "No other languages": "Geen andere talen"
 }

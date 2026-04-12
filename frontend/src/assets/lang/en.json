@@ -1118,5 +1118,15 @@
   "Upload": "Upload",
   "Edit Profile Form": "Edit Profile Form",
   "Invalid phone number format.": "Invalid phone number format.",
-  "Update failed": "Update failed"
+  "Update failed": "Update failed",
+  "No exercise sessions in this period.": "No exercise sessions in this period.",
+  "Avg HR": "Avg HR",
+  "Peak zone (bpm)": "Peak zone (bpm)",
+  "Fitbit Peak heart-rate zone range (bpm)": "Fitbit Peak heart-rate zone range (bpm)",
+  "Peak minutes": "Peak minutes",
+  "Calories": "Calories",
+  "More information": "More information",
+  "Open language options": "Open language options",
+  "Other languages": "Other languages",
+  "No other languages": "No other languages"
 }
