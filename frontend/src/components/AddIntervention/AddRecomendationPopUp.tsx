@@ -168,12 +168,30 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     // ---------- taxonomy options (store) ----------
     const taxonomy = interventionsTaxonomyStore;
 
-    const inputFromOptions = useMemo(() => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
-    const lc9Options = useMemo(() => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
-    const aimsOptions = useMemo(() => taxonomy.aims.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
-    const topicsOptions = useMemo(() => taxonomy.topics.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
-    const whereOptions = useMemo(() => taxonomy.where.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
-    const settingOptions = useMemo(() => taxonomy.setting.map((v) => ({ value: v, label: t(v) })), [taxonomy, t]);
+    const inputFromOptions = useMemo(
+      () => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const lc9Options = useMemo(
+      () => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const aimsOptions = useMemo(
+      () => taxonomy.aims.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const topicsOptions = useMemo(
+      () => taxonomy.topics.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const whereOptions = useMemo(
+      () => taxonomy.where.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const settingOptions = useMemo(
+      () => taxonomy.setting.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
 
     // dropdown options
     const originalLanguageOptions = useMemo(() => taxonomy.originalLanguages, [taxonomy]);

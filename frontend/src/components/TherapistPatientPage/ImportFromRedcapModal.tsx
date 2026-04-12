@@ -89,7 +89,9 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
               {t('Refresh list')}
             </Button>
 
-            <Badge bg="secondary">{candidates.length} {t('found')}</Badge>
+            <Badge bg="secondary">
+              {candidates.length} {t('found')}
+            </Badge>
           </div>
         </div>
 
@@ -101,7 +103,9 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
             <div className="mt-2">{t('Loading candidates…')}</div>
           </div>
         ) : candidates.length === 0 ? (
-          <div className="text-muted">{t('No importable patients found for your clinic/projects.')}</div>
+          <div className="text-muted">
+            {t('No importable patients found for your clinic/projects.')}
+          </div>
         ) : (
           <Table responsive hover className="align-middle">
             <thead>
