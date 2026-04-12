@@ -9,6 +9,7 @@ import { observer } from 'mobx-react-lite';
 import { FaPlus } from 'react-icons/fa';
 import apiClient from '../api/client';
 import config from '../config/config.json';
+import interventionsConfig from '../config/interventions.json';
 import axios from 'axios';
 import PatientTypeSection from '../components/AddIntervention/PatientTypeSection';
 import InterventionFormFileInputs from '../components/AddIntervention/InterventionFormFileInputs';
@@ -28,6 +29,8 @@ function validateExternalId(id: string): string {
   return '';
 }
 
+const AIMS: string[] = (interventionsConfig as any)?.interventionsTaxonomy?.aims ?? [];
+
 const defaultForm = {
   title: '',
   description: '',
@@ -35,6 +38,7 @@ const defaultForm = {
   duration: 30,
   externalId: '',
   language: '',
+  aim: '',
   link: '',
   primaryDiagnosis: [] as string[],
   mediaFile: null,
@@ -146,6 +150,7 @@ const AddInterventionView: React.FC = observer(() => {
           ...(formData.primaryDiagnosis.length
             ? { primary_diagnosis: formData.primaryDiagnosis }
             : {}),
+          ...(formData.aim ? { aim: formData.aim } : {}),
         })
       );
 
@@ -161,6 +166,7 @@ const AddInterventionView: React.FC = observer(() => {
           primaryDiagnosis: [],
           externalId: '',
           duration: 30,
+          aim: '',
         });
       }
     } catch (err) {
@@ -287,6 +293,20 @@ const AddInterventionView: React.FC = observer(() => {
                 ))}
               </Form.Select>
             </Form.Group>
+
+            {AIMS.length > 0 && (
+              <Form.Group controlId="aim" className="mt-3">
+                <Form.Label>{t('Aim')}</Form.Label>
+                <Form.Select id="aim" value={formData.aim} onChange={handleChange}>
+                  <option value="">{t('SelectAim')}</option>
+                  {AIMS.map((a) => (
+                    <option key={a} value={a}>
+                      {t(a)}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            )}
 
             {diagnoses.length > 0 && (
               <Form.Group className="mt-3">
