@@ -26,9 +26,7 @@ export const InterventionLangPill: React.FC<Props> = ({ item, onOpenDetail }) =>
         placement="top"
         overlay={
           <Tooltip>
-            {others.length
-              ? `${t('Other languages')}: ${hint}`
-              : t('No other languages')}
+            {others.length ? `${t('Other languages')}: ${hint}` : t('No other languages')}
           </Tooltip>
         }
       >
