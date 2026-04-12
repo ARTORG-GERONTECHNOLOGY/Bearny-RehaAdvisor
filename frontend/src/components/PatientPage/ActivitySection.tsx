@@ -101,7 +101,9 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
 
           <div className="flex items-end">
             <div className="flex-1">
-              <div className="font-bold text-[28px] text-zinc-900">{stepsToday || '--'}</div>
+              <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
+                {stepsToday || '--'}
+              </div>
               <div className="font-medium text-sm text-zinc-500">
                 {t('Goal')}: {stepsGoal || '--'}
               </div>
@@ -146,7 +148,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                 </div>
               </div>
               <div>
-                <div className="font-bold text-[28px] text-zinc-900">
+                <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
                   {formatMinutesToHM(activeMinutes)}
                 </div>
                 <div className="font-medium text-sm text-zinc-500">
@@ -163,7 +165,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                 </div>
               </div>
               <div>
-                <div className="font-bold text-[28px] text-zinc-900">
+                <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
                   {formatMinutesToHM(sleepMinutes)}
                 </div>
                 <div className="font-medium text-sm text-zinc-500">

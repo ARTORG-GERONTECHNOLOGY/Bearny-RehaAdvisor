@@ -53,7 +53,7 @@ const BloodPressureCard: React.FC<Props> = ({
 
       <div className="flex items-end">
         <div className="flex-1">
-          <div className="font-bold text-[28px] text-zinc-900">
+          <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
             {bpSys !== null ? bpSys : '--'}
             <br />/{bpDia !== null ? bpDia : '--'} mmHg
           </div>
