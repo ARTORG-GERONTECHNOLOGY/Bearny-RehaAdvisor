@@ -1,5 +1,6 @@
-import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import { makeAutoObservable, reaction, runInAction } from 'mobx';
+import apiClient from '@/api/client';
+import { SessionCache } from '@/utils/sessionCache';
 
 export type Thresholds = {
   steps_goal: number;
@@ -76,6 +77,8 @@ export const mergeThresholds = (api?: Partial<Thresholds>): Thresholds => ({
 });
 
 class PatientFitbitStore {
+  private static cache = new SessionCache('patientFitbitStore');
+
   connected: boolean | null = null;
   statusLoading = false;
 
@@ -86,6 +89,29 @@ class PatientFitbitStore {
 
   constructor() {
     makeAutoObservable(this);
+    this.loadConnectedFromStorage();
+
+    reaction(
+      () => this.connected,
+      () => this.saveConnectedToStorage()
+    );
+  }
+
+  private saveConnectedToStorage() {
+    PatientFitbitStore.cache.set('connected', this.connected);
+  }
+
+  private loadConnectedFromStorage() {
+    const val = PatientFitbitStore.cache.get<boolean>('connected');
+    if (typeof val === 'boolean') this.connected = val;
+  }
+
+  private static saveSummaryToStorage(cacheKey: string, data: FitbitSummary) {
+    PatientFitbitStore.cache.set(cacheKey, data);
+  }
+
+  private static loadSummaryFromStorage(cacheKey: string): FitbitSummary | null {
+    return PatientFitbitStore.cache.get<FitbitSummary>(cacheKey);
   }
 
   clearError() {
@@ -93,7 +119,7 @@ class PatientFitbitStore {
   }
 
   async fetchStatus(patientId: string) {
-    this.statusLoading = true;
+    if (this.connected === null) this.statusLoading = true;
     this.error = '';
     try {
       const { data } = await apiClient.get(`/fitbit/status/${patientId}/`);
@@ -111,18 +137,28 @@ class PatientFitbitStore {
     }
   }
 
-  async fetchSummary(patientId: string, days = 7) {
-    this.summaryLoading = true;
+  async fetchSummary(patientId: string, days = 7, force = false) {
+    const cacheKey = `${patientId}_${days}`;
+    const cached = PatientFitbitStore.loadSummaryFromStorage(cacheKey);
+    if (cached && !force) {
+      runInAction(() => {
+        this.summary = cached;
+      });
+    }
+    if (!cached || force) this.summaryLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/?days=${days}`);
+      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/`, { params: { days } });
       runInAction(() => {
         this.summary = data;
       });
+      PatientFitbitStore.saveSummaryToStorage(cacheKey, data as FitbitSummary);
     } catch {
       runInAction(() => {
-        this.summary = null;
-        this.error = 'error_f';
+        if (!cached) {
+          this.summary = null;
+          this.error = 'error_f';
+        }
       });
     } finally {
       runInAction(() => {
@@ -139,7 +175,7 @@ class PatientFitbitStore {
   async submitManualSteps(patientId: string, date: string, steps: number) {
     this.error = '';
     await apiClient.post(`/fitbit/manual_steps/${patientId}/`, { date, steps });
-    await this.fetchSummary(patientId, 7);
+    await this.fetchSummary(patientId, 7, true);
   }
 }
 
