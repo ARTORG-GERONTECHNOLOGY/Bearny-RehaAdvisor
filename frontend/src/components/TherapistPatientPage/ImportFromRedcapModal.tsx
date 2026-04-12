@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Form, Spinner, Table, Badge, Alert } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 
 export type Candidate = {
   project: string;
@@ -35,6 +36,7 @@ type Props = {
 const redcapKey = (c: Candidate) => `${c.project}::${(c.identifier || '').trim()}`;
 
 const ImportFromRedcapModal: React.FC<Props> = (props) => {
+  const { t } = useTranslation();
   const {
     show,
     onHide,
@@ -77,17 +79,17 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
   return (
     <Modal show={show} onHide={onHide} size="lg" backdrop="static" keyboard={!anyImporting}>
       <Modal.Header closeButton={!anyImporting}>
-        <Modal.Title>Import patients from REDCap</Modal.Title>
+        <Modal.Title>{t('Import patients from REDCap')}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
         <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <Button variant="primary" onClick={onRefresh} disabled={loading || anyImporting}>
-              Refresh list
+              {t('Refresh list')}
             </Button>
 
-            <Badge bg="secondary">{candidates.length} found</Badge>
+            <Badge bg="secondary">{candidates.length} {t('found')}</Badge>
           </div>
         </div>
 
@@ -96,20 +98,20 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
         {loading ? (
           <div className="text-center py-4">
             <Spinner animation="border" role="status" />
-            <div className="mt-2">Loading candidates…</div>
+            <div className="mt-2">{t('Loading candidates…')}</div>
           </div>
         ) : candidates.length === 0 ? (
-          <div className="text-muted">No importable patients found for your clinic/projects.</div>
+          <div className="text-muted">{t('No importable patients found for your clinic/projects.')}</div>
         ) : (
           <Table responsive hover className="align-middle">
             <thead>
               <tr>
-                <th>Patient</th>
-                <th>Record ID</th>
-                <th>Project</th>
-                <th style={{ minWidth: 240 }}>Password</th>
+                <th>{t('Patient')}</th>
+                <th>{t('Record ID')}</th>
+                <th>{t('Project')}</th>
+                <th style={{ minWidth: 240 }}>{t('Password')}</th>
                 <th style={{ width: 140 }} className="text-end">
-                  Action
+                  {t('Action')}
                 </th>
               </tr>
             </thead>
@@ -124,7 +126,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                 const patientCell = hasPat ? (
                   <span style={{ whiteSpace: 'nowrap' }}>{c.pat_id}</span>
                 ) : (
-                  <Badge bg="secondary">record only</Badge>
+                  <Badge bg="secondary">{t('record only')}</Badge>
                 );
 
                 return (
@@ -157,8 +159,8 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                       />
                       <Form.Text className="text-muted">
                         {hasPat
-                          ? 'Password for this patient.'
-                          : 'Password for this record-only patient.'}
+                          ? t('Password for this patient.')
+                          : t('Password for this record-only patient.')}
                       </Form.Text>
                     </td>
 
@@ -169,7 +171,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                         disabled={!canImportRow(c)}
                         onClick={() => onImportOne(c)}
                       >
-                        {imported ? 'Imported' : isImporting ? 'Importing…' : 'Import'}
+                        {imported ? t('Imported') : isImporting ? t('Importing...') : t('Import')}
                       </Button>
                     </td>
                   </tr>
@@ -182,7 +184,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
 
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide} disabled={anyImporting}>
-          Close
+          {t('Close')}
         </Button>
       </Modal.Footer>
     </Modal>
