@@ -147,13 +147,15 @@ def upload_intervention_media(request):
     results = []
     for f in files:
         if getattr(f, "size", 0) > max_media_bytes:
-            results.append({
-                "filename": getattr(f, "name", ""),
-                "status": "error",
-                "external_id": None,
-                "interventions_updated": [],
-                "error": "Media file is too large. Maximum allowed size is 1 GB.",
-            })
+            results.append(
+                {
+                    "filename": getattr(f, "name", ""),
+                    "status": "error",
+                    "external_id": None,
+                    "interventions_updated": [],
+                    "error": "Media file is too large. Maximum allowed size is 1 GB.",
+                }
+            )
             continue
         try:
             result = _process_single_file(f)
