@@ -88,7 +88,9 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
 
             {/* HEADLINE shows peak zone range */}
             <th>
-              <OverlayTrigger overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}>
+              <OverlayTrigger
+                overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
+              >
                 <span>{t('Peak zone (bpm)')}</span>
               </OverlayTrigger>
             </th>
