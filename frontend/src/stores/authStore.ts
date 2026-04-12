@@ -369,7 +369,10 @@ class AuthStore {
     // preserve language and notification settings
     const lang = localStorage.getItem('i18nextLng');
     const notificationsEnabled = localStorage.getItem('notifications-enabled');
+
+    sessionStorage.clear();
     localStorage.clear();
+
     if (lang) localStorage.setItem('i18nextLng', lang);
     if (notificationsEnabled) localStorage.setItem('notifications-enabled', notificationsEnabled);
   }
