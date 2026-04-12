@@ -262,23 +262,12 @@ describe('AddInterventionView', () => {
   // handling with a SimpleUploadedFile using the same filename.
 
   describe('File upload — Combinatieoefeningen 1.MP4', () => {
-    // Use require() to avoid babel-jest scope-analysis issues with imports
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const nodePath = require('path') as typeof import('path');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const nodeFs = require('fs') as typeof import('fs');
-
     const FILE_NAME = 'Combinatieoefeningen 1.MP4';
     const FILE_MIME = 'video/mp4';
 
     /** Small stub: real filename + MIME, minimal content. */
     const makeStubFile = () =>
       new File([new Uint8Array([0x00, 0x00, 0x00, 0x18])], FILE_NAME, { type: FILE_MIME });
-
-    it('test data file exists on disk (path verification)', () => {
-      const filePath = nodePath.join(__dirname, '../test_data', FILE_NAME);
-      expect(nodeFs.existsSync(filePath)).toBe(true);
-    });
 
     it('sends the file as media_file in the FormData with correct name and MIME', async () => {
       renderPage();

@@ -15,7 +15,7 @@
     ],
     "original_languages": ["DE", "FR", "IT", "PT", "ENG", "NL"],
     "primary_diagnoses": ["heart failure", "acute corornary syndrom", "chronic coronary syndrome"],
-    "aims": ["Education", "Exercise", "Instructions", "Reminder"],
+    "aims": ["Education", "Exercise", "Instructions", "Reminder", "Experience"],
     "topics": [
       "ageing / geriatrics",
       "anxiety",
