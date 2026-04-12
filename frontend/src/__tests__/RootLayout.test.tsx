@@ -8,6 +8,9 @@ jest.mock('@/LogoutListener', () => () => (
   <div data-testid="logout-listener-mock">LogoutListener Active</div>
 ));
 
+// Mock PatientDataBootstrap — it is a null-render side-effect component
+jest.mock('@/components/PatientDataBootstrap', () => () => null);
+
 describe('RootLayout', () => {
   it('renders LogoutListener and children', () => {
     render(
