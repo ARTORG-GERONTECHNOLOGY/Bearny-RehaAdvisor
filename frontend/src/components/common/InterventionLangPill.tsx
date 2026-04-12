@@ -1,6 +1,7 @@
 // common/InterventionLangPill.tsx
 import React, { useMemo } from 'react';
 import { Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   item: { _id: string; language?: string; available_languages?: string[] };
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export const InterventionLangPill: React.FC<Props> = ({ item, onOpenDetail }) => {
+  const { t } = useTranslation();
   const current = (item.language || '').toUpperCase();
   const others = useMemo(() => {
     const all = Array.isArray(item.available_languages) ? item.available_languages : [];
@@ -23,7 +25,11 @@ export const InterventionLangPill: React.FC<Props> = ({ item, onOpenDetail }) =>
       <OverlayTrigger
         placement="top"
         overlay={
-          <Tooltip>{others.length ? `Other languages: ${hint}` : 'No other languages'}</Tooltip>
+          <Tooltip>
+            {others.length
+              ? `${t('Other languages')}: ${hint}`
+              : t('No other languages')}
+          </Tooltip>
         }
       >
         <span
@@ -32,7 +38,7 @@ export const InterventionLangPill: React.FC<Props> = ({ item, onOpenDetail }) =>
           onClick={() => onOpenDetail(item._id)}
           onKeyDown={(e) => (e.key === 'Enter' ? onOpenDetail(item._id) : null)}
           style={{ cursor: 'pointer', userSelect: 'none' }}
-          aria-label="Open language options"
+          aria-label={t('Open language options')}
         >
           🌐
         </span>

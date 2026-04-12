@@ -1131,5 +1131,15 @@
   "Upload": "Carica",
   "Edit Profile Form": "Modifica modulo profilo",
   "Invalid phone number format.": "Formato numero di telefono non valido.",
-  "Update failed": "Aggiornamento fallito"
+  "Update failed": "Aggiornamento fallito",
+  "No exercise sessions in this period.": "Nessuna sessione di esercizio in questo periodo.",
+  "Avg HR": "FC media",
+  "Peak zone (bpm)": "Zona di picco (bpm)",
+  "Fitbit Peak heart-rate zone range (bpm)": "Intervallo zona frequenza cardiaca di picco Fitbit (bpm)",
+  "Peak minutes": "Minuti in zona di picco",
+  "Calories": "Calorie",
+  "More information": "Ulteriori informazioni",
+  "Open language options": "Apri opzioni lingua",
+  "Other languages": "Altre lingue",
+  "No other languages": "Nessun'altra lingua"
 }

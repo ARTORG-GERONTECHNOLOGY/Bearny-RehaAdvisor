@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface InfoBubbleProps {
   tooltip: string;
@@ -8,6 +9,7 @@ interface InfoBubbleProps {
 }
 
 const InfoBubble: React.FC<InfoBubbleProps> = ({ tooltip, id = 'info-tooltip' }) => {
+  const { t } = useTranslation();
   return (
     <OverlayTrigger
       placement="top"
@@ -18,7 +20,7 @@ const InfoBubble: React.FC<InfoBubbleProps> = ({ tooltip, id = 'info-tooltip' })
         className="info-icon cursor-pointer"
         data-testid="info-bubble-icon"
         role="button"
-        aria-label="More information"
+        aria-label={t('More information')}
         aria-describedby={id}
         tabIndex={0}
       >

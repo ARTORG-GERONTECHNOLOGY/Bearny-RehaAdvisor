@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useMemo } from 'react';
 import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '../../../types/health';
 import { isInRange } from '../../../utils/healthCharts';
 
@@ -34,6 +35,7 @@ const getPeakZone = (zones?: any[]): { range: string | null; minutes: number | n
 };
 
 const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
+  const { t } = useTranslation();
   const rows = useMemo(() => {
     const result: {
       date: string;
@@ -71,7 +73,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
   }, [data, start, end]);
 
   if (!rows.length) {
-    return <div className="text-muted small">No exercise sessions in this period.</div>;
+    return <div className="text-muted small">{t('No exercise sessions in this period.')}</div>;
   }
 
   return (
@@ -79,22 +81,22 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
       <Table striped bordered hover size="sm" className="mb-0">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Exercise</th>
-            <th>Duration</th>
-            <th>Avg HR</th>
+            <th>{t('Date')}</th>
+            <th>{t('Exercise')}</th>
+            <th>{t('Duration')}</th>
+            <th>{t('Avg HR')}</th>
 
             {/* HEADLINE shows peak zone range */}
             <th>
-              <OverlayTrigger overlay={<Tooltip>Fitbit Peak heart-rate zone range (bpm)</Tooltip>}>
-                <span>Peak zone (bpm)</span>
+              <OverlayTrigger overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}>
+                <span>{t('Peak zone (bpm)')}</span>
               </OverlayTrigger>
             </th>
 
             {/* ROW shows minutes */}
-            <th>Peak minutes</th>
+            <th>{t('Peak minutes')}</th>
 
-            <th>Calories</th>
+            <th>{t('Calories')}</th>
           </tr>
         </thead>
         <tbody>
