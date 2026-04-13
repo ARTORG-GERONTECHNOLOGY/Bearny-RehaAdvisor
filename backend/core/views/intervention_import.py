@@ -143,6 +143,10 @@ def import_interventions(request):
     if not (filename.endswith(".xlsx") or filename.endswith(".xlsm")):
         return _bad("Invalid file type. Only .xlsx or .xlsm are allowed.", status=400)
 
+    max_excel_bytes = 50 * 1024 * 1024  # 50 MB
+    if getattr(up, "size", 0) > max_excel_bytes:
+        return _bad("Excel file is too large. Maximum allowed size is 50 MB.", status=413)
+
     sheet_name = (request.POST.get("sheet_name") or "Content").strip() or "Content"
     dry_run = _parse_bool(request.POST.get("dry_run"), False)
     default_lang = (request.POST.get("default_lang") or "en").strip().lower() or "en"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Row, Col, Nav } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 
 type MainTab = 'library' | 'templates';
 
@@ -9,6 +10,7 @@ type Props = {
 };
 
 const MainTabs: React.FC<Props> = ({ mainTab, onChange }) => {
+  const { t } = useTranslation();
   return (
     <Row className="mb-3">
       <Col>
@@ -18,10 +20,10 @@ const MainTabs: React.FC<Props> = ({ mainTab, onChange }) => {
           onSelect={(k) => onChange((k as MainTab) || 'library')}
         >
           <Nav.Item>
-            <Nav.Link eventKey="library">Interventions</Nav.Link>
+            <Nav.Link eventKey="library">{t('Interventions')}</Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="templates">Your Templates</Nav.Link>
+            <Nav.Link eventKey="templates">{t('Your Templates')}</Nav.Link>
           </Nav.Item>
         </Nav>
       </Col>
