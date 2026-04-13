@@ -107,6 +107,7 @@ const extFromMime = (mime: string) => {
 };
 
 const pickRecorderMime = () => {
+  if (typeof MediaRecorder === 'undefined') return '';
   // Keep only webm/mp4 (no ogg)
   const candidates = [
     'audio/mp4', // Safari/iOS (AAC)
@@ -114,9 +115,13 @@ const pickRecorderMime = () => {
     'audio/webm',
   ];
   for (const t of candidates) {
-    if ((window as any).MediaRecorder?.isTypeSupported?.(t)) return t;
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {}
   }
-  return '';
+  // isTypeSupported is unreliable on some iOS versions — fall back to audio/mp4
+  // (Safari's native format) and let the browser reject it if truly unsupported
+  return 'audio/mp4';
 };
 
 export default function HealthSlider() {
@@ -189,12 +194,18 @@ export default function HealthSlider() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioError, setAudioError] = useState<string>('');
 
-  // ✅ responsive breakpoint
+  // ✅ responsive breakpoints
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 520 : false
   );
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 1024 : false
+  );
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 520);
+    const onResize = () => {
+      setIsMobile(window.innerWidth <= 520);
+      setIsDesktop(window.innerWidth > 1024);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -343,7 +354,13 @@ export default function HealthSlider() {
     if (!stream) throw new Error('No mic stream');
 
     const mimeType = pickRecorderMime();
-    const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    let rec: MediaRecorder;
+    try {
+      rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch {
+      // Fallback: let the browser choose the format (handles iOS edge cases)
+      rec = new MediaRecorder(stream);
+    }
 
     mimeRef.current = rec.mimeType || mimeType || '';
     chunksRef.current = [];
@@ -432,6 +449,12 @@ export default function HealthSlider() {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
+        return;
+      }
+      if (typeof MediaRecorder === 'undefined') {
+        setMicError(
+          'Audioaufnahmen werden von diesem Browser nicht unterstützt (MediaRecorder fehlt). Bitte Safari 14.3+ oder Chrome verwenden.'
+        );
         return;
       }
 
@@ -560,7 +583,7 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     const pct = Math.round(100 - (y / rect.height) * 100);
-    const clamped = Math.min(97, Math.max(3, pct));
+    const clamped = Math.min(100, Math.max(0, pct));
     setSliderPosition(clamped);
     setSliderMoved(true);
   }, []);
@@ -620,9 +643,11 @@ export default function HealthSlider() {
     };
   }, [handleSliderMove, saving, isLocked]);
 
+  const zoomStyle = { zoom: isMobile ? 0.85 : isDesktop ? 0.75 : 1 } as React.CSSProperties;
+
   if (!patientId) {
     return (
-      <main style={styles.app}>
+      <main style={{ ...styles.app, ...zoomStyle }}>
         <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
           <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
@@ -669,7 +694,7 @@ export default function HealthSlider() {
 
   if (testMode) {
     return (
-      <main style={styles.app}>
+      <main style={{ ...styles.app, ...zoomStyle }}>
         <h1 style={styles.title}>Willkommen</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
           <p style={{ fontSize: 18, color: '#444' }}>Bitte erlauben Sie den Mikrofon-Zugriff.</p>
@@ -687,9 +712,9 @@ export default function HealthSlider() {
     <main
       style={{
         ...styles.app,
+        ...zoomStyle,
         backgroundColor: showFlash ? '#858585' : '#f6f4f0',
         transition: 'background 0.2s',
-        zoom: isMobile ? 0.85 : 0.75,
       }}
     >
       <audio
@@ -729,9 +754,9 @@ export default function HealthSlider() {
             title={dingActive ? 'Ton an' : 'Ton aus'}
           >
             {dingActive ? (
-              <BellFill size={isMobile ? 24 : 28} />
+              <BellFill size={isMobile ? 30 : 36} />
             ) : (
-              <BellSlashFill size={isMobile ? 24 : 28} />
+              <BellSlashFill size={isMobile ? 30 : 36} />
             )}
           </button>
 
@@ -742,7 +767,7 @@ export default function HealthSlider() {
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
-            <PlayFill size={isMobile ? 24 : 28} />
+            <PlayFill size={isMobile ? 30 : 36} />
           </button>
         </div>
       </div>
@@ -968,8 +993,8 @@ const styles: Record<string, React.CSSProperties> = {
   audioBtn: {
     border: '1px solid #ccc',
     borderRadius: '50%',
-    width: 'clamp(56px, 13vw, 72px)',
-    height: 'clamp(56px, 13vw, 72px)',
+    width: 'clamp(72px, 16vw, 92px)',
+    height: 'clamp(72px, 16vw, 92px)',
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
