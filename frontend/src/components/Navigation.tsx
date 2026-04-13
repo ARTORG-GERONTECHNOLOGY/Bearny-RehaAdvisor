@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { NavItem } from '@/components/NavItem';
 import authStore from '@/stores/authStore';
@@ -19,6 +19,7 @@ import UserFill from '@/assets/icons/user-fill.svg?react';
 export default function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navLinks =
     authStore.userType === 'Patient'
@@ -102,9 +103,7 @@ export default function Navigation() {
           {navLinks.map((link) => (
             <NavItem
               key={link.path}
-              onClick={() => {
-                window.location.href = link.path;
-              }}
+              onClick={() => navigate(link.path)}
               iconOutline={link.iconOutline}
               iconFill={link.iconFill}
               label={link.label}
@@ -130,9 +129,7 @@ export default function Navigation() {
               .map((link) => (
                 <NavItem
                   key={link.path}
-                  onClick={() => {
-                    window.location.href = link.path;
-                  }}
+                  onClick={() => navigate(link.path)}
                   iconOutline={link.iconOutline}
                   iconFill={link.iconFill}
                   label={link.label}
@@ -142,9 +139,7 @@ export default function Navigation() {
               ))}
           </div>
           <button
-            onClick={() => {
-              window.location.href = '/patient-profile';
-            }}
+            onClick={() => navigate('/patient-profile')}
             className="bg-[#F2F2F2] border border-[#D4D4D4] p-2 aspect-square rounded-full text-[#565656] hover:text-black transition flex items-center justify-center"
             style={{ color: location.pathname === '/patient-profile' ? '#03A578' : '#565656' }}
           >
