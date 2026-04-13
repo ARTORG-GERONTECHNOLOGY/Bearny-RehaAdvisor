@@ -362,7 +362,7 @@ describe('HealthSlider (Full Sync)', () => {
     expect(ACtor).not.toHaveBeenCalled();
   });
 
-  it('preloads correct audio sources: practice uses ubung.m4a, real uses q01.m4a', async () => {
+  it('preloads correct audio sources: practice uses ubung.wav, real uses q01.wav', async () => {
     // Capture new Audio(src) calls triggered by preload effect
     const audioCalls: string[] = [];
     const OriginalAudio = global.Audio as any;
@@ -386,7 +386,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // The preload effect should have run for practice question at least once
     await waitFor(() => {
-      expect(audioCalls.some((s) => s.includes('/audio/items/ubung.m4a'))).toBe(true);
+      expect(audioCalls.some((s) => s.includes('/audio/items/ubung.wav'))).toBe(true);
     });
 
     // Go to real mode
@@ -394,7 +394,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Wait for next preload cycle
     await waitFor(() => {
-      expect(audioCalls.some((s) => s.includes('/audio/items/q01.m4a'))).toBe(true);
+      expect(audioCalls.some((s) => s.includes('/audio/items/q01.wav'))).toBe(true);
     });
 
     // restore
