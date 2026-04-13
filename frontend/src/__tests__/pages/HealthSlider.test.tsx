@@ -131,7 +131,7 @@ describe('HealthSlider', () => {
     expect(screen.getByRole('button', { name: 'Zurück' })).toBeDisabled();
   });
 
-  it('clicking track changes slider aria-valuenow (caps 3..97)', () => {
+  it('clicking track changes slider aria-valuenow (full range 0..100)', () => {
     setLocalStorage('patient_id', 'ABC');
     render(<HealthSlider />);
 
@@ -139,12 +139,12 @@ describe('HealthSlider', () => {
     const slider = screen.getByRole('slider', { name: 'Wert einstellen' });
 
     fireEvent.click(screen.getByRole('group', { name: 'Schieberegler vertikal' }), { clientY: 0 });
-    expect(slider).toHaveAttribute('aria-valuenow', '97');
+    expect(slider).toHaveAttribute('aria-valuenow', '100');
 
     fireEvent.click(screen.getByRole('group', { name: 'Schieberegler vertikal' }), {
       clientY: 200,
     });
-    expect(slider).toHaveAttribute('aria-valuenow', '3');
+    expect(slider).toHaveAttribute('aria-valuenow', '0');
   });
 
   it('dragging knob updates sliderPosition via global mousemove when isDragging=true', () => {
@@ -320,23 +320,23 @@ describe('HealthSlider', () => {
     const slider = screen.getByRole('slider', { name: 'Wert einstellen' });
     const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
 
-    // set to 97
+    // set to 100
     fireEvent.click(track, { clientY: 0 });
-    expect(slider).toHaveAttribute('aria-valuenow', '97');
+    expect(slider).toHaveAttribute('aria-valuenow', '100');
 
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(slider).toHaveAttribute('aria-valuenow', '50');
 
-    // set to 3
+    // set to 0
     fireEvent.click(track, { clientY: 200 });
-    expect(slider).toHaveAttribute('aria-valuenow', '3');
+    expect(slider).toHaveAttribute('aria-valuenow', '0');
 
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(slider).toHaveAttribute('aria-valuenow', '50');
 
-    // go back -> restore last answer (97, the first one we set)
+    // go back -> restore last answer (100, the first one we set)
     fireEvent.click(screen.getByRole('button', { name: 'Zurück' }));
-    expect(slider).toHaveAttribute('aria-valuenow', '97');
+    expect(slider).toHaveAttribute('aria-valuenow', '100');
   });
 
   // ✅ NEW: corrupted localStorage triggers banner + clears keys

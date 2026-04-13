@@ -72,8 +72,8 @@ const VERSION = 'Version 2.2 (ICF Monitor - Full Sync), 2026';
 const AUDIO_BASE = '/audio/items';
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const getItemAudioSrc = (isPractice: boolean, idx: number) => {
-  if (isPractice) return `${AUDIO_BASE}/ubung.m4a`;
-  return `${AUDIO_BASE}/q${pad2(idx + 1)}.m4a`;
+  if (isPractice) return `${AUDIO_BASE}/ubung.wav`;
+  return `${AUDIO_BASE}/q${pad2(idx + 1)}.wav`;
 };
 
 /** ===== Helpers ===== */
@@ -107,6 +107,7 @@ const extFromMime = (mime: string) => {
 };
 
 const pickRecorderMime = () => {
+  if (typeof MediaRecorder === 'undefined') return '';
   // Keep only webm/mp4 (no ogg)
   const candidates = [
     'audio/mp4', // Safari/iOS (AAC)
@@ -114,9 +115,13 @@ const pickRecorderMime = () => {
     'audio/webm',
   ];
   for (const t of candidates) {
-    if ((window as any).MediaRecorder?.isTypeSupported?.(t)) return t;
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {}
   }
-  return '';
+  // isTypeSupported is unreliable on some iOS versions — fall back to audio/mp4
+  // (Safari's native format) and let the browser reject it if truly unsupported
+  return 'audio/mp4';
 };
 
 export default function HealthSlider() {
@@ -152,9 +157,16 @@ export default function HealthSlider() {
   const [micError, setMicError] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
+  const micDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mimeRef = useRef<string>('');
+
+  // recording status + mid-survey error feedback
+  const [isRecording, setIsRecording] = useState(false);
+  const [recorderWarning, setRecorderWarning] = useState('');
+  // stable ref so onerror handler always sees current state without restarting the recorder
+  const handleRecorderErrorRef = useRef<(e: Event) => void>(() => {});
 
   const sessionIdRef = useRef<string>(localStorage.getItem('survey_sessionId') || '');
 
@@ -189,12 +201,18 @@ export default function HealthSlider() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioError, setAudioError] = useState<string>('');
 
-  // ✅ responsive breakpoint
+  // ✅ responsive breakpoints
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 520 : false
   );
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 1024 : false
+  );
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 520);
+    const onResize = () => {
+      setIsMobile(window.innerWidth <= 520);
+      setIsDesktop(window.innerWidth > 1024);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -304,30 +322,44 @@ export default function HealthSlider() {
     }
   }, [questionIndex, isPracticeMode]);
 
+  /** --- keep a stable ref to playDing so bell toggle doesn't restart the lock timer --- */
+  const playDingRef = useRef(playDing);
+  useEffect(() => {
+    playDingRef.current = playDing;
+  }, [playDing]);
+
   /** --- cue on new question (no auto speech) --- */
   useEffect(() => {
     if (testMode || showSummary) return;
 
     setShowFlash(true);
     setIsLocked(true);
-    playDing(550);
+    playDingRef.current(550);
     if (navigator.vibrate) navigator.vibrate(20);
 
     const flashTimer = setTimeout(() => setShowFlash(false), 250);
-    const lockTimer = setTimeout(() => setIsLocked(false), 5000);
+    const lockTimer = setTimeout(() => setIsLocked(false), 3000);
     return () => {
       clearTimeout(flashTimer);
       clearTimeout(lockTimer);
     };
-  }, [questionIndex, testMode, showSummary, playDing]);
+  }, [questionIndex, testMode, showSummary]); // ← playDing intentionally omitted via ref
 
   /** --- recording helpers (PER ITEM, self-contained blobs) --- */
   const startItemRecorder = useCallback(() => {
-    const stream = streamRef.current;
+    // Prefer the WebAudio-routed stream so mic and playback share one OS audio session,
+    // preventing Android from pausing the recorder when item audio plays through the speaker.
+    const stream = micDestRef.current?.stream ?? streamRef.current;
     if (!stream) throw new Error('No mic stream');
 
     const mimeType = pickRecorderMime();
-    const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    let rec: MediaRecorder;
+    try {
+      rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch {
+      // Fallback: let the browser choose the format (handles iOS edge cases)
+      rec = new MediaRecorder(stream);
+    }
 
     mimeRef.current = rec.mimeType || mimeType || '';
     chunksRef.current = [];
@@ -335,10 +367,68 @@ export default function HealthSlider() {
     rec.ondataavailable = (ev) => {
       if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
     };
+    rec.onerror = (e) => handleRecorderErrorRef.current(e);
 
     recorderRef.current = rec;
     rec.start(); // no timeslice -> complete file with header
+    setIsRecording(true);
   }, []);
+
+  /** --- keep handleRecorderErrorRef current so onerror always sees fresh state --- */
+  useEffect(() => {
+    handleRecorderErrorRef.current = (e: Event) => {
+      const errMsg = (e as any)?.error?.message || 'Unbekannter Aufnahme-Fehler';
+      const partialBlob =
+        chunksRef.current.length > 0
+          ? new Blob(chunksRef.current, { type: mimeRef.current || 'audio/webm' })
+          : null;
+      const meta = {
+        participantId: patientId,
+        sessionId: sessionIdRef.current,
+        questionIndex,
+        questionText: isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex],
+        answerValue: null,
+        answeredAt: new Date().toISOString(),
+        error: `MediaRecorder-Fehler: ${errMsg}`,
+      };
+      setIsRecording(false);
+      recorderRef.current = null;
+      setUploadFail({
+        open: true,
+        message: `Aufnahme unterbrochen (${errMsg}).\n\nSie können die bisherige Teilaufnahme herunterladen.\nDie Befragung kann ohne Aufnahme fortgesetzt werden.`,
+        audio: partialBlob,
+        meta,
+      });
+      try {
+        startItemRecorder();
+      } catch {}
+    };
+  }, [patientId, questionIndex, isPracticeMode, startItemRecorder]);
+
+  /** --- resume AudioContext + recorder after tab comes back to foreground (iOS) --- */
+  useEffect(() => {
+    const onVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        await audioCtxRef.current?.resume();
+      } catch {}
+      const rec = recorderRef.current;
+      if (
+        (!rec || rec.state === 'inactive') &&
+        !saving &&
+        !showSummary &&
+        !isPracticeMode &&
+        !testMode
+      ) {
+        setRecorderWarning('Aufnahme nach Hintergrund-Modus neu gestartet.');
+        try {
+          startItemRecorder();
+        } catch {}
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [saving, showSummary, isPracticeMode, testMode, startItemRecorder]);
 
   const stopItemRecorder = useCallback(async (): Promise<Blob | null> => {
     const rec = recorderRef.current;
@@ -364,6 +454,7 @@ export default function HealthSlider() {
 
     recorderRef.current = null;
     chunksRef.current = [];
+    setIsRecording(false);
     return blob;
   }, []);
 
@@ -372,8 +463,11 @@ export default function HealthSlider() {
       recorderRef.current?.stop();
     } catch {}
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    micDestRef.current?.stream.getTracks().forEach((t) => t.stop());
     recorderRef.current = null;
+    micDestRef.current = null;
     chunksRef.current = [];
+    setIsRecording(false);
   };
 
   /** --- backend upload --- */
@@ -418,6 +512,12 @@ export default function HealthSlider() {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
         return;
       }
+      if (typeof MediaRecorder === 'undefined') {
+        setMicError(
+          'Audioaufnahmen werden von diesem Browser nicht unterstützt (MediaRecorder fehlt). Bitte Safari 14.3+ oder Chrome verwenden.'
+        );
+        return;
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -428,6 +528,22 @@ export default function HealthSlider() {
       });
 
       streamRef.current = stream;
+
+      // Route mic through the shared AudioContext so the OS sees one unified audio
+      // session. Without this, Android can pause/stop the MediaRecorder the moment
+      // the item audio starts playing through the speaker.
+      try {
+        const ctx = getAudioCtx();
+        await ctx.resume();
+        const micSource = ctx.createMediaStreamSource(stream);
+        const micDest = ctx.createMediaStreamDestination();
+        micSource.connect(micDest);
+        micDestRef.current = micDest;
+      } catch {
+        // If WebAudio routing fails, fall back to recording the raw stream.
+        micDestRef.current = null;
+      }
+
       ensureSessionId();
       startItemRecorder();
 
@@ -496,7 +612,11 @@ export default function HealthSlider() {
         setTimeout(() => {
           try {
             startItemRecorder();
-          } catch {}
+          } catch (e: any) {
+            setRecorderWarning(
+              `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
+            );
+          }
         }, 0);
       } else {
         setShowSummary(true);
@@ -522,7 +642,11 @@ export default function HealthSlider() {
 
       try {
         startItemRecorder();
-      } catch {}
+      } catch (e: any) {
+        setRecorderWarning(
+          `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -544,13 +668,13 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     const pct = Math.round(100 - (y / rect.height) * 100);
-    const clamped = Math.min(97, Math.max(3, pct));
+    const clamped = Math.min(100, Math.max(0, pct));
     setSliderPosition(clamped);
     setSliderMoved(true);
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (saving || isLocked) return;
+    if (saving) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     isDraggingRef.current = true;
@@ -573,7 +697,7 @@ export default function HealthSlider() {
     if (!el) return;
 
     const onTouchStart = (ev: TouchEvent) => {
-      if (saving || isLocked) return;
+      if (saving) return;
       ev.preventDefault();
       isDraggingRef.current = true;
       const t = ev.touches[0];
@@ -602,11 +726,13 @@ export default function HealthSlider() {
       el.removeEventListener('touchend', onTouchEnd as any);
       el.removeEventListener('touchcancel', onTouchEnd as any);
     };
-  }, [handleSliderMove, saving, isLocked]);
+  }, [handleSliderMove, saving]);
+
+  const zoomStyle = { zoom: isMobile ? 0.85 : isDesktop ? 0.75 : 1 } as React.CSSProperties;
 
   if (!patientId) {
     return (
-      <main style={styles.app}>
+      <main style={{ ...styles.app, ...zoomStyle }}>
         <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
           <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
@@ -653,7 +779,7 @@ export default function HealthSlider() {
 
   if (testMode) {
     return (
-      <main style={styles.app}>
+      <main style={{ ...styles.app, ...zoomStyle }}>
         <h1 style={styles.title}>Willkommen</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
           <p style={{ fontSize: 18, color: '#444' }}>Bitte erlauben Sie den Mikrofon-Zugriff.</p>
@@ -671,10 +797,12 @@ export default function HealthSlider() {
     <main
       style={{
         ...styles.app,
-        backgroundColor: showFlash ? '#87CEEB' : '#f6f4f0',
+        ...zoomStyle,
+        backgroundColor: showFlash ? '#858585' : '#f6f4f0',
         transition: 'background 0.2s',
       }}
     >
+      <style>{`@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.25}}`}</style>
       <audio
         ref={audioRef}
         preload="auto"
@@ -687,47 +815,54 @@ export default function HealthSlider() {
 
       {!isPracticeMode && (
         <div style={styles.progressRow}>
-          <div style={styles.progressText}>{progressText}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={styles.progressText}>{progressText}</div>
+            {isRecording && (
+              <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
+            )}
+          </div>
           <div style={styles.progressTrack}>
             <div style={{ ...styles.progressFill, width: `${progressPercent}%` }} />
           </div>
         </div>
       )}
 
-      <div style={styles.questionHeader}>
-        <h1 style={styles.title}>
+      <div style={isPracticeMode ? styles.questionHeaderCentered : styles.questionHeader}>
+        <h1 style={isPracticeMode ? styles.titleCentered : styles.title}>
           {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
         </h1>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => setDingActive((v) => !v)}
-            style={{
-              ...styles.audioBtn,
-              background: dingActive ? '#9d8d71' : '#fff',
-              color: dingActive ? '#fff' : '#000',
-            }}
-            aria-label={dingActive ? 'Ton an' : 'Ton aus'}
-            title={dingActive ? 'Ton an' : 'Ton aus'}
-          >
-            {dingActive ? (
-              <BellFill size={isMobile ? 18 : 20} />
-            ) : (
-              <BellSlashFill size={isMobile ? 18 : 20} />
-            )}
-          </button>
+        {!isPracticeMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setDingActive((v) => !v)}
+              style={{
+                ...styles.audioBtn,
+                background: dingActive ? '#9d8d71' : '#fff',
+                color: dingActive ? '#fff' : '#000',
+              }}
+              aria-label={dingActive ? 'Ton an' : 'Ton aus'}
+              title={dingActive ? 'Ton an' : 'Ton aus'}
+            >
+              {dingActive ? (
+                <BellFill size={isMobile ? 30 : 36} />
+              ) : (
+                <BellSlashFill size={isMobile ? 30 : 36} />
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={playItemAudio}
-            style={{ ...styles.audioBtn, background: '#9bb0e6', color: '#0f1a2a' }}
-            aria-label="Frage abspielen"
-            title="Frage abspielen"
-          >
-            <PlayFill size={isMobile ? 18 : 20} />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={playItemAudio}
+              style={{ ...styles.audioBtn, background: '#9bb0e6', color: '#0f1a2a' }}
+              aria-label="Frage abspielen"
+              title="Frage abspielen"
+            >
+              <PlayFill size={isMobile ? 30 : 36} />
+            </button>
+          </div>
+        )}
       </div>
 
       {!showSummary ? (
@@ -738,11 +873,16 @@ export default function HealthSlider() {
             <div style={styles.sliderWrap}>
               <div
                 ref={spectrumRef}
+                role="group"
+                aria-label="Schieberegler vertikal"
                 style={styles.trackBox}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
+                onClick={(e) => {
+                  if (!saving) handleSliderMove(e.clientY);
+                }}
               >
                 <div style={styles.gradientBar} />
                 <div style={{ ...styles.cap, ...styles.capTop }} />
@@ -831,8 +971,29 @@ export default function HealthSlider() {
             </div>
           )}
 
+          {recorderWarning && (
+            <div role="alert" style={styles.recorderWarningBanner}>
+              <span>{recorderWarning}</span>
+              <button
+                type="button"
+                onClick={() => setRecorderWarning('')}
+                style={{
+                  marginLeft: 12,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: 16,
+                }}
+                aria-label="Meldung schließen"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           {/* ✅ Buttons stack on mobile */}
-          <div style={styles.buttonsRow}>
+          <div style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow}>
             {isPracticeMode ? (
               <button
                 type="button"
@@ -920,6 +1081,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
   },
 
+  recDot: {
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    background: '#e53e3e',
+    flexShrink: 0,
+    animation: 'rec-pulse 1.2s ease-in-out infinite',
+  },
+
+  recorderWarningBanner: {
+    width: '100%',
+    background: '#fff3cd',
+    border: '1px solid #ffc107',
+    borderRadius: 8,
+    padding: '10px 14px',
+    fontSize: 14,
+    color: '#664d03',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
   progressRow: { width: '100%', marginTop: 8 },
   progressText: { fontSize: 13, color: '#4a4a4a', marginBottom: 6 },
   progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
@@ -939,6 +1123,14 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 6,
   },
 
+  questionHeaderCentered: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+
   title: {
     margin: '10px 0 6px',
     fontSize: 'clamp(18px, 4.8vw, 32px)',
@@ -948,11 +1140,21 @@ const styles: Record<string, React.CSSProperties> = {
     hyphens: 'auto',
   },
 
+  titleCentered: {
+    margin: '10px 0 6px',
+    fontSize: 'clamp(18px, 4.8vw, 32px)',
+    lineHeight: 1.25,
+    textAlign: 'center',
+    wordBreak: 'break-word',
+    hyphens: 'auto',
+    width: '100%',
+  },
+
   audioBtn: {
     border: '1px solid #ccc',
     borderRadius: '50%',
-    width: 'clamp(44px, 10vw, 52px)',
-    height: 'clamp(44px, 10vw, 52px)',
+    width: 'clamp(72px, 16vw, 92px)',
+    height: 'clamp(72px, 16vw, 92px)',
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -1053,6 +1255,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 12,
+    marginTop: 8,
+  },
+
+  buttonsRowCentered: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
     marginTop: 8,
   },
 
