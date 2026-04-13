@@ -9,6 +9,7 @@ import interventionsConfig from '../../config/interventions.json';
 export type LibraryFiltersState = {
   searchTerm: string;
   diagnosisFilter: string[];
+  languageFilter: string[];
   contentTypeFilter: string;
 
   // ✅ aims is its own field (not part of tags)
@@ -36,8 +37,12 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
     () => uniq(tx.primary_diagnoses || []).map((d: string) => ({ value: d, label: t(d) })),
     [tx, t]
   );
+  const languageOptions = useMemo(
+    () => uniq(tx.languages || []).map((l: string) => ({ value: l, label: l.toUpperCase() })),
+    [tx]
+  );
 
-  // ✅ Build tag options from taxonomy EXCLUDING aims
+  // ✅ Build tag options from taxonomy EXCLUDING aims and languages
   const tagOptions = useMemo(() => {
     const buckets = [
       ...(tx.topics || []),
@@ -47,11 +52,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
       ...(tx.sex_specific || []),
       ...(tx.where || []),
       ...(tx.setting || []),
-
-      // optional useful metadata also as tags if you want
-      ...(tx.primary_diagnoses || []),
       ...(tx.input_from || []),
-      ...(tx.original_languages || []),
     ];
 
     return uniq(buckets)
@@ -80,7 +81,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
             </Row>
 
             <Row className="mb-3 g-3">
-              <Col xs={12} md={6}>
+              <Col xs={12} md={4}>
                 <Select
                   isMulti
                   options={diagnosisOptions}
@@ -92,7 +93,22 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
                 />
               </Col>
 
-              <Col xs={12} md={6}>
+              <Col xs={12} md={4}>
+                <Select
+                  isMulti
+                  options={languageOptions}
+                  value={(filters.languageFilter || []).map((l) => ({
+                    value: l,
+                    label: l.toUpperCase(),
+                  }))}
+                  onChange={(opts) =>
+                    onChange({ ...filters, languageFilter: (opts || []).map((o: any) => o.value) })
+                  }
+                  placeholder={t('Filter by Language')}
+                />
+              </Col>
+
+              <Col xs={12} md={4}>
                 <Form.Select
                   value={filters.contentTypeFilter}
                   onChange={(e) => onChange({ ...filters, contentTypeFilter: e.target.value })}

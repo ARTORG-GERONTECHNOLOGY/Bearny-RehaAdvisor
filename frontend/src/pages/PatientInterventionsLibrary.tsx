@@ -261,6 +261,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     // Here we add aimsFilter: assumes items have .aims array in your new model.
     const base = filterInterventions(sourceItems as any, translatedTitles, {
       diagnosisFilter: [],
+      languageFilter: [],
       contentTypeFilter: '',
       tagFilter: [],
       benefitForFilter: [],
