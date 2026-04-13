@@ -5,6 +5,7 @@ export const filterInterventions = (
   translatedTitles: Record<string, { title: string; lang: string | null }> | undefined,
   filters: {
     diagnosisFilter: string[];
+    languageFilter: string[];
     contentTypeFilter: string;
     tagFilter: string[];
     benefitForFilter: string[];
@@ -19,6 +20,15 @@ export const filterInterventions = (
         ? (rec as any).primary_diagnosis
         : [];
       return diags.some((d: string) => filters.diagnosisFilter.includes(d));
+    });
+  }
+
+  if (filters.languageFilter?.length) {
+    result = result.filter((rec) => {
+      const langs: string[] = Array.isArray((rec as any).available_languages)
+        ? (rec as any).available_languages
+        : [(rec as any).language].filter(Boolean);
+      return langs.some((l: string) => filters.languageFilter.includes(l.toLowerCase()));
     });
   }
 

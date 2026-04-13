@@ -12,6 +12,9 @@ interface Props {
   diagnosisFilter: string[];
   setDiagnosisFilter: (val: string[]) => void;
 
+  languageFilter?: string[];
+  setLanguageFilter?: (val: string[]) => void;
+
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
 
@@ -30,6 +33,8 @@ const FilterBar: React.FC<Props> = ({
   setSearchTerm,
   diagnosisFilter,
   setDiagnosisFilter,
+  languageFilter,
+  setLanguageFilter,
   contentTypeFilter,
   setContentTypeFilter,
   tagFilter,
@@ -59,7 +64,6 @@ const FilterBar: React.FC<Props> = ({
     ...(Array.isArray(tx.where) ? tx.where : []),
     ...(Array.isArray(tx.setting) ? tx.setting : []),
     ...(Array.isArray(tx.input_from) ? tx.input_from : []),
-    ...(Array.isArray(tx.original_languages) ? tx.original_languages : []),
   ];
 
   const tagOptions = uniq(tagBuckets).map((tag) => ({ value: tag, label: t(tag) }));
@@ -96,8 +100,20 @@ const FilterBar: React.FC<Props> = ({
     return () => ro.disconnect();
   }, []);
 
+  const languageOptions = useMemo(
+    () =>
+      (Array.isArray(tx.languages) ? tx.languages : []).map((l: string) => ({
+        value: l,
+        label: l.toUpperCase(),
+      })),
+    [tx]
+  );
+
   const activeFiltersCount =
-    (diagnosisFilter?.length ? 1 : 0) + (contentTypeFilter ? 1 : 0) + (tagFilter?.length ? 1 : 0);
+    (diagnosisFilter?.length ? 1 : 0) +
+    (languageFilter?.length ? 1 : 0) +
+    (contentTypeFilter ? 1 : 0) +
+    (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
     <div
@@ -117,6 +133,21 @@ const FilterBar: React.FC<Props> = ({
           menuPortalTarget={document.body}
         />
       </Form.Group>
+
+      {setLanguageFilter && (
+        <Form.Group controlId="filterLanguage">
+          <Form.Label visuallyHidden>{t('Filter by Language')}</Form.Label>
+          <Select
+            isMulti
+            placeholder={t('Filter by Language')}
+            options={languageOptions}
+            value={(languageFilter || []).map((l) => ({ value: l, label: l.toUpperCase() }))}
+            onChange={(opts) => setLanguageFilter((opts || []).map((o: any) => o.value))}
+            styles={selectStyles}
+            menuPortalTarget={document.body}
+          />
+        </Form.Group>
+      )}
 
       <Form.Group controlId="filterContentType">
         <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
