@@ -165,6 +165,7 @@ const mockInterventions = [
     title: 'Stretching for 30 minutes',
     description: 'Do 30 minutes of stretching with the help of this video.',
     content_type: 'Exercise',
+    primary_diagnosis: ['heart failure'],
     patient_types: [
       { type: 'Cardiology', frequency: 'Daily', include_option: true, diagnosis: null },
       { type: 'Psychiatry', frequency: 'Every-2nd-day', include_option: true, diagnosis: null },
