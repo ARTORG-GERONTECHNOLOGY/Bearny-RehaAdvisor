@@ -52,7 +52,6 @@ const getMetaTags = (rec: any): string[] => {
   if (aim) out.push(aim);
 
   out.push(...asArr<string>(src?.topic).map(asStr));
-  out.push(...asArr<string>(src?.lc9).map(asStr));
   out.push(...asArr<string>(src?.where).map(asStr));
   out.push(...asArr<string>(src?.setting).map(asStr));
   out.push(...asArr<string>(src?.keywords).map(asStr));

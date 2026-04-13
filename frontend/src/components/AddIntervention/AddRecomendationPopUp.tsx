@@ -71,15 +71,12 @@ const defaultFormData = {
 
   // taxonomy fields (NEW)
   inputFrom: [] as string[],
-  lc9: [] as string[],
   originalLanguage: '' as string,
-  primaryDiagnosis: '' as string,
+  primaryDiagnosis: [] as string[],
   aims: [] as string[],
   topics: [] as string[],
   cognitiveLevel: '' as string,
   physicalLevel: '' as string,
-  frequencyTime: '' as string,
-  timing: '' as string,
   durationBucket: '' as string,
   sexSpecific: '' as string,
   where: [] as string[],
@@ -91,7 +88,6 @@ const defaultFormData = {
   // private/public
   isPrivate: false,
   patientId: '',
-  patientTypes: [defaultPatientType] as PatientType[], // OPTIONAL now (public)
 };
 
 // -------------------- HELPERS --------------------
@@ -172,10 +168,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       () => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
     );
-    const lc9Options = useMemo(
-      () => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })),
-      [taxonomy, t]
-    );
     const aimsOptions = useMemo(
       () => taxonomy.aims.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
@@ -198,17 +190,10 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     const primaryDiagnosisOptions = useMemo(() => taxonomy.primaryDiagnoses, [taxonomy]);
     const cognitiveLevelOptions = useMemo(() => taxonomy.cognitiveLevels, [taxonomy]);
     const physicalLevelOptions = useMemo(() => taxonomy.physicalLevels, [taxonomy]);
-    const frequencyTimeOptions = useMemo(() => taxonomy.frequencyTime, [taxonomy]);
-    const timingOptions = useMemo(() => taxonomy.timing, [taxonomy]);
     const durationBucketOptions = useMemo(() => taxonomy.durationBuckets, [taxonomy]);
     const sexSpecificOptions = useMemo(() => taxonomy.sexSpecific, [taxonomy]);
 
     const contentTypes = useMemo(() => taxonomy.contentTypes, [taxonomy]);
-
-    // still using patient config for public targeting
-    const specializationKeys = Object.keys(config.patientInfo.function || {});
-    const getDiagnosesForSpecialization = (specialization: string) =>
-      config?.patientInfo?.function?.[specialization]?.diagnosis || [];
 
     // -------------------- FETCH PATIENTS --------------------
     const fetchTherapistPatients = useCallback(async () => {
@@ -370,53 +355,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       updateMediaRow(idx, { file });
     };
 
-    // -------------------- PATIENT TYPES --------------------
-    const handlePatientTypeChange = (
-      index: number,
-      field: keyof PatientType,
-      value: string | boolean
-    ) => {
-      const updated = [...formData.patientTypes];
-      // @ts-ignore
-      updated[index][field] = typeof value === 'string' ? value : value;
-
-      if (field === 'type') {
-        updated[index].diagnosesOptions = getDiagnosesForSpecialization(value as string);
-        updated[index].diagnosis = '';
-      }
-
-      setFormData((prev) => ({ ...prev, patientTypes: updated }));
-
-      const key = patientTypeRowKey(index, field);
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    };
-
-    const addPatientType = () => {
-      const pts = formData.patientTypes || [];
-      if (pts.length >= 5) {
-        setErrors((prev) => ({
-          ...prev,
-          patientTypes: t('You can add up to 5 patient type recommendations only.'),
-        }));
-        return;
-      }
-
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.patientTypes;
-        return next;
-      });
-
-      setFormData((prev) => ({
-        ...prev,
-        patientTypes: [...prev.patientTypes, { ...defaultPatientType }],
-      }));
-    };
-
     /* ---------------- VALIDATION ---------------- */
     const validateForm = (): { valid: boolean; errors: ErrorMap } => {
       const e: ErrorMap = {};
@@ -500,7 +438,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         contentType: cleanStr(formData.contentType),
 
         inputFrom: uniqueStrings(formData.inputFrom),
-        lc9: uniqueStrings(formData.lc9),
         aims: uniqueStrings(formData.aims),
         topics: uniqueStrings(formData.topics),
         where: uniqueStrings(formData.where),
@@ -544,15 +481,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
           'taxonomy',
           JSON.stringify({
             input_from: cleaned.inputFrom,
-            lc9: cleaned.lc9,
             original_language: cleaned.originalLanguage || null,
-            primary_diagnosis: cleaned.primaryDiagnosis || null,
+            primary_diagnosis: cleaned.primaryDiagnosis,
             aims: cleaned.aims,
             topics: cleaned.topics,
             cognitive_level: cleaned.cognitiveLevel || null,
             physical_level: cleaned.physicalLevel || null,
-            frequency_time: cleaned.frequencyTime || null,
-            timing: cleaned.timing || null,
             duration_bucket: cleaned.durationBucket || null,
             sex_specific: cleaned.sexSpecific || null,
             where: cleaned.where,
@@ -564,11 +498,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
         if (cleaned.isPrivate) {
           payload.append('patientId', String(cleaned.patientId || ''));
-        } else {
-          const cleanedPatientTypes = sanitizePatientTypes(cleaned.patientTypes).slice(0, 5);
-          if (cleanedPatientTypes.length > 0) {
-            payload.append('patientTypes', JSON.stringify(cleanedPatientTypes));
-          }
         }
 
         const mediaMeta = (cleaned.media || []).map((m, idx) => ({
@@ -767,17 +696,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
                   />
                 </Col>
-
-                <Col md={6}>
-                  <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={lc9Options}
-                    value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('lc9', opts as any)}
-                  />
-                </Col>
               </Row>
 
               <Row className="g-3 mt-1">
@@ -802,18 +720,22 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 <Col md={6}>
                   <Form.Group controlId="primaryDiagnosis">
                     <Form.Label className="fw-semibold">{t('Primary diagnosis')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.primaryDiagnosis}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {primaryDiagnosisOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
+                    <Select
+                      isMulti
+                      inputId="primaryDiagnosis"
+                      options={primaryDiagnosisOptions.map((x) => ({ value: x, label: t(x) }))}
+                      value={(formData.primaryDiagnosis || []).map((x) => ({
+                        value: x,
+                        label: t(x),
+                      }))}
+                      onChange={(opts) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          primaryDiagnosis: (opts || []).map((o: any) => o.value),
+                        }))
+                      }
+                      placeholder={t('Select')}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
@@ -899,38 +821,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               </Row>
 
               <Row className="g-3 mt-1">
-                <Col md={4}>
-                  <Form.Group controlId="frequencyTime">
-                    <Form.Label className="fw-semibold">{t('Frequency time')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.frequencyTime}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {frequencyTimeOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
-                <Col md={4}>
-                  <Form.Group controlId="timing">
-                    <Form.Label className="fw-semibold">{t('Timing')}</Form.Label>
-                    <Form.Control as="select" value={formData.timing} onChange={handleChange}>
-                      <option value="">{t('Select')}</option>
-                      {timingOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
                 <Col md={4}>
                   <Form.Group controlId="sexSpecific">
                     <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>
@@ -1153,111 +1043,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   </Form.Control>
                   <Form.Control.Feedback type="invalid">{fe('patientId')}</Form.Control.Feedback>
                 </Form.Group>
-              )}
-
-              {/* ---------- patient types (public only) ---------- */}
-              {!formData.isPrivate && (
-                <>
-                  <h5 className="mt-4 mb-3">{t('Patient Type and Frequency (optional)')}</h5>
-
-                  <div className="text-muted small mb-3">
-                    {t('You can leave this section empty. Only complete rows will be saved.')}
-                  </div>
-
-                  {fe('patientTypes') && (
-                    <Alert variant="warning" className="py-2 mb-3">
-                      {fe('patientTypes')}
-                    </Alert>
-                  )}
-
-                  {formData.patientTypes.map((pt, idx) => (
-                    <Row key={idx} className="g-3 mb-3">
-                      <Col md={4}>
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Patient Type')}</Form.Label>
-                          <Form.Control
-                            as="select"
-                            value={pt.type}
-                            onChange={(e) => handlePatientTypeChange(idx, 'type', e.target.value)}
-                            isInvalid={!!fe(patientTypeRowKey(idx, 'type'))}
-                          >
-                            <option value="">{t('Select')}</option>
-                            {specializationKeys.map((spec) => (
-                              <option key={spec} value={spec}>
-                                {t(spec)}
-                              </option>
-                            ))}
-                          </Form.Control>
-                          <Form.Control.Feedback type="invalid">
-                            {fe(patientTypeRowKey(idx, 'type'))}
-                          </Form.Control.Feedback>
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={4}>
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Diagnosis')}</Form.Label>
-                          <Form.Control
-                            as="select"
-                            value={pt.diagnosis}
-                            onChange={(e) =>
-                              handlePatientTypeChange(idx, 'diagnosis', e.target.value)
-                            }
-                            isInvalid={!!fe(patientTypeRowKey(idx, 'diagnosis'))}
-                            disabled={!pt.type}
-                          >
-                            <option value="">{t('Select')}</option>
-                            {(pt.diagnosesOptions || []).map((d) => (
-                              <option key={d} value={d}>
-                                {t(d)}
-                              </option>
-                            ))}
-                            <option value="All">{t('All')}</option>
-                          </Form.Control>
-                          <Form.Control.Feedback type="invalid">
-                            {fe(patientTypeRowKey(idx, 'diagnosis'))}
-                          </Form.Control.Feedback>
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={4}>
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Frequency')}</Form.Label>
-                          <Form.Control
-                            as="select"
-                            value={pt.frequency}
-                            onChange={(e) =>
-                              handlePatientTypeChange(idx, 'frequency', e.target.value)
-                            }
-                            isInvalid={!!fe(patientTypeRowKey(idx, 'frequency'))}
-                          >
-                            <option value="">{t('Select')}</option>
-                            {(config.RecomendationInfo.frequency || []).map((f: string) => (
-                              <option key={f} value={f}>
-                                {t(f)}
-                              </option>
-                            ))}
-                          </Form.Control>
-                          <Form.Control.Feedback type="invalid">
-                            {fe(patientTypeRowKey(idx, 'frequency'))}
-                          </Form.Control.Feedback>
-                        </Form.Group>
-                      </Col>
-                    </Row>
-                  ))}
-
-                  <div className="d-flex align-items-center justify-content-between mt-2">
-                    <Button
-                      variant="link"
-                      onClick={addPatientType}
-                      disabled={formData.patientTypes.length >= 5}
-                      className="px-0"
-                    >
-                      <FaPlus /> {t('Add another')}
-                    </Button>
-                    <div className="text-muted small">{t('Max')}: 5</div>
-                  </div>
-                </>
               )}
             </fieldset>
 
