@@ -83,8 +83,10 @@ jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (pr
       value={props.filters.searchTerm}
       onChange={(e) => props.onChange({ ...props.filters, searchTerm: e.target.value })}
     />
-    <button onClick={() => props.onChange({ ...props.filters, patientTypeFilter: 'Stroke' })}>
-      Set Patient Type
+    <button
+      onClick={() => props.onChange({ ...props.filters, diagnosisFilter: ['heart failure'] })}
+    >
+      Set Diagnosis
     </button>
     <button onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}>
       Set Content Type
@@ -122,10 +124,9 @@ jest.mock('@/components/TherapistInterventionPage/FilterBar', () => (props) => {
         value={props.searchTerm}
         onChange={(e) => props.setSearchTerm(e.target.value)}
       />
-      <button onClick={() => props.setPatientTypeFilter('Stroke')}>Set Patient Type</button>
+      <button onClick={() => props.setDiagnosisFilter(['heart failure'])}>Set Diagnosis</button>
       <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
       <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
-      <button onClick={() => props.setFrequencyFilter('Daily')}>Set Frequency</button>
     </div>
   );
 });
