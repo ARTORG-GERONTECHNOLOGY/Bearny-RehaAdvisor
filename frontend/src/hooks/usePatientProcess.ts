@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import apiClient from '@/api/client';
 import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
 import authStore from '@/stores/authStore';
+import { healthPageStore } from '@/stores/healthPageStore';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
@@ -117,7 +118,7 @@ const formatMinutesToHM = (minutes: number | null) => {
   return `${hours}h ${remainingMinutes}min`;
 };
 
-const getDateWindow = (filter: ProcessFilter) => {
+export const getDateWindow = (filter: ProcessFilter) => {
   const days = filter === 'week' ? 7 : 30;
   const to = new Date();
   const from = new Date(to);
@@ -140,45 +141,54 @@ export function usePatientProcess() {
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
   const { from, to } = useMemo(() => getDateWindow(processFilter), [processFilter]);
+  const days = processFilter === 'week' ? 7 : 30;
 
   useEffect(() => {
     let alive = true;
 
     const loadData = async () => {
       if (!patientId || !isAllowed) return;
-
-      setLoading(true);
       setError('');
 
+      // Fire both fetches
+      const healthPromise = healthPageStore.fetchCombinedHistoryForPatient(patientId, from, to);
+      const fitbitPromise = patientFitbitStore.fetchSummary(patientId, days);
+
+      // Seed state from cache while fetches are in-flight
+      const cachedAdherence = healthPageStore.adherenceData;
+      const cachedFitbit =
+        patientFitbitStore.summary?.period?.days === days ? patientFitbitStore.summary : null;
+      const hasCachedData = cachedAdherence.length > 0 || !!cachedFitbit;
+
+      if (cachedAdherence.length > 0) {
+        setAdherenceItems(cachedAdherence as AdherenceItem[]);
+      }
+      if (cachedFitbit) {
+        setFitbitSummary(cachedFitbit as FitbitSummaryResponse | null);
+        setThresholds((cachedFitbit.thresholds ?? null) as ThresholdsResponse | null);
+      }
+      setLoading(cachedAdherence.length === 0 || !cachedFitbit);
+
       try {
-        const [combinedHistoryRes, fitbitSummaryRes] = await Promise.all([
-          apiClient.get<CombinedHealthResponse>(`/patients/health-combined-history/${patientId}/`, {
-            params: { from, to },
-          }),
-          apiClient.get<FitbitSummaryResponse>(`/fitbit/summary/${patientId}/`, {
-            params: { days: processFilter === 'week' ? 7 : 30 },
-          }),
-        ]);
-
+        await Promise.all([healthPromise, fitbitPromise]);
         if (!alive) return;
-        setAdherenceItems(
-          Array.isArray(combinedHistoryRes?.data?.adherence)
-            ? combinedHistoryRes.data.adherence
-            : []
+
+        const storeError = healthPageStore.error || patientFitbitStore.error;
+        if (storeError) throw storeError;
+
+        setAdherenceItems(healthPageStore.adherenceData);
+        setFitbitSummary(patientFitbitStore.summary as FitbitSummaryResponse | null);
+        setThresholds(
+          (patientFitbitStore.summary?.thresholds ?? null) as ThresholdsResponse | null
         );
-        setFitbitSummary(fitbitSummaryRes?.data || null);
-        setThresholds(fitbitSummaryRes?.data?.thresholds || null);
-      } catch (err: unknown) {
-        const errObj = err as {
-          response?: { data?: { error?: string; message?: string; detail?: string } };
-        };
-        const msg = errObj?.response?.data;
-
+      } catch {
         if (!alive) return;
-        setAdherenceItems([]);
-        setFitbitSummary(null);
-        setThresholds(null);
-        setError(String(msg?.error || msg?.message || msg?.detail || 'Request failed'));
+        if (!hasCachedData) {
+          setAdherenceItems([]);
+          setFitbitSummary(null);
+          setThresholds(null);
+        }
+        setError(healthPageStore.error || patientFitbitStore.error || 'Request failed');
       } finally {
         if (alive) setLoading(false);
       }

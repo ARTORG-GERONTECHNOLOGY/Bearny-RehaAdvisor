@@ -66,45 +66,47 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
           <SheetDescription>{dateLabel}</SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-          <Field className="w-fit gap-1">
-            <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
-              {t('Systolic (mmHg)')}
-            </FieldLabel>
-            <Input
-              id="systolic"
-              type="number"
-              inputMode="numeric"
-              step="1"
-              min="60"
-              max="250"
-              placeholder="120"
-              onChange={(e) => setBpSysInput(e.target.value)}
-              className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-            />
-            <FieldDescription className="text-sm text-zinc-500">
-              {t('systolicHint')}
-            </FieldDescription>
-          </Field>
-          <Field className="w-fit gap-1">
-            <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
-              {t('Diastolic (mmHg)')}
-            </FieldLabel>
-            <Input
-              id="diastolic"
-              type="number"
-              inputMode="numeric"
-              step="1"
-              min="40"
-              max="150"
-              placeholder="80"
-              onChange={(e) => setBpDiaInput(e.target.value)}
-              className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-            />
-            <FieldDescription className="text-sm text-zinc-500">
-              {t('diastolicHint')}
-            </FieldDescription>
-          </Field>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex flex-col gap-4">
+            <Field className="w-fit gap-1">
+              <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
+                {t('Systolic (mmHg)')}
+              </FieldLabel>
+              <Input
+                id="systolic"
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="60"
+                max="250"
+                placeholder="120"
+                onChange={(e) => setBpSysInput(e.target.value)}
+                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+              <FieldDescription className="text-sm text-zinc-500">
+                {t('systolicHint')}
+              </FieldDescription>
+            </Field>
+            <Field className="w-fit gap-1">
+              <FieldLabel htmlFor="diastolic" className="font-medium text-lg text-zinc-600">
+                {t('Diastolic (mmHg)')}
+              </FieldLabel>
+              <Input
+                id="diastolic"
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="40"
+                max="150"
+                placeholder="80"
+                onChange={(e) => setBpDiaInput(e.target.value)}
+                className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+              <FieldDescription className="text-sm text-zinc-500">
+                {t('diastolicHint')}
+              </FieldDescription>
+            </Field>
+          </div>
         </div>
 
         {error && <Alert variant="danger">{t(error)}</Alert>}

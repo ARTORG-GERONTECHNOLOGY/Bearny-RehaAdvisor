@@ -1,6 +1,7 @@
-import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import { translateText } from '../utils/translate';
+import { makeAutoObservable, reaction, runInAction } from 'mobx';
+import apiClient from '@/api/client';
+import { SessionCache } from '@/utils/sessionCache';
+import { translateText } from '@/utils/translate';
 import { format } from 'date-fns';
 
 export type InterventionMeta = {
@@ -40,7 +41,7 @@ export type PatientRec = {
   preview_img?: string;
   media?: any[];
 
-  // ✅ NEW: full intervention object (from backend)
+  // full intervention object (from backend)
   intervention?: InterventionMeta;
 
   // translations
@@ -60,14 +61,37 @@ const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
 };
 
 class PatientInterventionsStore {
+  private static cache = new SessionCache('patientInterventionsStore');
+
   items: PatientRec[] = [];
   loading = false;
 
   error: string | null = null;
   errorDetails: string | null = null;
 
+  private currentPatientId: string | null = null;
+
   constructor() {
-    makeAutoObservable(this, {}, { autoBind: true });
+    makeAutoObservable<PatientInterventionsStore, 'currentPatientId'>(
+      this,
+      { currentPatientId: false },
+      { autoBind: true }
+    );
+
+    reaction(
+      () => this.items,
+      () => {
+        if (this.currentPatientId) this.saveToSessionStorage(this.currentPatientId);
+      }
+    );
+  }
+
+  private saveToSessionStorage(patientId: string) {
+    PatientInterventionsStore.cache.set(patientId, this.items);
+  }
+
+  private loadFromSessionStorage(patientId: string): PatientRec[] | null {
+    return PatientInterventionsStore.cache.get<PatientRec[]>(patientId);
   }
 
   clearError() {
@@ -75,14 +99,20 @@ class PatientInterventionsStore {
     this.errorDetails = null;
   }
 
-  // ✅ completion_dates are now day-keys: ["2026-02-25", ...]
   isCompletedOn(rec: PatientRec, date: Date) {
     const dateStr = format(date, 'yyyy-MM-dd');
     return asArray<string>(rec.completion_dates).some((d) => String(d).startsWith(dateStr));
   }
 
   async fetchPlan(patientId: string, uiLang: string) {
-    this.loading = true;
+    this.currentPatientId = patientId;
+    const cached = this.loadFromSessionStorage(patientId);
+    if (cached) {
+      runInAction(() => {
+        this.items = cached;
+      });
+    }
+    if (!this.items.length) this.loading = true;
     this.clearError();
 
     try {

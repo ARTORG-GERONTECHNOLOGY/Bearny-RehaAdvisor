@@ -18,7 +18,7 @@ export default function PatientPlanSkeleton() {
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start">
+      <div className="mt-6 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
         {Array.from({ length: 7 }).map((_, dayIndex) => (
           <Section key={dayIndex}>
             <div className="flex p-2 pl-4 justify-between w-full">
