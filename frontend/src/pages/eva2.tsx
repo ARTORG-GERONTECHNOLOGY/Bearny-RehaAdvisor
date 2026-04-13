@@ -560,7 +560,7 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     const pct = Math.round(100 - (y / rect.height) * 100);
-    const clamped = Math.min(100, Math.max(0, pct));
+    const clamped = Math.min(97, Math.max(3, pct));
     setSliderPosition(clamped);
     setSliderMoved(true);
   }, []);
