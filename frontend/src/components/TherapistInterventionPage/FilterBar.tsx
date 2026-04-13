@@ -97,9 +97,7 @@ const FilterBar: React.FC<Props> = ({
   }, []);
 
   const activeFiltersCount =
-    (diagnosisFilter?.length ? 1 : 0) +
-    (contentTypeFilter ? 1 : 0) +
-    (tagFilter?.length ? 1 : 0);
+    (diagnosisFilter?.length ? 1 : 0) + (contentTypeFilter ? 1 : 0) + (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
     <div

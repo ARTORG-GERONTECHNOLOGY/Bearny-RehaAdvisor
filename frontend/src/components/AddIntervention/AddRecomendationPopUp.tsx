@@ -355,7 +355,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       updateMediaRow(idx, { file });
     };
 
-
     /* ---------------- VALIDATION ---------------- */
     const validateForm = (): { valid: boolean; errors: ErrorMap } => {
       const e: ErrorMap = {};
@@ -1045,7 +1044,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Control.Feedback type="invalid">{fe('patientId')}</Form.Control.Feedback>
                 </Form.Group>
               )}
-
             </fieldset>
 
             {!success && (
