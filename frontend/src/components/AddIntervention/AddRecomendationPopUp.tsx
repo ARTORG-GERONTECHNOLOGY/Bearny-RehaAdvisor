@@ -763,7 +763,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
                   />
                 </Col>
-
               </Row>
 
               <Row className="g-3 mt-1">
