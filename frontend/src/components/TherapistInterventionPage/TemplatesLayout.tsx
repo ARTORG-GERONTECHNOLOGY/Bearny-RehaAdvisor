@@ -25,8 +25,6 @@ export type TemplatesFiltersState = {
 
   // ✅ tags = everything (including aims if your taxonomy includes them)
   tTagFilter: string[];
-
-  tFrequencyFilter: string;
 };
 
 type TemplateLeftTab = 'my' | 'all';
@@ -171,8 +169,6 @@ const TemplatesLayout: React.FC<Props> = ({
                 setContentTypeFilter={(v) => onFilters({ ...filters, tContentTypeFilter: v })}
                 tagFilter={filters.tTagFilter}
                 setTagFilter={(v) => onFilters({ ...filters, tTagFilter: v })}
-                frequencyFilter={filters.tFrequencyFilter}
-                setFrequencyFilter={(v) => onFilters({ ...filters, tFrequencyFilter: v })}
                 t={t}
                 onReset={onResetFilters}
               />

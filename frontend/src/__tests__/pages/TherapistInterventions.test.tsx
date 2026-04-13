@@ -125,7 +125,6 @@ jest.mock('@/components/TherapistInterventionPage/FilterBar', () => (props) => {
       <button onClick={() => props.setPatientTypeFilter('Stroke')}>Set Patient Type</button>
       <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
       <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
-      <button onClick={() => props.setFrequencyFilter('Daily')}>Set Frequency</button>
     </div>
   );
 });

@@ -16,7 +16,6 @@ export type InterventionMeta = {
   topic?: string[];
   where?: string[];
   setting?: string[];
-  lc9?: string[];
   duration_bucket?: string;
   keywords?: string[];
   media?: any[];

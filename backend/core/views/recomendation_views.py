@@ -501,7 +501,6 @@ def add_new_intervention(request):
         # Direct fields (legacy / fallback)
         aim_raw_direct = _as_str_or_none(request.POST.get("aim"))
         topic_raw_direct = request.POST.get("topic")
-        lc9_raw_direct = request.POST.get("lc9")
         where_raw_direct = request.POST.get("where")
         setting_raw_direct = request.POST.get("setting")
         keywords_raw_direct = request.POST.get("keywords")
@@ -512,7 +511,6 @@ def add_new_intervention(request):
         # ---- Extract from taxonomy JSON first (preferred) ----
         # note: FE uses plural keys: aims/topics; you store aim/topic
         input_from = _first_str_from_any(taxonomy.get("input_from") or taxonomy.get("inputFrom"))
-        lc9_list = _list_of_str(taxonomy.get("lc9"))
         original_language = _first_str_from_any(taxonomy.get("original_language") or taxonomy.get("originalLanguage"))
         primary_diagnosis = _list_of_str(taxonomy.get("primary_diagnosis") or taxonomy.get("primaryDiagnosis"))
 
@@ -524,8 +522,6 @@ def add_new_intervention(request):
 
         cognitive_level = _first_str_from_any(taxonomy.get("cognitive_level") or taxonomy.get("cognitiveLevel"))
         physical_level = _first_str_from_any(taxonomy.get("physical_level") or taxonomy.get("physicalLevel"))
-        frequency_time = _first_str_from_any(taxonomy.get("frequency_time") or taxonomy.get("frequencyTime"))
-        timing = _first_str_from_any(taxonomy.get("timing"))
         duration_bucket = _first_str_from_any(taxonomy.get("duration_bucket") or taxonomy.get("durationBucket"))
         sex_specific = _first_str_from_any(taxonomy.get("sex_specific") or taxonomy.get("sexSpecific"))
 
@@ -539,9 +535,6 @@ def add_new_intervention(request):
 
         if not topic_list:
             topic_list = _parse_str_list(topic_raw_direct)
-
-        if not lc9_list:
-            lc9_list = _parse_str_list(lc9_raw_direct)
 
         if not where_list:
             where_list = _parse_str_list(where_raw_direct)
@@ -557,15 +550,12 @@ def add_new_intervention(request):
             not any(
                 [
                     input_from,
-                    lc9_list,
                     original_language,
                     primary_diagnosis,
                     aim_from_tax,
                     topic_list,
                     cognitive_level,
                     physical_level,
-                    frequency_time,
-                    timing,
                     duration_bucket,
                     sex_specific,
                     where_list,
@@ -578,7 +568,6 @@ def add_new_intervention(request):
             mapped = _split_taglist_into_fields(tag_list)
             aim_from_tax = mapped.get("aim") or None
             topic_list = mapped.get("topic") or []
-            lc9_list = mapped.get("lc9") or []
             where_list = mapped.get("where") or []
             setting_list = mapped.get("setting") or []
             keywords_list = mapped.get("keywords") or []
@@ -837,14 +826,12 @@ def add_new_intervention(request):
             content_type=content_type,
             duration=dur_int,
             input_from=input_from,  # ✅ FIX
-            lc9=lc9_list or [],  # ✅ FIX
             original_language=original_language,  # ✅ FIX
             primary_diagnosis=primary_diagnosis,  # ✅ FIX
             aim=aim_from_tax,  # ✅ FIX
             topic=topic_list or [],  # ✅ FIX
             cognitive_level=cognitive_level,  # ✅ FIX
             physical_level=physical_level,  # ✅ FIX
-            frequency_time=frequency_time,  # ✅ FIX
             timing=timing,  # ✅ FIX
             duration_bucket=duration_bucket,  # ✅ FIX
             sex_specific=sex_specific,  # ✅ FIX
@@ -998,11 +985,10 @@ def list_all_interventions(request, patient_id=None):
             aims = [aim_val.strip()] if isinstance(aim_val, str) and aim_val.strip() else []
 
             topic = _safe_list(getattr(item, "topic", None))
-            lc9 = _safe_list(getattr(item, "lc9", None))
             where = _safe_list(getattr(item, "where", None))
             setting = _safe_list(getattr(item, "setting", None))
             keywords = _safe_list(getattr(item, "keywords", None))
-            tags = _dedup_keep_order(topic + lc9 + where + setting + keywords)
+            tags = _dedup_keep_order(topic + where + setting + keywords)
 
             return {
                 "_id": str(item.pk),
@@ -1016,7 +1002,6 @@ def list_all_interventions(request, patient_id=None):
                 "aims": aims,
                 "tags": tags,
                 "topic": topic,
-                "lc9": lc9,
                 "where": where,
                 "setting": setting,
                 "keywords": keywords,

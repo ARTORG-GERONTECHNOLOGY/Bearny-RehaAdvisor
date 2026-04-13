@@ -18,10 +18,6 @@ class InterventionsTaxonomyStore {
     return this.taxonomy?.input_from || [];
   }
 
-  get lc9(): string[] {
-    return this.taxonomy?.lc9 || [];
-  }
-
   get originalLanguages(): string[] {
     return this.taxonomy?.original_languages || [];
   }
@@ -44,14 +40,6 @@ class InterventionsTaxonomyStore {
 
   get physicalLevels(): string[] {
     return this.taxonomy?.physical_levels || [];
-  }
-
-  get frequencyTime(): string[] {
-    return this.taxonomy?.frequency_time || [];
-  }
-
-  get timing(): string[] {
-    return this.taxonomy?.timing || [];
   }
 
   // IMPORTANT: your taxonomy uses lowercase: ["text","video","audio"...]
