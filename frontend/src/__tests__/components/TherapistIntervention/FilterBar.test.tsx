@@ -34,11 +34,9 @@ jest.mock('react-select', () => (props: any) => {
 
 describe('FilterBar component', () => {
   const mockSetSearchTerm = jest.fn();
-  const mockSetPatientTypeFilter = jest.fn();
   const mockSetDiagnosisFilter = jest.fn();
   const mockSetContentTypeFilter = jest.fn();
   const mockSetTagFilter = jest.fn();
-  const mockSetFrequencyFilter = jest.fn();
 
   const mockT = (key: string) => key;
 
@@ -51,16 +49,12 @@ describe('FilterBar component', () => {
       <FilterBar
         searchTerm=""
         setSearchTerm={mockSetSearchTerm}
-        patientTypeFilter=""
-        setPatientTypeFilter={mockSetPatientTypeFilter}
         diagnosisFilter={[]}
         setDiagnosisFilter={mockSetDiagnosisFilter}
         contentTypeFilter=""
         setContentTypeFilter={mockSetContentTypeFilter}
         tagFilter={[]}
         setTagFilter={mockSetTagFilter}
-        frequencyFilter=""
-        setFrequencyFilter={mockSetFrequencyFilter}
         t={mockT}
       />
     );
@@ -69,12 +63,9 @@ describe('FilterBar component', () => {
     renderComponent();
 
     expect(screen.getByPlaceholderText('Search Interventions')).toBeInTheDocument();
-    // Select elements can be queried by their id
-    expect(screen.getByRole('combobox', { name: 'Filter by Patient Type' })).toBeInTheDocument();
     expect(screen.getByTestId('diagnosis-select')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Filter by Content Type' })).toBeInTheDocument();
     expect(screen.getByTestId('tag-select')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Filter by Frequency' })).toBeInTheDocument();
   });
 
   test('calls setSearchTerm when input is changed', () => {
@@ -84,24 +75,6 @@ describe('FilterBar component', () => {
     fireEvent.change(input, { target: { value: 'stretch' } });
 
     expect(mockSetSearchTerm).toHaveBeenCalledWith('stretch');
-  });
-
-  test('calls setPatientTypeFilter when patient type is selected', () => {
-    renderComponent();
-
-    const select = screen.getByRole('combobox', { name: 'Filter by Patient Type' });
-    fireEvent.change(select, { target: { value: 'heart failure' } });
-
-    expect(mockSetPatientTypeFilter).toHaveBeenCalledWith('heart failure');
-  });
-
-  test('calls setFrequencyFilter when frequency is selected', () => {
-    renderComponent();
-
-    const select = screen.getByRole('combobox', { name: 'Filter by Frequency' });
-    fireEvent.change(select, { target: { value: 'week' } });
-
-    expect(mockSetFrequencyFilter).toHaveBeenCalledWith('week');
   });
 
   test('calls setTagFilter when tag is selected via react-select', () => {

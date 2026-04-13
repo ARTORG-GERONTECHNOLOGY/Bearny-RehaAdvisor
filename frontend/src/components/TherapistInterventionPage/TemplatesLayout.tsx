@@ -20,13 +20,11 @@ import type { InterventionTypeTh } from '../../types';
 
 export type TemplatesFiltersState = {
   tSearchTerm: string;
-  tPatientTypeFilter: string;
+  tDiagnosisFilter: string[];
   tContentTypeFilter: string;
 
   // ✅ tags = everything (including aims if your taxonomy includes them)
   tTagFilter: string[];
-
-  tFrequencyFilter: string;
 };
 
 type TemplateLeftTab = 'my' | 'all';
@@ -165,14 +163,12 @@ const TemplatesLayout: React.FC<Props> = ({
               <FilterBar
                 searchTerm={filters.tSearchTerm}
                 setSearchTerm={(v) => onFilters({ ...filters, tSearchTerm: v })}
-                patientTypeFilter={filters.tPatientTypeFilter}
-                setPatientTypeFilter={(v) => onFilters({ ...filters, tPatientTypeFilter: v })}
+                diagnosisFilter={filters.tDiagnosisFilter}
+                setDiagnosisFilter={(v) => onFilters({ ...filters, tDiagnosisFilter: v })}
                 contentTypeFilter={filters.tContentTypeFilter}
                 setContentTypeFilter={(v) => onFilters({ ...filters, tContentTypeFilter: v })}
                 tagFilter={filters.tTagFilter}
                 setTagFilter={(v) => onFilters({ ...filters, tTagFilter: v })}
-                frequencyFilter={filters.tFrequencyFilter}
-                setFrequencyFilter={(v) => onFilters({ ...filters, tFrequencyFilter: v })}
                 t={t}
                 onReset={onResetFilters}
               />

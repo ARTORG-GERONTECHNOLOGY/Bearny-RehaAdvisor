@@ -137,7 +137,6 @@ const getTagsForItem = (item: any): string[] => {
     Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : [];
   const merged = [
     ...safe(item?.topic),
-    ...safe(item?.lc9),
     ...safe(item?.where),
     ...safe(item?.setting),
     ...safe(item?.keywords),

@@ -544,7 +544,7 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   applyAllFilters() {
     const filtered = filterInterventions(this.recommendations, this.titleMap, {
-      patientTypeFilter: this.patientTypeFilter,
+      diagnosisFilter: this.patientTypeFilter ? [this.patientTypeFilter] : [],
       contentTypeFilter: this.contentTypeFilter,
       tagFilter: this.tagFilter,
       benefitForFilter: this.benefitForFilter,

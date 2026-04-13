@@ -373,13 +373,10 @@ export const getTaxonomyTags = (): string[] => {
 
   const buckets: unknown[] = [
     ...asArray(get(txx, 'topics')),
-    ...asArray(get(txx, 'lc9')),
     ...asArray(get(txx, 'where')),
     ...asArray(get(txx, 'setting')),
     ...asArray(get(txx, 'cognitive_levels')),
     ...asArray(get(txx, 'physical_levels')),
-    ...asArray(get(txx, 'frequency_time')),
-    ...asArray(get(txx, 'timing')),
     ...asArray(get(txx, 'duration_buckets')),
     ...asArray(get(txx, 'sex_specific')),
     ...asArray(get(txx, 'primary_diagnoses')),

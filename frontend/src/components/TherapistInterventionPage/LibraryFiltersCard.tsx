@@ -8,7 +8,7 @@ import interventionsConfig from '../../config/interventions.json';
 
 export type LibraryFiltersState = {
   searchTerm: string;
-  patientTypeFilter: string;
+  diagnosisFilter: string[];
   contentTypeFilter: string;
 
   // ✅ aims is its own field (not part of tags)
@@ -16,13 +16,10 @@ export type LibraryFiltersState = {
 
   // ✅ tags = everything except aims
   tagFilter: string[];
-
-  frequencyFilter: string; // kept for compatibility
 };
 
 type Props = {
   t: any;
-  patientTypes: string[];
   filters: LibraryFiltersState;
   onChange: (next: LibraryFiltersState) => void;
   onReset: () => void;
@@ -30,21 +27,22 @@ type Props = {
 
 const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
 
-const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChange, onReset }) => {
+const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
   const aims = useMemo(() => uniq(tx.aims), [tx]);
   const contentTypes = useMemo(() => uniq(tx.content_types), [tx]);
-  const frequencyTimes = useMemo(() => uniq(tx.frequency_time), [tx]);
+  const diagnosisOptions = useMemo(
+    () => uniq(tx.primary_diagnoses || []).map((d: string) => ({ value: d, label: t(d) })),
+    [tx, t]
+  );
 
   // ✅ Build tag options from taxonomy EXCLUDING aims
   const tagOptions = useMemo(() => {
     const buckets = [
       ...(tx.topics || []),
-      ...(tx.lc9 || []),
       ...(tx.cognitive_levels || []),
       ...(tx.physical_levels || []),
-      ...(tx.timing || []),
       ...(tx.duration_buckets || []),
       ...(tx.sex_specific || []),
       ...(tx.where || []),
@@ -83,17 +81,15 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
 
             <Row className="mb-3 g-3">
               <Col xs={12} md={6}>
-                <Form.Select
-                  value={filters.patientTypeFilter}
-                  onChange={(e) => onChange({ ...filters, patientTypeFilter: e.target.value })}
-                >
-                  <option value="">{t('All Patient Types')}</option>
-                  {patientTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {t(type)}
-                    </option>
-                  ))}
-                </Form.Select>
+                <Select
+                  isMulti
+                  options={diagnosisOptions}
+                  value={(filters.diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+                  onChange={(opts) =>
+                    onChange({ ...filters, diagnosisFilter: (opts || []).map((o: any) => o.value) })
+                  }
+                  placeholder={t('Filter by Primary Diagnosis')}
+                />
               </Col>
 
               <Col xs={12} md={6}>
@@ -136,22 +132,6 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
                   }
                   placeholder={t('Filter by Tags')}
                 />
-              </Col>
-            </Row>
-
-            <Row className="mb-3 g-3">
-              <Col xs={12} md={6}>
-                <Form.Select
-                  value={filters.frequencyFilter}
-                  onChange={(e) => onChange({ ...filters, frequencyFilter: e.target.value })}
-                >
-                  <option value="">{t('All Frequencies')}</option>
-                  {frequencyTimes.map((f: string) => (
-                    <option key={f} value={f}>
-                      {t(f)}
-                    </option>
-                  ))}
-                </Form.Select>
               </Col>
             </Row>
 

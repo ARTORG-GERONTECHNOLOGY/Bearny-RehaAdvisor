@@ -9,20 +9,14 @@ interface Props {
   searchTerm: string;
   setSearchTerm: (val: string) => void;
 
-  patientTypeFilter: string;
-  setPatientTypeFilter: (val: string) => void;
-
-  diagnosisFilter?: string[];
-  setDiagnosisFilter?: (val: string[]) => void;
+  diagnosisFilter: string[];
+  setDiagnosisFilter: (val: string[]) => void;
 
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
 
   tagFilter: string[];
   setTagFilter: (val: string[]) => void;
-
-  frequencyFilter: string;
-  setFrequencyFilter: (val: string) => void;
 
   t: (key: string) => string;
 
@@ -34,16 +28,12 @@ interface Props {
 const FilterBar: React.FC<Props> = ({
   searchTerm,
   setSearchTerm,
-  patientTypeFilter,
-  setPatientTypeFilter,
   diagnosisFilter,
   setDiagnosisFilter,
   contentTypeFilter,
   setContentTypeFilter,
   tagFilter,
   setTagFilter,
-  frequencyFilter,
-  setFrequencyFilter,
   t,
   onReset,
   resultCount,
@@ -51,27 +41,19 @@ const FilterBar: React.FC<Props> = ({
 }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
-  const patientTypes = useMemo(
-    () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
-    [tx]
-  );
   const diagnosisOptions = useMemo(
     () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
     [tx]
   );
 
   const contentTypes: string[] = Array.isArray(tx.content_types) ? tx.content_types : [];
-  const frequencyOptions: string[] = Array.isArray(tx.frequency_time) ? tx.frequency_time : [];
 
   const uniq = (arr: string[]) => Array.from(new Set(arr.map((x) => String(x)).filter(Boolean)));
 
   const tagBuckets = [
     ...(Array.isArray(tx.topics) ? tx.topics : []),
-    ...(Array.isArray(tx.lc9) ? tx.lc9 : []),
     ...(Array.isArray(tx.cognitive_levels) ? tx.cognitive_levels : []),
     ...(Array.isArray(tx.physical_levels) ? tx.physical_levels : []),
-    ...(Array.isArray(tx.frequency_time) ? tx.frequency_time : []),
-    ...(Array.isArray(tx.timing) ? tx.timing : []),
     ...(Array.isArray(tx.duration_buckets) ? tx.duration_buckets : []),
     ...(Array.isArray(tx.sex_specific) ? tx.sex_specific : []),
     ...(Array.isArray(tx.where) ? tx.where : []),
@@ -115,11 +97,7 @@ const FilterBar: React.FC<Props> = ({
   }, []);
 
   const activeFiltersCount =
-    (patientTypeFilter ? 1 : 0) +
-    (diagnosisFilter?.length ? 1 : 0) +
-    (contentTypeFilter ? 1 : 0) +
-    (tagFilter?.length ? 1 : 0) +
-    (frequencyFilter ? 1 : 0);
+    (diagnosisFilter?.length ? 1 : 0) + (contentTypeFilter ? 1 : 0) + (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
     <div
@@ -127,38 +105,18 @@ const FilterBar: React.FC<Props> = ({
       // ✅ prevent bubbling to any parent click handlers (common in cards/lists)
       onClick={(e) => e.stopPropagation()}
     >
-      <Form.Group controlId="filterPatientType">
-        <Form.Label visuallyHidden>{t('Filter by Patient Type')}</Form.Label>
-        <Form.Select
-          value={patientTypeFilter}
-          onChange={(e) => {
-            setPatientTypeFilter(e.target.value);
-            setDiagnosisFilter([]);
-          }}
-        >
-          <option value="">{t('All Patient Types')}</option>
-          {patientTypes.map((type: string) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
+      <Form.Group controlId="filterDiagnosis">
+        <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
+        <Select
+          isMulti
+          placeholder={t('Filter by Primary Diagnosis')}
+          options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
+          value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+          onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+          styles={selectStyles}
+          menuPortalTarget={document.body}
+        />
       </Form.Group>
-
-      {setDiagnosisFilter && (
-        <Form.Group controlId="filterDiagnosis">
-          <Form.Label visuallyHidden>{t('Filter by Diagnosis')}</Form.Label>
-          <Select
-            isMulti
-            placeholder={t('Filter by Diagnosis')}
-            options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
-            value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-            onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
-            styles={selectStyles}
-            menuPortalTarget={document.body}
-          />
-        </Form.Group>
-      )}
 
       <Form.Group controlId="filterContentType">
         <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
@@ -186,18 +144,6 @@ const FilterBar: React.FC<Props> = ({
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
-      </Form.Group>
-
-      <Form.Group controlId="filterFrequency">
-        <Form.Label visuallyHidden>{t('Filter by Frequency')}</Form.Label>
-        <Form.Select value={frequencyFilter} onChange={(e) => setFrequencyFilter(e.target.value)}>
-          <option value="">{t('All Frequencies')}</option>
-          {frequencyOptions.map((freq: string) => (
-            <option key={freq} value={freq}>
-              {t(freq)}
-            </option>
-          ))}
-        </Form.Select>
       </Form.Group>
 
       {onReset ? (
