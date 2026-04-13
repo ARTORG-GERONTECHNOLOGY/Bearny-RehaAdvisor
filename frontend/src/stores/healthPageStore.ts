@@ -1,6 +1,7 @@
 // src/stores/healthPageStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { SessionCache } from '@/utils/sessionCache';
 import type {
   FitbitEntry,
   QuestionnaireEntry,
@@ -170,8 +171,29 @@ export class HealthPageStore {
   loading = false;
   error = '';
 
+  private static cache = new SessionCache('healthPageStore');
+
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  private static saveToSessionStorage(
+    cacheKey: string,
+    data: {
+      fitbitData: FitbitEntry[];
+      questionnaireData: QuestionnaireEntry[];
+      adherenceData: AdherenceEntry[];
+    }
+  ) {
+    HealthPageStore.cache.set(cacheKey, data);
+  }
+
+  static loadFromSessionStorage(cacheKey: string) {
+    return HealthPageStore.cache.get<{
+      fitbitData: FitbitEntry[];
+      questionnaireData: QuestionnaireEntry[];
+      adherenceData: AdherenceEntry[];
+    }>(cacheKey);
   }
 
   // ───────────────────────────
@@ -320,41 +342,70 @@ export class HealthPageStore {
       return;
     }
 
-    this.loading = true;
+    // fetch thresholds in parallel (don't block if it fails)
+    void this.fetchThresholds(userId, t);
+
+    await this.fetchCombinedHistoryForPatient(
+      userId,
+      from.toISOString().slice(0, 10),
+      to.toISOString().slice(0, 10),
+      t
+    );
+  }
+
+  // ───────────────────────────
+  // Fetch combined history by explicit patient ID (patient self-view)
+  // ───────────────────────────
+  async fetchCombinedHistoryForPatient(
+    patientId: string,
+    from: string,
+    to: string,
+    t: (k: string) => string = (k) => k
+  ) {
+    if (!patientId) return;
+
+    const cacheKey = `${patientId}_${from}_${to}`;
+    const cached = HealthPageStore.loadFromSessionStorage(cacheKey);
+    if (cached) {
+      runInAction(() => {
+        this.fitbitData = cached.fitbitData;
+        this.questionnaireData = cached.questionnaireData;
+        this.adherenceData = cached.adherenceData;
+        this._rebuildVisibleQuestionsFromData();
+      });
+    }
+
+    if (!cached) this.loading = true;
     this.error = '';
 
     try {
-      // fetch thresholds in parallel (don’t block if it fails)
-      void this.fetchThresholds(userId, t);
-
-      const params = {
-        from: from.toISOString().slice(0, 10),
-        to: to.toISOString().slice(0, 10),
-      };
-
       const res = await apiClient.get<CombinedHealthResponseRaw>(
-        `/patients/health-combined-history/${userId}/`,
-        { params }
+        `/patients/health-combined-history/${patientId}/`,
+        { params: { from, to } }
       );
 
       const raw = res.data;
-
       const fitbitRaw = isRecord(raw) ? raw.fitbit : undefined;
       const questionnaireRaw = isRecord(raw) ? raw.questionnaire : undefined;
       const adherenceRaw = isRecord(raw) ? raw.adherence : undefined;
 
-      const normalizedFitbit = normalizeFitbitList(fitbitRaw);
-      const normalizedQuestionnaire = normalizeQuestionnaireList(questionnaireRaw);
-      const normalizedAdherence = normalizeAdherenceList(adherenceRaw);
-
       runInAction(() => {
-        this.fitbitData = normalizedFitbit;
-        this.questionnaireData = normalizedQuestionnaire;
-        this.adherenceData = normalizedAdherence;
+        this.fitbitData = normalizeFitbitList(fitbitRaw);
+        this.questionnaireData = normalizeQuestionnaireList(questionnaireRaw);
+        this.adherenceData = normalizeAdherenceList(adherenceRaw);
         this._rebuildVisibleQuestionsFromData();
+      });
+
+      HealthPageStore.saveToSessionStorage(cacheKey, {
+        fitbitData: this.fitbitData,
+        questionnaireData: this.questionnaireData,
+        adherenceData: this.adherenceData,
       });
     } catch (err: unknown) {
       runInAction(() => {
+        this.fitbitData = [];
+        this.questionnaireData = [];
+        this.adherenceData = [];
         this.error = extractApiErrorMessage(err, t('Failed to load health data.'));
       });
     } finally {
@@ -365,4 +416,5 @@ export class HealthPageStore {
   }
 }
 
+export const healthPageStore = new HealthPageStore();
 export default HealthPageStore;

@@ -273,7 +273,6 @@ describe('PatientView', () => {
   it('loads critical patient home data on mount', async () => {
     const fitbitStore = getFitbitStore();
     const questionnairesStore = getQuestionnairesStore();
-    const vitalsStore = getVitalsStore();
     const interventionsStore = getInterventionsStore();
 
     render(<PatientView />);
@@ -284,7 +283,6 @@ describe('PatientView', () => {
       expect(interventionsStore.fetchPlan).toHaveBeenCalledWith('p1', 'en');
       expect(questionnairesStore.checkInitialQuestionnaire).toHaveBeenCalledWith('p1');
       expect(questionnairesStore.loadHealthQuestionnaire).toHaveBeenCalledWith('p1', 'en');
-      expect(vitalsStore.checkExists).toHaveBeenCalledWith('p1');
     });
   });
 

@@ -5,7 +5,6 @@ import Section from '@/components/Section';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import HelpCenter from '@/components/help/HelpCenter';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
@@ -27,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import QuestionFill from '@/assets/icons/question-fill.svg?react';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
@@ -46,7 +44,6 @@ const PatientProfile: React.FC = observer(() => {
     localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
 
   const [currentLanguage, setCurrentLanguage] = useState(getInitialLang);
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
 
@@ -67,6 +64,24 @@ const PatientProfile: React.FC = observer(() => {
     pt: 'Português',
     nl: 'Nederlands',
   };
+
+  const partnerLogos = [
+    {
+      src: '/artorg_unibern_logo.gif',
+      alt: 'ARTORG Center for Biomedical Engineering Research',
+      className: 'w-[80px]',
+    },
+    {
+      src: '/insel_logo.svg',
+      alt: 'Inselspital - Universitatsspital Bern',
+      className: 'w-[160px]',
+    },
+    {
+      src: '/brz_logo.png',
+      alt: 'Berner Reha Zentrum',
+      className: 'w-[160px]',
+    },
+  ];
 
   const lang = currentLanguage.slice(0, 2);
 
@@ -181,16 +196,7 @@ const PatientProfile: React.FC = observer(() => {
           </Section>
 
           <Section>
-            <div className="flex justify-between w-full">
-              <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
-              <Badge
-                onClick={() => setHelpOpen(true)}
-                className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none"
-              >
-                {t('Help')}
-                <QuestionFill className="w-4 h-4 ml-1" />
-              </Badge>
-            </div>
+            <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
 
             <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
               <div className="font-bold text-lg leading-6 text-zinc-800">
@@ -222,17 +228,9 @@ const PatientProfile: React.FC = observer(() => {
           </Section>
 
           <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
-            <img
-              src="/artorg_unibern_logo.gif"
-              alt="ARTORG Center for Biomedical Engineering Research"
-              className="w-[80px]"
-            />
-            <img
-              src="/insel_logo.svg"
-              alt="Inselspital - Universitätsspital Bern"
-              className="w-[160px]"
-            />
-            <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="w-[160px]" />
+            {partnerLogos.map((logo) => (
+              <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
+            ))}
           </div>
 
           <Section>
@@ -243,7 +241,13 @@ const PatientProfile: React.FC = observer(() => {
           </Section>
         </div>
 
-        <div className="flex flex-col gap-1 mt-16">
+        <div className="hidden lg:flex lg:items-end lg:justify-start lg:gap-6 lg:mt-16">
+          {partnerLogos.map((logo) => (
+            <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-1 mt-16 text-sm text-zinc-500">
           <Link to="/terms">{t('Terms & Conditions')}</Link>
           <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
           <div>
@@ -251,8 +255,6 @@ const PatientProfile: React.FC = observer(() => {
           </div>
         </div>
       </Layout>
-
-      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
 });

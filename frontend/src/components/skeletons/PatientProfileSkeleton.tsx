@@ -33,31 +33,37 @@ export default function PatientProfileSkeleton() {
         </Section>
 
         <Section>
-          <div className="flex justify-between items-center p-2 pl-4">
+          <div className="p-2 pl-4">
             <Skeleton className="h-7 w-20" />
-            <Skeleton className="h-8 w-20 rounded-full" />
           </div>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-3">
-            <div className="flex flex-col gap-1">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-6 w-48" />
-            </div>
-            <Skeleton className="h-10 w-44 rounded-xl" />
+          <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-8 w-36 rounded-xl" />
           </div>
         </Section>
 
-        <div className="flex flex-col gap-2">
-          <Section>
-            <Skeleton className="h-14 w-full rounded-full" />
-          </Section>
-
-          <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
-            <Skeleton className="h-[80px] w-[80px]" />
-            <Skeleton className="h-[40px] w-[160px]" />
-            <Skeleton className="h-[40px] w-[160px]" />
-          </div>
+        <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
+          <Skeleton className="h-[50px] w-[80px]" />
+          <Skeleton className="h-[40px] w-[160px]" />
+          <Skeleton className="h-[40px] w-[160px]" />
         </div>
+
+        <Section>
+          <Skeleton className="h-14 w-full rounded-full" />
+        </Section>
+      </div>
+
+      <div className="hidden lg:flex lg:items-end lg:justify-start lg:gap-6 lg:mt-16">
+        <Skeleton className="h-[50px] w-[80px]" />
+        <Skeleton className="h-[40px] w-[160px]" />
+        <Skeleton className="h-[40px] w-[160px]" />
+      </div>
+
+      <div className="flex flex-col gap-1 mt-16">
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-5 w-52" />
       </div>
     </Layout>
   );
