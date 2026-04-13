@@ -16,8 +16,6 @@ export type LibraryFiltersState = {
 
   // ✅ tags = everything except aims
   tagFilter: string[];
-
-  frequencyFilter: string; // kept for compatibility
 };
 
 type Props = {
@@ -35,16 +33,13 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
 
   const aims = useMemo(() => uniq(tx.aims), [tx]);
   const contentTypes = useMemo(() => uniq(tx.content_types), [tx]);
-  const frequencyTimes = useMemo(() => uniq(tx.frequency_time), [tx]);
 
   // ✅ Build tag options from taxonomy EXCLUDING aims
   const tagOptions = useMemo(() => {
     const buckets = [
       ...(tx.topics || []),
-      ...(tx.lc9 || []),
       ...(tx.cognitive_levels || []),
       ...(tx.physical_levels || []),
-      ...(tx.timing || []),
       ...(tx.duration_buckets || []),
       ...(tx.sex_specific || []),
       ...(tx.where || []),
@@ -136,22 +131,6 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
                   }
                   placeholder={t('Filter by Tags')}
                 />
-              </Col>
-            </Row>
-
-            <Row className="mb-3 g-3">
-              <Col xs={12} md={6}>
-                <Form.Select
-                  value={filters.frequencyFilter}
-                  onChange={(e) => onChange({ ...filters, frequencyFilter: e.target.value })}
-                >
-                  <option value="">{t('All Frequencies')}</option>
-                  {frequencyTimes.map((f: string) => (
-                    <option key={f} value={f}>
-                      {t(f)}
-                    </option>
-                  ))}
-                </Form.Select>
               </Col>
             </Row>
 

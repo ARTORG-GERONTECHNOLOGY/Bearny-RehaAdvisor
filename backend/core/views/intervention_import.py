@@ -31,13 +31,10 @@ def _make_lookup(values: List[str]) -> Dict[str, str]:
 _TX: Dict[str, Dict[str, str]] = {
     "aims": _make_lookup(_TAXONOMY.get("aims", [])),
     "topics": _make_lookup(_TAXONOMY.get("topics", [])),
-    "lc9": _make_lookup(_TAXONOMY.get("lc9", [])),
     "where": _make_lookup(_TAXONOMY.get("where", [])),
     "setting": _make_lookup(_TAXONOMY.get("setting", [])),
     "cognitive_levels": _make_lookup(_TAXONOMY.get("cognitive_levels", [])),
     "physical_levels": _make_lookup(_TAXONOMY.get("physical_levels", [])),
-    "frequency_time": _make_lookup(_TAXONOMY.get("frequency_time", [])),
-    "timing": _make_lookup(_TAXONOMY.get("timing", [])),
     "duration_buckets": _make_lookup(_TAXONOMY.get("duration_buckets", [])),
     "sex_specific": _make_lookup(_TAXONOMY.get("sex_specific", [])),
     "content_types": _make_lookup(_TAXONOMY.get("content_types", [])),
@@ -479,7 +476,6 @@ def _col_index_map(header_row: List[str]) -> Dict[str, int]:
             r"\bcontent\s*type\b|\bcontent[-_\s]*type\b|\bformat\b|\btype\b|\bmedien[-_\s]*typ\b|\binhalts[-_\s]*typ\b"
         ),
         "duration": find_col(r"\bduration\b|\bdauer\b|\bmin\b|\bminutes\b"),
-        "lc9": find_col(r"\blc9\b"),
         "where": find_col(r"^\s*where\s*$|\bwo\b|\bord\b"),
         "setting": find_col(r"^\s*setting\s*$|\bumgebung\b|\bkontext\b"),
         "keywords": find_col(r"\bkeywords\b|\bstichw(ö|o)rter\b|\btags?\b"),
@@ -489,8 +485,6 @@ def _col_index_map(header_row: List[str]) -> Dict[str, int]:
         "original_language": find_col(r"\boriginal\s*language\b|\bsprache\b|\blanguage\b"),
         "cognitive_level": find_col(r"\bcognitive\s*level\b|\bkognitiv\b"),
         "physical_level": find_col(r"\bphysical\s*level\b|\bphysisch\b"),
-        "frequency_time": find_col(r"\bfrequency\b|\bh(ä|a)ufigkeit\b"),
-        "timing": find_col(r"\btiming\b|\bzeitpunkt\b"),
         "duration_bucket": find_col(r"\bduration\s*bucket\b|\bdauer\s*klasse\b"),
         "sex_specific": find_col(r"\bsex\s*specific\b|\bgeschlecht\b"),
     }
@@ -636,7 +630,6 @@ def import_interventions_from_excel(
 
             aim = _norm(row[col["aim"]]) if col.get("aim") is not None else ""
             topic_raw = _norm(row[col["topic"]]) if col.get("topic") is not None else ""
-            lc9_raw = _norm(row[col["lc9"]]) if col.get("lc9") is not None else ""
             where_raw = _norm(row[col["where"]]) if col.get("where") is not None else ""
             setting_raw = _norm(row[col["setting"]]) if col.get("setting") is not None else ""
             keywords_raw = _norm(row[col["keywords"]]) if col.get("keywords") is not None else ""
@@ -656,7 +649,6 @@ def import_interventions_from_excel(
 
             # Lists (store as fields)
             topic_list = _split_any(topic_raw)
-            lc9_list = _split_any(lc9_raw)
             where_list = _split_any(where_raw)
             setting_list = _split_any(setting_raw)
             keywords_list = _split_any(keywords_raw)
@@ -668,8 +660,6 @@ def import_interventions_from_excel(
             )
             cognitive_level_raw = _norm(row[col["cognitive_level"]]) if col.get("cognitive_level") is not None else ""
             physical_level_raw = _norm(row[col["physical_level"]]) if col.get("physical_level") is not None else ""
-            frequency_time_raw = _norm(row[col["frequency_time"]]) if col.get("frequency_time") is not None else ""
-            timing_raw = _norm(row[col["timing"]]) if col.get("timing") is not None else ""
             sex_specific_raw = _norm(row[col["sex_specific"]]) if col.get("sex_specific") is not None else ""
             duration_bucket_raw = (
                 _norm(row[col["duration_bucket"]]) if col.get("duration_bucket") is not None else duration_raw
@@ -685,10 +675,6 @@ def import_interventions_from_excel(
             topic_list, topic_warns = _validate_list(topic_list, _TX["topics"], "topic", _TAXONOMY.get("topics", []))
             for w in topic_warns:
                 row_warnings.append(f"topic: {w}")
-
-            lc9_list, lc9_warns = _validate_list(lc9_list, _TX["lc9"], "lc9", _TAXONOMY.get("lc9", []))
-            for w in lc9_warns:
-                row_warnings.append(f"lc9: {w}")
 
             where_list, where_warns = _validate_list(where_list, _TX["where"], "where", _TAXONOMY.get("where", []))
             for w in where_warns:
@@ -711,16 +697,6 @@ def import_interventions_from_excel(
             )
             if pl_warn:
                 row_warnings.append(f"physical_level: {pl_warn}")
-
-            frequency_time_val, ft_warn = _validate_single(
-                frequency_time_raw, _TX["frequency_time"], "frequency/time", _TAXONOMY.get("frequency_time", [])
-            )
-            if ft_warn:
-                row_warnings.append(f"frequency_time: {ft_warn}")
-
-            timing_val, timing_warn = _validate_single(timing_raw, _TX["timing"], "timing", _TAXONOMY.get("timing", []))
-            if timing_warn:
-                row_warnings.append(f"timing: {timing_warn}")
 
             sex_specific_val, ss_warn = _validate_single(
                 sex_specific_raw, _TX["sex_specific"], "sex_specific", _TAXONOMY.get("sex_specific", [])
@@ -774,8 +750,6 @@ def import_interventions_from_excel(
 
             if topic_list:
                 _set_if_exists(doc, "topic", topic_list)
-            if lc9_list:
-                _set_if_exists(doc, "lc9", lc9_list)
             if where_list:
                 _set_if_exists(doc, "where", where_list)
             if setting_list:
@@ -786,10 +760,6 @@ def import_interventions_from_excel(
                 _set_if_exists(doc, "cognitive_level", cognitive_level_val)
             if physical_level_val:
                 _set_if_exists(doc, "physical_level", physical_level_val)
-            if frequency_time_val:
-                _set_if_exists(doc, "frequency_time", frequency_time_val)
-            if timing_val:
-                _set_if_exists(doc, "timing", timing_val)
             if sex_specific_val:
                 _set_if_exists(doc, "sex_specific", sex_specific_val)
             if primary_diagnosis_val:
