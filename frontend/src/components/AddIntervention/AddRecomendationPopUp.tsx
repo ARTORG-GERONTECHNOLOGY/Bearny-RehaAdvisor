@@ -759,6 +759,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Input from')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={inputFromOptions}
                     value={inputFromOptions.filter((o) =>
                       (formData.inputFrom || []).includes(o.value)
@@ -771,6 +772,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={lc9Options}
                     value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('lc9', opts as any)}
@@ -821,6 +823,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Aims')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={aimsOptions}
                     value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('aims', opts as any)}
@@ -831,6 +834,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Topics')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={topicsOptions}
                     value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('topics', opts as any)}
@@ -947,6 +951,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Where')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={whereOptions}
                     value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('where', opts as any)}
@@ -957,6 +962,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Setting')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={settingOptions}
                     value={settingOptions.filter((o) => (formData.setting || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('setting', opts as any)}

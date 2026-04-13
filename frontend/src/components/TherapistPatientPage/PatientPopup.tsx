@@ -147,6 +147,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
           value={(currentValues || []).map((val: string) => ({ value: val, label: t(val) }))}
           onChange={(selected) => store.setMultiSelect(key, selected as any)}
           aria-label={t(field.label)}
+          placeholder={t('Select...')}
         />
       );
     }
