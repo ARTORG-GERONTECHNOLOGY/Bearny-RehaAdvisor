@@ -162,7 +162,7 @@ export default function HealthSlider() {
     let y = clientY - rect.top;
     y = Math.max(0, Math.min(rect.height, y));
     let pct = Math.round(100 - (y / rect.height) * 100);
-    pct = Math.min(100, Math.max(0, pct));
+    pct = Math.min(97, Math.max(3, pct));
     setSliderPosition(pct);
   }, []);
 
