@@ -30,6 +30,7 @@ const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.wav,.pdf,.jpg,.jpeg,.png';
 const ACCEPTED_MIME = 'video/mp4,audio/mpeg,audio/wav,application/pdf,image/jpeg,image/png';
 
 const MAX_FILE_SIZE_MB = 1024; // 1 GB
+const MAX_EXCEL_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 function getMaxSizeMB(_filename: string): number {
   return MAX_FILE_SIZE_MB;
@@ -67,6 +68,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
   // ── Excel tab state ────────────────────────────────────────────────────────
   const [file, setFile] = useState<File | null>(null);
+  const [excelSizeError, setExcelSizeError] = useState<string | null>(null);
 
   const defaultSheet = (interventionsConfig as any)?.importDefaults?.sheetName || 'Content';
   const defaultLangFromCfg = (interventionsConfig as any)?.importDefaults?.defaultLang || 'en';
@@ -85,6 +87,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     setDefaultLang(defaultLangFromCfg);
     setLimit('');
     setFile(null);
+    setExcelSizeError(null);
     setVideoFiles([]);
     setActiveTab('excel');
     interventionsImportStore.reset();
@@ -94,9 +97,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
   // ── Excel helpers ──────────────────────────────────────────────────────────
   const canSubmit = useMemo(
-    () => !!file && !interventionsImportStore.loading,
+    () => !!file && !excelSizeError && !interventionsImportStore.loading,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [file, interventionsImportStore.loading]
+    [file, excelSizeError, interventionsImportStore.loading]
   );
 
   const close = () => {
@@ -104,6 +107,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     interventionsImportStore.reset();
     interventionsMediaUploadStore.reset();
     setFile(null);
+    setExcelSizeError(null);
     setVideoFiles([]);
     setSheetName(defaultSheet);
     setDefaultLang(defaultLangFromCfg);
@@ -213,9 +217,21 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 <Form.Control
                   type="file"
                   accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"
-                  onChange={(e) => setFile((e.target as HTMLInputElement).files?.[0] || null)}
+                  onChange={(e) => {
+                    const picked = (e.target as HTMLInputElement).files?.[0] || null;
+                    if (picked && picked.size > MAX_EXCEL_SIZE_BYTES) {
+                      setExcelSizeError(t('Excel file is too large (max 50MB).'));
+                      setFile(null);
+                      (e.target as HTMLInputElement).value = '';
+                    } else {
+                      setExcelSizeError(null);
+                      setFile(picked);
+                    }
+                  }}
                   disabled={interventionsImportStore.loading}
+                  isInvalid={!!excelSizeError}
                 />
+                {excelSizeError && <div className="text-danger small mt-1">{excelSizeError}</div>}
                 <div className="text-muted small mt-1">
                   {t('The file should contain the intervention sheet (default: Content).')}{' '}
                   <span className="text-muted">

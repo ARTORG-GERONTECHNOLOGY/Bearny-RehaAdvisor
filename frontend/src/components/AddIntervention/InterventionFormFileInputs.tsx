@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import InfoBubble from '../common/InfoBubble';
+
+const MAX_FILE_BYTES = 1024 * 1024 * 1024; // 1 GB
 
 interface InterventionFormFileInputsProps {
   show: boolean;
@@ -13,9 +15,17 @@ const InterventionFormFileInputs: React.FC<InterventionFormFileInputsProps> = ({
   onFileChange,
 }) => {
   const { t } = useTranslation();
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
+    if (file && file.size > MAX_FILE_BYTES) {
+      setSizeError(t('File is too large (max 1GB).'));
+      e.target.value = '';
+      onFileChange(null);
+      return;
+    }
+    setSizeError(null);
     onFileChange(file);
   };
 
@@ -32,8 +42,10 @@ const InterventionFormFileInputs: React.FC<InterventionFormFileInputsProps> = ({
         accept="image/*,video/*,audio/*,application/pdf"
         onChange={handleFileInputChange}
         aria-label={t('UploadMediaFile')}
+        isInvalid={!!sizeError}
       />
       <Form.Text className="text-muted">{t('SupportedFormats')}: JPG, PNG, MP4, MP3, PDF</Form.Text>
+      {sizeError && <div className="text-danger small mt-1">{sizeError}</div>}
     </Form.Group>
   );
 };

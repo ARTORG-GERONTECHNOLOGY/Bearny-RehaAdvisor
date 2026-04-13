@@ -88,9 +88,6 @@ const defaultFormData = {
   // media
   media: [] as MediaItem[],
 
-  // preview image (OPTIONAL now)
-  previewImage: null as File | null,
-
   // private/public
   isPrivate: false,
   patientId: '',
@@ -125,30 +122,6 @@ const sanitizePatientTypes = (pts: PatientType[]) =>
     .filter((pt) => isPatientTypeRowComplete(pt));
 
 const patientTypeRowKey = (idx: number, field: keyof PatientType) => `patientTypes.${idx}.${field}`;
-
-const isDirtyForm = (f: typeof defaultFormData) => {
-  const keys = Object.keys(f) as (keyof typeof defaultFormData)[];
-  for (const k of keys) {
-    const v: any = (f as any)[k];
-    if (k === 'patientTypes') {
-      if ((v || []).some((pt: PatientType) => pt.type || pt.diagnosis || pt.frequency)) return true;
-      continue;
-    }
-    if (k === 'media') {
-      if ((v || []).length) return true;
-      continue;
-    }
-    if (k === 'previewImage') {
-      if (v) return true;
-      continue;
-    }
-    if (Array.isArray(v) && v.length) return true;
-    if (typeof v === 'string' && cleanStr(v)) return true;
-    if (typeof v === 'number' && v > 0) return true;
-    if (typeof v === 'boolean' && v === true && k === 'isPrivate') return true;
-  }
-  return false;
-};
 
 const kindOptions = [
   { value: 'external', label: 'External link' },
@@ -195,12 +168,30 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     // ---------- taxonomy options (store) ----------
     const taxonomy = interventionsTaxonomyStore;
 
-    const inputFromOptions = useMemo(() => taxonomy.toOptions(taxonomy.inputFrom), [taxonomy]);
-    const lc9Options = useMemo(() => taxonomy.toOptions(taxonomy.lc9), [taxonomy]);
-    const aimsOptions = useMemo(() => taxonomy.toOptions(taxonomy.aims), [taxonomy]);
-    const topicsOptions = useMemo(() => taxonomy.toOptions(taxonomy.topics), [taxonomy]);
-    const whereOptions = useMemo(() => taxonomy.toOptions(taxonomy.where), [taxonomy]);
-    const settingOptions = useMemo(() => taxonomy.toOptions(taxonomy.setting), [taxonomy]);
+    const inputFromOptions = useMemo(
+      () => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const lc9Options = useMemo(
+      () => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const aimsOptions = useMemo(
+      () => taxonomy.aims.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const topicsOptions = useMemo(
+      () => taxonomy.topics.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const whereOptions = useMemo(
+      () => taxonomy.where.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
+    const settingOptions = useMemo(
+      () => taxonomy.setting.map((v) => ({ value: v, label: t(v) })),
+      [taxonomy, t]
+    );
 
     // dropdown options
     const originalLanguageOptions = useMemo(() => taxonomy.originalLanguages, [taxonomy]);
@@ -285,28 +276,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       if (!show) resetForm();
     }, [show, resetForm]);
 
-    // ✅ CHANGE: if success=true, do NOT ask for confirmation.
-    // Close immediately and reset.
     const confirmClose = useCallback(() => {
       if (submitting) return;
-
-      // If already submitted successfully, just close.
-      if (success) {
-        resetForm();
-        handleClose();
-        return;
-      }
-
-      const dirty = isDirtyForm(formData);
-      const msg = dirty
-        ? t('Are you sure you want to close? Unsaved data will be lost.')
-        : t('Close this window?');
-
-      if (dirty && !window.confirm(msg)) return;
-
       resetForm();
       handleClose();
-    }, [formData, handleClose, resetForm, submitting, success, t]);
+    }, [handleClose, resetForm, submitting]);
 
     // -------------------- FIELD HANDLERS --------------------
     const handleChange = (
@@ -332,31 +306,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         });
       }
       setError('');
-    };
-
-    const handlePreviewChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] || null;
-      if (file) {
-        const maxBytes = 50 * 1024 * 1024;
-        if (file.size > maxBytes) {
-          setErrors((prev) => ({ ...prev, previewImage: t('File is too large (max 50MB).') }));
-          return;
-        }
-        if (!file.type.startsWith('image/')) {
-          setErrors((prev) => ({
-            ...prev,
-            previewImage: t('Preview image must be an image file'),
-          }));
-          return;
-        }
-      }
-
-      setFormData((prev) => ({ ...prev, previewImage: file }));
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.previewImage;
-        return next;
-      });
     };
 
     const handleMultiChange = (field: keyof typeof formData, selected: any[]) => {
@@ -409,11 +358,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     const handleMediaFileChange = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0] || null;
       if (file) {
-        const maxBytes = 50 * 1024 * 1024;
+        const maxBytes = 1024 * 1024 * 1024;
         if (file.size > maxBytes) {
           setErrors((prev) => ({
             ...prev,
-            [`media.${idx}.file`]: t('File is too large (max 50MB).'),
+            [`media.${idx}.file`]: t('File is too large (max 1GB).'),
           }));
           return;
         }
@@ -505,11 +454,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
       if (f.isPrivate) {
         if (!cleanStr(f.patientId)) e.patientId = t('Please select a patient');
-      }
-
-      // preview image optional; only validate type if present
-      if (f.previewImage && !f.previewImage.type.startsWith('image/')) {
-        e.previewImage = t('Preview image must be an image file');
       }
 
       return { valid: Object.keys(e).length === 0, errors: e };
@@ -641,8 +585,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
           if (m.kind === 'file' && m.file) payload.append(`media_file_${idx}`, m.file);
         });
 
-        if (cleaned.previewImage) payload.append('img_file', cleaned.previewImage);
-
         const res = await apiClient.post('/interventions/add/', payload, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -658,8 +600,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
         applyBackendErrors(res.data);
       } catch (err: any) {
-        if (axios.isAxiosError(err)) applyBackendErrors(err.response?.data);
-        else {
+        if (axios.isAxiosError(err) && err.response?.data) {
+          applyBackendErrors(err.response.data);
+        } else {
           setError(t('An unexpected error occurred. Please try again.'));
           setShowErrorDetails(true);
         }
@@ -672,18 +615,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
     const footer = useMemo(
       () => (
-        <div className="w-100 d-flex justify-content-between align-items-center">
-          <Button variant="outline-secondary" onClick={confirmClose} disabled={submitting}>
-            {t('Close')}
-          </Button>
-          {!success && (
-            <div className="text-muted small">
-              {t('Please review all fields before submitting.')}
-            </div>
-          )}
-        </div>
+        <Button variant="outline-secondary" onClick={confirmClose} disabled={submitting}>
+          {t('Close')}
+        </Button>
       ),
-      [confirmClose, submitting, success, t]
+      [confirmClose, submitting, t]
     );
 
     return (
@@ -697,40 +633,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         footer={footer}
       >
         <div className="px-1 px-sm-2">
-          {(error || patientsLoadError) && (
-            <Alert variant="danger" className="mb-4" role="alert" aria-live="assertive">
-              <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                <span>{patientsLoadError || error}</span>
-                <Button
-                  size="sm"
-                  variant="outline-light"
-                  onClick={() => setShowErrorDetails(!showErrorDetails)}
-                  aria-expanded={showErrorDetails}
-                >
-                  {showErrorDetails ? t('Hide details') : t('Show details')}
-                </Button>
-              </div>
-
-              {showErrorDetails && Object.keys(errors).length > 0 && (
-                <div className="mt-3">
-                  <ul className="mb-0">
-                    {Object.entries(errors).map(([field, msg]) => (
-                      <li key={field}>
-                        <strong>{field}</strong>: {msg}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </Alert>
-          )}
-
-          {success && (
-            <Alert variant="success" className="mb-4" role="status" aria-live="polite">
-              {t('Intervention successfully added')}
-            </Alert>
-          )}
-
           <Form onSubmit={handleSubmit} noValidate>
             <fieldset disabled={success || submitting}>
               {/* ---------- core fields ---------- */}
@@ -857,6 +759,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Input from')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={inputFromOptions}
                     value={inputFromOptions.filter((o) =>
                       (formData.inputFrom || []).includes(o.value)
@@ -869,6 +772,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={lc9Options}
                     value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('lc9', opts as any)}
@@ -919,6 +823,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Aims')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={aimsOptions}
                     value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('aims', opts as any)}
@@ -929,6 +834,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Topics')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={topicsOptions}
                     value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('topics', opts as any)}
@@ -1045,6 +951,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Where')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={whereOptions}
                     value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('where', opts as any)}
@@ -1055,30 +962,13 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Form.Label className="fw-semibold">{t('Setting')}</Form.Label>
                   <Select
                     isMulti
+                    placeholder={t('Select...')}
                     options={settingOptions}
                     value={settingOptions.filter((o) => (formData.setting || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('setting', opts as any)}
                   />
                 </Col>
               </Row>
-
-              {/* ---------- preview (OPTIONAL) ---------- */}
-              <hr className="my-4" />
-              <Form.Group controlId="previewImage" className="mb-3">
-                <Form.Label className="fw-semibold">
-                  {t('Upload a preview image (optional)')}
-                </Form.Label>
-                <Form.Control
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePreviewChange}
-                  isInvalid={!!fe('previewImage')}
-                />
-                <Form.Control.Feedback type="invalid">{fe('previewImage')}</Form.Control.Feedback>
-                <div className="text-muted small mt-1">
-                  {t('You can submit without a preview image.')}
-                </div>
-              </Form.Group>
 
               {/* ---------- media ---------- */}
               <hr className="my-4" />
@@ -1381,6 +1271,42 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   t('Submit')
                 )}
               </Button>
+            )}
+
+            {(error || patientsLoadError) && (
+              <Alert variant="danger" className="mt-3 mb-0" role="alert" aria-live="assertive">
+                <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                  <span>{patientsLoadError || error}</span>
+                  {Object.keys(errors).length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline-light"
+                      onClick={() => setShowErrorDetails(!showErrorDetails)}
+                      aria-expanded={showErrorDetails}
+                    >
+                      {showErrorDetails ? t('Hide details') : t('Show details')}
+                    </Button>
+                  )}
+                </div>
+
+                {showErrorDetails && Object.keys(errors).length > 0 && (
+                  <div className="mt-3">
+                    <ul className="mb-0">
+                      {Object.entries(errors).map(([field, msg]) => (
+                        <li key={field}>
+                          <strong>{field}</strong>: {msg}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert variant="success" className="mt-3 mb-0" role="status" aria-live="polite">
+                {t('Intervention successfully added')}
+              </Alert>
             )}
           </Form>
         </div>
