@@ -523,6 +523,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                   label: t(v),
                 }))}
                 onChange={(options) => handleMultiSelectChange(options, field.name)}
+                placeholder={t('Select...')}
               />
             ) : isDropdown ? (
               <Form.Control

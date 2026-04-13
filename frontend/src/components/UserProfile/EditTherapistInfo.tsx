@@ -190,6 +190,7 @@ const EditUserInfo: React.FC<Props> = observer(({ userData, onCancel }) => {
                   (val: string) => ({ value: val, label: t(val) })
                 )}
                 onChange={(selected) => handleMultiSelectChange(selected as any, field.be_name)}
+                placeholder={t('Select...')}
               />
             ) : (
               <Form.Control
