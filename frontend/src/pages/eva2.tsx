@@ -413,7 +413,13 @@ export default function HealthSlider() {
         await audioCtxRef.current?.resume();
       } catch {}
       const rec = recorderRef.current;
-      if ((!rec || rec.state === 'inactive') && !saving && !showSummary && !isPracticeMode && !testMode) {
+      if (
+        (!rec || rec.state === 'inactive') &&
+        !saving &&
+        !showSummary &&
+        !isPracticeMode &&
+        !testMode
+      ) {
         setRecorderWarning('Aufnahme nach Hintergrund-Modus neu gestartet.');
         try {
           startItemRecorder();
@@ -812,11 +818,7 @@ export default function HealthSlider() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={styles.progressText}>{progressText}</div>
             {isRecording && (
-              <div
-                aria-label="Aufnahme läuft"
-                title="Aufnahme läuft"
-                style={styles.recDot}
-              />
+              <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
             )}
           </div>
           <div style={styles.progressTrack}>
@@ -878,7 +880,9 @@ export default function HealthSlider() {
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
-                onClick={(e) => { if (!saving) handleSliderMove(e.clientY); }}
+                onClick={(e) => {
+                  if (!saving) handleSliderMove(e.clientY);
+                }}
               >
                 <div style={styles.gradientBar} />
                 <div style={{ ...styles.cap, ...styles.capTop }} />
@@ -973,7 +977,14 @@ export default function HealthSlider() {
               <button
                 type="button"
                 onClick={() => setRecorderWarning('')}
-                style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: 16 }}
+                style={{
+                  marginLeft: 12,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: 16,
+                }}
                 aria-label="Meldung schließen"
               >
                 ×

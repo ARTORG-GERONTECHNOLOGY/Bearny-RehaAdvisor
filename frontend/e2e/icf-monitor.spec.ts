@@ -98,9 +98,7 @@ test.describe('ICF Monitor — patient ID entry', () => {
     await page.getByPlaceholder('P01').fill('BADID');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    await expect(
-      page.getByText(/ID muss mit P beginnen/)
-    ).toBeVisible();
+    await expect(page.getByText(/ID muss mit P beginnen/)).toBeVisible();
   });
 
   test('accepts a valid ID and advances to the mic screen', async ({ page }) => {
@@ -130,7 +128,9 @@ test.describe('ICF Monitor — practice mode UI', () => {
     await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
     // "Weiter" and "Kann ich nicht beantworten" must not appear in practice mode
     await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Kann ich nicht beantworten' })).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeVisible();
   });
 
   test('practice mode does not show the bell or play audio buttons', async ({ page }) => {
@@ -166,7 +166,9 @@ test.describe('ICF Monitor — real survey mode', () => {
     await expect(page.getByRole('button', { name: 'Frage abspielen' })).toBeVisible();
   });
 
-  test('Weiter is disabled immediately after entering a new question (3s lock)', async ({ page }) => {
+  test('Weiter is disabled immediately after entering a new question (3s lock)', async ({
+    page,
+  }) => {
     // Buttons are locked for 3 s when a new question loads
     const weiterBtn = page.getByRole('button', { name: 'Weiter' });
     await expect(weiterBtn).toBeDisabled();
@@ -268,9 +270,7 @@ test.describe('ICF Monitor — MediaRecorder not available', () => {
     await gotoWithPatientId(page);
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
 
-    await expect(
-      page.getByText(/MediaRecorder fehlt|nicht unterstützt/i)
-    ).toBeVisible();
+    await expect(page.getByText(/MediaRecorder fehlt|nicht unterstützt/i)).toBeVisible();
   });
 });
 

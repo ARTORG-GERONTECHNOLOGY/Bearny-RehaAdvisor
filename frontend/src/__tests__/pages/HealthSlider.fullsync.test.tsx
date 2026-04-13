@@ -389,9 +389,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 
-    await waitFor(() =>
-      expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument());
 
     expect(screen.getByRole('button', { name: /Ton an|Ton aus/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Frage abspielen/i })).toBeInTheDocument();
@@ -406,9 +404,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Enter real mode via Start
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() =>
-      expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument());
 
     // Advance to Q2 to trigger lock (lock fires on questionIndex change)
     const sliderEl = screen.getByRole('slider');
@@ -424,16 +420,16 @@ describe('HealthSlider (Full Sync)', () => {
     await act(async () => {});
 
     // Weiter button should now be disabled (locked)
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled());
 
     // But slider should still be moveable during lock — click to bottom
     const track2 = screen.getByRole('group', { name: 'Schieberegler vertikal' });
     fireEvent.click(track2, { clientY: 200 });
 
     await waitFor(() =>
-      expect(Number(screen.getByRole('slider').getAttribute('aria-valuenow'))).toBeLessThanOrEqual(10)
+      expect(Number(screen.getByRole('slider').getAttribute('aria-valuenow'))).toBeLessThanOrEqual(
+        10
+      )
     );
   });
 
@@ -455,17 +451,19 @@ describe('HealthSlider (Full Sync)', () => {
     await act(async () => {});
 
     // Advance past lock timer
-    act(() => { jest.advanceTimersByTime(3100); });
+    act(() => {
+      jest.advanceTimersByTime(3100);
+    });
 
     // Weiter should be enabled again
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled()
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled());
 
     // Now toggle bell — should NOT re-disable Weiter
     const bellBtn = screen.getByRole('button', { name: /Ton an|Ton aus/i });
     fireEvent.click(bellBtn);
-    act(() => { jest.advanceTimersByTime(100); });
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
 
     expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled();
 
@@ -508,14 +506,16 @@ describe('HealthSlider (Full Sync)', () => {
     await act(async () => {});
 
     // After 2.9s still locked
-    act(() => { jest.advanceTimersByTime(2900); });
+    act(() => {
+      jest.advanceTimersByTime(2900);
+    });
     expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled();
 
     // After 3.1s unlocked
-    act(() => { jest.advanceTimersByTime(200); });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled()
-    );
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled());
 
     jest.useRealTimers();
   });
@@ -529,9 +529,7 @@ describe('HealthSlider (Full Sync)', () => {
     await enterPatientId();
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/MediaRecorder fehlt/i)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/MediaRecorder fehlt/i)).toBeInTheDocument());
 
     (global as any).MediaRecorder = savedMR;
   });
@@ -589,9 +587,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
 
     // The REC dot is present while the recorder is active
-    await waitFor(() =>
-      expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
   });
 
   it('REC dot disappears after recording stops (summary screen)', async () => {
@@ -606,10 +602,9 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
 
     // Wait for the 3s lock to lift
-    await waitFor(
-      () => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(),
-      { timeout: 5000 }
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
+      timeout: 5000,
+    });
 
     const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
     fireEvent.click(track, { clientY: 0 });
@@ -669,9 +664,7 @@ describe('HealthSlider (Full Sync)', () => {
       }
     });
 
-    await waitFor(() =>
-      expect(screen.getByText(/Aufnahme unterbrochen/i)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/Aufnahme unterbrochen/i)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Audio + Info herunterladen' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Schließen' })).toBeInTheDocument();
 
@@ -689,37 +682,36 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
 
     // Wait for the 3s lock to lift
-    await waitFor(
-      () => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(),
-      { timeout: 5000 }
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
+      timeout: 5000,
+    });
     const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
     fireEvent.click(track, { clientY: 0 });
 
     // Kill the stream so the next startItemRecorder call throws
-    (global.navigator.mediaDevices as any).getUserMedia = jest.fn().mockRejectedValue(
-      new Error('Device lost')
-    );
+    (global.navigator.mediaDevices as any).getUserMedia = jest
+      .fn()
+      .mockRejectedValue(new Error('Device lost'));
     // Null out the stream ref via the window mock
     // The simplest way: make MediaRecorder constructor throw on next call
     const OriginalMR = (global as any).MediaRecorder;
     (global as any).MediaRecorder = class {
-      static isTypeSupported() { return false; }
-      constructor() { throw new Error('No mic stream'); }
+      static isTypeSupported() {
+        return false;
+      }
+      constructor() {
+        throw new Error('No mic stream');
+      }
     };
 
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByRole('alert')).toHaveTextContent(/Mikrofon nicht mehr verfügbar/i);
 
     // Dismiss it
     fireEvent.click(screen.getByRole('button', { name: 'Meldung schließen' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
 
     (global as any).MediaRecorder = OriginalMR;
   });
