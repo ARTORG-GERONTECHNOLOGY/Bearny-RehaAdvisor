@@ -92,7 +92,7 @@ const PatientProfile: React.FC = observer(() => {
 
   const handleLogout = async () => {
     await authStore.logout();
-    window.location.href = '/';
+    navigate('/');
   };
 
   // Check authentication

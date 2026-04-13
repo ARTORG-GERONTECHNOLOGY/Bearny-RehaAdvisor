@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Container, Dropdown, OverlayTrigger, Tooltip, Navbar, Nav } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BsQuestionCircle } from 'react-icons/bs';
 import authStore from '../../stores/authStore';
 
@@ -25,6 +25,7 @@ type HeaderProps = {
 const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegister }) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
@@ -54,7 +55,7 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, showRegisterAction, onRegis
 
   const handleLogout = async () => {
     await authStore.logout();
-    window.location.href = '/';
+    navigate('/');
   };
 
   const userType = authStore.userType?.toLowerCase();
