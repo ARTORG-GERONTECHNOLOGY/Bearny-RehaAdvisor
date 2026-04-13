@@ -355,6 +355,68 @@ def test_add_new_intervention_get_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+def test_add_new_intervention_missing_duration(mongo_mock):
+    """
+    Omitting the ``duration`` key entirely returns 400 with ``field_errors.duration``.
+
+    Regression test: the AddInterventionView frontend form previously did not send
+    ``duration`` at all, causing every manual upload to fail silently with a generic
+    error.  This test pins the backend's validation path so the error is explicit.
+    """
+    payload = {
+        "title": "Duration Missing",
+        "description": "No duration key in payload",
+        "contentType": "video",
+        # duration intentionally omitted
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 400
+    assert "duration" in resp.json().get("field_errors", {})
+
+
+@patch("core.views.recomendation_views.default_storage.save")
+def test_add_new_intervention_arbitrary_filename(mock_save, mongo_mock):
+    """
+    The manual-upload endpoint (/api/interventions/add/) accepts files with
+    arbitrary, human-readable names — unlike the batch import endpoint which
+    enforces a strict {id}_{format}_{lang}.{ext} naming convention.
+
+    Regression test: uploading 'Combinatieoefeningen 1.MP4' (real Dutch exercise
+    video used in acceptance testing) must succeed end-to-end when all other
+    required fields are provided.
+    """
+    mock_save.return_value = "videos/Combinatieoefeningen 1.MP4"
+
+    video_file = SimpleUploadedFile(
+        name="Combinatieoefeningen 1.MP4",
+        content=b"fake-mp4-content",
+        content_type="video/mp4",
+    )
+    payload = {
+        "title": "Combinatieoefeningen",
+        "description": "Combination exercises video.",
+        "contentType": "video",
+        "duration": "30",
+        "language": "nl",
+        "media_file": video_file,
+    }
+    resp = client.post(
+        "/api/interventions/add/",
+        data=payload,
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()["success"] is True
+
+    iv = Intervention.objects().first()
+    assert iv is not None
+    assert iv.duration == 30
+    assert iv.language == "nl"
+    assert len(iv.media) == 1
+    assert iv.media[0].media_type == "video"
+    assert iv.media[0].file_path == "videos/Combinatieoefeningen 1.MP4"
+
+
 _MEDIA_URL = json.dumps([{"kind": "external", "media_type": "video", "url": "https://example.com/v"}])
 _MEDIA_WEB = json.dumps([{"kind": "external", "media_type": "website", "url": "https://example.com"}])
 

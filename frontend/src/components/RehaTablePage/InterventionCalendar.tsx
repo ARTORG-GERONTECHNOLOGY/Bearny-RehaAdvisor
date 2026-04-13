@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button, ButtonGroup, Badge } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -69,6 +70,7 @@ const InterventionCalendar: React.FC<Props> = ({
   titleMap = {},
   onSelectIntervention,
 }) => {
+  const { t } = useTranslation();
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
   const [colorMode, setColorMode] = useState<ColorMode>('status');
@@ -123,11 +125,11 @@ const InterventionCalendar: React.FC<Props> = ({
     if (colorMode === 'status') {
       return (
         <div className="rehaLegend">
-          <span className="rehaLegend__label">Status:</span>
-          <span className="rehaLegend__item rehaLegend__item--completed">✓ Abgeschlossen</span>
-          <span className="rehaLegend__item rehaLegend__item--missed">✕ Verpasst</span>
-          <span className="rehaLegend__item rehaLegend__item--today">● Heute</span>
-          <span className="rehaLegend__item rehaLegend__item--upcoming">○ Bevorstehend</span>
+          <span className="rehaLegend__label">{t('Status')}:</span>
+          <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
+          <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
+          <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
+          <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
         </div>
       );
     }
@@ -140,7 +142,7 @@ const InterventionCalendar: React.FC<Props> = ({
 
     return (
       <div className="rehaLegend">
-        <span className="rehaLegend__label">Benefit:</span>
+        <span className="rehaLegend__label">{t('Benefit')}:</span>
         {shown.map((k) => {
           const b = hashBucket(k, 10);
           return (
@@ -149,14 +151,14 @@ const InterventionCalendar: React.FC<Props> = ({
               className={`rehaLegend__item rehaLegend__item--benefit`}
               style={{ ['--benefit-bucket' as any]: b }}
             >
-              {k === 'benefit_unknown' ? 'Unknown' : k}
+              {k === 'benefit_unknown' ? t('Unknown') : k}
             </span>
           );
         })}
         {keys.length > shown.length ? <span className="rehaLegend__more">…</span> : null}
       </div>
     );
-  }, [colorMode, events]);
+  }, [colorMode, events, t]);
 
   const eventPropGetter = (event: CalendarEvent) => {
     if (colorMode === 'status') {
@@ -180,19 +182,19 @@ const InterventionCalendar: React.FC<Props> = ({
     <div className="rehaCalendar">
       <div className="rehaCalendar__topbar">
         <div className="rehaCalendar__controls">
-          <span className="me-2">Color by</span>
-          <ButtonGroup size="sm" aria-label="Color mode">
+          <span className="me-2">{t('Color by')}</span>
+          <ButtonGroup size="sm" aria-label={t('Color mode')}>
             <Button
               variant={colorMode === 'status' ? 'dark' : 'outline-dark'}
               onClick={() => setColorMode('status')}
             >
-              Status
+              {t('Status')}
             </Button>
             <Button
               variant={colorMode === 'benefit' ? 'dark' : 'outline-dark'}
               onClick={() => setColorMode('benefit')}
             >
-              Benefit
+              {t('Benefit')}
             </Button>
           </ButtonGroup>
         </div>
