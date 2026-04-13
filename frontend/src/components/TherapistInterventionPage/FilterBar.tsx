@@ -9,11 +9,8 @@ interface Props {
   searchTerm: string;
   setSearchTerm: (val: string) => void;
 
-  patientTypeFilter: string;
-  setPatientTypeFilter: (val: string) => void;
-
-  diagnosisFilter?: string[];
-  setDiagnosisFilter?: (val: string[]) => void;
+  diagnosisFilter: string[];
+  setDiagnosisFilter: (val: string[]) => void;
 
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
@@ -31,8 +28,6 @@ interface Props {
 const FilterBar: React.FC<Props> = ({
   searchTerm,
   setSearchTerm,
-  patientTypeFilter,
-  setPatientTypeFilter,
   diagnosisFilter,
   setDiagnosisFilter,
   contentTypeFilter,
@@ -46,10 +41,6 @@ const FilterBar: React.FC<Props> = ({
 }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
-  const patientTypes = useMemo(
-    () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
-    [tx]
-  );
   const diagnosisOptions = useMemo(
     () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
     [tx]
@@ -106,7 +97,6 @@ const FilterBar: React.FC<Props> = ({
   }, []);
 
   const activeFiltersCount =
-    (patientTypeFilter ? 1 : 0) +
     (diagnosisFilter?.length ? 1 : 0) +
     (contentTypeFilter ? 1 : 0) +
     (tagFilter?.length ? 1 : 0);
@@ -117,38 +107,18 @@ const FilterBar: React.FC<Props> = ({
       // ✅ prevent bubbling to any parent click handlers (common in cards/lists)
       onClick={(e) => e.stopPropagation()}
     >
-      <Form.Group controlId="filterPatientType">
-        <Form.Label visuallyHidden>{t('Filter by Patient Type')}</Form.Label>
-        <Form.Select
-          value={patientTypeFilter}
-          onChange={(e) => {
-            setPatientTypeFilter(e.target.value);
-            setDiagnosisFilter([]);
-          }}
-        >
-          <option value="">{t('All Patient Types')}</option>
-          {patientTypes.map((type: string) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
+      <Form.Group controlId="filterDiagnosis">
+        <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
+        <Select
+          isMulti
+          placeholder={t('Filter by Primary Diagnosis')}
+          options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
+          value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+          onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+          styles={selectStyles}
+          menuPortalTarget={document.body}
+        />
       </Form.Group>
-
-      {setDiagnosisFilter && (
-        <Form.Group controlId="filterDiagnosis">
-          <Form.Label visuallyHidden>{t('Filter by Diagnosis')}</Form.Label>
-          <Select
-            isMulti
-            placeholder={t('Filter by Diagnosis')}
-            options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
-            value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-            onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
-            styles={selectStyles}
-            menuPortalTarget={document.body}
-          />
-        </Form.Group>
-      )}
 
       <Form.Group controlId="filterContentType">
         <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>

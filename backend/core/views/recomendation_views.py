@@ -832,7 +832,6 @@ def add_new_intervention(request):
             topic=topic_list or [],  # ✅ FIX
             cognitive_level=cognitive_level,  # ✅ FIX
             physical_level=physical_level,  # ✅ FIX
-            timing=timing,  # ✅ FIX
             duration_bucket=duration_bucket,  # ✅ FIX
             sex_specific=sex_specific,  # ✅ FIX
             where=where_list or [],  # ✅ FIX
