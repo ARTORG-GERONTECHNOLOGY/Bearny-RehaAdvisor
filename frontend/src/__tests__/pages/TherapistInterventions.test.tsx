@@ -317,14 +317,14 @@ describe('TherapistInterventions Page', () => {
     });
   });
 
-  test('applies patient type filter', async () => {
+  test('applies diagnosis filter', async () => {
     render(
       <MemoryRouter>
         <TherapistInterventions />
       </MemoryRouter>
     );
     await screen.findByText('Stretching for 30 minutes');
-    fireEvent.click(screen.getByText('Set Patient Type'));
+    fireEvent.click(screen.getByText('Set Diagnosis'));
     expect(await screen.findByText('Stretching for 30 minutes')).toBeInTheDocument();
   });
 
