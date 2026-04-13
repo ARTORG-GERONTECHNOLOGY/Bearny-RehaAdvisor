@@ -8,7 +8,7 @@ import interventionsConfig from '../../config/interventions.json';
 
 export type LibraryFiltersState = {
   searchTerm: string;
-  patientTypeFilter: string;
+  diagnosisFilter: string[];
   contentTypeFilter: string;
 
   // ✅ aims is its own field (not part of tags)
@@ -20,7 +20,6 @@ export type LibraryFiltersState = {
 
 type Props = {
   t: any;
-  patientTypes: string[];
   filters: LibraryFiltersState;
   onChange: (next: LibraryFiltersState) => void;
   onReset: () => void;
@@ -28,11 +27,15 @@ type Props = {
 
 const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
 
-const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChange, onReset }) => {
+const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
   const aims = useMemo(() => uniq(tx.aims), [tx]);
   const contentTypes = useMemo(() => uniq(tx.content_types), [tx]);
+  const diagnosisOptions = useMemo(
+    () => uniq(tx.primary_diagnoses || []).map((d: string) => ({ value: d, label: t(d) })),
+    [tx, t]
+  );
 
   // ✅ Build tag options from taxonomy EXCLUDING aims
   const tagOptions = useMemo(() => {
@@ -78,17 +81,15 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, patientTypes, filters, onChang
 
             <Row className="mb-3 g-3">
               <Col xs={12} md={6}>
-                <Form.Select
-                  value={filters.patientTypeFilter}
-                  onChange={(e) => onChange({ ...filters, patientTypeFilter: e.target.value })}
-                >
-                  <option value="">{t('All Patient Types')}</option>
-                  {patientTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {t(type)}
-                    </option>
-                  ))}
-                </Form.Select>
+                <Select
+                  isMulti
+                  options={diagnosisOptions}
+                  value={(filters.diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+                  onChange={(opts) =>
+                    onChange({ ...filters, diagnosisFilter: (opts || []).map((o: any) => o.value) })
+                  }
+                  placeholder={t('Filter by Primary Diagnosis')}
+                />
               </Col>
 
               <Col xs={12} md={6}>

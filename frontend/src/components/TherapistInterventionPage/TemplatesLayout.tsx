@@ -20,7 +20,7 @@ import type { InterventionTypeTh } from '../../types';
 
 export type TemplatesFiltersState = {
   tSearchTerm: string;
-  tPatientTypeFilter: string;
+  tDiagnosisFilter: string[];
   tContentTypeFilter: string;
 
   // ✅ tags = everything (including aims if your taxonomy includes them)
@@ -163,8 +163,8 @@ const TemplatesLayout: React.FC<Props> = ({
               <FilterBar
                 searchTerm={filters.tSearchTerm}
                 setSearchTerm={(v) => onFilters({ ...filters, tSearchTerm: v })}
-                patientTypeFilter={filters.tPatientTypeFilter}
-                setPatientTypeFilter={(v) => onFilters({ ...filters, tPatientTypeFilter: v })}
+                diagnosisFilter={filters.tDiagnosisFilter}
+                setDiagnosisFilter={(v) => onFilters({ ...filters, tDiagnosisFilter: v })}
                 contentTypeFilter={filters.tContentTypeFilter}
                 setContentTypeFilter={(v) => onFilters({ ...filters, tContentTypeFilter: v })}
                 tagFilter={filters.tTagFilter}
