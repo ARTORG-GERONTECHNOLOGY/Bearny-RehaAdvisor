@@ -769,7 +769,7 @@ def register_view(request):
                 duration=(reha_end_date.date() - timezone.now().date()).days,
                 reha_end_date=reha_end_date,
                 study_end_date=study_end_date,
-                # ✅ FIX: correct key (your payload uses "careGiver")
+                : correct key (your payload uses "careGiver")
                 care_giver=sanitize_text(data.get("careGiver", ""), True),
                 initial_questionnaire_enabled=bool(data.get("initialQuestionnaireEnabled", False)),
             )

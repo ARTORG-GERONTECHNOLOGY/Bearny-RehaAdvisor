@@ -71,15 +71,12 @@ const defaultFormData = {
 
   // taxonomy fields (NEW)
   inputFrom: [] as string[],
-  lc9: [] as string[],
   originalLanguage: '' as string,
   primaryDiagnosis: '' as string,
   aims: [] as string[],
   topics: [] as string[],
   cognitiveLevel: '' as string,
   physicalLevel: '' as string,
-  frequencyTime: '' as string,
-  timing: '' as string,
   durationBucket: '' as string,
   sexSpecific: '' as string,
   where: [] as string[],
@@ -172,10 +169,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       () => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
     );
-    const lc9Options = useMemo(
-      () => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })),
-      [taxonomy, t]
-    );
     const aimsOptions = useMemo(
       () => taxonomy.aims.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
@@ -198,8 +191,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     const primaryDiagnosisOptions = useMemo(() => taxonomy.primaryDiagnoses, [taxonomy]);
     const cognitiveLevelOptions = useMemo(() => taxonomy.cognitiveLevels, [taxonomy]);
     const physicalLevelOptions = useMemo(() => taxonomy.physicalLevels, [taxonomy]);
-    const frequencyTimeOptions = useMemo(() => taxonomy.frequencyTime, [taxonomy]);
-    const timingOptions = useMemo(() => taxonomy.timing, [taxonomy]);
     const durationBucketOptions = useMemo(() => taxonomy.durationBuckets, [taxonomy]);
     const sexSpecificOptions = useMemo(() => taxonomy.sexSpecific, [taxonomy]);
 
@@ -292,7 +283,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       setFormData((prev) => {
         const next: any = {
           ...prev,
-          [id]: type === 'text' || type === 'textarea' ? cleanStr(val) : val,
+          [id]: val,
         };
         if (id === 'isPrivate' && !checked) next.patientId = '';
         return next;
@@ -500,7 +491,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         contentType: cleanStr(formData.contentType),
 
         inputFrom: uniqueStrings(formData.inputFrom),
-        lc9: uniqueStrings(formData.lc9),
         aims: uniqueStrings(formData.aims),
         topics: uniqueStrings(formData.topics),
         where: uniqueStrings(formData.where),
@@ -544,15 +534,12 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
           'taxonomy',
           JSON.stringify({
             input_from: cleaned.inputFrom,
-            lc9: cleaned.lc9,
             original_language: cleaned.originalLanguage || null,
             primary_diagnosis: cleaned.primaryDiagnosis || null,
             aims: cleaned.aims,
             topics: cleaned.topics,
             cognitive_level: cleaned.cognitiveLevel || null,
             physical_level: cleaned.physicalLevel || null,
-            frequency_time: cleaned.frequencyTime || null,
-            timing: cleaned.timing || null,
             duration_bucket: cleaned.durationBucket || null,
             sex_specific: cleaned.sexSpecific || null,
             where: cleaned.where,
@@ -768,16 +755,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   />
                 </Col>
 
-                <Col md={6}>
-                  <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={lc9Options}
-                    value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('lc9', opts as any)}
-                  />
-                </Col>
               </Row>
 
               <Row className="g-3 mt-1">
@@ -899,38 +876,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               </Row>
 
               <Row className="g-3 mt-1">
-                <Col md={4}>
-                  <Form.Group controlId="frequencyTime">
-                    <Form.Label className="fw-semibold">{t('Frequency time')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.frequencyTime}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {frequencyTimeOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
-                <Col md={4}>
-                  <Form.Group controlId="timing">
-                    <Form.Label className="fw-semibold">{t('Timing')}</Form.Label>
-                    <Form.Control as="select" value={formData.timing} onChange={handleChange}>
-                      <option value="">{t('Select')}</option>
-                      {timingOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
                 <Col md={4}>
                   <Form.Group controlId="sexSpecific">
                     <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>
