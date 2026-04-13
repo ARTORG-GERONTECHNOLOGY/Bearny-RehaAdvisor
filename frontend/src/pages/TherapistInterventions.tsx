@@ -77,7 +77,6 @@ const defaultLibraryFilters: LibraryFiltersState = {
   contentTypeFilter: '',
   aimsFilter: [],
   tagFilter: [],
-  frequencyFilter: '',
 };
 
 const defaultTemplatesFilters: TemplatesFiltersState = {
@@ -85,7 +84,6 @@ const defaultTemplatesFilters: TemplatesFiltersState = {
   tPatientTypeFilter: '',
   tContentTypeFilter: '',
   tTagFilter: [],
-  tFrequencyFilter: '',
 };
 
 const TherapistRecomendations: React.FC = observer(() => {

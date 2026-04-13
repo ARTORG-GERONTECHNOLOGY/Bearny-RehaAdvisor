@@ -172,10 +172,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       () => taxonomy.inputFrom.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
     );
-    const lc9Options = useMemo(
-      () => taxonomy.lc9.map((v) => ({ value: v, label: t(v) })),
-      [taxonomy, t]
-    );
     const aimsOptions = useMemo(
       () => taxonomy.aims.map((v) => ({ value: v, label: t(v) })),
       [taxonomy, t]
@@ -768,16 +764,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   />
                 </Col>
 
-                <Col md={6}>
-                  <Form.Label className="fw-semibold">{t('LC9')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={lc9Options}
-                    value={lc9Options.filter((o) => (formData.lc9 || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('lc9', opts as any)}
-                  />
-                </Col>
               </Row>
 
               <Row className="g-3 mt-1">
@@ -899,38 +885,6 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               </Row>
 
               <Row className="g-3 mt-1">
-                <Col md={4}>
-                  <Form.Group controlId="frequencyTime">
-                    <Form.Label className="fw-semibold">{t('Frequency time')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.frequencyTime}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {frequencyTimeOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
-                <Col md={4}>
-                  <Form.Group controlId="timing">
-                    <Form.Label className="fw-semibold">{t('Timing')}</Form.Label>
-                    <Form.Control as="select" value={formData.timing} onChange={handleChange}>
-                      <option value="">{t('Select')}</option>
-                      {timingOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-
                 <Col md={4}>
                   <Form.Group controlId="sexSpecific">
                     <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>

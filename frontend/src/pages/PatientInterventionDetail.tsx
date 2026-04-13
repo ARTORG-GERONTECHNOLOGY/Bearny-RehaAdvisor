@@ -235,7 +235,6 @@ const getMetaTags = (item: any): string[] => {
   const src = asRecord(item?.intervention ?? item ?? {});
 
   out.push(...asArray<string>(src.topic).map(asStr));
-  out.push(...asArray<string>(src.lc9).map(asStr));
   out.push(...asArray<string>(src.where).map(asStr));
   out.push(...asArray<string>(src.setting).map(asStr));
   out.push(...asArray<string>(src.keywords).map(asStr));
