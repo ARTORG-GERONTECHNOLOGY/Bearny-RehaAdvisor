@@ -1054,10 +1054,7 @@ def list_all_interventions(request, patient_id=None):
         all_serialized = private_serialized + public_serialized
 
         # Annotate each intervention with its average star rating from patient feedback.
-        star_q_ids = [
-            q.id
-            for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")
-        ]
+        star_q_ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
         if star_q_ids:
             valid_ids = [ObjectId(s["_id"]) for s in all_serialized if ObjectId.is_valid(s["_id"])]
             if valid_ids:
