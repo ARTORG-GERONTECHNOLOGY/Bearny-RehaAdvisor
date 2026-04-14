@@ -483,23 +483,54 @@ paths:
   /api/patients/get-questions/{questionaire_type}/{patient_id}/:
     get:
       tags: [Patients]
-      summary: Get feedback questions (without intervention)
+      summary: Get feedback questions
+      description: >
+        Returns the ordered list of feedback questions for the given type.
+        For `questionaire_type=Intervention`, supply `?interventionId=<id>` to
+        receive the star-rating question (Frage 1) appropriate for that
+        intervention's `content_type`. Without `interventionId` only the
+        core questions (difficulty_scale, open_feedback) are returned.
+        Questions are returned in UI order: star rating first, difficulty
+        second, open feedback last.
       parameters:
         - $ref: '#/components/parameters/questionaire_type'
         - $ref: '#/components/parameters/patient_id'
+        - in: query
+          name: interventionId
+          schema: { type: string }
+          description: >
+            ObjectId of the intervention being rated. Required for the
+            star-rating question (Frage 1) to be included. The backend first
+            checks the patient's rehabilitation plan; if not found, it looks up
+            the Intervention document directly (library-browse path).
       responses:
-        '200': { $ref: '#/components/responses/OK' }
+        '200':
+          description: Ordered list of feedback questions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeedbackQuestionsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/patients/get-questions/{questionaire_type}/{patient_id}/{intervention_id}/:
     get:
       tags: [Patients]
-      summary: Get feedback questions (with intervention)
+      summary: Get feedback questions (intervention id in path)
+      description: >
+        Same as the query-parameter variant but accepts the intervention id as
+        a path segment. Both forms are supported for backwards compatibility.
       parameters:
         - $ref: '#/components/parameters/questionaire_type'
         - $ref: '#/components/parameters/patient_id'
         - $ref: '#/components/parameters/intervention_id'
       responses:
-        '200': { $ref: '#/components/responses/OK' }
+        '200':
+          description: Ordered list of feedback questions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeedbackQuestionsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/users/{patient_id}/initial-questionaire/:
     post:
@@ -627,27 +658,50 @@ paths:
     get:
       tags: [Interventions]
       summary: List interventions
+      description: >
+        Returns all public interventions grouped by `external_id` (best language
+        variant selected). Each item includes `avg_rating` (average star rating
+        across all patients, rounded to 1 dp; `null` when unrated) and
+        `rating_count` (total individual star ratings submitted).
       parameters:
         - in: query
           name: lang
           schema: { type: string }
+          description: ISO language code for variant selection (e.g. `de`).
         - in: query
           name: external_id
           schema: { type: string }
+          description: Return only the single group matching this external id.
       responses:
-        '200': { $ref: '#/components/responses/OK' }
+        '200':
+          description: Array of intervention summary objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InterventionSummary' }
 
   /api/interventions/all/{patient_id}/:
     get:
       tags: [Interventions]
       summary: List interventions including patient-private entries
+      description: >
+        Same as `/api/interventions/all/` but also includes private interventions
+        created for this specific patient. `avg_rating` and `rating_count` are
+        included for all items.
       parameters:
         - $ref: '#/components/parameters/patient_id'
         - in: query
           name: lang
           schema: { type: string }
       responses:
-        '200': { $ref: '#/components/responses/OK' }
+        '200':
+          description: Array of intervention summary objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InterventionSummary' }
 
   /api/interventions/add/:
     post:
@@ -1141,6 +1195,103 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    FeedbackPossibleAnswer:
+      type: object
+      properties:
+        key: { type: string, example: "3" }
+        translations:
+          type: array
+          items:
+            type: object
+            properties:
+              language: { type: string, example: "de" }
+              text: { type: string, example: "★★★☆☆ (3/5)" }
+
+    FeedbackQuestion:
+      type: object
+      description: >
+        A single feedback question. `answerType` controls the UI widget:
+        `select` with a `questionKey` starting with `rating_stars_` renders as
+        a 5-star picker; `select` for other keys renders as a radio/dropdown;
+        `text` renders as a free-text + audio field.
+      properties:
+        questionKey:
+          type: string
+          example: rating_stars_education
+          enum:
+            - rating_stars_education
+            - rating_stars_exercise
+            - difficulty_scale
+            - open_feedback
+        answerType:
+          type: string
+          enum: [select, text, multi-select, video]
+        translations:
+          type: array
+          items:
+            type: object
+            properties:
+              language: { type: string, example: "de" }
+              text: { type: string, example: "Wie fandest du den Inhalt?" }
+        possibleAnswers:
+          type: array
+          items: { $ref: '#/components/schemas/FeedbackPossibleAnswer' }
+
+    FeedbackQuestionsResponse:
+      type: object
+      description: >
+        Ordered list of feedback questions for the requested type. For
+        `questionaire_type=Intervention` the order is always:
+        1. Star rating (Frage 1) — `rating_stars_education` or `rating_stars_exercise`
+        2. Difficulty scale (Frage 2) — `difficulty_scale`
+        3. Open feedback — `open_feedback`
+      properties:
+        questions:
+          type: array
+          items: { $ref: '#/components/schemas/FeedbackQuestion' }
+
+    InterventionSummary:
+      type: object
+      description: Intervention object as returned by GET /api/interventions/all/.
+      properties:
+        _id: { type: string, example: "507f1f77bcf86cd799439011" }
+        external_id: { type: string, example: "EXT-001" }
+        language: { type: string, example: "de" }
+        available_languages:
+          type: array
+          items: { type: string }
+          example: ["de", "en"]
+        title: { type: string }
+        description: { type: string }
+        content_type:
+          type: string
+          example: Exercise
+          enum: [Exercise, Video, Audio, Text, PDF, Website, Apps, Instruction, Education]
+        aims:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        duration: { type: integer, example: 15, description: "Minutes" }
+        preview_img: { type: string, format: uri }
+        media:
+          type: array
+          items: { type: object }
+        is_private: { type: boolean }
+        avg_rating:
+          type: number
+          format: float
+          nullable: true
+          example: 4.3
+          description: >
+            Average star rating (1–5) across all patients, rounded to 1 decimal
+            place. `null` when no ratings have been submitted yet.
+        rating_count:
+          type: integer
+          example: 12
+          description: Total number of individual star ratings submitted.
+
     SuccessBooleanMessageResponse:
       type: object
       properties:
