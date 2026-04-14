@@ -385,3 +385,218 @@ def test_fetch_feedback_questions_invalid_patient_id(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 400
+
+
+# ===========================================================================
+# Star rating (Frage 1) — get_feedback_questions
+# ===========================================================================
+
+
+def _make_star_questions():
+    """Seed the two canonical star-rating questions and the core 'All' questions."""
+    from core.models import AnswerOption
+
+    star_education = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_education",
+        answer_type="select",
+        applicable_types=["Education", "Instruction", "Text", "PDF", "Video", "Audio", "Website", "Apps"],
+        translations=[
+            Translation(language="en", text="How did you like the content?"),
+            Translation(language="de", text="Wie fandest du den Inhalt?"),
+        ],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")])
+            for i in range(1, 6)
+        ],
+    )
+    star_education.save()
+
+    star_exercise = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        answer_type="select",
+        applicable_types=["Exercise", "Exercises", "Physiotherapy", "Training", "Movement"],
+        translations=[
+            Translation(language="en", text="How did you like the exercise?"),
+            Translation(language="de", text="Wie fandest du die Übung?"),
+        ],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")])
+            for i in range(1, 6)
+        ],
+    )
+    star_exercise.save()
+
+    difficulty = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="difficulty_scale",
+        answer_type="select",
+        applicable_types=["All"],
+        translations=[Translation(language="en", text="The content was…")],
+        possibleAnswers=[
+            AnswerOption(key="too_difficult", translations=[Translation(language="en", text="Too difficult")]),
+            AnswerOption(key="just_right", translations=[Translation(language="en", text="Just right")]),
+            AnswerOption(key="too_easy", translations=[Translation(language="en", text="Too easy")]),
+        ],
+    )
+    difficulty.save()
+
+    open_fb = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="open_feedback",
+        answer_type="text",
+        applicable_types=["All"],
+        translations=[Translation(language="en", text="Any additional feedback?")],
+        possibleAnswers=[],
+    )
+    open_fb.save()
+
+    return star_education, star_exercise, difficulty, open_fb
+
+
+def test_star_rating_returned_when_intervention_in_plan(mongo_mock):
+    """
+    GET /api/patients/get-questions/Intervention/<patient_id>/?interventionId=<iv_id>
+    returns the star-rating question when the intervention IS in the patient's
+    rehabilitation plan.
+
+    This is the standard Reha-Table path: a patient opens feedback immediately
+    after completing an assigned session.
+    """
+    _make_star_questions()
+    patient, _, intervention, _ = setup_basic_plan()  # intervention.content_type = "Video"
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        data={"interventionId": str(intervention.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    keys = [q["questionKey"] for q in (body if isinstance(body, list) else body.get("questions", []))]
+    assert "rating_stars_education" in keys, f"Star rating missing from {keys}"
+
+
+def test_star_rating_returned_without_rehab_plan(mongo_mock):
+    """
+    GET /api/patients/get-questions/Intervention/<patient_id>/?interventionId=<iv_id>
+    returns the star-rating question even when the intervention is NOT in any
+    rehabilitation plan (library-browse path).
+
+    Previously, ``intervention_type`` resolved to ``None`` because the plan
+    lookup found no assignment, causing only the 'All' questions to be returned.
+    The fix adds a fallback direct Intervention document lookup.
+    """
+    _make_star_questions()
+    patient, _, _, _ = setup_basic_plan(with_plan=False)
+
+    # Create a standalone exercise intervention — not in any plan.
+    exercise_iv = Intervention(
+        title="Squats",
+        description="Lower body",
+        content_type="Exercise",
+        external_id="EXT-SQ-001",
+        language="de",
+    )
+    exercise_iv.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        data={"interventionId": str(exercise_iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    keys = [q["questionKey"] for q in (body if isinstance(body, list) else body.get("questions", []))]
+    assert "rating_stars_exercise" in keys, (
+        f"Star rating missing from {keys}. "
+        "Fallback Intervention lookup may not be working."
+    )
+
+
+def test_star_rating_is_first_question(mongo_mock):
+    """
+    The star-rating question (Frage 1) must appear *before* the difficulty-scale
+    question (Frage 2) in the response list.
+
+    The backend returns type-specific questions (star) first, then core/All
+    questions (difficulty, open feedback), matching the agreed UI order:
+    Frage 1 → Frage 2 → open feedback.
+    """
+    _make_star_questions()
+    patient, _, intervention, _ = setup_basic_plan()  # content_type = "Video"
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        data={"interventionId": str(intervention.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    questions = body if isinstance(body, list) else body.get("questions", [])
+    keys = [q["questionKey"] for q in questions]
+
+    assert "rating_stars_education" in keys, f"Star rating not present: {keys}"
+    assert "difficulty_scale" in keys, f"Difficulty scale not present: {keys}"
+    assert keys.index("rating_stars_education") < keys.index("difficulty_scale"), (
+        f"Expected star rating before difficulty; got order: {keys}"
+    )
+
+
+def test_correct_star_question_selected_for_exercise(mongo_mock):
+    """
+    An intervention with content_type='Exercise' must return
+    ``rating_stars_exercise``, not ``rating_stars_education``.
+
+    Each content category has its own star-rating question with an
+    aim-appropriate label ("Wie fandest du die Übung?" vs
+    "Wie fandest du den Inhalt?").
+    """
+    _make_star_questions()
+    patient, _, _, _ = setup_basic_plan(with_plan=False)
+
+    exercise_iv = Intervention(
+        title="Lunges",
+        description="Leg exercise",
+        content_type="Exercise",
+        external_id="EXT-LG-001",
+        language="en",
+    )
+    exercise_iv.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        data={"interventionId": str(exercise_iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    keys = [q["questionKey"] for q in (body if isinstance(body, list) else body.get("questions", []))]
+
+    assert "rating_stars_exercise" in keys, f"Exercise star rating missing: {keys}"
+    assert "rating_stars_education" not in keys, f"Wrong star rating included: {keys}"
+
+
+def test_star_rating_absent_when_no_intervention_id(mongo_mock):
+    """
+    GET without an interventionId query param returns only the generic 'All'
+    questions (difficulty_scale, open_feedback) — no star rating.
+
+    Without a content_type the backend cannot select the correct star variant,
+    so it deliberately omits both ``rating_stars_*`` questions.
+    """
+    _make_star_questions()
+    patient, _, _, _ = setup_basic_plan()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    keys = [q["questionKey"] for q in (body if isinstance(body, list) else body.get("questions", []))]
+
+    assert "rating_stars_education" not in keys
+    assert "rating_stars_exercise" not in keys
+    assert "difficulty_scale" in keys, f"Core questions missing: {keys}"
