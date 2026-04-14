@@ -1326,6 +1326,17 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                     raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
                     intervention_type = raw_type.strip().lower() or None
 
+        # Fallback: if assignment wasn't found or content_type is empty,
+        # look up the Intervention document directly (handles library-browse path
+        # where the intervention may not be in any rehabilitation plan yet).
+        if not intervention_type and intervention_id:
+            try:
+                fallback_iv = Intervention.objects.get(pk=ObjectId(intervention_id))
+                raw_type = str(getattr(fallback_iv, "content_type", "") or "")
+                intervention_type = raw_type.strip().lower() or None
+            except Exception:
+                pass
+
         # 1) Core questions (apply to all interventions).
         #    We accept two ways to mark "core":
         #       - No applicable_types field
@@ -1358,8 +1369,8 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                     seen.add(q.questionKey)
             type_q = merged
 
-        # 3) Build final list
-        result = _serialize_questions(core_q) + _serialize_questions(type_q)
+        # 3) Build final list — type-specific (stars = Frage 1) first, then core (Frage 2 + open)
+        result = _serialize_questions(type_q) + _serialize_questions(core_q)
 
         # 4) Optional: require video feedback per assignment flag
         if assignment and getattr(assignment, "require_video_feedback", False):
