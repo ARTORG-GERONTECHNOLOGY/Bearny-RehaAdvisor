@@ -45,6 +45,7 @@ type InterventionCardItem = {
   title?: string;
   duration?: string | number;
   content_type?: string;
+  avg_rating?: number | null;
   aims?: string[];
   intervention_title?: string;
   intervention_id?: string;
@@ -83,6 +84,9 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 
 const durationBuckets = [5, 20, 35, 50, 60];
 const durationLabels = ['5min', '20min', '35min', '50min', '1h+'];
+
+const ratingBuckets = [1, 2, 3, 4, 5];
+const ratingLabels = ['1', '2', '3', '4', '5'];
 
 const buildUniqueOptions = <T,>(
   sourceItems: T[],
@@ -166,12 +170,14 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
   const [aimsFilter, setAimsFilter] = useState<string[]>([]);
   const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
+  const [ratingFilterIndices, setRatingFilterIndices] = useState<[number, number]>([0, 4]);
 
   const resetAllFilters = useCallback(() => {
     setSearchTerm('');
     setContentTypeFilter([]);
     setAimsFilter([]);
     setDurationFilterIndices([0, 4]);
+    setRatingFilterIndices([0, 4]);
   }, []);
 
   useEffect(() => {
@@ -293,7 +299,17 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       return duration >= minBucket && duration <= maxBucketValue;
     });
 
-    return withDuration;
+    const withRating = withDuration.filter((it: any) => {
+      const rating = Number(it?.avg_rating);
+      const isFullRatingRange = ratingFilterIndices[0] === 0 && ratingFilterIndices[1] === 4;
+      if (isNaN(rating) || it?.avg_rating == null) return isFullRatingRange;
+
+      const minRating = ratingBuckets[ratingFilterIndices[0]];
+      const maxRating = ratingBuckets[ratingFilterIndices[1]];
+      return rating >= minRating && rating <= maxRating;
+    });
+
+    return withRating;
   }, [
     sourceItems,
     contentTypeFilter,
@@ -302,6 +318,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     translatedTitles,
     durationFilterIndices,
     durationBuckets,
+    ratingFilterIndices,
   ]);
 
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
@@ -457,6 +474,9 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           durationFilterIndices={durationFilterIndices}
           setDurationFilterIndices={setDurationFilterIndices}
           durationLabels={durationLabels}
+          ratingFilterIndices={ratingFilterIndices}
+          setRatingFilterIndices={setRatingFilterIndices}
+          ratingLabels={ratingLabels}
           onResetFilters={resetAllFilters}
         />
       </div>
@@ -474,6 +494,9 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           durationFilterIndices={durationFilterIndices}
           setDurationFilterIndices={setDurationFilterIndices}
           durationLabels={durationLabels}
+          ratingFilterIndices={ratingFilterIndices}
+          setRatingFilterIndices={setRatingFilterIndices}
+          ratingLabels={ratingLabels}
         />
 
         {/* Lists by type */}
