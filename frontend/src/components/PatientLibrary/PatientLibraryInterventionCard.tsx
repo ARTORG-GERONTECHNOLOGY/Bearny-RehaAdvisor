@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 type PatientLibraryInterventionCardItem = {
   duration?: string | number;
   content_type?: string;
+  avg_rating?: number | null;
+  rating_count?: number;
 };
 
 type PatientLibraryInterventionCardProps = {
@@ -47,6 +49,15 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
             {ContentTypeIcon && <ContentTypeIcon className="w-4 h-4" />}
             <div className="text-[#00956C] font-medium">{t(item.content_type) || '-'}</div>
           </Badge>
+          {item.avg_rating != null && (
+            <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+              <span className="text-[#EFA73B]">
+                {'★'.repeat(Math.round(item.avg_rating))}
+                {'☆'.repeat(5 - Math.round(item.avg_rating))}
+              </span>
+              <span className="text-[#00956C] font-medium">{item.avg_rating.toFixed(1)}</span>
+            </Badge>
+          )}
         </div>
       </div>
     </div>

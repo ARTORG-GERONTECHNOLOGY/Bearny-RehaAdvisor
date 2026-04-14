@@ -32,6 +32,7 @@ import utils.interventions  # for _save_file and other helpers
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
+    FeedbackQuestion,
     Intervention,
     InterventionAssignment,
     InterventionMedia,
@@ -1017,6 +1018,8 @@ def list_all_interventions(request, patient_id=None):
                     for pt in (getattr(item, "patient_types", None) or [])
                 ],
                 "is_private": bool(getattr(item, "is_private", False)),
+                "avg_rating": None,
+                "rating_count": 0,
             }
 
         if q_external_id:
@@ -1048,7 +1051,43 @@ def list_all_interventions(request, patient_id=None):
             chosen, langs = _pick_variant(docs, preferred_lang, fallback_order=["en", "de"])
             public_serialized.append(serialize(chosen, langs))
 
-        return JsonResponse(private_serialized + public_serialized, safe=False, status=200)
+        all_serialized = private_serialized + public_serialized
+
+        # Annotate each intervention with its average star rating from patient feedback.
+        star_q_ids = [
+            q.id
+            for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")
+        ]
+        if star_q_ids:
+            valid_ids = [ObjectId(s["_id"]) for s in all_serialized if ObjectId.is_valid(s["_id"])]
+            if valid_ids:
+                logs_col = PatientInterventionLogs._get_collection()
+                pipeline = [
+                    {"$match": {"interventionId": {"$in": valid_ids}}},
+                    {"$unwind": "$feedback"},
+                    {"$match": {"feedback.questionId": {"$in": star_q_ids}}},
+                    {
+                        "$project": {
+                            "interventionId": 1,
+                            "rating": {"$toInt": {"$arrayElemAt": ["$feedback.answerKey.key", 0]}},
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": "$interventionId",
+                            "avg_rating": {"$avg": "$rating"},
+                            "rating_count": {"$sum": 1},
+                        }
+                    },
+                ]
+                rating_map = {str(r["_id"]): r for r in logs_col.aggregate(pipeline)}
+                for item in all_serialized:
+                    rd = rating_map.get(item["_id"], {})
+                    avg = rd.get("avg_rating")
+                    item["avg_rating"] = round(avg, 1) if avg is not None else None
+                    item["rating_count"] = rd.get("rating_count", 0)
+
+        return JsonResponse(all_serialized, safe=False, status=200)
 
     except Exception as e:
         logger.exception("[list_all_interventions] Unexpected error")
