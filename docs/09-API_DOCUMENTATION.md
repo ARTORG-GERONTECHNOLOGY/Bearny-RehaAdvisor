@@ -878,7 +878,50 @@ JWT required. Note: legacy spelling (`questionaire`).
 
 JWT required.
 
-**Response 200:** Questionnaire with questions for the given type/patient context.
+**Query parameters:**
+
+| Parameter        | Type   | Required | Notes |
+|------------------|--------|----------|-------|
+| `interventionId` | string | no       | ObjectId of the intervention being rated. Must be provided for the star-rating question to be included. |
+
+**Path parameter `questionaire_type`:** `"Intervention"` or `"Healthstatus"`.
+
+**Response 200** (`{ "questions": [...] }`):
+
+Each question object:
+
+```json
+{
+  "questionKey": "rating_stars_education",
+  "answerType": "select",
+  "translations": [
+    { "language": "en", "text": "How did you like the content?" },
+    { "language": "de", "text": "Wie fandest du den Inhalt?" }
+  ],
+  "possibleAnswers": [
+    { "key": "1", "translations": [{ "language": "en", "text": "★☆☆☆☆ (1/5)" }] },
+    { "key": "2", "translations": [{ "language": "en", "text": "★★☆☆☆ (2/5)" }] },
+    { "key": "3", "translations": [{ "language": "en", "text": "★★★☆☆ (3/5)" }] },
+    { "key": "4", "translations": [{ "language": "en", "text": "★★★★☆ (4/5)" }] },
+    { "key": "5", "translations": [{ "language": "en", "text": "★★★★★ (5/5)" }] }
+  ]
+}
+```
+
+**Intervention feedback question order (Frage 1 → 2 → Open):**
+
+| Position | `questionKey` | `answerType` | Condition |
+|----------|--------------|--------------|-----------|
+| 1 | `rating_stars_education` | `select` | `content_type` ∈ `Education`, `Instruction`, `Text`, `PDF`, `Video`, `Audio`, `Website`, `Apps` |
+| 1 | `rating_stars_exercise` | `select` | `content_type` ∈ `Exercise`, `Exercises`, `Physiotherapy`, `Training`, `Movement` |
+| 2 | `difficulty_scale` | `select` | always included |
+| 3 | `open_feedback` | `text` | always included |
+
+The star-rating question is resolved from the intervention's `content_type`. The lookup first checks the patient's rehabilitation plan assignment; if the intervention is not assigned (library-browse path), the `Intervention` document is looked up directly. When no `interventionId` is supplied, only the `difficulty_scale` and `open_feedback` questions are returned.
+
+The seed command `python manage.py seed_feedback_questions` must be run at least once to populate the `FeedbackQuestions` collection.
+
+**Errors:** 400 invalid patient id · 400 invalid type · 404 patient not found · 405
 
 ---
 
@@ -921,7 +964,38 @@ JWT required.
 
 JWT required. When `patient_id` is provided, filters interventions relevant to the patient's specialities/diagnosis.
 
+**Query parameters:**
+
+| Parameter     | Type   | Required | Notes |
+|---------------|--------|----------|-------|
+| `lang`        | string | no       | ISO language code (e.g. `de`). Selects the best language variant of each public intervention. |
+| `external_id` | string | no       | Returns only the single intervention group matching this external id. |
+
 **Response 200:** Array of intervention summary objects.
+
+```json
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "external_id": "EXT-001",
+    "language": "de",
+    "available_languages": ["de", "en"],
+    "title": "Kniebeugen",
+    "description": "...",
+    "content_type": "Exercise",
+    "aims": ["exercise"],
+    "tags": ["strength", "lower body"],
+    "duration": 15,
+    "preview_img": "https://...",
+    "media": [],
+    "is_private": false,
+    "avg_rating": 4.3,
+    "rating_count": 12
+  }
+]
+```
+
+**`avg_rating` / `rating_count`** — aggregated from all `PatientInterventionLogs` feedback entries whose question key starts with `rating_stars_`. `avg_rating` is rounded to one decimal place and is `null` when no ratings have been submitted. `rating_count` is the total number of individual star ratings across all patients.
 
 ---
 
