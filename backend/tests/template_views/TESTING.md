@@ -2,7 +2,7 @@
 
 ## Overview
 
-`test_template_views.py` contains **63 tests** covering the three phases of the
+`test_template_views.py` contains **77 tests** covering the three phases of the
 named-template system introduced in `backend/core/views/template_views.py`.
 
 Run from inside the Django container:
@@ -140,6 +140,25 @@ patch `_get_therapist` and forward all kwargs to Django's test client.
 - Other's private template → 404 ✓
 - Creates `RehabilitationPlan` when none exists ✓
 - GET returns 405 ✓
+
+### MongoEngine dirty-tracking regression (3 tests)
+
+These tests catch a class of silent data-loss bugs where in-place mutations of
+nested dicts inside `EmbeddedDocument` `ListField`s are not detected by
+MongoEngine's change-tracking and are therefore silently discarded by `.save()`.
+
+> **Root cause** (`template_views.py`): code like
+> `existing.diagnosis_assignments[key] = value` or
+> `rec.diagnosis_assignments.pop(key)` mutates the dict in-place. MongoEngine
+> never sees the change and writes the old (or empty) dict to MongoDB.
+> The fix is to always reassign the whole dict:
+> `existing.diagnosis_assignments = {**existing.diagnosis_assignments, key: value}`.
+
+| Test | Scenario | Asserts |
+|---|---|---|
+| `test_assign_then_apply_produces_sessions` | Fresh assign then apply | `applied==1`, `sessions_created > 0` |
+| `test_update_existing_assignment_persisted_on_apply` | Second assign (update path) with new `end_day`, then apply | Serialised response shows new `end_day`; apply creates > 1 session |
+| `test_remove_diagnosis_block_persisted` | Assign two diagnosis blocks, remove one via `?diagnosis=` | Removed block absent; other block present after re-fetch |
 
 ### Phase 3 — Calendar preview (11 tests)
 

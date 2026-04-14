@@ -456,7 +456,11 @@ def template_intervention_assign(request, template_id):
     )
 
     if existing is not None:
-        existing.diagnosis_assignments[diagnosis_key] = [schedule]
+        # MongoEngine does not detect in-place mutations of nested dicts inside
+        # EmbeddedDocument fields — reassign the whole dict to force dirty-tracking.
+        da = dict(existing.diagnosis_assignments or {})
+        da[diagnosis_key] = [schedule]
+        existing.diagnosis_assignments = da
     else:
         entry = DefaultInterventions(
             recommendation=intervention,
@@ -502,7 +506,11 @@ def template_intervention_remove(request, template_id, intervention_id):
         # Remove just that diagnosis block from the matching entry.
         for rec in tmpl.recommendations:
             if _rec_intervention_id(rec) == intervention_id:
-                rec.diagnosis_assignments.pop(diagnosis_key, None)
+                # Reassign dict to force MongoEngine dirty-tracking (in-place
+                # mutations like .pop() are silently ignored by change detection).
+                da = dict(rec.diagnosis_assignments or {})
+                da.pop(diagnosis_key, None)
+                rec.diagnosis_assignments = da
                 # Drop the whole entry if no blocks remain.
                 if not rec.diagnosis_assignments:
                     tmpl.recommendations.remove(rec)
