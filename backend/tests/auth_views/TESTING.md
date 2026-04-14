@@ -136,3 +136,62 @@ original definition.
 | Token issuance | login (Patient), verify-code | access_token + refresh_token present |
 | Token withheld | login (Therapist) | No tokens before 2FA completion |
 | Side effects | send-code, verify-code | Record created / deleted, e-mail sent |
+
+---
+
+## Session and token lifetime
+
+The following settings control how long a user stays logged in
+(`backend/api/settings/base.py` `SIMPLE_JWT`):
+
+| Setting | Value | Effect |
+|---|---|---|
+| `ACCESS_TOKEN_LIFETIME` | 5 minutes | Access token expires; frontend refreshes silently on 401 |
+| `REFRESH_TOKEN_LIFETIME` | 1 day | Hard logout after 24 h of no refresh |
+| `ROTATE_REFRESH_TOKENS` | `True` | Each refresh call issues a **new** refresh token |
+| `BLACKLIST_AFTER_ROTATION` | `True` | Old refresh token is immediately blacklisted |
+| Frontend inactivity timeout | 15 minutes | `authStore.sessionTimeout` — client-side timer |
+
+### Spurious-logout root causes and fixes
+
+Three bugs caused users to be logged out without explicit user action or the
+inactivity timer expiring. All three are fixed in `frontend/src/api/client.js`
+and `frontend/src/stores/authStore.ts`:
+
+#### 1. Refresh-token rotation race condition
+
+**Symptom:** Logout after making multiple simultaneous API calls (e.g. loading
+a page that fires several requests concurrently).
+
+**Cause:** `ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION` means only the
+first refresh attempt wins. Without a client-side lock, two concurrent 401s
+both tried to exchange the same refresh token. The second one hit a blacklisted
+token, got a 401 on the refresh itself, and `client.js` cleared localStorage.
+
+**Fix:** A `_isRefreshing` flag + `_refreshQueue` array in `client.js`. Only
+one refresh call runs at a time; all other 401s are queued and resolved once
+the single refresh completes.
+
+#### 2. Stale `expiresAt` on page reload / mobile backgrounding
+
+**Symptom:** Logout immediately after navigating back to the app, especially on
+mobile, or after a page hard-reload.
+
+**Cause:** `checkAuthentication()` called `reset()` immediately when
+`Date.now() >= expiresAt`, even when a valid refresh token still existed. The
+JS timer is suspended when a mobile OS backgrounds the tab, so `expiresAt` can
+appear expired even though the refresh token is still within its 24 h window.
+
+**Fix:** When `expiresAt` is in the past but a `refreshToken` exists in
+localStorage, `checkAuthentication()` attempts `_trySilentRefresh()` first.
+Only if the refresh also fails is the user actually logged out.
+
+#### 3. Corrupted or missing `expiresAt`
+
+**Symptom:** Sporadic logout after browser crash, storage quota exceeded, or
+a bug writing a non-numeric value to `expiresAt`.
+
+**Cause:** `_armTimeoutFromStorage()` called `this.logout()` immediately when
+`parseInt(expiresAt)` was `NaN` or `0`.
+
+**Fix:** Same `_trySilentRefresh()` pattern — attempt recovery before giving up.

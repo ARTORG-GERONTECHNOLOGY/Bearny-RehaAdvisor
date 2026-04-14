@@ -226,7 +226,25 @@ No auth required.
 
 **Response 200:** `{ "access": "<new_access_token>" }`
 
-**Errors:** 401 invalid/expired refresh token
+**Errors:** 401 invalid/expired/blacklisted refresh token
+
+**Important — rotation behaviour:** `ROTATE_REFRESH_TOKENS` and
+`BLACKLIST_AFTER_ROTATION` are both enabled. Each successful refresh call:
+1. Issues a **new** refresh token (returned in `response.data.refresh` by `simplejwt`)
+2. Immediately **blacklists** the old refresh token
+
+The frontend (`client.js`) serialises concurrent refresh calls through a
+queue so that only one refresh is in-flight at a time. This prevents the
+race condition where two concurrent 401 responses both attempt to exchange the
+same refresh token — the second would hit a blacklisted token and fail.
+
+**Session lifetime summary:**
+
+| Token | Lifetime | Stored in |
+|---|---|---|
+| Access token | 5 minutes | `localStorage.authToken` |
+| Refresh token | 24 hours | `localStorage.refreshToken` |
+| Client inactivity timeout | 15 minutes | `localStorage.expiresAt` (authStore) |
 
 ---
 

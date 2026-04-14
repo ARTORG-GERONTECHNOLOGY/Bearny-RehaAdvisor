@@ -2,6 +2,63 @@
 
 ## Common Issues and Solutions
 
+### Authentication / Session Issues
+
+#### Issue: Users are randomly logged out without clicking "Log out"
+
+**Symptoms:**
+- User is redirected to the login page mid-session with no action
+- Happens after the app has been in a background tab, on mobile, or when multiple tabs are open
+- No visible error message
+
+**Root causes and fixes (all resolved as of `bug-log-out` branch):**
+
+| Cause | Trigger | Fix |
+|---|---|---|
+| Refresh-token race condition | Multiple API calls fire simultaneously; both get 401; both try to rotate the refresh token; the second one hits a blacklisted token | Refresh queue in `client.js` — only one refresh runs at a time |
+| Stale `expiresAt` on reload | Mobile OS suspends JS timers; device clock jumps; hard page reload after idle | `checkAuthentication()` now attempts a silent refresh before logging out |
+| Corrupted `expiresAt` | Browser crash, storage quota exceeded, bug writing non-numeric value | `_armTimeoutFromStorage()` now attempts a silent refresh instead of immediate logout |
+
+**Token lifetime configuration** (`backend/api/settings/base.py`):
+
+```python
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+```
+
+Frontend inactivity timeout: **15 minutes** (`authStore.sessionTimeout`).
+
+**Diagnosing a spurious logout:**
+
+1. Open browser DevTools → Application → Local Storage
+2. After the logout, check whether `authToken` and `refreshToken` were both cleared (race condition) or only `authToken` (interceptor cleared it without a refresh failure)
+3. Check the network tab for a `POST /auth/token/refresh/` call — a 401 response there confirms the race condition
+4. Check the console for `🔒 Token refresh failed:` — that is the interceptor logging the failure
+
+**If the issue reappears:**
+- Confirm `_isRefreshing` is exported and visible in `client.js`
+- Confirm `_trySilentRefresh()` is calling `axios.post` (not `apiClient.post`) — using `apiClient` would re-enter the interceptor and cause an infinite loop
+
+---
+
+#### Issue: Logged out immediately after page reload
+
+**Symptoms:** User is logged out every time the page is refreshed, even within the 15-minute inactivity window.
+
+**Cause:** `expiresAt` in `localStorage` was already in the past at the time of reload. This happens when:
+- The page was left open and inactive for slightly longer than 15 minutes
+- The device clock changed while the tab was backgrounded
+
+**Fix:** The silent-refresh path in `checkAuthentication()` handles this — as long as the refresh token (valid for 24 h) has not expired, the session is silently renewed on reload.
+
+If this still happens after the fix: check that `localStorage.refreshToken` is present before reloading. If it is absent, the session has genuinely expired.
+
+---
+
 ### Development Environment Issues
 
 #### Issue: Docker containers not starting
