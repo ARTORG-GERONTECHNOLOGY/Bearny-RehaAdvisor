@@ -109,7 +109,7 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <div className="font-medium text-lg text-zinc-600">{t('Duration')}</div>
             <Slider
               value={durationFilterIndices}
@@ -125,7 +125,7 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <div className="font-medium text-lg text-zinc-600">{t('Rating')}</div>
             <Slider
               value={ratingFilterIndices}
