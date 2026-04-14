@@ -3,10 +3,17 @@
     "input_from": ["Italy", "Portugal", "Belgium", "Switzerland"],
     "original_languages": ["DE", "FR", "IT", "PT", "ENG", "NL"],
     "languages": ["de", "en", "fr", "it", "pt", "nl"],
-    "primary_diagnoses": ["heart failure", "acute corornary syndrom", "chronic coronary syndrome"],
+    "primary_diagnoses": [
+      "heart failure",
+      "acute corornary syndrom",
+      "chronic coronary syndrome",
+      "minor stroke",
+      "hip Fracture",
+      "copd"
+    ],
     "aims": ["Education", "Exercise", "Instructions", "Reminder", "Experience"],
     "topics": [
-      "ageing / geriatrics",
+      "ageing",
       "anxiety",
       "aphasia",
       "apraxia",
@@ -69,9 +76,9 @@
     ],
     "cognitive_levels": ["easy", "medium", "advanced", "for all levels"],
     "physical_levels": ["low", "medium", "high", "for all levels"],
-    "content_types": ["text", "video", "audio", "image", "app", "website"],
+    "content_types": ["brochure", "video", "audio", "graphics", "app", "website"],
     "duration_buckets": ["<5min", "5-10min", "10-20min", "20-30min", "30-45min", ">45min"],
-    "sex_specific": ["male", "female", "other", "unisex"],
+    "sex_specific": ["male", "female", "unisex"],
     "where": ["home", "outside", "inside"],
     "setting": ["individual", "group", "class"]
   }
