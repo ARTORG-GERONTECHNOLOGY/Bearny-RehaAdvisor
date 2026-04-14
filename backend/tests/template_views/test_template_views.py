@@ -1648,9 +1648,7 @@ def test_update_existing_assignment_persisted_on_apply(mongo_mock):
     _post_json(url, {"interventionId": str(intervention.id), "end_day": 1}, therapist)
 
     # Second assign (UPDATE path — triggers the buggy branch): end_day=14
-    update_resp = _post_json(
-        url, {"interventionId": str(intervention.id), "end_day": 14}, therapist
-    )
+    update_resp = _post_json(url, {"interventionId": str(intervention.id), "end_day": 14}, therapist)
     assert update_resp.status_code == 200
 
     # The serialised template returned by the assign endpoint must already

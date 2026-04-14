@@ -125,11 +125,7 @@ async function applyTemplate(
 }
 
 /** Delete a template (cleanup). */
-async function deleteTemplate(
-  request: APIRequestContext,
-  token: string,
-  templateId: string
-) {
+async function deleteTemplate(request: APIRequestContext, token: string, templateId: string) {
   await request.delete(`${API_BASE}/templates/${templateId}/`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -391,7 +387,8 @@ test.describe('Template assign/apply — UI level', () => {
     // 4. Intercept the apply response before clicking confirm in the modal
     const applyResponse = page.waitForResponse(
       (res) =>
-        res.url().includes(`/api/templates/${templateId}/apply/`) && res.request().method() === 'POST'
+        res.url().includes(`/api/templates/${templateId}/apply/`) &&
+        res.request().method() === 'POST'
     );
 
     // Fill in the effective-from date if the modal has a date picker
@@ -491,7 +488,10 @@ test.describe('Template assign/apply — UI level', () => {
 
       // The UI should show the result (success banner / count)
       await expect(
-        page.getByText(/session/i).or(page.getByText(/applied/i)).first()
+        page
+          .getByText(/session/i)
+          .or(page.getByText(/applied/i))
+          .first()
       ).toBeVisible({ timeout: 5000 });
     } finally {
       await deleteTemplate(request, token, templateId);
