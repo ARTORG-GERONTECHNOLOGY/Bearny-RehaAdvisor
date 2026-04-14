@@ -12,6 +12,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | Endpoint | HTTP verb(s) | View function | Tests |
 |---|---|---|---|
 | `/api/patients/feedback/questionaire/` | POST | `submit_patient_feedback` | 6 |
+
 | `/api/interventions/complete/` | POST | `mark_intervention_completed` | 9 |
 | `/api/interventions/uncomplete/` | POST | `unmark_intervention_completed` | 6 |
 | `/api/interventions/remove-from-patient/` | POST | `remove_intervention_from_patient` | 4 |
@@ -19,7 +20,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/interventions/modify-patient/` | POST | `modify_intervention_from_date` | 13 |
 | `/api/patients/rehabilitation-plan/patient/<id>/` | GET | `get_patient_plan` | 16 |
 | `/api/patients/rehabilitation-plan/therapist/<id>/` | GET | `get_patient_plan_for_therapist` | 4 |
-| `/api/patients/get-questions/<type>/<id>/` | GET | `get_feedback_questions` | 7 |
+| `/api/patients/get-questions/<type>/<id>/` | GET | `get_feedback_questions` | 12 |
 | `/api/users/<id>/initial-questionaire/` | GET, POST | `initial_patient_questionaire` | 7 |
 | `/api/patients/vitals/manual/<id>/` | POST | `add_manual_vitals` | 6 |
 | `/api/patients/vitals/exists/<id>/` | GET | `vitals_exists_for_day` | 6 |
@@ -247,6 +248,13 @@ Returns a structured plan with adherence metadata for the therapist dashboard.  
 
 Returns the list of feedback questions for the given questionnaire type ('Intervention', 'Healthstatus').  Accepts an optional `intervention_id` path segment or query parameter.
 
+The three-question feedback structure for interventions is:
+1. **Frage 1** — 5-star rating (`rating_stars_education` or `rating_stars_exercise` depending on `content_type`)
+2. **Frage 2** — Difficulty scale (`difficulty_scale`, applicable to all)
+3. **Open feedback** — Free text / audio (`open_feedback`, applicable to all)
+
+Type-specific questions (stars) are returned before core/All questions (difficulty, open feedback).
+
 ### Tests (`test_get_endpoints.py`)
 
 | Test | Scenario | Expected |
@@ -258,6 +266,11 @@ Returns the list of feedback questions for the given questionnaire type ('Interv
 | `test_fetch_feedback_questions_patient_not_found` | Unknown patient | 404, 'Patient not found' |
 | `test_fetch_feedback_questions_post_method_not_allowed` | POST | 405 |
 | `test_fetch_feedback_questions_invalid_patient_id` | Non-ObjectId `patient_id` | 400, 'Invalid patient id' |
+| `test_star_rating_returned_when_intervention_in_plan` | Video intervention in rehab plan | `rating_stars_education` present |
+| `test_star_rating_returned_without_rehab_plan` | Exercise intervention NOT in any plan (library-browse path) | `rating_stars_exercise` present via fallback lookup |
+| `test_star_rating_is_first_question` | Video intervention with both star + difficulty seeded | star rating index < difficulty index |
+| `test_correct_star_question_selected_for_exercise` | Exercise `content_type` | `rating_stars_exercise` included, `rating_stars_education` excluded |
+| `test_star_rating_absent_when_no_intervention_id` | No `interventionId` query param | no `rating_stars_*` keys; `difficulty_scale` still present |
 
 ---
 
