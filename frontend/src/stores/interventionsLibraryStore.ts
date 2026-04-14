@@ -66,7 +66,7 @@ const normalizeIntervention = (raw: unknown): UnknownRec => {
   n.is_private = Boolean(n.is_private ?? n.isPrivate ?? false);
 
   // unify content type variations
-  n.content_type = asString(n.content_type ?? n.contentType ?? n.type, '');
+  n.content_type = asString(n.content_type ?? n.contentType ?? n.type, '').toLowerCase();
 
   // language + external id + provider
   n.language = asString(n.language ?? n.lang, 'en');

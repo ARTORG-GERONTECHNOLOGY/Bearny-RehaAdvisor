@@ -4,7 +4,8 @@ export const filterInterventions = (
   recommendations: Intervention[],
   translatedTitles: Record<string, { title: string; lang: string | null }> | undefined,
   filters: {
-    patientTypeFilter: string;
+    diagnosisFilter: string[];
+    languageFilter: string[];
     contentTypeFilter: string;
     tagFilter: string[];
     benefitForFilter: string[];
@@ -13,10 +14,22 @@ export const filterInterventions = (
 ): Intervention[] => {
   let result = [...recommendations];
 
-  if (filters.patientTypeFilter) {
-    result = result.filter((rec) =>
-      rec.patient_types?.some((pt) => pt.diagnosis === filters.patientTypeFilter)
-    );
+  if (filters.diagnosisFilter?.length) {
+    result = result.filter((rec) => {
+      const diags = Array.isArray((rec as any).primary_diagnosis)
+        ? (rec as any).primary_diagnosis
+        : [];
+      return diags.some((d: string) => filters.diagnosisFilter.includes(d));
+    });
+  }
+
+  if (filters.languageFilter?.length) {
+    result = result.filter((rec) => {
+      const langs: string[] = Array.isArray((rec as any).available_languages)
+        ? (rec as any).available_languages
+        : [(rec as any).language].filter(Boolean);
+      return langs.some((l: string) => filters.languageFilter.includes(l.toLowerCase()));
+    });
   }
 
   if (filters.contentTypeFilter) {
