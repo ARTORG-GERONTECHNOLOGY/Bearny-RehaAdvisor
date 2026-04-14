@@ -24,7 +24,26 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // -------------------------------
-// RESPONSE INTERCEPTOR (FIXED)
+// Refresh-lock state
+//
+// ROTATE_REFRESH_TOKENS is enabled on the backend, so each refresh call
+// blacklists the old token and issues a new one. If two concurrent requests
+// both receive a 401 and both try to refresh, the second refresh call will
+// fail with 401 (blacklisted token) and wipe localStorage, causing a
+// spurious logout. The lock below ensures only one refresh runs at a time;
+// any other 401s that arrive during the refresh are queued and resolved
+// (or rejected) once the single refresh completes.
+// -------------------------------
+let _isRefreshing = false;
+let _refreshQueue = []; // [{ resolve, reject }]
+
+function _processQueue(error, token = null) {
+  _refreshQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(token)));
+  _refreshQueue = [];
+}
+
+// -------------------------------
+// RESPONSE INTERCEPTOR
 // -------------------------------
 apiClient.interceptors.response.use(
   (response) => response,
@@ -36,13 +55,28 @@ apiClient.interceptors.response.use(
     // 401 → Try refresh token
     // -------------------------------
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Another refresh is already in flight — queue this request
+      if (_isRefreshing) {
+        return new Promise((resolve, reject) => {
+          _refreshQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
+      _isRefreshing = true;
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
           console.warn('No refresh token found.');
-          return Promise.reject(error); // keep original error
+          _isRefreshing = false;
+          _processQueue(error);
+          return Promise.reject(error);
         }
 
         const refreshRes = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
@@ -52,19 +86,26 @@ apiClient.interceptors.response.use(
         const newAccessToken = refreshRes.data?.access;
         if (!newAccessToken) {
           console.warn('Refresh token response missing access token.');
+          _isRefreshing = false;
+          _processQueue(error);
           return Promise.reject(error);
         }
 
-        // Save new access token
+        // Save new access token and unblock the queue
         localStorage.setItem('authToken', newAccessToken);
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        _isRefreshing = false;
+        _processQueue(null, newAccessToken);
 
-        // Retry original request with updated token
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         console.error('🔒 Token refresh failed:', refreshError);
 
-        // Logout user, but DO NOT destroy Axios error structure
+        _isRefreshing = false;
+        _processQueue(refreshError);
+
+        // Only clear tokens after a confirmed refresh failure so that a
+        // transient network error doesn't silently log the user out.
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
 
