@@ -18,6 +18,8 @@ export interface InterventionTypeTh {
   }>;
   media_url?: string;
   link?: string;
+  avg_rating?: number | null;
+  rating_count?: number;
 }
 // src/types/AdminEntry.ts
 export interface AdminEntry {
