@@ -1,9 +1,11 @@
+import axios from 'axios';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 
 // Mock the apiClient
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 jest.mock('@/stores/adminStore');
+jest.mock('axios');
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -59,18 +61,41 @@ describe('authStore', () => {
     expect(authStore.id).toBe('12345');
   });
 
-  it('should logout if session is expired', () => {
+  it('should logout if session is expired and no refresh token exists', async () => {
     const expiredTime = Date.now() - 1000; // 1 second ago
     localStorage.setItem('authToken', 'expired-token');
     localStorage.setItem('expiresAt', expiredTime.toString());
+    // No refreshToken → no silent-refresh attempt
 
     const callback = jest.fn();
     authStore.setOnLogoutCallback(callback);
 
     authStore.checkAuthentication(callback);
+    // Allow microtasks to flush
+    await Promise.resolve();
 
     expect(authStore.isAuthenticated).toBe(false);
-    expect(callback).toHaveBeenCalled(); // Should redirect due to timeout
+    expect(callback).toHaveBeenCalled();
+  });
+
+  it('stays logged in when session is expired but silent refresh succeeds', async () => {
+    const expiredTime = Date.now() - 1000;
+    localStorage.setItem('authToken', 'expired-token');
+    localStorage.setItem('refreshToken', 'valid-refresh');
+    localStorage.setItem('expiresAt', expiredTime.toString());
+    localStorage.setItem('userType', 'Therapist');
+    localStorage.setItem('id', '99');
+
+    (axios.post as jest.Mock).mockResolvedValueOnce({ data: { access: 'refreshed-token' } });
+
+    const callback = jest.fn();
+    authStore.checkAuthentication(callback);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(authStore.isAuthenticated).toBe(true);
+    expect(callback).not.toHaveBeenCalled();
+    expect(localStorage.getItem('authToken')).toBe('refreshed-token');
   });
 
   describe('authStore - Inactivity Timeout Logout', () => {
