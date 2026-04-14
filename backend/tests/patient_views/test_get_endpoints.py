@@ -406,8 +406,7 @@ def _make_star_questions():
             Translation(language="de", text="Wie fandest du den Inhalt?"),
         ],
         possibleAnswers=[
-            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")])
-            for i in range(1, 6)
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")]) for i in range(1, 6)
         ],
     )
     star_education.save()
@@ -422,8 +421,7 @@ def _make_star_questions():
             Translation(language="de", text="Wie fandest du die Übung?"),
         ],
         possibleAnswers=[
-            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")])
-            for i in range(1, 6)
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")]) for i in range(1, 6)
         ],
     )
     star_exercise.save()
@@ -510,8 +508,7 @@ def test_star_rating_returned_without_rehab_plan(mongo_mock):
     body = resp.json()
     keys = [q["questionKey"] for q in (body if isinstance(body, list) else body.get("questions", []))]
     assert "rating_stars_exercise" in keys, (
-        f"Star rating missing from {keys}. "
-        "Fallback Intervention lookup may not be working."
+        f"Star rating missing from {keys}. " "Fallback Intervention lookup may not be working."
     )
 
 
@@ -539,9 +536,9 @@ def test_star_rating_is_first_question(mongo_mock):
 
     assert "rating_stars_education" in keys, f"Star rating not present: {keys}"
     assert "difficulty_scale" in keys, f"Difficulty scale not present: {keys}"
-    assert keys.index("rating_stars_education") < keys.index("difficulty_scale"), (
-        f"Expected star rating before difficulty; got order: {keys}"
-    )
+    assert keys.index("rating_stars_education") < keys.index(
+        "difficulty_scale"
+    ), f"Expected star rating before difficulty; got order: {keys}"
 
 
 def test_correct_star_question_selected_for_exercise(mongo_mock):
