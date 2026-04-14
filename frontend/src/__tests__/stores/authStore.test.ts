@@ -1,7 +1,9 @@
+import axios from 'axios';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('axios');
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -74,16 +76,59 @@ describe('authStore', () => {
     expect(startTimerSpy).toHaveBeenCalled();
   });
 
-  it('resets state if session is expired', () => {
+  it('resets state immediately if session is expired and no refresh token exists', async () => {
     const oldTime = Date.now() - 1000; // Expired 1 second ago
     localStorage.setItem('authToken', 'token');
     localStorage.setItem('expiresAt', oldTime.toString());
+    // No refreshToken in localStorage → should not attempt silent refresh
 
     const resetSpy = jest.spyOn(authStore, 'reset');
 
     authStore.checkAuthentication();
+    // Allow any microtasks to settle
+    await Promise.resolve();
 
     expect(resetSpy).toHaveBeenCalled();
+    expect(authStore.isAuthenticated).toBe(false);
+  });
+
+  it('stays authenticated if session is expired but silent refresh succeeds', async () => {
+    const oldTime = Date.now() - 1000;
+    localStorage.setItem('authToken', 'old-token');
+    localStorage.setItem('refreshToken', 'valid-refresh');
+    localStorage.setItem('expiresAt', oldTime.toString());
+    localStorage.setItem('userType', 'Therapist');
+    localStorage.setItem('id', '42');
+
+    // Mock the axios.post call that _trySilentRefresh uses directly
+    (axios.post as jest.Mock).mockResolvedValueOnce({ data: { access: 'new-token' } });
+
+    authStore.checkAuthentication();
+    // Let the async refresh resolve
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(authStore.isAuthenticated).toBe(true);
+    expect(localStorage.getItem('authToken')).toBe('new-token');
+  });
+
+  it('logs out if session is expired and silent refresh fails', async () => {
+    const oldTime = Date.now() - 1000;
+    localStorage.setItem('authToken', 'old-token');
+    localStorage.setItem('refreshToken', 'bad-refresh');
+    localStorage.setItem('expiresAt', oldTime.toString());
+
+    (axios.post as jest.Mock).mockRejectedValueOnce(new Error('401'));
+
+    const resetSpy = jest.spyOn(authStore, 'reset');
+    const callback = jest.fn();
+
+    authStore.checkAuthentication(callback);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(resetSpy).toHaveBeenCalled();
+    expect(callback).toHaveBeenCalled();
     expect(authStore.isAuthenticated).toBe(false);
   });
 
