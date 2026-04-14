@@ -26,6 +26,9 @@ type PatientLibraryDesktopFiltersProps = {
   durationFilterIndices: [number, number];
   setDurationFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   durationLabels: string[];
+  ratingFilterIndices: [number, number];
+  setRatingFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
+  ratingLabels: string[];
 };
 
 type FilterSectionProps = {
@@ -72,6 +75,9 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
   durationFilterIndices,
   setDurationFilterIndices,
   durationLabels,
+  ratingFilterIndices,
+  setRatingFilterIndices,
+  ratingLabels,
 }) => {
   const { t } = useTranslation();
 
@@ -146,7 +152,7 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
             </FilterSection>
 
             <FilterSection title={t('Duration')}>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 <Slider
                   value={durationFilterIndices}
                   min={0}
@@ -156,6 +162,22 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
                 />
                 <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
                   {durationLabels.map((label, i) => (
+                    <span key={i}>{label}</span>
+                  ))}
+                </div>
+              </div>
+            </FilterSection>
+            <FilterSection title={t('Rating')}>
+              <div className="flex flex-col gap-3">
+                <Slider
+                  value={ratingFilterIndices}
+                  min={0}
+                  max={4}
+                  step={1}
+                  onValueChange={(value) => setRatingFilterIndices([value[0], value[1]])}
+                />
+                <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
+                  {ratingLabels.map((label, i) => (
                     <span key={i}>{label}</span>
                   ))}
                 </div>

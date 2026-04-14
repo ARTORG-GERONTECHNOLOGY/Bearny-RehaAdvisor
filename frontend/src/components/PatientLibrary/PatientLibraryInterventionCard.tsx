@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
+import StarsIcon from '@/assets/icons/interventions/stars.svg?react';
 import { Badge } from '@/components/ui/badge';
 
 type PatientLibraryInterventionCardItem = {
@@ -39,23 +40,20 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
       <div className="flex-1 flex flex-col gap-2 justify-between">
         <div className="font-bold text-lg leading-6 text-zinc-800">{displayTitle || '-'}</div>
         <div className="flex gap-1">
-          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+          <Badge className="flex gap-1 bg-white p-2 rounded-xl border border-accent shadow-none font-medium text-zinc-500">
             <ClockIcon className="w-4 h-4" />
             <div className="text-[#00956C] font-medium">
               {isNaN(Number(item.duration)) ? '-' : `${item.duration}min`}
             </div>
           </Badge>
-          <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
+          <Badge className="flex gap-1 bg-white p-2 rounded-xl border border-accent shadow-none font-medium text-zinc-500">
             {ContentTypeIcon && <ContentTypeIcon className="w-4 h-4" />}
             <div className="text-[#00956C] font-medium">{t(item.content_type) || '-'}</div>
           </Badge>
           {item.avg_rating != null && (
-            <Badge className="flex gap-1 bg-white py-2 px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500">
-              <span className="text-[#EFA73B]">
-                {'★'.repeat(Math.round(item.avg_rating))}
-                {'☆'.repeat(5 - Math.round(item.avg_rating))}
-              </span>
-              <span className="text-[#00956C] font-medium">{item.avg_rating.toFixed(1)}</span>
+            <Badge className="flex gap-1 bg-white p-2 rounded-xl border border-accent shadow-none font-medium text-zinc-500">
+              <StarsIcon className="w-4 h-4" />
+              <div className="text-[#00956C] font-medium">{item.avg_rating.toFixed(1)}</div>
             </Badge>
           )}
         </div>

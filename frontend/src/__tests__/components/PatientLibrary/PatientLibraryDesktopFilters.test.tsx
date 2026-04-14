@@ -26,9 +26,9 @@ jest.mock('@/components/ui/input-group', () => ({
 }));
 
 jest.mock('@/components/ui/slider', () => ({
-  Slider: ({ onValueChange }: any) => (
-    <button type="button" onClick={() => onValueChange([1, 3])}>
-      duration-slider
+  Slider: ({ onValueChange, 'data-testid': testId }: any) => (
+    <button type="button" data-testid={testId} onClick={() => onValueChange([1, 3])}>
+      slider
     </button>
   ),
 }));
@@ -49,6 +49,7 @@ describe('PatientLibraryDesktopFilters', () => {
     const setAimsFilter = jest.fn();
     const setContentTypeFilter = jest.fn();
     const setDurationFilterIndices = jest.fn();
+    const setRatingFilterIndices = jest.fn();
 
     render(
       <PatientLibraryDesktopFilters
@@ -63,12 +64,16 @@ describe('PatientLibraryDesktopFilters', () => {
         durationFilterIndices={[0, 4]}
         setDurationFilterIndices={setDurationFilterIndices}
         durationLabels={['5min', '20min', '35min', '50min', '1h+']}
+        ratingFilterIndices={[0, 4]}
+        setRatingFilterIndices={setRatingFilterIndices}
+        ratingLabels={['1', '2', '3', '4', '5']}
       />
     );
 
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Medium')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Rating')).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('Search'), { target: { value: 'balance' } });
     expect(onSearchTermChange).toHaveBeenCalledWith('balance');
@@ -86,7 +91,11 @@ describe('PatientLibraryDesktopFilters', () => {
     expect(contentUpdater([])).toEqual(['video']);
     expect(contentUpdater(['video'])).toEqual([]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'duration-slider' }));
+    const sliderButtons = screen.getAllByRole('button', { name: 'slider' });
+    fireEvent.click(sliderButtons[0]);
     expect(setDurationFilterIndices).toHaveBeenCalledWith([1, 3]);
+
+    fireEvent.click(sliderButtons[1]);
+    expect(setRatingFilterIndices).toHaveBeenCalledWith([1, 3]);
   });
 });
