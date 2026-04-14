@@ -1,6 +1,9 @@
 // src/stores/authStore.ts
+import axios from 'axios';
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL as string;
 
 type UserType = 'Admin' | 'Therapist' | 'Researcher' | 'Patient' | '';
 
@@ -238,21 +241,80 @@ class AuthStore {
   };
 
   // ───────────────────────────
+  // Silent token refresh
+  //
+  // Attempts to exchange the stored refresh token for a new access token
+  // WITHOUT going through the apiClient interceptor (which would itself
+  // trigger another 401 cycle). Returns true on success, false on failure.
+  // ───────────────────────────
+  private async _trySilentRefresh(): Promise<boolean> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return false;
+
+    try {
+      const res = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
+        refresh: refreshToken,
+      });
+      const newAccess = res.data?.access;
+      if (!newAccess) return false;
+
+      localStorage.setItem('authToken', newAccess);
+      this._markActivity();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ───────────────────────────
   // Session restore
   // ───────────────────────────
   checkAuthentication(callback?: () => void) {
     const token = localStorage.getItem('authToken');
+    const refreshToken = localStorage.getItem('refreshToken');
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
 
-    if (!token || !expiresAt || Number.isNaN(expiresAt) || Date.now() >= expiresAt) {
+    const sessionExpired = !expiresAt || Number.isNaN(expiresAt) || Date.now() >= expiresAt;
+
+    if (sessionExpired) {
+      if (refreshToken) {
+        // The inactivity timer has elapsed but we still have a refresh token.
+        // Attempt a silent refresh before giving up — prevents spurious logouts
+        // caused by clock skew, a suspended JS timer (mobile backgrounding),
+        // or a stale expiresAt written by a different tab.
+        this._trySilentRefresh().then((ok) => {
+          if (ok) {
+            this._restoreSessionState();
+            this.startInactivityTimer();
+          } else {
+            this.reset();
+            this.clearStorage();
+            callback?.();
+          }
+        });
+      } else {
+        // No refresh token either — nothing we can do.
+        this.reset();
+        this.clearStorage();
+        callback?.();
+      }
+      return;
+    }
+
+    if (!token) {
+      // expiresAt is in the future but access token is gone (e.g. other tab cleared it)
       this.reset();
       this.clearStorage();
       callback?.();
       return;
     }
 
-    // Restore session state
+    this._restoreSessionState();
+    this.startInactivityTimer();
+  }
+
+  private _restoreSessionState() {
     runInAction(() => {
       this.isAuthenticated = true;
       this.userType = (localStorage.getItem('userType') || '') as UserType;
@@ -270,8 +332,6 @@ class AuthStore {
       this.partialLogin = false;
       this.loginErrorMessage = '';
     });
-
-    this.startInactivityTimer();
   }
 
   // ───────────────────────────
@@ -342,8 +402,13 @@ class AuthStore {
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
 
     if (!expiresAt || Number.isNaN(expiresAt)) {
-      // If storage is corrupted, logout safely
-      this.logout();
+      // expiresAt is corrupted/missing — attempt a silent refresh before
+      // giving up, so a localStorage corruption doesn't cause a spurious logout.
+      this._trySilentRefresh().then((ok) => {
+        if (!ok) this.logout();
+        // If ok, _markActivity() inside _trySilentRefresh already wrote a
+        // fresh expiresAt — let the next activity event rearm the timer.
+      });
       return;
     }
 
