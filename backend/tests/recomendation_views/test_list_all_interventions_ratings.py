@@ -135,8 +135,7 @@ def _make_star_question(question_key="rating_stars_education"):
         applicable_types=["All"],  # simplified: "All" so aggregation finds it regardless of type
         translations=[Translation(language="en", text="Rate it")],
         possibleAnswers=[
-            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")])
-            for i in range(1, 6)
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{i}/5")]) for i in range(1, 6)
         ],
     )
     q.save()
@@ -260,9 +259,7 @@ def test_list_all_interventions_non_rating_feedback_excluded_from_average(mongo_
         answer_type="select",
         applicable_types=["All"],
         translations=[Translation(language="en", text="Difficulty?")],
-        possibleAnswers=[
-            AnswerOption(key="too_easy", translations=[Translation(language="en", text="Too easy")])
-        ],
+        possibleAnswers=[AnswerOption(key="too_easy", translations=[Translation(language="en", text="Too easy")])],
     )
     difficulty_q.save()
 
@@ -301,9 +298,7 @@ def test_list_all_interventions_non_rating_feedback_excluded_from_average(mongo_
     rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
     assert rated is not None
     # No star ratings submitted → should still be null
-    assert rated["avg_rating"] is None, (
-        f"Non-star feedback leaked into avg_rating: {rated['avg_rating']}"
-    )
+    assert rated["avg_rating"] is None, f"Non-star feedback leaked into avg_rating: {rated['avg_rating']}"
     assert rated["rating_count"] == 0
 
 
