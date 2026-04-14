@@ -73,7 +73,8 @@ const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: numb
 
 const defaultLibraryFilters: LibraryFiltersState = {
   searchTerm: '',
-  patientTypeFilter: '',
+  diagnosisFilter: [],
+  languageFilter: [],
   contentTypeFilter: '',
   aimsFilter: [],
   tagFilter: [],
@@ -81,7 +82,8 @@ const defaultLibraryFilters: LibraryFiltersState = {
 
 const defaultTemplatesFilters: TemplatesFiltersState = {
   tSearchTerm: '',
-  tPatientTypeFilter: '',
+  tDiagnosisFilter: [],
+  tLanguageFilter: [],
   tContentTypeFilter: '',
   tTagFilter: [],
 };
@@ -242,7 +244,8 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   const filteredInterventions = useMemo(() => {
     return filterInterventions(recommendations, translatedTitles, {
-      patientTypeFilter: libraryFilters.patientTypeFilter,
+      diagnosisFilter: libraryFilters.diagnosisFilter,
+      languageFilter: libraryFilters.languageFilter,
       contentTypeFilter: libraryFilters.contentTypeFilter,
       tagFilter: libraryFilters.tagFilter,
       benefitForFilter: libraryFilters.aimsFilter,
@@ -252,7 +255,8 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   const templateFilteredAll = useMemo(() => {
     return filterInterventions(recommendations, translatedTitles, {
-      patientTypeFilter: templatesFilters.tPatientTypeFilter,
+      diagnosisFilter: templatesFilters.tDiagnosisFilter,
+      languageFilter: templatesFilters.tLanguageFilter,
       contentTypeFilter: templatesFilters.tContentTypeFilter,
       tagFilter: templatesFilters.tTagFilter,
       benefitForFilter: [], // templates don't use aims filter
@@ -743,7 +747,6 @@ const TherapistRecomendations: React.FC = observer(() => {
           <>
             <LibraryFiltersCard
               t={t}
-              patientTypes={patientTypes}
               filters={libraryFilters}
               onChange={setLibraryFilters}
               onReset={resetLibraryFilters}

@@ -2,6 +2,7 @@
   "interventionsTaxonomy": {
     "input_from": ["Italy", "Portugal", "Belgium", "Switzerland"],
     "original_languages": ["DE", "FR", "IT", "PT", "ENG", "NL"],
+    "languages": ["de", "en", "fr", "it", "pt", "nl"],
     "primary_diagnoses": ["heart failure", "acute corornary syndrom", "chronic coronary syndrome"],
     "aims": ["Education", "Exercise", "Instructions", "Reminder", "Experience"],
     "topics": [

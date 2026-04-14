@@ -266,6 +266,7 @@ class InterventionMedia(EmbeddedDocument):
 class Intervention(Document):
     meta = {
         "collection": "Interventions",
+        "strict": False,  # ignore extra fields in existing DB documents (e.g. removed lc9/timing/frequency_time)
         "indexes": [
             {"fields": ["external_id", "language"], "unique": True},
             "external_id",

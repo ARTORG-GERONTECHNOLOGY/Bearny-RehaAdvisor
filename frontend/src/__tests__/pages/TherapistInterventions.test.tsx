@@ -83,8 +83,10 @@ jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (pr
       value={props.filters.searchTerm}
       onChange={(e) => props.onChange({ ...props.filters, searchTerm: e.target.value })}
     />
-    <button onClick={() => props.onChange({ ...props.filters, patientTypeFilter: 'Stroke' })}>
-      Set Patient Type
+    <button
+      onClick={() => props.onChange({ ...props.filters, diagnosisFilter: ['heart failure'] })}
+    >
+      Set Diagnosis
     </button>
     <button onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}>
       Set Content Type
@@ -122,7 +124,7 @@ jest.mock('@/components/TherapistInterventionPage/FilterBar', () => (props) => {
         value={props.searchTerm}
         onChange={(e) => props.setSearchTerm(e.target.value)}
       />
-      <button onClick={() => props.setPatientTypeFilter('Stroke')}>Set Patient Type</button>
+      <button onClick={() => props.setDiagnosisFilter(['heart failure'])}>Set Diagnosis</button>
       <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
       <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
     </div>
@@ -163,6 +165,7 @@ const mockInterventions = [
     title: 'Stretching for 30 minutes',
     description: 'Do 30 minutes of stretching with the help of this video.',
     content_type: 'Exercise',
+    primary_diagnosis: ['heart failure'],
     patient_types: [
       { type: 'Cardiology', frequency: 'Daily', include_option: true, diagnosis: null },
       { type: 'Psychiatry', frequency: 'Every-2nd-day', include_option: true, diagnosis: null },
@@ -315,14 +318,14 @@ describe('TherapistInterventions Page', () => {
     });
   });
 
-  test('applies patient type filter', async () => {
+  test('applies diagnosis filter', async () => {
     render(
       <MemoryRouter>
         <TherapistInterventions />
       </MemoryRouter>
     );
     await screen.findByText('Stretching for 30 minutes');
-    fireEvent.click(screen.getByText('Set Patient Type'));
+    fireEvent.click(screen.getByText('Set Diagnosis'));
     expect(await screen.findByText('Stretching for 30 minutes')).toBeInTheDocument();
   });
 

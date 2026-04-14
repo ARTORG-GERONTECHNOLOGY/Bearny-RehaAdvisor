@@ -9,11 +9,11 @@ interface Props {
   searchTerm: string;
   setSearchTerm: (val: string) => void;
 
-  patientTypeFilter: string;
-  setPatientTypeFilter: (val: string) => void;
+  diagnosisFilter: string[];
+  setDiagnosisFilter: (val: string[]) => void;
 
-  diagnosisFilter?: string[];
-  setDiagnosisFilter?: (val: string[]) => void;
+  languageFilter?: string[];
+  setLanguageFilter?: (val: string[]) => void;
 
   contentTypeFilter: string;
   setContentTypeFilter: (val: string) => void;
@@ -31,10 +31,10 @@ interface Props {
 const FilterBar: React.FC<Props> = ({
   searchTerm,
   setSearchTerm,
-  patientTypeFilter,
-  setPatientTypeFilter,
   diagnosisFilter,
   setDiagnosisFilter,
+  languageFilter,
+  setLanguageFilter,
   contentTypeFilter,
   setContentTypeFilter,
   tagFilter,
@@ -46,10 +46,6 @@ const FilterBar: React.FC<Props> = ({
 }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
 
-  const patientTypes = useMemo(
-    () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
-    [tx]
-  );
   const diagnosisOptions = useMemo(
     () => (Array.isArray(tx.primary_diagnoses) ? tx.primary_diagnoses : []),
     [tx]
@@ -68,7 +64,6 @@ const FilterBar: React.FC<Props> = ({
     ...(Array.isArray(tx.where) ? tx.where : []),
     ...(Array.isArray(tx.setting) ? tx.setting : []),
     ...(Array.isArray(tx.input_from) ? tx.input_from : []),
-    ...(Array.isArray(tx.original_languages) ? tx.original_languages : []),
   ];
 
   const tagOptions = uniq(tagBuckets).map((tag) => ({ value: tag, label: t(tag) }));
@@ -105,9 +100,18 @@ const FilterBar: React.FC<Props> = ({
     return () => ro.disconnect();
   }, []);
 
+  const languageOptions = useMemo(
+    () =>
+      (Array.isArray(tx.languages) ? tx.languages : []).map((l: string) => ({
+        value: l,
+        label: l.toUpperCase(),
+      })),
+    [tx]
+  );
+
   const activeFiltersCount =
-    (patientTypeFilter ? 1 : 0) +
     (diagnosisFilter?.length ? 1 : 0) +
+    (languageFilter?.length ? 1 : 0) +
     (contentTypeFilter ? 1 : 0) +
     (tagFilter?.length ? 1 : 0);
 
@@ -117,33 +121,28 @@ const FilterBar: React.FC<Props> = ({
       // ✅ prevent bubbling to any parent click handlers (common in cards/lists)
       onClick={(e) => e.stopPropagation()}
     >
-      <Form.Group controlId="filterPatientType">
-        <Form.Label visuallyHidden>{t('Filter by Patient Type')}</Form.Label>
-        <Form.Select
-          value={patientTypeFilter}
-          onChange={(e) => {
-            setPatientTypeFilter(e.target.value);
-            setDiagnosisFilter([]);
-          }}
-        >
-          <option value="">{t('All Patient Types')}</option>
-          {patientTypes.map((type: string) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
+      <Form.Group controlId="filterDiagnosis">
+        <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
+        <Select
+          isMulti
+          placeholder={t('Filter by Primary Diagnosis')}
+          options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
+          value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+          onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+          styles={selectStyles}
+          menuPortalTarget={document.body}
+        />
       </Form.Group>
 
-      {setDiagnosisFilter && (
-        <Form.Group controlId="filterDiagnosis">
-          <Form.Label visuallyHidden>{t('Filter by Diagnosis')}</Form.Label>
+      {setLanguageFilter && (
+        <Form.Group controlId="filterLanguage">
+          <Form.Label visuallyHidden>{t('Filter by Language')}</Form.Label>
           <Select
             isMulti
-            placeholder={t('Filter by Diagnosis')}
-            options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
-            value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-            onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+            placeholder={t('Filter by Language')}
+            options={languageOptions}
+            value={(languageFilter || []).map((l) => ({ value: l, label: l.toUpperCase() }))}
+            onChange={(opts) => setLanguageFilter((opts || []).map((o: any) => o.value))}
             styles={selectStyles}
             menuPortalTarget={document.body}
           />
