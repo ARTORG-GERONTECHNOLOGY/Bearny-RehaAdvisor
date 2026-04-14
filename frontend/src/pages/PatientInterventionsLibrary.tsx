@@ -301,7 +301,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
     const withRating = withDuration.filter((it: any) => {
       const rating = Number(it?.avg_rating);
-      if (isNaN(rating) || it?.avg_rating == null) return true;
+      const isFullRatingRange = ratingFilterIndices[0] === 0 && ratingFilterIndices[1] === 4;
+      if (isNaN(rating) || it?.avg_rating == null) return isFullRatingRange;
 
       const minRating = ratingBuckets[ratingFilterIndices[0]];
       const maxRating = ratingBuckets[ratingFilterIndices[1]];
