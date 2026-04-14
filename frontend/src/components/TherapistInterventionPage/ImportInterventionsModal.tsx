@@ -213,7 +213,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
             <Form>
               <Form.Group className="mb-3">
-                <Form.Label className="fw-semibold">{t('Excel file (.xlsx / .xlsm / .csv)')}</Form.Label>
+                <Form.Label className="fw-semibold">
+                  {t('Excel file (.xlsx / .xlsm / .csv)')}
+                </Form.Label>
                 <Form.Control
                   type="file"
                   accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"

@@ -20,10 +20,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 const API_BASE = process.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
 
 /** Path to the real COPAIN xlsm file used in import tests. */
-const COPAIN_FILE = path.join(
-  __dirname,
-  '../src/__tests__/test_data/COPAIN_MSK_LINKS_UPLOAD.xlsm'
-);
+const COPAIN_FILE = path.join(__dirname, '../src/__tests__/test_data/COPAIN_MSK_LINKS_UPLOAD.xlsm');
 /** The sheet inside COPAIN_MSK_LINKS_UPLOAD.xlsm that contains the data. */
 const COPAIN_SHEET = 'MKS_Upload_links';
 
@@ -338,7 +335,7 @@ test.describe('COPAIN MSK file import — API level', () => {
     expect(body2.success).toBe(true);
     // No new rows should be created on a repeat import
     expect(body2.created ?? 0).toBe(0);
-    expect((body2.updated ?? 0)).toBeGreaterThan(0);
+    expect(body2.updated ?? 0).toBeGreaterThan(0);
     expect(body2.errors_count ?? 0).toBe(0);
   });
 
@@ -402,8 +399,7 @@ test.describe('COPAIN MSK file import — UI level', () => {
 
     // Intercept the import response
     const importResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes('/interventions/import/') && res.request().method() === 'POST',
+      (res) => res.url().includes('/interventions/import/') && res.request().method() === 'POST',
       { timeout: 60_000 }
     );
 
@@ -451,7 +447,10 @@ test.describe('COPAIN MSK file import — UI level', () => {
 
     // The modal surfaces the failure — either via Alert or result panel
     await expect(
-      modal.getByRole('alert').or(modal.getByText(/failed/i)).first()
+      modal
+        .getByRole('alert')
+        .or(modal.getByText(/failed/i))
+        .first()
     ).toBeVisible({ timeout: 5_000 });
   });
 });
