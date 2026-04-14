@@ -24,6 +24,9 @@ type PatientLibraryFilterSheetProps = {
   durationFilterIndices: [number, number];
   setDurationFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   durationLabels: string[];
+  ratingFilterIndices: [number, number];
+  setRatingFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
+  ratingLabels: string[];
   onResetFilters: () => void;
 };
 
@@ -39,6 +42,9 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
   durationFilterIndices,
   setDurationFilterIndices,
   durationLabels,
+  ratingFilterIndices,
+  setRatingFilterIndices,
+  ratingLabels,
   onResetFilters,
 }) => {
   const { t } = useTranslation();
@@ -114,6 +120,22 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
             />
             <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
               {durationLabels.map((label, i) => (
+                <span key={i}>{label}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="font-medium text-lg text-zinc-600">{t('Rating')}</div>
+            <Slider
+              value={ratingFilterIndices}
+              min={0}
+              max={4}
+              step={1}
+              onValueChange={(value) => setRatingFilterIndices([value[0], value[1]])}
+            />
+            <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
+              {ratingLabels.map((label, i) => (
                 <span key={i}>{label}</span>
               ))}
             </div>
