@@ -495,6 +495,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         link: asStr(intervention.link) || '',
         media_file: asStr(intervention.media_file) || '',
         media_url: asStr(intervention.media_url) || '',
+        notes: asStr(selectedRec.notes) || '',
       };
     }
 
@@ -522,6 +523,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         link: asStr(intervention.link) || '',
         media_file: asStr(intervention.media_file) || '',
         media_url: asStr(intervention.media_url) || '',
+        notes: asStr(intervention.notes) || '',
       };
     }
 
@@ -721,6 +723,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
               effectiveItem?.description || ''
             )}
           </div>
+
+          {effectiveItem?.notes && (
+            <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+              {effectiveItem.notes}
+            </div>
+          )}
         </Section>
 
         {getMetaTags(effectiveItem).length > 0 && (
