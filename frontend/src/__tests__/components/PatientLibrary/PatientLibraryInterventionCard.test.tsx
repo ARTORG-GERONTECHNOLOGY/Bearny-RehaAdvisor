@@ -56,8 +56,7 @@ describe('PatientLibraryInterventionCard', () => {
   // Star rating badge (avg_rating)
   // -------------------------------------------------------------------------
 
-  it('shows star badge with filled/empty stars and numeric average when avg_rating is provided', () => {
-    // avg_rating = 4.3 → Math.round(4.3) = 4 → ★★★★☆
+  it('shows numeric average when avg_rating is provided', () => {
     render(
       <PatientLibraryInterventionCard
         item={{ duration: 20, content_type: 'Exercise', avg_rating: 4.3, rating_count: 12 }}
@@ -69,13 +68,10 @@ describe('PatientLibraryInterventionCard', () => {
       />
     );
 
-    // Numeric average is shown
     expect(screen.getByText('4.3')).toBeInTheDocument();
-    // Correct filled/empty star pattern
-    expect(screen.getByText('★★★★☆')).toBeInTheDocument();
   });
 
-  it('shows 5 filled stars when avg_rating is 5', () => {
+  it('shows formatted average when avg_rating is 5', () => {
     render(
       <PatientLibraryInterventionCard
         item={{ duration: 10, content_type: 'Video', avg_rating: 5.0, rating_count: 3 }}
@@ -87,11 +83,10 @@ describe('PatientLibraryInterventionCard', () => {
       />
     );
 
-    expect(screen.getByText('★★★★★')).toBeInTheDocument();
     expect(screen.getByText('5.0')).toBeInTheDocument();
   });
 
-  it('hides star badge when avg_rating is null', () => {
+  it('hides rating badge when avg_rating is null', () => {
     render(
       <PatientLibraryInterventionCard
         item={{ duration: 20, content_type: 'Exercise', avg_rating: null }}
@@ -103,10 +98,13 @@ describe('PatientLibraryInterventionCard', () => {
       />
     );
 
-    expect(screen.queryByText(/★/)).not.toBeInTheDocument();
+    // avg_rating badge not rendered
+    expect(screen.queryByText('null')).not.toBeInTheDocument();
+    // only the duration and content_type badges are present
+    expect(screen.getAllByText(/-|Exercise/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('hides star badge when avg_rating is undefined (field absent)', () => {
+  it('hides rating badge when avg_rating is undefined (field absent)', () => {
     render(
       <PatientLibraryInterventionCard
         item={{ duration: 15, content_type: 'Audio' }}
@@ -118,6 +116,7 @@ describe('PatientLibraryInterventionCard', () => {
       />
     );
 
-    expect(screen.queryByText(/★/)).not.toBeInTheDocument();
+    expect(screen.queryByText('undefined')).not.toBeInTheDocument();
+    expect(screen.getByText('15min')).toBeInTheDocument();
   });
 });

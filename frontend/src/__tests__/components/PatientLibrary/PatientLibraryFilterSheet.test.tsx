@@ -18,7 +18,7 @@ jest.mock('@/components/ui/sheet', () => ({
 }));
 
 jest.mock('@/components/ui/slider', () => ({
-  Slider: () => <div data-testid="duration-slider" />,
+  Slider: ({ 'data-testid': testId }: any) => <div data-testid={testId ?? 'slider'} />,
 }));
 
 jest.mock('@/components/ui/switch', () => ({
@@ -49,6 +49,9 @@ describe('PatientLibraryFilterSheet', () => {
         durationFilterIndices={[0, 4]}
         setDurationFilterIndices={jest.fn()}
         durationLabels={['5min', '20min', '35min', '50min', '1h+']}
+        ratingFilterIndices={[0, 4]}
+        setRatingFilterIndices={jest.fn()}
+        ratingLabels={['1', '2', '3', '4', '5']}
         onResetFilters={onResetFilters}
       />
     );
@@ -57,6 +60,7 @@ describe('PatientLibraryFilterSheet', () => {
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Medium')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Rating')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
     expect(onResetFilters).toHaveBeenCalledTimes(1);
