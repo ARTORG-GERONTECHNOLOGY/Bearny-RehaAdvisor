@@ -1582,3 +1582,136 @@ def test_apply_template_diagnosis_no_matching_patients(mongo_mock):
     assert data["applied"] == 0
     assert data["patients_affected"] == 0
     assert "message" in data
+
+
+# ===========================================================================
+# MongoEngine dirty-tracking regression tests
+# These tests guard against silent data loss caused by in-place mutation of
+# nested dicts inside EmbeddedDocument ListFields (MongoEngine does not detect
+# such mutations, so .save() would silently drop the change).
+# ===========================================================================
+
+
+def test_assign_then_apply_produces_sessions(mongo_mock):
+    """
+    Regression: assigning an intervention and immediately applying the template
+    must produce > 0 sessions.
+
+    Previously, when the intervention was NEWLY added (i.e. existing=None path),
+    this worked.  This test pins that behaviour so any regression in the creation
+    path is caught quickly.
+    """
+    _, therapist = _make_therapist()
+    _, patient = _make_patient(therapist)
+    tmpl = _make_template(therapist)  # empty template
+    intervention = _make_intervention()
+
+    # Assign the intervention to the template
+    assign_resp = _post_json(
+        ASSIGN_URL.format(id=tmpl.id),
+        {"interventionId": str(intervention.id), "end_day": 10},
+        therapist,
+    )
+    assert assign_resp.status_code == 200
+
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    apply_resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"patientIds": [str(patient.id)], "effectiveFrom": tomorrow},
+        therapist,
+    )
+
+    assert apply_resp.status_code == 200, apply_resp.content.decode()
+    body = apply_resp.json()
+    assert body["applied"] == 1, "apply must report 1 intervention applied"
+    assert body["sessions_created"] > 0, "apply must create at least one session"
+
+
+def test_update_existing_assignment_persisted_on_apply(mongo_mock):
+    """
+    Regression (MongoEngine dirty-tracking bug): updating an existing
+    diagnosis block via a second POST to the assign endpoint and then applying
+    the template must use the UPDATED schedule, not the original one.
+
+    The bug: ``existing.diagnosis_assignments[key] = new_value`` mutates the
+    dict in-place, which MongoEngine's change-tracker ignores — the old value
+    is written to DB and apply produces 0 sessions (or uses wrong end_day).
+    The fix is to reassign the whole dict: ``existing.diagnosis_assignments = da``.
+    """
+    _, therapist = _make_therapist()
+    _, patient = _make_patient(therapist)
+    tmpl = _make_template(therapist)
+    intervention = _make_intervention()
+    url = ASSIGN_URL.format(id=tmpl.id)
+
+    # First assign: end_day=1 (very short — would create exactly 1 session)
+    _post_json(url, {"interventionId": str(intervention.id), "end_day": 1}, therapist)
+
+    # Second assign (UPDATE path — triggers the buggy branch): end_day=14
+    update_resp = _post_json(
+        url, {"interventionId": str(intervention.id), "end_day": 14}, therapist
+    )
+    assert update_resp.status_code == 200
+
+    # The serialised template returned by the assign endpoint must already
+    # reflect end_day=14 (checks in-memory correctness).
+    recs = update_resp.json()["template"]["recommendations"]
+    assert len(recs) == 1
+    assert recs[0]["diagnosis_assignments"]["_all"][0]["end_day"] == 14
+
+    # Apply the template — the DB-persisted schedule must also use end_day=14,
+    # so sessions_created must be > 1 (14-day window).
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    apply_resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"patientIds": [str(patient.id)], "effectiveFrom": tomorrow},
+        therapist,
+    )
+    assert apply_resp.status_code == 200, apply_resp.content.decode()
+    body = apply_resp.json()
+    assert body["applied"] == 1, "apply must find the intervention"
+    assert body["sessions_created"] > 1, (
+        "updated end_day=14 must produce more than 1 session; "
+        "if sessions_created == 0 the dirty-tracking bug is back"
+    )
+
+
+def test_remove_diagnosis_block_persisted(mongo_mock):
+    """
+    Regression: removing a single diagnosis block via DELETE ?diagnosis=<key>
+    must persist after the delete.
+
+    The bug: ``rec.diagnosis_assignments.pop(key, None)`` mutates the dict
+    in-place, so MongoEngine ignores it and the entry reappears after reload.
+    The fix is to reassign the whole dict.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist)
+    intervention = _make_intervention()
+    assign_url = ASSIGN_URL.format(id=tmpl.id)
+
+    # Assign the same intervention under two different diagnosis keys
+    _post_json(assign_url, {"interventionId": str(intervention.id), "end_day": 5, "diagnosis": "Stroke"}, therapist)
+    _post_json(assign_url, {"interventionId": str(intervention.id), "end_day": 5, "diagnosis": "MS"}, therapist)
+
+    # Verify both blocks exist
+    detail_before = _get(f"/api/templates/{tmpl.id}/", therapist).json()
+    recs_before = detail_before["template"]["recommendations"]
+    assert len(recs_before) == 1
+    da_before = recs_before[0]["diagnosis_assignments"]
+    assert "Stroke" in da_before and "MS" in da_before
+
+    # Remove just the "MS" block
+    remove_resp = _delete(
+        f"/api/templates/{tmpl.id}/interventions/{intervention.id}/?diagnosis=MS",
+        therapist,
+    )
+    assert remove_resp.status_code == 200
+
+    # Re-fetch and confirm "MS" is gone but "Stroke" remains
+    detail_after = _get(f"/api/templates/{tmpl.id}/", therapist).json()
+    recs_after = detail_after["template"]["recommendations"]
+    assert len(recs_after) == 1, "intervention entry should still exist (Stroke block remains)"
+    da_after = recs_after[0]["diagnosis_assignments"]
+    assert "MS" not in da_after, "MS block must be removed from DB (dirty-tracking bug regression)"
+    assert "Stroke" in da_after, "Stroke block must be untouched"
