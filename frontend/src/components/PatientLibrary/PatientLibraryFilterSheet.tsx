@@ -110,7 +110,7 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="font-medium text-lg text-zinc-600">{t('Duration')}</div>
+            <div className="font-medium text-lg text-zinc-600">{t('Duration Short')}</div>
             <Slider
               value={durationFilterIndices}
               min={0}

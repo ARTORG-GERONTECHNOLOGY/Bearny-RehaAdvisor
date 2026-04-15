@@ -115,7 +115,7 @@ const PatientLibrarySearchPanel: React.FC<PatientLibrarySearchPanelProps> = ({
               {searchResults.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   <div className="font-medium text-sm text-zinc-500">
-                    {searchResults.length} {t('Recommendations')}
+                    {searchResults.length} {t('Contents')}
                   </div>
                   {searchResults.map((item) => {
                     const title = getDisplayTitle(item);

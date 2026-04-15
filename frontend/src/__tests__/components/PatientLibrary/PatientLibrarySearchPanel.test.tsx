@@ -56,7 +56,7 @@ describe('PatientLibrarySearchPanel', () => {
   it('shows results and handles close/details in open mode', () => {
     render(<PatientLibrarySearchPanel {...baseProps} isSearchOpen searchTerm="mor" />);
 
-    expect(screen.getByText('1 Recommendations')).toBeInTheDocument();
+    expect(screen.getByText('1 Contents')).toBeInTheDocument();
     expect(screen.getByText('Morning Stretch')).toBeInTheDocument();
 
     const title = screen.getByText('Morning Stretch');
