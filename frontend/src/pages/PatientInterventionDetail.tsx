@@ -726,7 +726,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
           {effectiveItem?.notes && (
             <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
-              {effectiveItem.notes}
+              {t('Notes')}: {effectiveItem.notes}
             </div>
           )}
         </Section>
