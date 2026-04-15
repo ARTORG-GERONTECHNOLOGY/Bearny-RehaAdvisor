@@ -6,6 +6,7 @@ from bson import ObjectId
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -16,6 +17,7 @@ from core.models import (
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
+    PatientThresholds,
     Therapist,
     User,
 )
@@ -34,6 +36,55 @@ FILE_TYPE_FOLDERS = {
 def _avg(lst):
     lst = [x for x in lst if isinstance(x, (int, float))]
     return round(mean(lst), 1) if lst else None
+
+
+def _thresholds_to_dict(thresholds):
+    if thresholds is None:
+        thresholds = PatientThresholds()
+    try:
+        return thresholds.to_mongo().to_dict()
+    except Exception:
+        out = {}
+        for field in (
+            "steps_goal",
+            "active_minutes_green",
+            "active_minutes_yellow",
+            "sleep_green_min",
+            "sleep_yellow_min",
+            "bp_sys_green_max",
+            "bp_sys_yellow_max",
+            "bp_dia_green_max",
+            "bp_dia_yellow_max",
+        ):
+            out[field] = getattr(thresholds, field, None)
+        return out
+
+
+def _latest_feedback_at(patient, questionnaire_last):
+    latest = questionnaire_last
+
+    latest_intervention_log = (
+        PatientInterventionLogs.objects(
+            Q(userId=patient)
+            & (Q(feedback__exists=True, feedback__ne=[]) | Q(video_url__exists=True, video_url__ne=""))
+        )
+        .order_by("-date")
+        .first()
+    )
+    if latest_intervention_log:
+        intervention_dt = getattr(latest_intervention_log, "updatedAt", None) or getattr(
+            latest_intervention_log, "date", None
+        )
+        if intervention_dt and (latest is None or intervention_dt > latest):
+            latest = intervention_dt
+
+    general_feedback = GeneralFeedback.objects(patient_id=patient).order_by("-createdAt").first()
+    if general_feedback:
+        general_dt = getattr(general_feedback, "createdAt", None)
+        if general_dt and (latest is None or general_dt > latest):
+            latest = general_dt
+
+    return latest
 
 
 import logging
@@ -402,7 +453,7 @@ def list_therapist_patients(request, therapist_id):
         return JsonResponse({"error": "Therapist not found"}, status=404)
 
     try:
-        since = datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)
+        since = timezone.now() - timedelta(days=LOOKBACK_DAYS)
         output_list = []
 
         filter_kwargs: dict = {"clinic__in": therapist.clinics}
@@ -419,6 +470,7 @@ def list_therapist_patients(request, therapist_id):
                 "patient_code",
                 "userId",
                 "reha_end_date",
+                "thresholds",
             )
             .no_dereference()
         )
@@ -434,7 +486,8 @@ def list_therapist_patients(request, therapist_id):
             last_online_dt = last_online_log.timestamp if last_online_log else None
 
             try:
-                summary, last_fb_dt = _feedback_computing(patient)
+                summary, questionnaire_last_fb_dt = _feedback_computing(patient)
+                last_fb_dt = _latest_feedback_at(patient, questionnaire_last_fb_dt)
             except Exception as e:
                 logger.error(
                     "[list_therapist_patients] feedback summary error %s: %s",
@@ -444,10 +497,11 @@ def list_therapist_patients(request, therapist_id):
                 summary, last_fb_dt = [], None
 
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
+            bp_sys_vals, bp_dia_vals = [], []
             last_worn_date = None
             fitbit_docs = (
                 FitbitData.objects(user=user, date__gte=since)
-                .only("steps", "active_minutes", "sleep", "wear_time_minutes", "date")
+                .only("steps", "active_minutes", "sleep", "wear_time_minutes", "bp_sys", "bp_dia", "date")
                 .order_by("-date")
             )
             for doc in fitbit_docs:
@@ -455,6 +509,10 @@ def list_therapist_patients(request, therapist_id):
                     steps_vals.append(doc.steps)
                 if doc.active_minutes is not None:
                     activity_vals.append(doc.active_minutes)
+                if doc.bp_sys is not None:
+                    bp_sys_vals.append(doc.bp_sys)
+                if doc.bp_dia is not None:
+                    bp_dia_vals.append(doc.bp_dia)
                 try:
                     if doc.sleep and doc.sleep.minutes_asleep is not None:
                         sleep_mins.append(doc.sleep.minutes_asleep)
@@ -467,13 +525,15 @@ def list_therapist_patients(request, therapist_id):
                     if last_worn_date is None:
                         last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
 
-            today_date = datetime.utcnow().date()
+            today_date = timezone.now().date()
             days_since_worn = (today_date - last_worn_date).days if last_worn_date else None
 
             biomarker = {
                 "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,
                 "activity_min": _avg(activity_vals),
                 "steps_avg": _avg(steps_vals),
+                "bp_sys_avg": _avg(bp_sys_vals),
+                "bp_dia_avg": _avg(bp_dia_vals),
                 "wear_time_avg_min": _avg(wear_vals),
                 "wear_time_days_since": days_since_worn,
             }
@@ -503,6 +563,7 @@ def list_therapist_patients(request, therapist_id):
                     "last_feedback_at": last_fb_dt.isoformat() if last_fb_dt else None,
                     "questionnaires": summary,
                     "feedback_low": any(it.get("low_score") for it in summary),
+                    "thresholds": _thresholds_to_dict(getattr(patient, "thresholds", None)),
                     "biomarker": biomarker,
                     "adherence_rate": adh_7,
                     "adherence_total": adh_total,

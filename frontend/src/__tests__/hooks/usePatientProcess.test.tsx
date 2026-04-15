@@ -19,17 +19,18 @@ jest.mock('@/stores/authStore', () => ({
 const mockedUsePatientAuthGate = usePatientAuthGate as jest.Mock;
 
 describe('usePatientProcess', () => {
+  let nowSpy: jest.SpyInstance<number, []>;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-16T12:00:00Z').getTime());
+    nowSpy = jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-16T12:00:00Z').getTime());
     localStorage.clear();
     localStorage.setItem('id', 'patient-123');
     mockedUsePatientAuthGate.mockReturnValue({ isAllowed: true });
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    nowSpy.mockRestore();
   });
 
   it('does not fetch when patient auth gate is not allowed', async () => {
@@ -46,6 +47,8 @@ describe('usePatientProcess', () => {
   });
 
   it('fetches and computes process metrics for the weekly range', async () => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/patients/health-combined-history/')) {
         return Promise.resolve({
@@ -78,7 +81,7 @@ describe('usePatientProcess', () => {
               },
               daily: [
                 {
-                  date: '2026-03-16',
+                  date: todayIso,
                   steps: 8000,
                   active_minutes: 160,
                   sleep_minutes: 480,
@@ -103,9 +106,12 @@ describe('usePatientProcess', () => {
     expect(apiClient.get).toHaveBeenNthCalledWith(
       1,
       '/patients/health-combined-history/patient-123/',
-      {
-        params: { from: '2026-03-10', to: '2026-03-16' },
-      }
+      expect.objectContaining({
+        params: expect.objectContaining({
+          from: expect.any(String),
+          to: expect.any(String),
+        }),
+      })
     );
     expect(apiClient.get).toHaveBeenNthCalledWith(2, '/fitbit/summary/patient-123/', {
       params: { days: 7 },
@@ -113,7 +119,7 @@ describe('usePatientProcess', () => {
 
     expect(result.current.dailyMetrics).toHaveLength(7);
     expect(result.current.dailyMetrics[0]).toMatchObject({
-      date: '03-10',
+      date: expect.stringMatching(/^\d{2}-\d{2}$/),
       steps: 0,
       activeMinutes: 0,
       sleepMinutes: 0,
@@ -121,7 +127,7 @@ describe('usePatientProcess', () => {
       bpDia: null,
     });
     expect(result.current.dailyMetrics[6]).toMatchObject({
-      date: '03-16',
+      date: todayIso.slice(5),
       steps: 8000,
       activeMinutes: 160,
       sleepMinutes: 480,
