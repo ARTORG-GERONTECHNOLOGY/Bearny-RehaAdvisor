@@ -38,8 +38,22 @@ type BioLike = {
   sleep_avg_h?: unknown;
   steps_avg?: unknown;
   activity_min?: unknown;
+  bp_sys_avg?: unknown;
+  bp_dia_avg?: unknown;
   wear_time_avg_min?: unknown;
   wear_time_days_since?: unknown;
+};
+
+type ThresholdsLike = {
+  steps_goal?: unknown;
+  active_minutes_green?: unknown;
+  active_minutes_yellow?: unknown;
+  sleep_green_min?: unknown;
+  sleep_yellow_min?: unknown;
+  bp_sys_green_max?: unknown;
+  bp_sys_yellow_max?: unknown;
+  bp_dia_green_max?: unknown;
+  bp_dia_yellow_max?: unknown;
 };
 
 type QuestionnaireLike = {
@@ -72,6 +86,7 @@ type PatientExtra = {
   last_feedback_at?: unknown;
   questionnaires?: unknown;
 
+  thresholds?: unknown;
   biomarker?: unknown;
   fitbitData?: unknown;
 };
@@ -221,33 +236,116 @@ const Therapist: React.FC = observer(() => {
   const levelRankSmallBadFirst = (lvl: Traffic) =>
     lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
 
+  const getPatientThresholds = (p: PatientType): ThresholdsLike =>
+    asRecord(getPatientExtra(p).thresholds) as ThresholdsLike;
+
+  const healthMetricLevel = (
+    value: number | null,
+    config: {
+      greenMin?: number | null;
+      yellowMin?: number | null;
+      greenMax?: number | null;
+      yellowMax?: number | null;
+      fallbackGoodMin?: number;
+      fallbackWarnMin?: number;
+      fallbackGoodRange?: [number, number];
+      fallbackWarnRange?: [number, number];
+    }
+  ): Traffic => {
+    if (value === null) return 'unknown';
+
+    if (config.greenMin != null) {
+      if (value >= config.greenMin) return 'good';
+      if (config.yellowMin != null) {
+        return value >= config.yellowMin ? 'warn' : 'bad';
+      }
+      const derivedWarn = Math.max(1, Math.round(config.greenMin * 0.6));
+      return value >= derivedWarn ? 'warn' : 'bad';
+    }
+
+    if (config.greenMax != null) {
+      if (value <= config.greenMax) return 'good';
+      if (config.yellowMax != null) {
+        return value <= config.yellowMax ? 'warn' : 'bad';
+      }
+      return 'bad';
+    }
+
+    if (config.fallbackGoodRange) {
+      const [min, max] = config.fallbackGoodRange;
+      if (value >= min && value <= max) return 'good';
+      if (config.fallbackWarnRange) {
+        const [warnMin, warnMax] = config.fallbackWarnRange;
+        if (value >= warnMin && value <= warnMax) return 'warn';
+      }
+      return 'bad';
+    }
+
+    if (config.fallbackGoodMin != null) {
+      if (value >= config.fallbackGoodMin) return 'good';
+      if (config.fallbackWarnMin != null) return value >= config.fallbackWarnMin ? 'warn' : 'bad';
+      return 'bad';
+    }
+
+    return 'unknown';
+  };
+
   const healthScore = (p: PatientType) => {
     const extra = getPatientExtra(p);
     const bio = (extra.biomarker ?? extra.fitbitData) as unknown;
     const b = asRecord(bio) as BioLike;
+    const thresholds = getPatientThresholds(p);
 
     const sleep = toNum(b.sleep_avg_h);
     const steps = toNum(b.steps_avg);
     const act = toNum(b.activity_min);
+    const bpSys = toNum(b.bp_sys_avg);
+    const bpDia = toNum(b.bp_dia_avg);
 
     let score = 0;
     let n = 0;
 
-    if (sleep !== null) {
-      n++;
-      if (sleep >= 7 && sleep <= 9) score += 2;
-      else if (sleep >= 6 && sleep < 7) score += 1;
+    const metricLevels: Traffic[] = [
+      healthMetricLevel(steps, {
+        greenMin: toNum(thresholds.steps_goal),
+        fallbackGoodMin: 6000,
+        fallbackWarnMin: 3000,
+      }),
+      healthMetricLevel(act, {
+        greenMin: toNum(thresholds.active_minutes_green),
+        yellowMin: toNum(thresholds.active_minutes_yellow),
+        fallbackGoodMin: 150,
+        fallbackWarnMin: 60,
+      }),
+      healthMetricLevel(sleep !== null ? sleep * 60 : null, {
+        greenMin: toNum(thresholds.sleep_green_min),
+        yellowMin: toNum(thresholds.sleep_yellow_min),
+        fallbackGoodRange: [7 * 60, 9 * 60],
+        fallbackWarnRange: [6 * 60, 7 * 60],
+      }),
+    ];
+
+    if (bpSys !== null || bpDia !== null) {
+      metricLevels.push(
+        healthMetricLevel(bpSys, {
+          greenMax: toNum(thresholds.bp_sys_green_max),
+          yellowMax: toNum(thresholds.bp_sys_yellow_max),
+        })
+      );
+      metricLevels.push(
+        healthMetricLevel(bpDia, {
+          greenMax: toNum(thresholds.bp_dia_green_max),
+          yellowMax: toNum(thresholds.bp_dia_yellow_max),
+        })
+      );
     }
-    if (steps !== null) {
+
+    metricLevels.forEach((level) => {
+      if (level === 'unknown') return;
       n++;
-      if (steps >= 6000) score += 2;
-      else if (steps >= 3000) score += 1;
-    }
-    if (act !== null) {
-      n++;
-      if (act >= 150) score += 2;
-      else if (act >= 60) score += 1;
-    }
+      if (level === 'good') score += 2;
+      else if (level === 'warn') score += 1;
+    });
 
     return n ? score / n : -1; // 0..2; -1 unknown
   };
@@ -256,10 +354,13 @@ const Therapist: React.FC = observer(() => {
     const extra = getPatientExtra(p);
     const bio = (extra.biomarker ?? extra.fitbitData) as unknown;
     const b = asRecord(bio) as BioLike;
+    const thresholds = getPatientThresholds(p);
 
     const sleep = toNum(b.sleep_avg_h);
     const steps = toNum(b.steps_avg);
     const act = toNum(b.activity_min);
+    const bpSys = toNum(b.bp_sys_avg);
+    const bpDia = toNum(b.bp_dia_avg);
 
     const score = healthScore(p);
     let level: Traffic = 'unknown';
@@ -272,6 +373,14 @@ const Therapist: React.FC = observer(() => {
     if (steps != null)
       parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
     if (act != null) parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
+    if (bpSys != null && bpDia != null) {
+      parts.push(
+        `${t('Blood pressure')}: ${Math.round(bpSys)}/${Math.round(bpDia)} ${t('avg (7d)')}`
+      );
+    }
+    if (toNum(thresholds.steps_goal) != null) {
+      parts.push(`${t('Personalized goals')}: ${t('enabled')}`);
+    }
 
     return { level, tip: parts.length ? parts.join(' • ') : String(t('No recent health data')) };
   };
