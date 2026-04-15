@@ -796,3 +796,124 @@ def test_list_therapist_patients_creates_open_patient_log(mongo_mock):
     assert log is not None, "Expected an OPEN_PATIENT log entry"
     assert log.userId.id == therapist.userId.id
     assert "patient_count=" in (log.details or "")
+
+
+# ---------------------------------------------------------------------------
+# Project-based access filtering
+# ---------------------------------------------------------------------------
+
+
+def _make_therapist_with_projects(username, clinics, projects):
+    u = User(
+        username=username,
+        email=f"{username}@example.com",
+        phone="000",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    return Therapist(
+        userId=u,
+        name="T",
+        first_name="F",
+        specializations=["Cardiology"],
+        clinics=clinics,
+        projects=projects,
+    ).save()
+
+
+def _make_patient_with_project(username, therapist, clinic, project):
+    u = User(
+        username=username,
+        email=f"{username}@example.com",
+        phone="000",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    return Patient(
+        userId=u,
+        patient_code=f"PAT-{str(ObjectId())[-6:]}",
+        name="Doe",
+        first_name=username,
+        access_word="w",
+        age="30",
+        therapist=therapist,
+        clinic=clinic,
+        project=project,
+        sex="Male",
+        diagnosis=["Stroke"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=[],
+        personal_goals=[],
+    ).save()
+
+
+def test_project_filter_hides_other_project_patients():
+    """Therapist in COPAIN@Inselspital must NOT see COMPASS@Inselspital patients."""
+    therapist = _make_therapist_with_projects("th_copain", ["Inselspital"], ["COPAIN"])
+    copain_pt = _make_patient_with_project("pt_copain", therapist, "Inselspital", "COPAIN")
+    _make_patient_with_project("pt_compass", therapist, "Inselspital", "COMPASS")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    ids = [r["_id"] for r in resp.json()]
+    assert str(copain_pt.id) in ids, "COPAIN patient should be visible"
+    assert not any(r.get("username") == "pt_compass" for r in resp.json()), (
+        "COMPASS patient must not be visible to a COPAIN-only therapist"
+    )
+
+
+def test_project_filter_shows_all_assigned_projects():
+    """Therapist with COPAIN+COMPASS@Inselspital sees patients from both projects."""
+    therapist = _make_therapist_with_projects(
+        "th_both", ["Inselspital"], ["COPAIN", "COMPASS"]
+    )
+    copain_pt = _make_patient_with_project("pt_copain2", therapist, "Inselspital", "COPAIN")
+    compass_pt = _make_patient_with_project("pt_compass2", therapist, "Inselspital", "COMPASS")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    ids = [r["_id"] for r in resp.json()]
+    assert str(copain_pt.id) in ids
+    assert str(compass_pt.id) in ids
+
+
+def test_project_filter_respects_clinic_boundary():
+    """Therapist at Inselspital/COPAIN must NOT see Berner Reha/COPAIN patients."""
+    therapist = _make_therapist_with_projects("th_insel", ["Inselspital"], ["COPAIN"])
+    insel_pt = _make_patient_with_project("pt_insel", therapist, "Inselspital", "COPAIN")
+    _make_patient_with_project("pt_brc", therapist, "Berner Reha Centrum", "COPAIN")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    ids = [r["_id"] for r in resp.json()]
+    assert str(insel_pt.id) in ids
+    assert not any(r.get("username") == "pt_brc" for r in resp.json()), (
+        "Patient at a different clinic must not be visible"
+    )
+
+
+def test_no_projects_assigned_falls_back_to_clinic_filter():
+    """Therapist with projects=[] (legacy) still sees all patients at their clinic."""
+    therapist = _make_therapist_with_projects("th_legacy", ["Inselspital"], [])
+    pt = _make_patient_with_project("pt_legacy", therapist, "Inselspital", "COPAIN")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    ids = [r["_id"] for r in resp.json()]
+    assert str(pt.id) in ids, "Legacy therapist (no projects) should see clinic patients"
+
