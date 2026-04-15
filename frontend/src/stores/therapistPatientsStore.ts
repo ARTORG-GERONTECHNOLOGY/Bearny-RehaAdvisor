@@ -217,16 +217,21 @@ export class TherapistPatientsStore {
         },
       });
 
-      const data = (res.data ?? {}) as unknown;
-      const candidates =
-        typeof data === 'object' &&
-        data !== null &&
-        Array.isArray((data as { candidates?: unknown }).candidates)
-          ? ((data as { candidates: RedcapCandidate[] }).candidates as RedcapCandidate[])
-          : [];
+      const data = (res.data ?? {}) as Record<string, unknown>;
+      const candidates = Array.isArray(data.candidates)
+        ? (data.candidates as RedcapCandidate[])
+        : [];
+
+      // Surface per-project errors returned in a 200 response body
+      const apiErrors = Array.isArray(data.errors) ? (data.errors as { project: string; error: string }[]) : [];
+      const errorMessage =
+        apiErrors.length > 0
+          ? apiErrors.map((e) => `${e.project}: ${e.error}`).join(' | ')
+          : '';
 
       runInAction(() => {
         this.redcapCandidates = candidates;
+        if (errorMessage) this.redcapError = errorMessage;
 
         // keep existing rowPasswords for still-present keys
         const nextPw: Record<string, string> = {};

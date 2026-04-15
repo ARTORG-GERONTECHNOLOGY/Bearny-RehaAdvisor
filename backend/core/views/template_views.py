@@ -729,13 +729,11 @@ def apply_named_template(request, template_id):
                 status=404,
             )
     else:
-        # Diagnosis bulk mode — find all active clinic patients with this diagnosis
-        patients = list(
-            Patient.objects(
-                clinic__in=therapist.clinics,
-                diagnosis=diagnosis_filter,
-            )
-        )
+        # Diagnosis bulk mode — find all active clinic+project patients with this diagnosis
+        bulk_filter: dict = {"clinic__in": therapist.clinics, "diagnosis": diagnosis_filter}
+        if therapist.projects:
+            bulk_filter["project__in"] = therapist.projects
+        patients = list(Patient.objects(**bulk_filter))
         if not patients:
             return JsonResponse(
                 {
