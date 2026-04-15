@@ -707,10 +707,7 @@ def import_interventions_from_excel(
                 link_display = _norm(link_cell.value)
                 link_target = _norm(
                     (getattr(link_cell, "hyperlink", None) and getattr(link_cell.hyperlink, "target", None))
-                    or (
-                        getattr(link_cell, "hyperlink", None)
-                        and getattr(link_cell.hyperlink, "location", None)
-                    )
+                    or (getattr(link_cell, "hyperlink", None) and getattr(link_cell.hyperlink, "location", None))
                 )
                 # Prefer explicit hyperlink target when present; fallback to visible cell value.
                 link_val = _normalize_external_url(link_target or link_display)
