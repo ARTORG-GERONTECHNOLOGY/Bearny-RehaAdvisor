@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
@@ -13,6 +14,7 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
+from utils.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -109,14 +111,30 @@ def get_allowed_redcap_projects_for_therapist(th: Therapist) -> List[str]:
 
 def allowed_dags_by_project(th: Therapist, project: str) -> Optional[Set[str]]:
     """
-    If you have “specific GABs” logic, implement here.
-    Return:
-      - None => no DAG filtering
-      - set(...) => only allow these DAGs
+    Return the set of REDCap DAG names the therapist may access for a given project,
+    derived from their assigned clinics and the clinic_dag mapping in config.json.
 
-    For now: no filtering.
+    Returns None only when the config has no clinic_dag mapping at all (safe fallback).
+    Returns an empty set if the therapist has clinics but none map to the project.
     """
-    return None
+    clinic_dag: dict = config.get("therapistInfo", {}).get("clinic_dag", {})
+    if not clinic_dag:
+        # No mapping configured — cannot filter, allow all (safe degradation)
+        return None
+
+    clinic_projects: dict = config.get("therapistInfo", {}).get("clinic_projects", {})
+    therapist_clinics: List[str] = list(getattr(th, "clinics", None) or [])
+
+    allowed: Set[str] = set()
+    for clinic in therapist_clinics:
+        # Only include this clinic if it belongs to the requested project
+        if project not in clinic_projects.get(clinic, []):
+            continue
+        dag = clinic_dag.get(clinic)
+        if dag:
+            allowed.add(_norm(dag))
+
+    return allowed
 
 
 # ----------------------------
@@ -128,49 +146,42 @@ class RedcapError(Exception):
         self.detail = detail
 
 
-def redcap_export_minimal(
-    token: str,
-    project: str,
-    patient_id: Optional[str] = None,
-    record_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+def _parse_invalid_fields(error_text: str) -> set:
+    """Extract field names reported as invalid by the REDCap API."""
+    m = re.search(r"not valid[:\s]+(.*)", error_text, re.IGNORECASE)
+    if not m:
+        return set()
+    return {name for token in m.group(1).split(",") for name in re.findall(r"\w+", token)}
+
+
+def _post_redcap_minimal(api_url: str, data: Dict[str, Any], fields: List[str]) -> List[Dict[str, Any]]:
     """
-    Minimal export:
-      fields: record_id, pat_id
-      and DAG field via exportDataAccessGroups=true
-
-    If patient_id provided: filter by pat_id in REDCap (not always supported directly),
-    so we filter client-side.
-    If record_id provided: we can request that record specifically.
+    POST to the REDCap API with the given fields list. If the response is 400
+    because some fields don't exist in this project, strip the invalid fields
+    and retry once. Returns a parsed JSON list.
     """
-    api_url = get_redcap_api_url()
 
-    data = {
-        "token": token,
-        "content": "record",
-        "action": "export",
-        "format": "json",
-        "type": "flat",
-        "rawOrLabel": "raw",
-        "rawOrLabelHeaders": "raw",
-        "exportCheckboxLabel": "false",
-        "exportSurveyFields": "false",
-        "exportDataAccessGroups": "true",  # ✅ ensures redcap_data_access_group returned
-        "returnFormat": "json",
-        "fields[0]": "record_id",
-        "fields[1]": "pat_id",
-        # optionally restrict forms (keeps export small)
-        # "forms[0]": "eligibility",
-    }
+    def _build(f_list: List[str]) -> Dict[str, Any]:
+        payload = {k: v for k, v in data.items() if not k.startswith("fields[")}
+        for i, f in enumerate(f_list):
+            payload[f"fields[{i}]"] = f
+        return payload
 
-    # REDCap supports exporting specific record ids via records[i]
-    if record_id:
-        data["records[0]"] = record_id
+    def _call(f_list: List[str]) -> requests.Response:
+        try:
+            return requests.post(api_url, data=_build(f_list), timeout=30)
+        except Exception as e:
+            raise RedcapError("Failed to reach REDCap API.", detail=str(e))
 
-    try:
-        r = requests.post(api_url, data=data, timeout=30)
-    except Exception as e:
-        raise RedcapError("Failed to reach REDCap API.", detail=str(e))
+    r = _call(fields)
+
+    if r.status_code != 200:
+        invalid = _parse_invalid_fields(r.text)
+        if invalid:
+            trimmed = [f for f in fields if f not in invalid]
+            if trimmed and trimmed != fields:
+                logger.info("Retrying minimal REDCap export without unsupported fields: %s", sorted(invalid))
+                r = _call(trimmed)
 
     if r.status_code != 200:
         raise RedcapError(
@@ -186,13 +197,49 @@ def redcap_export_minimal(
     if not isinstance(rows, list):
         raise RedcapError("Unexpected REDCap response format.", detail=rows)
 
+    return rows
+
+
+def redcap_export_minimal(
+    token: str,
+    project: str,
+    patient_id: Optional[str] = None,
+    record_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Minimal export: record_id + pat_id (if supported) + DAG.
+
+    Automatically retries without fields that the project doesn't have
+    (e.g. COMPASS lacks pat_id).
+    """
+    api_url = get_redcap_api_url()
+
+    base = {
+        "token": token,
+        "content": "record",
+        "action": "export",
+        "format": "json",
+        "type": "flat",
+        "rawOrLabel": "raw",
+        "rawOrLabelHeaders": "raw",
+        "exportCheckboxLabel": "false",
+        "exportSurveyFields": "false",
+        "exportDataAccessGroups": "true",
+        "returnFormat": "json",
+    }
+
+    if record_id:
+        base["records[0]"] = record_id
+
+    rows = _post_redcap_minimal(api_url, base, ["record_id", "pat_id"])
+
     # client-side filter by patient_id (pat_id)
     if patient_id:
         pid = _norm(patient_id)
         rows = [x for x in rows if _norm(x.get("pat_id")) == pid]
 
-    # client-side filter by record_id (if not passed as records[0])
-    if record_id and "records[0]" not in data:
+    # client-side filter by record_id (if not restricted server-side)
+    if record_id and "records[0]" not in base:
         rid = _norm(record_id)
         rows = [x for x in rows if _norm(x.get("record_id")) == rid]
 
@@ -533,13 +580,17 @@ def import_patient_from_redcap(request):
         )
         user.save()
 
-        # Choose default clinic (first therapist clinic, if you use it)
-        clinic = ""
-        try:
-            clinics = getattr(therapist, "clinics", None) or []
-            clinic = clinics[0] if clinics else ""
-        except Exception:
-            clinic = ""
+        # Derive clinic from DAG using the reverse clinic_dag mapping
+        clinic_dag_map: dict = config.get("therapistInfo", {}).get("clinic_dag", {})
+        dag_to_clinic = {v: k for k, v in clinic_dag_map.items()}
+        clinic = dag_to_clinic.get(dag, "")
+        if not clinic:
+            # Fallback: use the therapist's first clinic if DAG is not mapped
+            try:
+                clinics = getattr(therapist, "clinics", None) or []
+                clinic = clinics[0] if clinics else ""
+            except Exception:
+                clinic = ""
 
         # Create Patient
         patient = Patient(
@@ -547,6 +598,7 @@ def import_patient_from_redcap(request):
             therapist=therapist,
             patient_code=final_identifier,  # keep consistent with your platform
             clinic=clinic,
+            project=project,  # REDCap project name (COPAIN / COMPASS) for access control
             access_word=password,  # if you still use it
         )
 

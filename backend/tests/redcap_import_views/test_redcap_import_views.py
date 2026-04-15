@@ -116,7 +116,7 @@ def test_env_helpers_and_therapist_resolution_branches():
 
     t_legacy = SimpleNamespace(project="COPAIN")
     assert get_allowed_redcap_projects_for_therapist(t_legacy) == ["COPAIN"]
-    assert allowed_dags_by_project(th, "COPAIN") is None
+    assert allowed_dags_by_project(th, "COPAIN") == {"inselspital"}
 
 
 @patch("core.views.redcap_import_views.requests.post")
@@ -191,7 +191,7 @@ def test_available_patients_project_not_allowed(mock_get_th):
 
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "d1"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -404,7 +404,7 @@ def test_import_patient_fallback_patient_id_mode(mock_get_th, mock_tok, mock_exp
     mock_get_th.return_value = th
     mock_export.side_effect = [
         [],
-        [{"record_id": "R7", "pat_id": "P77", "redcap_data_access_group": "dag1"}],
+        [{"record_id": "R7", "pat_id": "P77", "redcap_data_access_group": "inselspital"}],
     ]
     resp = client.post(
         "/api/redcap/import-patient/",
@@ -434,7 +434,7 @@ def test_import_patient_fallback_redcap_error_returns_502(mock_get_th, mock_tok,
 
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "dag1"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -461,7 +461,7 @@ def test_import_patient_success(mock_get_th, mock_tok, mock_export):
     mock_get_th.return_value = th
 
     # record lookup succeeds on first call (record_id mode)
-    mock_export.return_value = [{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "dag1"}]
+    mock_export.return_value = [{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}]
 
     resp = client.post(
         "/api/redcap/import-patient/",
@@ -490,7 +490,7 @@ def test_import_patient_creates_redcap_import_log(mock_get_th, mock_tok, mock_ex
 
     _, th = create_therapist(projects=["COPAIN"])
     mock_get_th.return_value = th
-    mock_export.return_value = [{"record_id": "R2", "pat_id": "P99", "redcap_data_access_group": ""}]
+    mock_export.return_value = [{"record_id": "R2", "pat_id": "P99", "redcap_data_access_group": "inselspital"}]
 
     resp = client.post(
         "/api/redcap/import-patient/",
