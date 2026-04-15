@@ -59,6 +59,54 @@ If this still happens after the fix: check that `localStorage.refreshToken` is p
 
 ---
 
+### Intervention Import Issues
+
+#### Issue: Excel import always fails with "Invalid file type"
+
+**Symptom:** Uploading an `.xlsx` or `.xlsm` file returns a 400 error: `"Invalid file type. Only .xlsx or .xlsm are allowed."`
+
+**Cause:** The file was saved or exported with a `.csv` extension even though it contains valid xlsx binary data (common when downloading from certain tools).
+
+**Fix (resolved):** The backend now reads the first 4 bytes of the upload. Any file whose content starts with `PK\x03\x04` (the ZIP/xlsx magic bytes) is accepted regardless of extension. The frontend file picker also accepts `.csv` files for this reason.
+
+If the error persists: confirm the file actually opens in Excel. If it is a genuine CSV (comma-separated text), it cannot be used — the import requires an Excel workbook.
+
+---
+
+#### Issue: Import succeeds but creates 0 rows (`created: 0, updated: 0, skipped: N`)
+
+**Most common cause:** The sheet name does not match the default `"Content"`. The backend will raise a 500 error: `"Sheet 'Content' not found. Sheets: ['YourSheetName']"`.
+
+**Fix:** Set the **Sheet name** field in the Import modal to the exact sheet name shown in the error, e.g. `MKS_Upload_links`.
+
+Other causes:
+- All data rows have an empty `intervention_id` cell → every row is counted as `skipped`.
+- The `intervention_id` column header is not recognised — check it matches one of: `intervention_id`, `intervention id`, `id`.
+
+---
+
+#### Issue: Every row fails with `Field 'input_from': StringField only accepts string values`
+
+**Cause (resolved):** An older version of the import code passed a Python list to the `input_from` field, which is a `StringField` on the `Intervention` model. The fix joins the parsed list to a comma-separated string before saving.
+
+If this appears in a new deployment, ensure the latest `intervention_import.py` is running (restart the `django` container after a code update).
+
+---
+
+#### Issue: Import succeeds but taxonomy warnings on every row (`"X is not a valid topic"`)
+
+**Cause:** A value in the Excel file doesn't exactly match any entry in the taxonomy (case-sensitive, including spelling). Common mismatches:
+
+| Excel value | Expected taxonomy value |
+|---|---|
+| `ageing` | `ageing` ✓ (old files may have `ageing / geriatrics` — also accepted as an alias) |
+| `text` or `image` | `brochure` / `graphics` (old files — accepted as aliases, no warning) |
+| `hip fracture` | `hip Fracture` (capital F required) |
+
+Warnings are non-fatal — the row is still imported with the invalid field left empty. To eliminate warnings, either update the Excel values to match the taxonomy exactly, or add the new value to `interventions.json` (both `backend/` and `frontend/src/config/` copies must be kept in sync).
+
+---
+
 ### Development Environment Issues
 
 #### Issue: Docker containers not starting
