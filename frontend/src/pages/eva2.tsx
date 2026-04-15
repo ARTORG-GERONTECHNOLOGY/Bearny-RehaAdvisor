@@ -501,9 +501,15 @@ export default function HealthSlider() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   };
 
+  const createSecureSessionSuffix = () => {
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const ensureSessionId = () => {
     if (!sessionIdRef.current)
-      sessionIdRef.current = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      sessionIdRef.current = `${Date.now()}_${createSecureSessionSuffix()}`;
   };
 
   const startMic = async () => {
