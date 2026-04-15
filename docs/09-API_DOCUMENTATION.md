@@ -609,7 +609,13 @@ JWT required (Therapist only). Allows resetting a patient's password without kno
 
 #### `GET /api/therapists/<therapist_id>/patients/`
 
-JWT required. Returns all patients whose `clinic` field matches any of the therapist's assigned clinics.
+JWT required. Returns patients the therapist is allowed to see, filtered by both clinic and project.
+
+**Access control:**
+- Always filters `patient.clinic` to `therapist.clinics`.
+- When the therapist has one or more `projects` assigned, also filters `patient.project` to `therapist.projects`. A therapist at Inselspital assigned only to COPAIN will not see COMPASS patients at Inselspital.
+- Therapists with `projects=[]` (legacy accounts created before project-based access was introduced) fall back to clinic-only filtering.
+- Inactive patient accounts (`User.isActive=false`) are excluded.
 
 **Response 200:** Array of patient summary objects:
 
@@ -1574,7 +1580,49 @@ JWT required.
 
 JWT required.
 
-**Response 200:** Array of available REDCap patient records not yet imported.
+Returns REDCap records not yet imported into the platform, filtered to the therapist's allowed clinics, projects, and DAGs.
+
+**Query params:**
+
+| Param             | Type   | Required | Notes |
+|-------------------|--------|----------|-------|
+| `therapistUserId` | string | no       | Mongo User `_id`. Derived from JWT if omitted. |
+| `project`         | string | no       | Restrict to one project (must be in therapist's allowed projects). |
+| `patientId`       | string | no       | Filter by `pat_id` value. |
+| `recordId`        | string | no       | Filter by REDCap `record_id`. |
+
+**Access control:** The endpoint resolves the therapist's `clinics` and `projects`, maps each clinic to its REDCap DAG via `clinic_dag` in `config.json`, and filters out any record whose `redcap_data_access_group` is not in the allowed DAG set. A therapist at Inselspital/COPAIN will not see COMPASS records, and vice versa.
+
+**Field fallback:** Some projects (e.g. COMPASS) do not have a `pat_id` field. The export automatically retries without fields the project does not recognise and falls back to `record_id` as the identifier.
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "projects": ["COPAIN", "COMPASS"],
+  "candidates": [
+    {
+      "project": "COMPASS",
+      "record_id": "905-2",
+      "pat_id": "",
+      "identifier": "905-2",
+      "dag": "bern"
+    }
+  ],
+  "errors": [
+    {
+      "project": "COPAIN",
+      "error": "REDCap API returned non-200.",
+      "detail": { "status": 400, "text": "..." }
+    }
+  ]
+}
+```
+
+`errors` is omitted when all projects succeed. Partial success (some projects fail, some return candidates) returns HTTP 200 with both `candidates` and `errors` populated.
+
+**Errors:** 403 project not in therapist's allowed list · 404 therapist not found · 405 wrong method
 
 ---
 
@@ -1612,30 +1660,45 @@ JWT required.
 
 JWT required.
 
+Creates a platform `User` + `Patient` from a single REDCap record.
+
 **Request body:**
 
-| Field                         | Type    | Required |
-|-------------------------------|---------|----------|
-| `patientCode`                 | string  | yes      |
-| `project`                     | string  | yes      |
-| `therapistUserId`             | string  | yes      |
-| `clinicName`                  | string  | yes      |
-| `sourceFields`                | object  | no       | REDCap field → patient field mapping |
-| `initialQuestionnaireEnabled` | boolean | no       |
+| Field             | Type   | Required | Notes |
+|-------------------|--------|----------|-------|
+| `patient_code`    | string | yes      | REDCap `pat_id` or `record_id` — used as the platform patient code. |
+| `project`         | string | yes      | REDCap project name (`COPAIN` / `COMPASS`). Must be in the therapist's allowed projects. |
+| `password`        | string | yes      | Temporary password for the new patient account (min 8 chars, upper + lower + digit + special). |
+| `therapistUserId` | string | no       | Mongo User `_id`. Derived from JWT if omitted. |
+
+**Access control:** Before creating the patient the endpoint:
+1. Verifies the project is in the therapist's allowed projects.
+2. Fetches the REDCap record and checks its `redcap_data_access_group` against the therapist's allowed DAGs (derived from `clinic_dag` in `config.json`). Returns 403 if the DAG is not allowed.
+
+**Patient fields set on import:**
+
+| Patient field   | Value |
+|-----------------|-------|
+| `patient_code`  | `pat_id` if present, else `record_id` |
+| `project`       | REDCap project name (e.g. `COMPASS`) |
+| `clinic`        | Clinic name resolved from the patient's DAG via reverse `clinic_dag` lookup; falls back to the therapist's first clinic if the DAG is not mapped. |
+| `therapist`     | The importing therapist |
 
 **Response 201:**
 
 ```json
 {
-  "success": true,
-  "message": "Patient imported",
-  "userId": "...",
-  "patientId": "...",
-  "accessWord": "<temporary_password>"
+  "ok": true,
+  "message": "Patient imported successfully.",
+  "identifier": "905-2",
+  "username": "905-2",
+  "project": "COMPASS",
+  "patient_id": "<mongo_id>",
+  "user_id": "<mongo_id>"
 }
 ```
 
-**Errors:** 400 validation / already exists / therapist not found · 404 clinic or project not found · 500
+**Errors:** 400 validation / weak password / already imported · 403 project not allowed / DAG forbidden · 404 therapist not found / record not found in REDCap · 502 REDCap API error · 500
 
 ---
 

@@ -141,7 +141,7 @@
     "Leuven": ["COMPASS"],
     "Bern": ["COMPASS"],
     "Lisbon": ["COMPASS"],
-    "Lummezzane": ["COMPASS"],
+    "Lumezzane": ["COMPASS"],
     "Milano": ["COMPASS"]
   },
   "clinic_dag": {
@@ -150,7 +150,7 @@
     "Leuven": "leuven",
     "Bern": "bern",
     "Lisbon": "lisbon",
-    "Lummezzane": "lumezzane",
+    "Lumezzane": "lumezzane",
     "Milano": "milano"
   }
   },
