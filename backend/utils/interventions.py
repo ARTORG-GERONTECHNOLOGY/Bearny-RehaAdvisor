@@ -4,6 +4,7 @@ import mimetypes
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from bson import ObjectId
 from django.conf import settings
@@ -679,16 +680,21 @@ def ard_embed(url: str) -> str | None:
 
 
 def _guess_provider(url: str) -> str | None:
-    u = (url or "").lower()
-    if "ardaudiothek.de" in u:
+    u = (url or "").strip()
+    if not u:
+        return "website"
+
+    host = (urlparse(u).hostname or "").lower()
+
+    if host == "ardaudiothek.de" or host.endswith(".ardaudiothek.de"):
         return "ard"
-    if "spotify.com" in u:
+    if host == "spotify.com" or host.endswith(".spotify.com"):
         return "spotify"
-    if "youtube.com" in u or "youtu.be" in u:
+    if host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be" or host.endswith(".youtu.be"):
         return "youtube"
-    if "soundcloud.com" in u:
+    if host == "soundcloud.com" or host.endswith(".soundcloud.com"):
         return "soundcloud"
-    if "vimeo.com" in u:
+    if host == "vimeo.com" or host.endswith(".vimeo.com"):
         return "vimeo"
     return "website"
 
