@@ -59,6 +59,88 @@ If this still happens after the fix: check that `localStorage.refreshToken` is p
 
 ---
 
+### REDCap Access and Import Issues
+
+#### Issue: REDCap import modal shows an error instead of candidates
+
+**Symptom:** Refreshing the candidate list shows an error such as:
+```
+COPAIN: REDCap API returned non-200. | COMPASS: REDCap API returned non-200.
+```
+
+**Cause:** The minimal REDCap export (`GET /api/redcap/available-patients/`) failed for one or more projects. Common reasons:
+
+| Error detail | Cause | Fix |
+|---|---|---|
+| `"fields" are not valid: 'pat_id'` | The project (e.g. COMPASS) does not have a `pat_id` field. | Resolved automatically — the backend retries without invalid fields. Ensure the latest backend code is running. |
+| `401 Unauthorized` | The REDCap token for the project is missing or expired. | Check `REDCAP_TOKEN_COPAIN` / `REDCAP_TOKEN_COMPASS` env vars in `.env.dev` or `.env.prod` and restart the `django` container. |
+| `403 Forbidden` | The token exists but the REDCap project is not accessible with it. | Verify the token in REDCap → API → generate token. |
+
+Partial failures return HTTP 200 with an `errors[]` array alongside any successful `candidates[]`. The modal will show both.
+
+---
+
+#### Issue: Therapist can see patients from another study at the same clinic
+
+**Symptom:** A therapist assigned to COPAIN at Inselspital can see COMPASS patients (or vice versa) in the patient list.
+
+**Cause:** The `Patient` document is missing a `project` field, or the `project` field does not match the therapist's assigned projects.
+
+**How filtering works:**
+- `list_therapist_patients` filters `patient.clinic in therapist.clinics` **and** `patient.project in therapist.projects` (when projects are assigned).
+- REDCap-imported patients get `project` set to the REDCap project name at import time.
+- Manually created patients must have `project` set explicitly.
+
+**Fix for already-imported patients missing `project`:**
+
+```python
+# Django shell — update a specific patient
+from core.models import Patient
+p = Patient.objects.get(patient_code="905-2")
+p.project = "COMPASS"
+p.clinic = "Bern"   # correct clinic for this patient's DAG
+p.save()
+```
+
+---
+
+#### Issue: REDCap import modal shows candidates from clinics the therapist doesn't have access to
+
+**Symptom:** The import modal shows records from DAGs (e.g. `leuven`, `lumezzane`) that the therapist's clinic list does not include.
+
+**Cause:** The `clinic_dag` mapping in `config.json` may be missing or the clinic name may not exactly match the application's `therapistInfo.clinic_projects` list.
+
+**Fix:** Check `backend/config.json` → `therapistInfo.clinic_dag`. Each clinic name must exactly match a key in `clinic_projects`, and the value must match the REDCap DAG name (lowercase, underscores). Example:
+
+```json
+"clinic_dag": {
+  "Lumezzane": "lumezzane",
+  "Leuven": "leuven"
+}
+```
+
+If a DAG mapping is missing, the clinic is not included in the allowed set and records from that DAG will be filtered out. This is the safe default — add the mapping to grant access.
+
+---
+
+#### Issue: Imported patient is visible to the wrong therapist
+
+**Symptom:** After import, a COMPASS patient at Bern appears in the list for a therapist who only has COPAIN access.
+
+**Cause:** The patient's `clinic` or `project` field was not set correctly at import time (possible with the old import code).
+
+**Diagnosis:**
+
+```python
+from core.models import Patient
+p = Patient.objects.get(patient_code="905-2")
+print(p.clinic, p.project)  # expect "Bern" and "COMPASS"
+```
+
+**Fix:** Update the patient record (see above). Future imports automatically derive `clinic` from the patient's REDCap DAG via the `clinic_dag` mapping.
+
+---
+
 ### Intervention Import Issues
 
 #### Issue: Excel import always fails with "Invalid file type"

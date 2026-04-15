@@ -257,6 +257,25 @@ UI Updated with Results
 - Permission decorators on endpoints
 - Secure password hashing
 
+### Therapist Access Control Model
+
+Therapists are scoped to a subset of patients via two independent dimensions:
+
+| Dimension | Model field | Description |
+|---|---|---|
+| Clinic | `Therapist.clinics` | List of clinic names the therapist belongs to |
+| Project | `Therapist.projects` | List of research/care projects (e.g. `COPAIN`, `COMPASS`) |
+
+Patient records carry matching `clinic` and `project` fields. The patient list endpoint (`GET /api/therapists/<id>/patients/`) always filters by `clinic__in` and, when projects are assigned, also by `project__in`. Therapists with no projects assigned fall back to clinic-only filtering for backward compatibility.
+
+**REDCap DAG mapping** (`config.json` → `therapistInfo.clinic_dag`):
+
+REDCap uses Data Access Groups (DAGs) to scope records to clinics. DAG names may differ from the application's clinic names (e.g. `"Lumezzane"` in the app vs. `"lumezzane"` as the REDCap DAG). The `clinic_dag` config provides an explicit clinic → DAG mapping used to:
+1. Filter candidates returned by `GET /api/redcap/available-patients/` to DAGs the therapist can access.
+2. Set the correct `clinic` value on a `Patient` document when importing from REDCap (using the reverse DAG → clinic lookup).
+
+Adding a new clinic to the system requires updating both `clinic_projects` (which projects that clinic runs) and `clinic_dag` (the REDCap DAG name) in `backend/config.json`.
+
 ### Data Protection
 - HTTPS/TLS in production
 - CORS policy configuration

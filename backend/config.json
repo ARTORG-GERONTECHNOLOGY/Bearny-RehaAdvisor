@@ -141,8 +141,17 @@
     "Leuven": ["COMPASS"],
     "Bern": ["COMPASS"],
     "Lisbon": ["COMPASS"],
-    "Lummezzane": ["COMPASS"],
+    "Lumezzane": ["COMPASS"],
     "Milano": ["COMPASS"]
+  },
+  "clinic_dag": {
+    "Berner Reha Centrum": "berner_reha_centrum",
+    "Inselspital": "inselspital",
+    "Leuven": "leuven",
+    "Bern": "bern",
+    "Lisbon": "lisbon",
+    "Lumezzane": "lumezzane",
+    "Milano": "milano"
   }
   },
   "Users": ["Therapist"],
