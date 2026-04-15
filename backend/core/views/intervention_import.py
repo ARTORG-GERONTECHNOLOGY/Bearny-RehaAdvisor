@@ -505,6 +505,28 @@ def _is_raw_file_name(s: str) -> bool:
     return bool(re.search(r"\.(pdf|mp4|mov|m4a|mp3|wav|webm|ogg|png|jpg|jpeg|webp)$", v.lower()))
 
 
+def _normalize_external_url(s: str) -> str:
+    """
+    Normalize URL-like strings from Excel cells.
+
+    - Preserve absolute http(s) URLs
+    - Upgrade bare "www.example.com/..." to "https://..."
+    - Leave non-URL strings untouched
+    """
+    v = _norm(s)
+    if not v:
+        return ""
+    if re.match(r"^https?://", v, flags=re.IGNORECASE):
+        return v
+    if re.match(r"^www\.", v, flags=re.IGNORECASE):
+        return f"https://{v}"
+    return v
+
+
+def _is_http_url(s: str) -> bool:
+    return bool(re.match(r"^https?://", _norm(s), flags=re.IGNORECASE))
+
+
 def _col_index_map(header_row: List[str]) -> Dict[str, int]:
     def find_col(pattern: str) -> Optional[int]:
         rx = re.compile(pattern, re.IGNORECASE)
@@ -677,7 +699,22 @@ def import_interventions_from_excel(
             language = (lang_from_id or lang_from_col or default_lang).lower()
 
             provider = _norm(row[col["provider"]]) if col.get("provider") is not None else ""
-            link_val = _norm(row[col["link"]]) if col.get("link") is not None else ""
+
+            link_val = ""
+            if col.get("link") is not None:
+                link_col_idx = int(col["link"]) + 1  # openpyxl is 1-based
+                link_cell = ws.cell(row_idx, link_col_idx)
+                link_display = _norm(link_cell.value)
+                link_target = _norm(
+                    (getattr(link_cell, "hyperlink", None) and getattr(link_cell.hyperlink, "target", None))
+                    or (
+                        getattr(link_cell, "hyperlink", None)
+                        and getattr(link_cell.hyperlink, "location", None)
+                    )
+                )
+                # Prefer explicit hyperlink target when present; fallback to visible cell value.
+                link_val = _normalize_external_url(link_target or link_display)
+
             title = _norm(row[col["title"]])
             desc = _norm(row[col["description"]])
 
@@ -763,14 +800,15 @@ def import_interventions_from_excel(
             if db_warn and duration_bucket_raw:
                 row_warnings.append(f"duration_bucket: {db_warn}")
 
-            primary_diagnosis_val, pd_warn = _validate_single(
-                primary_diagnosis_raw,
+            primary_diagnosis_list = _split_any(primary_diagnosis_raw)
+            primary_diagnosis_list, pd_warns = _validate_list(
+                primary_diagnosis_list,
                 _TX["primary_diagnoses"],
                 "primary diagnosis",
                 _TAXONOMY.get("primary_diagnoses", []),
             )
-            if pd_warn:
-                row_warnings.append(f"primary_diagnosis: {pd_warn}")
+            for w in pd_warns:
+                row_warnings.append(f"primary_diagnosis: {w}")
 
             input_from_list = _split_any(input_from_raw)
             input_from_list, if_warns = _validate_list(
@@ -815,8 +853,8 @@ def import_interventions_from_excel(
                 _set_if_exists(doc, "physical_level", physical_level_val)
             if sex_specific_val:
                 _set_if_exists(doc, "sex_specific", sex_specific_val)
-            if primary_diagnosis_val:
-                _set_if_exists(doc, "primary_diagnosis", primary_diagnosis_val)
+            if primary_diagnosis_list:
+                _set_if_exists(doc, "primary_diagnosis", primary_diagnosis_list)
             if input_from_list:
                 # input_from is a StringField on the model — join list to CSV string
                 _set_if_exists(doc, "input_from", ", ".join(input_from_list))
@@ -840,7 +878,7 @@ def import_interventions_from_excel(
                             mime=None,
                         )
                     )
-                else:
+                elif _is_http_url(link_val):
                     prov = _guess_provider(link_val)
                     embed = (
                         _spotify_embed(link_val)
@@ -859,6 +897,8 @@ def import_interventions_from_excel(
                             embed_url=embed,
                         )
                     )
+                else:
+                    row_warnings.append(f'link: "{link_val}" is not a valid http(s) URL; media was skipped.')
 
             def _media_key(m: InterventionMedia) -> str:
                 return (
@@ -872,6 +912,12 @@ def import_interventions_from_excel(
             seen_keys = set()
 
             for m in getattr(doc, "media", None) or []:
+                existing_kind = _norm(getattr(m, "kind", ""))
+                if existing_kind == "external":
+                    existing_url = _norm(getattr(m, "url", ""))
+                    if existing_url and not _is_http_url(existing_url):
+                        # Cleanup old broken entries created from non-URL display text.
+                        continue
                 k = _media_key(m)
                 if k not in seen_keys:
                     merged.append(m)
