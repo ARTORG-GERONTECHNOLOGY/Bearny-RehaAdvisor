@@ -354,3 +354,101 @@ describe('Wear time badge', () => {
     });
   });
 });
+
+describe('Therapist traffic lights', () => {
+  const renderWithPatient = (patient: Record<string, unknown>) => {
+    mockStore.patients = [patient as any];
+    return render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+  };
+
+  test('uses personalized thresholds for the Health badge instead of generic cutoffs', async () => {
+    renderWithPatient({
+      _id: 'threshold-test-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'thresholduser',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Threshold',
+      name: 'Patient',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      biomarker: {
+        sleep_avg_h: 7.5,
+        steps_avg: 7000,
+        activity_min: 80,
+      },
+      thresholds: {
+        steps_goal: 12000,
+        active_minutes_green: 90,
+        active_minutes_yellow: 60,
+        sleep_green_min: 480,
+        sleep_yellow_min: 420,
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Health bad')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText('Health good')).not.toBeInTheDocument();
+  });
+
+  test('uses last_feedback_at when questionnaires list is empty', async () => {
+    const recentIso = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    renderWithPatient({
+      _id: 'feedback-test-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'feedbackuser',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Feedback',
+      name: 'Patient',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      questionnaires: [],
+      last_feedback_at: recentIso,
+      biomarker: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feedback good')).toBeInTheDocument();
+    });
+  });
+
+  test('uses personalized blood pressure thresholds in health scoring', async () => {
+    renderWithPatient({
+      _id: 'bp-threshold-test-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'bpuser',
+      age: '1990-01-01',
+      sex: 'Female',
+      first_name: 'Blood',
+      name: 'Pressure',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      biomarker: {
+        bp_sys_avg: 150,
+        bp_dia_avg: 95,
+      },
+      thresholds: {
+        bp_sys_green_max: 130,
+        bp_sys_yellow_max: 140,
+        bp_dia_green_max: 85,
+        bp_dia_yellow_max: 90,
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Health bad')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText('Health unknown')).not.toBeInTheDocument();
+  });
+});
