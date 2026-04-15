@@ -528,7 +528,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                   </div>
                   <div className="flex gap-1">
                     <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
-                      {section.items.length} {t('Recommendations')}
+                      {section.items.length} {t('Contents')}
                     </Badge>
                     <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
                       <ArrowRightIcon className="w-4 h-4" />
@@ -565,7 +565,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           <SheetHeader>
             <SheetTitle>{activeTypeData?.title}</SheetTitle>
             <SheetDescription>
-              {activeTypeData?.items.length} {t('Recommendations')}
+              {activeTypeData?.items.length} {t('Contents')}
             </SheetDescription>
           </SheetHeader>
 
