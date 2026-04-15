@@ -40,6 +40,7 @@ from core.models import (
     FeedbackEntry,
     FeedbackQuestion,
     FitbitData,
+    GeneralFeedback,
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
@@ -47,6 +48,7 @@ from core.models import (
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
+    PatientThresholds,
     QuestionnaireAssignment,
     RehabilitationPlan,
     SleepData,
@@ -796,6 +798,82 @@ def test_list_therapist_patients_creates_open_patient_log(mongo_mock):
     assert log is not None, "Expected an OPEN_PATIENT log entry"
     assert log.userId.id == therapist.userId.id
     assert "patient_count=" in (log.details or "")
+
+
+def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedback():
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+
+    patient.thresholds = PatientThresholds(
+        steps_goal=12000,
+        active_minutes_green=90,
+        active_minutes_yellow=60,
+        sleep_green_min=480,
+        sleep_yellow_min=420,
+    )
+    patient.save()
+
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="desc",
+        content_type="Audio",
+        patient_types=[],
+    ).save()
+    feedback_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"fb-{ObjectId()}",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+        answer_type="text",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, dates=[datetime.now() - timedelta(days=1)])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(hours=12),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=feedback_question,
+                answerKey=[AnswerOption(key="text", translations=[Translation(language="en", text="ok")])],
+            )
+        ],
+    ).save()
+
+    GeneralFeedback(patient_id=patient, feedback_entries=[]).save()
+
+    FitbitData(
+        user=user,
+        date=datetime.now() - timedelta(days=1),
+        steps=7000,
+        active_minutes=80,
+        bp_sys=133,
+        bp_dia=88,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["thresholds"]["steps_goal"] == 12000
+    assert row["thresholds"]["active_minutes_green"] == 90
+    assert row["biomarker"]["bp_sys_avg"] == pytest.approx(133.0, rel=1e-3)
+    assert row["biomarker"]["bp_dia_avg"] == pytest.approx(88.0, rel=1e-3)
+    assert row["last_feedback_at"] is not None
 
 
 # ---------------------------------------------------------------------------
