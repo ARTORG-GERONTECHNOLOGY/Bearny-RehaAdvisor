@@ -10,6 +10,7 @@ import core.views.template_views as template_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
 import core.views.views as core_views
+from core.jwt_refresh import MongoTokenRefreshView
 from core.views.access_change_views import (
     admin_access_change_requests,
     submit_access_change_request,
@@ -42,7 +43,6 @@ from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
 from core.views.therapist_projects import therapist_projects
 from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
-from core.jwt_refresh import MongoTokenRefreshView
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
