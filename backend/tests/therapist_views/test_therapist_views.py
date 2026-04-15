@@ -863,16 +863,14 @@ def test_project_filter_hides_other_project_patients():
     assert resp.status_code == 200
     ids = [r["_id"] for r in resp.json()]
     assert str(copain_pt.id) in ids, "COPAIN patient should be visible"
-    assert not any(r.get("username") == "pt_compass" for r in resp.json()), (
-        "COMPASS patient must not be visible to a COPAIN-only therapist"
-    )
+    assert not any(
+        r.get("username") == "pt_compass" for r in resp.json()
+    ), "COMPASS patient must not be visible to a COPAIN-only therapist"
 
 
 def test_project_filter_shows_all_assigned_projects():
     """Therapist with COPAIN+COMPASS@Inselspital sees patients from both projects."""
-    therapist = _make_therapist_with_projects(
-        "th_both", ["Inselspital"], ["COPAIN", "COMPASS"]
-    )
+    therapist = _make_therapist_with_projects("th_both", ["Inselspital"], ["COPAIN", "COMPASS"])
     copain_pt = _make_patient_with_project("pt_copain2", therapist, "Inselspital", "COPAIN")
     compass_pt = _make_patient_with_project("pt_compass2", therapist, "Inselspital", "COMPASS")
 
@@ -899,9 +897,9 @@ def test_project_filter_respects_clinic_boundary():
     assert resp.status_code == 200
     ids = [r["_id"] for r in resp.json()]
     assert str(insel_pt.id) in ids
-    assert not any(r.get("username") == "pt_brc" for r in resp.json()), (
-        "Patient at a different clinic must not be visible"
-    )
+    assert not any(
+        r.get("username") == "pt_brc" for r in resp.json()
+    ), "Patient at a different clinic must not be visible"
 
 
 def test_no_projects_assigned_falls_back_to_clinic_filter():
@@ -916,4 +914,3 @@ def test_no_projects_assigned_falls_back_to_clinic_filter():
     assert resp.status_code == 200
     ids = [r["_id"] for r in resp.json()]
     assert str(pt.id) in ids, "Legacy therapist (no projects) should see clinic patients"
-
