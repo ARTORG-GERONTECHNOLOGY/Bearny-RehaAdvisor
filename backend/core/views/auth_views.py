@@ -480,8 +480,9 @@ def reset_password_view(request):
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("Unexpected error during password reset.")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 def _norm_email(raw: str) -> str:
