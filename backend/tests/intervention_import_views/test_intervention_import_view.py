@@ -9,7 +9,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
-from core.models import Intervention
+from core.models import Intervention, InterventionMedia
 from core.views.intervention_import import (
     _guess_file_media_type,
     _guess_media_type_for_url,
@@ -290,3 +290,88 @@ def test_import_interventions_from_excel_header_fallback_and_update_dedupe():
         assert "home" in doc.where and "outside" in doc.where
         assert "individual" in doc.setting and "group" in doc.setting
         assert len(doc.media or []) >= 1
+
+
+def test_import_uses_hyperlink_target_instead_of_display_text():
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "x.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["7001_en", "Pain Intro", "Desc", "Video", "Wo entstehen Schmerzen?"])
+        ws.cell(2, 5).hyperlink = (
+            "https://www.youtube.com/watch?v=BUJJuzTM2AE&list=PLLdU1J1EAwgPmCDdhF4w5hu37NI-WWtij&index=1"
+        )
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+        assert result["created"] == 1
+
+        doc = Intervention.objects(external_id="7001", language="en").first()
+        assert doc is not None
+        assert len(doc.media or []) == 1
+        assert doc.media[0].kind == "external"
+        assert doc.media[0].url.startswith("https://www.youtube.com/watch")
+
+
+def test_import_cleans_existing_invalid_external_media_urls():
+    # Simulate previously imported bad data where display text was saved as URL.
+    Intervention(
+        external_id="7002",
+        language="en",
+        title="Old",
+        description="Old",
+        content_type="Website",
+        media=[InterventionMedia(kind="external", media_type="website", url="Wo entstehen Schmerzen?")],
+    ).save()
+
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "x.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["7002_en", "New", "Desc", "Video", "Wie über Schmerzen reden?"])
+        ws.cell(2, 5).hyperlink = (
+            "https://www.youtube.com/watch?v=PS27RAlM3As&list=PLLdU1J1EAwgPmCDdhF4w5hu37NI-WWtij&index=3"
+        )
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+        assert result["updated"] == 1
+
+        doc = Intervention.objects(external_id="7002", language="en").first()
+        assert doc is not None
+        urls = [m.url for m in (doc.media or []) if getattr(m, "kind", "") == "external"]
+        assert all((u or "").startswith("http") for u in urls)
+        assert any((u or "").startswith("https://www.youtube.com/watch") for u in urls)
+
+
+def test_import_primary_diagnosis_is_stored_as_list_field():
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "x.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(
+            [
+                "intervention_id",
+                "title",
+                "description",
+                "content_type",
+                "primary diagnosis (single choice)",
+            ]
+        )
+        ws.append(["7100_web_de", "Dx", "Desc", "Website", "heart failure"])
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+        assert result["created"] == 1
+        assert result["skipped"] == 0
+        assert not [e for e in result["errors"] if e.get("severity") != "warning"]
+
+        doc = Intervention.objects(external_id="7100_web", language="de").first()
+        assert doc is not None
+        assert isinstance(doc.primary_diagnosis, list)
+        assert "heart failure" in [x.lower() for x in (doc.primary_diagnosis or [])]
