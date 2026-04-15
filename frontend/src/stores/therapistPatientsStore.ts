@@ -223,11 +223,11 @@ export class TherapistPatientsStore {
         : [];
 
       // Surface per-project errors returned in a 200 response body
-      const apiErrors = Array.isArray(data.errors) ? (data.errors as { project: string; error: string }[]) : [];
+      const apiErrors = Array.isArray(data.errors)
+        ? (data.errors as { project: string; error: string }[])
+        : [];
       const errorMessage =
-        apiErrors.length > 0
-          ? apiErrors.map((e) => `${e.project}: ${e.error}`).join(' | ')
-          : '';
+        apiErrors.length > 0 ? apiErrors.map((e) => `${e.project}: ${e.error}`).join(' | ') : '';
 
       runInAction(() => {
         this.redcapCandidates = candidates;
