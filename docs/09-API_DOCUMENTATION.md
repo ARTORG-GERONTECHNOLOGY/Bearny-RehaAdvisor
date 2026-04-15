@@ -1167,23 +1167,78 @@ JWT required. Note: legacy spelling (`recomendation`).
 
 JWT required. No trailing slash.
 
+Imports interventions from an Excel workbook. Rows are upserted by `(external_id, language)` so the endpoint is safe to call repeatedly — existing interventions are updated, new ones are created.
+
 **Request:** `multipart/form-data`
 
-| Field         | Type    | Required | Notes                           |
-|---------------|---------|----------|---------------------------------|
-| `file`        | file    | yes      | `.xlsx` or `.xlsm`             |
-| `sheet_name`  | string  | no       | Default `"Content"`             |
-| `dry_run`     | boolean | no       | Validate without saving         |
-| `limit`       | integer | no       | Max rows to process             |
-| `default_lang`| string  | no       | Default `"en"`                  |
+| Field         | Type    | Required | Notes                                                                 |
+|---------------|---------|----------|-----------------------------------------------------------------------|
+| `file`        | file    | yes      | `.xlsx` or `.xlsm`. Files with a `.csv` extension are also accepted if their content is a valid xlsx binary (magic-byte detection). |
+| `sheet_name`  | string  | no       | Sheet to read. Default `"Content"`. Fuzzy-matched: `"Content (2)"` matches `"Content"`. **Must be set explicitly when the workbook uses a non-default sheet name** (e.g. `MKS_Upload_links`). |
+| `dry_run`     | string  | no       | `"true"` to validate and parse without writing to the DB.            |
+| `limit`       | integer | no       | Stop after processing this many rows (useful for testing).           |
+| `default_lang`| string  | no       | ISO language code applied when the ID and column both omit a language. Default `"en"`. |
+
+**ID format**
+
+Each row requires an `intervention_id` column whose value encodes the external ID, format code, and language:
+
+```
+{4-5 digits}_{format}_{lang}        e.g.  3500_web_de   (original content)
+                                          30500_vid_pt   (self-made content)
+```
+
+Valid format codes: `vid`, `img`, `pdf`, `web`, `aud`, `app`, `br`, `gfx`  
+Valid languages: `de`, `fr`, `it`, `pt`, `nl`, `en`
+
+**Column mapping**
+
+Required columns (headers are matched case-insensitively and tolerate suffixes like `(multi-choice)`):
+
+| Column | Matched by |
+|---|---|
+| `intervention_id` | `intervention_id`, `id` |
+| `title` | `title`, `titel`, `name` |
+| `description` | `description`, `beschreibung`, `desc` |
+| `content_type` | `content type`, `format`, `type`, `medientyp` |
+
+Optional columns: `provider`, `link` / `url`, `language`, `aim`, `topic`, `where`, `setting`, `keywords`, `duration`, `cognitive_level`, `physical_level`, `sex_specific`, `primary_diagnosis`, `input_from`, `duration_bucket`.
+
+**Canonical content-type values stored in DB**
+
+| Excel value | Stored as |
+|---|---|
+| `brochure`, `pdf`, `text`, `br` | `Brochure` |
+| `graphics`, `image`, `img`, `gfx` | `Graphics` |
+| `video`, `vid` | `Video` |
+| `audio`, `aud`, `podcast` | `Audio` |
+| `website`, `web` | `Website` |
+| `app` | `App` |
 
 **Response 200:**
 
 ```json
-{ "success": true, "created": 5, "updated": 2, "skipped": 1, "errors": [] }
+{
+  "success": true,
+  "created": 37,
+  "updated": 0,
+  "skipped": 695,
+  "warnings": 2,
+  "errors_count": 0,
+  "errors": [
+    {
+      "row": 5,
+      "intervention_id": "5210_web_de",
+      "severity": "warning",
+      "error": "topic: \"ageing\" is not a valid topic. Allowed: ..."
+    }
+  ]
+}
 ```
 
-**Errors:** 400 missing file / invalid file type · 405 · 500
+`errors` contains both hard errors (`severity: "error"`, row skipped) and soft warnings (`severity: "warning"`, row still imported with valid fields only). `errors_count` counts hard errors; `warnings` counts soft warnings.
+
+**Errors:** 400 missing file / invalid file type · 413 file too large (> 50 MB) · 405 wrong method · 500 sheet not found or parse failure (response body includes `details` with the exception message, e.g. `"Sheet 'Content' not found. Sheets: ['MKS_Upload_links']"`)
 
 ---
 
