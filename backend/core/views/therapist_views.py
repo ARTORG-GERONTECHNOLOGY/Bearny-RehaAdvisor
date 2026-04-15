@@ -405,8 +405,11 @@ def list_therapist_patients(request, therapist_id):
         since = datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)
         output_list = []
 
+        filter_kwargs: dict = {"clinic__in": therapist.clinics}
+        if therapist.projects:
+            filter_kwargs["project__in"] = therapist.projects
         qs = (
-            Patient.objects(clinic__in=therapist.clinics)
+            Patient.objects(**filter_kwargs)
             .only(
                 "first_name",
                 "name",
