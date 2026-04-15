@@ -2758,7 +2758,7 @@ def initial_patient_questionaire(request, patient_id):
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
     except Patient.DoesNotExist:
-        logger.warning("[initial_patient_questionaire] Patient not found: %s", patient_id)
+        logger.warning("[initial_patient_questionaire] Patient not found for provided patient identifier.")
         return error_response("Patient not found.", status=404)
 
     # ----------------------------
