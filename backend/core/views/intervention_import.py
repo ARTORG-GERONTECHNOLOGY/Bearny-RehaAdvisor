@@ -6,6 +6,7 @@ import re
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import urlparse
 
 import openpyxl
 from django.http import JsonResponse
@@ -422,17 +423,36 @@ def _normalize_lang(raw: Any) -> Optional[str]:
     return None
 
 
+def _host_matches_domain(url: str, domain: str) -> bool:
+    u = _norm(url).strip()
+    if not u:
+        return False
+
+    parsed = urlparse(u)
+    host = parsed.hostname
+    if not host and "://" not in u:
+        parsed = urlparse(f"//{u}")
+        host = parsed.hostname
+
+    if not host:
+        return False
+
+    host = host.lower()
+    domain = domain.lower()
+    return host == domain or host.endswith(f".{domain}")
+
+
 def _guess_provider(url: str) -> Optional[str]:
     u = _norm(url).lower()
     if not u:
         return None
-    if "spotify.com" in u:
+    if _host_matches_domain(u, "spotify.com"):
         return "spotify"
-    if "youtu.be" in u or "youtube.com" in u:
+    if _host_matches_domain(u, "youtu.be") or _host_matches_domain(u, "youtube.com"):
         return "youtube"
-    if "soundcloud.com" in u:
+    if _host_matches_domain(u, "soundcloud.com"):
         return "soundcloud"
-    if "vimeo.com" in u:
+    if _host_matches_domain(u, "vimeo.com"):
         return "vimeo"
     return "website"
 
@@ -460,9 +480,13 @@ def _guess_media_type_for_url(url: str, content_type_fallback: str) -> str:
     if not u:
         return content_type_fallback
 
-    if "spotify.com" in u:
+    if _host_matches_domain(u, "spotify.com"):
         return "streaming"
-    if "youtube.com" in u or "youtu.be" in u or "vimeo.com" in u:
+    if (
+        _host_matches_domain(u, "youtube.com")
+        or _host_matches_domain(u, "youtu.be")
+        or _host_matches_domain(u, "vimeo.com")
+    ):
         return "video"
 
     if re.search(r"\.(mp3|wav|m4a|ogg|webm)(\?|$)", u):
