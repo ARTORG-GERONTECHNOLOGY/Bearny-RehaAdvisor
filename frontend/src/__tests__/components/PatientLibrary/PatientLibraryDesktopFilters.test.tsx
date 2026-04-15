@@ -72,7 +72,7 @@ describe('PatientLibraryDesktopFilters', () => {
 
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Medium')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Duration Short')).toBeInTheDocument();
     expect(screen.getByText('Rating')).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('Search'), { target: { value: 'balance' } });

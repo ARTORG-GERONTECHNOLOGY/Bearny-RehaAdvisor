@@ -73,11 +73,11 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
           <div
             className="flex items-center bg-accent border border-accent rounded-3xl p-4 gap-3"
             role="status"
-            aria-label={t('No interventions')}
+            aria-label={t('No recommendation')}
           >
             <EmptyIcon className="flex-none w-8 h-8" aria-hidden="true" />
             <div className="flex-1 font-bold text-lg leading-5 text-zinc-400">
-              {t('No interventions')}
+              {t('No recommendation')}
             </div>
           </div>
         )}

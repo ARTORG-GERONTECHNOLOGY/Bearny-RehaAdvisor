@@ -151,7 +151,7 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
               </div>
             </FilterSection>
 
-            <FilterSection title={t('Duration')}>
+            <FilterSection title={t('Duration Short')}>
               <div className="flex flex-col gap-3">
                 <Slider
                   value={durationFilterIndices}
