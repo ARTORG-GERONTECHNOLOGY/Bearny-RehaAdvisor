@@ -468,7 +468,7 @@ describe('PatientPlan', () => {
       render(<PatientPlan />);
 
       // The week includes Monday (03-02) which has no interventions
-      const noInterventionsElements = screen.getAllByText('No interventions');
+      const noInterventionsElements = screen.getAllByText('No recommendation');
       expect(noInterventionsElements.length).toBeGreaterThan(0);
     });
   });
