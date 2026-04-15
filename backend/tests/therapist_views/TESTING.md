@@ -10,11 +10,12 @@ endpoints in `core/views/therapist_views.py`.
 
 | Endpoint | HTTP verb | View function | Tests |
 |---|---|---|---|
-| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 10 |
+| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 14 |
 | `/api/analytics/log` | POST | `create_log` | 4 |
 | Internal helpers (unit-level) | N/A | `_avg`, `_day_key`, `_sum_points_for_day`, `_adherence`, `_feedback_computing` | 9 |
+| Project-based access filter (unit-level) | N/A | `list_therapist_patients` queryset | 4 |
 
-**Total: 23 tests**
+**Total: 31 tests** (previously 23; 4 new project-access isolation tests + 4 existing `list_therapist_patients` tests renamed)
 
 ---
 
@@ -44,8 +45,11 @@ FitbitData
 
 ## `list_therapist_patients`  —  `GET /api/therapists/<therapist_id>/patients/`
 
-Returns the therapist's active patients as a flat list used by therapist
-patient dashboards.
+Returns the therapist's active patients as a flat list used by therapist patient dashboards.
+
+**Access control:** Patients are filtered by both clinic and project:
+- `patient.clinic in therapist.clinics` — always applied.
+- `patient.project in therapist.projects` — applied when the therapist has at least one project assigned. Therapists with `projects=[]` fall back to clinic-only filtering for backward compatibility.
 
 ### Response fields (per patient)
 
@@ -83,6 +87,15 @@ patient dashboards.
 | `test_biomarker_wear_time_none_when_no_fitbit_data` | No FitbitData for patient | Both wear fields are `null` |
 | `test_biomarker_sleep_avg_h_uses_minutes_asleep` | FitbitData has `minutes_asleep=420` (7 h) and `sleep_duration=28800000` (8 h) | `sleep_avg_h` is 7.0, not 8.0 |
 | `test_biomarker_sleep_falls_back_to_duration_when_no_minutes_asleep` | FitbitData has only `sleep_duration=27000000` (7.5 h), no `minutes_asleep` | `sleep_avg_h` is 7.5 |
+
+### Project-based access isolation tests
+
+| Test | Scenario | Expected |
+|---|---|---|
+| `test_project_filter_hides_other_project_patients` | COPAIN therapist at Inselspital; COMPASS patient also at Inselspital | COMPASS patient excluded from response |
+| `test_project_filter_shows_all_assigned_projects` | Therapist with COPAIN+COMPASS at Inselspital | Both patients returned |
+| `test_project_filter_respects_clinic_boundary` | Inselspital/COPAIN therapist; Berner Reha Centrum/COPAIN patient | Berner Reha patient excluded |
+| `test_no_projects_assigned_falls_back_to_clinic_filter` | Therapist with `projects=[]`; patient at same clinic | Patient returned (backward-compat fallback) |
 
 ---
 
