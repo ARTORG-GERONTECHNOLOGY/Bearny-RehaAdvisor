@@ -61,8 +61,8 @@ def test_helper_parsers():
     assert _parse_external_id_and_language("3500_xyz_de") == ("3500_xyz", "de", None)
     assert _map_content_type("video") == "Video"
     assert _map_content_type("vid") == "Video"
-    assert _map_content_type("br") == "Text"
-    assert _map_content_type("gfx") == "Image"
+    assert _map_content_type("br") == "Brochure"
+    assert _map_content_type("gfx") == "Graphics"
     assert _parse_duration_minutes("10-20") == 15
     assert _split_list("a, b; a") == ["a", "b"]
 
@@ -121,10 +121,10 @@ def test_validate_id_format():
 def test_more_helper_branches_for_import_module():
     assert _map_content_type("app") == "App"
     assert _map_content_type("website") == "Website"
-    assert _map_content_type("image") == "Image"
+    assert _map_content_type("image") == "Graphics"
     assert _map_content_type("podcast") == "Audio"
-    assert _map_content_type("brochure") == "Text"
-    assert _map_content_type("") == "Text"
+    assert _map_content_type("brochure") == "Brochure"
+    assert _map_content_type("") == "Brochure"
 
     assert _parse_duration_minutes("< 10") == 10
     assert _parse_duration_minutes("about 25 min") == 25

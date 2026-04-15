@@ -28,16 +28,33 @@ def _make_lookup(values: List[str]) -> Dict[str, str]:
     return {v.lower(): v for v in (values or [])}
 
 
+def _make_lookup_with_aliases(values: List[str], aliases: Dict[str, str]) -> Dict[str, str]:
+    """Like _make_lookup but also accepts alternate spellings → same canonical value."""
+    lut = _make_lookup(values)
+    for alt, canonical in aliases.items():
+        lut[alt.lower()] = canonical
+    return lut
+
+
 _TX: Dict[str, Dict[str, str]] = {
     "aims": _make_lookup(_TAXONOMY.get("aims", [])),
-    "topics": _make_lookup(_TAXONOMY.get("topics", [])),
+    # "ageing / geriatrics" (old name) → "ageing" (new name), so Excel files with
+    # the old spelling still import cleanly without a warning.
+    "topics": _make_lookup_with_aliases(
+        _TAXONOMY.get("topics", []),
+        {"ageing / geriatrics": "ageing"},
+    ),
     "where": _make_lookup(_TAXONOMY.get("where", [])),
     "setting": _make_lookup(_TAXONOMY.get("setting", [])),
     "cognitive_levels": _make_lookup(_TAXONOMY.get("cognitive_levels", [])),
     "physical_levels": _make_lookup(_TAXONOMY.get("physical_levels", [])),
     "duration_buckets": _make_lookup(_TAXONOMY.get("duration_buckets", [])),
     "sex_specific": _make_lookup(_TAXONOMY.get("sex_specific", [])),
-    "content_types": _make_lookup(_TAXONOMY.get("content_types", [])),
+    # "text"/"image" (old names) → "brochure"/"graphics" (new canonical names)
+    "content_types": _make_lookup_with_aliases(
+        _TAXONOMY.get("content_types", []),
+        {"text": "Brochure", "image": "Graphics"},
+    ),
     "primary_diagnoses": _make_lookup(_TAXONOMY.get("primary_diagnoses", [])),
     "input_from": _make_lookup(_TAXONOMY.get("input_from", [])),
 }
@@ -101,6 +118,34 @@ def _bad(message: str, status: int = 400, **extra: Any) -> JsonResponse:
     return JsonResponse(payload, status=status)
 
 
+def _friendly_error(exc: Exception) -> str:
+    """
+    Convert an exception to a short, human-readable string.
+
+    MongoEngine ValidationErrors look like:
+      'ValidationError (Intervention:None) (StringField only accepts string values: ['input_from'])'
+
+    We strip the noisy prefix and return just the inner message, e.g.:
+      "Field 'input_from': StringField only accepts string values"
+    """
+    raw = str(exc)
+
+    # MongoEngine: 'ValidationError (Model:pk) (message: [field])'
+    import re as _re
+
+    m = _re.search(r"\(([^()]+):\s*\[([^\]]+)\]\s*\)\s*$", raw)
+    if m:
+        msg, fields = m.group(1).strip(), m.group(2).strip()
+        return f"Field '{fields}': {msg}"
+
+    # MongoEngine top-level: 'ValidationError (Model:None) (inner)'
+    m2 = _re.search(r"ValidationError\s+\([^)]+\)\s+\((.+)\)\s*$", raw, _re.DOTALL)
+    if m2:
+        return m2.group(1).strip()
+
+    return raw
+
+
 # ---------------- import endpoint ----------------
 
 
@@ -137,7 +182,15 @@ def import_interventions(request):
         return _bad("Missing file. Please upload an .xlsx or .xlsm file.", status=400)
 
     filename = (getattr(up, "name", "") or "").lower()
-    if not (filename.endswith(".xlsx") or filename.endswith(".xlsm")):
+    has_xlsx_ext = filename.endswith(".xlsx") or filename.endswith(".xlsm")
+
+    # Accept xlsx content even when the file is misnamed (e.g. saved as .csv).
+    # xlsx files are ZIP archives and always start with the PK magic bytes.
+    content_start = up.read(4)
+    up.seek(0)
+    is_xlsx_magic = content_start[:4] == b"PK\x03\x04"
+
+    if not (has_xlsx_ext or is_xlsx_magic):
         return _bad("Invalid file type. Only .xlsx or .xlsm are allowed.", status=400)
 
     max_excel_bytes = 50 * 1024 * 1024  # 50 MB
@@ -242,10 +295,10 @@ VALID_FORMAT_CODES = {"vid", "img", "pdf", "web", "aud", "app", "br", "gfx"}
 _FORMAT_CODE_TO_CONTENT_TYPE: Dict[str, str] = {
     "vid": "Video",
     "aud": "Audio",
-    "img": "Image",
-    "gfx": "Image",
-    "pdf": "Text",
-    "br": "Text",
+    "img": "Graphics",
+    "gfx": "Graphics",
+    "pdf": "Brochure",
+    "br": "Brochure",
     "web": "Website",
     "app": "App",
 }
@@ -254,7 +307,7 @@ _FORMAT_CODE_TO_CONTENT_TYPE: Dict[str, str] = {
 def _map_content_type(x: str) -> str:
     s = _norm(x).lower()
     if not s:
-        return "Text"
+        return "Brochure"
     # Accept format-code abbreviations directly
     if s in _FORMAT_CODE_TO_CONTENT_TYPE:
         return _FORMAT_CODE_TO_CONTENT_TYPE[s]
@@ -263,14 +316,14 @@ def _map_content_type(x: str) -> str:
     if "audio" in s or "podcast" in s or "sound" in s:
         return "Audio"
     if "image" in s or "picture" in s or "graphic" in s or "gfx" in s:
-        return "Image"
+        return "Graphics"
     if "app" in s:
         return "App"
     if "web" in s or "site" in s or "website" in s:
         return "Website"
     if "pdf" in s or "text" in s or "brochure" in s:
-        return "Text"
-    return "Text"
+        return "Brochure"
+    return "Brochure"
 
 
 def _parse_external_id_and_language(
@@ -643,7 +696,7 @@ def import_interventions_from_excel(
             elif format_code and format_code in _FORMAT_CODE_TO_CONTENT_TYPE:
                 mapped_ct = _FORMAT_CODE_TO_CONTENT_TYPE[format_code]
             else:
-                mapped_ct = "Text"
+                mapped_ct = "Brochure"
 
             duration_min = _parse_duration_minutes(duration_raw)
 
@@ -727,8 +780,8 @@ def import_interventions_from_excel(
                 row_warnings.append(f"input_from: {w}")
 
             # Warn when content_type fuzzy-mapped to fallback "Text" from unrecognized value
-            if content_type_raw and mapped_ct == "Text" and not _TX["content_types"].get(content_type_raw.lower()):
-                row_warnings.append(f'content_type: "{content_type_raw}" not recognized; stored as "Text".')
+            if content_type_raw and mapped_ct == "Brochure" and not _TX["content_types"].get(content_type_raw.lower()):
+                row_warnings.append(f'content_type: "{content_type_raw}" not recognized; stored as "Brochure".')
 
             existing = Intervention.objects(external_id=external_id, language=language).first()
             doc = existing or Intervention(external_id=external_id, language=language)
@@ -765,7 +818,8 @@ def import_interventions_from_excel(
             if primary_diagnosis_val:
                 _set_if_exists(doc, "primary_diagnosis", primary_diagnosis_val)
             if input_from_list:
-                _set_if_exists(doc, "input_from", input_from_list)
+                # input_from is a StringField on the model — join list to CSV string
+                _set_if_exists(doc, "input_from", ", ".join(input_from_list))
             if duration_bucket_val:
                 _set_if_exists(doc, "duration_bucket", duration_bucket_val)
             elif duration_raw and not duration_bucket_val:
@@ -869,7 +923,7 @@ def import_interventions_from_excel(
                     "row": row_idx,
                     "intervention_id": intervention_id_raw,
                     "severity": "error",
-                    "error": str(e),
+                    "error": _friendly_error(e),
                 }
             )
             skipped += 1
