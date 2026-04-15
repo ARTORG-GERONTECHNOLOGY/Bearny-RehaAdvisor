@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
 import core.views.auth_views as auth_views
 import core.views.fitbit_view as fitbit_views
@@ -43,6 +42,7 @@ from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
 from core.views.therapist_projects import therapist_projects
 from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
+from core.jwt_refresh import MongoTokenRefreshView
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
@@ -68,7 +68,7 @@ urlpatterns = [
         name="send_verification_code",
     ),
     path("api/auth/verify-code/", auth_views.verify_code_view, name="verify_code"),
-    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/auth/token/refresh/", MongoTokenRefreshView.as_view(), name="token_refresh"),
     # User Profile
     path(
         "api/users/<str:user_id>/profile/",

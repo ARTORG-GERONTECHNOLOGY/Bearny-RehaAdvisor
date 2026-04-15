@@ -1,19 +1,16 @@
 """
-Custom JWT authentication backend for MongoEngine.
+Custom JWT helpers for MongoEngine-backed users.
 
-Django's default User model uses an integer primary key. This app stores users
-in MongoDB (MongoEngine) with ObjectId PKs. The simplejwt default get_user()
-calls Django ORM and crashes with:
+Django's default auth stack assumes integer primary keys on the SQL auth.User
+model. This app stores users in MongoDB (MongoEngine) with ObjectId PKs, so
+simplejwt's default helpers crash when they try to resolve a token's user_id
+claim through the Django ORM:
 
     ValueError: Field 'id' expected a number but got '<ObjectId string>'
 
-This subclass overrides get_user() to return a minimal user-like object that:
-  - satisfies DRF's IsAuthenticated permission check (is_authenticated=True)
-  - exposes `id` as the raw MongoDB ObjectId string from the JWT user_id claim
-    so that _get_therapist() and get_therapist_for_user() can look up Therapist
-
-No database (SQL or Mongo) query is made during authentication; the Therapist
-lookup happens inside each view function after the token is validated.
+This module provides a Mongo-aware authentication override:
+  - MongoJWTAuthentication: returns a lightweight authenticated user object
+    instead of querying Django's auth.User table.
 """
 
 from types import SimpleNamespace
