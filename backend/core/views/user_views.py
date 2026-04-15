@@ -763,9 +763,9 @@ def accept_user(request):
 
         return JsonResponse({"message": "User accepted successfully."}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("accept_user failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "An internal error occurred."}, status=500)
 
 
 @csrf_exempt
@@ -806,6 +806,6 @@ def decline_user(request):
 
         return JsonResponse({"message": "User declined and deleted successfully."}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("decline_user failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "An internal error occurred."}, status=500)
