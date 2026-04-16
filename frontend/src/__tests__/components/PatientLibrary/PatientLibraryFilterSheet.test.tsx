@@ -12,6 +12,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/components/ui/sheet', () => ({
   Sheet: ({ children }: any) => <div>{children}</div>,
   SheetContent: ({ children }: any) => <div>{children}</div>,
+  SheetDescription: ({ children }: any) => <p>{children}</p>,
   SheetFooter: ({ children }: any) => <div>{children}</div>,
   SheetHeader: ({ children }: any) => <div>{children}</div>,
   SheetTitle: ({ children }: any) => <h2>{children}</h2>,
@@ -40,12 +41,16 @@ describe('PatientLibraryFilterSheet', () => {
       <PatientLibraryFilterSheet
         open
         onOpenChange={onOpenChange}
+        filteredCount={42}
         typeOptions={[{ value: 'exercise', label: 'exercise', Icon: MockIcon }]}
         contentOptions={[{ value: 'video', label: 'video', Icon: MockIcon }]}
+        languageOptions={[{ value: 'en', label: 'English', Icon: MockIcon }]}
         aimsFilter={[]}
         setAimsFilter={jest.fn()}
         contentTypeFilter={[]}
         setContentTypeFilter={jest.fn()}
+        languageFilter={[]}
+        setLanguageFilter={jest.fn()}
         durationFilterIndices={[0, 4]}
         setDurationFilterIndices={jest.fn()}
         durationLabels={['5min', '20min', '35min', '50min', '1h+']}
