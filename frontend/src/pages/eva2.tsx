@@ -334,7 +334,9 @@ export default function HealthSlider() {
       } catch {}
     }
 
-    setAudioError('Audio kann nicht abgespielt werden (Datei fehlt oder Gerät blockiert Wiedergabe).');
+    setAudioError(
+      'Audio kann nicht abgespielt werden (Datei fehlt oder Gerät blockiert Wiedergabe).'
+    );
   }, [isPracticeMode, questionIndex, getAudioCtx]);
 
   useEffect(() => {
