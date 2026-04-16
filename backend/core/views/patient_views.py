@@ -2662,9 +2662,7 @@ def remove_intervention_from_patient(request):
     try:
         plan = RehabilitationPlan.objects.get(patientId=patient)
     except RehabilitationPlan.DoesNotExist:
-        logger.warning(
-            "[remove_intervention_from_patient] Plan not found for supplied patient identifier."
-        )
+        logger.warning("[remove_intervention_from_patient] Plan not found for supplied patient identifier.")
         return JsonResponse(
             {
                 "success": False,
