@@ -236,16 +236,15 @@ describe('HealthSlider', () => {
     expect(window.location.reload).toHaveBeenCalled();
   });
 
-  it('reset link clears all localStorage and reloads', () => {
+  it('does not render reset link in footer', () => {
     setLocalStorage('patient_id', 'ABC');
     setLocalStorage('survey_index', '3');
 
     render(<HealthSlider />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Alle Daten löschen & Reset' }));
-
-    expect(window.localStorage.length).toBe(0);
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Alle Daten löschen & Reset' })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('patient_id')).toBe('ABC');
+    expect(window.localStorage.getItem('survey_index')).toBe('3');
   });
 
   it('cleans up global listeners on unmount', () => {
