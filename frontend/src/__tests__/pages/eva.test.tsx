@@ -68,10 +68,9 @@ describe('HealthSlider', () => {
     });
   });
 
-  test('removes ID and reloads on footer reset click', () => {
+  test('does not render footer reset control', () => {
     render(<HealthSlider />);
-    fireEvent.click(screen.getByText(/Alle Daten löschen & Reset/i));
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })).not.toBeInTheDocument();
   });
 
   test('slider handle is draggable via mouse', () => {
@@ -139,10 +138,10 @@ describe('HealthSlider', () => {
 
     fireEvent.touchEnd(window);
   });
-  test('removes patient_id from localStorage on reset', () => {
+  test('does not clear storage through removed reset control', () => {
     const clearSpy = jest.spyOn(Storage.prototype, 'clear');
     render(<HealthSlider />);
-    fireEvent.click(screen.getByText(/Alle Daten löschen & Reset/i));
-    expect(clearSpy).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })).not.toBeInTheDocument();
+    expect(clearSpy).not.toHaveBeenCalled();
   });
 });
