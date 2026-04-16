@@ -70,7 +70,9 @@ describe('HealthSlider', () => {
 
   test('does not render footer reset control', () => {
     render(<HealthSlider />);
-    expect(screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })
+    ).not.toBeInTheDocument();
   });
 
   test('slider handle is draggable via mouse', () => {
@@ -141,7 +143,9 @@ describe('HealthSlider', () => {
   test('does not clear storage through removed reset control', () => {
     const clearSpy = jest.spyOn(Storage.prototype, 'clear');
     render(<HealthSlider />);
-    expect(screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Alle Daten löschen & Reset/i })
+    ).not.toBeInTheDocument();
     expect(clearSpy).not.toHaveBeenCalled();
   });
 });

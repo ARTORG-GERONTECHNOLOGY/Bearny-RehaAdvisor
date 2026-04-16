@@ -242,7 +242,9 @@ describe('HealthSlider', () => {
 
     render(<HealthSlider />);
 
-    expect(screen.queryByRole('button', { name: 'Alle Daten löschen & Reset' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Alle Daten löschen & Reset' })
+    ).not.toBeInTheDocument();
     expect(window.localStorage.getItem('patient_id')).toBe('ABC');
     expect(window.localStorage.getItem('survey_index')).toBe('3');
   });
