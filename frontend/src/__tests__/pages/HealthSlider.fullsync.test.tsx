@@ -587,14 +587,14 @@ describe('HealthSlider (Full Sync)', () => {
       .spyOn(window.HTMLMediaElement.prototype, 'play')
       .mockRejectedValueOnce(new Error('first source failed'))
       .mockResolvedValue(undefined as unknown as void);
-    const loadMock = jest.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+    const loadMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'load')
+      .mockImplementation(() => {});
 
     fireEvent.click(screen.getByRole('button', { name: /Frage abspielen/i }));
 
     await waitFor(() => expect(playMock).toHaveBeenCalledTimes(2));
-    expect(
-      screen.queryByText(/Audio kann nicht abgespielt werden/i)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Audio kann nicht abgespielt werden/i)).not.toBeInTheDocument();
 
     playMock.mockRestore();
     loadMock.mockRestore();
