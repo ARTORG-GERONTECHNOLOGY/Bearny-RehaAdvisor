@@ -53,7 +53,7 @@ export default function PatientInterventionsLibrarySkeleton() {
               <Skeleton className="h-14 w-full rounded-full" />
 
               <div className="flex flex-col gap-2">
-                {Array.from({ length: 3 }).map((_, sectionIndex) => (
+                {Array.from({ length: 5 }).map((_, sectionIndex) => (
                   <div key={sectionIndex} className="rounded-3xl border border-accent px-4 py-3">
                     <div className="flex items-center justify-between">
                       <Skeleton className="h-6 w-28" />

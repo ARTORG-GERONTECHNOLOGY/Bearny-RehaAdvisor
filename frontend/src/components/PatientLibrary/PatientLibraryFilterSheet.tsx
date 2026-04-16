@@ -2,7 +2,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 
@@ -15,12 +22,16 @@ type OptionItem = {
 type PatientLibraryFilterSheetProps = {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  filteredCount: number;
   typeOptions: OptionItem[];
   contentOptions: OptionItem[];
+  languageOptions: OptionItem[];
   aimsFilter: string[];
   setAimsFilter: React.Dispatch<React.SetStateAction<string[]>>;
   contentTypeFilter: string[];
   setContentTypeFilter: React.Dispatch<React.SetStateAction<string[]>>;
+  languageFilter: string[];
+  setLanguageFilter: React.Dispatch<React.SetStateAction<string[]>>;
   durationFilterIndices: [number, number];
   setDurationFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   durationLabels: string[];
@@ -33,12 +44,16 @@ type PatientLibraryFilterSheetProps = {
 const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
   open,
   onOpenChange,
+  filteredCount,
   typeOptions,
   contentOptions,
+  languageOptions,
   aimsFilter,
   setAimsFilter,
   contentTypeFilter,
   setContentTypeFilter,
+  languageFilter,
+  setLanguageFilter,
   durationFilterIndices,
   setDurationFilterIndices,
   durationLabels,
@@ -54,6 +69,9 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
       <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
         <SheetHeader>
           <SheetTitle>{t('Filter')}</SheetTitle>
+          <SheetDescription>
+            {filteredCount === 0 ? t('No entries found.') : `${filteredCount} ${t('Contents')}`}
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-12 flex-1 overflow-y-auto pr-3">
@@ -108,6 +126,34 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
               ))}
             </div>
           </div>
+
+          {languageOptions.length > 0 && (
+            <div className="flex flex-col gap-4">
+              <div className="font-medium text-lg text-zinc-600">{t('Language')}</div>
+              <div className="flex flex-col gap-3">
+                {languageOptions.map((option) => (
+                  <div key={option.value} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
+                      <div className="w-6 h-6 flex items-center justify-center" aria-hidden="true">
+                        {option.Icon && <option.Icon className="w-6 h-6" />}
+                      </div>
+                      <span>{option.label}</span>
+                    </div>
+                    <Switch
+                      checked={languageFilter.includes(option.value)}
+                      onCheckedChange={() =>
+                        setLanguageFilter((prev) =>
+                          prev.includes(option.value)
+                            ? prev.filter((v) => v !== option.value)
+                            : [...prev, option.value]
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <div className="font-medium text-lg text-zinc-600">{t('Duration Short')}</div>
