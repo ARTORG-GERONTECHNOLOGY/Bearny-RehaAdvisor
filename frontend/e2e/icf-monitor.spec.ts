@@ -308,3 +308,44 @@ test.describe('ICF Monitor — upload failure recovery', () => {
     await expect(page.getByRole('button', { name: 'Schließen' })).toBeVisible();
   });
 });
+
+test.describe('ICF Monitor — item audio playback', () => {
+  test('play button retries playback source and does not show audio error when a retry succeeds', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      (window as any).__playAttempts = [];
+      const origPlay = HTMLMediaElement.prototype.play;
+      let attempts = 0;
+
+      HTMLMediaElement.prototype.play = function () {
+        const src = (this as HTMLMediaElement).currentSrc || (this as HTMLMediaElement).src || '';
+        (window as any).__playAttempts.push(src);
+        attempts += 1;
+
+        if (attempts === 1) return Promise.reject(new Error('simulated first-source failure'));
+        return Promise.resolve();
+      };
+
+      // keep a reference in case future tests need it
+      (window as any).__origPlay = origPlay;
+    });
+
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+    await gotoWithPatientId(page);
+    await startMicAndPractice(page);
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.getByText('Frage 1 von')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Frage abspielen' }).click();
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => ((window as any).__playAttempts || []).length);
+      })
+      .toBeGreaterThanOrEqual(2);
+
+    await expect(page.getByText(/Audio kann nicht abgespielt werden/i)).not.toBeVisible();
+  });
+});

@@ -378,15 +378,6 @@ export default function HealthSlider() {
       )}
 
       <footer style={styles.footer}>
-        <button
-          onClick={() => {
-            localStorage.clear(); // Complete reset
-            window.location.reload();
-          }}
-          style={styles.resetLink}
-        >
-          Alle Daten löschen & Reset
-        </button>
         <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
         <div style={styles.footerText}>{VERSION}</div>
       </footer>
@@ -398,6 +389,7 @@ export default function HealthSlider() {
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: '100dvh',
+    height: '100dvh',
     background: '#f6f4f0',
     display: 'flex',
     flexDirection: 'column',
@@ -433,8 +425,9 @@ const styles: Record<string, React.CSSProperties> = {
   endLabelBottom: { fontSize: 20, color: '#222', marginTop: 6 },
   trackBox: {
     position: 'relative',
-    width: 140,
-    height: 'min(60vh, calc(100dvh - 260px))',
+    width: 'min(140px, 56vw, calc((100dvh - 260px) * 0.2647))',
+    aspectRatio: '140 / 529',
+    height: 'auto',
     touchAction: 'none',
   },
   gradientBar: {
@@ -504,14 +497,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6px 0 10px',
     color: '#707070',
     fontSize: 14,
-  },
-  resetLink: {
-    fontSize: 14,
-    color: '#9b9b9b',
-    background: 'none',
-    border: 'none',
-    textDecoration: 'underline',
-    cursor: 'pointer',
   },
   footerText: { whiteSpace: 'nowrap' },
 };
