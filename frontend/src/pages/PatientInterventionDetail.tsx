@@ -19,6 +19,7 @@ import { patientInterventionsStore, type PatientRec } from '@/stores/patientInte
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import { translateText } from '@/utils/translate';
+import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
@@ -70,19 +71,10 @@ const capitalizeWords = (value: string) =>
     .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
     .join(' ');
 
-const isHttpUrl = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.protocol === 'http:' || x.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-const isSpotify = (u: string) => u.includes('spotify.com');
-const isYouTube = (u: string) => u.includes('youtube.com') || u.includes('youtu.be');
-const isVimeo = (u: string) => u.includes('vimeo.com');
-const isSoundCloud = (u: string) => u.includes('soundcloud.com');
+const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
+const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
+const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
+const isSoundCloud = (u: string) => matchesHost(u, 'soundcloud.com');
 
 const guessMediaTypeFromUrl = (u: string): InterventionMedia['media_type'] => {
   const url = lower(u);

@@ -4,7 +4,8 @@
 // Includes: helper to generate colors from interventions.json taxonomy
 // Includes: language helpers for available_languages arrays
 
-import interventionsConfig from '../config/interventions.json';
+import interventionsConfig from '@/config/interventions.json';
+import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 
 export type LangOpt = { language: string; title?: string | null };
 
@@ -43,19 +44,10 @@ const lower = (v: unknown) => norm(v).toLowerCase();
 
 /** ---------------- URL helpers ---------------- */
 
-export const isHttpUrl = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.protocol === 'http:' || x.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-const isSpotify = (u: string) => u.includes('spotify.com');
-const isYouTube = (u: string) => u.includes('youtube.com') || u.includes('youtu.be');
-const isVimeo = (u: string) => u.includes('vimeo.com');
-const isSoundCloud = (u: string) => u.includes('soundcloud.com');
+const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
+const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
+const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
+const isSoundCloud = (u: string) => matchesHost(u, 'soundcloud.com');
 
 /** ---------------- Media type guessing ---------------- */
 

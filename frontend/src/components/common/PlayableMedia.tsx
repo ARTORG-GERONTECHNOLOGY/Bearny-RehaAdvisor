@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
+import { isHttpUrl } from '@/utils/urlUtils';
 
 export type Media = {
   kind: 'external' | 'file';
@@ -12,15 +13,6 @@ export type Media = {
   file_url?: string | null;
   title?: string | null;
   provider?: string | null;
-};
-
-const isHttpUrl = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.protocol === 'http:' || x.protocol === 'https:';
-  } catch {
-    return false;
-  }
 };
 
 const extOf = (u: string) => {

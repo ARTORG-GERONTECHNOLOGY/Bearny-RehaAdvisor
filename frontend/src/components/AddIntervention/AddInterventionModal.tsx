@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Badge, Button, Col, Form, ListGroup, Modal, Row, Spinner } from 'react-bootstrap';
-import apiClient from '../../api/client';
+import apiClient from '@/api/client';
 import { useTranslation } from 'react-i18next';
+import { matchesHost } from '@/utils/urlUtils';
 
 // -------------------- TYPES --------------------
 interface PatientType {
@@ -32,8 +33,8 @@ interface AddInterventionModalProps {
 // -------------------- UTIL FUNCTIONS --------------------
 const getBadgeVariantFromUrl = (mediaUrl: string, link: string): string => {
   if (!mediaUrl) {
-    if (link.includes('youtube.com') || link.includes('youtu.be')) return 'primary';
-    if (link.includes('vimeo.com')) return 'primary';
+    if (matchesHost(link, 'youtube.com', 'youtu.be')) return 'primary';
+    if (matchesHost(link, 'vimeo.com')) return 'primary';
     return 'warning';
   }
 
@@ -50,8 +51,8 @@ const getMediaTypeLabelFromUrl = (
   t: (key: string) => string
 ): string => {
   if (!mediaUrl) {
-    if (link.includes('youtube.com') || link.includes('youtu.be')) return t('Video');
-    if (link.includes('vimeo.com')) return t('Video');
+    if (matchesHost(link, 'youtube.com', 'youtu.be')) return t('Video');
+    if (matchesHost(link, 'vimeo.com')) return t('Video');
     return t('Link');
   }
 

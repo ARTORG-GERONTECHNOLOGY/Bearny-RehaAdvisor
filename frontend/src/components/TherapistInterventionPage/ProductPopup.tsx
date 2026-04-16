@@ -16,22 +16,23 @@ import {
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
-import { PlayableMedia } from '../common/PlayableMedia';
+import { PlayableMedia } from '@/components/common/PlayableMedia';
 
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaLock } from 'react-icons/fa';
-import apiClient from '../../api/client';
-import interventionsConfig from '../../config/interventions.json';
-import authStore from '../../stores/authStore';
+import apiClient from '@/api/client';
+import interventionsConfig from '@/config/interventions.json';
+import authStore from '@/stores/authStore';
 import {
   getTagColor,
   toLangOpts,
   getAllMedia,
   getMediaBadge,
   getPlayableUrl,
-} from '../../utils/interventions';
-import ErrorAlert from '../common/ErrorAlert';
-import TemplateAssignModal from './TemplateAssignModal';
-import { translateText } from '../../utils/translate';
+} from '@/utils/interventions';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
+import { translateText } from '@/utils/translate';
+import { isHttpUrl } from '@/utils/urlUtils';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
@@ -95,15 +96,6 @@ type InterventionLike = UnknownRecord & {
 
 const getId = (x: unknown): string | null =>
   isRecord(x) && isString(x._id) && x._id.trim() ? x._id.trim() : null;
-
-const isHttpUrl = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.protocol === 'http:' || x.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
 
 const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) => {
   const { t, i18n } = useTranslation();

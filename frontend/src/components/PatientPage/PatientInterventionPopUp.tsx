@@ -13,16 +13,17 @@ import {
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
-import apiClient from '../../api/client';
-import ErrorAlert from '../common/ErrorAlert';
-import { translateText } from '../../utils/translate';
+import apiClient from '@/api/client';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import { translateText } from '@/utils/translate';
+import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 import { PlayableMedia } from '../common/PlayableMedia';
-import { generateTagColors, getTaxonomyTags } from '../../utils/interventions';
+import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import {
   getBadgeVariantFromIntervention,
   getMediaTypeLabelFromIntervention,
   getTagColor,
-} from '../../utils/interventions';
+} from '@/utils/interventions';
 
 // ---------- types ----------
 type Props = {
@@ -55,19 +56,10 @@ const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
 const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: any) => norm(v).toLowerCase();
 
-const isHttpUrl = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.protocol === 'http:' || x.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-const isSpotify = (u: string) => u.includes('spotify.com');
-const isYouTube = (u: string) => u.includes('youtube.com') || u.includes('youtu.be');
-const isVimeo = (u: string) => u.includes('vimeo.com');
-const isSoundCloud = (u: string) => u.includes('soundcloud.com');
+const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
+const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
+const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
+const isSoundCloud = (u: string) => matchesHost(u, 'soundcloud.com');
 
 const guessMediaTypeFromUrl = (u: string): InterventionMedia['media_type'] => {
   const url = lower(u);
