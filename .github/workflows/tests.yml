@@ -209,6 +209,7 @@ jobs:
       E2E_API_URL: http://127.0.0.1:8001/api
       # Logins are non-sensitive — stored as Actions Variables (vars context)
       E2E_PATIENT_LOGIN: ${{ vars.E2E_PATIENT_LOGIN }}
+      E2E_PATIENT_ID: ${{ vars.E2E_PATIENT_ID }}
       E2E_ADMIN_LOGIN: ${{ vars.E2E_ADMIN_LOGIN }}
       E2E_THERAPIST_LOGIN: ${{ vars.E2E_THERAPIST_LOGIN }}
       # Passwords are sensitive — stored as Actions Secrets (secrets context)
@@ -346,6 +347,21 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e -- e2e/patient-interventions-page.spec.ts
 
+      - name: Run seeded therapist rehab-table questionnaires E2E flow
+        if: ${{ vars.E2E_THERAPIST_LOGIN != '' && vars.E2E_PATIENT_ID != '' }}
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts
+
+      - name: Run seeded patient assigned questionnaires API E2E flow
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' && vars.E2E_THERAPIST_LOGIN != '' }}
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/patient-assigned-questionnaires.spec.ts
+
+      - name: Run seeded therapist questionnaire builder UI E2E flow
+        if: ${{ vars.E2E_THERAPIST_LOGIN != '' && vars.E2E_PATIENT_ID != '' }}
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/therapist-questionnaire-builder-flow.spec.ts
+
       - name: Skip note when E2E seeded secrets are missing
         if: ${{ vars.E2E_PATIENT_LOGIN == '' }}
         run: |
@@ -355,6 +371,11 @@ jobs:
         if: ${{ vars.E2E_THERAPIST_LOGIN == '' }}
         run: |
           echo "Therapist 2FA E2E test skipped — E2E_THERAPIST_LOGIN not set."
+
+      - name: Skip note when therapist questionnaire E2E prerequisites are missing
+        if: ${{ vars.E2E_THERAPIST_LOGIN == '' || vars.E2E_PATIENT_ID == '' }}
+        run: |
+          echo "Therapist questionnaire E2E test skipped — E2E_THERAPIST_LOGIN and/or E2E_PATIENT_ID not set."
 
       - name: Upload Playwright artifacts
         if: always()
