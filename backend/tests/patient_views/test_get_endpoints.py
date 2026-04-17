@@ -43,10 +43,15 @@ from bson import ObjectId
 from django.test import Client
 
 from core.models import (
+    AnswerOption,
+    FeedbackEntry,
     FeedbackQuestion,
+    HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
     Patient,
+    PatientICFRating,
+    QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
     Translation,
@@ -310,6 +315,114 @@ def test_fetch_feedback_questions_healthstatus_type(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200
+
+
+def test_fetch_healthstatus_questions_prefers_due_assigned_questionnaire(mongo_mock):
+    """
+    If the therapist assigned a due Healthstatus questionnaire to the patient,
+    the endpoint should return those assigned questions.
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="99_assigned_q1",
+        translations=[Translation(language="en", text="Assigned Q1?")],
+        answer_type="text",
+    ).save()
+    q2 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="99_assigned_q2",
+        translations=[Translation(language="en", text="Assigned Q2?")],
+        answer_type="select",
+        possibleAnswers=[AnswerOption(key="1", translations=[Translation(language="en", text="1")])],
+    ).save()
+
+    hq = HealthQuestionnaire(
+        key="99_assigned",
+        title="Assigned 99",
+        questions=[q1, q2],
+    ).save()
+
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[datetime.now() - timedelta(days=1)],
+            notes="",
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    questions = body if isinstance(body, list) else body.get("questions", [])
+    keys = [q.get("questionKey") for q in questions]
+
+    assert "99_assigned_q1" in keys
+    assert "99_assigned_q2" in keys
+
+
+def test_fetch_healthstatus_questions_hides_due_assignment_after_answered(mongo_mock):
+    """
+    Once the assigned questionnaire has been answered on/after its due date,
+    it should not be returned again immediately.
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="98_assigned_q1",
+        translations=[Translation(language="en", text="Assigned Q?")],
+        answer_type="select",
+        possibleAnswers=[AnswerOption(key="1", translations=[Translation(language="en", text="1")])],
+    ).save()
+    hq = HealthQuestionnaire(
+        key="98_assigned",
+        title="Assigned 98",
+        questions=[q1],
+    ).save()
+
+    due_date = datetime.now() - timedelta(days=2)
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[due_date],
+            notes="",
+        )
+    ]
+    plan.save()
+
+    entry = FeedbackEntry(
+        questionId=q1,
+        answerKey=[AnswerOption(key="1", translations=[Translation(language="en", text="1")])],
+        comment="",
+        date=datetime.now() - timedelta(days=1),
+    )
+    PatientICFRating(
+        questionId=q1,
+        patientId=patient,
+        icfCode=q1.icfCode,
+        date=datetime.now() - timedelta(days=1),
+        rating=1,
+        feedback_entries=[entry],
+        notes="",
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    questions = body if isinstance(body, list) else body.get("questions", [])
+    keys = [q.get("questionKey") for q in questions]
+    assert "98_assigned_q1" not in keys
 
 
 def test_fetch_feedback_questions_with_intervention_id_in_url(mongo_mock):
