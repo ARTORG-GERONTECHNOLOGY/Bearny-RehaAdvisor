@@ -1,15 +1,7 @@
-FROM ubuntu:22.04
+FROM continuumio/miniconda3:24.7.1-0
 WORKDIR /app
 
-# Install necessary system packages
-RUN apt-get update && \
-    apt-get -y install build-essential wget curl bzip2 libpq-dev gcc && \
-    apt-get clean
-
-# Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && bash /opt/miniconda-installer.sh -b -p /opt/conda
-
-ENV PATH /opt/conda/bin:$PATH
+ENV PATH=/opt/conda/bin:$PATH
 
 
 COPY ./environment.yml .
