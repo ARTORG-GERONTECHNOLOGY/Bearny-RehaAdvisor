@@ -9,6 +9,8 @@ import PatientInterventionsLibrarySkeleton from '@/components/skeletons/PatientI
 import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
 import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
 import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
+import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndConditionsSkeleton';
+import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
 
 const Home = lazy(() => import('@/pages/Home'));
 const Therapist = lazy(() => import('@/pages/Therapist'));
@@ -115,11 +117,14 @@ export const router = createBrowserRouter([
   },
   {
     path: '/terms',
-    element: withSuspense(createElement(TermsAndConditions)),
+    element: withSuspense(
+      createElement(TermsAndConditions),
+      createElement(TermsAndConditionsSkeleton)
+    ),
   },
   {
     path: '/privacypolicy',
-    element: withSuspense(createElement(PrivacyPolicy)),
+    element: withSuspense(createElement(PrivacyPolicy), createElement(PrivacyPolicySkeleton)),
   },
   {
     path: '/fitbit-success',
