@@ -11,6 +11,7 @@ type QItem = {
   description?: string;
   tags?: string[];
   question_count?: number;
+  created_by_name?: string;
 };
 
 type QAssigned = {
@@ -30,6 +31,7 @@ interface QuestionnairePanelActions {
   openAddQ: (q: QItem) => void;
   openModifyQ: (q: QItem) => void;
   removeQ: (id: string) => void;
+  openBuilder: () => void;
 }
 
 interface QuestionnairePanelProps {
@@ -40,14 +42,19 @@ interface QuestionnairePanelProps {
 
 const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
-  const { openAddQ, openModifyQ, removeQ } = actions;
+  const { openAddQ, openModifyQ, removeQ, openBuilder } = actions;
 
   return (
     <Row className="rehab-row">
       {/* Available questionnaires */}
       <Col xs={12} md={5} className="rehab-col">
         <Card className="flex-1 min-h-0 d-flex flex-column mb-3 mb-md-0">
-          <Card.Header>{t('Available questionnaires')}</Card.Header>
+          <Card.Header className="d-flex justify-content-between align-items-center">
+            <span>{t('Available questionnaires')}</span>
+            <Button size="sm" variant="primary" onClick={openBuilder}>
+              {t('Create')}
+            </Button>
+          </Card.Header>
           <Card.Body className="p-2 flex-1 min-h-0">
             <div className="scroll-y">
               {questionnaires.length === 0 && (
@@ -62,6 +69,11 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                   >
                     <div>
                       <div className="fw-semibold">{q.title}</div>
+                      {q.created_by_name ? (
+                        <div className="small text-muted">
+                          {t('By')}: {q.created_by_name}
+                        </div>
+                      ) : null}
                       {q.question_count != null && (
                         <div className="small text-muted">
                           {t('Questions')}: {q.question_count}
