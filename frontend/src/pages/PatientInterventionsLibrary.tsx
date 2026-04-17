@@ -25,6 +25,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import Section from '@/components/Section';
+import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
@@ -32,10 +34,14 @@ import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
 import TextIcon from '@/assets/icons/interventions/text.svg?react';
 import VideoIcon from '@/assets/icons/interventions/video.svg?react';
 import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
+import flagDe from '@/assets/flags/de.png';
+import flagFr from '@/assets/flags/fr.png';
+import flagEn from '@/assets/flags/gb.png';
+import flagIt from '@/assets/flags/it.png';
+import flagPt from '@/assets/flags/pt.png';
+import flagNl from '@/assets/flags/be.png';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
-import Section from '@/components/Section';
-import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -49,6 +55,8 @@ type InterventionCardItem = {
   aims?: string[];
   intervention_title?: string;
   intervention_id?: string;
+  language?: string;
+  available_languages?: string[];
 };
 
 type OptionItem = {
@@ -78,6 +86,34 @@ const getContentTypeIcon = (value: string) => {
   if (normalized.includes('app')) return WebsiteIcon;
 
   return null;
+};
+
+const flagMap: Record<string, string> = {
+  en: flagEn,
+  de: flagDe,
+  fr: flagFr,
+  it: flagIt,
+  pt: flagPt,
+  nl: flagNl,
+};
+
+const languageNames: Record<string, string> = {
+  en: 'English',
+  de: 'Deutsch',
+  fr: 'Français',
+  it: 'Italiano',
+  pt: 'Português',
+  nl: 'Nederlands',
+};
+
+const getLanguageIcon = (value: string): React.ComponentType<{ className?: string }> | null => {
+  const lang = value.trim().toLowerCase();
+  const src = flagMap[lang];
+  if (!src) return null;
+  const FlagIcon = ({ className }: { className?: string }) => (
+    <img src={src} className={`${className ?? ''} rounded-full object-cover`} alt={lang} />
+  );
+  return FlagIcon;
 };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -169,6 +205,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const [searchTerm, setSearchTerm] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
   const [aimsFilter, setAimsFilter] = useState<string[]>([]);
+  const [languageFilter, setLanguageFilter] = useState<string[]>([]);
   const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
   const [ratingFilterIndices, setRatingFilterIndices] = useState<[number, number]>([0, 4]);
 
@@ -176,6 +213,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     setSearchTerm('');
     setContentTypeFilter([]);
     setAimsFilter([]);
+    setLanguageFilter([]);
     setDurationFilterIndices([0, 4]);
     setRatingFilterIndices([0, 4]);
   }, []);
@@ -267,7 +305,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     // Here we add aimsFilter: assumes items have .aims array in your new model.
     const base = filterInterventions(sourceItems as any, translatedTitles, {
       diagnosisFilter: [],
-      languageFilter: [],
+      languageFilter: languageFilter.map((l) => l.toLowerCase()),
       contentTypeFilter: '',
       tagFilter: [],
       benefitForFilter: [],
@@ -314,6 +352,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     sourceItems,
     contentTypeFilter,
     aimsFilter,
+    languageFilter,
     searchTerm,
     translatedTitles,
     durationFilterIndices,
@@ -337,6 +376,17 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       (item) => item.content_type,
       getContentTypeIcon
     );
+  }, [sourceItems]);
+
+  const languageOptions = useMemo(() => {
+    return buildUniqueOptions(
+      sourceItems as InterventionCardItem[],
+      (item) => [...(item.available_languages ?? []), ...(item.language ? [item.language] : [])],
+      getLanguageIcon
+    ).map((opt) => ({
+      ...opt,
+      label: languageNames[opt.value.toLowerCase()] ?? opt.value.toUpperCase(),
+    }));
   }, [sourceItems]);
 
   const exerciseItems = useMemo(
@@ -465,12 +515,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         <PatientLibraryFilterSheet
           open={showFilterSheet}
           onOpenChange={(isOpen) => !isOpen && setShowFilterSheet(false)}
+          filteredCount={filteredItems.length}
           typeOptions={typeOptions}
           contentOptions={contentOptions}
+          languageOptions={languageOptions}
           aimsFilter={aimsFilter}
           setAimsFilter={setAimsFilter}
           contentTypeFilter={contentTypeFilter}
           setContentTypeFilter={setContentTypeFilter}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
           durationFilterIndices={durationFilterIndices}
           setDurationFilterIndices={setDurationFilterIndices}
           durationLabels={durationLabels}
@@ -487,10 +541,13 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           onSearchTermChange={setSearchTerm}
           typeOptions={typeOptions}
           contentOptions={contentOptions}
+          languageOptions={languageOptions}
           aimsFilter={aimsFilter}
           setAimsFilter={setAimsFilter}
           contentTypeFilter={contentTypeFilter}
           setContentTypeFilter={setContentTypeFilter}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
           durationFilterIndices={durationFilterIndices}
           setDurationFilterIndices={setDurationFilterIndices}
           durationLabels={durationLabels}
