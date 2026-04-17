@@ -3,6 +3,7 @@ import calendar
 import json
 import logging
 import re
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -15,12 +16,14 @@ from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
+    AnswerOption,
     FeedbackQuestion,
     HealthQuestionnaire,
     Patient,
     QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
+    Translation,
     User,
 )
 from utils.scheduling import (
@@ -103,6 +106,42 @@ def _prettify(group_key: str) -> str:
     if len(parts) == 2 and parts[0].isdigit():
         return f"{parts[1].capitalize()} ({parts[0]})"
     return group_key.replace("_", " ").title()
+
+
+def _slugify(value: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "_", (value or "").lower()).strip("_")
+    return s or "questionnaire"
+
+
+def _resolve_creator_name(q: HealthQuestionnaire) -> str:
+    try:
+        creator = getattr(q, "created_by", None)
+        if creator is None:
+            return "System"
+        return f"{creator.first_name or ''} {creator.name or ''}".strip() or "Unknown"
+    except Exception:
+        return "Unknown"
+
+
+def _serialize_health_questionnaire(q: HealthQuestionnaire) -> Dict[str, Any]:
+    created_by_user_id = None
+    try:
+        creator = getattr(q, "created_by", None)
+        if creator and creator.userId:
+            created_by_user_id = str(creator.userId.id)
+    except Exception:
+        created_by_user_id = None
+
+    return {
+        "_id": str(q.id),
+        "key": q.key,
+        "title": q.title,
+        "description": q.description or "",
+        "tags": q.tags or [],
+        "question_count": len(q.questions or []),
+        "created_by": created_by_user_id,
+        "created_by_name": _resolve_creator_name(q),
+    }
 
 
 def _ensure_health_q_from_group(group_key: str, subject: str = "Healthstatus") -> HealthQuestionnaire:
@@ -308,23 +347,131 @@ def _expand_dates(
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def list_health_questionnaires(request):
-    """GET /api/questionnaires/health/"""
-    if request.method != "GET":
+    """GET/POST /api/questionnaires/health/"""
+    if request.method == "GET":
+        # Ensure dynamic grouped questionnaires are represented as documents too,
+        # so FE can list all assignable questionnaires from a single endpoint.
+        dynamic_keys = set()
+        for fq in FeedbackQuestion.objects(questionSubject="Healthstatus").only("questionKey"):
+            m = _GROUP_RE.match(fq.questionKey or "")
+            if m:
+                dynamic_keys.add(m.group(1))
+        for gk in dynamic_keys:
+            try:
+                _ensure_health_q_from_group(gk, subject="Healthstatus")
+            except Exception:
+                logger.warning("Could not ensure dynamic questionnaire for key '%s'", gk)
+
+        qs = HealthQuestionnaire.objects().order_by("title")
+        data = [_serialize_health_questionnaire(q) for q in qs]
+        return JsonResponse(data, safe=False, status=200)
+
+    if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    qs = HealthQuestionnaire.objects().order_by("title")
-    data = [
-        {
-            "_id": str(q.id),
-            "key": q.key,
-            "title": q.title,
-            "description": q.description or "",
-            "tags": q.tags or [],
-            "question_count": len(q.questions or []),
-        }
-        for q in qs
-    ]
-    return JsonResponse(data, safe=False, status=200)
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+
+    title = str(payload.get("title") or "").strip()
+    description = str(payload.get("description") or "").strip()
+    subject = str(payload.get("subject") or "Healthstatus").strip() or "Healthstatus"
+    questions_raw = payload.get("questions") or []
+
+    if not title:
+        return JsonResponse({"error": "Missing title"}, status=400)
+    if not isinstance(questions_raw, list) or not questions_raw:
+        return JsonResponse({"error": "At least one question is required"}, status=400)
+
+    # Resolve creator therapist from authenticated JWT user OR explicit therapistId fallback.
+    creator = None
+    try:
+        if getattr(request, "user", None) and getattr(request.user, "id", None):
+            creator = Therapist.objects.get(userId=str(request.user.id))
+    except Exception:
+        creator = None
+
+    if creator is None:
+        therapist_like = payload.get("therapistId")
+        if therapist_like:
+            try:
+                creator = _get_therapist_by_any(therapist_like)
+            except Exception:
+                creator = None
+
+    allowed_types = {"text", "select", "multi-select", "one-choice", "multiple-choice", "open-answer"}
+    base_key = f"custom_{_slugify(title)}_{str(ObjectId())[-8:]}"
+    created_questions: List[FeedbackQuestion] = []
+
+    try:
+        for idx, raw in enumerate(questions_raw, start=1):
+            q_text = str((raw or {}).get("text") or "").strip()
+            q_type = str((raw or {}).get("type") or "").strip().lower()
+            options = (raw or {}).get("options") or []
+
+            if not q_text:
+                raise ValueError(f"Question #{idx}: missing text")
+            if q_type not in allowed_types:
+                raise ValueError(f"Question #{idx}: unsupported type '{q_type}'")
+
+            if q_type in {"one-choice"}:
+                q_type = "select"
+            elif q_type in {"multiple-choice"}:
+                q_type = "multi-select"
+            elif q_type in {"open-answer"}:
+                q_type = "text"
+
+            option_docs: List[AnswerOption] = []
+            if q_type in {"select", "multi-select"}:
+                if not isinstance(options, list) or len([o for o in options if str(o).strip()]) < 2:
+                    raise ValueError(f"Question #{idx}: at least two non-empty options are required")
+
+                key_counts: Counter[str] = Counter()
+                for opt in options:
+                    opt_text = str(opt).strip()
+                    if not opt_text:
+                        continue
+                    base_opt_key = _slugify(opt_text)
+                    key_counts[base_opt_key] += 1
+                    suffix = f"_{key_counts[base_opt_key]}" if key_counts[base_opt_key] > 1 else ""
+                    option_docs.append(
+                        AnswerOption(
+                            key=f"{base_opt_key}{suffix}",
+                            translations=[Translation(language="en", text=opt_text)],
+                        )
+                    )
+
+            fq = FeedbackQuestion(
+                questionSubject=subject,
+                questionKey=f"{base_key}_{idx}_{str(ObjectId())[-6:]}",
+                answer_type=q_type,
+                translations=[Translation(language="en", text=q_text)],
+                possibleAnswers=option_docs,
+            ).save()
+            created_questions.append(fq)
+
+        hq = HealthQuestionnaire(
+            key=base_key,
+            title=title,
+            description=description,
+            questions=created_questions,
+            tags=["custom", "shared"],
+            created_by=creator,
+        ).save()
+
+        return JsonResponse(_serialize_health_questionnaire(hq), status=201)
+
+    except ValueError as ve:
+        logger.warning(
+            "Invalid payload while creating custom health questionnaire: %s",
+            ve,
+            exc_info=True,
+        )
+        return JsonResponse({"error": str(ve)}, status=400)
+    except Exception:
+        logger.exception("Failed to create custom health questionnaire")
+        return JsonResponse({"error": "An internal error has occurred."}, status=500)
 
 
 # ───────────────────── optional dynamic grouping (for FE display only) ─────────────────────
@@ -526,7 +673,10 @@ def assign_questionnaire(request):
                 if effective_from:
                     eff_naive = _parse_yyyy_mm_dd(effective_from)
                     eff = _merge_date_and_time(eff_naive, schedule.get("startTime") or "08:00") if eff_naive else None
-                    qa.dates = [d for d in (qa.dates or []) if (not eff or d < eff)] + dates
+                    cutoff_date = eff.date() if eff else None
+                    qa.dates = [
+                        d for d in (qa.dates or []) if (not cutoff_date or _to_aware(d).date() < cutoff_date)
+                    ] + dates
                 else:
                     qa.dates = dates or qa.dates
                 # update frequency string (keeps old if both empty)
