@@ -4,10 +4,16 @@ test.describe('Home login flow', () => {
   test('sends login credentials to backend and shows an error on invalid credentials', async ({
     page,
   }) => {
-    await page.goto('/');
+    await page.context().clearCookies();
+    await page.addInitScript(() => window.localStorage.clear());
+    await page.goto('/', { waitUntil: 'networkidle' });
 
-    await expect(page.getByRole('button', { name: /login/i }).first()).toBeVisible();
-    await page.getByRole('button', { name: /login/i }).first().click();
+    const openLoginButton = page
+      .locator('main')
+      .getByRole('button', { name: /^(login|anmelden)$/i })
+      .first();
+    await expect(openLoginButton).toBeVisible({ timeout: 15000 });
+    await openLoginButton.click();
 
     const modal = page.locator('.modal.show');
     await expect(modal).toBeVisible();
@@ -32,7 +38,7 @@ test.describe('Home login flow', () => {
         .then(() => 'requestfailed'),
     ]);
 
-    await modal.getByRole('button', { name: /login/i }).click();
+    await modal.locator('button[type="submit"]').first().click();
 
     const request = await loginRequestPromise;
     const payload = request.postDataJSON() as { email?: string; password?: string };
