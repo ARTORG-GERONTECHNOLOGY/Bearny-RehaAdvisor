@@ -6,9 +6,13 @@ ENV PATH=/opt/conda/bin:$PATH
 
 COPY ./environment.yml .
 
-# Accept Anaconda channel Terms of Service (required since conda 24.x)
-RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+# Accept Anaconda channel Terms of Service when supported by the conda version.
+RUN if conda --help | grep -qE '^[[:space:]]+tos[[:space:]]'; then \
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r ; \
+    else \
+      echo "conda 'tos' subcommand not available, skipping TOS acceptance step"; \
+    fi
 
 RUN conda env create -f environment.yml
 RUN echo "source activate teleRehabApp" > ~/.bashrc
