@@ -19,10 +19,13 @@ type PatientLibraryDesktopFiltersProps = {
   onSearchTermChange: (value: string) => void;
   typeOptions: OptionItem[];
   contentOptions: OptionItem[];
+  languageOptions: OptionItem[];
   aimsFilter: string[];
   setAimsFilter: React.Dispatch<React.SetStateAction<string[]>>;
   contentTypeFilter: string[];
   setContentTypeFilter: React.Dispatch<React.SetStateAction<string[]>>;
+  languageFilter: string[];
+  setLanguageFilter: React.Dispatch<React.SetStateAction<string[]>>;
   durationFilterIndices: [number, number];
   setDurationFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   durationLabels: string[];
@@ -68,10 +71,13 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
   onSearchTermChange,
   typeOptions,
   contentOptions,
+  languageOptions,
   aimsFilter,
   setAimsFilter,
   contentTypeFilter,
   setContentTypeFilter,
+  languageFilter,
+  setLanguageFilter,
   durationFilterIndices,
   setDurationFilterIndices,
   durationLabels,
@@ -150,6 +156,36 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
                 ))}
               </div>
             </FilterSection>
+
+            {languageOptions.length > 0 && (
+              <FilterSection title={t('Language')}>
+                <div className="flex flex-col gap-3">
+                  {languageOptions.map((option) => (
+                    <div key={option.value} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 font-bold text-lg leading-6 text-zinc-800">
+                        <div
+                          className="w-6 h-6 flex items-center justify-center"
+                          aria-hidden="true"
+                        >
+                          {option.Icon && <option.Icon className="w-6 h-6" />}
+                        </div>
+                        <span>{option.label}</span>
+                      </div>
+                      <Switch
+                        checked={languageFilter.includes(option.value)}
+                        onCheckedChange={() =>
+                          setLanguageFilter((prev) =>
+                            prev.includes(option.value)
+                              ? prev.filter((v) => v !== option.value)
+                              : [...prev, option.value]
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </FilterSection>
+            )}
 
             <FilterSection title={t('Duration Short')}>
               <div className="flex flex-col gap-3">
