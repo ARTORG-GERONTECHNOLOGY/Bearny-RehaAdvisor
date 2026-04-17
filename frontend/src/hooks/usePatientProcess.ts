@@ -64,11 +64,13 @@ export type DailyMetricsDatum = {
   bpDia: number | null;
 };
 
-export type IsReachedStatus = {
-  steps: boolean | null;
-  activeMinutes: boolean | null;
-  sleepMinutes: boolean | null;
-  bloodPressure: boolean | null;
+export type ThresholdStatus = 'green' | 'yellow' | 'red' | null;
+
+export type ThresholdStatusRecord = {
+  steps: ThresholdStatus;
+  activeMinutes: ThresholdStatus;
+  sleepMinutes: ThresholdStatus;
+  bloodPressure: ThresholdStatus;
 };
 
 type AverageMetrics = {
@@ -85,9 +87,13 @@ type AverageMetrics = {
 type ChartThresholds = {
   steps: number | null;
   activeMinutes: number | null;
+  activeMinutesYellow: number | null;
   sleepMinutes: number | null;
+  sleepMinutesYellow: number | null;
   bpSysMax: number | null;
+  bpSysYellowMax: number | null;
   bpDiaMax: number | null;
+  bpDiaYellowMax: number | null;
 };
 
 type ChartYMax = {
@@ -290,9 +296,13 @@ export function usePatientProcess() {
     return {
       steps: asNumberOrNull(thresholds?.steps_goal),
       activeMinutes: asNumberOrNull(thresholds?.active_minutes_green),
+      activeMinutesYellow: asNumberOrNull(thresholds?.active_minutes_yellow),
       sleepMinutes: asNumberOrNull(thresholds?.sleep_green_min),
+      sleepMinutesYellow: asNumberOrNull(thresholds?.sleep_yellow_min),
       bpSysMax: asNumberOrNull(thresholds?.bp_sys_green_max),
+      bpSysYellowMax: asNumberOrNull(thresholds?.bp_sys_yellow_max),
       bpDiaMax: asNumberOrNull(thresholds?.bp_dia_green_max),
+      bpDiaYellowMax: asNumberOrNull(thresholds?.bp_dia_yellow_max),
     };
   }, [thresholds]);
 
@@ -317,7 +327,9 @@ export function usePatientProcess() {
     const maxBloodPressure = Math.max(
       ...dailyMetrics.flatMap((entry) => [entry.bpSys ?? 0, entry.bpDia ?? 0]),
       chartThresholds.bpSysMax ?? 0,
+      chartThresholds.bpSysYellowMax ?? 0,
       chartThresholds.bpDiaMax ?? 0,
+      chartThresholds.bpDiaYellowMax ?? 0,
       0
     );
 
@@ -329,30 +341,54 @@ export function usePatientProcess() {
     };
   }, [dailyMetrics, chartThresholds]);
 
-  const isReachedStatus = useMemo<IsReachedStatus>(() => {
-    const isReached = (value: number | null, threshold: number | null) =>
-      value !== null && threshold !== null && value >= threshold;
+  const thresholdStatus = useMemo<ThresholdStatusRecord>(() => {
+    const minStatus = (
+      value: number | null,
+      green: number | null,
+      yellow: number | null
+    ): ThresholdStatus => {
+      if (green === null) return null;
+      if (value === null) return 'red';
+      if (value >= green) return 'green';
+      if (yellow !== null && value >= yellow) return 'yellow';
+      return 'red';
+    };
+
+    const maxStatus = (
+      value: number | null,
+      green: number | null,
+      yellow: number | null
+    ): ThresholdStatus => {
+      if (green === null) return null;
+      if (value === null) return 'red';
+      if (value <= green) return 'green';
+      if (yellow !== null && value <= yellow) return 'yellow';
+      return 'red';
+    };
+
+    const worstOf = (a: ThresholdStatus, b: ThresholdStatus): ThresholdStatus => {
+      if (a === 'red' || b === 'red') return 'red';
+      if (a === 'yellow' || b === 'yellow') return 'yellow';
+      if (a === 'green' || b === 'green') return 'green';
+      return null;
+    };
 
     return {
-      steps:
-        chartThresholds.steps !== null
-          ? isReached(averageMetrics.steps, chartThresholds.steps)
-          : null,
-      activeMinutes:
-        chartThresholds.activeMinutes !== null
-          ? isReached(averageMetrics.activeMinutes, chartThresholds.activeMinutes)
-          : null,
-      sleepMinutes:
-        chartThresholds.sleepMinutes !== null
-          ? isReached(averageMetrics.sleepMinutes, chartThresholds.sleepMinutes)
-          : null,
-      bloodPressure:
-        chartThresholds.bpSysMax !== null && chartThresholds.bpDiaMax !== null
-          ? averageMetrics.bpSys !== null &&
-            averageMetrics.bpDia !== null &&
-            averageMetrics.bpSys <= chartThresholds.bpSysMax &&
-            averageMetrics.bpDia <= chartThresholds.bpDiaMax
-          : null,
+      steps: minStatus(averageMetrics.steps, chartThresholds.steps, null),
+      activeMinutes: minStatus(
+        averageMetrics.activeMinutes,
+        chartThresholds.activeMinutes,
+        chartThresholds.activeMinutesYellow
+      ),
+      sleepMinutes: minStatus(
+        averageMetrics.sleepMinutes,
+        chartThresholds.sleepMinutes,
+        chartThresholds.sleepMinutesYellow
+      ),
+      bloodPressure: worstOf(
+        maxStatus(averageMetrics.bpSys, chartThresholds.bpSysMax, chartThresholds.bpSysYellowMax),
+        maxStatus(averageMetrics.bpDia, chartThresholds.bpDiaMax, chartThresholds.bpDiaYellowMax)
+      ),
     };
   }, [averageMetrics, chartThresholds]);
 
@@ -368,6 +404,6 @@ export function usePatientProcess() {
     averageMetrics,
     chartThresholds,
     chartYMax,
-    isReachedStatus,
+    thresholdStatus,
   };
 }

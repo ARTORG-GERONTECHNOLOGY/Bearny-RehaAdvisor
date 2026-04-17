@@ -147,15 +147,19 @@ describe('usePatientProcess', () => {
     expect(result.current.chartThresholds).toEqual({
       steps: 6000,
       activeMinutes: 120,
+      activeMinutesYellow: null,
       sleepMinutes: 420,
+      sleepMinutesYellow: null,
       bpSysMax: 125,
+      bpSysYellowMax: null,
       bpDiaMax: 85,
+      bpDiaYellowMax: null,
     });
-    expect(result.current.isReachedStatus).toEqual({
-      steps: true,
-      activeMinutes: true,
-      sleepMinutes: true,
-      bloodPressure: true,
+    expect(result.current.thresholdStatus).toEqual({
+      steps: 'green',
+      activeMinutes: 'green',
+      sleepMinutes: 'green',
+      bloodPressure: 'green',
     });
     expect(result.current.chartYMax.steps).toBe(8800);
   });
@@ -202,11 +206,15 @@ describe('usePatientProcess', () => {
     expect(result.current.chartThresholds).toEqual({
       steps: null,
       activeMinutes: null,
+      activeMinutesYellow: null,
       sleepMinutes: null,
+      sleepMinutesYellow: null,
       bpSysMax: null,
+      bpSysYellowMax: null,
       bpDiaMax: null,
+      bpDiaYellowMax: null,
     });
-    expect(result.current.isReachedStatus).toEqual({
+    expect(result.current.thresholdStatus).toEqual({
       steps: null,
       activeMinutes: null,
       sleepMinutes: null,
