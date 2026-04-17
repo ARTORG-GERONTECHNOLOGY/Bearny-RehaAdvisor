@@ -2649,7 +2649,7 @@ def remove_intervention_from_patient(request):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
     except Patient.DoesNotExist:
-        logger.warning("[remove_intervention_from_patient] Patient not found: %s", patient_id)
+        logger.warning("[remove_intervention_from_patient] Patient not found for supplied identifier.")
         return JsonResponse(
             {
                 "success": False,
@@ -2662,10 +2662,7 @@ def remove_intervention_from_patient(request):
     try:
         plan = RehabilitationPlan.objects.get(patientId=patient)
     except RehabilitationPlan.DoesNotExist:
-        logger.warning(
-            "[remove_intervention_from_patient] Plan not found for patient: %s",
-            patient_id,
-        )
+        logger.warning("[remove_intervention_from_patient] Plan not found for supplied patient identifier.")
         return JsonResponse(
             {
                 "success": False,
@@ -2710,9 +2707,7 @@ def remove_intervention_from_patient(request):
 
     except Exception as e:
         logger.error(
-            "[remove_intervention_from_patient] Unexpected error while removing " "intervention %s from patient %s: %s",
-            intervention_id,
-            patient_id,
+            "[remove_intervention_from_patient] Unexpected error while removing intervention from patient: %s",
             str(e),
             exc_info=True,
         )
