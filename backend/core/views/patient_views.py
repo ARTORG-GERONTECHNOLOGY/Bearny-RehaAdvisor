@@ -1207,6 +1207,81 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     if questionaire_type == "Healthstatus":
         now = timezone.now()
 
+        # 0) Prefer due assigned Healthstatus questionnaires from RehabPlan.
+        # Return these first so patients receive therapist-assigned questionnaires
+        # according to schedule, then fall back to legacy cadence logic below.
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        assigned_serialized = []
+
+        if plan and getattr(plan, "questionnaires", None):
+            seen_keys = set()
+
+            def _aware(dt):
+                if not dt:
+                    return None
+                if timezone.is_naive(dt):
+                    return timezone.make_aware(dt, timezone.get_current_timezone())
+                return dt
+
+            for qa in plan.questionnaires or []:
+                qdoc = getattr(qa, "questionnaireId", None)
+                if not qdoc:
+                    continue
+
+                questions = [q for q in (getattr(qdoc, "questions", None) or []) if q]
+                if not questions:
+                    continue
+
+                q_ids = [q.id for q in questions]
+
+                due_date = None
+                qa_dates = sorted([_aware(d) for d in (getattr(qa, "dates", None) or []) if d])
+                if qa_dates:
+                    past_or_today = [d for d in qa_dates if d and d <= now]
+                    if not past_or_today:
+                        continue
+                    due_date = past_or_today[-1]
+
+                # If we have a due date, don't re-ask once answered on/after due date.
+                if due_date:
+                    already_answered = (
+                        PatientICFRating.objects(
+                            patientId=patient,
+                            date__gte=due_date,
+                            feedback_entries__exists=True,
+                            feedback_entries__ne=[],
+                            **{"feedback_entries__questionId__in": q_ids},
+                        )
+                        .only("id")
+                        .first()
+                    )
+                    if already_answered:
+                        continue
+
+                for q in questions:
+                    if q.questionKey in seen_keys:
+                        continue
+                    assigned_serialized.append(
+                        {
+                            "questionKey": q.questionKey,
+                            "answerType": q.answer_type,
+                            "translations": [{"language": tr.language, "text": tr.text} for tr in q.translations],
+                            "possibleAnswers": [
+                                {
+                                    "key": opt.key,
+                                    "translations": [
+                                        {"language": t2.language, "text": t2.text} for t2 in opt.translations
+                                    ],
+                                }
+                                for opt in (q.possibleAnswers or [])
+                            ],
+                        }
+                    )
+                    seen_keys.add(q.questionKey)
+
+            if assigned_serialized:
+                return JsonResponse({"questions": assigned_serialized})
+
         # 1) Skip if there was any Healthstatus feedback in last 7 days
         seven_days_ago = now - timedelta(days=7)
         recent = (

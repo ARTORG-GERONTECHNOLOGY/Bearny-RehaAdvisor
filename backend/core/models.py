@@ -575,6 +575,7 @@ class HealthQuestionnaire(Document):
     description = StringField()
     questions = ListField(ReferenceField("FeedbackQuestion"))
     tags = ListField(StringField())
+    created_by = ReferenceField("Therapist", required=False, null=True)
     createdAt = DateTimeField(default=timezone.now)
 
 
