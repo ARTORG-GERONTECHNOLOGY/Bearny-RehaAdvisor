@@ -46,19 +46,6 @@
   }
 }
 
-/* Button tuned for touch targets */
-.home-cta {
-  min-width: 11rem;
-  padding-inline: 1.25rem;
-}
-
-/* Ensure CTA is comfortable on narrow phones */
-@media (max-width: 575.98px) {
-  .home-cta {
-    width: 100%;
-  }
-}
-
 /* Respect reduced motion users */
 @media (prefers-reduced-motion: reduce) {
   * {
