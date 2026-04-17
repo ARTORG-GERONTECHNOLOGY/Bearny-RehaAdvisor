@@ -75,7 +75,7 @@ def make_feedback_question(key):
 
 
 def test_list_health_questionnaires_method_not_allowed():
-    r = client.post("/api/questionnaires/health/", HTTP_AUTHORIZATION="Bearer test")
+    r = client.put("/api/questionnaires/health/", HTTP_AUTHORIZATION="Bearer test")
     assert r.status_code == 405
 
 
@@ -287,3 +287,95 @@ def test_remove_questionnaire_validation_and_success():
     )
     assert r_ok.status_code == 200
     assert r_ok.json()["message"] == "removed"
+
+
+def test_assign_questionnaire_monthly_schedule_renders_frequency_and_dates():
+    th, p = make_patient_graph()
+    make_feedback_question(f"16_profile_{ObjectId()}")
+
+    r = client.post(
+        "/api/questionnaires/assign/",
+        data=json.dumps(
+            {
+                "patientId": str(p.id),
+                "therapistId": str(th.id),
+                "questionnaireKey": "16_profile",
+                "effectiveFrom": "2026-02-01",
+                "schedule": {
+                    "unit": "month",
+                    "interval": 1,
+                    "startTime": "09:30",
+                    "end": {"type": "count", "count": 2},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert r.status_code == 200
+
+    r2 = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r2.status_code == 200
+    out = r2.json()
+    assert len(out) == 1
+    assert out[0]["frequency"] == "Monthly"
+    assert len(out[0]["dates"]) == 2
+    assert out[0]["dates"][0].startswith("2026-02-01T")
+    assert out[0]["dates"][1].startswith("2026-03-01T")
+
+
+def test_assign_questionnaire_modify_merges_dates_from_effective_from():
+    th, p = make_patient_graph()
+    make_feedback_question(f"16_profile_{ObjectId()}")
+
+    first = client.post(
+        "/api/questionnaires/assign/",
+        data=json.dumps(
+            {
+                "patientId": str(p.id),
+                "therapistId": str(th.id),
+                "questionnaireKey": "16_profile",
+                "effectiveFrom": "2026-01-01",
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startTime": "08:00",
+                    "end": {"type": "count", "count": 2},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/api/questionnaires/assign/",
+        data=json.dumps(
+            {
+                "patientId": str(p.id),
+                "therapistId": str(th.id),
+                "questionnaireKey": "16_profile",
+                "effectiveFrom": "2026-01-02",
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startTime": "08:00",
+                    "end": {"type": "count", "count": 2},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert second.status_code == 200
+
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    out = r.json()
+    assert len(out) == 1
+    assert out[0]["frequency"] == "Every day"
+    assert len(out[0]["dates"]) == 3
+    assert out[0]["dates"][0].startswith("2026-01-01T")
+    assert out[0]["dates"][1].startswith("2026-01-02T")
+    assert out[0]["dates"][2].startswith("2026-01-03T")

@@ -103,11 +103,19 @@ Configure these in **GitHub repository settings -> Secrets and variables -> Acti
 - `E2E_ADMIN_PASSWORD`
 - `E2E_THERAPIST_LOGIN` (optional, enables therapist 2FA login E2E)
 - `E2E_THERAPIST_PASSWORD` (optional, enables therapist 2FA login E2E)
+- `E2E_PATIENT_ID` (optional, enables therapist rehab-table questionnaire E2E)
 
 If these secrets are missing, only the base login E2E test runs and seeded redirect tests are skipped.
 With `E2E_PATIENT_LOGIN`/`E2E_PATIENT_PASSWORD`, patient-scoped E2E tests are also executed:
 - `e2e/patient-page.spec.ts`
 - `e2e/patient-interventions-page.spec.ts`
+
+With `E2E_PATIENT_LOGIN`/`E2E_PATIENT_PASSWORD` and therapist credentials:
+- `e2e/patient-assigned-questionnaires.spec.ts`
+
+With `E2E_THERAPIST_LOGIN` and `E2E_PATIENT_ID`:
+- `e2e/therapist-rehabtable-questionnaires.spec.ts`
+- `e2e/therapist-questionnaire-builder-flow.spec.ts`
 
 ### Artifacts
 

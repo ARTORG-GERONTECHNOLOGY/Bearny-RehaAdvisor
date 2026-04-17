@@ -70,10 +70,13 @@ from core.models import (
     DefaultInterventions,
     FeedbackEntry,
     FeedbackQuestion,
+    HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
     Patient,
+    PatientICFRating,
     PatientInterventionLogs,
+    QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
     Translation,
@@ -969,6 +972,67 @@ def test_submit_feedback_get_method_not_allowed(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
+
+
+def test_patient_can_submit_answer_for_assigned_health_questionnaire(mongo_mock):
+    """
+    Assigned Healthstatus questions should be answerable by patients through
+    POST /api/patients/feedback/questionaire/.
+    """
+    patient, _, _, plan = setup_patient_with_plan()
+
+    q = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="77_assigned_answerable",
+        answer_type="select",
+        translations=[Translation(language="en", text="How do you feel?")],
+        possibleAnswers=[
+            AnswerOption(key="1", translations=[Translation(language="en", text="Bad")]),
+            AnswerOption(key="2", translations=[Translation(language="en", text="Okay")]),
+        ],
+    ).save()
+
+    hq = HealthQuestionnaire(
+        key="77_assigned",
+        title="Assigned 77",
+        questions=[q],
+    ).save()
+
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[datetime.now() - timedelta(days=1)],
+            notes="",
+        )
+    ]
+    plan.save()
+
+    get_resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert get_resp.status_code == 200
+    get_body = get_resp.json()
+    get_questions = get_body if isinstance(get_body, list) else get_body.get("questions", [])
+    assert any(qi.get("questionKey") == "77_assigned_answerable" for qi in get_questions)
+
+    post_resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "77_assigned_answerable": "2",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert post_resp.status_code == 200
+    assert "Feedback submitted successfully" in post_resp.content.decode()
+
+    saved = PatientICFRating.objects(patientId=patient, questionId=q).first()
+    assert saved is not None
+    assert saved.feedback_entries and len(saved.feedback_entries) == 1
+    assert saved.feedback_entries[0].answerKey and saved.feedback_entries[0].answerKey[0].key == "2"
 
 
 # ===========================================================================
