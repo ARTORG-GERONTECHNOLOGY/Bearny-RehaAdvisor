@@ -462,11 +462,12 @@ def list_health_questionnaires(request):
 
         return JsonResponse(_serialize_health_questionnaire(hq), status=201)
 
-    except ValueError as ve:
-        return JsonResponse({"error": str(ve)}, status=400)
-    except Exception as e:
+    except ValueError:
+        logger.exception("Invalid payload while creating custom health questionnaire")
+        return JsonResponse({"error": "Invalid request data."}, status=400)
+    except Exception:
         logger.exception("Failed to create custom health questionnaire")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "An internal error has occurred."}, status=500)
 
 
 # ───────────────────── optional dynamic grouping (for FE display only) ─────────────────────
