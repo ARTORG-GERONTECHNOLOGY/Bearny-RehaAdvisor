@@ -2,7 +2,7 @@ import React from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { DailyMetricsDatum } from '@/hooks/usePatientProcess';
+import type { DailyMetricsDatum, ThresholdStatus } from '@/hooks/usePatientProcess';
 import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +10,7 @@ type Props = {
   title: string;
   bpSys: number | null;
   bpDia: number | null;
-  isReached: boolean | null;
+  status: ThresholdStatus;
   chartConfig: ChartConfig;
   data: DailyMetricsDatum[];
   yMax: number;
@@ -29,7 +29,7 @@ const BloodPressureCard: React.FC<Props> = ({
   title,
   bpSys,
   bpDia,
-  isReached,
+  status,
   chartConfig,
   data,
   yMax,
@@ -48,7 +48,7 @@ const BloodPressureCard: React.FC<Props> = ({
           <div className="font-bold text-lg text-zinc-800">{title}</div>
           <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
         </div>
-        <ThresholdStatusBadge isReached={isReached} />
+        <ThresholdStatusBadge status={status} />
       </div>
 
       <div className="flex items-end">

@@ -2,7 +2,7 @@ import React from 'react';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { BarMetricKey, DailyMetricsDatum } from '@/hooks/usePatientProcess';
+import type { BarMetricKey, DailyMetricsDatum, ThresholdStatus } from '@/hooks/usePatientProcess';
 import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +13,7 @@ type Props = {
   data: DailyMetricsDatum[];
   yMax: number;
   threshold: number | null;
-  isReached: boolean | null;
+  status: ThresholdStatus;
   chartConfig: ChartConfig;
   accentColor: string;
   thresholdLineProps: {
@@ -30,7 +30,7 @@ const MetricBarCard: React.FC<Props> = ({
   data,
   yMax,
   threshold,
-  isReached,
+  status,
   chartConfig,
   accentColor,
   thresholdLineProps,
@@ -44,7 +44,7 @@ const MetricBarCard: React.FC<Props> = ({
           <div className="font-bold text-lg text-zinc-800">{title}</div>
           <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
         </div>
-        <ThresholdStatusBadge isReached={isReached} />
+        <ThresholdStatusBadge status={status} />
       </div>
 
       <div className="flex items-end">
