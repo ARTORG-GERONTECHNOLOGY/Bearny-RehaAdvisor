@@ -11,6 +11,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-[#00956C] text-zinc-50 border-none hover:bg-[#00956C]/90',
         secondary: 'bg-zinc-50 text-zinc-800 border border-accent hover:bg-zinc-50/90',
+        ghost: 'bg-transparent border-none hover:bg-zinc-100 !p-0 !h-auto',
       },
       size: {
         default: 'h-14 py-4 pl-5 pr-5 has-[svg]:pr-4',
