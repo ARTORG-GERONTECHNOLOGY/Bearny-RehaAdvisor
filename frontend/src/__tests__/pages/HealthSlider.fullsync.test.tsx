@@ -558,7 +558,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // The preload effect should have run for practice question at least once
     await waitFor(() => {
-      expect(audioCalls.some((s) => s.includes('/audio/items/ubung.wav'))).toBe(true);
+      expect(audioCalls.some((s) => s.includes('/icf-audio/items/ubung.wav'))).toBe(true);
     });
 
     // Go to real mode
@@ -566,11 +566,38 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Wait for next preload cycle
     await waitFor(() => {
-      expect(audioCalls.some((s) => s.includes('/audio/items/q01.wav'))).toBe(true);
+      expect(audioCalls.some((s) => s.includes('/icf-audio/items/q01.wav'))).toBe(true);
     });
 
     // restore
     global.Audio = OriginalAudio;
+  });
+
+  it('retries item audio playback across fallback sources and clears playback error on success', async () => {
+    render(<HealthSlider />);
+    await enterPatientId();
+
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+
+    const playMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockRejectedValueOnce(new Error('first source failed'))
+      .mockResolvedValue(undefined as unknown as void);
+    const loadMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'load')
+      .mockImplementation(() => {});
+
+    fireEvent.click(screen.getByRole('button', { name: /Frage abspielen/i }));
+
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/Audio kann nicht abgespielt werden/i)).not.toBeInTheDocument();
+
+    playMock.mockRestore();
+    loadMock.mockRestore();
   });
 
   // ─── Error handling ───────────────────────────────────────────────────────

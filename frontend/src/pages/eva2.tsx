@@ -19,7 +19,7 @@
  *
  * Persistence (localStorage)
  * --------------------------
- * patient_id        — survives page reloads; cleared by "ID zurücksetzen" footer button.
+ * patient_id        — survives page reloads; cleared at survey end ("Beenden").
  * survey_index      — allows resuming mid-survey after accidental reload.
  * survey_sessionId  — groups all answers for a single sitting.
  *
@@ -69,11 +69,24 @@ const REAL_QUESTIONS = [
 
 const VERSION = 'Version 2.2 (ICF Monitor - Full Sync), 2026';
 
-const AUDIO_BASE = '/audio/items';
+const AUDIO_BASE = '/icf-audio/items';
+const AUDIO_EXTS = ['wav', 'm4a', 'mp3'] as const;
 const pad2 = (n: number) => String(n).padStart(2, '0');
-const getItemAudioSrc = (isPractice: boolean, idx: number) => {
-  if (isPractice) return `${AUDIO_BASE}/ubung.wav`;
-  return `${AUDIO_BASE}/q${pad2(idx + 1)}.wav`;
+const getItemAudioStem = (isPractice: boolean, idx: number) => {
+  if (isPractice) return 'ubung';
+  return `q${pad2(idx + 1)}`;
+};
+
+const getItemAudioSrcCandidates = (isPractice: boolean, idx: number) => {
+  const stem = getItemAudioStem(isPractice, idx);
+  const out: string[] = [];
+  for (const ext of AUDIO_EXTS) {
+    const file = `${stem}.${ext}`;
+    out.push(`${AUDIO_BASE}/${file}`);
+    out.push(new URL(`icf-audio/items/${file}`, document.baseURI).toString());
+    out.push(new URL(`../icf-audio/items/${file}`, window.location.href).toString());
+  }
+  return Array.from(new Set(out));
 };
 
 /** ===== Helpers ===== */
@@ -199,19 +212,17 @@ export default function HealthSlider() {
 
   // pre-recorded audio
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobPlaybackUrlRef = useRef<string | null>(null);
+  const successfulSrcRef = useRef<Record<string, string>>({});
   const [audioError, setAudioError] = useState<string>('');
 
   // ✅ responsive breakpoints
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 520 : false
   );
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth > 1024 : false
-  );
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth <= 520);
-      setIsDesktop(window.innerWidth > 1024);
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -268,30 +279,85 @@ export default function HealthSlider() {
       await getAudioCtx().resume();
     } catch {}
 
-    const src = getItemAudioSrc(isPracticeMode, questionIndex);
-    try {
-      el.pause();
-      el.currentTime = 0;
-    } catch {}
+    const itemKey = getItemAudioStem(isPracticeMode, questionIndex);
+    const allCandidates = getItemAudioSrcCandidates(isPracticeMode, questionIndex);
+    const cached = successfulSrcRef.current[itemKey];
+    const candidates = cached
+      ? [cached, ...allCandidates.filter((src) => src !== cached)]
+      : allCandidates;
 
-    const absolute = `${window.location.origin}${src}`;
-    if (el.src !== absolute) el.src = src;
+    for (const src of candidates) {
+      try {
+        el.pause();
+        el.currentTime = 0;
+      } catch {}
 
-    try {
-      await el.play();
-    } catch {
-      setAudioError(
-        'Audio kann nicht abgespielt werden (Datei fehlt oder Gerät blockiert Wiedergabe).'
-      );
+      if (el.src !== src) {
+        el.src = src;
+        el.load();
+      }
+
+      try {
+        await el.play();
+        successfulSrcRef.current[itemKey] = src;
+        return;
+      } catch {}
     }
+
+    // Some deployments route static files through non-standard base paths or MIME headers.
+    // Fetching the file and playing a blob URL is a robust fallback across browsers.
+    for (const src of candidates) {
+      try {
+        const res = await fetch(src, { cache: 'no-store' });
+        if (!res.ok) continue;
+
+        const blob = await res.blob();
+        if (!blob || blob.size <= 0) continue;
+
+        const contentType = (blob.type || res.headers.get('content-type') || '').toLowerCase();
+        if (contentType && !contentType.startsWith('audio/')) continue;
+
+        if (blobPlaybackUrlRef.current) URL.revokeObjectURL(blobPlaybackUrlRef.current);
+        const blobUrl = URL.createObjectURL(blob);
+        blobPlaybackUrlRef.current = blobUrl;
+
+        try {
+          el.pause();
+          el.currentTime = 0;
+        } catch {}
+
+        el.src = blobUrl;
+        el.load();
+        await el.play();
+        successfulSrcRef.current[itemKey] = src;
+        return;
+      } catch {}
+    }
+
+    setAudioError(
+      'Audio kann nicht abgespielt werden (Datei fehlt oder Gerät blockiert Wiedergabe).'
+    );
   }, [isPracticeMode, questionIndex, getAudioCtx]);
+
+  useEffect(() => {
+    return () => {
+      if (blobPlaybackUrlRef.current) URL.revokeObjectURL(blobPlaybackUrlRef.current);
+      blobPlaybackUrlRef.current = null;
+    };
+  }, []);
 
   /** --- preload current + next audio for snappy playback --- */
   useEffect(() => {
     try {
-      const src = getItemAudioSrc(isPracticeMode, questionIndex);
+      const currentKey = getItemAudioStem(isPracticeMode, questionIndex);
+      const currentCandidates = getItemAudioSrcCandidates(isPracticeMode, questionIndex);
+      const src = successfulSrcRef.current[currentKey] || currentCandidates[0];
       const nextIdx = Math.min(questionIndex + 1, REAL_QUESTIONS.length - 1);
-      const nextSrc = isPracticeMode ? getItemAudioSrc(false, 0) : getItemAudioSrc(false, nextIdx);
+      const nextKey = getItemAudioStem(false, isPracticeMode ? 0 : nextIdx);
+      const nextCandidates = isPracticeMode
+        ? getItemAudioSrcCandidates(false, 0)
+        : getItemAudioSrcCandidates(false, nextIdx);
+      const nextSrc = successfulSrcRef.current[nextKey] || nextCandidates[0];
       const a1 = new Audio(src);
       a1.preload = 'auto';
       const a2 = new Audio(nextSrc);
@@ -734,11 +800,9 @@ export default function HealthSlider() {
     };
   }, [handleSliderMove, saving]);
 
-  const zoomStyle = { zoom: isMobile ? 0.85 : isDesktop ? 0.75 : 1 } as React.CSSProperties;
-
   if (!patientId) {
     return (
-      <main style={{ ...styles.app, ...zoomStyle }}>
+      <main style={styles.app}>
         <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
           <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
@@ -785,7 +849,7 @@ export default function HealthSlider() {
 
   if (testMode) {
     return (
-      <main style={{ ...styles.app, ...zoomStyle }}>
+      <main style={styles.app}>
         <h1 style={styles.title}>Willkommen</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
           <p style={{ fontSize: 18, color: '#444' }}>Bitte erlauben Sie den Mikrofon-Zugriff.</p>
@@ -803,7 +867,6 @@ export default function HealthSlider() {
     <main
       style={{
         ...styles.app,
-        ...zoomStyle,
         backgroundColor: showFlash ? '#858585' : '#f6f4f0',
         transition: 'background 0.2s',
       }}
@@ -1047,16 +1110,6 @@ export default function HealthSlider() {
 
       {/* ✅ Footer stacks on mobile */}
       <footer style={styles.footer}>
-        <button
-          type="button"
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-          style={styles.resetLink}
-        >
-          ID zurücksetzen
-        </button>
         <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
         <div style={styles.footerText}>{VERSION}</div>
       </footer>
@@ -1066,7 +1119,8 @@ export default function HealthSlider() {
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
-    minHeight: '100svh',
+    minHeight: '100dvh',
+    height: '100dvh',
     background: '#f6f4f0',
     display: 'flex',
     flexDirection: 'column',
@@ -1185,7 +1239,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   sliderWrap: {
     position: 'relative',
-    width: 'min(180px, 56vw)', // ✅ narrower on small phones
+    width: 'min(180px, 56vw, calc((100dvh - 360px) * 0.2647))',
+    aspectRatio: '180 / 680',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1195,7 +1250,7 @@ const styles: Record<string, React.CSSProperties> = {
   trackBox: {
     position: 'relative',
     width: '100%',
-    height: 'clamp(400px, 65svh, 680px)',
+    height: '100%',
     userSelect: 'none',
     WebkitUserSelect: 'none',
     touchAction: 'none',
@@ -1303,12 +1358,5 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
 
-  resetLink: {
-    color: '#9b9b9b',
-    background: 'none',
-    border: 'none',
-    textDecoration: 'underline',
-    cursor: 'pointer',
-  },
   footerText: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
 };

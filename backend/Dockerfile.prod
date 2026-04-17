@@ -1,22 +1,18 @@
-FROM ubuntu:22.04
+FROM continuumio/miniconda3:24.7.1-0
 WORKDIR /app
 
-# Install necessary system packages
-RUN apt-get update && \
-    apt-get -y install build-essential wget curl bzip2 libpq-dev gcc && \
-    apt-get clean
-
-# Download and install Miniforge (similar to Anaconda, compatible with multiple architectures)
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && bash /opt/miniconda-installer.sh -b -p /opt/conda
-
-ENV PATH /opt/conda/bin:$PATH
+ENV PATH=/opt/conda/bin:$PATH
 
 
 COPY ./environment.yml .
 
-# Accept Anaconda channel Terms of Service (required since conda 24.x)
-RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+# Accept Anaconda channel Terms of Service when supported by the conda version.
+RUN if conda --help | grep -qE '^[[:space:]]+tos[[:space:]]'; then \
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r ; \
+    else \
+      echo "conda 'tos' subcommand not available, skipping TOS acceptance step"; \
+    fi
 
 RUN conda env create -f environment.yml
 RUN echo "source activate teleRehabApp" > ~/.bashrc
@@ -25,13 +21,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN conda run -n teleRehabApp pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 ENV PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=api.settings.prod
 
 # collect static, run migrations
-RUN python manage.py collectstatic --noinput
+RUN conda run -n teleRehabApp python manage.py collectstatic --noinput
 
-CMD ["gunicorn", "api.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "600"]
+CMD ["conda", "run", "--no-capture-output", "-n", "teleRehabApp", "gunicorn", "api.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "600"]
