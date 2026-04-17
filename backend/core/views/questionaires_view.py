@@ -463,8 +463,12 @@ def list_health_questionnaires(request):
         return JsonResponse(_serialize_health_questionnaire(hq), status=201)
 
     except ValueError as ve:
-        logger.warning("Invalid payload while creating custom health questionnaire: %s", ve)
-        return JsonResponse({"error": str(ve)}, status=400)
+        logger.warning(
+            "Invalid payload while creating custom health questionnaire: %s",
+            ve,
+            exc_info=True,
+        )
+        return JsonResponse({"error": "Invalid request payload."}, status=400)
     except Exception:
         logger.exception("Failed to create custom health questionnaire")
         return JsonResponse({"error": "An internal error has occurred."}, status=500)
