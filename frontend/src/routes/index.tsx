@@ -117,7 +117,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/terms',
-    element: withSuspense(createElement(TermsAndConditions), createElement(TermsAndConditionsSkeleton)),
+    element: withSuspense(
+      createElement(TermsAndConditions),
+      createElement(TermsAndConditionsSkeleton)
+    ),
   },
   {
     path: '/privacypolicy',
