@@ -1,16 +1,7 @@
 # Production frontend build - Multi-stage build
-FROM ubuntu:22.04 AS builder
+FROM node:18-bookworm-slim AS builder
 
-ENV NODE_VERSION=18.x
 WORKDIR /app
-
-# Install Node.js and dependencies
-RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - && \
-    apt-get install -y nodejs build-essential && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 ENV PATH=/app/node_modules/.bin:$PATH
 
