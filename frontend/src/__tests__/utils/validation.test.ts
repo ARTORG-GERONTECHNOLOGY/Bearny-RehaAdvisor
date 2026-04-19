@@ -100,4 +100,19 @@ describe('Validation Utilities', () => {
     expect(result.valid).toBe(false);
     expect(result.newErrors.repeatPassword).toBe('Passwords do not match.');
   });
+
+  it('flags invalid password', () => {
+    const formData = {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      email: 'jane@example.com',
+      password: 'weak',
+      repeatPassword: 'weak',
+    };
+    const result = validateForm(formData);
+    expect(result.valid).toBe(false);
+    expect(result.newErrors.password).toBe(
+      'Password must be 8-16 characters, include upper/lowercase letters, a number, and a special character.'
+    );
+  });
 });
