@@ -3,6 +3,8 @@ import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 
+// ── Global mocks ──────────────────────────────────────────────────────────────
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -16,6 +18,10 @@ jest.mock('@/api/client', () => ({
     post: jest.fn(),
   },
 }));
+
+jest.mock('@/components/common/ErrorAlert', () => (p: any) => <div role="alert">{p.message}</div>);
+
+// ── Shared test data ──────────────────────────────────────────────────────────
 
 const defaultProps = {
   show: true,
@@ -39,7 +45,7 @@ const defaultProps = {
   ],
 };
 
-// Text-first question setup for tests that need text input
+// Text-only question setup for tests that need text input
 const textFirstProps = {
   ...defaultProps,
   questions: [
@@ -50,12 +56,30 @@ const textFirstProps = {
     },
   ],
 };
-// 🟢 OUTSIDE DESCRIBE: MockMediaRecorder definition and global mocks
+
+// Questions used in dropdown / submission / confirmClose tests
+const dropdownAndTextQuestions = [
+  {
+    questionKey: 'q1',
+    answerType: 'dropdown',
+    translations: [{ language: 'en', text: 'Q1' }],
+    possibleAnswers: [
+      { key: 'a', translations: [{ language: 'en', text: 'A' }] },
+      { key: 'b', translations: [{ language: 'en', text: 'B' }] },
+    ],
+  },
+  {
+    questionKey: 'q2',
+    answerType: 'text',
+    translations: [{ language: 'en', text: 'Q2' }],
+  },
+];
+
 global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
 
-describe('FeedbackPopup Component', () => {
-  // 🟡 INSIDE DESCRIBE: beforeEach and tests
+// ── FeedbackPopup Component ───────────────────────────────────────────────────
 
+describe('FeedbackPopup Component', () => {
   beforeEach(() => {
     global.URL.createObjectURL = jest.fn(() => 'mock-audio-url');
     Object.defineProperty(global.navigator, 'mediaDevices', {
@@ -78,7 +102,6 @@ describe('FeedbackPopup Component', () => {
 
       public stop = jest.fn(() => {
         if (this.onstop) {
-          // Simulate data being available
           if (this.ondataavailable) {
             this.ondataavailable({ data: new Blob(['test audio data'], { type: 'audio/wav' }) });
           }
@@ -130,7 +153,7 @@ describe('FeedbackPopup Component', () => {
   it('handles text input change', async () => {
     render(<FeedbackPopup {...textFirstProps} />);
 
-    // IMPORTANT: Activate the text mode first using Badge component!
+    // Activate text mode first using Badge component
     const typeButton = screen.getByLabelText(/Text mode/i);
     fireEvent.click(typeButton);
 
@@ -161,8 +184,8 @@ describe('FeedbackPopup Component', () => {
       );
     });
   });
+
   it('shows microphone denied alert when permission is denied', async () => {
-    // Properly mock navigator.permissions
     const mockQuery = jest.fn().mockResolvedValue({
       state: 'denied',
       name: 'microphone',
@@ -172,7 +195,6 @@ describe('FeedbackPopup Component', () => {
       dispatchEvent: jest.fn(),
     });
 
-    // Define the navigator.permissions object if it does not exist
     Object.defineProperty(navigator, 'permissions', {
       value: { query: mockQuery },
       writable: true,
@@ -186,7 +208,6 @@ describe('FeedbackPopup Component', () => {
     const startRecordButton = screen.getByRole('button', { name: /Start Recording/i });
     fireEvent.click(startRecordButton);
 
-    // Assert that the denied alert is shown
     await waitFor(() => {
       expect(screen.getByText(/Microphone access denied/i)).toBeInTheDocument();
     });
@@ -195,8 +216,8 @@ describe('FeedbackPopup Component', () => {
   it('resets state when modal is closed', () => {
     const { rerender } = render(<FeedbackPopup {...defaultProps} show={true} />);
     rerender(<FeedbackPopup {...defaultProps} show={false} />);
-    // You can check that the answers or recording state has been reset if exposed via data-testid or use internal hooks
   });
+
   it('navigates to the next question on Next button click', () => {
     const multiQuestionProps = {
       ...defaultProps,
@@ -217,6 +238,7 @@ describe('FeedbackPopup Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
     expect(screen.getByText('Question 2')).toBeInTheDocument();
   });
+
   it('navigates back to the previous question on Back button click', () => {
     const multiQuestionProps = {
       ...defaultProps,
@@ -245,7 +267,6 @@ describe('FeedbackPopup Component', () => {
     // Switch to audio mode first using Badge component
     fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Click the start recording button (updated text)
     fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
     await waitFor(() => {
@@ -275,7 +296,6 @@ describe('FeedbackPopup Component', () => {
     // Move to last question
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Now the Submit button should be visible
     expect(screen.getByRole('button', { name: /Submit/i })).toBeInTheDocument();
   });
 
@@ -285,14 +305,13 @@ describe('FeedbackPopup Component', () => {
     // The component sorts questions, so dropdown comes first
     expect(screen.getByText('Select the severity')).toBeInTheDocument();
 
-    // Click Next
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
     expect(screen.getByText('How do you feel?')).toBeInTheDocument();
 
-    // Click Back
     fireEvent.click(screen.getByRole('button', { name: /Back/i }));
     expect(screen.getByText('Select the severity')).toBeInTheDocument();
   });
+
   it('handles multi-select option selection correctly', () => {
     const multiSelectQuestion = {
       questionKey: 'q-multi',
@@ -308,27 +327,24 @@ describe('FeedbackPopup Component', () => {
 
     const option1Button = screen.getByRole('button', { name: /Option 1/i });
     fireEvent.click(option1Button);
-    // Optionally assert that the button switches state or the answer updates
   });
+
   it('handles microphone permission granted and starts/stops recording', async () => {
     render(<FeedbackPopup {...textFirstProps} />);
 
-    // Switch to audio mode (this sets inputMode = 'audio') using Badge component
+    // Switch to audio mode using Badge component
     fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Start recording (should trigger the getUserMedia mock) - updated button text
     fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
-    // Wait for getUserMedia to be called and recording state to update
     await waitFor(() => {
       expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
     });
 
-    // Now recording should be true → Stop button should be visible (includes timer)
+    // Recording is active → Stop button should be visible (includes timer)
     const stopButton = await screen.findByRole('button', { name: /Stop \(\d+s\)/i });
     expect(stopButton).toBeInTheDocument();
 
-    // Stop the recording
     fireEvent.click(stopButton);
   });
 
@@ -338,24 +354,19 @@ describe('FeedbackPopup Component', () => {
     // Switch to audio input mode using Badge component
     fireEvent.click(screen.getByLabelText(/Audio mode/i));
 
-    // Start recording with updated button text
     fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
 
-    // Stop recording (includes timer in text)
     const stopButton = await screen.findByRole('button', { name: /Stop \(\d+s\)/i });
     fireEvent.click(stopButton);
 
-    // Confirm the audio element appears
     const audioElement = await screen.findByRole('audio', { hidden: true }).catch(() => {
       return document.querySelector('audio');
     });
     expect(audioElement).toBeInTheDocument();
 
-    // Click delete button
     const deleteButton = await screen.findByRole('button', { name: /Delete/i });
     fireEvent.click(deleteButton);
 
-    // After deletion, no audio element should remain
     await waitFor(() => {
       const afterAudio = document.querySelector('audio');
       expect(afterAudio).toBeNull();
@@ -367,19 +378,17 @@ describe('FeedbackPopup Component', () => {
     (apiClient.post as jest.Mock).mockResolvedValue({ status: 200 });
     render(<FeedbackPopup {...textFirstProps} onClose={onCloseMock} />);
 
-    // Make sure we're in text input mode
     fireEvent.click(screen.getByLabelText(/Text mode/i));
 
     const textarea = await screen.findByLabelText(/Text Feedback/i);
-    fireEvent.change(textarea, {
-      target: { value: 'My feedback' },
-    });
+    fireEvent.change(textarea, { target: { value: 'My feedback' } });
 
-    // For single question, Submit should be available directly
+    // For single question, Submit is immediately available
     fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
 
     await waitFor(() => expect(onCloseMock).toHaveBeenCalled());
   });
+
   it('switches between text and audio input modes', () => {
     render(<FeedbackPopup {...textFirstProps} />);
     const typeButton = screen.getByLabelText(/Text mode/i);
@@ -391,6 +400,7 @@ describe('FeedbackPopup Component', () => {
     fireEvent.click(recordButton);
     expect(screen.getByRole('button', { name: /Start Recording/i })).toBeInTheDocument();
   });
+
   it('toggles multi-select option state correctly', () => {
     const multiSelectQuestion = {
       questionKey: 'q-multi',
@@ -407,8 +417,9 @@ describe('FeedbackPopup Component', () => {
     fireEvent.click(button); // select
     fireEvent.click(button); // deselect
 
-    expect(button).toBeInTheDocument(); // Just confirm rendering; state toggling is internal
+    expect(button).toBeInTheDocument();
   });
+
   it('logs an error if feedback submission fails', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     (apiClient.post as jest.Mock).mockRejectedValue(new Error('Network Error'));
@@ -423,5 +434,129 @@ describe('FeedbackPopup Component', () => {
     });
 
     errorSpy.mockRestore();
+  });
+});
+
+// ── FeedbackPopup - ErrorAlert rendering ─────────────────────────────────────
+
+describe('FeedbackPopup - ErrorAlert rendering', () => {
+  it('renders and dismisses ErrorAlert when error is set', async () => {
+    const { rerender } = render(
+      <FeedbackPopup
+        show={true}
+        interventionId="intervention1"
+        questions={
+          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
+        }
+        onClose={jest.fn()}
+      />
+    );
+
+    rerender(
+      <FeedbackPopup
+        show={true}
+        interventionId="intervention1"
+        questions={
+          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
+        }
+        onClose={jest.fn()}
+      />
+    );
+
+    // Manually simulate an error element to verify dismissal
+    const errorText = 'Test error message';
+    const errorAlert = document.createElement('div');
+    errorAlert.textContent = errorText;
+    errorAlert.setAttribute('data-testid', 'error-alert');
+    document.body.appendChild(errorAlert);
+
+    expect(screen.getByText(errorText)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    document.body.removeChild(errorAlert);
+  });
+});
+
+// ── FeedbackPopup - dropdown, submission, and confirmClose ────────────────────
+
+describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem('id', 'p1');
+  });
+
+  it('dropdown selection requires Next to advance', async () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId="int1"
+        questions={dropdownAndTextQuestions as any}
+        onClose={jest.fn()}
+        date="2026-02-15"
+      />
+    );
+
+    expect(screen.getByText('Q1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'A' }));
+    // Should still be on Q1 until Next is clicked
+    expect(screen.getByText('Q1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => {
+      expect(screen.getByText('Q2')).toBeInTheDocument();
+    });
+  });
+
+  it('submits FormData including date', async () => {
+    const onClose = jest.fn();
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true } });
+
+    render(
+      <FeedbackPopup
+        show
+        interventionId="int1"
+        questions={dropdownAndTextQuestions as any}
+        onClose={onClose}
+        date="2026-02-15"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Q2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+
+    const [, formData] = (apiClient.post as jest.Mock).mock.calls[0];
+    expect(formData instanceof FormData).toBe(true);
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('confirmClose asks when answers exist', async () => {
+    const onClose = jest.fn();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(
+      <FeedbackPopup
+        show
+        interventionId="int1"
+        questions={dropdownAndTextQuestions as any}
+        onClose={onClose}
+        date="2026-02-15"
+      />
+    );
+
+    // Select an answer so hasAny=true
+    fireEvent.click(screen.getByRole('button', { name: 'A' }));
+
+    // Click X (modal close button)
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
   });
 });

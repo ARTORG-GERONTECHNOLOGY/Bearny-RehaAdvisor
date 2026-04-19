@@ -1,72 +1,53 @@
+import { Field, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Eye, EyeOffIcon } from 'lucide-react';
 import React from 'react';
-import { Form, Button, InputGroup } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 type PasswordFieldProps = {
   id: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  showPassword: boolean;
-  onToggle: () => void;
-  pagetype?: 'regular' | 'patient' | string;
   required?: boolean;
-  label?: React.ReactNode;
-  placeholder?: string;
+  label: React.ReactNode;
+  placeholder: string;
   autoComplete?: string;
-  className?: string;
 };
 
 const PasswordField: React.FC<PasswordFieldProps> = ({
   id,
   value,
   onChange,
-  showPassword,
-  onToggle,
-  pagetype = 'regular',
   required = false,
   label,
   placeholder,
-  autoComplete,
-  className,
+  autoComplete = 'current-password',
 }) => {
-  const { t } = useTranslation();
-
-  const resolvedLabel = label ?? (pagetype === 'patient' ? t('Patient Password') : t('Password'));
-
-  const resolvedPlaceholder =
-    placeholder ??
-    (pagetype === 'patient' ? t('Enter patient password') : t('Enter your password'));
-
-  const resolvedAutocomplete =
-    autoComplete ?? (id.toLowerCase().includes('new') ? 'new-password' : 'current-password');
+  const [showPassword, setShowPassword] = React.useState(false);
 
   return (
-    <Form.Group className={`mb-3 ${className || ''}`} controlId={id}>
-      <Form.Label>{resolvedLabel}</Form.Label>
-      <InputGroup>
-        <Form.Control
-          type={showPassword ? 'text' : 'password'}
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <InputGroup className="bg-zinc-100">
+        <InputGroupInput
           id={id}
+          type={showPassword ? 'text' : 'password'}
           value={value}
           onChange={onChange}
-          placeholder={resolvedPlaceholder}
-          autoComplete={resolvedAutocomplete}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
           required={required}
-          aria-required={required ? 'true' : 'false'}
-          aria-label={typeof resolvedLabel === 'string' ? resolvedLabel : undefined}
+          aria-label={typeof label === 'string' ? label : undefined}
+          aria-required={required}
         />
-        <Button
-          variant="outline-secondary"
-          type="button"
-          onClick={onToggle}
-          aria-label={showPassword ? t('Hide password') : t('Show password')}
-          title={showPassword ? t('Hide password') : t('Show password')}
+        <InputGroupAddon
+          align="inline-end"
+          onClick={() => setShowPassword((s) => !s)}
+          className="cursor-pointer"
         >
-          {showPassword ? <FaEyeSlash /> : <FaEye />}
-        </Button>
+          {showPassword ? <EyeOffIcon /> : <Eye />}
+        </InputGroupAddon>
       </InputGroup>
-    </Form.Group>
+    </Field>
   );
 };
 
