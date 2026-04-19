@@ -15,7 +15,7 @@ test.describe('Home login flow', () => {
     await expect(openLoginButton).toBeVisible({ timeout: 15000 });
     await openLoginButton.click();
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
 
     await modal.locator('#email').fill('e2e.invalid@example.com');
@@ -48,6 +48,6 @@ test.describe('Home login flow', () => {
     const loginResult = await loginResultPromise;
     expect(['response', 'requestfailed']).toContain(loginResult);
 
-    await expect(modal.locator('.alert-danger').first()).toBeVisible();
+    await expect(modal.locator('[role="alert"]').first()).toBeVisible();
   });
 });
