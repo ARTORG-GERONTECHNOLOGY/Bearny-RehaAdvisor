@@ -40,6 +40,19 @@ jest.mock('react-bootstrap', () => {
   };
 });
 
+// Mock shadcn Sheet (replaces Bootstrap Modal in LoginForm)
+jest.mock('@/components/ui/sheet', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    Sheet: ({ open, children }: any) => (open ? <div data-testid="sheet">{children}</div> : null),
+    SheetContent: ({ children }: any) => <div>{children}</div>,
+    SheetHeader: ({ children }: any) => <div>{children}</div>,
+    SheetTitle: ({ children }: any) => <h5>{children}</h5>,
+    SheetDescription: ({ children }: any) => <p>{children}</p>,
+  };
+});
+
 // Mock the small UI components used by LoginForm (keep tests focused on logic)
 jest.mock('@/components/forms/input/InputField', () => {
   const React = require('react');
@@ -85,6 +98,32 @@ jest.mock('@/components/forms/input/PasswordField', () => {
             onChange={(e) => {
               setInternalValue(e.target.value);
               onChange?.(e);
+            }}
+            required={required}
+          />
+        </div>
+      );
+    },
+  };
+});
+
+jest.mock('@/components/forms/input/OTPField', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ id, label, value, onChange, required }: any) => {
+      const [internalValue, setInternalValue] = React.useState(value || '');
+      return (
+        <div>
+          <label htmlFor={id}>{typeof label === 'string' ? label : id}</label>
+          <input
+            id={id}
+            type="text"
+            aria-label={id}
+            value={internalValue}
+            onChange={(e) => {
+              setInternalValue(e.target.value);
+              onChange?.(e.target.value);
             }}
             required={required}
           />
