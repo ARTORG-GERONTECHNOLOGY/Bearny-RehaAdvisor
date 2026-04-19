@@ -30,7 +30,9 @@ describe('PasswordField Component', () => {
     expect(input).toHaveAttribute('type', 'password');
 
     // Click the toggle button (the addon containing the eye icon)
-    const toggle = input.closest('[data-slot="input-group"]')?.querySelector('[data-slot="input-group-addon"]') as HTMLElement;
+    const toggle = input
+      .closest('[data-slot="input-group"]')
+      ?.querySelector('[data-slot="input-group-addon"]') as HTMLElement;
     fireEvent.click(toggle);
 
     expect(input).toHaveAttribute('type', 'text');
