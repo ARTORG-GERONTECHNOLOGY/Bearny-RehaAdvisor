@@ -445,7 +445,9 @@ describe('FeedbackPopup - ErrorAlert rendering', () => {
       <FeedbackPopup
         show={true}
         interventionId="intervention1"
-        questions={[{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any}
+        questions={
+          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
+        }
         onClose={jest.fn()}
       />
     );
@@ -454,7 +456,9 @@ describe('FeedbackPopup - ErrorAlert rendering', () => {
       <FeedbackPopup
         show={true}
         interventionId="intervention1"
-        questions={[{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any}
+        questions={
+          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
+        }
         onClose={jest.fn()}
       />
     );
