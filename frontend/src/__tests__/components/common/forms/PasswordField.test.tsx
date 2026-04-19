@@ -72,4 +72,12 @@ describe('PasswordField Component', () => {
 
     expect(screen.getByLabelText('Password')).toBeRequired();
   });
+
+  it('does not set aria-label when label is a ReactNode (non-string)', () => {
+    const { container } = render(<PasswordField {...baseProps} label={<span>Password</span>} />);
+
+    // FieldLabel's htmlFor + input id still links them; aria-label should be absent
+    const input = container.querySelector('#user-password') as HTMLElement;
+    expect(input).not.toHaveAttribute('aria-label');
+  });
 });
