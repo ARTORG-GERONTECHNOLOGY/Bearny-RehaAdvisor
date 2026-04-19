@@ -9,10 +9,10 @@ const ForgotPasswordLink: React.FC<ForgotPasswordLinkProps> = ({
   onClick,
   text = 'Forgot Password?',
 }) => (
-  <div className="mt-3 text-center text-sm-start">
+  <div className="mt-3 text-center">
     <button
       type="button"
-      className="btn btn-link btn-sm text-decoration-underline px-0"
+      className="btn btn-link btn-sm text-decoration-underline px-0 !text-[#00956C]"
       onClick={onClick}
       aria-label={text}
     >
