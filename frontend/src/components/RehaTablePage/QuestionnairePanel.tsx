@@ -55,23 +55,29 @@ interface QuestionnairePanelProps {
 const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
   const { openAddQ, openModifyQ, removeQ, openBuilder } = actions;
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [expandedAvailable, setExpandedAvailable] = React.useState<Record<string, boolean>>({});
+  const [expandedAssigned, setExpandedAssigned] = React.useState<Record<string, boolean>>({});
 
   const pickText = (translations?: QuestionTranslation[]) => {
     if (!Array.isArray(translations) || !translations.length) return '';
     return translations.find((tr) => tr.language === 'en')?.text || translations[0]?.text || '';
   };
 
-  const findSourceQuestions = (id: string): QuestionShape[] => {
+  const findSourceQuestions = (id: string, scope: 'available' | 'assigned'): QuestionShape[] => {
+    if (scope === 'available') {
+      const fromCatalog = questionnaires.find((q) => q._id === id)?.questions;
+      return Array.isArray(fromCatalog) ? fromCatalog : [];
+    }
     const fromCatalog = questionnaires.find((q) => q._id === id)?.questions;
     if (Array.isArray(fromCatalog) && fromCatalog.length) return fromCatalog;
     const fromAssigned = assignedQuestionnaires.find((q) => q._id === id)?.questions;
     return Array.isArray(fromAssigned) ? fromAssigned : [];
   };
 
-  const renderQuestions = (id: string) => {
-    if (!expanded[id]) return null;
-    const questions = findSourceQuestions(id);
+  const renderQuestions = (id: string, scope: 'available' | 'assigned') => {
+    const isExpanded = scope === 'available' ? !!expandedAvailable[id] : !!expandedAssigned[id];
+    if (!isExpanded) return null;
+    const questions = findSourceQuestions(id, scope);
     if (!questions.length) {
       return <div className="small text-muted mt-2">{t('No questions found')}</div>;
     }
@@ -139,30 +145,25 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                           {t('Questions')}: {q.question_count}
                         </div>
                       )}
-                      {renderQuestions(q._id)}
+                      {renderQuestions(q._id, 'available')}
                     </div>
                     <div>
                       <ButtonGroup size="sm" vertical>
                         <Button
                           variant="outline-primary"
                           onClick={() =>
-                            setExpanded((prev) => ({ ...prev, [q._id]: !prev[q._id] }))
+                            setExpandedAvailable((prev) => ({ ...prev, [q._id]: !prev[q._id] }))
                           }
                         >
                           <FaEye />
                         </Button>
-                        {isAlready ? (
-                          <>
-                            <Button variant="outline-secondary" onClick={() => openModifyQ(q)}>
-                              <FaEdit />
-                            </Button>
-                            <Button variant="outline-danger" onClick={() => removeQ(q._id)}>
-                              <FaTrash />
-                            </Button>
-                          </>
-                        ) : (
+                        {!isAlready ? (
                           <Button variant="outline-success" onClick={() => openAddQ(q)}>
                             <FaPlus />
+                          </Button>
+                        ) : (
+                          <Button variant="outline-secondary" disabled title={t('Already assigned')}>
+                            {t('Assigned')}
                           </Button>
                         )}
                       </ButtonGroup>
@@ -204,13 +205,15 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                         {t('Next on')}: {new Date(a.dates[0]).toLocaleDateString()}
                       </div>
                     ) : null}
-                    {renderQuestions(a._id)}
+                    {renderQuestions(a._id, 'assigned')}
                   </div>
                   <div>
                     <ButtonGroup size="sm">
                       <Button
                         variant="outline-primary"
-                        onClick={() => setExpanded((prev) => ({ ...prev, [a._id]: !prev[a._id] }))}
+                        onClick={() =>
+                          setExpandedAssigned((prev) => ({ ...prev, [a._id]: !prev[a._id] }))
+                        }
                       >
                         <FaEye />
                       </Button>
