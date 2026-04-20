@@ -1,6 +1,7 @@
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 
 export function PatientInterventionsLibrarySectionsSkeleton() {
   return (
@@ -19,10 +20,7 @@ export function PatientInterventionsLibrarySectionsSkeleton() {
 
           <div className="flex gap-2 overflow-x-auto">
             {[1, 2, 3].map((card) => (
-              <div
-                key={card}
-                className="shrink-0 w-72 rounded-3xl border border-accent p-4 flex flex-col gap-6"
-              >
+              <Card key={card} className="shrink-0 w-72 flex flex-col gap-6">
                 <Skeleton className="h-8 w-8" />
                 <div className="flex-1 flex flex-col gap-2">
                   <Skeleton className="h-6 w-full" />
@@ -32,7 +30,7 @@ export function PatientInterventionsLibrarySectionsSkeleton() {
                     <Skeleton className="h-8 w-24 rounded-xl" />
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </Section>
@@ -54,12 +52,10 @@ export default function PatientInterventionsLibrarySkeleton() {
 
               <div className="flex flex-col gap-2">
                 {Array.from({ length: 5 }).map((_, sectionIndex) => (
-                  <div key={sectionIndex} className="rounded-3xl border border-accent px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="h-6 w-28" />
-                      <Skeleton className="h-[18px] w-[18px] rounded-full" />
-                    </div>
-                  </div>
+                  <Card key={sectionIndex} className="flex items-center justify-between px-4 py-3">
+                    <Skeleton className="h-7 w-28" />
+                    <Skeleton className="h-[18px] w-[18px] rounded-full" />
+                  </Card>
                 ))}
               </div>
             </div>
