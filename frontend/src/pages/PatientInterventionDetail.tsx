@@ -290,11 +290,7 @@ const MetaTags: React.FC<{ item: any }> = ({ item }) => {
     <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
       {tags.map((x, idx) => {
         return (
-          <Badge
-            key={`${x}-${idx}`}
-            className="bg-white py-[10px] px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500"
-            title={x}
-          >
+          <Badge key={`${x}-${idx}`} variant="tag" title={x}>
             {capitalizeWords(t(x, { defaultValue: x }))}
           </Badge>
         );
@@ -655,14 +651,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
         <Section>
           <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
-            <Badge className="bg-white py-2 pl-[10px] pr-3 border border-accent rounded-xl flex gap-1 shadow-none">
+            <Badge variant="card">
               {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
                 <ExerciseIcon className="flex-none w-8 h-8" />
               ) : (
                 <EducationIcon className="flex-none w-8 h-8" />
               )}
               <span
-                className={`font-medium text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
+                className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
               >
                 {t(effectiveItem.intervention.aim)}
               </span>
@@ -685,19 +681,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
             </div>
             <div className="flex flex-wrap gap-2">
               {effectiveItem.intervention.duration && (
-                <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+                <Badge variant="card">
                   <ClockIcon className="w-6 h-6" />
-                  <span className="font-medium text-xl text-[#00956C]">
-                    {`${effectiveItem.intervention.duration}min`}
-                  </span>
+                  <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
                 </Badge>
               )}
-              <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+              <Badge variant="card">
                 {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
                 {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
-                <span className="font-medium text-xl text-[#00956C]">
-                  {t(effectiveMediaBadge.label)}
-                </span>
+                <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
               </Badge>
             </div>
           </div>
