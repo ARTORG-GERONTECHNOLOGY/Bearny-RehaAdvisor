@@ -3,6 +3,7 @@ import { SearchIcon, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import Card from '@/components/Card';
 import { Field } from '@/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Slider } from '@/components/ui/slider';
@@ -43,26 +44,24 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className="rounded-3xl border border-accent !px-5 !py-4"
-    >
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className="w-full flex items-center justify-between p-0 text-left font-medium text-lg text-zinc-800 border-none bg-white"
-        >
-          <span>{title}</span>
-          <ChevronDown
-            className={`h-[18px] w-[18px] text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="pt-4">{children}</div>
-      </CollapsibleContent>
-    </Collapsible>
+    <Card className="p-0">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="!px-5 !py-4">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-0 text-left font-medium text-lg text-zinc-800 border-none bg-white"
+          >
+            <span>{title}</span>
+            <ChevronDown
+              className={`h-[18px] w-[18px] text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="pt-4">{children}</div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };
 

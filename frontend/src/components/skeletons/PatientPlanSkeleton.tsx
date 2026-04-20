@@ -1,6 +1,7 @@
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 
 export default function PatientPlanSkeleton() {
   return (
@@ -26,13 +27,13 @@ export default function PatientPlanSkeleton() {
               {dayIndex === 0 && <Skeleton className="h-6 w-16 rounded-full" />}
             </div>
 
-            <div className="flex items-center gap-3 rounded-3xl border border-accent p-4">
+            <Card className="flex items-center gap-3">
               <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
               <div className="flex flex-1 flex-col gap-2">
                 <Skeleton className="h-4 w-16" />
                 <Skeleton className="h-5 w-2/3" />
               </div>
-            </div>
+            </Card>
           </Section>
         ))}
       </div>

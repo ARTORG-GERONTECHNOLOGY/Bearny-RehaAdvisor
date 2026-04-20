@@ -5,6 +5,7 @@ import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import { PatientHealthCheckInSectionSkeleton } from '@/components/skeletons/PatientSkeleton';
+import Card from '@/components/Card';
 
 interface HealthCheckInSectionProps {
   loading?: boolean;
@@ -46,9 +47,9 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <div
+        <Card
           role="button"
-          className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between"
           onClick={onOpenWeightEntry}
         >
           <div className="flex justify-between">
@@ -68,11 +69,11 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
           <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
             {weightKg || '--'} {t('WeightUnit').toLocaleLowerCase()}
           </div>
-        </div>
+        </Card>
 
-        <div
+        <Card
           role="button"
-          className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between"
           onClick={onOpenBloodPressureEntry}
         >
           <div className="flex justify-between">
@@ -93,7 +94,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             {bpSys || '--'}
             <br />/{bpDia || '--'} mmHg
           </div>
-        </div>
+        </Card>
       </div>
     </Section>
   );
