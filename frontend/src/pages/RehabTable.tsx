@@ -46,6 +46,15 @@ type QItem = {
   question_count?: number;
   created_by?: string | null;
   created_by_name?: string;
+  questions?: Array<{
+    questionKey: string;
+    answerType: string;
+    translations?: Array<{ language: string; text: string }>;
+    possibleAnswers?: Array<{
+      key: string;
+      translations?: Array<{ language: string; text: string }>;
+    }>;
+  }>;
 };
 
 type QAssigned = {
@@ -65,6 +74,16 @@ type QAssigned = {
       count?: number | null;
     };
   };
+  question_count?: number;
+  questions?: Array<{
+    questionKey: string;
+    answerType: string;
+    translations?: Array<{ language: string; text: string }>;
+    possibleAnswers?: Array<{
+      key: string;
+      translations?: Array<{ language: string; text: string }>;
+    }>;
+  }>;
 };
 
 const RehabTable: React.FC = observer(() => {
@@ -126,6 +145,7 @@ const RehabTable: React.FC = observer(() => {
         question_count: Number(q.question_count || 0),
         created_by: q.created_by ? String(q.created_by) : null,
         created_by_name: String(q.created_by_name || ''),
+        questions: Array.isArray(q.questions) ? q.questions : [],
       }));
       setQuestionnaires(items);
     } catch (e) {

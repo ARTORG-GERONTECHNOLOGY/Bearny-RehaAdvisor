@@ -21,6 +21,8 @@ Current scope starts with the home/login journey.
 | `therapist-interventions-import.spec.ts`    | Import Interventions modal — Excel tab, Upload Media tab, UI validation. Also covers COPAIN MSK file import using the real `COPAIN_MSK_LINKS_UPLOAD.xlsm` fixture: dry-run, live import, idempotency, wrong-sheet-name error (API-level, 4 tests) and modal-level import flow (UI-level, 2 tests). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`. |
 | `template-assign-apply.spec.ts`             | Template assign/apply MongoEngine dirty-tracking regression: assign → apply produces sessions, update existing schedule persists, remove diagnosis block persists. API-level (4) + UI-level (2). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                |
 | `spurious-logout.spec.ts`                   | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
+| `therapist-rehabtable-questionnaires.spec.ts` | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, and questionnaire-content visibility (questions + answer options via the view button). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`. |
+| `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`. |
 
 ---
 
@@ -89,6 +91,14 @@ Current scope starts with the home/login journey.
   - Hard reload with stale `expiresAt` and no refresh token → user is redirected to login
   - Corrupted `expiresAt` with valid refresh token → silent refresh keeps session alive
   - Explicit logout in one tab removes the token from shared storage
+- Therapist questionnaires tab (`therapist-rehabtable-questionnaires.spec.ts`, seeded therapist + patient required):
+  - Questionnaires tab renders available/assigned panels
+  - Schedule modal opens from action buttons
+  - Therapist can expand questionnaire details and see question texts + answer options
+- Therapist health export CSV (`therapist-health-export-questionnaire-csv.spec.ts`, seeded therapist + patient required):
+  - CSV export flow works from `/health` page
+  - Questionnaire CSV columns include question key/text, all answer keys/texts, comment, and media URLs
+  - Multi-answer values are serialized as `value1 | value2`
 
 ---
 
@@ -200,6 +210,16 @@ E2E_API_URL=http://localhost:8001/api \
 E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 npm run test:e2e -- e2e/spurious-logout.spec.ts
+```
+
+Therapist questionnaire + export regressions (requires seeded therapist + patient):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_PATIENT_ID=<patient-object-id> \
+npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts e2e/therapist-health-export-questionnaire-csv.spec.ts
 ```
 
 ---

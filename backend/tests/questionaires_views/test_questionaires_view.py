@@ -80,11 +80,14 @@ def test_list_health_questionnaires_method_not_allowed():
 
 
 def test_list_health_questionnaires_success():
-    HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[]).save()
+    fq = make_feedback_question(f"q_{ObjectId()}")
+    HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[fq]).save()
     r = client.get("/api/questionnaires/health/", HTTP_AUTHORIZATION="Bearer test")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
     assert len(r.json()) == 1
+    assert r.json()[0]["question_count"] == 1
+    assert len(r.json()[0]["questions"]) == 1
 
 
 def test_list_dynamic_questionnaires_groups_keys():
@@ -238,6 +241,7 @@ def test_assign_questionnaire_from_group_key_success_and_listed():
     assert r2.status_code == 200
     assert len(r2.json()) == 1
     assert "title" in r2.json()[0]
+    assert "questions" in r2.json()[0]
 
 
 def test_remove_questionnaire_validation_and_success():
