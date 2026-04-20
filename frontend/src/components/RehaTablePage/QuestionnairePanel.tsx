@@ -223,7 +223,11 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                             <FaPlus />
                           </Button>
                         ) : (
-                          <Button variant="outline-secondary" disabled title={t('Already assigned')}>
+                          <Button
+                            variant="outline-secondary"
+                            disabled
+                            title={t('Already assigned')}
+                          >
                             {t('Assigned')}
                           </Button>
                         )}
