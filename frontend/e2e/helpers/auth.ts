@@ -28,11 +28,11 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const existingFiles = emailDir ? new Set(readEmailFiles(emailDir)) : new Set<string>();
 
   const loginResponsePromise = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST',
+    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
   );
   const codeSentPromise = page.waitForResponse(
     (res) =>
-      res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST',
+      res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST'
   );
 
   await modal.getByRole('button', { name: /login/i }).click();
@@ -53,14 +53,14 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   if (!emailDir) {
     throw new Error(
       'E2E_EMAIL_DIR is not set. Cannot read verification code. ' +
-        'Set E2E_EMAIL_DIR to the directory where Django writes email files.',
+        'Set E2E_EMAIL_DIR to the directory where Django writes email files.'
     );
   }
 
   const code = await waitForVerificationCode(emailDir, existingFiles);
 
   const verifyDonePromise = page.waitForResponse(
-    (res) => res.url().includes('/auth/verify-code/') && res.request().method() === 'POST',
+    (res) => res.url().includes('/auth/verify-code/') && res.request().method() === 'POST'
   );
 
   // Click the OTP container to focus the underlying input, then type the code
@@ -86,7 +86,7 @@ function readEmailFiles(dir: string): string[] {
 async function waitForVerificationCode(
   emailDir: string,
   existingFiles: Set<string>,
-  timeoutMs = 10_000,
+  timeoutMs = 10_000
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -100,6 +100,6 @@ async function waitForVerificationCode(
   }
   throw new Error(
     `No 6-digit verification code found in ${emailDir} within ${timeoutMs}ms. ` +
-      'Check that E2E_EMAIL_DIR is set for both Django and Playwright.',
+      'Check that E2E_EMAIL_DIR is set for both Django and Playwright.'
   );
 }

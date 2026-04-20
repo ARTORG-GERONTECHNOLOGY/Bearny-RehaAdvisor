@@ -19,7 +19,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-
 test.describe('Therapist health CSV export', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);

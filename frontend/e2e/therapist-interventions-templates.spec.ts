@@ -31,7 +31,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-
 /** Navigate to /interventions and click the Templates tab. */
 async function openTemplatesTab(page: Parameters<Parameters<typeof test>[1]>[0]) {
   await page.goto('/interventions');
