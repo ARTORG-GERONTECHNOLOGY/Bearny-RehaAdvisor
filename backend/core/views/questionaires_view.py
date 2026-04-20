@@ -128,15 +128,13 @@ def _serialize_question_for_payload(question: FeedbackQuestion) -> Dict[str, Any
         "questionKey": question.questionKey,
         "answerType": question.answer_type,
         "translations": [
-            {"language": tr.language, "text": tr.text}
-            for tr in (getattr(question, "translations", None) or [])
+            {"language": tr.language, "text": tr.text} for tr in (getattr(question, "translations", None) or [])
         ],
         "possibleAnswers": [
             {
                 "key": opt.key,
                 "translations": [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in (getattr(opt, "translations", None) or [])
+                    {"language": tr.language, "text": tr.text} for tr in (getattr(opt, "translations", None) or [])
                 ],
             }
             for opt in (getattr(question, "possibleAnswers", None) or [])

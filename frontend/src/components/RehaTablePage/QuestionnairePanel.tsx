@@ -145,7 +145,9 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                       <ButtonGroup size="sm" vertical>
                         <Button
                           variant="outline-primary"
-                          onClick={() => setExpanded((prev) => ({ ...prev, [q._id]: !prev[q._id] }))}
+                          onClick={() =>
+                            setExpanded((prev) => ({ ...prev, [q._id]: !prev[q._id] }))
+                          }
                         >
                           <FaEye />
                         </Button>
