@@ -10,6 +10,8 @@
  */
 import { expect, test } from '@playwright/test';
 
+import { loginAsTherapist } from './helpers/auth';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -29,27 +31,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-/** Log in via the home page modal and wait for the redirect. */
-async function loginAsTherapist(page: Parameters<Parameters<typeof test>[1]>[0]) {
-  const { login, password } = creds();
-  await page.goto('/');
-
-  await page.getByRole('button', { name: /login/i }).first().click();
-  const modal = page.locator('[role="dialog"][data-state="open"]');
-  await expect(modal).toBeVisible();
-
-  await modal.locator('#email').fill(login as string);
-  await modal.locator('#password').fill(password as string);
-
-  const loginDone = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-  );
-  await modal.getByRole('button', { name: /login/i }).click();
-  await loginDone;
-
-  // Wait until we are on the therapist page
-  await expect(page).toHaveURL(/\/therapist/);
-}
 
 /** Navigate to /interventions and click the Templates tab. */
 async function openTemplatesTab(page: Parameters<Parameters<typeof test>[1]>[0]) {
