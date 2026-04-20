@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
@@ -34,8 +35,8 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
   const isExercise = rec.intervention?.aim?.toLowerCase() === 'exercise';
 
   return (
-    <div
-      className="flex border border-accent rounded-3xl p-4 gap-3 hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
+    <Card
+      className="flex gap-3 hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
       onClick={() => onItemClick(rec)}
       role="button"
       tabIndex={0}
@@ -85,7 +86,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
           <CircleDashedFill className="w-8 h-8 text-zinc-200 cursor-pointer" aria-hidden="true" />
         )}
       </div>
-    </div>
+    </Card>
   );
 };
 

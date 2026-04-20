@@ -31,6 +31,7 @@ import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import Card from '@/components/Card';
 
 type InterventionMedia = {
   kind: 'external' | 'file';
@@ -650,7 +651,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
         <Section>
-          <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
+          <Card className="flex flex-col items-start gap-3">
             <Badge variant="card">
               {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
                 <ExerciseIcon className="flex-none w-8 h-8" />
@@ -692,13 +693,13 @@ const PatientInterventionDetail: React.FC = observer(() => {
                 <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
               </Badge>
             </div>
-          </div>
+          </Card>
         </Section>
 
         <Section>
           <MediaContent mediaList={effectiveMediaList} />
 
-          <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+          <Card className="text-lg text-zinc-500">
             {detectedLang ? (
               <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
                 <span>{translatedText}</span>
@@ -706,12 +707,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
             ) : (
               effectiveItem?.description || ''
             )}
-          </div>
+          </Card>
 
           {effectiveItem?.notes && (
-            <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+            <Card className="text-lg text-zinc-500">
               {t('Notes')}: {effectiveItem.notes}
-            </div>
+            </Card>
           )}
         </Section>
 

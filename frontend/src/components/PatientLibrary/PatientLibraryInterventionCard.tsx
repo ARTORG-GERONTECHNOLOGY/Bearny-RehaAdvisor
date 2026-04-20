@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import StarsIcon from '@/assets/icons/interventions/stars.svg?react';
 import { Badge } from '@/components/ui/badge';
+import Card from '@/components/Card';
 
 type PatientLibraryInterventionCardItem = {
   duration?: string | number;
@@ -31,11 +32,7 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
   const { t } = useTranslation();
 
   return (
-    <div
-      role="button"
-      onClick={onClick}
-      className={`${containerClassName} rounded-3xl border border-accent p-4 flex flex-col gap-6`}
-    >
+    <Card role="button" onClick={onClick} className={`${containerClassName} flex flex-col gap-6`}>
       <Icon className="shrink-0 w-8 h-8" />
       <div className="flex-1 flex flex-col gap-2 justify-between">
         <div className="font-bold text-lg leading-6 text-zinc-800">{displayTitle || '-'}</div>
@@ -56,7 +53,7 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
