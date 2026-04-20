@@ -517,9 +517,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 <div className="flex justify-center gap-2">
                   <Badge
                     onClick={() => setInputMode('text')}
-                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-                      inputMode === 'text' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-                    }`}
+                    variant={inputMode === 'text' ? 'filter-active' : 'filter-inactive'}
                     role="button"
                     aria-pressed={inputMode === 'text'}
                     aria-label={t('Text mode')}
@@ -528,9 +526,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                   </Badge>
                   <Badge
                     onClick={() => setInputMode('audio')}
-                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-                      inputMode === 'audio' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-                    }`}
+                    variant={inputMode === 'audio' ? 'filter-active' : 'filter-inactive'}
                     role="button"
                     aria-pressed={inputMode === 'audio'}
                     aria-label={t('Audio mode')}
