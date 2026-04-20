@@ -1,6 +1,7 @@
 // src/pages/Home.tsx
 import React, { useEffect, useState } from 'react';
-import { Button, Col, Container, Row } from 'react-bootstrap';
+import { Col, Container, Row } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import '@/assets/styles/home.css';
@@ -54,22 +55,14 @@ const Home: React.FC = () => {
                 )}
               </p>
 
-              {/* full-width on mobile, natural width on >=sm */}
-              <div className="d-grid d-sm-flex gap-3 justify-content-center justify-content-md-start w-100">
-                <Button
-                  variant="primary"
-                  className="home-cta px-4"
-                  size="lg"
-                  onClick={toggleLoginModal}
-                >
+              <div className="flex flex-col items-center md:items-start w-full md:w-auto gap-2">
+                <Button onClick={toggleLoginModal} className="w-full sm:w-auto">
                   {t('Login')}
                 </Button>
-              </div>
-              <div className="mt-2 text-center text-md-start">
                 <Button
-                  variant="link"
-                  className="p-0 text-decoration-none"
+                  variant="ghost"
                   onClick={toggleRegisterModal}
+                  className="text-sm p-0 h-auto"
                 >
                   {t('Register (Only for Therapists)')}
                 </Button>
@@ -80,7 +73,7 @@ const Home: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <LoginForm show={showLoginModal} handleClose={toggleLoginModal} defaultRole="Therapist" />
+      <LoginForm show={showLoginModal} handleClose={toggleLoginModal} />
       <FormRegister show={showRegisterModal} handleRegShow={toggleRegisterModal} />
       <Footer />
     </div>
