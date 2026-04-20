@@ -18,7 +18,7 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   if (!emailDir) {
     throw new Error(
       'E2E_EMAIL_DIR is not set. Set it to a directory path and start Django with the same env var ' +
-        'so it writes verification emails as files instead of sending via SMTP.',
+        'so it writes verification emails as files instead of sending via SMTP.'
     );
   }
 
@@ -35,12 +35,12 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const existingFiles = new Set(readEmailFiles(emailDir));
 
   const loginResponsePromise = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST',
+    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
   );
   const codeSentPromise = page.waitForResponse(
     (res) =>
       res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST',
-    { timeout: 15_000 },
+    { timeout: 15_000 }
   );
 
   await modal.getByRole('button', { name: /login/i }).click();
