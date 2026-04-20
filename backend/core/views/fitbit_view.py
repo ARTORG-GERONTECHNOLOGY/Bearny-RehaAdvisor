@@ -790,7 +790,7 @@ def health_combined_history(request, patient_id):
 
             for entry in entries:
                 parsed_answers = []
-                for ans in (getattr(entry, "answerKey", None) or []):
+                for ans in getattr(entry, "answerKey", None) or []:
                     if hasattr(ans, "key"):
                         parsed_answers.append(
                             {
@@ -802,16 +802,10 @@ def health_combined_history(request, patient_id):
                             }
                         )
                     else:
-                        parsed_answers.append(
-                            {"key": str(ans), "translations": [{"language": "en", "text": str(ans)}]}
-                        )
+                        parsed_answers.append({"key": str(ans), "translations": [{"language": "en", "text": str(ans)}]})
 
                 question_obj = getattr(entry, "questionId", None)
-                question_key = (
-                    getattr(question_obj, "questionKey", None)
-                    or getattr(q, "icfCode", None)
-                    or ""
-                )
+                question_key = getattr(question_obj, "questionKey", None) or getattr(q, "icfCode", None) or ""
                 question_translations = [
                     {"language": tr.language, "text": tr.text}
                     for tr in (getattr(question_obj, "translations", None) or [])

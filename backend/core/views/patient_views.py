@@ -3206,7 +3206,7 @@ def get_combined_health_data(request, patient_id):
                     continue
 
                 parsed_answers = []
-                for ans in (ent.answerKey or []):
+                for ans in ent.answerKey or []:
                     if hasattr(ans, "key"):
                         parsed_answers.append(
                             {

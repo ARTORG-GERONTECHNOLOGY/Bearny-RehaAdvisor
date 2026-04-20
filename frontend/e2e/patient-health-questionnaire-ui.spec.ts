@@ -80,12 +80,19 @@ test.describe('Patient health questionnaire — UI e2e', () => {
     const { therapistLogin, therapistPassword, patientLogin, patientPassword, patientIdHint } =
       envs();
 
-    const therapist = await loginApi(request, therapistLogin as string, therapistPassword as string);
+    const therapist = await loginApi(
+      request,
+      therapistLogin as string,
+      therapistPassword as string
+    );
     test.skip(
       therapist.status === 401 || therapist.status === 403,
       'Seeded therapist credentials are invalid/unauthorized in this environment.'
     );
-    test.skip(!therapist.token, 'Therapist login requires 2FA or no token issued in this environment.');
+    test.skip(
+      !therapist.token,
+      'Therapist login requires 2FA or no token issued in this environment.'
+    );
 
     const patient = await loginApi(request, patientLogin as string, patientPassword as string);
     test.skip(
@@ -96,13 +103,22 @@ test.describe('Patient health questionnaire — UI e2e', () => {
 
     const patientIdForAssign = patientIdHint || patient.id;
 
-    const groupsRes = await request.get(`${API_BASE}/questionnaires/dynamic/?subject=Healthstatus`, {
-      headers: { Authorization: `Bearer ${therapist.token}` },
-    });
-    expect(groupsRes.ok(), `Could not load dynamic questionnaires: ${await groupsRes.text()}`).toBeTruthy();
+    const groupsRes = await request.get(
+      `${API_BASE}/questionnaires/dynamic/?subject=Healthstatus`,
+      {
+        headers: { Authorization: `Bearer ${therapist.token}` },
+      }
+    );
+    expect(
+      groupsRes.ok(),
+      `Could not load dynamic questionnaires: ${await groupsRes.text()}`
+    ).toBeTruthy();
 
     const groups = (await groupsRes.json()) as Array<{ id: string }>;
-    test.skip(!Array.isArray(groups) || groups.length === 0, 'No dynamic Healthstatus groups available.');
+    test.skip(
+      !Array.isArray(groups) || groups.length === 0,
+      'No dynamic Healthstatus groups available.'
+    );
 
     const groupKey = groups[0].id;
 
@@ -138,7 +154,10 @@ test.describe('Patient health questionnaire — UI e2e', () => {
 
       const noQuestionsInfo = page.getByText(/no feedback questions available/i);
       if ((await noQuestionsInfo.count()) > 0 && (await noQuestionsInfo.first().isVisible())) {
-        test.skip(true, 'Assigned questionnaire resolved to empty question list in this seeded environment.');
+        test.skip(
+          true,
+          'Assigned questionnaire resolved to empty question list in this seeded environment.'
+        );
       }
 
       // Answer first visible question in popup: prefer option button, fallback to text area.
@@ -147,7 +166,10 @@ test.describe('Patient health questionnaire — UI e2e', () => {
         await firstAnswerBtn.click();
       } else {
         const textArea = page.getByRole('textbox').first();
-        test.skip((await textArea.count()) === 0, 'No supported questionnaire input control found.');
+        test.skip(
+          (await textArea.count()) === 0,
+          'No supported questionnaire input control found.'
+        );
         await textArea.fill('E2E patient questionnaire answer');
       }
 
@@ -161,7 +183,10 @@ test.describe('Patient health questionnaire — UI e2e', () => {
       }
 
       const submitBtn = page.getByRole('button', { name: /submit/i });
-      test.skip((await submitBtn.count()) === 0, 'Submit button not reachable in questionnaire popup.');
+      test.skip(
+        (await submitBtn.count()) === 0,
+        'Submit button not reachable in questionnaire popup.'
+      );
 
       const submitReqPromise = page.waitForRequest(
         (req) => req.method() === 'POST' && req.url().includes('/patients/feedback/questionaire/')
@@ -177,7 +202,8 @@ test.describe('Patient health questionnaire — UI e2e', () => {
         page
           .waitForEvent(
             'requestfailed',
-            (req) => req.method() === 'POST' && req.url().includes('/patients/feedback/questionaire/')
+            (req) =>
+              req.method() === 'POST' && req.url().includes('/patients/feedback/questionaire/')
           )
           .then(() => 'requestfailed'),
       ]);
