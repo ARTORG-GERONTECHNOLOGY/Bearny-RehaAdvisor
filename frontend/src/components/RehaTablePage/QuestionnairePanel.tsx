@@ -2,7 +2,16 @@
 import React from 'react';
 import { Row, Col, Card, ButtonGroup, Button } from 'react-bootstrap';
 import { TFunction } from 'i18next';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa';
+
+type QuestionTranslation = { language: string; text: string };
+type QuestionOption = { key: string; translations?: QuestionTranslation[] };
+type QuestionShape = {
+  questionKey: string;
+  answerType: string;
+  translations?: QuestionTranslation[];
+  possibleAnswers?: QuestionOption[];
+};
 
 type QItem = {
   _id: string;
@@ -12,6 +21,7 @@ type QItem = {
   tags?: string[];
   question_count?: number;
   created_by_name?: string;
+  questions?: QuestionShape[];
 };
 
 type QAssigned = {
@@ -20,6 +30,8 @@ type QAssigned = {
   description?: string;
   frequency?: string;
   dates?: string[];
+  question_count?: number;
+  questions?: QuestionShape[];
 };
 
 interface QuestionnairePanelData {
@@ -43,6 +55,54 @@ interface QuestionnairePanelProps {
 const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
   const { openAddQ, openModifyQ, removeQ, openBuilder } = actions;
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+
+  const pickText = (translations?: QuestionTranslation[]) => {
+    if (!Array.isArray(translations) || !translations.length) return '';
+    return translations.find((tr) => tr.language === 'en')?.text || translations[0]?.text || '';
+  };
+
+  const findSourceQuestions = (id: string): QuestionShape[] => {
+    const fromCatalog = questionnaires.find((q) => q._id === id)?.questions;
+    if (Array.isArray(fromCatalog) && fromCatalog.length) return fromCatalog;
+    const fromAssigned = assignedQuestionnaires.find((q) => q._id === id)?.questions;
+    return Array.isArray(fromAssigned) ? fromAssigned : [];
+  };
+
+  const renderQuestions = (id: string) => {
+    if (!expanded[id]) return null;
+    const questions = findSourceQuestions(id);
+    if (!questions.length) {
+      return <div className="small text-muted mt-2">{t('No questions found')}</div>;
+    }
+
+    return (
+      <div className="mt-2 small">
+        {questions.map((question, index) => {
+          const title = pickText(question.translations) || question.questionKey;
+          const options = (question.possibleAnswers || [])
+            .map((option) => pickText(option.translations) || option.key)
+            .filter(Boolean);
+
+          return (
+            <div key={`${id}-${question.questionKey}-${index}`} className="mb-2">
+              <div className="fw-semibold">
+                {index + 1}. {title}
+              </div>
+              <div className="text-muted">
+                {t('Type')}: {question.answerType || 'text'}
+              </div>
+              {options.length ? (
+                <div className="text-muted">
+                  {t('Answers')}: {options.join(', ')}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <Row className="rehab-row">
@@ -79,9 +139,16 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                           {t('Questions')}: {q.question_count}
                         </div>
                       )}
+                      {renderQuestions(q._id)}
                     </div>
                     <div>
                       <ButtonGroup size="sm" vertical>
+                        <Button
+                          variant="outline-primary"
+                          onClick={() => setExpanded((prev) => ({ ...prev, [q._id]: !prev[q._id] }))}
+                        >
+                          <FaEye />
+                        </Button>
                         {isAlready ? (
                           <>
                             <Button variant="outline-secondary" onClick={() => openModifyQ(q)}>
@@ -125,14 +192,26 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                     <div className="small text-muted">
                       {t('Frequency')}: {a.frequency || '—'}
                     </div>
+                    {a.question_count != null ? (
+                      <div className="small text-muted">
+                        {t('Questions')}: {a.question_count}
+                      </div>
+                    ) : null}
                     {a.dates?.length ? (
                       <div className="small text-muted">
                         {t('Next on')}: {new Date(a.dates[0]).toLocaleDateString()}
                       </div>
                     ) : null}
+                    {renderQuestions(a._id)}
                   </div>
                   <div>
                     <ButtonGroup size="sm">
+                      <Button
+                        variant="outline-primary"
+                        onClick={() => setExpanded((prev) => ({ ...prev, [a._id]: !prev[a._id] }))}
+                      >
+                        <FaEye />
+                      </Button>
                       <Button
                         variant="outline-secondary"
                         onClick={() =>

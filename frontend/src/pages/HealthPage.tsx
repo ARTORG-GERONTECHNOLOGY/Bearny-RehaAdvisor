@@ -220,17 +220,45 @@ const HealthPage: React.FC = observer(() => {
     if (selections.questionnaire) {
       const rows: (string | number)[][] = [];
       for (const e of qIn) {
-        if (!store.visibleQuestions[e.questionKey]) continue;
+        const questionText =
+          e.questionTranslations?.find((x) => x.language === i18n.language)?.text ||
+          e.questionTranslations?.find((x) => x.language === 'en')?.text ||
+          '';
 
-        const key = e.answers?.[0]?.key ?? '';
-        const text =
-          e.answers?.[0]?.translations?.find((x) => x.language === i18n.language)?.text ||
-          e.answers?.[0]?.translations?.find((x) => x.language === 'en')?.text ||
-          key;
+        const answerKeys = (e.answers || []).map((a) => a.key).filter(Boolean);
+        const answerTexts = (e.answers || [])
+          .map((a) => {
+            const text =
+              a.translations?.find((x) => x.language === i18n.language)?.text ||
+              a.translations?.find((x) => x.language === 'en')?.text ||
+              a.key;
+            return String(text || '');
+          })
+          .filter(Boolean);
+        const mediaUrls = (e.media_urls || []).filter(Boolean);
 
-        rows.push([toEuroDate(e.date.slice(0, 10)), e.questionKey, key, text]);
+        rows.push([
+          toEuroDate(e.date.slice(0, 10)),
+          e.questionKey,
+          questionText,
+          answerKeys.join(' | '),
+          answerTexts.join(' | '),
+          e.comment || '',
+          mediaUrls.join(' | '),
+        ]);
       }
-      csv += emitRows2(['Date', 'Question Key', 'Answer Key', 'Answer Text'], rows);
+      csv += emitRows2(
+        [
+          'Date',
+          'Question Key',
+          'Question Text',
+          'Answer Keys',
+          'Answer Texts',
+          'Comment',
+          'Media URLs',
+        ],
+        rows
+      );
     }
 
     // Helper scalar

@@ -95,4 +95,81 @@ test.describe('Therapist rehab table questionnaires', () => {
 
     test.skip(true, 'No questionnaire action button available in seeded data.');
   });
+
+  test('therapist can view questionnaire questions and answer options', async ({ page }) => {
+    skipUnlessSeeded(test);
+
+    await page.route('**/questionnaires/health/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'q_mood',
+            key: '16_profile_mood',
+            title: 'Mood Check',
+            description: '',
+            question_count: 2,
+            created_by_name: 'System',
+            questions: [
+              {
+                questionKey: '16_profile_mood_1',
+                answerType: 'select',
+                translations: [{ language: 'en', text: 'How is your mood today?' }],
+                possibleAnswers: [
+                  { key: '1', translations: [{ language: 'en', text: 'Bad' }] },
+                  { key: '2', translations: [{ language: 'en', text: 'Okay' }] },
+                  { key: '3', translations: [{ language: 'en', text: 'Good' }] },
+                ],
+              },
+              {
+                questionKey: '16_profile_mood_2',
+                answerType: 'text',
+                translations: [{ language: 'en', text: 'Any additional notes?' }],
+                possibleAnswers: [],
+              },
+            ],
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/questionnaires/patient/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'q_mood',
+            title: 'Mood Check',
+            frequency: 'Monthly',
+            dates: ['2026-04-20T08:00:00Z'],
+            question_count: 2,
+            questions: [
+              {
+                questionKey: '16_profile_mood_1',
+                answerType: 'select',
+                translations: [{ language: 'en', text: 'How is your mood today?' }],
+                possibleAnswers: [
+                  { key: '1', translations: [{ language: 'en', text: 'Bad' }] },
+                  { key: '2', translations: [{ language: 'en', text: 'Okay' }] },
+                ],
+              },
+            ],
+          },
+        ]),
+      });
+    });
+
+    await page.goto('/rehabtable');
+    await page.getByRole('tab', { name: /questionnaires/i }).click();
+
+    await expect(page.getByText('Mood Check')).toBeVisible();
+
+    const availableCard = page.locator('div.border.rounded').filter({ hasText: 'Mood Check' }).first();
+    await availableCard.locator('button.btn-outline-primary').first().click();
+
+    await expect(page.getByText('How is your mood today?')).toBeVisible();
+    await expect(page.getByText('Answers: Bad, Okay, Good')).toBeVisible();
+  });
 });

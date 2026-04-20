@@ -28,6 +28,10 @@ export interface QuestionnaireEntry {
   questionKey: string;
   answers: { key: string; translations?: { language: string; text: string }[] }[];
   questionTranslations: { language: string; text: string }[];
+  comment?: string;
+  audio_url?: string | null;
+  media_urls?: string[];
+  answerType?: string;
 }
 
 export type ChartRes = 'daily' | 'weekly' | 'monthly';

@@ -773,14 +773,63 @@ def health_combined_history(request, patient_id):
 
         questionnaire_list = []
         for q in q_qs:
-            questionnaire_list.append(
-                {
-                    "date": q.date.date().isoformat(),
-                    "questionKey": q.icfCode,
-                    "answers": q.feedback_entries,
-                    "questionTranslations": q.question_translations,
-                }
-            )
+            entries = list(getattr(q, "feedback_entries", None) or [])
+            if not entries:
+                questionnaire_list.append(
+                    {
+                        "date": q.date.date().isoformat(),
+                        "questionKey": q.icfCode,
+                        "answers": [],
+                        "questionTranslations": [],
+                        "comment": "",
+                        "audio_url": None,
+                        "media_urls": [],
+                    }
+                )
+                continue
+
+            for entry in entries:
+                parsed_answers = []
+                for ans in (getattr(entry, "answerKey", None) or []):
+                    if hasattr(ans, "key"):
+                        parsed_answers.append(
+                            {
+                                "key": ans.key,
+                                "translations": [
+                                    {"language": tr.language, "text": tr.text}
+                                    for tr in (getattr(ans, "translations", None) or [])
+                                ],
+                            }
+                        )
+                    else:
+                        parsed_answers.append(
+                            {"key": str(ans), "translations": [{"language": "en", "text": str(ans)}]}
+                        )
+
+                question_obj = getattr(entry, "questionId", None)
+                question_key = (
+                    getattr(question_obj, "questionKey", None)
+                    or getattr(q, "icfCode", None)
+                    or ""
+                )
+                question_translations = [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in (getattr(question_obj, "translations", None) or [])
+                ]
+                audio_url = getattr(entry, "audio_url", None)
+                media_urls = [audio_url] if audio_url else []
+
+                questionnaire_list.append(
+                    {
+                        "date": q.date.date().isoformat(),
+                        "questionKey": question_key,
+                        "answers": parsed_answers,
+                        "questionTranslations": question_translations,
+                        "comment": getattr(entry, "comment", "") or "",
+                        "audio_url": audio_url,
+                        "media_urls": media_urls,
+                    }
+                )
 
         # -------------------------
         # 6) Adherence data

@@ -14,10 +14,10 @@ This document describes tests in
 | `/api/fitbit/health-data/<patient_id>/` | GET | 3 |
 | `/api/fitbit/manual_steps/<patient_id>/` | POST/GET | 5 |
 | `/api/fitbit/summary/(<patient_id>/)` | GET | 3 |
-| `health_combined_history(<patient_id>)` | GET (direct view test) | 5 |
+| `health_combined_history(<patient_id>)` | GET (direct view test) | 6 |
 | Helper functions | N/A | 5 |
 
-**Total: 30 tests**
+**Total: 31 tests**
 
 ---
 
@@ -45,6 +45,7 @@ This document describes tests in
   - invalid `from/to` input error branch
   - **`wear_time_minutes` and `minutes_asleep` present in FitbitEntry when recorded**
   - **`wear_time_minutes` and `minutes_asleep` are `null` in FitbitEntry when not recorded**
+  - **questionnaire rows expose export-ready fields: `comment`, `audio_url`, `media_urls`, and normalized answer arrays**
 - Health-data endpoint:
   - **`minutes_asleep` returned in `sleep` object (actual sleep vs time-in-bed)**
 - Helpers: threshold defaults/merge, averaging utility, patient resolver, sleep-minute conversion, and `_date`.
