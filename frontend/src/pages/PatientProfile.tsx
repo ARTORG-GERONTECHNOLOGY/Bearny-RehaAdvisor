@@ -203,24 +203,24 @@ const PatientProfile: React.FC = observer(() => {
                 {t('Research Project Contact')}
               </div>
               {config.contact.email && (
-                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                <Badge variant="card">
                   <a
                     href={`mailto:${config.contact.email}`}
                     className="flex items-center gap-1 no-underline text-[#00956C]"
                   >
                     <Mail className="w-4 h-4" />
-                    <span className="font-medium">{config.contact.email}</span>
+                    <span>{config.contact.email}</span>
                   </a>
                 </Badge>
               )}
               {config.contact.phone && (
-                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                <Badge variant="card">
                   <a
                     href={`tel:${config.contact.phone}`}
                     className="flex items-center gap-1 no-underline text-[#00956C]"
                   >
                     <Phone className="w-4 h-4" />
-                    <span className="font-medium">{config.contact.phone}</span>
+                    <span>{config.contact.phone}</span>
                   </a>
                 </Badge>
               )}

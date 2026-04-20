@@ -145,9 +145,7 @@ const PatientProcess: React.FC = observer(() => {
             <Badge
               key={value}
               onClick={() => setProcessFilter(value)}
-              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
-                processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-              }`}
+              variant={processFilter === value ? 'filter-active' : 'filter-inactive'}
               role="button"
               aria-pressed={processFilter === value}
               aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}

@@ -106,9 +106,7 @@ const PatientPlan: React.FC = observer(() => {
             <Badge
               key={value}
               onClick={() => setDayFilter(value)}
-              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
-                dayFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-              }`}
+              variant={dayFilter === value ? 'filter-active' : 'filter-inactive'}
               role="button"
               aria-pressed={dayFilter === value}
               aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
