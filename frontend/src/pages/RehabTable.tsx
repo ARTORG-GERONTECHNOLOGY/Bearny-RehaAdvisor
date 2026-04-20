@@ -84,6 +84,19 @@ type QAssigned = {
       translations?: Array<{ language: string; text: string }>;
     }>;
   }>;
+  answered_entries?: Array<{
+    questionKey: string;
+    questionTranslations?: Array<{ language: string; text: string }>;
+    answerType?: string;
+    answers?: Array<{
+      key: string;
+      translations?: Array<{ language: string; text: string }>;
+    }>;
+    comment?: string;
+    audio_url?: string | null;
+    media_urls?: string[];
+    answered_at?: string | null;
+  }>;
 };
 
 const RehabTable: React.FC = observer(() => {
