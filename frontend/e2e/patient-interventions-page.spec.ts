@@ -12,7 +12,7 @@ async function loginAsSeededPatient(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /login/i }).first().click();
 
-  const modal = page.locator('.modal.show');
+  const modal = page.locator('[role="dialog"][data-state="open"]');
   await expect(modal).toBeVisible();
 
   await modal.locator('#email').fill(patientLogin as string);

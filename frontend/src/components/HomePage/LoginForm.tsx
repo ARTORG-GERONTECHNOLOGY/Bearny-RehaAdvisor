@@ -1,17 +1,25 @@
 // components/HomePage/LoginForm.tsx
 import React, { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Modal, Button, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import authStore from '../../stores/authStore';
-import apiClient from '../../api/client';
-import handleApiError from '../../utils/errorHandler';
-import InputField from '../forms/input/InputField';
-import PasswordField from '../forms/input/PasswordField';
-import ForgotPasswordLink from '../common/ForgotPasswordLink';
-import ErrorAlert from '../common/ErrorAlert';
-import InfoBubble from '../common/InfoBubble';
+import authStore from '@/stores/authStore';
+import apiClient from '@/api/client';
+import handleApiError from '@/utils/errorHandler';
+import InputField from '@/components/forms/input/InputField';
+import OTPField from '@/components/forms/input/OTPField';
+import PasswordField from '@/components/forms/input/PasswordField';
+import ForgotPasswordLink from '@/components//common/ForgotPasswordLink';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import { FieldGroup } from '@/components/ui/field';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 interface Props {
   show: boolean;
@@ -22,14 +30,12 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [showPassword, setShowPassword] = useState(false);
   const [is2FARequired, setIs2FARequired] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     authStore.reset();
-    setShowPassword(false);
     setIs2FARequired(false);
     setVerificationCode('');
     setError(null);
@@ -60,7 +66,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
         setIs2FARequired(true);
         try {
           await apiClient.post('/auth/send-verification-code/', { userId: authStore.id });
-        } catch (err) {
+        } catch {
           setError(t('Login succeeded but failed to send verification code.'));
         }
       } else if (utype === 'patient') {
@@ -100,81 +106,67 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   };
 
   return (
-    <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" keyboard={false}>
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Login')}</Modal.Title>
-      </Modal.Header>
+    <Sheet open={show} onOpenChange={onClose}>
+      <SheetContent side="bottom" className="flex flex-col">
+        <SheetHeader>
+          <SheetTitle>{t('Login')}</SheetTitle>
+          {is2FARequired && (
+            <SheetDescription>{t('Entertheverificationcodesenttoyourphone')}</SheetDescription>
+          )}
+        </SheetHeader>
 
-      <Modal.Body>
-        {!is2FARequired ? (
-          <Form onSubmit={submitCredentials}>
-            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+        <div className="w-full max-w-sm mx-auto">
+          {!is2FARequired ? (
+            <form onSubmit={submitCredentials}>
+              {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
-            <InputField
-              id="email"
-              label={
-                <>
-                  {t('Email or Patient ID')}
-                  <InfoBubble
-                    tooltip={t(
-                      'Use your registered email (therapist/admin/researcher) or patient ID.'
-                    )}
-                  />
-                </>
-              }
-              type="text"
-              value={authStore.email}
-              onChange={(e) => authStore.setEmail(e.target.value)}
-              placeholder={t('Enter email or patient ID')}
-              required
-            />
+              <FieldGroup>
+                <InputField
+                  id="email"
+                  label={t('Email or Patient ID')}
+                  type="text"
+                  value={authStore.email}
+                  onChange={(e) => authStore.setEmail(e.target.value)}
+                  placeholder={t('Enter email or patient ID')}
+                  autoComplete="username"
+                />
+                <PasswordField
+                  id="password"
+                  label={t('Password')}
+                  value={authStore.password}
+                  onChange={(e) => authStore.setPassword(e.target.value)}
+                  placeholder={t('Enter your password')}
+                  required
+                />
+                <Button type="submit">{t('Login')}</Button>
+              </FieldGroup>
 
-            <PasswordField
-              id="password"
-              value={authStore.password}
-              onChange={(e) => authStore.setPassword(e.target.value)}
-              showPassword={showPassword}
-              onToggle={() => setShowPassword((s) => !s)}
-              pagetype="regular"
-              required
-            />
+              <ForgotPasswordLink
+                onClick={() => navigate('/forgottenpwd')}
+                text={t('Need help recovering your account?')}
+              />
+            </form>
+          ) : (
+            <form onSubmit={submit2FA}>
+              {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
-            <ForgotPasswordLink
-              onClick={() => navigate('/forgottenpwd')}
-              text={t('Need help recovering your account?')}
-            />
-
-            {authStore.loginError && (
-              <div className="alert alert-danger mt-3">{authStore.loginError}</div>
-            )}
-
-            <Button type="submit" variant="primary" className="mt-3 w-100">
-              {t('Login')}
-            </Button>
-          </Form>
-        ) : (
-          <Form onSubmit={submit2FA}>
-            {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-
-            <h5 className="mb-3">{t('Entertheverificationcodesenttoyourphone')}</h5>
-
-            <InputField
-              id="verificationCode"
-              label={t('VerificationCode')}
-              type="text"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder={t('Enterverificationcode')}
-              required
-            />
-
-            <Button type="submit" variant="success" className="mt-3 w-100">
-              {t('SubmitCode')}
-            </Button>
-          </Form>
-        )}
-      </Modal.Body>
-    </Modal>
+              <FieldGroup className="mt-8">
+                <OTPField
+                  id="verificationCode"
+                  label={t('VerificationCode')}
+                  value={verificationCode}
+                  onChange={setVerificationCode}
+                  required
+                />
+                <Button type="submit" className="mb-16">
+                  {t('SubmitCode')}
+                </Button>
+              </FieldGroup>
+            </form>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 

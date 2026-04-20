@@ -1,3 +1,6 @@
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+
 interface InputFieldProps {
   id: string;
   label: string;
@@ -5,6 +8,8 @@ interface InputFieldProps {
   value: string;
   placeholder: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  required?: boolean;
+  autoComplete?: string;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -14,20 +19,24 @@ const InputField: React.FC<InputFieldProps> = ({
   value,
   placeholder,
   onChange,
+  required = true,
+  autoComplete,
 }) => (
-  <div className="mb-3">
-    <label htmlFor={id} className="form-label">
-      {label}
-    </label>
-    <input
-      type={type}
-      className="form-control"
+  <Field>
+    <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <Input
       id={id}
+      type={type}
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      required
+      required={required}
+      autoComplete={autoComplete}
+      aria-required={required}
+      aria-label={label}
+      className="bg-zinc-100 shadow-none"
     />
-  </div>
+  </Field>
 );
+
 export default InputField;

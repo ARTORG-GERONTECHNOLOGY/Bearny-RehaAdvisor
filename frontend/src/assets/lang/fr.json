@@ -304,6 +304,8 @@
   "Email or Patient ID": "Email ou ID du patient",
   "Use your registered email (therapist) or patient ID.": "Utilisez votre e-mail enregistré (thérapeute) ou l'ID du patient.",
   "Register (Only for Therapists)": "Inscription (Uniquement pour les thérapeutes)",
+  "Enter email or patient ID": "Entrez l'email ou l'ID du patient",
+  "Enter your password": "Entrez votre mot de passe",
   "No transcription.": "Pas de transcription.",
   "Original audio (no translation)": "Audio original (sans traduction)",
   "Content type is required.": "Le type de contenu est requis.",
