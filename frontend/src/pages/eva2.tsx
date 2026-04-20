@@ -897,7 +897,9 @@ export default function HealthSlider() {
       )}
 
       <div style={styles.questionHeader}>
-        <h1 style={styles.title}>{isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}</h1>
+        <h1 style={styles.title}>
+          {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
+        </h1>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
           <button
