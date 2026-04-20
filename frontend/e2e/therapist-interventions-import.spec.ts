@@ -52,7 +52,6 @@ async function getToken(request: APIRequestContext): Promise<string> {
   return body.access_token as string;
 }
 
-
 async function openImportModal(page: Parameters<Parameters<typeof test>[1]>[0]) {
   await page.goto('/interventions');
   const importBtn = page

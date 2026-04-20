@@ -18,7 +18,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-
 test.describe('Therapist questionnaire builder full flow', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
