@@ -20,6 +20,7 @@ from core.models import (
     FeedbackQuestion,
     HealthQuestionnaire,
     Patient,
+    PatientICFRating,
     QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
@@ -140,6 +141,18 @@ def _serialize_question_for_payload(question: FeedbackQuestion) -> Dict[str, Any
             for opt in (getattr(question, "possibleAnswers", None) or [])
         ],
     }
+
+
+def _serialize_answer_option(opt: Any) -> Dict[str, Any]:
+    if hasattr(opt, "key"):
+        return {
+            "key": str(getattr(opt, "key", "")),
+            "translations": [
+                {"language": tr.language, "text": tr.text}
+                for tr in (getattr(opt, "translations", None) or [])
+            ],
+        }
+    return {"key": str(opt), "translations": [{"language": "en", "text": str(opt)}]}
 
 
 def _serialize_health_questionnaire(q: HealthQuestionnaire) -> Dict[str, Any]:
@@ -561,6 +574,9 @@ def list_patient_questionnaires(request, patient_id):
         if not plan:
             return JsonResponse([], safe=False, status=200)
 
+        now = timezone.now()
+        ratings = list(PatientICFRating.objects(patientId=patient).order_by("-date"))
+
         out = []
         for a in plan.questionnaires or []:
             qdoc = getattr(a, "questionnaireId", None)
@@ -571,6 +587,43 @@ def list_patient_questionnaires(request, patient_id):
                 # infer from dates if needed
                 freq = _infer_frequency_from_dates(a.dates or [])
             questions = [qq for qq in (getattr(qdoc, "questions", None) or []) if qq]
+            question_ids = {str(qq.id) for qq in questions if getattr(qq, "id", None)}
+
+            answered_entries = []
+            for rating in ratings:
+                rating_date = getattr(rating, "date", None)
+                for entry in (getattr(rating, "feedback_entries", None) or []):
+                    qref = getattr(entry, "questionId", None)
+                    qid = str(getattr(qref, "id", qref)) if qref else ""
+                    if qid not in question_ids:
+                        continue
+
+                    q_trans = [
+                        {"language": tr.language, "text": tr.text}
+                        for tr in (getattr(qref, "translations", None) or [])
+                    ]
+                    answers = [_serialize_answer_option(ans) for ans in (getattr(entry, "answerKey", None) or [])]
+                    audio_url = getattr(entry, "audio_url", None)
+                    media_urls = [audio_url] if audio_url else []
+                    answered_at = getattr(entry, "date", None) or rating_date
+                    if answered_at and timezone.is_naive(answered_at):
+                        answered_at = timezone.make_aware(answered_at, timezone.get_current_timezone())
+                    if answered_at and answered_at > now:
+                        continue
+
+                    answered_entries.append(
+                        {
+                            "questionKey": getattr(qref, "questionKey", "") or "",
+                            "questionTranslations": q_trans,
+                            "answerType": getattr(qref, "answer_type", None) or "text",
+                            "answers": answers,
+                            "comment": getattr(entry, "comment", "") or "",
+                            "audio_url": audio_url,
+                            "media_urls": media_urls,
+                            "answered_at": answered_at.isoformat() if answered_at else None,
+                        }
+                    )
+
             out.append(
                 {
                     "_id": str(qdoc.id),
@@ -580,6 +633,7 @@ def list_patient_questionnaires(request, patient_id):
                     "dates": [d.isoformat() for d in (a.dates or [])],
                     "question_count": len(questions),
                     "questions": [_serialize_question_for_payload(qq) for qq in questions],
+                    "answered_entries": answered_entries,
                 }
             )
         return JsonResponse(out, safe=False, status=200)

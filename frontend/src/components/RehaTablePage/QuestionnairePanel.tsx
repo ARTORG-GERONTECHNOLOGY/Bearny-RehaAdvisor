@@ -32,6 +32,16 @@ type QAssigned = {
   dates?: string[];
   question_count?: number;
   questions?: QuestionShape[];
+  answered_entries?: Array<{
+    questionKey: string;
+    questionTranslations?: QuestionTranslation[];
+    answerType?: string;
+    answers?: Array<{ key: string; translations?: QuestionTranslation[] }>;
+    comment?: string;
+    audio_url?: string | null;
+    media_urls?: string[];
+    answered_at?: string | null;
+  }>;
 };
 
 interface QuestionnairePanelData {
@@ -106,6 +116,57 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  const renderAnsweredEntries = (a: QAssigned) => {
+    const rows = Array.isArray(a.answered_entries) ? a.answered_entries : [];
+    if (!rows.length) return null;
+
+    const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+      const day = String(row.answered_at || '').slice(0, 10) || t('Unknown date');
+      if (!acc[day]) acc[day] = [];
+      acc[day].push(row);
+      return acc;
+    }, {});
+
+    const days = Object.keys(grouped).sort((x, y) => y.localeCompare(x));
+
+    return (
+      <div className="mt-2 small border-top pt-2">
+        <div className="fw-semibold mb-1">{t('Answered results')}</div>
+        {days.map((day) => (
+          <div key={`${a._id}-${day}`} className="mb-2">
+            <div className="text-muted fw-semibold">
+              {t('Date')}: {day}
+            </div>
+            {grouped[day].map((entry, idx) => {
+              const qText =
+                pickText(entry.questionTranslations) || entry.questionKey || t('Unknown question');
+              const answers = (entry.answers || [])
+                .map((ans) => pickText(ans.translations) || ans.key)
+                .filter(Boolean)
+                .join(', ');
+              return (
+                <div key={`${a._id}-${day}-${entry.questionKey}-${idx}`} className="ms-2">
+                  <div className="fw-semibold">{qText}</div>
+                  <div className="text-muted">
+                    {t('Type')}: {entry.answerType || 'text'}
+                  </div>
+                  <div className="text-muted">
+                    {t('Answers')}: {answers || '—'}
+                  </div>
+                  {entry.comment ? (
+                    <div className="text-muted">
+                      {t('Comment')}: {entry.comment}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     );
   };
@@ -206,6 +267,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                       </div>
                     ) : null}
                     {renderQuestions(a._id, 'assigned')}
+                    {renderAnsweredEntries(a)}
                   </div>
                   <div>
                     <ButtonGroup size="sm">

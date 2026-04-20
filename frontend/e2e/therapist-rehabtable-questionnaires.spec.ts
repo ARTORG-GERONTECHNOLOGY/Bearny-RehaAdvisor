@@ -175,4 +175,60 @@ test.describe('Therapist rehab table questionnaires', () => {
     await expect(page.getByText('How is your mood today?')).toBeVisible();
     await expect(page.getByText('Answers: Bad, Okay, Good')).toBeVisible();
   });
+
+  test('assigned questionnaires show answered results when available', async ({ page }) => {
+    skipUnlessSeeded(test);
+
+    await page.route('**/questionnaires/health/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'q_profile',
+            key: '16_profile',
+            title: 'Profile (16)',
+            description: '',
+            question_count: 1,
+            created_by_name: 'System',
+            questions: [],
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/questionnaires/patient/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'q_profile',
+            title: 'Profile (16)',
+            frequency: 'Monthly',
+            dates: ['2026-04-20T08:00:00Z'],
+            question_count: 1,
+            questions: [],
+            answered_entries: [
+              {
+                questionKey: '16_profile_q1',
+                questionTranslations: [{ language: 'en', text: 'How are you today?' }],
+                answerType: 'select',
+                answers: [{ key: '2', translations: [{ language: 'en', text: 'Good' }] }],
+                comment: 'Felt better.',
+                answered_at: '2026-04-19T12:00:00Z',
+              },
+            ],
+          },
+        ]),
+      });
+    });
+
+    await page.goto('/rehabtable');
+    await page.getByRole('tab', { name: /questionnaires/i }).click();
+
+    await expect(page.getByText('Answered results')).toBeVisible();
+    await expect(page.getByText('How are you today?')).toBeVisible();
+    await expect(page.getByText(/Comment: Felt better\./)).toBeVisible();
+  });
 });

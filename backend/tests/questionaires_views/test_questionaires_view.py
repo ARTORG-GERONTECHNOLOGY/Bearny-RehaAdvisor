@@ -7,11 +7,16 @@ from bson import ObjectId
 from django.test import Client
 
 from core.models import (
+    AnswerOption,
+    FeedbackEntry,
     FeedbackQuestion,
     HealthQuestionnaire,
     Patient,
+    PatientICFRating,
+    QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
+    Translation,
     User,
 )
 from core.views.questionaires_view import (
@@ -383,3 +388,61 @@ def test_assign_questionnaire_modify_merges_dates_from_effective_from():
     assert out[0]["dates"][0].startswith("2026-01-01T")
     assert out[0]["dates"][1].startswith("2026-01-02T")
     assert out[0]["dates"][2].startswith("2026-01-03T")
+
+
+def test_list_patient_questionnaires_includes_answered_entries_for_assigned_questions():
+    th, p = make_patient_graph()
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey=f"16_profile_{ObjectId()}",
+        answer_type="select",
+        translations=[Translation(language="en", text="How are you today?")],
+        possibleAnswers=[
+            AnswerOption(key="1", translations=[Translation(language="en", text="Bad")]),
+            AnswerOption(key="2", translations=[Translation(language="en", text="Good")]),
+        ],
+    ).save()
+
+    hq = HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[q1]).save()
+    RehabilitationPlan(
+        patientId=p,
+        therapistId=th,
+        startDate=datetime.now(),
+        endDate=datetime.now(),
+        status="active",
+        questionnaires=[
+            QuestionnaireAssignment(
+                questionnaireId=hq,
+                frequency="Monthly",
+                dates=[datetime(2026, 2, 1, 9, 0, 0)],
+                notes="",
+            )
+        ],
+    ).save()
+
+    entry = FeedbackEntry(
+        questionId=q1,
+        answerKey=[AnswerOption(key="2", translations=[Translation(language="en", text="Good")])],
+        comment="Felt better.",
+        date=datetime(2026, 2, 1, 10, 0, 0),
+    )
+    PatientICFRating(
+        questionId=q1,
+        patientId=p,
+        icfCode=q1.icfCode or "d450",
+        date=datetime(2026, 2, 1, 10, 0, 0),
+        rating=2,
+        feedback_entries=[entry],
+        notes="",
+    ).save()
+
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    out = r.json()
+    assert len(out) == 1
+    assert "answered_entries" in out[0]
+    assert len(out[0]["answered_entries"]) == 1
+    answered = out[0]["answered_entries"][0]
+    assert answered["questionKey"] == q1.questionKey
+    assert answered["answers"][0]["key"] == "2"
+    assert answered["comment"] == "Felt better."
