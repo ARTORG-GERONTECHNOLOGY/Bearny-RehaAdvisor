@@ -18,7 +18,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-
 test.describe('Therapist rehab table questionnaires', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
