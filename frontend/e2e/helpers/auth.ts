@@ -15,6 +15,13 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const password = process.env.E2E_THERAPIST_PASSWORD as string;
   const emailDir = process.env.E2E_EMAIL_DIR;
 
+  if (!emailDir) {
+    throw new Error(
+      'E2E_EMAIL_DIR is not set. Set it to a directory path and start Django with the same env var ' +
+        'so it writes verification emails as files instead of sending via SMTP.',
+    );
+  }
+
   await page.goto('/');
   await page.getByRole('button', { name: /login/i }).first().click();
 
@@ -25,14 +32,15 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   await modal.locator('#password').fill(password);
 
   // Snapshot files already present so we can detect the new one after login
-  const existingFiles = emailDir ? new Set(readEmailFiles(emailDir)) : new Set<string>();
+  const existingFiles = new Set(readEmailFiles(emailDir));
 
   const loginResponsePromise = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
+    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST',
   );
   const codeSentPromise = page.waitForResponse(
     (res) =>
-      res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST'
+      res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST',
+    { timeout: 15_000 },
   );
 
   await modal.getByRole('button', { name: /login/i }).click();
@@ -49,13 +57,6 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
 
   // 2FA required — wait for the verification email to be sent
   await codeSentPromise;
-
-  if (!emailDir) {
-    throw new Error(
-      'E2E_EMAIL_DIR is not set. Cannot read verification code. ' +
-        'Set E2E_EMAIL_DIR to the directory where Django writes email files.'
-    );
-  }
 
   const code = await waitForVerificationCode(emailDir, existingFiles);
 
