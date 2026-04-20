@@ -896,42 +896,40 @@ export default function HealthSlider() {
         </div>
       )}
 
-      <div style={isPracticeMode ? styles.questionHeaderCentered : styles.questionHeader}>
-        <h1 style={isPracticeMode ? styles.titleCentered : styles.title}>
+      <div style={styles.questionHeader}>
+        <h1 style={styles.title}>
           {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
         </h1>
 
-        {!isPracticeMode && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => setDingActive((v) => !v)}
-              style={{
-                ...styles.audioBtn,
-                background: dingActive ? '#9d8d71' : '#fff',
-                color: dingActive ? '#fff' : '#000',
-              }}
-              aria-label={dingActive ? 'Ton an' : 'Ton aus'}
-              title={dingActive ? 'Ton an' : 'Ton aus'}
-            >
-              {dingActive ? (
-                <BellFill size={isMobile ? 30 : 36} />
-              ) : (
-                <BellSlashFill size={isMobile ? 30 : 36} />
-              )}
-            </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setDingActive((v) => !v)}
+            style={{
+              ...styles.audioBtn,
+              background: dingActive ? '#9d8d71' : '#fff',
+              color: dingActive ? '#fff' : '#000',
+            }}
+            aria-label={dingActive ? 'Ton an' : 'Ton aus'}
+            title={dingActive ? 'Ton an' : 'Ton aus'}
+          >
+            {dingActive ? (
+              <BellFill size={isMobile ? 30 : 36} />
+            ) : (
+              <BellSlashFill size={isMobile ? 30 : 36} />
+            )}
+          </button>
 
-            <button
-              type="button"
-              onClick={playItemAudio}
-              style={{ ...styles.audioBtn, background: '#9bb0e6', color: '#0f1a2a' }}
-              aria-label="Frage abspielen"
-              title="Frage abspielen"
-            >
-              <PlayFill size={isMobile ? 30 : 36} />
-            </button>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={playItemAudio}
+            style={{ ...styles.audioBtn, background: '#9bb0e6', color: '#0f1a2a' }}
+            aria-label="Frage abspielen"
+            title="Frage abspielen"
+          >
+            <PlayFill size={isMobile ? 30 : 36} />
+          </button>
+        </div>
       </div>
 
       {!showSummary ? (
@@ -1119,17 +1117,17 @@ export default function HealthSlider() {
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
+    width: '100%',
     minHeight: '100dvh',
-    height: '100dvh',
     background: '#f6f4f0',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    boxSizing: 'border-box',
+    overflowX: 'hidden',
     padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
     fontFamily: 'sans-serif',
     color: '#1f1f1f',
-    maxWidth: 980,
-    margin: '0 auto',
   },
 
   practiceBanner: {
@@ -1177,7 +1175,7 @@ const styles: Record<string, React.CSSProperties> = {
   questionHeader: {
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '1fr auto',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: 10,
     alignItems: 'start',
     marginTop: 6,
@@ -1192,6 +1190,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   title: {
+    minWidth: 0,
     margin: '10px 0 6px',
     fontSize: 'clamp(18px, 4.8vw, 32px)',
     lineHeight: 1.25,

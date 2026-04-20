@@ -363,7 +363,7 @@ describe('HealthSlider (Full Sync)', () => {
   });
 
   // ─── Centering ────────────────────────────────────────────────────────────
-  it('practice mode: question text is centered and Start button is visible', async () => {
+  it('practice mode: Start button is visible and bell/play buttons are available', async () => {
     render(<HealthSlider />);
     await enterPatientId();
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
@@ -376,9 +376,9 @@ describe('HealthSlider (Full Sync)', () => {
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Weiter' })).not.toBeInTheDocument();
 
-    // Bell and play buttons are NOT shown in practice mode
-    expect(screen.queryByRole('button', { name: /Ton an|Ton aus/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Frage abspielen/i })).not.toBeInTheDocument();
+    // Bell and play buttons are shown in practice mode
+    expect(screen.getByRole('button', { name: /Ton an|Ton aus/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Frage abspielen/i })).toBeInTheDocument();
   });
 
   it('real mode: bell and play buttons appear after Start', async () => {
