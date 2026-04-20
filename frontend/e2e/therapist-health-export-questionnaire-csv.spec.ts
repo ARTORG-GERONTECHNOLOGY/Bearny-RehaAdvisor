@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+
+import { loginAsTherapist } from './helpers/auth';
 import { readFile } from 'node:fs/promises';
 
 function creds() {
@@ -17,26 +19,6 @@ function skipUnlessSeeded(t: typeof test) {
   );
 }
 
-async function loginAsTherapist(page: Page) {
-  const { login, password } = creds();
-
-  await page.goto('/');
-  await page.getByRole('button', { name: /login/i }).first().click();
-
-  const modal = page.locator('[role="dialog"][data-state="open"]');
-  await expect(modal).toBeVisible();
-
-  await modal.locator('#email').fill(login as string);
-  await modal.locator('#password').fill(password as string);
-
-  const loginDone = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-  );
-
-  await modal.getByRole('button', { name: /login/i }).click();
-  await loginDone;
-  await expect(page).toHaveURL(/\/therapist/);
-}
 
 test.describe('Therapist health CSV export', () => {
   test.beforeEach(async ({ page }) => {
