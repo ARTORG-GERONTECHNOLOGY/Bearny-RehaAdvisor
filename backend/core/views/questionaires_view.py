@@ -123,6 +123,27 @@ def _resolve_creator_name(q: HealthQuestionnaire) -> str:
         return "Unknown"
 
 
+def _serialize_question_for_payload(question: FeedbackQuestion) -> Dict[str, Any]:
+    return {
+        "questionKey": question.questionKey,
+        "answerType": question.answer_type,
+        "translations": [
+            {"language": tr.language, "text": tr.text}
+            for tr in (getattr(question, "translations", None) or [])
+        ],
+        "possibleAnswers": [
+            {
+                "key": opt.key,
+                "translations": [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in (getattr(opt, "translations", None) or [])
+                ],
+            }
+            for opt in (getattr(question, "possibleAnswers", None) or [])
+        ],
+    }
+
+
 def _serialize_health_questionnaire(q: HealthQuestionnaire) -> Dict[str, Any]:
     created_by_user_id = None
     try:
@@ -132,13 +153,15 @@ def _serialize_health_questionnaire(q: HealthQuestionnaire) -> Dict[str, Any]:
     except Exception:
         created_by_user_id = None
 
+    questions = [qq for qq in (getattr(q, "questions", None) or []) if qq]
     return {
         "_id": str(q.id),
         "key": q.key,
         "title": q.title,
         "description": q.description or "",
         "tags": q.tags or [],
-        "question_count": len(q.questions or []),
+        "question_count": len(questions),
+        "questions": [_serialize_question_for_payload(qq) for qq in questions],
         "created_by": created_by_user_id,
         "created_by_name": _resolve_creator_name(q),
     }
@@ -542,17 +565,23 @@ def list_patient_questionnaires(request, patient_id):
 
         out = []
         for a in plan.questionnaires or []:
+            qdoc = getattr(a, "questionnaireId", None)
+            if not qdoc:
+                continue
             freq = (a.frequency or "").strip()
             if not freq:
                 # infer from dates if needed
                 freq = _infer_frequency_from_dates(a.dates or [])
+            questions = [qq for qq in (getattr(qdoc, "questions", None) or []) if qq]
             out.append(
                 {
-                    "_id": str(a.questionnaireId.id),
-                    "title": a.questionnaireId.title,
-                    "description": a.questionnaireId.description or "",
+                    "_id": str(qdoc.id),
+                    "title": qdoc.title,
+                    "description": qdoc.description or "",
                     "frequency": freq,
                     "dates": [d.isoformat() for d in (a.dates or [])],
+                    "question_count": len(questions),
+                    "questions": [_serialize_question_for_payload(qq) for qq in questions],
                 }
             )
         return JsonResponse(out, safe=False, status=200)

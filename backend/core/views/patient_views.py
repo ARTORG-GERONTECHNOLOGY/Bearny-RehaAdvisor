@@ -1206,6 +1206,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     # -------------------- HEALTHSTATUS --------------------
     if questionaire_type == "Healthstatus":
         now = timezone.now()
+        today_local = timezone.localdate(now)
 
         # 0) Prefer due assigned Healthstatus questionnaires from RehabPlan.
         # Return these first so patients receive therapist-assigned questionnaires
@@ -1237,17 +1238,22 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                 due_date = None
                 qa_dates = sorted([_aware(d) for d in (getattr(qa, "dates", None) or []) if d])
                 if qa_dates:
-                    past_or_today = [d for d in qa_dates if d and d <= now]
+                    # Treat "today" as due even if scheduled time is later.
+                    past_or_today = [d for d in qa_dates if d and timezone.localdate(d) <= today_local]
                     if not past_or_today:
                         continue
                     due_date = past_or_today[-1]
 
                 # If we have a due date, don't re-ask once answered on/after due date.
                 if due_date:
+                    due_date_start = timezone.make_aware(
+                        datetime.datetime.combine(timezone.localdate(due_date), datetime.time.min),
+                        timezone.get_current_timezone(),
+                    )
                     already_answered = (
                         PatientICFRating.objects(
                             patientId=patient,
-                            date__gte=due_date,
+                            date__gte=due_date_start,
                             feedback_entries__exists=True,
                             feedback_entries__ne=[],
                             **{"feedback_entries__questionId__in": q_ids},
@@ -3199,13 +3205,31 @@ def get_combined_health_data(request, patient_id):
                 if qid not in question_map:
                     continue
 
-                parsed_answers = [
-                    {
-                        "key": ans.key,
-                        "translations": [{"language": t.language, "text": t.text} for t in ans.translations],
-                    }
-                    for ans in (ent.answerKey or [])
-                ]
+                parsed_answers = []
+                for ans in (ent.answerKey or []):
+                    if hasattr(ans, "key"):
+                        parsed_answers.append(
+                            {
+                                "key": ans.key,
+                                "translations": [
+                                    {"language": t.language, "text": t.text}
+                                    for t in (getattr(ans, "translations", None) or [])
+                                ],
+                            }
+                        )
+                    else:
+                        parsed_answers.append(
+                            {
+                                "key": str(ans),
+                                "translations": [{"language": "en", "text": str(ans)}],
+                            }
+                        )
+
+                audio_url = getattr(ent, "audio_url", None)
+                if audio_url and not str(audio_url).lower().startswith(("http://", "https://")):
+                    audio_url = urljoin(settings.MEDIA_HOST, str(audio_url))
+
+                media_urls = [audio_url] if audio_url else []
 
                 qmeta = question_map[qid]
                 feedback_result.append(
@@ -3215,6 +3239,8 @@ def get_combined_health_data(request, patient_id):
                         "date": _iso(rating.date),
                         "answers": parsed_answers,
                         "comment": ent.comment,
+                        "audio_url": audio_url,
+                        "media_urls": media_urls,
                         "questionTranslations": qmeta["translations"],
                         "answerType": qmeta["answerType"],
                     }
