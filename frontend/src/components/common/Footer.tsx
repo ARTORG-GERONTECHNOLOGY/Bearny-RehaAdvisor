@@ -31,7 +31,7 @@ const Footer: FunctionComponent = () => {
             {!isAppInstalled && (
               <button
                 onClick={() => setShowPwaInstall(true)}
-                className="flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
+                className="flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-700 transition-colors border-none"
               >
                 <Download className="h-4 w-4" />
                 {t('pwa.title')}
