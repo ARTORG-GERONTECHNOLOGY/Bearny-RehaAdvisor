@@ -207,6 +207,7 @@ jobs:
     # because they are not part of the ENV_FILE_DEV env file.
     env:
       E2E_API_URL: http://127.0.0.1:8001/api
+      E2E_EMAIL_DIR: /tmp/django-e2e-emails
       # Logins are non-sensitive — stored as Actions Variables (vars context)
       E2E_PATIENT_LOGIN: ${{ vars.E2E_PATIENT_LOGIN }}
       E2E_PATIENT_ID: ${{ vars.E2E_PATIENT_ID }}
@@ -295,6 +296,7 @@ jobs:
       - name: Start backend server
         working-directory: backend
         run: |
+          mkdir -p /tmp/django-e2e-emails
           nohup python manage.py runserver 127.0.0.1:8001 >/tmp/django-e2e.log 2>&1 &
           for i in {1..45}; do
             status_code="$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/api/auth/login/ || true)"
