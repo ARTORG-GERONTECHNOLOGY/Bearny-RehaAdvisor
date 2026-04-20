@@ -92,10 +92,7 @@ test.describe('Therapist health CSV export', () => {
                 { key: '3', translations: [{ language: 'en', text: 'Good' }] },
               ],
               comment: 'Patient noted mild fatigue in afternoon.',
-              media_urls: [
-                'https://files.example/audio1.m4a',
-                'https://files.example/video1.webm',
-              ],
+              media_urls: ['https://files.example/audio1.m4a', 'https://files.example/video1.webm'],
             },
           ],
         }),

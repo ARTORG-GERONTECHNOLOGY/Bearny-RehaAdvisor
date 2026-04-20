@@ -166,7 +166,10 @@ test.describe('Therapist rehab table questionnaires', () => {
 
     await expect(page.getByText('Mood Check')).toBeVisible();
 
-    const availableCard = page.locator('div.border.rounded').filter({ hasText: 'Mood Check' }).first();
+    const availableCard = page
+      .locator('div.border.rounded')
+      .filter({ hasText: 'Mood Check' })
+      .first();
     await availableCard.locator('button.btn-outline-primary').first().click();
 
     await expect(page.getByText('How is your mood today?')).toBeVisible();
