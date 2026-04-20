@@ -26,11 +26,15 @@ skipped with a warning (tests that need those credentials already contain
 
 import os
 
+from bson import ObjectId
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import Patient, Therapist, User
+
+# Fixed ObjectId so E2E_PATIENT_ID never changes between seed runs
+E2E_PATIENT_OID = ObjectId("e2e000000000000000000001")
 
 # Stable usernames that uniquely identify seed documents across re-runs
 _USERNAME = {
@@ -177,12 +181,13 @@ class Command(BaseCommand):
             isActive=True,
         ).save()
         Patient(
+            id=E2E_PATIENT_OID,
             userId=user,
             patient_code="E2E-PAT-001",
             therapist=therapist,
             access_word="e2e",
         ).save()
-        self.stdout.write(self.style.SUCCESS(f"  Created Patient    : {login}"))
+        self.stdout.write(self.style.SUCCESS(f"  Created Patient    : {login}  (id={E2E_PATIENT_OID})"))
         return user
 
     # ------------------------------------------------------------------
