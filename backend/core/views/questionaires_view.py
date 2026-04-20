@@ -148,8 +148,7 @@ def _serialize_answer_option(opt: Any) -> Dict[str, Any]:
         return {
             "key": str(getattr(opt, "key", "")),
             "translations": [
-                {"language": tr.language, "text": tr.text}
-                for tr in (getattr(opt, "translations", None) or [])
+                {"language": tr.language, "text": tr.text} for tr in (getattr(opt, "translations", None) or [])
             ],
         }
     return {"key": str(opt), "translations": [{"language": "en", "text": str(opt)}]}
@@ -592,15 +591,14 @@ def list_patient_questionnaires(request, patient_id):
             answered_entries = []
             for rating in ratings:
                 rating_date = getattr(rating, "date", None)
-                for entry in (getattr(rating, "feedback_entries", None) or []):
+                for entry in getattr(rating, "feedback_entries", None) or []:
                     qref = getattr(entry, "questionId", None)
                     qid = str(getattr(qref, "id", qref)) if qref else ""
                     if qid not in question_ids:
                         continue
 
                     q_trans = [
-                        {"language": tr.language, "text": tr.text}
-                        for tr in (getattr(qref, "translations", None) or [])
+                        {"language": tr.language, "text": tr.text} for tr in (getattr(qref, "translations", None) or [])
                     ]
                     answers = [_serialize_answer_option(ans) for ans in (getattr(entry, "answerKey", None) or [])]
                     audio_url = getattr(entry, "audio_url", None)
