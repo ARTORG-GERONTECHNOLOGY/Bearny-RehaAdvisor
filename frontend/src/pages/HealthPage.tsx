@@ -45,8 +45,6 @@ const HealthPage: React.FC = observer(() => {
   // Chart refs for PDF export
   const svgRefs = {
     adherence: useRef<SVGSVGElement>(null),
-    totalScore: useRef<SVGSVGElement>(null),
-    questionnaire: useRef<SVGSVGElement>(null),
     restingHR: useRef<SVGSVGElement>(null),
     sleep: useRef<SVGSVGElement>(null),
     wearTime: useRef<SVGSVGElement>(null),
@@ -396,12 +394,6 @@ const HealthPage: React.FC = observer(() => {
 
     const charts = [
       { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
-      { ref: svgRefs.totalScore, key: 'totalScore', title: t('Total Questionnaire Score Per Day') },
-      {
-        ref: svgRefs.questionnaire,
-        key: 'questionnaire',
-        title: t('Questionnaire Answers Over Time'),
-      },
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
       { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
@@ -496,7 +488,12 @@ const HealthPage: React.FC = observer(() => {
                   </div>
                 </div>
               ) : (
-                <HealthChartsAccordion store={store} t={t} svgRefs={svgRefs} />
+                <HealthChartsAccordion
+                  store={store}
+                  t={t}
+                  lang={(i18n.language || 'en').split('-')[0]}
+                  svgRefs={svgRefs}
+                />
               )}
             </Col>
           </Row>

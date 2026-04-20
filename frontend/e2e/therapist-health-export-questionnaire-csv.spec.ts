@@ -100,7 +100,7 @@ test.describe('Therapist health CSV export', () => {
     });
 
     await page.goto('/health');
-    await expect(page.getByText(/questionnaire answers over time/i)).toBeVisible();
+    await expect(page.getByText(/questionnaire results by date/i)).toBeVisible();
 
     await page.getByRole('button', { name: /export/i }).click();
     await expect(page.getByRole('button', { name: /export csv/i })).toBeVisible();
