@@ -23,6 +23,7 @@ Current scope starts with the home/login journey.
 | `spurious-logout.spec.ts`                   | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
 | `therapist-rehabtable-questionnaires.spec.ts` | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, and questionnaire-content visibility (questions + answer options via the view button). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`. |
 | `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`. |
+| `patient-health-questionnaire-ui.spec.ts` | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials. |
 
 ---
 
@@ -99,6 +100,11 @@ Current scope starts with the home/login journey.
   - CSV export flow works from `/health` page
   - Questionnaire CSV columns include question key/text, all answer keys/texts, comment, and media URLs
   - Multi-answer values are serialized as `value1 | value2`
+- Patient questionnaire UI submission (`patient-health-questionnaire-ui.spec.ts`, seeded therapist + patient required):
+  - Setup assigns a due Healthstatus questionnaire for the patient
+  - Patient login opens the questionnaire popup
+  - Patient answers at least one question through UI controls
+  - Frontend submits to `/patients/feedback/questionaire/`
 
 ---
 
@@ -220,6 +226,18 @@ E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 E2E_PATIENT_ID=<patient-object-id> \
 npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts e2e/therapist-health-export-questionnaire-csv.spec.ts
+```
+
+Patient questionnaire popup submission (requires seeded therapist + patient):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_PATIENT_LOGIN=<seeded-patient-email-or-id> \
+E2E_PATIENT_PASSWORD=<seeded-patient-password> \
+E2E_PATIENT_ID=<patient-object-id> \
+npm run test:e2e -- e2e/patient-health-questionnaire-ui.spec.ts
 ```
 
 ---
