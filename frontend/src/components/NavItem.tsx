@@ -7,7 +7,6 @@ type Props = {
   desktop?: boolean;
 };
 
-// TODO: move colors to config as soon as they are fixed
 export function NavItem({
   onClick,
   iconOutline: IconOutline,
