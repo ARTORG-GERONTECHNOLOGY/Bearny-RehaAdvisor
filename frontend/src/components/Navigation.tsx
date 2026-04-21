@@ -13,9 +13,6 @@ import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
 import UserFill from '@/assets/icons/user-fill.svg?react';
 
-// TODO:
-// - move colors to config as soon as they are fixed
-// - handle all states and user types (see old Header component for reference)
 export default function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
