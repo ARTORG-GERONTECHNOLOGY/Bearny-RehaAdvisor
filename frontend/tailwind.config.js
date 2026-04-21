@@ -10,7 +10,7 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
-        // Brand color palette – single source of truth (see src/lib/colors.ts for JS usage)
+        // Brand color palette – source of truth (see src/lib/colors.ts for JS usage & keep in sync)
         back: '#F2F2F7',
         success: '#16A34A',
         brand: '#00956C',

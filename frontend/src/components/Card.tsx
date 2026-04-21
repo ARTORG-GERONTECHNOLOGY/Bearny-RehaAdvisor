@@ -1,3 +1,4 @@
+import type React from 'react';
 import { cn } from '@/lib/utils';
 
 type Props = React.ComponentPropsWithoutRef<'div'>;

@@ -545,11 +545,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 ) : (
                   <div className="flex flex-col items-center my-3 gap-2">
                     {recording ? (
-                      <Button onClick={stopRecording} className="bg-yellow">
+                      <Button onClick={stopRecording} className="bg-yellow hover:bg-yellow/90">
                         {t('Stop')} ({recordingTime}s) <FaStop />
                       </Button>
                     ) : (
-                      <Button onClick={startRecording} className="bg-yellow">
+                      <Button onClick={startRecording} className="bg-yellow hover:bg-yellow/90">
                         {t('Start Recording')} <FaMicrophone />
                       </Button>
                     )}
@@ -557,7 +557,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     {audioURL && (
                       <div className="flex justify-center items-center flex-wrap gap-2">
                         <audio controls src={audioURL} />
-                        <Button onClick={deleteAudio} className="bg-pink">
+                        <Button onClick={deleteAudio} className="bg-pink hover:bg-pink/90">
                           {t('Delete')} <FaTrash />
                         </Button>
                       </div>
@@ -576,7 +576,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 {videoURL ? (
                   <>
                     <ReactPlayer url={videoURL} controls width="100%" height="100%" />
-                    <Button onClick={deleteVideo} className="bg-pink">
+                    <Button onClick={deleteVideo} className="bg-pink hover:bg-pink/90">
                       {t('Delete')} <FaTrash />
                     </Button>
                     <p className="text-sm text-center text-zinc-500">
@@ -598,11 +598,17 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     ) : (
                       <div className="flex items-center gap-2">
                         {recording ? (
-                          <Button onClick={stopVideoRecording} className="bg-yellow">
+                          <Button
+                            onClick={stopVideoRecording}
+                            className="bg-yellow hover:bg-yellow"
+                          >
                             {t('Stop')} <FaStop />
                           </Button>
                         ) : (
-                          <Button onClick={startVideoRecording} className="bg-yellow">
+                          <Button
+                            onClick={startVideoRecording}
+                            className="bg-yellow hover:bg-yellow"
+                          >
                             {t('Record Video')}
                           </Button>
                         )}
