@@ -16,6 +16,7 @@ const MainTabs: React.FC<Props> = ({ mainTab, onChange }) => {
       <Col>
         <Nav
           variant="tabs"
+          role="tablist"
           activeKey={mainTab}
           onSelect={(k) => onChange((k as MainTab) || 'library')}
         >
