@@ -141,7 +141,24 @@ describe('RehabTable questionnaires integration', () => {
       }
       if (url.includes('/questionnaires/patient/')) {
         return Promise.resolve({
-          data: [{ _id: '16_profile', title: 'Profile (16)', frequency: 'Monthly', dates: [] }],
+          data: [
+            {
+              _id: '16_profile',
+              title: 'Profile (16)',
+              frequency: 'Monthly',
+              dates: [],
+              answered_entries: [
+                {
+                  questionKey: '16_profile_q1',
+                  questionTranslations: [{ language: 'en', text: 'How are you today?' }],
+                  answerType: 'select',
+                  answers: [{ key: '2', translations: [{ language: 'en', text: 'Good' }] }],
+                  comment: 'Felt better.',
+                  answered_at: '2026-02-01T10:00:00Z',
+                },
+              ],
+            },
+          ],
         });
       }
       return Promise.resolve({ data: {} });
@@ -157,7 +174,7 @@ describe('RehabTable questionnaires integration', () => {
       </MemoryRouter>
     );
 
-    const qTab = screen.getByRole('button', { name: 'Questionnaires' });
+    const qTab = screen.getByRole('tab', { name: 'Questionnaires' });
     fireEvent.click(qTab);
 
     expect(mockStore.setTopTab).toHaveBeenCalledWith('questionnaires');
@@ -178,5 +195,8 @@ describe('RehabTable questionnaires integration', () => {
     expect(await screen.findByText('Available questionnaires')).toBeInTheDocument();
     expect(await screen.findByText('Assigned questionnaires')).toBeInTheDocument();
     expect(await screen.findAllByText('Profile (16)')).toHaveLength(2);
+    expect(await screen.findByText('Answered results')).toBeInTheDocument();
+    expect(await screen.findByText('How are you today?')).toBeInTheDocument();
+    expect(await screen.findByText(/Comment: Felt better\./)).toBeInTheDocument();
   });
 });

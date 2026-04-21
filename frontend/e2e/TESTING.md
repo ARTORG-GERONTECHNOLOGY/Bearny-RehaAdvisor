@@ -9,18 +9,21 @@ Current scope starts with the home/login journey.
 
 ## Test files
 
-| File                                        | Flow covered                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `home-login.spec.ts`                        | Home page opens login modal, submits credentials to `/auth/login/`, and verifies error feedback is rendered on failed login.                                                                                                                                                                                                                                  |
-| `home-login-success-redirects.spec.ts`      | Home login succeeds for seeded users and verifies role-based redirects (`/patient` and `/admin`).                                                                                                                                                                                                                                                             |
-| `home-login-therapist.spec.ts`              | Seeded therapist login validates `/auth/login/` 2FA response and 2FA step rendering in modal.                                                                                                                                                                                                                                                                 |
-| `home-register-therapist.spec.ts`           | Home register modal submits therapist registration payload to `/auth/register/` and validates user-facing feedback.                                                                                                                                                                                                                                           |
-| `patient-page.spec.ts`                      | Patient page access-control, core patient API call triggers, day/week/today navigation controls, and daily vitals submission behavior.                                                                                                                                                                                                                        |
-| `patient-interventions-page.spec.ts`        | Patient interventions library auth-guard, API load trigger, filter interactions, and details modal open/close behavior.                                                                                                                                                                                                                                       |
-| `therapist-interventions-templates.spec.ts` | Named-template management on `/interventions` Templates tab: create, select, apply, copy, delete, and calendar load. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`; tests skip gracefully without them.                                                                                                                                           |
-| `therapist-interventions-import.spec.ts`    | Import Interventions modal — Excel tab, Upload Media tab, UI validation. Also covers COPAIN MSK file import using the real `COPAIN_MSK_LINKS_UPLOAD.xlsm` fixture: dry-run, live import, idempotency, wrong-sheet-name error (API-level, 4 tests) and modal-level import flow (UI-level, 2 tests). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`. |
-| `template-assign-apply.spec.ts`             | Template assign/apply MongoEngine dirty-tracking regression: assign → apply produces sessions, update existing schedule persists, remove diagnosis block persists. API-level (4) + UI-level (2). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                |
-| `spurious-logout.spec.ts`                   | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
+| File                                                | Flow covered                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `home-login.spec.ts`                                | Home page opens login modal, submits credentials to `/auth/login/`, and verifies error feedback is rendered on failed login.                                                                                                                                                                                                                                  |
+| `home-login-success-redirects.spec.ts`              | Home login succeeds for seeded users and verifies role-based redirects (`/patient` and `/admin`).                                                                                                                                                                                                                                                             |
+| `home-login-therapist.spec.ts`                      | Seeded therapist login validates `/auth/login/` 2FA response and 2FA step rendering in modal.                                                                                                                                                                                                                                                                 |
+| `home-register-therapist.spec.ts`                   | Home register modal submits therapist registration payload to `/auth/register/` and validates user-facing feedback.                                                                                                                                                                                                                                           |
+| `patient-page.spec.ts`                              | Patient page access-control, core patient API call triggers, day/week/today navigation controls, and daily vitals submission behavior.                                                                                                                                                                                                                        |
+| `patient-interventions-page.spec.ts`                | Patient interventions library auth-guard, API load trigger, filter interactions, and details modal open/close behavior.                                                                                                                                                                                                                                       |
+| `therapist-interventions-templates.spec.ts`         | Named-template management on `/interventions` Templates tab: create, select, apply, copy, delete, and calendar load. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`; tests skip gracefully without them.                                                                                                                                           |
+| `therapist-interventions-import.spec.ts`            | Import Interventions modal — Excel tab, Upload Media tab, UI validation. Also covers COPAIN MSK file import using the real `COPAIN_MSK_LINKS_UPLOAD.xlsm` fixture: dry-run, live import, idempotency, wrong-sheet-name error (API-level, 4 tests) and modal-level import flow (UI-level, 2 tests). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`. |
+| `template-assign-apply.spec.ts`                     | Template assign/apply MongoEngine dirty-tracking regression: assign → apply produces sessions, update existing schedule persists, remove diagnosis block persists. API-level (4) + UI-level (2). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                |
+| `spurious-logout.spec.ts`                           | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
+| `therapist-rehabtable-questionnaires.spec.ts`       | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, questionnaire-content visibility, and answered-results rendering for assigned questionnaires. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                    |
+| `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                                   |
+| `patient-health-questionnaire-ui.spec.ts`           | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials.                                                                                                                                     |
 
 ---
 
@@ -89,6 +92,20 @@ Current scope starts with the home/login journey.
   - Hard reload with stale `expiresAt` and no refresh token → user is redirected to login
   - Corrupted `expiresAt` with valid refresh token → silent refresh keeps session alive
   - Explicit logout in one tab removes the token from shared storage
+- Therapist questionnaires tab (`therapist-rehabtable-questionnaires.spec.ts`, seeded therapist + patient required):
+  - Questionnaires tab renders available/assigned panels
+  - Schedule modal opens from action buttons
+  - Therapist can expand questionnaire details and see question texts + answer options
+  - Assigned questionnaire cards display answered results (date/question/answers/comment) when present
+- Therapist health export CSV (`therapist-health-export-questionnaire-csv.spec.ts`, seeded therapist + patient required):
+  - CSV export flow works from `/health` page
+  - Questionnaire CSV columns include question key/text, all answer keys/texts, comment, and media URLs
+  - Multi-answer values are serialized as `value1 | value2`
+- Patient questionnaire UI submission (`patient-health-questionnaire-ui.spec.ts`, seeded therapist + patient required):
+  - Setup assigns a due Healthstatus questionnaire for the patient
+  - Patient login opens the questionnaire popup
+  - Patient answers at least one question through UI controls
+  - Frontend submits to `/patients/feedback/questionaire/`
 
 ---
 
@@ -200,6 +217,28 @@ E2E_API_URL=http://localhost:8001/api \
 E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 npm run test:e2e -- e2e/spurious-logout.spec.ts
+```
+
+Therapist questionnaire + export regressions (requires seeded therapist + patient):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_PATIENT_ID=<patient-object-id> \
+npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts e2e/therapist-health-export-questionnaire-csv.spec.ts
+```
+
+Patient questionnaire popup submission (requires seeded therapist + patient):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_PATIENT_LOGIN=<seeded-patient-email-or-id> \
+E2E_PATIENT_PASSWORD=<seeded-patient-password> \
+E2E_PATIENT_ID=<patient-object-id> \
+npm run test:e2e -- e2e/patient-health-questionnaire-ui.spec.ts
 ```
 
 ---

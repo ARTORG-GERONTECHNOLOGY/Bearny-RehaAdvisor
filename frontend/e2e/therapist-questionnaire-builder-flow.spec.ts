@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { loginAsTherapist } from './helpers/auth';
+
 function creds() {
   return {
     login: process.env.E2E_THERAPIST_LOGIN,
@@ -14,28 +16,6 @@ function skipUnlessSeeded(t: typeof test) {
     !login || !password || !patientId,
     'Missing E2E_THERAPIST_LOGIN / E2E_THERAPIST_PASSWORD / E2E_PATIENT_ID — skipping seeded E2E tests'
   );
-}
-
-async function loginAsTherapist(page: Parameters<Parameters<typeof test>[1]>[0]) {
-  const { login, password } = creds();
-
-  await page.goto('/');
-  await page.getByRole('button', { name: /login/i }).first().click();
-
-  const modal = page.locator('[role="dialog"][data-state="open"]');
-  await expect(modal).toBeVisible();
-
-  await modal.locator('#email').fill(login as string);
-  await modal.locator('#password').fill(password as string);
-
-  const loginDone = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-  );
-
-  await modal.getByRole('button', { name: /login/i }).click();
-  await loginDone;
-
-  await expect(page).toHaveURL(/\/therapist/);
 }
 
 test.describe('Therapist questionnaire builder full flow', () => {
