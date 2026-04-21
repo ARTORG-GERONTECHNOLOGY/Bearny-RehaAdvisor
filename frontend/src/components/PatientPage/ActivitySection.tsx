@@ -90,7 +90,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
               {connected ? (
                 <ProgressIndicator current={stepsToday ?? 0} goal={stepsGoal ?? 0} />
               ) : stepsToday ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-success" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}

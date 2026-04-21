@@ -13,6 +13,7 @@ export default {
         // Brand color palette – source of truth (see src/lib/colors.ts for JS usage & keep in sync)
         back: '#F2F2F7',
         success: '#16A34A',
+        error: '#DC2626',
         brand: '#00956C',
         pink: '#F1ADCF',
         yellow: '#EFA73B',
