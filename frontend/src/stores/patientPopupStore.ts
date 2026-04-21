@@ -749,6 +749,7 @@ export class PatientPopupStore {
   // -------------------------
   wearablesSyncing = false;
   wearablesSyncResult: Record<string, string> | null = null;
+  wearablesSyncPayloads: Record<string, any> | null = null;
   wearablesSyncError: string | null = null;
 
   async syncWearablesToRedcap(
@@ -758,6 +759,7 @@ export class PatientPopupStore {
   ) {
     this.wearablesSyncing = true;
     this.wearablesSyncResult = null;
+    this.wearablesSyncPayloads = null;
     this.wearablesSyncError = null;
     try {
       const body: Record<string, string> = {};
@@ -766,6 +768,7 @@ export class PatientPopupStore {
       const res = await apiClient.post(`/wearables/sync-to-redcap/${this.patientId}/`, body);
       runInAction(() => {
         this.wearablesSyncResult = (res.data as any)?.results ?? {};
+        this.wearablesSyncPayloads = (res.data as any)?.sent_payloads ?? null;
       });
     } catch (err: any) {
       const api = err?.response?.data;

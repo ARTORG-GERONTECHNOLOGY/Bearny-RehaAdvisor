@@ -347,13 +347,65 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                   {Object.entries(store.wearablesSyncResult).map(([period, status]) => (
                     <li key={period}>
                       {t(period)}: <code>{status}</code>
+                      {store.wearablesSyncPayloads?.[period]?.reason && (
+                        <span className="ms-2 text-muted">
+                          ({store.wearablesSyncPayloads[period].reason})
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
+                {store.wearablesSyncPayloads && (
+                  <div className="mt-2">
+                    <div className="small text-muted mb-1">
+                      {t('Payload sent to REDCap (by period)')}
+                    </div>
+                    {Object.entries(store.wearablesSyncPayloads).map(([period, payload]) => {
+                      const details = (payload as any) || {};
+                      const record = details.record || {};
+                      return (
+                        <div key={period} className="mb-2 p-2 bg-light border rounded">
+                          <div className="fw-semibold mb-1">{t(period)}</div>
+                          <Table size="sm" bordered className="mb-0">
+                            <tbody>
+                              <tr>
+                                <td style={{ width: '35%' }}>{t('status')}</td>
+                                <td>
+                                  <code>{String(details.status ?? 'unknown')}</code>
+                                </td>
+                              </tr>
+                              {details.reason && (
+                                <tr>
+                                  <td>{t('reason')}</td>
+                                  <td>{String(details.reason)}</td>
+                                </tr>
+                              )}
+                              {details.error && (
+                                <tr>
+                                  <td>{t('Error')}</td>
+                                  <td>{String(details.error)}</td>
+                                </tr>
+                              )}
+                              {Object.entries(record).map(([field, value]) => (
+                                <tr key={`${period}-${field}`}>
+                                  <td>{field}</td>
+                                  <td>{String(value)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <button
                   type="button"
                   className="btn-close"
-                  onClick={() => (store.wearablesSyncResult = null)}
+                  onClick={() => {
+                    store.wearablesSyncResult = null;
+                    store.wearablesSyncPayloads = null;
+                  }}
                   aria-label={t('Close')}
                 />
               </div>
