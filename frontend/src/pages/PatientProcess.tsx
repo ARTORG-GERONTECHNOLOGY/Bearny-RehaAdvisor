@@ -18,7 +18,7 @@ import { colors } from '@/lib/colors';
 
 const CHART_ACCENT = colors.pink;
 const CHART_ACCENT_LIGHT = colors.pink + '80';
-const CHART_ACCENT_SOFT = '#FCEFF5';
+const CHART_ACCENT_SOFT = colors.pink + '33';
 const THRESHOLD_LINE_PROPS: {
   stroke: string;
   strokeWidth: number;
