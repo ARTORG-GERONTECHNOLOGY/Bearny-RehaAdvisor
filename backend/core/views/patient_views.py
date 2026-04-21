@@ -999,7 +999,7 @@ def get_patient_plan(request, patient_id):
     try:
         patient = _resolve_patient_flexible(patient_id)
         if not patient:
-            logger.warning("[get_patient_plan] Patient not found")
+            logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
             return JsonResponse({"error": "Patient not found"}, status=404)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
