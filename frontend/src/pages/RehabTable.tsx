@@ -270,6 +270,7 @@ const RehabTable: React.FC = observer(() => {
             <Col>
               <Nav
                 variant="tabs"
+                role="tablist"
                 activeKey={store.topTab}
                 onSelect={(k) => store.setTopTab((k as any) || 'interventions')}
               >
