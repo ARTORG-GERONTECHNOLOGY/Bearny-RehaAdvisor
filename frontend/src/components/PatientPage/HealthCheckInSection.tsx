@@ -59,7 +59,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             </div>
             <div className="w-8 h-8 shrink-0">
               {hasWeightEntry ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-success" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}
@@ -83,7 +83,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             </div>
             <div className="w-8 h-8 shrink-0">
               {hasBloodPressureEntry ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-success" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}
