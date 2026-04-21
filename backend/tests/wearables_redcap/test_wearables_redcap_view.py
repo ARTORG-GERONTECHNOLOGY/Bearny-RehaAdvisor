@@ -187,6 +187,10 @@ def test_success_returns_results_and_summary():
         "followup": None,
     }
     fake_results = {"baseline": "ok", "followup": "skipped"}
+    fake_payloads = {
+        "baseline": {"status": "sent", "record": {"record_id": "1"}},
+        "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+    }
 
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
@@ -194,7 +198,7 @@ def test_success_returns_results_and_summary():
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
-            return_value=fake_results,
+            return_value=(fake_results, fake_payloads),
         ) as mock_export:
             resp = client.post(URL(patient.id), **AUTH)
 
@@ -203,13 +207,16 @@ def test_success_returns_results_and_summary():
     assert body["ok"] is True
     assert body["results"] == fake_results
     assert body["summary"]["baseline"]["fitbit_steps"] == 5000
+    assert body["sent_payloads"] == fake_payloads
 
     # export was called without explicit event names (body was empty)
     args, kwargs = mock_export.call_args
     event_b = args[1] if len(args) > 1 else kwargs.get("event_baseline")
     event_f = args[2] if len(args) > 2 else kwargs.get("event_followup")
+    return_payloads = args[3] if len(args) > 3 else kwargs.get("return_payloads")
     assert event_b is None
     assert event_f is None
+    assert return_payloads is True
 
 
 def test_event_names_from_body_passed_to_service():
@@ -221,7 +228,13 @@ def test_event_names_from_body_passed_to_service():
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
-            return_value={"baseline": "skipped", "followup": "skipped"},
+            return_value=(
+                {"baseline": "skipped", "followup": "skipped"},
+                {
+                    "baseline": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                    "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                },
+            ),
         ) as mock_export:
             resp = client.post(
                 URL(patient.id),
@@ -240,6 +253,8 @@ def test_event_names_from_body_passed_to_service():
     args, kwargs = mock_export.call_args
     assert args[1] == "custom_bl_arm_1" or kwargs.get("event_baseline") == "custom_bl_arm_1"
     assert args[2] == "custom_fu_arm_1" or kwargs.get("event_followup") == "custom_fu_arm_1"
+    return_payloads = kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
+    assert return_payloads is True
 
 
 def test_invalid_json_body_treated_as_empty():
@@ -251,7 +266,13 @@ def test_invalid_json_body_treated_as_empty():
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
-            return_value={"baseline": "skipped", "followup": "skipped"},
+            return_value=(
+                {"baseline": "skipped", "followup": "skipped"},
+                {
+                    "baseline": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                    "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                },
+            ),
         ):
             resp = client.post(
                 URL(patient.id),

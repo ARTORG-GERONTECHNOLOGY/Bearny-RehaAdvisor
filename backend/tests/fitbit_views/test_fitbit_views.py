@@ -154,6 +154,32 @@ def test_fitbit_status_true_when_token_exists():
     assert resp.json()["connected"] is True
 
 
+def test_fitbit_status_true_when_called_with_patient_id():
+    _, _, patient_user, patient = create_patient_graph()
+    FitbitUserToken(
+        user=patient_user,
+        access_token="a",
+        refresh_token="r",
+        fitbit_user_id="fu",
+    ).save()
+
+    resp = client.get(f"/api/fitbit/status/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["connected"] is True
+    assert body["has_data"] is False
+    assert body["last_data"] is None
+
+
+def test_fitbit_status_unresolved_identifier_returns_false():
+    resp = client.get("/api/fitbit/status/not-an-id/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["connected"] is False
+    assert body["has_data"] is False
+    assert body["last_data"] is None
+
+
 def test_fitbit_callback_missing_code_redirects():
     _, _, patient_user, _ = create_patient_graph()
     resp = client.get(
