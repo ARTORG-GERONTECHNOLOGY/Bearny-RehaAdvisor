@@ -7,7 +7,7 @@ type Props = {
 
 export default function Layout({ children }: Props) {
   return (
-    <div className="min-h-screen bg-[#ECECEC]">
+    <div className="min-h-screen bg-[#F2F2F7]">
       <Navigation />
       <Container
         className="
