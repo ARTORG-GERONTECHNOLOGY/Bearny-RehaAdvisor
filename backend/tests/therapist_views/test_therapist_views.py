@@ -826,7 +826,7 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
         questionKey=f"fb-{ObjectId()}",
         translations=[Translation(language="en", text="How did it go?")],
         possibleAnswers=[],
-        answer_type="text",
+        answer_type="select",
     ).save()
     plan = RehabilitationPlan(
         patientId=patient,
@@ -841,12 +841,28 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
         userId=patient,
         interventionId=intervention,
         rehabilitationPlanId=plan,
-        date=datetime.now() - timedelta(hours=12),
+        date=datetime.now() - timedelta(days=1),
         status=["completed"],
         feedback=[
             FeedbackEntry(
                 questionId=feedback_question,
-                answerKey=[AnswerOption(key="text", translations=[Translation(language="en", text="ok")])],
+                answerKey=[
+                    AnswerOption(key="4", translations=[Translation(language="en", text="4")]),
+                    AnswerOption(key="5", translations=[Translation(language="en", text="5")]),
+                ],
+            )
+        ],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=3),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=feedback_question,
+                answerKey=[AnswerOption(key="2", translations=[Translation(language="en", text="2")])],
             )
         ],
     ).save()
@@ -874,6 +890,10 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
     assert row["biomarker"]["bp_sys_avg"] == pytest.approx(133.0, rel=1e-3)
     assert row["biomarker"]["bp_dia_avg"] == pytest.approx(88.0, rel=1e-3)
     assert row["last_feedback_at"] is not None
+    assert "intervention_feedback" in row
+    assert row["intervention_feedback"]["answered_days_total"] >= 2
+    assert row["intervention_feedback"]["recent_avg_score"] is not None
+    assert row["intervention_feedback"]["last_answered_at"] is not None
 
 
 # ---------------------------------------------------------------------------
