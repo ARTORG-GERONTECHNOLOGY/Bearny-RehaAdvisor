@@ -185,3 +185,26 @@ def test_send_verification_code_user_not_found(mongo_mock):
     resp = _post({"userId": "507f1f77bcf86cd799439011"})
     assert resp.status_code == 404
     assert SMSVerification.objects.count() == 0
+
+
+@mock.patch("core.views.auth_views.EmailMultiAlternatives")
+def test_send_verification_code_missing_user_email(mock_email_cls, mongo_mock):
+    """
+    A user without an e-mail address cannot receive 2FA codes and must return
+    a clear client error instead of silently succeeding.
+    """
+    mock_email_cls.return_value = mock.MagicMock()
+
+    user = User(
+        username="no-email-user",
+        role="Therapist",
+        email="",
+        pwdhash="",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    resp = _post({"userId": str(user.id)})
+
+    assert resp.status_code == 400
+    assert "no email" in resp.json().get("error", "").lower()
