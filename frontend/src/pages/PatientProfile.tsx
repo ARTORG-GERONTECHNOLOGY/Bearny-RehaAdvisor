@@ -157,7 +157,7 @@ const PatientProfile: React.FC = observer(() => {
                     {t('Receive reminders')}
                   </div>
                   {permission === 'denied' && (
-                    <div className="text-error text-xs">
+                    <div className="text-nok text-xs">
                       {t('Notification permission denied. Please enable in browser settings.')}
                     </div>
                   )}

@@ -125,7 +125,7 @@ const PatientProcess: React.FC = observer(() => {
   if (!loading && error) {
     return (
       <Layout>
-        <div className="text-error text-center py-10">{t('Failed to load health data.')}</div>
+        <div className="text-nok text-center py-10">{t('Failed to load health data.')}</div>
       </Layout>
     );
   }

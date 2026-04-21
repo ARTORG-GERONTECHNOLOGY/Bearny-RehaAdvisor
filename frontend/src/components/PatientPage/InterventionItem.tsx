@@ -81,7 +81,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
         {isBusy ? (
           <Skeleton className="w-8 h-8 rounded-full" />
         ) : completed ? (
-          <CircleCheckFill className="w-8 h-8 text-success cursor-pointer" aria-hidden="true" />
+          <CircleCheckFill className="w-8 h-8 text-ok cursor-pointer" aria-hidden="true" />
         ) : (
           <CircleDashedFill className="w-8 h-8 text-zinc-200 cursor-pointer" aria-hidden="true" />
         )}
