@@ -45,8 +45,6 @@ const HealthPage: React.FC = observer(() => {
   // Chart refs for PDF export
   const svgRefs = {
     adherence: useRef<SVGSVGElement>(null),
-    totalScore: useRef<SVGSVGElement>(null),
-    questionnaire: useRef<SVGSVGElement>(null),
     restingHR: useRef<SVGSVGElement>(null),
     sleep: useRef<SVGSVGElement>(null),
     wearTime: useRef<SVGSVGElement>(null),
@@ -220,17 +218,45 @@ const HealthPage: React.FC = observer(() => {
     if (selections.questionnaire) {
       const rows: (string | number)[][] = [];
       for (const e of qIn) {
-        if (!store.visibleQuestions[e.questionKey]) continue;
+        const questionText =
+          e.questionTranslations?.find((x) => x.language === i18n.language)?.text ||
+          e.questionTranslations?.find((x) => x.language === 'en')?.text ||
+          '';
 
-        const key = e.answers?.[0]?.key ?? '';
-        const text =
-          e.answers?.[0]?.translations?.find((x) => x.language === i18n.language)?.text ||
-          e.answers?.[0]?.translations?.find((x) => x.language === 'en')?.text ||
-          key;
+        const answerKeys = (e.answers || []).map((a) => a.key).filter(Boolean);
+        const answerTexts = (e.answers || [])
+          .map((a) => {
+            const text =
+              a.translations?.find((x) => x.language === i18n.language)?.text ||
+              a.translations?.find((x) => x.language === 'en')?.text ||
+              a.key;
+            return String(text || '');
+          })
+          .filter(Boolean);
+        const mediaUrls = (e.media_urls || []).filter(Boolean);
 
-        rows.push([toEuroDate(e.date.slice(0, 10)), e.questionKey, key, text]);
+        rows.push([
+          toEuroDate(e.date.slice(0, 10)),
+          e.questionKey,
+          questionText,
+          answerKeys.join(' | '),
+          answerTexts.join(' | '),
+          e.comment || '',
+          mediaUrls.join(' | '),
+        ]);
       }
-      csv += emitRows2(['Date', 'Question Key', 'Answer Key', 'Answer Text'], rows);
+      csv += emitRows2(
+        [
+          'Date',
+          'Question Key',
+          'Question Text',
+          'Answer Keys',
+          'Answer Texts',
+          'Comment',
+          'Media URLs',
+        ],
+        rows
+      );
     }
 
     // Helper scalar
@@ -368,12 +394,6 @@ const HealthPage: React.FC = observer(() => {
 
     const charts = [
       { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
-      { ref: svgRefs.totalScore, key: 'totalScore', title: t('Total Questionnaire Score Per Day') },
-      {
-        ref: svgRefs.questionnaire,
-        key: 'questionnaire',
-        title: t('Questionnaire Answers Over Time'),
-      },
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
       { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
@@ -468,7 +488,12 @@ const HealthPage: React.FC = observer(() => {
                   </div>
                 </div>
               ) : (
-                <HealthChartsAccordion store={store} t={t} svgRefs={svgRefs} />
+                <HealthChartsAccordion
+                  store={store}
+                  t={t}
+                  lang={(i18n.language || 'en').split('-')[0]}
+                  svgRefs={svgRefs}
+                />
               )}
             </Col>
           </Row>

@@ -51,6 +51,7 @@ services:
       - media:/app/media
       - ./frontend/src/config/:/app/config
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
+      - /tmp/django-e2e-emails:/tmp/django-e2e-emails
 
     depends_on:
       - db-dev
