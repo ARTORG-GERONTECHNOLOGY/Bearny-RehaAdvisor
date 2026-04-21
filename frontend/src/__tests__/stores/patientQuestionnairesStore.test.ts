@@ -33,6 +33,7 @@ beforeEach(() => {
   (patientQuestionnairesStore as any).feedbackQuestions = [];
   (patientQuestionnairesStore as any).feedbackError = '';
   (patientQuestionnairesStore as any).healthQuestions = [];
+  (patientQuestionnairesStore as any).showHealthPopup = false;
   (patientQuestionnairesStore as any).showInitialPopup = false;
 });
 
@@ -78,6 +79,21 @@ describe('patientQuestionnairesStore — Sentry capture', () => {
   });
 
   describe('loadHealthQuestionnaire', () => {
+    it('opens health popup when due health questions are returned', async () => {
+      mockGet.mockResolvedValueOnce({
+        data: {
+          questions: [
+            { questionKey: 'hq_1', answerType: 'text', translations: [], possibleAnswers: [] },
+          ],
+        },
+      });
+
+      await patientQuestionnairesStore.loadHealthQuestionnaire('p2', 'de');
+
+      expect(patientQuestionnairesStore.healthQuestions).toHaveLength(1);
+      expect(patientQuestionnairesStore.showHealthPopup).toBe(true);
+    });
+
     it('captures exception with patientId context on failure', async () => {
       const err = new Error('500');
       mockGet.mockRejectedValueOnce(err);
