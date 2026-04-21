@@ -999,7 +999,7 @@ def get_patient_plan(request, patient_id):
     try:
         patient = _resolve_patient_flexible(patient_id)
         if not patient:
-            logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
+            logger.warning("[get_patient_plan] Patient not found")
             return JsonResponse({"error": "Patient not found"}, status=404)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
@@ -1083,12 +1083,7 @@ def get_patient_plan(request, patient_id):
         return JsonResponse(out, safe=False, status=200)
 
     except Exception as e:
-        logger.error(
-            "[get_patient_plan] Error for patient %s: %s",
-            patient_id,
-            str(e),
-            exc_info=True,
-        )
+        logger.error("[get_patient_plan] Error while resolving/serializing patient plan: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
@@ -1777,7 +1772,7 @@ def add_intervention_to_patient(request):
             except Exception:
                 return None
         if timezone.is_naive(dtx):
-            dtx = make_aware(dtx)
+            dtx = timezone.make_aware(dtx, timezone.get_current_timezone())
         return dtx
 
     def lang_fallback_chain(user_lang: str):

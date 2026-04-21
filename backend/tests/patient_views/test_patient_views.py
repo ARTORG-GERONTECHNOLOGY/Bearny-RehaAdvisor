@@ -747,16 +747,16 @@ def test_get_patient_plan_patient_not_found_404(mongo_mock):
     assert "Patient not found" in resp.content.decode()
 
 
-def test_get_patient_plan_invalid_patient_id_500_or_400(mongo_mock):
+def test_get_patient_plan_invalid_patient_id_returns_not_found(mongo_mock):
     """
-    If patient_id cannot be ObjectId, current code will raise and hit 500.
-    (If you later harden it, you can change expected to 400.)
+    Non-ObjectId identifiers are valid inputs in this endpoint (e.g. patient_code),
+    so an unknown string identifier should resolve to a clean 404.
     """
     resp = client.get(
         "/api/patients/rehabilitation-plan/patient/not-an-objectid/",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code in (400, 500)
+    assert resp.status_code == 404
 
 
 def test_get_patient_plan_returns_interventions_with_meta_and_flat_fields(mongo_mock):
