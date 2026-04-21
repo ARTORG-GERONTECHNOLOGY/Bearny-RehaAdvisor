@@ -135,8 +135,14 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-_e2e_email_dir = os.environ.get("E2E_EMAIL_DIR", "")
-if _e2e_email_dir:
+_e2e_email_dir = os.environ.get("E2E_EMAIL_DIR", "").strip()
+_use_e2e_file_email_backend = os.environ.get("USE_E2E_FILE_EMAIL_BACKEND", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+if _use_e2e_file_email_backend and _e2e_email_dir:
     EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
     EMAIL_FILE_PATH = _e2e_email_dir
 else:
