@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { loginAsTherapist } from './helpers/auth';
 
@@ -17,6 +17,9 @@ function skipUnlessSeeded(t: typeof test) {
     'Missing E2E_THERAPIST_LOGIN / E2E_THERAPIST_PASSWORD / E2E_PATIENT_ID — skipping seeded E2E tests'
   );
 }
+
+const availableColumn = (page: Page) => page.locator('.rehab-row .rehab-col').first();
+const assignedColumn = (page: Page) => page.locator('.rehab-row .rehab-col').nth(1);
 
 test.describe('Therapist rehab table questionnaires', () => {
   test.beforeEach(async ({ page }) => {
@@ -59,14 +62,8 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await patientReq;
 
-    const availableCard = page
-      .locator('.card')
-      .filter({ hasText: /available questionnaires/i })
-      .first();
-    const assignedCard = page
-      .locator('.card')
-      .filter({ hasText: /assigned questionnaires/i })
-      .first();
+    const availableCard = availableColumn(page);
+    const assignedCard = assignedColumn(page);
 
     const addBtn = availableCard.locator('button.btn-outline-success').first();
     const modifyBtn = assignedCard.locator('button.btn-outline-secondary').first();
@@ -166,10 +163,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await Promise.all([healthRes, patientRes]);
 
-    const availableCard = page
-      .locator('.card')
-      .filter({ hasText: /available questionnaires/i })
-      .first();
+    const availableCard = availableColumn(page);
     await expect(availableCard.getByText('Mood Check').first()).toBeVisible({ timeout: 10000 });
 
     const moodCard = page.locator('div.border.rounded').filter({ hasText: 'Mood Check' }).first();
@@ -236,10 +230,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await Promise.all([healthRes2, patientRes2]);
 
-    const assignedCard = page
-      .locator('.card')
-      .filter({ hasText: /assigned questionnaires/i })
-      .first();
+    const assignedCard = assignedColumn(page);
     await expect(assignedCard.getByText('How are you today?')).toBeVisible({ timeout: 10000 });
     await expect(assignedCard.getByText(/Felt better\./)).toBeVisible();
   });
