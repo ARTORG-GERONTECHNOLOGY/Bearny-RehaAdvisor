@@ -23,6 +23,7 @@ Current scope starts with the home/login journey.
 | `spurious-logout.spec.ts`                           | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
 | `therapist-rehabtable-questionnaires.spec.ts`       | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, questionnaire-content visibility, and answered-results rendering for assigned questionnaires. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                    |
 | `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                                   |
+| `therapist-feedback-chips.spec.ts`                  | Therapist patient-list feedback chip logic: uses mocked `/api/therapists/<id>/patients` response to verify intervention-feedback-based chip level and tooltip text, and that Health chip remains hidden for ongoing patients. Requires seeded therapist login.                                                                                                |
 | `patient-health-questionnaire-ui.spec.ts`           | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials.                                                                                                                                     |
 
 ---
@@ -101,6 +102,11 @@ Current scope starts with the home/login journey.
   - CSV export flow works from `/health` page
   - Questionnaire CSV columns include question key/text, all answer keys/texts, comment, and media URLs
   - Multi-answer values are serialized as `value1 | value2`
+- Therapist feedback chips (`therapist-feedback-chips.spec.ts`, seeded therapist required):
+  - Intercepts `GET /api/therapists/<id>/patients` with controlled fixtures
+  - Verifies `Feedback good` for recent/high-average intervention feedback and tooltip average text
+  - Verifies `Feedback bad` when trend is lower
+  - Verifies Health chip is hidden for ongoing (active) patient rows
 - Patient questionnaire UI submission (`patient-health-questionnaire-ui.spec.ts`, seeded therapist + patient required):
   - Setup assigns a due Healthstatus questionnaire for the patient
   - Patient login opens the questionnaire popup
@@ -153,6 +159,7 @@ npx playwright install --with-deps chromium
 - `E2E_ADMIN_PASSWORD`: seeded admin password.
 - `E2E_THERAPIST_LOGIN`: seeded therapist login identifier (email).
 - `E2E_THERAPIST_PASSWORD`: seeded therapist password.
+- `E2E_EMAIL_DIR`: directory used by Django file-based email backend so Playwright can read therapist 2FA codes.
 
 Example:
 
@@ -227,6 +234,16 @@ E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 E2E_PATIENT_ID=<patient-object-id> \
 npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts e2e/therapist-health-export-questionnaire-csv.spec.ts
+```
+
+Therapist feedback-chip regression (requires seeded therapist):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir-for-2fa> \
+npm run test:e2e -- e2e/therapist-feedback-chips.spec.ts
 ```
 
 Patient questionnaire popup submission (requires seeded therapist + patient):
