@@ -68,7 +68,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
           ))
         ) : (
           <Card
-            className="flex items-center bg-accent gap-3"
+            className="flex items-center bg-zinc-50 gap-3"
             role="status"
             aria-label={t('No recommendation')}
           >

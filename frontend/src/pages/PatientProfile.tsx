@@ -134,7 +134,7 @@ const PatientProfile: React.FC = observer(() => {
                 <SelectTrigger className="bg-white border-white shadow-none p-0">
                   <SelectValue placeholder={t('Select language')} />
                 </SelectTrigger>
-                <SelectContent className="bg-accent rounded-3xl p-1">
+                <SelectContent className="bg-zinc-50 rounded-3xl p-1">
                   <SelectGroup>
                     {languages.map((l) => (
                       <SelectItem key={l} value={l}>
