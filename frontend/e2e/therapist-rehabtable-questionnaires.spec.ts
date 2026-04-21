@@ -54,9 +54,12 @@ test.describe('Therapist rehab table questionnaires', () => {
     skipUnlessSeeded(test);
 
     await page.goto('/rehabtable');
-    await page.getByRole('tab', { name: /questionnaires/i }).click();
 
-    await page.waitForRequest((req) => req.url().includes('/questionnaires/patient/'));
+    const patientReq = page.waitForRequest((req) =>
+      req.url().includes('/questionnaires/patient/')
+    );
+    await page.getByRole('tab', { name: /questionnaires/i }).click();
+    await patientReq;
 
     const addBtn = page.locator('button.btn-outline-success').first();
     const modifyBtn = page.locator('button.btn-outline-secondary').first();
@@ -142,7 +145,13 @@ test.describe('Therapist rehab table questionnaires', () => {
     });
 
     await page.goto('/rehabtable');
+
+    const healthRes = page.waitForResponse((res) => res.url().includes('/questionnaires/health/'));
+    const patientRes = page.waitForResponse((res) =>
+      res.url().includes('/questionnaires/patient/')
+    );
     await page.getByRole('tab', { name: /questionnaires/i }).click();
+    await Promise.all([healthRes, patientRes]);
 
     await expect(page.getByText('Mood Check').first()).toBeVisible();
 
@@ -205,8 +214,15 @@ test.describe('Therapist rehab table questionnaires', () => {
     });
 
     await page.goto('/rehabtable');
+
+    const healthRes2 = page.waitForResponse((res) =>
+      res.url().includes('/questionnaires/health/')
+    );
+    const patientRes2 = page.waitForResponse((res) =>
+      res.url().includes('/questionnaires/patient/')
+    );
     await page.getByRole('tab', { name: /questionnaires/i }).click();
-    await page.waitForResponse((res) => res.url().includes('/questionnaires/patient/'));
+    await Promise.all([healthRes2, patientRes2]);
 
     await expect(page.getByText('Answered results')).toBeVisible();
     await expect(page.getByText('How are you today?')).toBeVisible();
