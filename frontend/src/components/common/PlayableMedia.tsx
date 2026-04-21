@@ -38,7 +38,7 @@ const OpenLinkButton: React.FC<{ href: string; text?: string }> = ({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
+      className="rounded-full p-4 pl-5 bg-brand flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
     >
       {text}
       <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />

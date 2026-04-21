@@ -12,7 +12,7 @@ const ForgotPasswordLink: React.FC<ForgotPasswordLinkProps> = ({
   <div className="mt-3 text-center">
     <button
       type="button"
-      className="btn btn-link btn-sm text-decoration-underline px-0 !text-[#00956C]"
+      className="btn btn-link btn-sm text-decoration-underline px-0 !text-brand"
       onClick={onClick}
       aria-label={text}
     >

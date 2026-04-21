@@ -207,7 +207,7 @@ const PatientProfile: React.FC = observer(() => {
                 <Badge variant="card">
                   <a
                     href={`mailto:${config.contact.email}`}
-                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                    className="flex items-center gap-1 no-underline text-brand"
                   >
                     <Mail className="w-4 h-4" />
                     <span>{config.contact.email}</span>
@@ -218,7 +218,7 @@ const PatientProfile: React.FC = observer(() => {
                 <Badge variant="card">
                   <a
                     href={`tel:${config.contact.phone}`}
-                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                    className="flex items-center gap-1 no-underline text-brand"
                   >
                     <Phone className="w-4 h-4" />
                     <span>{config.contact.phone}</span>
