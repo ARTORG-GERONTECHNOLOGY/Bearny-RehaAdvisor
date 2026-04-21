@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { colors } from '@/lib/colors';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
@@ -120,14 +121,14 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                     {stepsGoal !== null && stepsGoal !== undefined && (
                       <ReferenceLine
                         y={stepsGoal}
-                        stroke="#E4E4E7"
+                        stroke={colors.chartMuted}
                         strokeWidth={2}
                         strokeDasharray="8 8"
                       />
                     )}
                     <XAxis dataKey="date" hide />
                     <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                    <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
+                    <Bar dataKey="steps" fill={colors.pink} radius={18} />
                   </BarChart>
                 </ChartContainer>
               </div>

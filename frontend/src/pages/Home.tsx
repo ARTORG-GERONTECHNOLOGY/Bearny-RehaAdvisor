@@ -30,7 +30,7 @@ const Home: React.FC = () => {
   const toggleRegisterModal = () => setShowRegisterModal((p) => !p);
 
   return (
-    <div className="d-flex flex-column min-vh-100 home-root bg-[#F2F2F7]">
+    <div className="d-flex flex-column min-vh-100 home-root bg-back">
       <Header isLoggedIn={authStore.isAuthenticated} />
       <HomeIllustration className="ml-auto md:absolute right-0 top-28 md:top-1/4" />
 

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomeSkeleton() {
   return (
-    <div className="d-flex flex-column min-vh-100 bg-[#F2F2F7]">
+    <div className="d-flex flex-column min-vh-100 bg-back">
       {/* Header placeholder */}
       <div className="d-flex align-items-center px-4 py-3 border-bottom bg-white">
         <Skeleton className="h-8 w-32" />

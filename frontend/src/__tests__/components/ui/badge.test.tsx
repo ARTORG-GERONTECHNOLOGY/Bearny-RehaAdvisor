@@ -36,11 +36,11 @@ describe('Badge', () => {
   });
 
   describe('card', () => {
-    it('applies bg-white, text-[#00956C], rounded-xl, pl-[10px], pr-3 and border-accent', () => {
+    it('applies bg-white, text-brand, rounded-xl, pl-[10px], pr-3 and border-accent', () => {
       const { container } = render(<Badge variant="card">X</Badge>);
       const el = container.firstChild;
       expect(el).toHaveClass('bg-white');
-      expect(el).toHaveClass('text-[#00956C]');
+      expect(el).toHaveClass('text-brand');
       expect(el).toHaveClass('rounded-xl');
       expect(el).toHaveClass('pl-[10px]');
       expect(el).toHaveClass('pr-3');
