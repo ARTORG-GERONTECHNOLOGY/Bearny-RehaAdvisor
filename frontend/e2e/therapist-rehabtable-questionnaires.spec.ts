@@ -35,7 +35,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.goto('/rehabtable');
 
     const dynamicRequest = page.waitForRequest((req) =>
-      req.url().includes('/questionnaires/dynamic?subject=Healthstatus')
+      req.url().includes('/questionnaires/health/')
     );
     const assignedRequest = page.waitForRequest((req) =>
       req.url().includes('/questionnaires/patient/')
@@ -144,7 +144,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.goto('/rehabtable');
     await page.getByRole('tab', { name: /questionnaires/i }).click();
 
-    await expect(page.getByText('Mood Check')).toBeVisible();
+    await expect(page.getByText('Mood Check').first()).toBeVisible();
 
     const availableCard = page
       .locator('div.border.rounded')
@@ -206,6 +206,7 @@ test.describe('Therapist rehab table questionnaires', () => {
 
     await page.goto('/rehabtable');
     await page.getByRole('tab', { name: /questionnaires/i }).click();
+    await page.waitForResponse((res) => res.url().includes('/questionnaires/patient/'));
 
     await expect(page.getByText('Answered results')).toBeVisible();
     await expect(page.getByText('How are you today?')).toBeVisible();
