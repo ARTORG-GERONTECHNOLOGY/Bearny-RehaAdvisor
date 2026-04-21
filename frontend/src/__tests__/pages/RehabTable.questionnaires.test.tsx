@@ -174,7 +174,7 @@ describe('RehabTable questionnaires integration', () => {
       </MemoryRouter>
     );
 
-    const qTab = screen.getByRole('button', { name: 'Questionnaires' });
+    const qTab = screen.getByRole('tab', { name: 'Questionnaires' });
     fireEvent.click(qTab);
 
     expect(mockStore.setTopTab).toHaveBeenCalledWith('questionnaires');
