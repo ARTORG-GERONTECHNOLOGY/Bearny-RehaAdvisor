@@ -610,6 +610,87 @@ def test_add_intervention_to_patient_success(mongo_mock):
     assert "message" in data
 
 
+@pytest.mark.django_db
+def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
+    """
+    Regression: patientId in add-to-patient may be sent as patient_code (e.g. "1234").
+    The assignment must still be created and visible in the patient's plan.
+    """
+    therapist_user = User(
+        username="therapist-code",
+        email="therapist-code@example.com",
+        phone="123",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(
+        userId=therapist_user,
+        name="Doe",
+        first_name="Jane",
+        specializations=["Cardiology"],
+        clinics=["Inselspital"],
+    ).save()
+
+    patient_user = User(
+        username="p15",
+        email="p15@example.com",
+        phone="456",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="1234",
+        therapist=therapist,
+        access_word="pass",
+        reha_end_date=datetime.now() + timedelta(days=30),
+    ).save()
+
+    intervention = Intervention(
+        external_id="test_ext_code_001",
+        language="en",
+        title="Breathing",
+        description="Breathing exercise",
+        content_type="Video",
+        keywords=["Breathing"],
+        patient_types=[],
+        duration=15,
+        media=[],
+    ).save()
+
+    payload = {
+        "therapistId": str(therapist.userId.id),
+        "patientId": "1234",
+        "interventions": [
+            {
+                "interval": 1,
+                "interventionId": str(intervention.id),
+                "unit": "day",
+                "startDate": datetime.now().isoformat(),
+                "selectedDays": [],
+                "end": {"type": "count", "count": 1, "date": None},
+                "require_video_feedback": False,
+                "notes": "",
+            }
+        ],
+    }
+
+    resp = client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code in (200, 201), resp.content.decode()
+    assert resp.json().get("success") is True
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    assert plan is not None
+    assert len(plan.interventions or []) == 1
+    assert str(plan.interventions[0].interventionId.id) == str(intervention.id)
+
+
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     """
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.
@@ -1379,6 +1460,45 @@ def test_get_patient_plan_by_patient_id(mongo_mock):
     # Use Patient._id instead of User._id
     resp = client.get(
         f"/api/patients/rehabilitation-plan/patient/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["intervention_id"] == str(intervention.id)
+
+
+def test_get_patient_plan_by_patient_code(mongo_mock):
+    """
+    Regression: patient endpoint must also accept patient_code identifiers
+    used in older UI flows (e.g. "1234").
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    patient.patient_code = "1234"
+    patient.save()
+
+    resp = client.get(
+        "/api/patients/rehabilitation-plan/patient/1234/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["intervention_id"] == str(intervention.id)
+
+
+def test_get_patient_plan_by_username(mongo_mock):
+    """
+    Regression: patient endpoint must resolve via patient user's username too.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.username}/",
         HTTP_AUTHORIZATION="Bearer test",
     )
 
