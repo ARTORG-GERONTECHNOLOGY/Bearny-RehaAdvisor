@@ -6,18 +6,15 @@ import type { HealthPageStore } from '../../stores/healthPageStore';
 import MetricBarOrBox from './charts/MetricBarOrBox';
 import SleepChart from './charts/SleepChart';
 import HRZonesStacked from './charts/HRZonesStacked';
-import QuestionnaireTotal from './charts/QuestionnaireTotal';
-import QuestionnaireLines from './charts/QuestionnaireLines';
 import AdherenceLine from './charts/AdherenceLine';
 import WeightChart from './charts/WeightChart';
 import BloodPressureChart from './charts/BloodPressureChart';
 import ExerciseSessionsChart from './charts/ExerciseSessionsChart';
 import ExerciseSessionsTable from './charts/ExerciseSessionsTable';
+import QuestionnaireResultsTable from './QuestionnaireResultsTable';
 
 type SvgRefs = {
   adherence: React.RefObject<SVGSVGElement>;
-  totalScore: React.RefObject<SVGSVGElement>;
-  questionnaire: React.RefObject<SVGSVGElement>;
   restingHR: React.RefObject<SVGSVGElement>;
   sleep: React.RefObject<SVGSVGElement>;
   wearTime: React.RefObject<SVGSVGElement>;
@@ -35,10 +32,11 @@ type SvgRefs = {
 type Props = {
   store: HealthPageStore;
   t: (k: string) => string;
+  lang: string;
   svgRefs: SvgRefs;
 };
 
-const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) => {
+const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRefs }) => {
   const start = store.startDate;
   const end = store.endDate;
 
@@ -60,29 +58,14 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, svgRefs }) 
       </Accordion.Item>
 
       <Accordion.Item eventKey="1">
-        <Accordion.Header>{t('Summary of Questionaire Scores')}</Accordion.Header>
+        <Accordion.Header>{t('Questionnaire Results By Date')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
-          <div className="d-flex justify-content-center">
-            <QuestionnaireTotal
-              ref={svgRefs.totalScore}
-              data={store.questionnaireData}
-              res={store.chartRes}
-              start={start}
-              end={end}
-            />
-          </div>
-        </Accordion.Body>
-      </Accordion.Item>
-
-      <Accordion.Item eventKey="2">
-        <Accordion.Header>{t('Questions')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
-          <QuestionnaireLines
-            ref={svgRefs.questionnaire}
+          <QuestionnaireResultsTable
             data={store.questionnaireData}
-            visibleKeys={store.visibleQuestions}
             start={start}
             end={end}
+            lang={lang || 'en'}
+            t={t}
           />
         </Accordion.Body>
       </Accordion.Item>

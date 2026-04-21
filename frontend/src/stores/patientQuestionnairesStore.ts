@@ -178,6 +178,7 @@ export class PatientQuestionnairesStore {
 
       runInAction(() => {
         this.healthQuestions = normalized;
+        this.showHealthPopup = normalized.length > 0;
       });
     } catch (e: any) {
       Sentry.captureException(e, { extra: { context: 'loadHealthQuestionnaire', patientId } });

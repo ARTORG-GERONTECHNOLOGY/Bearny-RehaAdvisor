@@ -49,7 +49,6 @@ from utils.utils import (
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
-    resolve_patient,
     sanitize_text,
     serialize_datetime,
     transcribe_file,
@@ -998,10 +997,10 @@ def get_patient_plan(request, patient_id):
         return base_intervention
 
     try:
-        try:
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-        except Patient.DoesNotExist:
-            patient = Patient.objects.get(id=ObjectId(patient_id))
+        patient = _resolve_patient_flexible(patient_id)
+        if not patient:
+            logger.warning("[get_patient_plan] Patient not found")
+            return JsonResponse({"error": "Patient not found"}, status=404)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
@@ -1083,16 +1082,8 @@ def get_patient_plan(request, patient_id):
 
         return JsonResponse(out, safe=False, status=200)
 
-    except Patient.DoesNotExist:
-        logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
-        return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
-        logger.error(
-            "[get_patient_plan] Error for patient %s: %s",
-            patient_id,
-            str(e),
-            exc_info=True,
-        )
+        logger.error("[get_patient_plan] Error while resolving/serializing patient plan: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
@@ -1206,6 +1197,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     # -------------------- HEALTHSTATUS --------------------
     if questionaire_type == "Healthstatus":
         now = timezone.now()
+        today_local = timezone.localdate(now)
 
         # 0) Prefer due assigned Healthstatus questionnaires from RehabPlan.
         # Return these first so patients receive therapist-assigned questionnaires
@@ -1237,17 +1229,22 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                 due_date = None
                 qa_dates = sorted([_aware(d) for d in (getattr(qa, "dates", None) or []) if d])
                 if qa_dates:
-                    past_or_today = [d for d in qa_dates if d and d <= now]
+                    # Treat "today" as due even if scheduled time is later.
+                    past_or_today = [d for d in qa_dates if d and timezone.localdate(d) <= today_local]
                     if not past_or_today:
                         continue
                     due_date = past_or_today[-1]
 
                 # If we have a due date, don't re-ask once answered on/after due date.
                 if due_date:
+                    due_date_start = timezone.make_aware(
+                        datetime.datetime.combine(timezone.localdate(due_date), datetime.time.min),
+                        timezone.get_current_timezone(),
+                    )
                     already_answered = (
                         PatientICFRating.objects(
                             patientId=patient,
-                            date__gte=due_date,
+                            date__gte=due_date_start,
                             feedback_entries__exists=True,
                             feedback_entries__ne=[],
                             **{"feedback_entries__questionId__in": q_ids},
@@ -1673,6 +1670,41 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     return merged, added
 
 
+def _resolve_patient_flexible(identifier: str):
+    """
+    Resolve a patient from any commonly-used identifier:
+    - Patient._id (ObjectId string)
+    - User._id (ObjectId string)
+    - User.username / User.email
+    - Patient.patient_code (e.g. "1234", "P15")
+    """
+    raw = (identifier or "").strip()
+    if not raw:
+        return None
+
+    oid = _coerce_object_id(raw)
+    if oid:
+        patient = Patient.objects(id=oid).first()
+        if patient:
+            return patient
+        patient = Patient.objects(userId=oid).first()
+        if patient:
+            return patient
+        user = User.objects(id=oid).first()
+        if user:
+            patient = Patient.objects(userId=user).first()
+            if patient:
+                return patient
+
+    user = User.objects(username=raw).first() or User.objects(email=raw).first()
+    if user:
+        patient = Patient.objects(userId=user).first()
+        if patient:
+            return patient
+
+    return Patient.objects(patient_code=raw).first()
+
+
 # ---------------------------------------------------------------------
 # endpoint
 # ---------------------------------------------------------------------
@@ -1740,7 +1772,7 @@ def add_intervention_to_patient(request):
             except Exception:
                 return None
         if timezone.is_naive(dtx):
-            dtx = make_aware(dtx)
+            dtx = timezone.make_aware(dtx, timezone.get_current_timezone())
         return dtx
 
     def lang_fallback_chain(user_lang: str):
@@ -1812,34 +1844,18 @@ def add_intervention_to_patient(request):
             status=404,
         )
 
-    # ---- Resolve patient (pk first, then userId) ----
-    patient_oid = _coerce_object_id(patientId)
-    if not patient_oid:
+    # ---- Resolve patient (supports ObjectId, username/email, patient_code) ----
+    patient = _resolve_patient_flexible(str(patientId))
+    if not patient:
         return JsonResponse(
             {
                 "success": False,
                 "message": "Patient not found",
-                "field_errors": {"patientId": ["Invalid patient id."]},
+                "field_errors": {"patientId": ["Patient does not exist."]},
                 "non_field_errors": [],
             },
             status=404,
         )
-
-    try:
-        patient = Patient.objects.get(pk=patient_oid)
-    except Patient.DoesNotExist:
-        try:
-            patient = Patient.objects.get(userId=patient_oid)
-        except Patient.DoesNotExist:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": "Patient not found",
-                    "field_errors": {"patientId": ["Patient does not exist."]},
-                    "non_field_errors": [],
-                },
-                status=404,
-            )
 
     # ---- Load/create plan ----
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -2468,7 +2484,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         )
 
     try:
-        patient = resolve_patient(patient_id)
+        patient = _resolve_patient_flexible(patient_id)
         if not patient:
             logger.warning(
                 "[get_patient_plan_for_therapist] Could not resolve patient: %s",
@@ -3199,13 +3215,31 @@ def get_combined_health_data(request, patient_id):
                 if qid not in question_map:
                     continue
 
-                parsed_answers = [
-                    {
-                        "key": ans.key,
-                        "translations": [{"language": t.language, "text": t.text} for t in ans.translations],
-                    }
-                    for ans in (ent.answerKey or [])
-                ]
+                parsed_answers = []
+                for ans in ent.answerKey or []:
+                    if hasattr(ans, "key"):
+                        parsed_answers.append(
+                            {
+                                "key": ans.key,
+                                "translations": [
+                                    {"language": t.language, "text": t.text}
+                                    for t in (getattr(ans, "translations", None) or [])
+                                ],
+                            }
+                        )
+                    else:
+                        parsed_answers.append(
+                            {
+                                "key": str(ans),
+                                "translations": [{"language": "en", "text": str(ans)}],
+                            }
+                        )
+
+                audio_url = getattr(ent, "audio_url", None)
+                if audio_url and not str(audio_url).lower().startswith(("http://", "https://")):
+                    audio_url = urljoin(settings.MEDIA_HOST, str(audio_url))
+
+                media_urls = [audio_url] if audio_url else []
 
                 qmeta = question_map[qid]
                 feedback_result.append(
@@ -3215,6 +3249,8 @@ def get_combined_health_data(request, patient_id):
                         "date": _iso(rating.date),
                         "answers": parsed_answers,
                         "comment": ent.comment,
+                        "audio_url": audio_url,
+                        "media_urls": media_urls,
                         "questionTranslations": qmeta["translations"],
                         "answerType": qmeta["answerType"],
                     }

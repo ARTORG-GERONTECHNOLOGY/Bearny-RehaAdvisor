@@ -889,6 +889,8 @@ def send_verification_code(request):
         user = User.objects.filter(pk=user_id).first()
         if not user:
             return JsonResponse({"error": "User not found"}, status=404)
+        if not getattr(user, "email", None):
+            return JsonResponse({"error": "User has no email address configured"}, status=400)
 
         code = generate_code()
         expires_at = timezone.now() + timedelta(minutes=5)
@@ -948,7 +950,9 @@ def send_verification_code(request):
             to=[user.email],
         )
         msg.attach_alternative(html_content, "text/html")
-        msg.send(fail_silently=False)
+        sent_count = msg.send(fail_silently=False)
+        if isinstance(sent_count, int) and sent_count < 1:
+            return JsonResponse({"error": "Verification email could not be delivered"}, status=500)
 
         return JsonResponse({"message": "Verification code sent successfully"}, status=200)
 
