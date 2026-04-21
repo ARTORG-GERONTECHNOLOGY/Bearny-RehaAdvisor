@@ -60,7 +60,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     await patientReq;
 
     const addBtn = page.locator('button.btn-outline-success').first();
-    const modifyBtn = page.locator('button.btn-outline-secondary').first();
+    const modifyBtn = page.locator('button.btn-outline-secondary:not([disabled])').first();
 
     if ((await addBtn.count()) > 0) {
       await addBtn.click();
@@ -80,7 +80,7 @@ test.describe('Therapist rehab table questionnaires', () => {
   test('therapist can view questionnaire questions and answer options', async ({ page }) => {
     skipUnlessSeeded(test);
 
-    await page.route('**/questionnaires/health/**', async (route) => {
+    await page.route(/\/questionnaires\/health\//, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -115,7 +115,7 @@ test.describe('Therapist rehab table questionnaires', () => {
       });
     });
 
-    await page.route('**/questionnaires/patient/**', async (route) => {
+    await page.route(/\/questionnaires\/patient\//, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -166,7 +166,7 @@ test.describe('Therapist rehab table questionnaires', () => {
   test('assigned questionnaires show answered results when available', async ({ page }) => {
     skipUnlessSeeded(test);
 
-    await page.route('**/questionnaires/health/**', async (route) => {
+    await page.route(/\/questionnaires\/health\//, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -184,7 +184,7 @@ test.describe('Therapist rehab table questionnaires', () => {
       });
     });
 
-    await page.route('**/questionnaires/patient/**', async (route) => {
+    await page.route(/\/questionnaires\/patient\//, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
