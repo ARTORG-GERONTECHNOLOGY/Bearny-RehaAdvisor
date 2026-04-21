@@ -41,6 +41,7 @@ import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
+from django.utils import timezone
 
 from core.models import (
     AnswerOption,
@@ -365,6 +366,47 @@ def test_fetch_healthstatus_questions_prefers_due_assigned_questionnaire(mongo_m
 
     assert "99_assigned_q1" in keys
     assert "99_assigned_q2" in keys
+
+
+def test_fetch_healthstatus_questions_treats_today_schedule_as_due_even_before_start_time(mongo_mock):
+    """
+    A questionnaire assigned for the current local day should be shown even when
+    its scheduled clock time has not passed yet.
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="97_assigned_q1",
+        translations=[Translation(language="en", text="Assigned today?")],
+        answer_type="text",
+    ).save()
+    hq = HealthQuestionnaire(
+        key="97_assigned",
+        title="Assigned 97",
+        questions=[q1],
+    ).save()
+
+    scheduled_later_today = timezone.now().replace(hour=23, minute=30, second=0, microsecond=0)
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Daily",
+            dates=[scheduled_later_today],
+            notes="",
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    questions = body if isinstance(body, list) else body.get("questions", [])
+    keys = [q.get("questionKey") for q in questions]
+    assert "97_assigned_q1" in keys
 
 
 def test_fetch_healthstatus_questions_hides_due_assignment_after_answered(mongo_mock):

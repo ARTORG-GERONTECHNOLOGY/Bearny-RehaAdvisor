@@ -16,6 +16,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    serviceWorkers: 'block',
   },
   webServer: {
     command: `npm run dev -- --host 127.0.0.1 --port ${port}`,
