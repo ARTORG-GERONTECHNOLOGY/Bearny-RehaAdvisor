@@ -55,9 +55,7 @@ test.describe('Therapist rehab table questionnaires', () => {
 
     await page.goto('/rehabtable');
 
-    const patientReq = page.waitForRequest((req) =>
-      req.url().includes('/questionnaires/patient/')
-    );
+    const patientReq = page.waitForRequest((req) => req.url().includes('/questionnaires/patient/'));
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await patientReq;
 
@@ -215,9 +213,7 @@ test.describe('Therapist rehab table questionnaires', () => {
 
     await page.goto('/rehabtable');
 
-    const healthRes2 = page.waitForResponse((res) =>
-      res.url().includes('/questionnaires/health/')
-    );
+    const healthRes2 = page.waitForResponse((res) => res.url().includes('/questionnaires/health/'));
     const patientRes2 = page.waitForResponse((res) =>
       res.url().includes('/questionnaires/patient/')
     );
