@@ -49,7 +49,6 @@ from utils.utils import (
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
-    resolve_patient,
     sanitize_text,
     serialize_datetime,
     transcribe_file,
@@ -998,10 +997,10 @@ def get_patient_plan(request, patient_id):
         return base_intervention
 
     try:
-        try:
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-        except Patient.DoesNotExist:
-            patient = Patient.objects.get(id=ObjectId(patient_id))
+        patient = _resolve_patient_flexible(patient_id)
+        if not patient:
+            logger.warning("[get_patient_plan] Patient not found")
+            return JsonResponse({"error": "Patient not found"}, status=404)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
@@ -1083,16 +1082,8 @@ def get_patient_plan(request, patient_id):
 
         return JsonResponse(out, safe=False, status=200)
 
-    except Patient.DoesNotExist:
-        logger.warning("[get_patient_plan] Patient not found: %s", patient_id)
-        return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception as e:
-        logger.error(
-            "[get_patient_plan] Error for patient %s: %s",
-            patient_id,
-            str(e),
-            exc_info=True,
-        )
+        logger.error("[get_patient_plan] Error while resolving/serializing patient plan: %s", str(e), exc_info=True)
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
@@ -1679,6 +1670,41 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     return merged, added
 
 
+def _resolve_patient_flexible(identifier: str):
+    """
+    Resolve a patient from any commonly-used identifier:
+    - Patient._id (ObjectId string)
+    - User._id (ObjectId string)
+    - User.username / User.email
+    - Patient.patient_code (e.g. "1234", "P15")
+    """
+    raw = (identifier or "").strip()
+    if not raw:
+        return None
+
+    oid = _coerce_object_id(raw)
+    if oid:
+        patient = Patient.objects(id=oid).first()
+        if patient:
+            return patient
+        patient = Patient.objects(userId=oid).first()
+        if patient:
+            return patient
+        user = User.objects(id=oid).first()
+        if user:
+            patient = Patient.objects(userId=user).first()
+            if patient:
+                return patient
+
+    user = User.objects(username=raw).first() or User.objects(email=raw).first()
+    if user:
+        patient = Patient.objects(userId=user).first()
+        if patient:
+            return patient
+
+    return Patient.objects(patient_code=raw).first()
+
+
 # ---------------------------------------------------------------------
 # endpoint
 # ---------------------------------------------------------------------
@@ -1746,7 +1772,7 @@ def add_intervention_to_patient(request):
             except Exception:
                 return None
         if timezone.is_naive(dtx):
-            dtx = make_aware(dtx)
+            dtx = timezone.make_aware(dtx, timezone.get_current_timezone())
         return dtx
 
     def lang_fallback_chain(user_lang: str):
@@ -1818,34 +1844,18 @@ def add_intervention_to_patient(request):
             status=404,
         )
 
-    # ---- Resolve patient (pk first, then userId) ----
-    patient_oid = _coerce_object_id(patientId)
-    if not patient_oid:
+    # ---- Resolve patient (supports ObjectId, username/email, patient_code) ----
+    patient = _resolve_patient_flexible(str(patientId))
+    if not patient:
         return JsonResponse(
             {
                 "success": False,
                 "message": "Patient not found",
-                "field_errors": {"patientId": ["Invalid patient id."]},
+                "field_errors": {"patientId": ["Patient does not exist."]},
                 "non_field_errors": [],
             },
             status=404,
         )
-
-    try:
-        patient = Patient.objects.get(pk=patient_oid)
-    except Patient.DoesNotExist:
-        try:
-            patient = Patient.objects.get(userId=patient_oid)
-        except Patient.DoesNotExist:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": "Patient not found",
-                    "field_errors": {"patientId": ["Patient does not exist."]},
-                    "non_field_errors": [],
-                },
-                status=404,
-            )
 
     # ---- Load/create plan ----
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -2474,7 +2484,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         )
 
     try:
-        patient = resolve_patient(patient_id)
+        patient = _resolve_patient_flexible(patient_id)
         if not patient:
             logger.warning(
                 "[get_patient_plan_for_therapist] Could not resolve patient: %s",
