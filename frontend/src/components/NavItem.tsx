@@ -25,8 +25,8 @@ export function NavItem({
         flex items-center border-0
         transition
         ${desktop ? 'gap-[6px] pt-[10px] pr-[12px] pb-[9px] pl-[12px] text-[14px]' : 'flex-col gap-[8px] text-[10px]'}
-        ${active ? 'text-[#03A578]' : 'text-zinc-500 hover:text-black'}
-        ${active && desktop ? 'bg-[#03A5780D] rounded-full' : 'bg-transparent'}
+        ${active ? 'text-[#00956C]' : 'text-zinc-500 hover:text-black'}
+        ${active && desktop ? 'bg-[#00956C]/5 rounded-full' : 'bg-transparent'}
       `}
     >
       <Icon className={iconSize} />

@@ -424,7 +424,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
               <button
                 key={i}
                 type="button"
-                className={`p-3 rounded-full border-none transition-all ${rating <= selectedRating ? 'bg-[#EFA73B33]' : 'bg-zinc-100'}`}
+                className={`p-3 rounded-full border-none transition-all ${rating <= selectedRating ? 'bg-[#EFA73B]/20' : 'bg-zinc-100'}`}
                 onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, false)}
                 aria-pressed={rating === selectedRating}
                 aria-label={`${rating} ${rating === 1 ? 'star' : 'stars'}`}
@@ -472,7 +472,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
               key={i}
               className={
                 active
-                  ? 'bg-[#00956C33] hover:bg-[#00956C33] text-[#00956C]'
+                  ? 'bg-[#00956C]/20 hover:bg-[#00956C]/20 text-[#00956C]'
                   : 'bg-white border border-zinc-200 text-zinc-800'
               }
               onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
