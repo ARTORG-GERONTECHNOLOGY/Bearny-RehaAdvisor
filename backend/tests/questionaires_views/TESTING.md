@@ -4,9 +4,10 @@ Tests in [`test_questionaires_view.py`](test_questionaires_view.py) cover
 `core/views/questionaires_view.py` routes.
 
 ## Coverage
-- `list_health_questionnaires`: method + success
+- `list_health_questionnaires`: method + success (+ serialized `questions` payload)
 - `list_dynamic_questionnaires`: grouping behavior
-- `list_patient_questionnaires`: not-found + no-plan
+- `list_patient_questionnaires`: not-found + no-plan (+ includes questionnaire content fields when assigned)
+- `list_patient_questionnaires`: includes `answered_entries` for past/current answered assigned questionnaires
 - `assign_questionnaire`: validation + patient-not-found + success path
 - `remove_questionnaire`: validation + removal success
 - helper coverage:

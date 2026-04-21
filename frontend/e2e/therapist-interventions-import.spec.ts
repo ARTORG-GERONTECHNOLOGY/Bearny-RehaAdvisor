@@ -13,6 +13,8 @@ import * as path from 'path';
 
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
+import { loginAsTherapist } from './helpers/auth';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -48,22 +50,6 @@ async function getToken(request: APIRequestContext): Promise<string> {
   expect(res.ok(), `Login failed: ${await res.text()}`).toBeTruthy();
   const body = await res.json();
   return body.access_token as string;
-}
-
-async function loginAsTherapist(page: Parameters<Parameters<typeof test>[1]>[0]) {
-  const { login, password } = creds();
-  await page.goto('/');
-  await page.getByRole('button', { name: /login/i }).first().click();
-  const modal = page.locator('[role="dialog"][data-state="open"]');
-  await expect(modal).toBeVisible();
-  await modal.locator('#email').fill(login as string);
-  await modal.locator('#password').fill(password as string);
-  const loginDone = page.waitForResponse(
-    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
-  );
-  await modal.getByRole('button', { name: /login/i }).click();
-  await loginDone;
-  await expect(page).toHaveURL(/\/therapist/i);
 }
 
 async function openImportModal(page: Parameters<Parameters<typeof test>[1]>[0]) {

@@ -584,3 +584,59 @@ def test_health_combined_history_wear_time_none_when_absent(mock_fb_objects, moc
     row = body["fitbit"][0]
     assert row["wear_time_minutes"] is None
     assert row["sleep"]["minutes_asleep"] is None
+
+
+@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
+@patch("core.views.fitbit_view.PatientVitals.objects")
+@patch("core.views.fitbit_view.FitbitData.objects")
+def test_health_combined_history_questionnaire_rows_include_comment_and_media_fields(
+    mock_fb_objects, mock_vitals_objects, mock_logs
+):
+    _, _, _patient_user, patient = create_patient_graph()
+    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
+    mock_logs.return_value.order_by.return_value = []
+    mock_vitals_objects.return_value.order_by.return_value = []
+    mock_fb_objects.return_value.order_by.return_value = []
+
+    fake_entry = SimpleNamespace(
+        questionId=SimpleNamespace(
+            questionKey="16_profile_mood_1",
+            translations=[SimpleNamespace(language="en", text="How is your mood today?")],
+        ),
+        answerKey=[
+            SimpleNamespace(
+                key="1",
+                translations=[SimpleNamespace(language="en", text="Bad")],
+            ),
+            SimpleNamespace(
+                key="3",
+                translations=[SimpleNamespace(language="en", text="Good")],
+            ),
+        ],
+        comment="Patient noted mild fatigue in afternoon.",
+        audio_url="https://files.example/audio1.m4a",
+    )
+    fake_q = SimpleNamespace(
+        date=entry_dt,
+        icfCode="d450",
+        feedback_entries=[fake_entry],
+    )
+
+    with patch(
+        "core.views.fitbit_view.PatientICFRating",
+        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [fake_q])),
+        create=True,
+    ):
+        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
+        resp = health_combined_history(req, str(patient.id))
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert len(body["questionnaire"]) == 1
+    row = body["questionnaire"][0]
+    assert row["questionKey"] == "16_profile_mood_1"
+    assert row["answers"][0]["key"] == "1"
+    assert row["answers"][1]["key"] == "3"
+    assert row["comment"] == "Patient noted mild fatigue in afternoon."
+    assert row["audio_url"] == "https://files.example/audio1.m4a"
+    assert row["media_urls"] == ["https://files.example/audio1.m4a"]
