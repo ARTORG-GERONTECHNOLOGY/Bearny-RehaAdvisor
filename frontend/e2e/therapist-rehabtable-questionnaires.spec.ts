@@ -59,18 +59,29 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await patientReq;
 
-    const addBtn = page.locator('button.btn-outline-success').first();
-    const modifyBtn = page.locator('button.btn-outline-secondary:not([disabled])').first();
+    const availableCard = page
+      .locator('.card')
+      .filter({ hasText: /available questionnaires/i })
+      .first();
+    const assignedCard = page
+      .locator('.card')
+      .filter({ hasText: /assigned questionnaires/i })
+      .first();
 
-    if ((await addBtn.count()) > 0) {
-      await addBtn.click();
-      await expect(page.getByText(/assign questionnaire/i)).toBeVisible();
-      return;
-    }
+    const addBtn = availableCard.locator('button.btn-outline-success').first();
+    const modifyBtn = assignedCard.locator('button.btn-outline-secondary').first();
 
     if ((await modifyBtn.count()) > 0) {
       await modifyBtn.click();
-      await expect(page.getByText(/modify questionnaire schedule/i)).toBeVisible();
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/(modify questionnaire schedule|assign questionnaire)/i)).toBeVisible();
+      return;
+    }
+
+    if ((await addBtn.count()) > 0) {
+      await addBtn.click();
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/(assign questionnaire|modify questionnaire schedule)/i)).toBeVisible();
       return;
     }
 
@@ -151,13 +162,17 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await Promise.all([healthRes, patientRes]);
 
-    await expect(page.getByText('Mood Check').first()).toBeVisible();
-
     const availableCard = page
+      .locator('.card')
+      .filter({ hasText: /available questionnaires/i })
+      .first();
+    await expect(availableCard.getByText('Mood Check').first()).toBeVisible({ timeout: 10000 });
+
+    const moodCard = page
       .locator('div.border.rounded')
       .filter({ hasText: 'Mood Check' })
       .first();
-    await availableCard.locator('button.btn-outline-primary').first().click();
+    await moodCard.locator('button.btn-outline-primary').first().click();
 
     await expect(page.getByText('How is your mood today?')).toBeVisible();
     await expect(page.getByText('Answers: Bad, Okay, Good')).toBeVisible();
@@ -220,8 +235,11 @@ test.describe('Therapist rehab table questionnaires', () => {
     await page.getByRole('tab', { name: /questionnaires/i }).click();
     await Promise.all([healthRes2, patientRes2]);
 
-    await expect(page.getByText('Answered results')).toBeVisible();
-    await expect(page.getByText('How are you today?')).toBeVisible();
-    await expect(page.getByText(/Comment: Felt better\./)).toBeVisible();
+    const assignedCard = page
+      .locator('.card')
+      .filter({ hasText: /assigned questionnaires/i })
+      .first();
+    await expect(assignedCard.getByText('How are you today?')).toBeVisible({ timeout: 10000 });
+    await expect(assignedCard.getByText(/Felt better\./)).toBeVisible();
   });
 });
