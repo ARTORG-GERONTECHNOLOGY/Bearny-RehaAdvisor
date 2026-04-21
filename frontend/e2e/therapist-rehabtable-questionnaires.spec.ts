@@ -74,14 +74,18 @@ test.describe('Therapist rehab table questionnaires', () => {
     if ((await modifyBtn.count()) > 0) {
       await modifyBtn.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText(/(modify questionnaire schedule|assign questionnaire)/i)).toBeVisible();
+      await expect(
+        page.getByText(/(modify questionnaire schedule|assign questionnaire)/i)
+      ).toBeVisible();
       return;
     }
 
     if ((await addBtn.count()) > 0) {
       await addBtn.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText(/(assign questionnaire|modify questionnaire schedule)/i)).toBeVisible();
+      await expect(
+        page.getByText(/(assign questionnaire|modify questionnaire schedule)/i)
+      ).toBeVisible();
       return;
     }
 
@@ -168,10 +172,7 @@ test.describe('Therapist rehab table questionnaires', () => {
       .first();
     await expect(availableCard.getByText('Mood Check').first()).toBeVisible({ timeout: 10000 });
 
-    const moodCard = page
-      .locator('div.border.rounded')
-      .filter({ hasText: 'Mood Check' })
-      .first();
+    const moodCard = page.locator('div.border.rounded').filter({ hasText: 'Mood Check' }).first();
     await moodCard.locator('button.btn-outline-primary').first().click();
 
     await expect(page.getByText('How is your mood today?')).toBeVisible();
