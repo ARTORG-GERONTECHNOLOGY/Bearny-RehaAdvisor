@@ -625,3 +625,21 @@ def test_register_patient_created_by_set_to_therapist(mongo_mock):
     assert patient.created_by is not None
     therapist_doc = TherapistModel.objects.filter(userId=th).first()
     assert patient.created_by.id == therapist_doc.id
+
+
+@mock.patch.dict("os.environ", {"ENFORCE_REDCAP_ONLY_PATIENT_CREATION": "1"}, clear=False)
+def test_register_patient_redcap_only_mode_rejects_non_redcap_source(mongo_mock):
+    """
+    When REDCap-only mode is enabled server-side, manual patient registration
+    is rejected unless payload source is "redcap".
+    """
+    th = _create_therapist_with_clinics("t8@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COPAIN"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 403
+    body = resp.json()
+    assert "REDCap imports" in body.get("message", "") or "REDCap imports" in body.get("error", "")
+    assert "source" in body.get("field_errors", {})
+    assert User.objects.filter(email=payload["email"]).first() is None
