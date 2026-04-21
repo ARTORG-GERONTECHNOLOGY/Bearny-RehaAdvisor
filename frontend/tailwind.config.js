@@ -10,6 +10,14 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        // Brand color palette – single source of truth (see src/lib/colors.ts for JS usage)
+        back: '#F2F2F7',
+        success: '#16A34A',
+        brand: '#00956C',
+        pink: '#F1ADCF',
+        yellow: '#EFA73B',
+        chartMuted: '#E4E4E7',
+        // Shadcn CSS Variables
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

@@ -137,10 +137,10 @@ export default function Navigation() {
           </div>
           <button
             onClick={() => navigate('/patient-profile')}
-            className={`bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${location.pathname === '/patient-profile' ? 'text-[#00956C]' : 'text-zinc-500 hover:text-black'}`}
+            className={`bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${location.pathname === '/patient-profile' ? 'text-brand' : 'text-zinc-500 hover:text-black'}`}
           >
             <span
-              className={`flex p-2 rounded-full ${location.pathname === '/patient-profile' ? 'bg-[#00956C]/5' : ''}`}
+              className={`flex p-2 rounded-full ${location.pathname === '/patient-profile' ? 'bg-brand/5' : ''}`}
             >
               {location.pathname === '/patient-profile' ? (
                 <UserFill className="w-5 h-5" />

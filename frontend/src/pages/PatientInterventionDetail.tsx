@@ -659,7 +659,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
                 <EducationIcon className="flex-none w-8 h-8" />
               )}
               <span
-                className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
+                className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-pink' : 'text-yellow'}`}
               >
                 {t(effectiveItem.intervention.aim)}
               </span>
@@ -731,7 +731,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               <a
                 key={`${link.href}-${idx}`}
                 href={link.href}
-                className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
+                className="rounded-full p-4 pl-5 bg-brand flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`${link.text}: ${link.label}`}

@@ -14,16 +14,17 @@ import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
 import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
+import { colors } from '@/lib/colors';
 
-const CHART_ACCENT = '#F1ADCF';
-const CHART_ACCENT_LIGHT = '#F1ADCF80';
+const CHART_ACCENT = colors.pink;
+const CHART_ACCENT_LIGHT = colors.pink + '80';
 const CHART_ACCENT_SOFT = '#FCEFF5';
 const THRESHOLD_LINE_PROPS: {
   stroke: string;
   strokeWidth: number;
   strokeDasharray: string;
 } = {
-  stroke: '#E4E4E7',
+  stroke: colors.chartMuted,
   strokeWidth: 2,
   strokeDasharray: '8 8',
 };
