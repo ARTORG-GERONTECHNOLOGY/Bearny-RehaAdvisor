@@ -191,7 +191,7 @@ def test_available_patients_project_not_allowed(mock_get_th):
 
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "inselspital"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -213,7 +213,7 @@ def test_available_patients_returns_candidates(mock_get_th, mock_tok, mock_expor
 
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "d1"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "d1"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -255,10 +255,11 @@ def test_available_patients_dag_filter_and_dedupe(mock_get_th, mock_tok, mock_ex
     _, th = create_therapist(projects=["COPAIN"])
     mock_get_th.return_value = th
     mock_export.return_value = [
-        {"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "d1"},
-        {"record_id": "R2", "pat_id": "P17", "redcap_data_access_group": "d1"},
-        {"record_id": "R3", "pat_id": "P99", "redcap_data_access_group": "d2"},
-        {"record_id": "", "pat_id": "", "redcap_data_access_group": "d1"},
+        {"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "d1"},
+        {"record_id": "R2", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "d1"},
+        {"record_id": "R3", "pat_id": "P99", "ic": "1", "redcap_data_access_group": "d2"},
+        {"record_id": "", "pat_id": "", "ic": "1", "redcap_data_access_group": "d1"},
+        {"record_id": "R4", "pat_id": "P20", "ic": "0", "redcap_data_access_group": "d1"},
     ]
     resp = client.get(
         "/api/redcap/available-patients/?project=COPAIN",
@@ -268,6 +269,23 @@ def test_available_patients_dag_filter_and_dedupe(mock_get_th, mock_tok, mock_ex
     body = resp.json()
     assert len(body["candidates"]) == 1
     assert body["candidates"][0]["dag"] == "d1"
+
+
+@patch(
+    "core.views.redcap_import_views.redcap_export_minimal",
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "0", "redcap_data_access_group": "inselspital"}],
+)
+@patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
+@patch("core.views.redcap_import_views.get_therapist_for_user")
+def test_available_patients_excludes_non_consented_records(mock_get_th, _tok, _export):
+    _, th = create_therapist(projects=["COPAIN"])
+    mock_get_th.return_value = th
+    resp = client.get(
+        "/api/redcap/available-patients/?project=COPAIN",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["candidates"] == []
 
 
 @patch("core.views.redcap_import_views.redcap_export_minimal")
@@ -364,7 +382,7 @@ def test_import_patient_missing_token(mock_get_th, mock_token):
 @patch("core.views.redcap_import_views.allowed_dags_by_project", return_value={"dag-ok"})
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "dag-no"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "dag-no"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -404,7 +422,7 @@ def test_import_patient_fallback_patient_id_mode(mock_get_th, mock_tok, mock_exp
     mock_get_th.return_value = th
     mock_export.side_effect = [
         [],
-        [{"record_id": "R7", "pat_id": "P77", "redcap_data_access_group": "inselspital"}],
+        [{"record_id": "R7", "pat_id": "P77", "ic": "1", "redcap_data_access_group": "inselspital"}],
     ]
     resp = client.post(
         "/api/redcap/import-patient/",
@@ -434,7 +452,7 @@ def test_import_patient_fallback_redcap_error_returns_502(mock_get_th, mock_tok,
 
 @patch(
     "core.views.redcap_import_views.redcap_export_minimal",
-    return_value=[{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}],
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "inselspital"}],
 )
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -453,6 +471,26 @@ def test_import_patient_username_collision_suffix(mock_get_th, mock_tok, mock_ex
     assert resp.json()["username"].startswith("P17_")
 
 
+@patch(
+    "core.views.redcap_import_views.redcap_export_minimal",
+    return_value=[{"record_id": "R1", "pat_id": "P17", "ic": "0", "redcap_data_access_group": "inselspital"}],
+)
+@patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
+@patch("core.views.redcap_import_views.get_therapist_for_user")
+def test_import_patient_rejects_non_consented_record(mock_get_th, _tok, _export):
+    _, th = create_therapist(projects=["COPAIN"])
+    mock_get_th.return_value = th
+
+    resp = client.post(
+        "/api/redcap/import-patient/",
+        data=json.dumps({"project": "COPAIN", "patient_code": "P17", "password": "Strong1!"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 403
+    assert "informed consent" in resp.json()["error"]
+
+
 @patch("core.views.redcap_import_views.redcap_export_minimal")
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
@@ -461,7 +499,9 @@ def test_import_patient_success(mock_get_th, mock_tok, mock_export):
     mock_get_th.return_value = th
 
     # record lookup succeeds on first call (record_id mode)
-    mock_export.return_value = [{"record_id": "R1", "pat_id": "P17", "redcap_data_access_group": "inselspital"}]
+    mock_export.return_value = [
+        {"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "inselspital"}
+    ]
 
     resp = client.post(
         "/api/redcap/import-patient/",
@@ -490,7 +530,9 @@ def test_import_patient_creates_redcap_import_log(mock_get_th, mock_tok, mock_ex
 
     _, th = create_therapist(projects=["COPAIN"])
     mock_get_th.return_value = th
-    mock_export.return_value = [{"record_id": "R2", "pat_id": "P99", "redcap_data_access_group": "inselspital"}]
+    mock_export.return_value = [
+        {"record_id": "R2", "pat_id": "P99", "ic": "1", "redcap_data_access_group": "inselspital"}
+    ]
 
     resp = client.post(
         "/api/redcap/import-patient/",

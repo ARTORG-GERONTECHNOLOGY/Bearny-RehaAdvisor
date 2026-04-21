@@ -12,11 +12,11 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 
 | Group | Tests |
 |---|---|
-| `available_redcap_patients` | 9 |
-| `import_patient_from_redcap` | 12 |
+| `available_redcap_patients` | 10 |
+| `import_patient_from_redcap` | 13 |
 | Utility and service helpers | 6 |
 
-**Total: 27 tests**
+**Total: 29 tests**
 
 ---
 
@@ -48,6 +48,7 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 - Missing REDCap token → `200` with error in `errors[]`.
 - REDCap export error collected per project → `200` with `errors[]` populated.
 - DAG filter: records whose `redcap_data_access_group` is not in the allowed DAG set are excluded.
+- Informed-consent filter: records with `ic != 1` are excluded from candidates.
 - Deduplication: duplicate `(project, identifier)` pairs collapsed.
 - Already-imported patients excluded from candidates.
 - Successful candidate listing.
@@ -60,6 +61,7 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 - Already-imported patient (existing `patient_code`) → `409`.
 - Missing REDCap token → `400`.
 - DAG forbidden: record's DAG not in therapist's allowed DAGs → `403`.
+- Non-consented REDCap record (`ic != 1`) is rejected → `403`.
 - Record not found in REDCap → `404`.
 - Fallback: first lookup by `record_id` returns empty → retries by `pat_id` filter.
 - Fallback REDCap error on second attempt → `502`.

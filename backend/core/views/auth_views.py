@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import random
 import string
 from datetime import datetime, timedelta
@@ -674,6 +675,21 @@ def register_view(request):
             except (User.DoesNotExist, Therapist.DoesNotExist):
                 rollback()
                 return _err("Assigned therapist not found.", status=404)
+
+            # Optional compliance mode: allow patient creation only via REDCap import.
+            enforce_redcap_only = os.getenv("ENFORCE_REDCAP_ONLY_PATIENT_CREATION", "").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+            source = str(data.get("source") or "").strip().lower()
+            if enforce_redcap_only and source != "redcap":
+                rollback()
+                return _err(
+                    "Patient creation is restricted to REDCap imports.",
+                    status=403,
+                    field_errors={"source": ['Use "source":"redcap" or import via REDCap endpoint.']},
+                )
 
             # Validate clinic
             clinic = (data.get("clinic") or "").strip()
