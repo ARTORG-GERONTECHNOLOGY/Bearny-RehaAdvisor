@@ -208,6 +208,7 @@ jobs:
     env:
       E2E_API_URL: http://127.0.0.1:8001/api
       E2E_EMAIL_DIR: /tmp/django-e2e-emails
+      USE_E2E_FILE_EMAIL_BACKEND: "1"
       # Logins are non-sensitive — stored as Actions Variables (vars context)
       E2E_PATIENT_LOGIN: ${{ vars.E2E_PATIENT_LOGIN }}
       E2E_PATIENT_ID: ${{ vars.E2E_PATIENT_ID }}
