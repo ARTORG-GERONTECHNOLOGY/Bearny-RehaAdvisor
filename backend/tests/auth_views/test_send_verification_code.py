@@ -198,7 +198,7 @@ def test_send_verification_code_missing_user_email(mock_email_cls, mongo_mock):
     user = User(
         username="no-email-user",
         role="Therapist",
-        email="",
+        email=None,
         pwdhash="",
         createdAt=datetime.now(),
         isActive=True,
