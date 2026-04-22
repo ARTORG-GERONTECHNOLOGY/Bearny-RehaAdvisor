@@ -23,7 +23,7 @@ name: Tests
 
 on:
   push:
-    branches: [main, dev]
+    branches: ['**']
     paths:
       - 'frontend/**'
       - 'backend/**'
