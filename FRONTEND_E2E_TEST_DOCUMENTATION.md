@@ -20,6 +20,7 @@ frontend/
     home-register-therapist.spec.ts
     patient-page.spec.ts
     therapist-feedback-chips.spec.ts
+    therapist-characteristics-space-input.spec.ts
     therapist-interventions-templates.spec.ts
     TESTING.md
   playwright.config.ts
@@ -118,6 +119,14 @@ Validates therapist patient-list feedback traffic lights on `/therapist` using c
   - Feedback tooltip includes average-score text for recent answered days
   - Health chip is hidden for ongoing (active) patients
 
+### `therapist-characteristics-space-input.spec.ts`
+
+Validates therapist patient-popup Characteristics input behavior:
+- Opens `/therapist` and opens a patient popup via the `Info` button
+- Switches to the Characteristics tab in edit mode
+- Types multi-word comma-separated values (containing spaces)
+- Verifies the profile save payload keeps internal spaces while normalizing by comma split
+
 ---
 
 ## Prerequisites
@@ -175,6 +184,17 @@ E2E_EMAIL_DIR=<shared-email-dir> \
 npm run test:e2e -- e2e/therapist-feedback-chips.spec.ts'
 ```
 
+Run therapist characteristics space-input regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<email-dir-shared-with-django> \
+npm run test:e2e -- e2e/therapist-characteristics-space-input.spec.ts'
+```
+
 ### Direct host run (without Docker)
 
 From `frontend/`:
@@ -214,6 +234,7 @@ The `frontend-e2e` job:
 - Runs therapist 2FA E2E test when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
 - Runs named-template E2E tests (`e2e/therapist-interventions-templates.spec.ts`) when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
 - Runs therapist feedback-chip E2E test (`e2e/therapist-feedback-chips.spec.ts`) when therapist creds are configured
+- Runs therapist characteristics space-input E2E test (`e2e/therapist-characteristics-space-input.spec.ts`) when therapist creds and `E2E_EMAIL_DIR` are configured
 
 Required GitHub secrets for seeded redirect tests:
 - `E2E_PATIENT_LOGIN`
