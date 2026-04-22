@@ -2633,9 +2633,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         return JsonResponse(plan_data, safe=False, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning(
-            "[get_patient_plan_for_therapist] Patient.DoesNotExist for requested patient."
-        )
+        logger.warning("[get_patient_plan_for_therapist] Patient.DoesNotExist for requested patient.")
         return JsonResponse(
             {
                 "success": False,
