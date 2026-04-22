@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports, react/display-name, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import Therapist from '@/pages/Therapist';
 import { MemoryRouter } from 'react-router-dom';
@@ -377,6 +378,7 @@ describe('Therapist traffic lights', () => {
       name: 'Patient',
       diagnosis: ['Stroke'],
       duration: 30,
+      rehab_status: 'completed',
       biomarker: {
         sleep_avg_h: 7.5,
         steps_avg: 7000,
@@ -396,6 +398,32 @@ describe('Therapist traffic lights', () => {
     });
 
     expect(screen.queryByLabelText('Health good')).not.toBeInTheDocument();
+  });
+
+  test('hides Health badge for ongoing studies (active patients)', async () => {
+    renderWithPatient({
+      _id: 'ongoing-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'ongoinguser',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Ongoing',
+      name: 'Patient',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      biomarker: {
+        sleep_avg_h: 7.5,
+        steps_avg: 7000,
+        activity_min: 80,
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Login unknown')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText(/Health/i)).not.toBeInTheDocument();
   });
 
   test('uses last_feedback_at when questionnaires list is empty', async () => {
@@ -421,6 +449,69 @@ describe('Therapist traffic lights', () => {
     });
   });
 
+  test('uses intervention feedback recency + average score for feedback chip', async () => {
+    renderWithPatient({
+      _id: 'feedback-intervention-good',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'feedbackgood',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Feedback',
+      name: 'Threshold',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      intervention_feedback: {
+        last_answered_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 1,
+        answered_days_total: 4,
+        recent_days_count: 3,
+        recent_avg_score: 4.0,
+        previous_avg_score: 3.5,
+        trend_delta: 0.5,
+        trend_lower: false,
+      },
+      biomarker: {},
+    });
+
+    const feedbackChip = await screen.findByLabelText('Feedback good');
+    fireEvent.mouseOver(feedbackChip);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Avg score \(last 3 answered days\): 4\.00/i)).toBeInTheDocument();
+    });
+  });
+
+  test('marks feedback as bad when intervention trend is lower', async () => {
+    renderWithPatient({
+      _id: 'feedback-intervention-trend-down',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'feedbacktrend',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Feedback',
+      name: 'Trend',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      intervention_feedback: {
+        last_answered_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 2,
+        answered_days_total: 6,
+        recent_days_count: 3,
+        recent_avg_score: 2.5,
+        previous_avg_score: 4.0,
+        trend_delta: -1.5,
+        trend_lower: true,
+      },
+      biomarker: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feedback bad')).toBeInTheDocument();
+    });
+  });
+
   test('uses personalized blood pressure thresholds in health scoring', async () => {
     renderWithPatient({
       _id: 'bp-threshold-test-patient',
@@ -433,6 +524,7 @@ describe('Therapist traffic lights', () => {
       name: 'Pressure',
       diagnosis: ['Stroke'],
       duration: 30,
+      rehab_status: 'completed',
       biomarker: {
         bp_sys_avg: 150,
         bp_dia_avg: 95,

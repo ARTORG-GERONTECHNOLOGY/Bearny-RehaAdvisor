@@ -233,7 +233,8 @@ def export_wearables_to_redcap(
     patient: Patient,
     event_baseline: Optional[str] = None,
     event_followup: Optional[str] = None,
-) -> Dict[str, str]:
+    return_payloads: bool = False,
+) -> Dict[str, str] | Tuple[Dict[str, str], Dict[str, Dict[str, Any]]]:
     """
     Compute wearables summary for both periods and import into REDCap.
 
@@ -241,6 +242,8 @@ def export_wearables_to_redcap(
     Override per-call or via REDCAP_WEARABLES_EVENT_BASELINE / FOLLOWUP env vars.
 
     Returns {"baseline": "ok" | "skipped" | "error: ...", "followup": ...}
+    Optionally returns payload details when return_payloads=True:
+      (results, payloads)
     """
     project_name = (patient.project or "").strip()
     if not project_name:
@@ -267,10 +270,15 @@ def export_wearables_to_redcap(
     ev_baseline, ev_followup = _resolve_event_names(project_name, event_baseline, event_followup)
 
     results: Dict[str, str] = {}
+    payloads: Dict[str, Dict[str, Any]] = {}
     for period, ev_name in [("baseline", ev_baseline), ("followup", ev_followup)]:
         data = summary.get(period)
         if not data:
             results[period] = "skipped"
+            payloads[period] = {
+                "status": "skipped",
+                "reason": "no_fitbit_data_in_period",
+            }
             logger.info(
                 "Wearables [%s] for %s: no Fitbit data in period — skipped",
                 period,
@@ -287,6 +295,11 @@ def export_wearables_to_redcap(
         if ev_name:
             record["redcap_event_name"] = ev_name
 
+        payloads[period] = {
+            "status": "prepared",
+            "record": record,
+        }
+
         payload = {
             "content": "record",
             "action": "import",
@@ -300,6 +313,7 @@ def export_wearables_to_redcap(
         try:
             _post_redcap(token, payload)
             results[period] = "ok"
+            payloads[period]["status"] = "sent"
             logger.info(
                 "Exported wearables [%s] for %s → REDCap %s (record_id=%s, event=%s)",
                 period,
@@ -310,6 +324,8 @@ def export_wearables_to_redcap(
             )
         except RedcapError as e:
             results[period] = f"error: {e}"
+            payloads[period]["status"] = "error"
+            payloads[period]["error"] = str(e)
             logger.error(
                 "Failed to export wearables [%s] for %s: %s",
                 period,
@@ -317,4 +333,6 @@ def export_wearables_to_redcap(
                 e,
             )
 
+    if return_payloads:
+        return results, payloads
     return results

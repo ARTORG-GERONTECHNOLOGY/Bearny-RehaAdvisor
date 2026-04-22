@@ -90,6 +90,37 @@ describe('PatientPopup', () => {
     });
   });
 
+  it('preserves spaces in comma-separated characteristics input while sending normalized array on save', async () => {
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: { message: 'Profile updated' } });
+
+    renderComponent();
+
+    const editButton = await screen.findByText('Edit');
+    fireEvent.click(editButton);
+
+    const characteristicsTab = await screen.findByRole('tab', { name: /characteristics/i });
+    fireEvent.click(characteristicsTab);
+
+    const lifestyleInput = document.getElementById('lifestyle') as HTMLInputElement;
+    expect(lifestyleInput).toBeTruthy();
+
+    fireEvent.change(lifestyleInput, {
+      target: { value: 'Very active person, Morning walk group' },
+    });
+
+    const saveButton = await screen.findByText('Save Changes');
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/users/abc123/profile/',
+        expect.objectContaining({
+          lifestyle: ['Very active person', 'Morning walk group'],
+        })
+      );
+    });
+  });
+
   // Implement client-side validation for email in PatientPopup component
   it.skip('shows validation error for invalid email', async () => {
     renderComponent();

@@ -204,7 +204,7 @@ def fetch_fitbit_today_for_user(user) -> int:
         }
         return len(worn_minutes)
 
-    all_dates = {today}
+    all_dates = set()
     for m in series.values():
         if isinstance(m, dict):
             all_dates |= set(m.keys())
@@ -247,6 +247,11 @@ def fetch_fitbit_today_for_user(user) -> int:
             upsert=True,
         )
         upserted += 1
+
+    if upserted == 0:
+        logger.info(f"[fitbit] no wearable payload returned for user={user} on {date_str}; no row written")
+        print(f"[fitbit] no wearable payload returned for user={user} on {date_str}; no row written")
+        return 0
 
     logger.info(f"[fitbit] stored {upserted} row for user={user} on {date_str}")
     print(f"[fitbit] stored {upserted} row for user={user} on {date_str}")

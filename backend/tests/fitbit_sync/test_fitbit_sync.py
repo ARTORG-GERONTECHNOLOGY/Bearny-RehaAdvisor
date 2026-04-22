@@ -166,6 +166,58 @@ def test_fetch_fitbit_today_for_user_upserts_today(mock_get, mock_get_token):
 
 @patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
 @patch("core.views.fitbit_sync.requests.get")
+def test_fetch_fitbit_today_for_user_does_not_write_empty_row(mock_get, _):
+    user, _token = make_user_with_token(expired=False)
+
+    def mk_resp(status=200, payload=None):
+        r = Mock()
+        r.status_code = status
+        r.json.return_value = payload or {}
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "activities/steps" in url:
+            return mk_resp(payload={"activities-steps": []})
+        if "activities/floors" in url:
+            return mk_resp(status=500, payload={})
+        if "activities/distance" in url:
+            return mk_resp(payload={"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_resp(payload={"activities-calories": []})
+        if "minutesVeryActive" in url:
+            return mk_resp(payload={"activities-minutesVeryActive": []})
+        if "minutesFairlyActive" in url:
+            return mk_resp(payload={"activities-minutesFairlyActive": []})
+        if "minutesLightlyActive" in url:
+            return mk_resp(payload={"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_resp(payload={"activities-minutesSedentary": []})
+        if "activities/heart/date/" in url and "1d/1sec" not in url:
+            return mk_resp(payload={"activities-heart": []})
+        if "active-zone-minutes" in url:
+            return mk_resp(payload={"activities-activeZoneMinutes": []})
+        if "/br/date/" in url:
+            return mk_resp(payload={"br": []})
+        if "/hrv/date/" in url:
+            return mk_resp(payload={"hrv": []})
+        if "/sleep/date/" in url:
+            return mk_resp(payload={"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp(payload={"activities": []})
+        if "1d/1sec" in url:
+            return mk_resp(payload={"activities-heart-intraday": {"dataset": []}})
+        return mk_resp(payload={})
+
+    mock_get.side_effect = side_effect
+
+    out = fetch_fitbit_today_for_user(user)
+    assert out == 0
+    assert FitbitData.objects(user=user).count() == 0
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
 @patch("core.views.fitbit_sync.FitbitData.objects")
 def test_fetch_fitbit_today_for_user_covers_branches_and_parsing(mock_objects, mock_get, _):
     user, _token = make_user_with_token(expired=False)

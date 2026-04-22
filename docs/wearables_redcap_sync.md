@@ -106,7 +106,13 @@ The **"Sync Wearables"** button appears in the footer (view mode only, not while
 
 - The button is disabled while a sync is in progress
 - On success a green alert shows the per-period result (`ok` / `skipped`)
+- The success alert also shows the per-period payload (`sent_payloads`) that was prepared/sent to REDCap
 - On failure a red alert shows the error message
+
+### Interpreting `ok` vs `skipped`
+
+- `ok`: a best-monitoring week was found for that period and exported to REDCap.
+- `skipped`: the patient is eligible, but no Fitbit records existed in that period, so nothing is written.
 
 ---
 
@@ -138,6 +144,27 @@ Example success response:
       "sleep_duration": "07:30"
     },
     "followup": null
+  },
+  "sent_payloads": {
+    "baseline": {
+      "status": "sent",
+      "record": {
+        "record_id": "123",
+        "monitoring_start": "03-01-2024",
+        "monitoring_end": "09-01-2024",
+        "monitoring_days": "7",
+        "fitbit_steps": "6843",
+        "fitbit_pa": "42",
+        "fitbit_inactivity": "891",
+        "sleep_duration": "07:30",
+        "wearables_complete": "1",
+        "redcap_event_name": "visit_baseline_arm_1"
+      }
+    },
+    "followup": {
+      "status": "skipped",
+      "reason": "no_fitbit_data_in_period"
+    }
   }
 }
 ```
@@ -149,6 +176,21 @@ Possible error responses:
 | 400 | Patient has no `reha_end_date`, or no `project` set |
 | 404 | `patient_id` not found |
 | 502 | REDCap API rejected the write (check `detail` field for the REDCap error message) |
+
+---
+
+## Fitbit connection and data visibility
+
+- Fitbit OAuth can be successfully connected while daily wearable data is still empty.
+- The backend now avoids creating placeholder Fitbit rows when no upstream Fitbit payload is returned.
+- This prevents misleading "synced" records with all-zero values.
+- `GET /api/fitbit/status/<id>/` accepts both `Patient.id` and `User.id` and returns:
+  - `connected`: token exists
+  - `has_data`: at least one stored Fitbit row exists
+  - `last_data`: latest stored Fitbit timestamp (or `null`)
+
+Practical implication:
+- If `connected=true` and `has_data=false`, OAuth is linked but Fitbit has not provided wearable payload yet (or permissions/scopes/device wear are missing).
 
 ---
 

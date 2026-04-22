@@ -455,6 +455,34 @@ def test_user_profile_view_update_patient_reha_end_date():
     assert "reha_end_date" in resp.json().get("updated", {})
 
 
+def test_user_profile_view_update_patient_characteristics_preserves_internal_spaces():
+    """
+    PUT patient characteristic fields with multi-word values should preserve
+    internal spaces in persisted data (regression for FE characteristics input).
+    """
+    user, patient = create_patient()
+    payload = {
+        "lifestyle": ["Very active person", "Morning walk group"],
+        "personal_goals": ["Improve walking endurance"],
+        "social_support": ["Family support network"],
+        "restrictions": "Needs support during long walks",
+    }
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    patient.reload()
+    assert patient.lifestyle == ["Very active person", "Morning walk group"]
+    assert patient.personal_goals == ["Improve walking endurance"]
+    assert patient.social_support == ["Family support network"]
+    assert patient.restrictions == "Needs support during long walks"
+
+
 def test_user_profile_view_update_invalid_date_format():
     """
     PUT an unparseable ``reha_end_date`` returns 400 with

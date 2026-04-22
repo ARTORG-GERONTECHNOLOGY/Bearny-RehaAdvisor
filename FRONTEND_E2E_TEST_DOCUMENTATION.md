@@ -19,7 +19,10 @@ frontend/
     home-login-therapist.spec.ts
     home-register-therapist.spec.ts
     patient-page.spec.ts
+    therapist-feedback-chips.spec.ts
+    therapist-characteristics-space-input.spec.ts
     therapist-interventions-templates.spec.ts
+    therapist-wearables-sync.spec.ts
     TESTING.md
   playwright.config.ts
 ```
@@ -105,6 +108,36 @@ All tests skip gracefully when `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` 
 - `page.once('dialog', d => d.accept())` — handle `window.confirm` for delete
 - `test.skip(!value, 'reason')` — conditional skipping per-test when no seeded data
 
+### `therapist-feedback-chips.spec.ts`
+
+Validates therapist patient-list feedback traffic lights on `/therapist` using controlled API fixtures.
+
+- Uses seeded therapist login helper (`loginAsTherapist`) to pass auth/2FA flow.
+- Intercepts `GET /api/therapists/<id>/patients` and returns deterministic patient rows.
+- Verifies:
+  - Recent + high average intervention feedback => `Feedback good`
+  - Downward trend (`trend_lower=true`) => `Feedback bad`
+  - Feedback tooltip includes average-score text for recent answered days
+  - Health chip is hidden for ongoing (active) patients
+
+### `therapist-characteristics-space-input.spec.ts`
+
+Validates therapist patient-popup Characteristics input behavior:
+- Opens `/therapist` and opens a patient popup via the `Info` button
+- Switches to the Characteristics tab in edit mode
+- Types multi-word comma-separated values (containing spaces)
+- Verifies the profile save payload keeps internal spaces while normalizing by comma split
+
+### `therapist-wearables-sync.spec.ts`
+
+Validates therapist patient-popup wearables sync behavior:
+- Opens `/therapist` and opens the patient popup via the `Info` action
+- Triggers `POST /wearables/sync-to-redcap/<patient_id>/`
+- Verifies successful sync alert shows period-level statuses
+- Verifies sync payload details are rendered in table form (from `sent_payloads`)
+- Verifies skip reasons are visible (for example `no_fitbit_data_in_period`)
+- Verifies informative backend error messages are shown on failed sync
+
 ---
 
 ## Prerequisites
@@ -151,6 +184,39 @@ E2E_THERAPIST_PASSWORD=<therapist-password> \
 npm run test:e2e -- e2e/home-login-therapist.spec.ts'
 ```
 
+Run therapist feedback-chip regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-feedback-chips.spec.ts'
+```
+
+Run therapist characteristics space-input regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<email-dir-shared-with-django> \
+npm run test:e2e -- e2e/therapist-characteristics-space-input.spec.ts'
+```
+
+Run therapist wearables sync regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<email-dir-shared-with-django> \
+npm run test:e2e -- e2e/therapist-wearables-sync.spec.ts'
+```
+
 ### Direct host run (without Docker)
 
 From `frontend/`:
@@ -174,6 +240,7 @@ E2E_API_URL=http://127.0.0.1:8001/api npm run test:e2e
 | `E2E_ADMIN_PASSWORD` | Redirect tests only | Seeded admin password |
 | `E2E_THERAPIST_LOGIN` | Therapist login + templates tests | Seeded therapist login identifier |
 | `E2E_THERAPIST_PASSWORD` | Therapist login + templates tests | Seeded therapist password |
+| `E2E_EMAIL_DIR` | Therapist 2FA-based tests | Directory where Django writes file-based OTP emails (read by E2E helper) |
 
 ## CI Integration
 
@@ -188,6 +255,8 @@ The `frontend-e2e` job:
   - `e2e/patient-interventions-page.spec.ts`
 - Runs therapist 2FA E2E test when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
 - Runs named-template E2E tests (`e2e/therapist-interventions-templates.spec.ts`) when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
+- Runs therapist feedback-chip E2E test (`e2e/therapist-feedback-chips.spec.ts`) when therapist creds are configured
+- Runs therapist characteristics space-input E2E test (`e2e/therapist-characteristics-space-input.spec.ts`) when therapist creds and `E2E_EMAIL_DIR` are configured
 
 Required GitHub secrets for seeded redirect tests:
 - `E2E_PATIENT_LOGIN`
