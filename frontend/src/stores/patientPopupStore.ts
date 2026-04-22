@@ -157,6 +157,8 @@ const stableJSON = (obj: any) => {
   }
 };
 
+const COMMA_SEPARATED_PROFILE_FIELDS = ['lifestyle', 'personal_goals', 'social_support'] as const;
+
 export class PatientPopupStore {
   patientId: string;
 
@@ -421,11 +423,9 @@ export class PatientPopupStore {
   }
 
   setCommaSeparated(key: string, v: string) {
-    const arr = (v || '')
-      .split(',')
-      .map((x) => x.trim())
-      .filter(Boolean);
-    this.formData = { ...(this.formData || {}), [key]: arr };
+    // Keep raw text while typing so spaces are not stripped between words.
+    // We normalize to array form right before persistence in save().
+    this.formData = { ...(this.formData || {}), [key]: v };
   }
 
   arrayToDisplay(v: any) {
@@ -680,8 +680,25 @@ export class PatientPopupStore {
     }
 
     try {
+      const payload = { ...(this.formData || {}) };
+      COMMA_SEPARATED_PROFILE_FIELDS.forEach((fieldKey) => {
+        const raw = payload[fieldKey];
+        if (Array.isArray(raw)) {
+          payload[fieldKey] = raw
+            .map((x: unknown) => String(x ?? '').trim())
+            .filter(Boolean);
+          return;
+        }
+        if (typeof raw === 'string') {
+          payload[fieldKey] = raw
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean);
+        }
+      });
+
       // ✅ match your existing GET (and trailing slash)
-      await apiClient.put(`/users/${this.patientId}/profile/`, this.formData);
+      await apiClient.put(`/users/${this.patientId}/profile/`, payload);
 
       // Re-fetch the full profile so the modal shows accurate server state
       const profileRes = await apiClient.get(`/users/${this.patientId}/profile`);
