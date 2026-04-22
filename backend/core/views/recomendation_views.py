@@ -263,10 +263,13 @@ def apply_template_to_patient(request, therapist_id):
         plan.updatedAt = timezone.now()
         plan.save()
 
+        masked_patient_id = (
+            f"***{patient_id[-4:]}" if patient_id and len(patient_id) > 4 else "***"
+        )
         logger.info(
             "[ASSIGN_INTERVENTION] therapist=%s patient=%s diagnosis=%s applied=%d sessions=%d",
             therapist_id,
-            patient_id,
+            masked_patient_id,
             diagnosis,
             applied,
             total_sessions,
