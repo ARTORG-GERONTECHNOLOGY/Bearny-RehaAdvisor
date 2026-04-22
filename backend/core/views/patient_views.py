@@ -2486,9 +2486,7 @@ def get_patient_plan_for_therapist(request, patient_id):
     try:
         patient = _resolve_patient_flexible(patient_id)
         if not patient:
-            logger.warning(
-                "[get_patient_plan_for_therapist] Could not resolve patient (identifier redacted)"
-            )
+            logger.warning("[get_patient_plan_for_therapist] Could not resolve patient (identifier redacted)")
             return JsonResponse(
                 {
                     "success": False,
