@@ -24,28 +24,6 @@
   padding-right: max(0.75rem, env(safe-area-inset-right));
 }
 
-/* Fluid type scales that won’t explode on tiny phones or ultrawides */
-.home-title {
-  font-size: clamp(1.6rem, 1.1rem + 2.2vw, 2.6rem);
-  line-height: 1.15;
-  text-wrap: balance;
-  margin-bottom: 0.75rem;
-}
-
-.home-lead {
-  font-size: clamp(0.98rem, 0.9rem + 0.4vw, 1.15rem);
-  line-height: 1.5;
-  max-width: 60ch;
-  margin-inline: auto;
-}
-
-/* On desktop, align the paragraph to the left (matches text column alignment) */
-@media (min-width: 768px) {
-  .home-lead {
-    margin-inline: 0;
-  }
-}
-
 /* Respect reduced motion users */
 @media (prefers-reduced-motion: reduce) {
   * {
