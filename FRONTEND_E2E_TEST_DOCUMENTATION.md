@@ -19,6 +19,7 @@ frontend/
     home-login-therapist.spec.ts
     home-register-therapist.spec.ts
     patient-page.spec.ts
+    therapist-feedback-chips.spec.ts
     therapist-interventions-templates.spec.ts
     TESTING.md
   playwright.config.ts
@@ -105,6 +106,18 @@ All tests skip gracefully when `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` 
 - `page.once('dialog', d => d.accept())` — handle `window.confirm` for delete
 - `test.skip(!value, 'reason')` — conditional skipping per-test when no seeded data
 
+### `therapist-feedback-chips.spec.ts`
+
+Validates therapist patient-list feedback traffic lights on `/therapist` using controlled API fixtures.
+
+- Uses seeded therapist login helper (`loginAsTherapist`) to pass auth/2FA flow.
+- Intercepts `GET /api/therapists/<id>/patients` and returns deterministic patient rows.
+- Verifies:
+  - Recent + high average intervention feedback => `Feedback good`
+  - Downward trend (`trend_lower=true`) => `Feedback bad`
+  - Feedback tooltip includes average-score text for recent answered days
+  - Health chip is hidden for ongoing (active) patients
+
 ---
 
 ## Prerequisites
@@ -151,6 +164,17 @@ E2E_THERAPIST_PASSWORD=<therapist-password> \
 npm run test:e2e -- e2e/home-login-therapist.spec.ts'
 ```
 
+Run therapist feedback-chip regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-feedback-chips.spec.ts'
+```
+
 ### Direct host run (without Docker)
 
 From `frontend/`:
@@ -174,6 +198,7 @@ E2E_API_URL=http://127.0.0.1:8001/api npm run test:e2e
 | `E2E_ADMIN_PASSWORD` | Redirect tests only | Seeded admin password |
 | `E2E_THERAPIST_LOGIN` | Therapist login + templates tests | Seeded therapist login identifier |
 | `E2E_THERAPIST_PASSWORD` | Therapist login + templates tests | Seeded therapist password |
+| `E2E_EMAIL_DIR` | Therapist 2FA-based E2E tests | File-based email directory shared with backend for OTP retrieval |
 
 ## CI Integration
 
@@ -188,6 +213,7 @@ The `frontend-e2e` job:
   - `e2e/patient-interventions-page.spec.ts`
 - Runs therapist 2FA E2E test when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
 - Runs named-template E2E tests (`e2e/therapist-interventions-templates.spec.ts`) when `E2E_THERAPIST_LOGIN` and `E2E_THERAPIST_PASSWORD` are configured
+- Runs therapist feedback-chip E2E test (`e2e/therapist-feedback-chips.spec.ts`) when therapist creds are configured
 
 Required GitHub secrets for seeded redirect tests:
 - `E2E_PATIENT_LOGIN`
