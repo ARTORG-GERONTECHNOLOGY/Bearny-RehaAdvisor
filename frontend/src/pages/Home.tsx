@@ -46,7 +46,7 @@ const Home: React.FC = () => {
               className="text-center text-md-start order-2 order-md-1 d-flex flex-column align-items-center align-items-md-start"
             >
               <h1 className="fw-bold mb-0">{t('homeHeadline')}</h1>
-              <h4 className="text-muted mb-3">{t('homeSubheadline')}</h4>
+              <h2 className="h4 text-muted mb-3">{t('homeSubheadline')}</h2>
 
               <p className="text-muted mb-3">{t('Sign in as a Therapist or Patient.')}</p>
               <div className="flex flex-col items-center md:items-start w-full md:w-auto gap-2">
