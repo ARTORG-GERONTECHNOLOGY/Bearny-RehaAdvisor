@@ -1,4 +1,6 @@
-/** @type {import('tailwindcss').Config} */
+import type { Config } from 'tailwindcss';
+import { colors } from './src/lib/colors';
+
 export default {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -10,14 +12,8 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
-        // Brand color palette – source of truth (see src/lib/colors.ts for JS usage & keep in sync)
-        back: '#F2F2F7',
-        ok: '#16A34A',
-        nok: '#DC2626',
-        brand: '#00956C',
-        pink: '#F1ADCF',
-        yellow: '#EFA73B',
-        chartMuted: '#E4E4E7',
+        // Brand palette – imported from src/lib/colors.ts (single source of truth)
+        ...colors,
         // Shadcn CSS Variables
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -67,4 +63,4 @@ export default {
     preflight: false,
   },
   plugins: [require('tailwindcss-animate')],
-};
+} satisfies Config;
