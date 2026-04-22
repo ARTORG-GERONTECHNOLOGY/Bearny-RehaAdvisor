@@ -383,7 +383,7 @@ def _merge_thresholds(patient):
 def fitbit_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
     if not user:
-        logger.info("[fitbit_status] unresolved identifier=%s connected=False", patient_id)
+        logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
         return JsonResponse({"connected": False, "has_data": False, "last_data": None})
 
     connected = FitbitUserToken.objects(user=user).count() > 0
@@ -391,13 +391,7 @@ def fitbit_status(request, patient_id):
     has_data = latest_row is not None
     last_data = latest_row.date.isoformat() if latest_row else None
 
-    logger.info(
-        "[fitbit_status] identifier=%s user=%s connected=%s has_data=%s",
-        patient_id,
-        str(user.id),
-        connected,
-        has_data,
-    )
+    logger.info("[fitbit_status] status connected=%s has_data=%s", connected, has_data)
     return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data})
 
 
