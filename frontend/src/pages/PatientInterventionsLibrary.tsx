@@ -584,10 +584,10 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                     <span>{section.title}</span>
                   </div>
                   <div className="flex gap-1">
-                    <Badge className="px-3 py-1 rounded-full border-none bg-zinc-50 shadow-none font-medium tailwind text-zinc-500">
+                    <Badge variant="section">
                       {section.items.length} {t('Contents')}
                     </Badge>
-                    <Badge className="w-9 h-9 p-[10px] rounded-full border-none bg-zinc-50 shadow-none text-zinc-500">
+                    <Badge variant="section" className="w-9 h-9 p-[10px]">
                       <ArrowRightIcon className="w-4 h-4" />
                     </Badge>
                   </div>

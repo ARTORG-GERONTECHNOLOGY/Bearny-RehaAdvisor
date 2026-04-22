@@ -424,14 +424,14 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
               <button
                 key={i}
                 type="button"
-                className={`p-3 rounded-full border-none transition-all ${rating <= selectedRating ? 'bg-[#EFA73B33]' : 'bg-zinc-100'}`}
+                className={`p-3 rounded-full border-none transition-all ${rating <= selectedRating ? 'bg-yellow/20' : 'bg-zinc-100'}`}
                 onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, false)}
                 aria-pressed={rating === selectedRating}
                 aria-label={`${rating} ${rating === 1 ? 'star' : 'stars'}`}
                 title={`${rating}/5`}
               >
                 <StarIcon
-                  className={`w-8 h-8 ${rating <= selectedRating ? 'text-[#EFA73B]' : 'text-zinc-300'}`}
+                  className={`w-8 h-8 ${rating <= selectedRating ? 'text-yellow' : 'text-zinc-300'}`}
                 />
               </button>
             );
@@ -472,7 +472,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
               key={i}
               className={
                 active
-                  ? 'bg-[#00956C33] hover:bg-[#00956C33] text-[#00956C]'
+                  ? 'bg-brand/20 hover:bg-brand/20 text-brand'
                   : 'bg-white border border-zinc-200 text-zinc-800'
               }
               onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
@@ -517,9 +517,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 <div className="flex justify-center gap-2">
                   <Badge
                     onClick={() => setInputMode('text')}
-                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-                      inputMode === 'text' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-                    }`}
+                    variant={inputMode === 'text' ? 'filter-active' : 'filter-inactive'}
                     role="button"
                     aria-pressed={inputMode === 'text'}
                     aria-label={t('Text mode')}
@@ -528,9 +526,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                   </Badge>
                   <Badge
                     onClick={() => setInputMode('audio')}
-                    className={`flex gap-1 font-medium rounded-full py-[10px] px-4 border-none shadow-none text-nowrap ${
-                      inputMode === 'audio' ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-                    }`}
+                    variant={inputMode === 'audio' ? 'filter-active' : 'filter-inactive'}
                     role="button"
                     aria-pressed={inputMode === 'audio'}
                     aria-label={t('Audio mode')}
@@ -549,11 +545,11 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 ) : (
                   <div className="flex flex-col items-center my-3 gap-2">
                     {recording ? (
-                      <Button onClick={stopRecording} className="bg-[#EFA73B]">
+                      <Button onClick={stopRecording} className="bg-yellow hover:bg-yellow/90">
                         {t('Stop')} ({recordingTime}s) <FaStop />
                       </Button>
                     ) : (
-                      <Button onClick={startRecording} className="bg-[#EFA73B]">
+                      <Button onClick={startRecording} className="bg-yellow hover:bg-yellow/90">
                         {t('Start Recording')} <FaMicrophone />
                       </Button>
                     )}
@@ -561,7 +557,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     {audioURL && (
                       <div className="flex justify-center items-center flex-wrap gap-2">
                         <audio controls src={audioURL} />
-                        <Button onClick={deleteAudio} className="bg-[#F1ADCF]">
+                        <Button onClick={deleteAudio} className="bg-pink hover:bg-pink/90">
                           {t('Delete')} <FaTrash />
                         </Button>
                       </div>
@@ -580,7 +576,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                 {videoURL ? (
                   <>
                     <ReactPlayer url={videoURL} controls width="100%" height="100%" />
-                    <Button onClick={deleteVideo} className="bg-[#F1ADCF]">
+                    <Button onClick={deleteVideo} className="bg-pink hover:bg-pink/90">
                       {t('Delete')} <FaTrash />
                     </Button>
                     <p className="text-sm text-center text-zinc-500">
@@ -602,11 +598,17 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     ) : (
                       <div className="flex items-center gap-2">
                         {recording ? (
-                          <Button onClick={stopVideoRecording} className="bg-[#EFA73B]">
+                          <Button
+                            onClick={stopVideoRecording}
+                            className="bg-yellow hover:bg-yellow"
+                          >
                             {t('Stop')} <FaStop />
                           </Button>
                         ) : (
-                          <Button onClick={startVideoRecording} className="bg-[#EFA73B]">
+                          <Button
+                            onClick={startVideoRecording}
+                            className="bg-yellow hover:bg-yellow"
+                          >
                             {t('Record Video')}
                           </Button>
                         )}

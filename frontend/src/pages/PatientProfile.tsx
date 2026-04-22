@@ -31,6 +31,7 @@ import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
 import config from '@/config/config.json';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
+import Card from '@/components/Card';
 
 const PatientProfile: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
@@ -127,13 +128,13 @@ const PatientProfile: React.FC = observer(() => {
           <Section>
             <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
-            <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+            <Card className="flex flex-col gap-1">
               <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
               <Select onValueChange={(value) => handleLanguageChange(value)} defaultValue={lang}>
                 <SelectTrigger className="bg-white border-white shadow-none p-0">
                   <SelectValue placeholder={t('Select language')} />
                 </SelectTrigger>
-                <SelectContent className="bg-accent rounded-3xl p-1">
+                <SelectContent className="bg-zinc-50 rounded-3xl p-1">
                   <SelectGroup>
                     {languages.map((l) => (
                       <SelectItem key={l} value={l}>
@@ -146,9 +147,9 @@ const PatientProfile: React.FC = observer(() => {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </Card>
 
-            <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+            <Card className="flex flex-col gap-1">
               <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
@@ -156,7 +157,7 @@ const PatientProfile: React.FC = observer(() => {
                     {t('Receive reminders')}
                   </div>
                   {permission === 'denied' && (
-                    <div className="text-red-600 text-xs">
+                    <div className="text-nok text-xs">
                       {t('Notification permission denied. Please enable in browser settings.')}
                     </div>
                   )}
@@ -168,7 +169,7 @@ const PatientProfile: React.FC = observer(() => {
                 </div>
                 <Switch checked={enabled} onCheckedChange={toggleNotifications} />
               </div>
-            </div>
+            </Card>
 
             <div
               className={`p-4 rounded-3xl flex gap-1 justify-between items-center ${patientFitbitStore.connected === false ? 'bg-zinc-100' : 'border border-accent'}`}
@@ -198,33 +199,33 @@ const PatientProfile: React.FC = observer(() => {
           <Section>
             <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
 
-            <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
+            <Card className="flex flex-col items-start gap-2">
               <div className="font-bold text-lg leading-6 text-zinc-800">
                 {t('Research Project Contact')}
               </div>
               {config.contact.email && (
-                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                <Badge variant="card">
                   <a
                     href={`mailto:${config.contact.email}`}
-                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                    className="flex items-center gap-1 no-underline text-brand"
                   >
                     <Mail className="w-4 h-4" />
-                    <span className="font-medium">{config.contact.email}</span>
+                    <span>{config.contact.email}</span>
                   </a>
                 </Badge>
               )}
               {config.contact.phone && (
-                <Badge className="pl-[10px] pr-3 py-2 rounded-xl border border-accent bg-white shadow-none">
+                <Badge variant="card">
                   <a
                     href={`tel:${config.contact.phone}`}
-                    className="flex items-center gap-1 no-underline text-[#00956C]"
+                    className="flex items-center gap-1 no-underline text-brand"
                   >
                     <Phone className="w-4 h-4" />
-                    <span className="font-medium">{config.contact.phone}</span>
+                    <span>{config.contact.phone}</span>
                   </a>
                 </Badge>
               )}
-            </div>
+            </Card>
           </Section>
 
           <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">

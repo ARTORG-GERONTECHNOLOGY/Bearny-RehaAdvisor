@@ -1,5 +1,6 @@
 import React from 'react';
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts';
+import { colors } from '@/lib/colors';
 
 interface ProgressIndicatorProps {
   current: number;
@@ -26,8 +27,8 @@ const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({ current, goal }) 
       <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
       <RadialBar
         dataKey="value"
-        fill="#16A34A"
-        background={{ fill: '#E4E4E7' }}
+        fill={colors.ok}
+        background={{ fill: colors.chartMuted }}
         cornerRadius={999}
       />
     </RadialBarChart>

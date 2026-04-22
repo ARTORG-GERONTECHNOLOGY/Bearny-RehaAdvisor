@@ -5,6 +5,7 @@ import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import { PatientHealthCheckInSectionSkeleton } from '@/components/skeletons/PatientSkeleton';
+import Card from '@/components/Card';
 
 interface HealthCheckInSectionProps {
   loading?: boolean;
@@ -40,15 +41,15 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
     <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('CheckIn')}</div>
-        <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
+        <Badge variant="section">
           {checkInEnteredCount}/{checkInEntries.length}
         </Badge>
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <div
+        <Card
           role="button"
-          className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between"
           onClick={onOpenWeightEntry}
         >
           <div className="flex justify-between">
@@ -58,7 +59,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             </div>
             <div className="w-8 h-8 shrink-0">
               {hasWeightEntry ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-ok" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}
@@ -68,11 +69,11 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
           <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
             {weightKg || '--'} {t('WeightUnit').toLocaleLowerCase()}
           </div>
-        </div>
+        </Card>
 
-        <div
+        <Card
           role="button"
-          className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between"
           onClick={onOpenBloodPressureEntry}
         >
           <div className="flex justify-between">
@@ -82,7 +83,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             </div>
             <div className="w-8 h-8 shrink-0">
               {hasBloodPressureEntry ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-ok" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}
@@ -93,7 +94,7 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
             {bpSys || '--'}
             <br />/{bpDia || '--'} mmHg
           </div>
-        </div>
+        </Card>
       </div>
     </Section>
   );
