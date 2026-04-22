@@ -430,7 +430,7 @@ def patient_thresholds_view(request, patient_id: str):
     POST /api/patients/<patient_id>/thresholds/
     """
     # ---- load patient ----
-    print("patient_thresholds_view called with patient_id:", patient_id)
+    logger.debug("patient_thresholds_view called")
     try:
         pat = Patient.objects.get(pk=patient_id)
     except Exception:
