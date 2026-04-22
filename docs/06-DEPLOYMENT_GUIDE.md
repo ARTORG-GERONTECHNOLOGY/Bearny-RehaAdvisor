@@ -4,10 +4,23 @@
 
 This guide covers deploying RehaAdvisor to production environments. It includes instructions for deploying using Docker, configuring infrastructure, setting up SSL/TLS, and monitoring.
 
+For the current release-driven production process (GitHub Release -> GHCR images -> production compose deploy), use:
+
+- [PRODUCTION_DEPLOY_RUNBOOK.md](./PRODUCTION_DEPLOY_RUNBOOK.md)
+
+The runbook is the canonical source for:
+
+- Release tag and GHCR image tag mapping (`vX.Y.Z` -> `X.Y.Z`)
+- Required server runtime values in `/home/ubuntu/repos/telerehabapp-prod/.env.prod`
+- Deterministic rerun commands and post-deploy verification
+- Production deploy troubleshooting decision tree
+
 ## Pre-Deployment Checklist
 
 - [ ] All tests passing (frontend and backend)
 - [ ] Environment variables configured
+- [ ] `GHCR_IMAGE` on production server points to expected namespace (`ghcr.io/artorg-gerontechnology/bearny-rehaadvisor`)
+- [ ] Release tag exists in git (`vX.Y.Z`) and matching GHCR tags exist (`X.Y.Z`)
 - [ ] SSL/TLS certificates obtained
 - [ ] Database backups configured
 - [ ] Monitoring and logging set up

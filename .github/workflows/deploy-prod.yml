@@ -128,6 +128,7 @@ jobs:
         id: resolve-tag
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag || github.ref_name }}"
+          # Git release tags are "vX.Y.Z"; runtime GHCR pulls use normalized "X.Y.Z".
           IMAGE_TAG="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
@@ -153,6 +154,8 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v4
         with:
+          # Keep this in sync with server-side GHCR_IMAGE base in
+          # /home/ubuntu/repos/telerehabapp-prod/.env.prod (without -frontend suffix).
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
           tags: |
             type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
@@ -177,6 +180,8 @@ jobs:
         id: meta-backend
         uses: docker/metadata-action@v4
         with:
+          # Keep this in sync with server-side GHCR_IMAGE base in
+          # /home/ubuntu/repos/telerehabapp-prod/.env.prod (without -backend suffix).
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
           tags: |
             type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
@@ -275,6 +280,8 @@ jobs:
             fi
 
             DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
+            # Compose images are ${GHCR_IMAGE}-frontend/backend:${IMAGE_TAG}; GHCR_IMAGE
+            # comes from server .env.prod and IMAGE_TAG is normalized from release tag.
             export IMAGE_TAG="${TAG#v}"
             echo "Using IMAGE_TAG=$IMAGE_TAG for compose pull/up"
 

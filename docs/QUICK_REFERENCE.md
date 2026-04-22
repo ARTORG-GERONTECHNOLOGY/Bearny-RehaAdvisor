@@ -16,6 +16,7 @@ This quick reference helps you find the information you need quickly.
 
 #### 🚀 **DevOps / System Admins**
 - **Deploying the app?** → [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
+- **Need deterministic production release flow?** → [Production Deploy Runbook](./PRODUCTION_DEPLOY_RUNBOOK.md)
 - **Configuring services?** → [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)
 - **Database issues?** → [Database Guide](./05-DATABASE_GUIDE.md)
 - **Server problems?** → [Troubleshooting](./08-TROUBLESHOOTING.md)
@@ -145,6 +146,27 @@ make down
 # View logs
 docker compose logs -f
 ```
+
+### Safe Production Release Deploy (short path)
+
+```bash
+# 1) validate tag and images
+git ls-remote --tags origin | rg "refs/tags/v0\\.3\\.1$"
+docker manifest inspect ghcr.io/artorg-gerontechnology/bearny-rehaadvisor-frontend:0.3.1 >/dev/null
+docker manifest inspect ghcr.io/artorg-gerontechnology/bearny-rehaadvisor-backend:0.3.1 >/dev/null
+
+# 2) ensure server runtime image base is correct
+grep -n '^GHCR_IMAGE=' /home/ubuntu/repos/telerehabapp-prod/.env.prod
+
+# 3) run deploy manually (rerun scenario)
+TAG=v0.3.1
+export IMAGE_TAG="${TAG#v}"
+docker compose -f docker-compose.prod.reha-advisor.yml --env-file /home/ubuntu/repos/telerehabapp-prod/.env.prod pull
+docker compose -f docker-compose.prod.reha-advisor.yml --env-file /home/ubuntu/repos/telerehabapp-prod/.env.prod up -d
+```
+
+For full step-by-step and post-deploy checks, use:
+- [PRODUCTION_DEPLOY_RUNBOOK.md](./PRODUCTION_DEPLOY_RUNBOOK.md)
 
 ---
 
