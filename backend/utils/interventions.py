@@ -477,14 +477,25 @@ def youtube_embed(url: str) -> Optional[str]:
 
 
 def _guess_provider(url: str) -> Optional[str]:
-    u = (url or "").lower()
-    if "spotify.com" in u:
+    raw = (url or "").strip()
+    if not raw:
+        return "website"
+
+    parsed = urlparse(raw)
+    host = (parsed.hostname or "").lower()
+
+    # Fallback for URLs without scheme (for example: "youtube.com/watch?v=...")
+    if not host:
+        parsed = urlparse(f"https://{raw}")
+        host = (parsed.hostname or "").lower()
+
+    if host == "spotify.com" or host.endswith(".spotify.com"):
         return "spotify"
-    if "youtube.com" in u or "youtu.be" in u:
+    if host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be":
         return "youtube"
-    if "soundcloud.com" in u:
+    if host == "soundcloud.com" or host.endswith(".soundcloud.com"):
         return "soundcloud"
-    if "vimeo.com" in u:
+    if host == "vimeo.com" or host.endswith(".vimeo.com"):
         return "vimeo"
     return "website"
 
