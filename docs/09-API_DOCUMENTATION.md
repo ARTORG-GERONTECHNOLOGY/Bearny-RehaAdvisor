@@ -1755,11 +1755,33 @@ If omitted, defaults come from `REDCAP_WEARABLES_EVENT_BASELINE` / `REDCAP_WEARA
       "sleep_duration": "07:30"
     },
     "followup": null
+  },
+  "sent_payloads": {
+    "baseline": {
+      "status": "sent",
+      "record": {
+        "record_id": "99",
+        "monitoring_start": "03-01-2024",
+        "monitoring_end": "09-01-2024",
+        "monitoring_days": "7",
+        "fitbit_steps": "6843",
+        "fitbit_pa": "42",
+        "fitbit_inactivity": "891",
+        "sleep_duration": "07:30",
+        "wearables_complete": "1",
+        "redcap_event_name": "visit_baseline_arm_1"
+      }
+    },
+    "followup": {
+      "status": "skipped",
+      "reason": "no_fitbit_data_in_period"
+    }
   }
 }
 ```
 
 `results` values: `"ok"` (written), `"skipped"` (no Fitbit data in period), or `"error: <message>"`.
+`sent_payloads` contains what was prepared/sent per period (`status`: `sent`, `skipped`, or `error`).
 
 **Errors:**
 
