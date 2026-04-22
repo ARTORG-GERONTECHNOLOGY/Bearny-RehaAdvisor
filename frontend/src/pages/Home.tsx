@@ -45,16 +45,10 @@ const Home: React.FC = () => {
               md={6}
               className="text-center text-md-start order-2 order-md-1 d-flex flex-column align-items-center align-items-md-start"
             >
-              <h1 className="home-title fw-bold mb-3">
-                {t('YourCompanyName')} {t('Tele-Rehabilitation Platform')}
-              </h1>
+              <h1 className="fw-bold mb-0">{t('homeHeadline')}</h1>
+              <h2 className="h4 text-muted mb-3">{t('homeSubheadline')}</h2>
 
-              <p className="home-lead text-muted mb-4 px-1 px-sm-0">
-                {t(
-                  'Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.'
-                )}
-              </p>
-
+              <p className="text-muted mb-3">{t('Sign in as a Therapist or Patient.')}</p>
               <div className="flex flex-col items-center md:items-start w-full md:w-auto gap-2">
                 <Button onClick={toggleLoginModal} className="w-full sm:w-auto">
                   {t('Login')}
@@ -62,7 +56,7 @@ const Home: React.FC = () => {
                 <Button
                   variant="ghost"
                   onClick={toggleRegisterModal}
-                  className="text-sm p-0 h-auto"
+                  className="text-brand text-sm p-0 h-auto"
                 >
                   {t('Register (Only for Therapists)')}
                 </Button>

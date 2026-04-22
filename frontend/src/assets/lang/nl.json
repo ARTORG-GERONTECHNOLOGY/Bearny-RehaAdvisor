@@ -302,7 +302,7 @@
   "Occurs every day.": "Vindt elke dag plaats.",
   "Rehabilitation Plan": "Revalidatieplan",
   "Outcomes Dashboard": "Uitkomstendashboard",
-  "Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.": "Aanmelden als therapeut of patiënt. Therapeuten worden gevraagd om een 2-factor code.",
+  "Sign in as a Therapist or Patient.": "Aanmelden als therapeut of patiënt.",
   "Email or Patient ID": "E-mail of patiënt-ID",
   "Use your registered email (therapist) or patient ID.": "Gebruik uw geregistreerde e-mailadres (therapeut) of patiënt-ID.",
   "Register (Only for Therapists)": "Registreren (alleen voor therapeuten)",
@@ -1211,5 +1211,7 @@
   "Max": "Max",
   "Make this a private intervention (only visible to the assigned patient)": "Dit een privé-interventie maken (alleen zichtbaar voor de toegewezen patiënt)",
   "Private intervention": "Privé-interventie",
-  "Select...": "Selecteren..."
+  "Select...": "Selecteren...",
+  "homeHeadline": "Bearny",
+  "homeSubheadline": "klaar na de revalidatie"
 }
