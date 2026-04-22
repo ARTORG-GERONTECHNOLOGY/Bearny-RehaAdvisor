@@ -96,11 +96,11 @@ describe('Navigation - navLinks by user type', () => {
 describe('Navigation - active link', () => {
   it('marks the link whose path matches the current pathname as active', () => {
     renderNav('/patient-interventions');
-    // "Library" buttons should be active (teal color text-[#03A578])
+    // "Library" buttons should be active (teal color text-brand)
     const libraryBtns = screen.getAllByText('Library').map((el) => el.closest('button')!);
 
     libraryBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
     });
   });
 
@@ -110,7 +110,7 @@ describe('Navigation - active link', () => {
     const homeBtns = screen.getAllByText('Home').map((el) => el.closest('button')!);
 
     homeBtns.forEach((btn) => {
-      expect(btn.className).not.toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
+      expect(btn.className).not.toMatch(/(^|\s)text-brand(\s|$)/);
     });
   });
 
@@ -119,7 +119,7 @@ describe('Navigation - active link', () => {
     const homeBtns = screen.getAllByText('Home').map((el) => el.closest('button')!);
 
     homeBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
     });
   });
 });
@@ -135,7 +135,7 @@ describe('Navigation - therapist and researcher path uses lowercased userType', 
     const patientsBtns = screen.getAllByText('Patients').map((el) => el.closest('button')!);
 
     patientsBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
     });
   });
 
@@ -145,7 +145,7 @@ describe('Navigation - therapist and researcher path uses lowercased userType', 
     const patientsBtns = screen.getAllByText('Patients').map((el) => el.closest('button')!);
 
     patientsBtns.forEach((btn) => {
-      expect(btn.className).toMatch(/(^|\s)text-\[#03A578\](\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
     });
   });
 });

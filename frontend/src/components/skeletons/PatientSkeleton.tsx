@@ -1,6 +1,7 @@
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 
 export function PatientDailyInterventionCardSkeleton() {
   return (
@@ -12,13 +13,13 @@ export function PatientDailyInterventionCardSkeleton() {
         <Skeleton className="h-7 w-14 rounded-full" />
       </div>
 
-      <div className="flex items-center border border-accent rounded-3xl p-4 gap-3" role="status">
+      <Card className="flex items-center gap-3" role="status">
         <Skeleton className="flex-none w-8 h-8 rounded-full" />
         <div className="flex flex-1 flex-col gap-2">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-5 w-2/3" />
         </div>
-      </div>
+      </Card>
     </Section>
   );
 }

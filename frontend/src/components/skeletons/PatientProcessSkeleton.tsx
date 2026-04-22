@@ -1,33 +1,34 @@
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 
 export function PatientProcessLoadingContent() {
   return (
     <div className="mt-6 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
       <Section>
-        <div className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+        <Card className="flex flex-col gap-3">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
-        </div>
+        </Card>
       </Section>
 
       <Section>
         <div className="flex flex-col gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+            <Card key={i} className="flex flex-col gap-3">
               <Skeleton className="h-6 w-48" />
               <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
-            </div>
+            </Card>
           ))}
         </div>
       </Section>
 
       <Section>
-        <div className="flex flex-col gap-3 rounded-3xl border border-accent p-4">
+        <Card className="flex flex-col gap-3">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-[150px] lg:h-[80px] w-full rounded-[32px]" />
-        </div>
+        </Card>
       </Section>
     </div>
   );

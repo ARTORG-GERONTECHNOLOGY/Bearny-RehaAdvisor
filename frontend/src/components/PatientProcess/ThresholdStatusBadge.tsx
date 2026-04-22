@@ -12,8 +12,7 @@ const ThresholdStatusBadge: React.FC<Props> = ({ status }) => {
   const { t } = useTranslation();
   if (status === null) return null;
 
-  const color =
-    status === 'green' ? 'text-[#16A34A]' : status === 'yellow' ? 'text-[#EFA73B]' : 'text-red-600';
+  const color = status === 'green' ? 'text-ok' : status === 'yellow' ? 'text-yellow' : 'text-nok';
 
   return (
     <div className={`flex gap-2 ${color}`}>

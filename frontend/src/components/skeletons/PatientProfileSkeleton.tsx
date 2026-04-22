@@ -1,6 +1,7 @@
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
 import { Skeleton } from '@/components/ui/skeleton';
+import Card from '@/components/Card';
 
 export default function PatientProfileSkeleton() {
   return (
@@ -13,23 +14,23 @@ export default function PatientProfileSkeleton() {
             <Skeleton className="h-7 w-24" />
           </div>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+          <Card className="flex flex-col gap-1">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-6 w-32" />
-          </div>
+          </Card>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+          <Card className="flex flex-col gap-1">
             <Skeleton className="h-4 w-24" />
             <div className="flex items-center justify-between pt-1 gap-4">
               <Skeleton className="h-6 w-44" />
               <Skeleton className="h-6 w-11 rounded-full" />
             </div>
-          </div>
+          </Card>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col gap-1">
+          <Card className="flex flex-col gap-1">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-6 w-32" />
-          </div>
+          </Card>
         </Section>
 
         <Section>
@@ -37,10 +38,10 @@ export default function PatientProfileSkeleton() {
             <Skeleton className="h-7 w-20" />
           </div>
 
-          <div className="border border-accent p-4 rounded-3xl flex flex-col items-start gap-2">
+          <Card className="flex flex-col items-start gap-2">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-8 w-36 rounded-xl" />
-          </div>
+          </Card>
         </Section>
 
         <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">

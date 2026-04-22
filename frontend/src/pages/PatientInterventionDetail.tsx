@@ -31,6 +31,7 @@ import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import Card from '@/components/Card';
 
 type InterventionMedia = {
   kind: 'external' | 'file';
@@ -290,11 +291,7 @@ const MetaTags: React.FC<{ item: any }> = ({ item }) => {
     <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
       {tags.map((x, idx) => {
         return (
-          <Badge
-            key={`${x}-${idx}`}
-            className="bg-white py-[10px] px-3 rounded-xl border border-accent shadow-none font-medium text-lg text-zinc-500"
-            title={x}
-          >
+          <Badge key={`${x}-${idx}`} variant="tag" title={x}>
             {capitalizeWords(t(x, { defaultValue: x }))}
           </Badge>
         );
@@ -654,15 +651,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
         <Section>
-          <div className="rounded-3xl border border-accent p-4 flex flex-col items-start gap-3">
-            <Badge className="bg-white py-2 pl-[10px] pr-3 border border-accent rounded-xl flex gap-1 shadow-none">
+          <Card className="flex flex-col items-start gap-3">
+            <Badge variant="card">
               {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
                 <ExerciseIcon className="flex-none w-8 h-8" />
               ) : (
                 <EducationIcon className="flex-none w-8 h-8" />
               )}
               <span
-                className={`font-medium text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-[#F1ADCF]' : 'text-[#EFA73B]'}`}
+                className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-pink' : 'text-yellow'}`}
               >
                 {t(effectiveItem.intervention.aim)}
               </span>
@@ -685,28 +682,24 @@ const PatientInterventionDetail: React.FC = observer(() => {
             </div>
             <div className="flex flex-wrap gap-2">
               {effectiveItem.intervention.duration && (
-                <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+                <Badge variant="card">
                   <ClockIcon className="w-6 h-6" />
-                  <span className="font-medium text-xl text-[#00956C]">
-                    {`${effectiveItem.intervention.duration}min`}
-                  </span>
+                  <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
                 </Badge>
               )}
-              <Badge className="bg-white py-2 px-3 border border-accent rounded-xl flex gap-1 shadow-none">
+              <Badge variant="card">
                 {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
                 {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
-                <span className="font-medium text-xl text-[#00956C]">
-                  {t(effectiveMediaBadge.label)}
-                </span>
+                <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
               </Badge>
             </div>
-          </div>
+          </Card>
         </Section>
 
         <Section>
           <MediaContent mediaList={effectiveMediaList} />
 
-          <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+          <Card className="text-lg text-zinc-500">
             {detectedLang ? (
               <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
                 <span>{translatedText}</span>
@@ -714,12 +707,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
             ) : (
               effectiveItem?.description || ''
             )}
-          </div>
+          </Card>
 
           {effectiveItem?.notes && (
-            <div className="rounded-3xl border border-accent p-4 text-lg text-zinc-500">
+            <Card className="text-lg text-zinc-500">
               {t('Notes')}: {effectiveItem.notes}
-            </div>
+            </Card>
           )}
         </Section>
 
@@ -738,7 +731,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
               <a
                 key={`${link.href}-${idx}`}
                 href={link.href}
-                className="rounded-full p-4 pl-5 bg-[#00956C] flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
+                className="rounded-full p-4 pl-5 bg-brand flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`${link.text}: ${link.label}`}

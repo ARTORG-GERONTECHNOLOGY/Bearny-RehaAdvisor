@@ -9,7 +9,7 @@ describe('Button', () => {
 
   it('default variant applies bg color', () => {
     render(<Button>Go</Button>);
-    expect(screen.getByRole('button').className).toMatch(/bg-\[#00956C\]/);
+    expect(screen.getByRole('button').className).toMatch(/bg-brand/);
   });
 
   it('secondary variant applies bg-zinc-50', () => {

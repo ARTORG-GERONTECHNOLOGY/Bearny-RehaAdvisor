@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { colors } from '@/lib/colors';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
 import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';
+import Card from '@/components/Card';
 
 interface StepsHistoryItem {
   date: string;
@@ -65,21 +67,17 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
     <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
-        {connected && (
-          <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-            {t('Fitbit Connected')}
-          </Badge>
-        )}
+        {connected && <Badge variant="section">{t('Fitbit Connected')}</Badge>}
       </div>
 
       <div className="flex flex-col gap-2">
-        <div
+        <Card
           role={!connected ? 'button' : undefined}
           onClick={() => {
             if (connected) return;
             onOpenManualStepsEntry();
           }}
-          className="p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between"
+          className="flex flex-col gap-4 justify-between"
         >
           <div className="flex justify-between">
             <div>
@@ -92,7 +90,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
               {connected ? (
                 <ProgressIndicator current={stepsToday ?? 0} goal={stepsGoal ?? 0} />
               ) : stepsToday ? (
-                <CircleCheckFill className="w-full h-full text-green-600" />
+                <CircleCheckFill className="w-full h-full text-ok" />
               ) : (
                 <CircleDashedFill className="w-full h-full text-zinc-200" />
               )}
@@ -123,24 +121,24 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                     {stepsGoal !== null && stepsGoal !== undefined && (
                       <ReferenceLine
                         y={stepsGoal}
-                        stroke="#E4E4E7"
+                        stroke={colors.chartMuted}
                         strokeWidth={2}
                         strokeDasharray="8 8"
                       />
                     )}
                     <XAxis dataKey="date" hide />
                     <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                    <Bar dataKey="steps" fill="#F1ADCF" radius={18} />
+                    <Bar dataKey="steps" fill={colors.pink} radius={18} />
                   </BarChart>
                 </ChartContainer>
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
         {connected && (
           <div className="flex gap-2 flex-wrap">
-            <div className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between">
+            <Card className="flex-1 flex flex-col gap-4 justify-between">
               <div className="flex justify-between">
                 <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
                 <div className="w-8 h-8 shrink-0">
@@ -155,9 +153,9 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                   {t('Goal')}: {formatMinutesToHM(activeMinutesGoal)}
                 </div>
               </div>
-            </div>
+            </Card>
 
-            <div className="flex-1 p-4 border border-accent rounded-3xl flex flex-col gap-4 justify-between">
+            <Card className="flex-1 flex flex-col gap-4 justify-between">
               <div className="flex justify-between">
                 <div className="font-bold text-lg text-zinc-800">{t('Sleep')}</div>
                 <div className="w-8 h-8 shrink-0">
@@ -172,7 +170,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                   {t('Goal')}: {formatMinutesToHM(sleepMinutesGoal)}
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         )}
 

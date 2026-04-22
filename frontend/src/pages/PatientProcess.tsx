@@ -14,16 +14,17 @@ import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
 import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
+import { colors } from '@/lib/colors';
 
-const CHART_ACCENT = '#F1ADCF';
-const CHART_ACCENT_LIGHT = '#F1ADCF80';
-const CHART_ACCENT_SOFT = '#FCEFF5';
+const CHART_ACCENT = colors.pink;
+const CHART_ACCENT_LIGHT = colors.pink + '80';
+const CHART_ACCENT_SOFT = colors.pink + '33';
 const THRESHOLD_LINE_PROPS: {
   stroke: string;
   strokeWidth: number;
   strokeDasharray: string;
 } = {
-  stroke: '#E4E4E7',
+  stroke: colors.chartMuted,
   strokeWidth: 2,
   strokeDasharray: '8 8',
 };
@@ -124,7 +125,7 @@ const PatientProcess: React.FC = observer(() => {
   if (!loading && error) {
     return (
       <Layout>
-        <div className="text-red-600 text-center py-10">{t('Failed to load health data.')}</div>
+        <div className="text-nok text-center py-10">{t('Failed to load health data.')}</div>
       </Layout>
     );
   }
@@ -145,9 +146,7 @@ const PatientProcess: React.FC = observer(() => {
             <Badge
               key={value}
               onClick={() => setProcessFilter(value)}
-              className={`font-medium rounded-full py-2 px-3 border-none shadow-none text-nowrap ${
-                processFilter === value ? 'bg-white text-zinc-800' : 'bg-zinc-50 text-zinc-400'
-              }`}
+              variant={processFilter === value ? 'filter-active' : 'filter-inactive'}
               role="button"
               aria-pressed={processFilter === value}
               aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
