@@ -684,9 +684,7 @@ export class PatientPopupStore {
       COMMA_SEPARATED_PROFILE_FIELDS.forEach((fieldKey) => {
         const raw = payload[fieldKey];
         if (Array.isArray(raw)) {
-          payload[fieldKey] = raw
-            .map((x: unknown) => String(x ?? '').trim())
-            .filter(Boolean);
+          payload[fieldKey] = raw.map((x: unknown) => String(x ?? '').trim()).filter(Boolean);
           return;
         }
         if (typeof raw === 'string') {
