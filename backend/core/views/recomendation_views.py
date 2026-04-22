@@ -264,9 +264,8 @@ def apply_template_to_patient(request, therapist_id):
         plan.save()
 
         logger.info(
-            "[ASSIGN_INTERVENTION] therapist=%s patient=%s diagnosis=%s applied=%d sessions=%d",
+            "[ASSIGN_INTERVENTION] therapist=%s diagnosis=%s applied=%d sessions=%d",
             therapist_id,
-            patient_id,
             diagnosis,
             applied,
             total_sessions,
