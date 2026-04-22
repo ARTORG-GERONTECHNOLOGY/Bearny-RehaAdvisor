@@ -2,6 +2,104 @@
 
 ## Common Issues and Solutions
 
+### Production Deployment Issues
+
+#### Issue: `manifest unknown` during `docker compose pull`
+
+**Symptoms:**
+- Deploy reaches pull phase and fails with `Error response from daemon: manifest unknown`
+- One service (often `react-prod`) reports manifest unknown and other pulls are canceled
+
+**Root causes:**
+- Release tag and image tag mismatch (`v0.3.1` vs `0.3.1`)
+- Wrong GHCR namespace in server `.env.prod` (`.../rehaadvisor` vs `.../bearny-rehaadvisor`)
+- Images for normalized tag were never pushed
+
+**Fix checklist:**
+
+```bash
+# Server runtime image base
+grep -n '^GHCR_IMAGE=' /home/ubuntu/repos/telerehabapp-prod/.env.prod
+
+# Expected image existence
+docker manifest inspect ghcr.io/artorg-gerontechnology/bearny-rehaadvisor-frontend:0.3.1 >/dev/null
+docker manifest inspect ghcr.io/artorg-gerontechnology/bearny-rehaadvisor-backend:0.3.1 >/dev/null
+```
+
+Use normalized deploy tag export:
+
+```bash
+IMAGE_TAG="${TAG#v}"
+```
+
+---
+
+#### Issue: Release checkout/tag fetch fails in deploy workflow
+
+**Symptoms:**
+- `actions/checkout` or server-side `git fetch` fails while trying to resolve `vX.Y.Z`
+- Retries do not help
+
+**Root causes:**
+- Release tag does not exist remotely
+- Workflow input tag does not match published release tag
+
+**Fix:**
+
+```bash
+git ls-remote --tags origin | rg "refs/tags/v0\\.3\\.1$"
+```
+
+If missing, create/push the tag and publish release before rerunning deploy.
+
+---
+
+#### Issue: Deploy reports success but frontend appears unchanged
+
+**Symptoms:**
+- Health check passes
+- UI changes expected in release are not visible
+
+**Root causes:**
+- Running container image is not expected tag
+- Wrong GHCR namespace in prod `.env.prod`
+- Browser/service-worker cache serving stale assets
+
+**Checks:**
+
+```bash
+docker inspect react-prod --format '{{.Config.Image}}'
+docker inspect django-prod --format '{{.Config.Image}}'
+```
+
+Hard refresh in browser after confirming running image tags.
+
+---
+
+#### Issue: `ModuleNotFoundError: No module named 'django'` after containers start
+
+**Symptoms:**
+- `docker compose up -d` succeeds
+- Follow-up `manage.py` commands fail with missing Django
+
+**Cause:**
+- `python manage.py ...` executed outside the backend Conda environment
+
+**Fix:**
+
+```bash
+docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py migrate
+```
+
+Apply same pattern for `collectstatic` and seeding commands.
+
+---
+
+#### Rollback caveat
+
+Rollback can still fail if previous normalized image tag is not available in GHCR.
+Confirm previous tag manifests exist before relying on automated rollback.
+
 ### Authentication / Session Issues
 
 #### Issue: Users are randomly logged out without clicking "Log out"
