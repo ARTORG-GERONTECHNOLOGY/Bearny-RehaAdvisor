@@ -16,6 +16,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [04-BACKEND_GUIDE.md](./04-BACKEND_GUIDE.md) | Django/DRF development guide | Backend Developers | 15 KB |
 | [05-DATABASE_GUIDE.md](./05-DATABASE_GUIDE.md) | MongoDB design and operations | Database Admins, Developers | 12 KB |
 | [06-DEPLOYMENT_GUIDE.md](./06-DEPLOYMENT_GUIDE.md) | Production deployment procedures | DevOps, System Admins | 12 KB |
+| [PRODUCTION_DEPLOY_RUNBOOK.md](./PRODUCTION_DEPLOY_RUNBOOK.md) | Canonical release-to-prod deploy runbook and diagnostics | DevOps, On-call Engineers | Runbook |
 | [07-ENVIRONMENT_CONFIG.md](./07-ENVIRONMENT_CONFIG.md) | Configuration and environment variables | DevOps, Developers | 12 KB |
 | [08-TROUBLESHOOTING.md](./08-TROUBLESHOOTING.md) | Common issues and solutions | Everyone | 12 KB |
 | [09-API_DOCUMENTATION.md](./09-API_DOCUMENTATION.md) | REST API reference | API Users, Integrators | 13 KB |
@@ -66,7 +67,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📊 Documentation Statistics
 
-- **Total Documents**: 15 files
+- **Total Documents**: 16 files
 - **Total Content**: ~6,900 lines
 - **Total Size**: 192 KB
 - **Code Examples**: 150+
@@ -88,6 +89,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ### Deployment & Operations
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
+- [Production Deploy Runbook](./PRODUCTION_DEPLOY_RUNBOOK.md)
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)
 - [CI Environment Contract](./14-CI_ENVIRONMENT_CONTRACT.md)
 - [Database Guide](./05-DATABASE_GUIDE.md) - Backup/Restore
