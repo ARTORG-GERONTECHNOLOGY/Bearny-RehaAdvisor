@@ -1,12 +1,13 @@
 /**
- * Brand color palette – single source of truth for programmatic (JS/TS) usage.
- * For CSS/Tailwind usage, use the corresponding utility classes:
+ * Brand color palette – single source of truth for both Tailwind and programmatic (JS/TS) usage.
+ * Tailwind config imports this object directly (tailwind.config.ts).
+ * For CSS usage, use the corresponding utility classes:
  *   back          → bg-back
  *   ok            → text-ok / bg-ok
  *   nok           → text-nok   / bg-nok
- *   brand         → text-brand   / bg-brand
- *   pink          → text-pink    / bg-pink
- *   yellow        → text-yellow  / bg-yellow
+ *   brand         → text-brand / bg-brand
+ *   pink          → text-pink  / bg-pink
+ *   yellow        → text-yellow / bg-yellow
  *   chartMuted    → stroke/fill via colors.chartMuted (JS only; used for chart reference lines and tracks)
  */
 export const colors = {
