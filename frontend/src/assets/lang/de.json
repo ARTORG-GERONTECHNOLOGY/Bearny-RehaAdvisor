@@ -309,7 +309,7 @@
   "Rehabilitation Plan": "Rehabilitationsplan",
   "Outcomes Dashboard": "Ergebnistafel",
   "Use your registered email (therapist) or patient ID.": "Verwenden Sie Ihre registrierte E-Mail (Therapeut) oder Patienten-ID.",
-  "Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.": "Melden Sie sich als Therapeut oder Patient an. Therapeuten werden nach einem 2-Faktor-Code gefragt.",
+  "Sign in as a Therapist or Patient.": "Melden Sie sich als Therapeut oder Patient an.",
   "Email or Patient ID": "E-Mail oder Patienten-ID",
   "Register (Only for Therapists)": "Registrieren (Nur für Therapeuten)",
   "Enter email or patient ID": "E-Mail oder Patienten-ID eingeben",
@@ -1216,5 +1216,7 @@
   "Max": "Max",
   "Make this a private intervention (only visible to the assigned patient)": "Als private Intervention markieren (nur für den zugewiesenen Patienten sichtbar)",
   "Private intervention": "Private Intervention",
-  "Select...": "Auswählen..."
+  "Select...": "Auswählen...",
+  "homeHeadline": "Bearny",
+  "homeSubheadline": "Bäreit nach der Rehabilitation"
 }
