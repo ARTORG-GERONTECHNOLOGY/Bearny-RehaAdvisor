@@ -164,18 +164,20 @@ const Therapist: React.FC = observer(() => {
   }, [store, t]);
 
   const handleRehabButton = useCallback(
-    (id: string, name: string) => {
+    (id: string, name: string, pid: string) => {
       localStorage.setItem('selectedPatient', id);
       localStorage.setItem('selectedPatientName', name);
+      localStorage.setItem('selectedPatientId', pid);
       navigate('/rehabtable');
     },
     [navigate]
   );
 
   const handleProgressButton = useCallback(
-    (id: string, name: string) => {
+    (id: string, name: string, pid: string) => {
       localStorage.setItem('selectedPatient', id);
       localStorage.setItem('selectedPatientName', name);
+      localStorage.setItem('selectedPatientId', pid);
       navigate('/health');
     },
     [navigate]
@@ -854,14 +856,14 @@ const Therapist: React.FC = observer(() => {
                       <Button
                         size="sm"
                         variant="primary"
-                        onClick={() => handleRehabButton(mongoId, fullName)}
+                        onClick={() => handleRehabButton(mongoId, fullName, patientId)}
                       >
                         {String(t('Rehabilitation Plan'))}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-primary"
-                        onClick={() => handleProgressButton(mongoId, fullName)}
+                        onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                       >
                         {String(t('Outcomes Dashboard'))}
                       </Button>
@@ -942,7 +944,7 @@ const Therapist: React.FC = observer(() => {
                           <Button
                             size="sm"
                             variant="outline-primary"
-                            onClick={() => handleProgressButton(mongoId, fullName)}
+                            onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                           >
                             {String(t('Outcomes Dashboard'))}
                           </Button>

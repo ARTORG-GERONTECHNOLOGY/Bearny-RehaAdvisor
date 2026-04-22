@@ -249,11 +249,13 @@ const RehabTable: React.FC = observer(() => {
 
       <main className="rehaPage__content">
         <RehaPageLayout>
-          {store.patientName ? (
-            <div className="rehaPatientHeader">
-              <div className="rehaPatientHeader__name">{store.patientName}</div>
+          {(localStorage.getItem('selectedPatientId') || store.patientName) && (
+            <div className="mb-3">
+              <h4 className="mb-0">
+                {localStorage.getItem('selectedPatientId') || store.patientName}
+              </h4>
             </div>
-          ) : null}
+          )}
 
           {store.error ? (
             <Alert
