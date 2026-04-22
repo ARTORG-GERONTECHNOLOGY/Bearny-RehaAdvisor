@@ -292,11 +292,11 @@ jobs:
             echo "Waiting for containers to settle..."
             sleep 15
 
-            docker exec django-prod python manage.py migrate
-            docker exec django-prod python manage.py collectstatic --noinput
-            docker exec django-prod python manage.py seed_admin
-            docker exec django-prod python manage.py seed_feedback_questions
-            docker exec django-prod python manage.py seed_periodic_tasks
+            docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py migrate
+            docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py collectstatic --noinput
+            docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py seed_admin
+            docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py seed_feedback_questions
+            docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py seed_periodic_tasks
 
             # Connect gateway to the prod network (idempotent) and switch routing
             docker network connect telereha-prod gateway 2>/dev/null || true
