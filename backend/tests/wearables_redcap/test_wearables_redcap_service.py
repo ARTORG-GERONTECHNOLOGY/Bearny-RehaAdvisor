@@ -484,6 +484,32 @@ class TestExportWearablesToRedcap:
         start = record["monitoring_start"]
         assert start[2] == "-" and start[5] == "-" and start[-4:] == "2024"
 
+    def test_return_payloads_includes_sent_and_skipped_details(self, monkeypatch):
+        reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
+        _make_fitbit_day(
+            user,
+            reha_end + timedelta(days=2),
+            steps=5000,
+            active_min=30,
+            inactive_min=300,
+            wear_min=600,
+        )
+        monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
+
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "99"}]
+        ):
+            with patch("core.services.wearables_redcap_service._post_redcap", return_value='{"count":1}'):
+                results, payloads = export_wearables_to_redcap(patient, return_payloads=True)
+
+        assert results["baseline"] == "ok"
+        assert results["followup"] == "skipped"
+        assert payloads["baseline"]["status"] == "sent"
+        assert payloads["baseline"]["record"]["record_id"] == "99"
+        assert payloads["followup"]["status"] == "skipped"
+        assert payloads["followup"]["reason"] == "no_fitbit_data_in_period"
+
     def test_copain_sleep_format_in_payload(self, monkeypatch):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)

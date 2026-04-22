@@ -60,7 +60,12 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
 
     try:
         summary = compute_wearables_summary(patient)
-        results = export_wearables_to_redcap(patient, event_baseline, event_followup)
+        results, sent_payloads = export_wearables_to_redcap(
+            patient,
+            event_baseline,
+            event_followup,
+            return_payloads=True,
+        )
     except WearablesSyncError as e:
         return JsonResponse({"error": str(e), "code": e.code}, status=400)
     except ValueError as e:
@@ -71,4 +76,11 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
         logger.exception("Unexpected error syncing wearables")
         return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"ok": True, "results": results, "summary": summary})
+    return JsonResponse(
+        {
+            "ok": True,
+            "results": results,
+            "summary": summary,
+            "sent_payloads": sent_payloads,
+        }
+    )
