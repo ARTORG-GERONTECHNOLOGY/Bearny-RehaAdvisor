@@ -1444,6 +1444,16 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # 3) Build final list — type-specific (stars = Frage 1) first, then core (Frage 2 + open)
         result = _serialize_questions(type_q) + _serialize_questions(core_q)
 
+        # 3b) Guarantee a star-rating question is always present. When content_type
+        # is missing or doesn't match any applicable_types list, type_q is empty and
+        # no star question makes it into result. Fall back to rating_stars_education
+        # (the generic "How did you like the content?" question) in that case.
+        has_star = any(q.get("questionKey", "").startswith("rating_stars_") for q in result)
+        if not has_star:
+            fallback_star = FeedbackQuestion.objects(questionKey="rating_stars_education").first()
+            if fallback_star:
+                result = _serialize_questions([fallback_star]) + result
+
         # 4) Optional: require video feedback per assignment flag
         if assignment and getattr(assignment, "require_video_feedback", False):
             result.append(
