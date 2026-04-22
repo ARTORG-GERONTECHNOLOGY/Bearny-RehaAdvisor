@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { observer } from 'mobx-react-lite';
 import Section from '@/components/Section';
+import Card from '@/components/Card';
 import { Badge } from '@/components/ui/badge';
 import InterventionItem from '@/components/PatientPage/InterventionItem';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
@@ -51,11 +52,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
       <Section aria-label={ariaLabel}>
         <div className="flex p-2 pl-4 justify-between w-full">
           <div className="text-lg font-medium text-zinc-500">{headerText}</div>
-          {badgeText && (
-            <Badge className="font-medium text-zinc-500 rounded-full py-[6px] px-3 border-none bg-zinc-50 shadow-none">
-              {badgeText}
-            </Badge>
-          )}
+          {badgeText && <Badge variant="section">{badgeText}</Badge>}
         </div>
 
         {sortedInterventions.length > 0 ? (
@@ -70,8 +67,8 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
             />
           ))
         ) : (
-          <div
-            className="flex items-center bg-accent border border-accent rounded-3xl p-4 gap-3"
+          <Card
+            className="flex items-center bg-zinc-50 gap-3"
             role="status"
             aria-label={t('No recommendation')}
           >
@@ -79,7 +76,7 @@ const DailyInterventionCard: React.FC<DailyInterventionCardProps> = observer(
             <div className="flex-1 font-bold text-lg leading-5 text-zinc-400">
               {t('No recommendation')}
             </div>
-          </div>
+          </Card>
         )}
       </Section>
     );

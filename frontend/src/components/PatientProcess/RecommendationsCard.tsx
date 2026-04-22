@@ -2,6 +2,7 @@ import React from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import Card from '@/components/Card';
 
 type Props = {
   title: string;
@@ -23,7 +24,7 @@ const RecommendationsCard: React.FC<Props> = ({
   accentSoftColor,
 }) => {
   return (
-    <div className="p-4 border border-accent rounded-3xl">
+    <Card>
       <div>
         <div className="font-bold text-lg text-zinc-800">{title}</div>
         <div className="font-medium text-sm text-zinc-500 flex gap-1 items-center">
@@ -94,7 +95,7 @@ const RecommendationsCard: React.FC<Props> = ({
           </ChartContainer>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 

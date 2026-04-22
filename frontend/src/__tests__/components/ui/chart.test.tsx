@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { colors } from '@/lib/colors';
 import {
   ChartContainer,
   ChartStyle,
@@ -15,7 +16,7 @@ jest.mock('recharts', () => ({
 }));
 
 const baseConfig: ChartConfig = {
-  sales: { label: 'Sales', color: '#00956C' },
+  sales: { label: 'Sales', color: colors.brand },
 };
 
 const mockPayload = [
@@ -23,8 +24,8 @@ const mockPayload = [
     value: 123,
     name: 'sales',
     dataKey: 'sales',
-    color: '#00956C',
-    payload: { fill: '#00956C' },
+    color: colors.brand,
+    payload: { fill: colors.brand },
   },
 ] as any;
 
@@ -224,7 +225,7 @@ describe('ChartTooltipContent', () => {
 
 describe('ChartLegendContent', () => {
   const legendPayload = [
-    { value: 'sales', dataKey: 'sales', type: 'circle', color: '#00956C' },
+    { value: 'sales', dataKey: 'sales', type: 'circle', color: colors.brand },
   ] as any;
 
   it('returns null when payload is empty', () => {

@@ -4,6 +4,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { BarMetricKey, DailyMetricsDatum, ThresholdStatus } from '@/hooks/usePatientProcess';
 import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
+import Card from '@/components/Card';
 import { useTranslation } from 'react-i18next';
 
 type Props = {
@@ -38,7 +39,7 @@ const MetricBarCard: React.FC<Props> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="p-4 border border-accent rounded-3xl">
+    <Card>
       <div className="flex justify-between">
         <div>
           <div className="font-bold text-lg text-zinc-800">{title}</div>
@@ -74,7 +75,7 @@ const MetricBarCard: React.FC<Props> = ({
           </ChartContainer>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
