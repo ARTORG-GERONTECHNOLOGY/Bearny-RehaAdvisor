@@ -12,10 +12,10 @@ endpoints in `core/views/therapist_views.py`.
 |---|---|---|---|
 | `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 14 |
 | `/api/analytics/log` | POST | `create_log` | 4 |
-| Internal helpers (unit-level) | N/A | `_avg`, `_day_key`, `_sum_points_for_day`, `_adherence`, `_feedback_computing` | 9 |
+| Internal helpers (unit-level) | N/A | `_avg`, `_day_key`, `_sum_points_for_day`, `_adherence`, `_feedback_computing`, `_intervention_feedback_summary` | 9 |
 | Project-based access filter (unit-level) | N/A | `list_therapist_patients` queryset | 4 |
 
-**Total: 31 tests** (previously 23; 4 new project-access isolation tests + 4 existing `list_therapist_patients` tests renamed)
+**Total: 35 tests**
 
 ---
 
@@ -63,7 +63,21 @@ Returns the therapist's active patients as a flat list used by therapist patient
 | `biomarker` | `{ sleep_avg_h, activity_min, steps_avg, wear_time_avg_min, wear_time_days_since }` (7-day averages) |
 | `adherence_rate`, `adherence_total` | Adherence percentages |
 | `questionnaires` | Questionnaire summary entries |
+| `intervention_feedback` | Intervention-feedback summary: recency, recent average score, and trend |
 | `feedback_low` | `true` if any questionnaire is flagged low-score |
+
+**`intervention_feedback` fields:**
+
+| Field | Meaning |
+|---|---|
+| `last_answered_at` | Latest intervention feedback timestamp with numeric score |
+| `days_since_last` | Days since latest scored intervention feedback |
+| `answered_days_total` | Number of calendar days with scored intervention feedback |
+| `recent_days_count` | Number of answered days in the recent window |
+| `recent_avg_score` | Mean score across recent answered days |
+| `previous_avg_score` | Mean score across previous answered-day window |
+| `trend_delta` | `recent_avg_score - previous_avg_score` |
+| `trend_lower` | `true` if `trend_delta < 0` |
 
 **Biomarker fields detail:**
 

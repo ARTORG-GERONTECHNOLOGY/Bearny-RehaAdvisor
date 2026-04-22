@@ -634,6 +634,16 @@ JWT required. Returns patients the therapist is allowed to see, filtered by both
     "last_online": "2025-03-01T10:00:00Z",
     "last_feedback_at": "2025-02-28T10:00:00Z",
     "questionnaires": [],
+    "intervention_feedback": {
+      "last_answered_at": "2025-03-01T08:00:00Z",
+      "days_since_last": 1,
+      "answered_days_total": 4,
+      "recent_days_count": 3,
+      "recent_avg_score": 3.67,
+      "previous_avg_score": 4.1,
+      "trend_delta": -0.43,
+      "trend_lower": true
+    },
     "feedback_low": false,
     "biomarker": {
       "sleep_avg_h": 7.2,
@@ -645,6 +655,12 @@ JWT required. Returns patients the therapist is allowed to see, filtered by both
   }
 ]
 ```
+
+**Feedback summary fields:**
+- `intervention_feedback` is computed from `PatientInterventionLogs.feedback` numeric answer keys (`>0`) grouped by answered day.
+- `recent_avg_score` uses the most recent answered days (currently window size `3`).
+- `trend_delta = recent_avg_score - previous_avg_score`; `trend_lower` is `true` when this delta is negative.
+- `feedback_low` remains available as a questionnaire-derived compatibility flag (`questionnaires[].low_score`), but therapist traffic-light UI logic now prioritizes `intervention_feedback`.
 
 **Errors:** 400 invalid therapist ID · 404 therapist not found · 500
 
