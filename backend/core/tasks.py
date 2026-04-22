@@ -94,7 +94,7 @@ def sync_wearables_to_redcap_patient(patient_id: str):
 
     patient = Patient.objects(pk=patient_id).first()
     if not patient:
-        logger.warning("[sync_wearables] Patient not found: %s", patient_id)
+        logger.warning("[sync_wearables] Patient not found")
         return {"error": "Patient not found"}
 
     results = export_wearables_to_redcap(patient)

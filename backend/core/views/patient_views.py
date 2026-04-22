@@ -2486,10 +2486,7 @@ def get_patient_plan_for_therapist(request, patient_id):
     try:
         patient = _resolve_patient_flexible(patient_id)
         if not patient:
-            logger.warning(
-                "[get_patient_plan_for_therapist] Could not resolve patient: %s",
-                patient_id,
-            )
+            logger.warning("[get_patient_plan_for_therapist] Could not resolve patient (identifier redacted)")
             return JsonResponse(
                 {
                     "success": False,
@@ -2503,8 +2500,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             plan = RehabilitationPlan.objects.get(patientId=patient)
         except RehabilitationPlan.DoesNotExist:
             logger.info(
-                "[get_patient_plan_for_therapist] No rehab plan for patient: %s",
-                patient_id,
+                "[get_patient_plan_for_therapist] No rehab plan found for resolved patient (identifier redacted)"
             )
             return JsonResponse(
                 {
@@ -2633,7 +2629,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         return JsonResponse(plan_data, safe=False, status=200)
 
     except Patient.DoesNotExist:
-        logger.warning("[get_patient_plan_for_therapist] Patient.DoesNotExist for requested patient.")
+        logger.warning("[get_patient_plan_for_therapist] Patient.DoesNotExist (identifier redacted)")
         return JsonResponse(
             {
                 "success": False,
