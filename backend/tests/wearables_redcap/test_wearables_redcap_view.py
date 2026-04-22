@@ -253,7 +253,9 @@ def test_event_names_from_body_passed_to_service():
     args, kwargs = mock_export.call_args
     assert args[1] == "custom_bl_arm_1" or kwargs.get("event_baseline") == "custom_bl_arm_1"
     assert args[2] == "custom_fu_arm_1" or kwargs.get("event_followup") == "custom_fu_arm_1"
-    return_payloads = kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
+    return_payloads = (
+        kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
+    )
     assert return_payloads is True
 
 
