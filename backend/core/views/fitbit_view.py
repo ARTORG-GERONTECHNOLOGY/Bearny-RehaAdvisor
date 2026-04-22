@@ -8,7 +8,6 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.utils.timezone import is_naive, make_aware
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -17,20 +16,8 @@ from core.models import FitbitData, FitbitUserToken, Patient, User
 
 logger = logging.getLogger(__name__)
 FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
-from django.utils.timezone import is_naive, make_aware, now
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-
-
-def _resolve_patient(patient_id: str):
-    """Try Patient.pk first; then Patient.userId."""
-    try:
-        return Patient.objects.get(pk=patient_id)
-    except Exception:
-        try:
-            return Patient.objects.get(userId=ObjectId(patient_id))
-        except Exception:
-            return None
 
 
 def _sleep_minutes(entry: FitbitData) -> int:
@@ -85,6 +72,25 @@ def _resolve_patient(request, patient_id: str | None):
                 continue
 
     return None
+
+
+def _resolve_user_for_fitbit_status(patient_identifier: str):
+    """
+    Resolve either:
+    - Patient.id -> patient.userId
+    - User.id -> user
+    Returns None when the identifier cannot be resolved.
+    """
+    try:
+        patient = Patient.objects.get(pk=patient_identifier)
+        return patient.userId
+    except Exception:
+        pass
+
+    try:
+        return User.objects.get(pk=patient_identifier)
+    except Exception:
+        return None
 
 
 def avg_excluding_zero(values):
@@ -375,9 +381,18 @@ def _merge_thresholds(patient):
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def fitbit_status(request, patient_id):
-    connected = FitbitUserToken.objects.filter(user=ObjectId(patient_id)).count() > 0
-    logger.info(f"[fitbit_status] Patient {patient_id} connected: {connected}")
-    return JsonResponse({"connected": connected})
+    user = _resolve_user_for_fitbit_status(patient_id)
+    if not user:
+        logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
+        return JsonResponse({"connected": False, "has_data": False, "last_data": None})
+
+    connected = FitbitUserToken.objects(user=user).count() > 0
+    latest_row = FitbitData.objects(user=user).order_by("-date").first()
+    has_data = latest_row is not None
+    last_data = latest_row.date.isoformat() if latest_row else None
+
+    logger.info("[fitbit_status] status connected=%s has_data=%s", connected, has_data)
+    return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data})
 
 
 @csrf_exempt
