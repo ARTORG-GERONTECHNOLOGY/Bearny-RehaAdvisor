@@ -10,9 +10,9 @@ Tests in [`test_fitbit_sync.py`](test_fitbit_sync.py) cover service logic in
 | Function | Tests |
 |---|---|
 | `get_valid_access_token` | 3 |
-| `fetch_fitbit_today_for_user` | 3 |
+| `fetch_fitbit_today_for_user` | 7 |
 
-**Total: 6 tests**
+**Total: 10 tests**
 
 ---
 
@@ -23,6 +23,7 @@ Tests in [`test_fitbit_sync.py`](test_fitbit_sync.py) cover service logic in
 - Expired-token refresh non-200 failure.
 - Sync short-circuit when no token exists.
 - Full today-sync upsert path with mocked Fitbit API responses.
+- No-row behavior when Fitbit returns no usable payload for the day.
 - Additional today-sync branch coverage:
   - non-200 intraday response path
   - fallback parsing on malformed values

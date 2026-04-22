@@ -9,7 +9,7 @@ This document describes tests in
 
 | Endpoint | HTTP verb | Tests |
 |---|---|---|
-| `/api/fitbit/status/<patient_id>/` | GET | 2 |
+| `/api/fitbit/status/<patient_id>/` | GET | 4 |
 | `/api/fitbit/callback/` | GET | 5 |
 | `/api/fitbit/health-data/<patient_id>/` | GET | 3 |
 | `/api/fitbit/manual_steps/<patient_id>/` | POST/GET | 5 |
@@ -17,13 +17,15 @@ This document describes tests in
 | `health_combined_history(<patient_id>)` | GET (direct view test) | 6 |
 | Helper functions | N/A | 5 |
 
-**Total: 31 tests**
+**Total: 33 tests**
 
 ---
 
 ## Scenarios covered
 
 - Fitbit connection state with/without persisted token.
+- Fitbit status resolution for both `User.id` and `Patient.id`.
+- Fitbit status returns safe false values for unresolved identifiers.
 - OAuth callback redirect branches:
   - missing code
   - missing state

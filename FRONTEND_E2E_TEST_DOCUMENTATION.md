@@ -22,6 +22,7 @@ frontend/
     therapist-feedback-chips.spec.ts
     therapist-characteristics-space-input.spec.ts
     therapist-interventions-templates.spec.ts
+    therapist-wearables-sync.spec.ts
     TESTING.md
   playwright.config.ts
 ```
@@ -127,6 +128,16 @@ Validates therapist patient-popup Characteristics input behavior:
 - Types multi-word comma-separated values (containing spaces)
 - Verifies the profile save payload keeps internal spaces while normalizing by comma split
 
+### `therapist-wearables-sync.spec.ts`
+
+Validates therapist patient-popup wearables sync behavior:
+- Opens `/therapist` and opens the patient popup via the `Info` action
+- Triggers `POST /wearables/sync-to-redcap/<patient_id>/`
+- Verifies successful sync alert shows period-level statuses
+- Verifies sync payload details are rendered in table form (from `sent_payloads`)
+- Verifies skip reasons are visible (for example `no_fitbit_data_in_period`)
+- Verifies informative backend error messages are shown on failed sync
+
 ---
 
 ## Prerequisites
@@ -195,6 +206,17 @@ E2E_EMAIL_DIR=<email-dir-shared-with-django> \
 npm run test:e2e -- e2e/therapist-characteristics-space-input.spec.ts'
 ```
 
+Run therapist wearables sync regression:
+
+```bash
+docker exec react sh -lc 'cd /app && \
+E2E_API_URL=http://django:8000/api \
+E2E_THERAPIST_LOGIN=<therapist-login> \
+E2E_THERAPIST_PASSWORD=<therapist-password> \
+E2E_EMAIL_DIR=<email-dir-shared-with-django> \
+npm run test:e2e -- e2e/therapist-wearables-sync.spec.ts'
+```
+
 ### Direct host run (without Docker)
 
 From `frontend/`:
@@ -218,7 +240,7 @@ E2E_API_URL=http://127.0.0.1:8001/api npm run test:e2e
 | `E2E_ADMIN_PASSWORD` | Redirect tests only | Seeded admin password |
 | `E2E_THERAPIST_LOGIN` | Therapist login + templates tests | Seeded therapist login identifier |
 | `E2E_THERAPIST_PASSWORD` | Therapist login + templates tests | Seeded therapist password |
-| `E2E_EMAIL_DIR` | Therapist 2FA-based E2E tests | File-based email directory shared with backend for OTP retrieval |
+| `E2E_EMAIL_DIR` | Therapist 2FA-based tests | Directory where Django writes file-based OTP emails (read by E2E helper) |
 
 ## CI Integration
 
