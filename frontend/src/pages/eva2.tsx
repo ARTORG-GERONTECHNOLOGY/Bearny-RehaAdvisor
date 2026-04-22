@@ -365,9 +365,12 @@ export default function HealthSlider() {
     } catch {}
   }, [isPracticeMode, questionIndex]);
 
-  /** --- sync URL-provided patient ID to localStorage --- */
+  /** --- sync URL-provided patient ID to in-memory state (avoid persistent cleartext storage) --- */
   useEffect(() => {
-    if (urlPatientId) localStorage.setItem('patient_id', urlPatientId);
+    if (urlPatientId) {
+      setPatientId(urlPatientId);
+      setPatientIdError('');
+    }
   }, [urlPatientId]);
 
   const submitPatientId = () => {
