@@ -270,7 +270,7 @@ jobs:
             fi
 
             DC="docker compose -f docker-compose.prod.reha-advisor.yml --env-file .env.prod"
-            export IMAGE_TAG="$TAG"
+            export IMAGE_TAG="${TAG#v}"
             echo "Using IMAGE_TAG=$IMAGE_TAG for compose pull/up"
 
             # Ensure server-side data files exist (created once, persist across deploys)
@@ -348,7 +348,7 @@ jobs:
             PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
               git checkout -f "$PREV_TAG"
-              export IMAGE_TAG="$PREV_TAG"
+              export IMAGE_TAG="${PREV_TAG#v}"
               docker compose -f docker-compose.prod.reha-advisor.yml pull || true
               docker compose -f docker-compose.prod.reha-advisor.yml up -d
               # Revert gateway routing back to local-prod
