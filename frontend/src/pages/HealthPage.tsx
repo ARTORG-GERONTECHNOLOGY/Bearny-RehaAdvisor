@@ -451,7 +451,7 @@ const HealthPage: React.FC = observer(() => {
             <Col xs={12} xxl={10}>
               {/* Patient name */}
               {store.patientName && (
-                <div className="text-center mb-3">
+                <div className="mb-3">
                   <h4 className="mb-0">{store.patientName}</h4>
                 </div>
               )}
