@@ -299,7 +299,7 @@
   "Occurs every day.": "Si verifica ogni giorno.",
   "Rehabilitation Plan": "Piano di riabilitazione",
   "Outcomes Dashboard": "Dashboard dei risultati",
-  "Sign in as a Therapist or Patient. Therapists will be asked for a 2-factor code.": "Accedi come Terapeuta o Paziente. I terapisti verranno richiesti di inserire un codice a 2 fattori.",
+  "Sign in as a Therapist or Patient.": "Accedi come Terapeuta o Paziente.",
   "Email or Patient ID": "Email o ID Paziente",
   "Use your registered email (therapist) or patient ID.": "Usa la tua email registrata (terapeuta) o ID paziente.",
   "Register (Only for Therapists)": "Registrati (Solo per Terapeuti)",
@@ -1224,5 +1224,7 @@
   "Max": "Max",
   "Make this a private intervention (only visible to the assigned patient)": "Rendi questo un intervento privato (visibile solo al paziente assegnato)",
   "Private intervention": "Intervento privato",
-  "Select...": "Seleziona..."
+  "Select...": "Seleziona...",
+  "homeHeadline": "Bearny",
+  "homeSubheadline": "pronto dopo la riabilitazione"
 }
