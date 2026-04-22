@@ -244,6 +244,88 @@ def _sum_points_for_day(rating_docs, question_ids_set):
     return total
 
 
+def _intervention_feedback_summary(patient, recent_days: int = 3):
+    """
+    Summarize intervention feedback for therapist traffic-light logic.
+
+    Uses only numeric answer keys from PatientInterventionLogs.feedback.
+    Returns recency, recent average score (last N answered days), and trend
+    versus the previous N answered days.
+    """
+
+    now = timezone.now()
+
+    def _aware(dt):
+        if not isinstance(dt, datetime):
+            return None
+        if timezone.is_naive(dt):
+            try:
+                return timezone.make_aware(dt, timezone.get_current_timezone())
+            except Exception:
+                return timezone.make_aware(dt, timezone.utc)
+        return dt
+
+    day_to_values = {}
+    latest_dt = None
+
+    logs = (
+        PatientInterventionLogs.objects(userId=patient, feedback__exists=True, feedback__ne=[])
+        .only("date", "updatedAt", "feedback")
+        .order_by("-date")
+    )
+    for lg in logs:
+        dt = _aware(getattr(lg, "date", None) or getattr(lg, "updatedAt", None))
+        if not dt:
+            continue
+
+        numeric_values = []
+        for fe in getattr(lg, "feedback", None) or []:
+            for ak in getattr(fe, "answerKey", None) or []:
+                key = ak if isinstance(ak, str) else getattr(ak, "key", None)
+                try:
+                    v = int(str(key).strip())
+                except Exception:
+                    continue
+                if v > 0:
+                    numeric_values.append(v)
+
+        if not numeric_values:
+            continue
+
+        if latest_dt is None or dt > latest_dt:
+            latest_dt = dt
+
+        dkey = dt.date()
+        day_to_values.setdefault(dkey, []).extend(numeric_values)
+
+    day_scores = sorted(
+        [(d, mean(vals)) for d, vals in day_to_values.items() if vals],
+        key=lambda x: x[0],
+        reverse=True,
+    )
+
+    recent_scores = [s for _, s in day_scores[:recent_days]]
+    prev_scores = [s for _, s in day_scores[recent_days : recent_days * 2]]
+
+    recent_avg = round(mean(recent_scores), 2) if recent_scores else None
+    prev_avg = round(mean(prev_scores), 2) if prev_scores else None
+    trend_delta = round(recent_avg - prev_avg, 2) if recent_avg is not None and prev_avg is not None else None
+    trend_lower = trend_delta is not None and trend_delta < 0
+
+    days_since_last = (now.date() - latest_dt.date()).days if latest_dt else None
+
+    return {
+        "last_answered_at": latest_dt.isoformat() if latest_dt else None,
+        "days_since_last": days_since_last,
+        "answered_days_total": len(day_scores),
+        "recent_days_count": len(recent_scores),
+        "recent_avg_score": recent_avg,
+        "previous_avg_score": prev_avg,
+        "trend_delta": trend_delta,
+        "trend_lower": trend_lower,
+    }
+
+
 def _feedback_computing(patient):
     """
     Build a questionnaires_summary for a patient and return (summary, last_feedback_at_dt).
@@ -488,6 +570,7 @@ def list_therapist_patients(request, therapist_id):
             try:
                 summary, questionnaire_last_fb_dt = _feedback_computing(patient)
                 last_fb_dt = _latest_feedback_at(patient, questionnaire_last_fb_dt)
+                intervention_feedback = _intervention_feedback_summary(patient)
             except Exception as e:
                 logger.error(
                     "[list_therapist_patients] feedback summary error %s: %s",
@@ -495,6 +578,16 @@ def list_therapist_patients(request, therapist_id):
                     str(e),
                 )
                 summary, last_fb_dt = [], None
+                intervention_feedback = {
+                    "last_answered_at": None,
+                    "days_since_last": None,
+                    "answered_days_total": 0,
+                    "recent_days_count": 0,
+                    "recent_avg_score": None,
+                    "previous_avg_score": None,
+                    "trend_delta": None,
+                    "trend_lower": False,
+                }
 
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
             bp_sys_vals, bp_dia_vals = [], []
@@ -562,6 +655,7 @@ def list_therapist_patients(request, therapist_id):
                     "last_online": (last_online_dt.isoformat() if last_online_dt else None),
                     "last_feedback_at": last_fb_dt.isoformat() if last_fb_dt else None,
                     "questionnaires": summary,
+                    "intervention_feedback": intervention_feedback,
                     "feedback_low": any(it.get("low_score") for it in summary),
                     "thresholds": _thresholds_to_dict(getattr(patient, "thresholds", None)),
                     "biomarker": biomarker,

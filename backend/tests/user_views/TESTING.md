@@ -10,13 +10,13 @@ under `/api/users/` and `/api/admin/`.
 
 | Endpoint | HTTP verbs | View function | Tests |
 |---|---|---|---|
-| `/api/users/<user_id>/profile/` | GET, PUT, DELETE | `user_profile_view` | 16 |
+| `/api/users/<user_id>/profile/` | GET, PUT, DELETE | `user_profile_view` | 17 |
 | `/api/admin/pending-users/` | GET | `get_pending_users` | 4 |
 | `/api/admin/accept-user/` | POST | `accept_user` | 5 |
 | `/api/admin/decline-user/` | POST | `decline_user` | 5 |
 | `/api/users/<user_id>/change-password/` | PUT | `change_password` | 5 |
 
-**Total: 35 tests**
+**Total: 36 tests**
 
 ---
 
@@ -112,6 +112,7 @@ check_password(old) ──Fail──► 403 "Old password incorrect"
 | `test_user_profile_view_update_password_missing_new` | Only `oldPassword` sent | 400, 'New password required' |
 | `test_user_profile_view_update_therapist_fields` | Valid `first_name`, `name` | 200, updated keys in response |
 | `test_user_profile_view_update_patient_reha_end_date` | Valid `reha_end_date` string | 200, `reha_end_date` in updated |
+| `test_user_profile_view_update_patient_characteristics_preserves_internal_spaces` | Multi-word patient characteristics values (lists + restrictions) | 200; persisted values keep internal spaces |
 | `test_user_profile_view_update_invalid_date_format` | `reha_end_date = "not-a-date"` | 400, 'Invalid date format' |
 | `test_user_profile_view_update_invalid_email` | `email = "not-valid"` | 400, 'Invalid email' |
 | `test_user_profile_view_update_invalid_phone` | `phone = "not-a-phone"` | 400, 'Invalid phone' |

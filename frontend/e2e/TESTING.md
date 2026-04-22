@@ -23,6 +23,9 @@ Current scope starts with the home/login journey.
 | `spurious-logout.spec.ts`                           | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                          |
 | `therapist-rehabtable-questionnaires.spec.ts`       | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, questionnaire-content visibility, and answered-results rendering for assigned questionnaires. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                    |
 | `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                                   |
+| `therapist-feedback-chips.spec.ts`                  | Therapist patient-list feedback chip logic: uses mocked `/api/therapists/<id>/patients` response to verify intervention-feedback-based chip level and tooltip text, and that Health chip remains hidden for ongoing patients. Requires seeded therapist login.                                                                                                |
+| `therapist-characteristics-space-input.spec.ts`     | Therapist patient-popup characteristics regression: verifies multi-word values can be typed in comma-separated fields and that save payload preserves spaces within words (normalizing by comma). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                                |
+| `therapist-wearables-sync.spec.ts`                  | Therapist patient popup wearables sync regression: verifies sync success status (`ok`/`skipped`), payload detail rendering (`sent_payloads` table view), and informative backend error visibility on failed sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                |
 | `patient-health-questionnaire-ui.spec.ts`           | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials.                                                                                                                                     |
 
 ---
@@ -101,6 +104,20 @@ Current scope starts with the home/login journey.
   - CSV export flow works from `/health` page
   - Questionnaire CSV columns include question key/text, all answer keys/texts, comment, and media URLs
   - Multi-answer values are serialized as `value1 | value2`
+- Therapist feedback chips (`therapist-feedback-chips.spec.ts`, seeded therapist required):
+  - Intercepts `GET /api/therapists/<id>/patients` with controlled fixtures
+  - Verifies `Feedback good` for recent/high-average intervention feedback and tooltip average text
+  - Verifies `Feedback bad` when trend is lower
+  - Verifies Health chip is hidden for ongoing (active) patient rows
+- Therapist characteristics space-input regression (`therapist-characteristics-space-input.spec.ts`, seeded therapist required):
+  - Opens patient popup from `/therapist`
+  - Enters multi-word comma-separated text in Characteristics input
+  - Confirms saved profile payload keeps internal spaces while normalizing by commas
+- Therapist wearables sync (`therapist-wearables-sync.spec.ts`, seeded therapist required):
+  - Opens patient popup from `/therapist` and triggers `POST /wearables/sync-to-redcap/<patient_id>/`
+  - Confirms success alert shows per-period sync outcomes and the rendered payload detail table (`sent_payloads`)
+  - Confirms skipped period reason is visible (for example `no_fitbit_data_in_period`)
+  - Confirms sync failure shows informative backend error text to the user
 - Patient questionnaire UI submission (`patient-health-questionnaire-ui.spec.ts`, seeded therapist + patient required):
   - Setup assigns a due Healthstatus questionnaire for the patient
   - Patient login opens the questionnaire popup
@@ -153,6 +170,7 @@ npx playwright install --with-deps chromium
 - `E2E_ADMIN_PASSWORD`: seeded admin password.
 - `E2E_THERAPIST_LOGIN`: seeded therapist login identifier (email).
 - `E2E_THERAPIST_PASSWORD`: seeded therapist password.
+- `E2E_EMAIL_DIR`: directory used by Django file-based email backend so E2E can read therapist OTP codes.
 
 Example:
 
@@ -227,6 +245,36 @@ E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 E2E_PATIENT_ID=<patient-object-id> \
 npm run test:e2e -- e2e/therapist-rehabtable-questionnaires.spec.ts e2e/therapist-health-export-questionnaire-csv.spec.ts
+```
+
+Therapist feedback-chip regression (requires seeded therapist):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir-for-2fa> \
+npm run test:e2e -- e2e/therapist-feedback-chips.spec.ts
+```
+
+Therapist characteristics space-input regression (requires seeded therapist + OTP email directory):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-characteristics-space-input.spec.ts
+```
+
+Therapist wearables sync regression (requires seeded therapist + OTP email directory):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-wearables-sync.spec.ts
 ```
 
 Patient questionnaire popup submission (requires seeded therapist + patient):

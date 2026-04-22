@@ -56,17 +56,15 @@ type ThresholdsLike = {
   bp_dia_yellow_max?: unknown;
 };
 
-type QuestionnaireLike = {
-  title?: unknown;
-  key?: unknown;
+type InterventionFeedbackLike = {
   last_answered_at?: unknown;
-  last_score?: unknown;
-  prev_score?: unknown;
-  delta_score?: unknown;
-  adherence_7?: unknown;
-  answered_7?: unknown;
-  expected_7?: unknown;
-  low_score?: unknown;
+  days_since_last?: unknown;
+  answered_days_total?: unknown;
+  recent_days_count?: unknown;
+  recent_avg_score?: unknown;
+  previous_avg_score?: unknown;
+  trend_delta?: unknown;
+  trend_lower?: unknown;
 };
 
 type PatientExtra = {
@@ -85,6 +83,7 @@ type PatientExtra = {
 
   last_feedback_at?: unknown;
   questionnaires?: unknown;
+  intervention_feedback?: unknown;
 
   thresholds?: unknown;
   biomarker?: unknown;
@@ -93,17 +92,6 @@ type PatientExtra = {
 
 const asRecord = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
-
-const toStr = (v: unknown): string => {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
-};
 
 const toNum = (v: unknown): number | null => {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
@@ -460,89 +448,85 @@ const Therapist: React.FC = observer(() => {
 
   const feedbackLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
     const extra = getPatientExtra(p);
-    const qsRaw = extra.questionnaires;
+    const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
 
-    const qs: QuestionnaireLike[] = Array.isArray(qsRaw)
-      ? (qsRaw as unknown[]).map((x) => asRecord(x) as QuestionnaireLike)
-      : [];
+    const lastIso = getIsoMaybe(summary.last_answered_at);
+    const daysSinceLast = toNum(summary.days_since_last);
+    const answeredDaysTotal = toNum(summary.answered_days_total) ?? 0;
+    const recentDaysCount = toNum(summary.recent_days_count) ?? 0;
+    const recentAvg = toNum(summary.recent_avg_score);
+    const prevAvg = toNum(summary.previous_avg_score);
+    const trendDelta = toNum(summary.trend_delta);
+    const trendLower = summary.trend_lower === true;
 
-    if (qs.length === 0) {
-      const last = getIsoMaybe(extra.last_feedback_at);
-      const d = daysSince(last || undefined);
+    if (answeredDaysTotal > 0 && lastIso) {
+      let level: Traffic = 'good';
 
-      let level: Traffic = 'unknown';
-      if (!last || d === Number.POSITIVE_INFINITY) level = 'warn';
-      else if (d <= 14) level = 'good';
-      else if (d <= 30) level = 'warn';
-      else level = 'bad';
+      if (daysSinceLast != null) {
+        if (daysSinceLast > 7) level = 'bad';
+        else if (daysSinceLast > 3) level = 'warn';
+      }
 
-      const tip = last
-        ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
-        : String(t('No recent feedback'));
-      return { level, tip };
+      if (recentAvg != null) {
+        if (recentAvg <= 2) level = 'bad';
+        else if (recentAvg < 3 && level !== 'bad') level = 'warn';
+      }
+
+      if (trendLower) {
+        if (level === 'good') level = 'warn';
+        else if (level === 'warn') level = 'bad';
+      }
+
+      const trendText =
+        trendDelta == null
+          ? String(t('n/a'))
+          : trendDelta < 0
+            ? `${t('lower')} (${trendDelta.toFixed(2)})`
+            : trendDelta > 0
+              ? `${t('higher')} (+${trendDelta.toFixed(2)})`
+              : String(t('stable'));
+
+      const parts: string[] = [
+        `${t('Last intervention feedback')}: ${fmtDateTime(lastIso)}${daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : ''}`,
+      ];
+      if (recentAvg != null) {
+        parts.push(
+          `${t('Avg score')} (${t('last')} ${recentDaysCount} ${t('answered days')}): ${recentAvg.toFixed(2)}`
+        );
+      }
+      if (prevAvg != null) parts.push(`${t('Previous avg score')}: ${prevAvg.toFixed(2)}`);
+      parts.push(`${t('Trend')}: ${trendText}`);
+
+      return { level, tip: parts.join(' • ') };
     }
 
-    let worst: Traffic = 'good';
-    const ord = (lvl: Traffic) =>
-      lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
-    const lines: string[] = [];
-
-    qs.forEach((q) => {
-      const title =
-        (typeof q.title === 'string' && q.title) ||
-        (typeof q.key === 'string' && q.key) ||
-        String(t('Questionnaire'));
-
-      const lastISO = typeof q.last_answered_at === 'string' ? q.last_answered_at : null;
-
-      const lastScore = toNum(q.last_score);
-      const prevScore = toNum(q.prev_score);
-
-      let delta = toNum(q.delta_score);
-      if (delta == null && lastScore != null && prevScore != null) delta = lastScore - prevScore;
-
-      const adh7 = toNum(q.adherence_7);
-      const answered7 = toNum(q.answered_7);
-      const expected7 = toNum(q.expected_7);
-
-      const low = q.low_score === true;
-      const days = daysSince(lastISO || undefined);
-
-      let lvl: Traffic = 'good';
-      if (low) lvl = 'bad';
-      else if (!lastISO) lvl = 'warn';
-      else if (days > 30) lvl = 'bad';
-      else if (days > 14) lvl = 'warn';
-      if (typeof adh7 === 'number' && adh7 < 50) lvl = lvl === 'bad' ? 'bad' : 'warn';
-
-      if (ord(lvl) > ord(worst)) worst = lvl;
-
-      const parts: string[] = [];
-      parts.push(title);
-      parts.push(lastISO ? fmtDate(lastISO) : String(t('No answers yet')));
-      if (lastScore != null) parts.push(`${t('Score')}: ${lastScore}`);
-      if (delta != null && delta !== 0) {
-        const arrow = delta < 0 ? '↓' : '↑';
-        parts.push(`${arrow} ${Math.abs(delta)}`);
-      }
-      if (typeof answered7 === 'number' && typeof expected7 === 'number')
-        parts.push(`${t('7d')}: ${answered7}/${expected7}`);
-      else if (typeof adh7 === 'number') parts.push(`${t('7d adh')}: ${adh7}%`);
-
-      lines.push(parts.join(' • '));
-    });
-
-    return { level: worst || 'unknown', tip: lines.join('\n') || String(t('No recent feedback')) };
+    // Fallback when intervention feedback has no numeric scored entries yet
+    const last = getIsoMaybe(extra.last_feedback_at);
+    const d = daysSince(last || undefined);
+    let level: Traffic = 'unknown';
+    if (!last || d === Number.POSITIVE_INFINITY) level = 'warn';
+    else if (d <= 14) level = 'good';
+    else if (d <= 30) level = 'warn';
+    else level = 'bad';
+    return {
+      level,
+      tip: last
+        ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
+        : String(t('No recent feedback')),
+    };
   };
+
+  const shouldHideHealthChip = (p: PatientType): boolean => !store.isCompletedPatient(p);
 
   const ampelComposite = (p: PatientType) => {
     const l = loginLevelAndTip(p);
     const a = adherenceLevelAndTip(p);
     const h = healthLevelAndTip(p);
     const f = feedbackLevelAndTip(p);
+    const includeHealth = !shouldHideHealthChip(p);
 
-    const base =
-      levelToNum(l.level) + levelToNum(a.level) + levelToNum(h.level) + levelToNum(f.level);
+    const base = levelToNum(l.level) + levelToNum(a.level) + levelToNum(f.level);
+    const baseWithHealth = includeHealth ? base + levelToNum(h.level) : base;
 
     const extra = getPatientExtra(p);
     const lastLogin =
@@ -570,10 +554,10 @@ const Therapist: React.FC = observer(() => {
     const tweak =
       (Number.isFinite(dLogin) ? dLogin / 50 : 0) +
       (adh >= 0 ? (100 - adh) / 100 : 0.5) +
-      (hScore >= 0 ? (2 - hScore) / 2 : 0.5) +
       (Number.isFinite(dFb) ? dFb / 100 : 0.25);
+    const healthTweak = includeHealth ? (hScore >= 0 ? (2 - hScore) / 2 : 0.5) : 0;
 
-    return base + tweak;
+    return baseWithHealth + tweak + healthTweak;
   };
 
   const renderStatusChips = (p: PatientType) => {
@@ -582,6 +566,7 @@ const Therapist: React.FC = observer(() => {
     const health = healthLevelAndTip(p);
     const fb = feedbackLevelAndTip(p);
     const wear = wearLevelAndTip(p);
+    const hideHealthChip = shouldHideHealthChip(p);
 
     const Chip = ({ label, level, tip }: { label: string; level: Traffic; tip: string }) => (
       <OverlayTrigger
@@ -606,7 +591,9 @@ const Therapist: React.FC = observer(() => {
       <div className="status-stack">
         <Chip label={String(t('Login'))} level={login.level} tip={login.tip} />
         <Chip label={String(t('Adherence'))} level={adh.level} tip={adh.tip} />
-        <Chip label={String(t('Health'))} level={health.level} tip={health.tip} />
+        {!hideHealthChip && (
+          <Chip label={String(t('Health'))} level={health.level} tip={health.tip} />
+        )}
         <Chip label={String(t('Feedback'))} level={fb.level} tip={fb.tip} />
         {wear.level !== 'unknown' && (
           <Chip label={String(t('Wear'))} level={wear.level} tip={wear.tip} />
