@@ -128,8 +128,11 @@ jobs:
         id: resolve-tag
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag || github.ref_name }}"
+          IMAGE_TAG="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "Deploying tag: $TAG"
+          echo "Image tag for GHCR: $IMAGE_TAG"
 
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -154,6 +157,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=raw,value=${{ steps.resolve-tag.outputs.image_tag }}
             type=raw,value=latest
 
       - name: Build and push frontend image
@@ -177,6 +181,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},value=${{ steps.resolve-tag.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.resolve-tag.outputs.tag }}
+            type=raw,value=${{ steps.resolve-tag.outputs.image_tag }}
             type=raw,value=latest
 
       - name: Build and push backend image
