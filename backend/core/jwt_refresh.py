@@ -42,7 +42,6 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
             refresh.set_jti()
             refresh.set_exp()
             refresh.set_iat()
-            refresh.outstand()
 
             data["refresh"] = str(refresh)
 
