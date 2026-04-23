@@ -4,29 +4,29 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Alert, Col, Nav, Row, Spinner } from 'react-bootstrap';
 
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
+import authStore from '@/stores/authStore';
+import apiClient from '@/api/client';
+import { extractApiError, RehabTableStore } from '@/stores/rehabTableStore';
 
-import authStore from '../stores/authStore';
-import apiClient from '../api/client';
-import { extractApiError, RehabTableStore } from '../stores/rehabTableStore';
+import InterventionLeftPanel from '@/components/RehaTablePage/InterventionLeftPanel';
+import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
 
-import InterventionLeftPanel from '../components/RehaTablePage/InterventionLeftPanel';
-import InterventionCalendar from '../components/RehaTablePage/InterventionCalendar';
+import RehaPageLayout from '@/components/RehaTablePage/layout/RehaPageLayout';
+import RehaLeftPanelShell from '@/components/RehaTablePage/layout/RehaLeftPanelShell';
+import RehaCalendarPanelShell from '@/components/RehaTablePage/layout/RehaCalendarPanelShell';
 
-import RehaPageLayout from '../components/RehaTablePage/layout/RehaPageLayout';
-import RehaLeftPanelShell from '../components/RehaTablePage/layout/RehaLeftPanelShell';
-import RehaCalendarPanelShell from '../components/RehaTablePage/layout/RehaCalendarPanelShell';
-
-import PatientInterventionPopUp from '../components/PatientPage/PatientInterventionPopUp';
-import InterventionRepeatModal from '../components/RehaTablePage/InterventionRepeatModal';
-import InterventionStatsModal from '../components/RehaTablePage/InterventionStatsModal';
-import InterventionFeedbackModal from '../components/RehaTablePage/InterventionFeedbackModal';
-import '../assets/styles/RehabTable.css';
-import { generateTagColors, getTaxonomyTags } from '../utils/interventions';
-import QuestionnairePanel from '../components/RehaTablePage/QuestionnairePanel';
-import QuestionnaireScheduleModal from '../components/RehaTablePage/QuestionnaireScheduleModal';
-import QuestionnaireBuilderModal from '../components/RehaTablePage/QuestionnaireBuilderModal';
+import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
+import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepeatModal';
+import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
+import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
+import '@/assets/styles/RehabTable.css';
+import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
+import QuestionnairePanel from '@/components/RehaTablePage/QuestionnairePanel';
+import QuestionnaireScheduleModal from '@/components/RehaTablePage/QuestionnaireScheduleModal';
+import QuestionnaireBuilderModal from '@/components/RehaTablePage/QuestionnaireBuilderModal';
+import Layout from '@/components/Layout';
+import { Button } from '@/components/ui/button';
+import { ArrowLeftIcon } from 'lucide-react';
 
 const safeT = (t: any, key: string, fallback: string) => {
   try {
@@ -244,202 +244,205 @@ const RehabTable: React.FC = observer(() => {
   ]);
 
   return (
-    <div className="rehaPage">
-      <Header isLoggedIn={authStore.isAuthenticated} />
+    <Layout>
+      <div className="rehaPage">
+        <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
+          <ArrowLeftIcon />
+          <span className="sr-only">{t('Back')}</span>
+        </Button>
 
-      <main className="rehaPage__content">
-        <RehaPageLayout>
-          {(localStorage.getItem('selectedPatientId') || store.patientName) && (
-            <div className="mb-3">
-              <h4 className="mb-0">
-                {localStorage.getItem('selectedPatientId') || store.patientName}
-              </h4>
-            </div>
-          )}
+        <main className="rehaPage__content">
+          <RehaPageLayout>
+            {(localStorage.getItem('selectedPatientId') || store.patientName) && (
+              <div className="mb-3">
+                <h4 className="mb-0">
+                  {localStorage.getItem('selectedPatientId') || store.patientName}
+                </h4>
+              </div>
+            )}
 
-          {store.error ? (
-            <Alert
-              variant="danger"
-              onClose={() => store.setError(null)}
-              dismissible
-              className="mb-3"
-            >
-              {store.error}
-            </Alert>
-          ) : null}
-
-          <Row className="mb-3">
-            <Col>
-              <Nav
-                variant="tabs"
-                role="tablist"
-                activeKey={store.topTab}
-                onSelect={(k) => store.setTopTab((k as any) || 'interventions')}
+            {store.error ? (
+              <Alert
+                variant="danger"
+                onClose={() => store.setError(null)}
+                dismissible
+                className="mb-3"
               >
-                <Nav.Item>
-                  <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link eventKey="questionnaires">{t('Questionnaires')}</Nav.Link>
-                </Nav.Item>
-              </Nav>
-            </Col>
-          </Row>
+                {store.error}
+              </Alert>
+            ) : null}
 
-          {store.topTab === 'interventions' ? (
-            <Row className="rehaGrid g-3">
-              {/* LEFT */}
-              <Col xs={12} lg={4} xl={3} className="rehaCol rehaCol--left">
-                <RehaLeftPanelShell>
-                  {store.loading ? (
-                    <div className="p-3 d-flex align-items-center gap-2">
-                      <Spinner animation="border" size="sm" />
-                      <span className="text-muted">{safeT(t, 'Loading', 'Loading')}…</span>
-                    </div>
-                  ) : (
-                    <InterventionLeftPanel
-                      tagColors={generateTagColors(getTaxonomyTags())}
-                      selectedTab={store.selectedTab}
-                      setSelectedTab={(tab) => {
-                        store.setSelectedTab(tab);
-                        store.translateVisibleItems(store.userLang);
-                      }}
-                      data={{
-                        activeItems: store.activePatientItems,
-                        pastItems: store.pastPatientItems,
-                        visibleItems: store.filteredRecommendations,
-                        titleMap: store.titleMap,
-                        typeMap: store.typeMap,
-                        diagnoses: store.diagnoses,
-                      }}
-                      filters={{
-                        searchTerm: store.searchTerm,
-                        setSearchTerm: store.setSearchTerm,
-                        patientTypeFilter: store.patientTypeFilter,
-                        setPatientTypeFilter: store.setPatientTypeFilter,
-                        contentTypeFilter: store.contentTypeFilter,
-                        setContentTypeFilter: store.setContentTypeFilter,
-                        tagFilter: store.tagFilter,
-                        setTagFilter: store.setTagFilter,
-                        benefitForFilter: store.benefitForFilter,
-                        setBenefitForFilter: store.setBenefitForFilter,
-                        resetAllFilters: store.resetAllFilters,
-                      }}
-                      actions={{
-                        handleExerciseClick: store.handleExerciseClick,
-                        showStats: store.showStats,
-                        openFeedbackBrowser: store.openFeedbackBrowser,
-                        handleModifyIntervention: store.openModifyIntervention,
-                        handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
-                        handleAddIntervention: store.openAddIntervention,
-                      }}
-                      patientData={store.patientData as any}
-                      t={t as any}
-                    />
-                  )}
-                </RehaLeftPanelShell>
-              </Col>
-
-              {/* RIGHT */}
-              <Col xs={12} lg={8} xl={9} className="rehaCol rehaCol--right">
-                <RehaCalendarPanelShell title={safeT(t, 'Reha Calendar', 'Reha Calendar')}>
-                  <div className="rehaCalendarWrap">
-                    <InterventionCalendar
-                      patientData={store.patientData as any}
-                      titleMap={store.titleMap}
-                      onSelectIntervention={store.handleExerciseClick}
-                    />
-                  </div>
-                </RehaCalendarPanelShell>
+            <Row className="mb-3">
+              <Col>
+                <Nav
+                  variant="tabs"
+                  role="tablist"
+                  activeKey={store.topTab}
+                  onSelect={(k) => store.setTopTab((k as any) || 'interventions')}
+                >
+                  <Nav.Item>
+                    <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link eventKey="questionnaires">{t('Questionnaires')}</Nav.Link>
+                  </Nav.Item>
+                </Nav>
               </Col>
             </Row>
-          ) : (
-            <QuestionnairePanel
-              data={{
-                questionnaires,
-                assignedQuestionnaires,
+
+            {store.topTab === 'interventions' ? (
+              <Row className="rehaGrid g-3">
+                {/* LEFT */}
+                <Col xs={12} lg={4} xl={3} className="rehaCol rehaCol--left">
+                  <RehaLeftPanelShell>
+                    {store.loading ? (
+                      <div className="p-3 d-flex align-items-center gap-2">
+                        <Spinner animation="border" size="sm" />
+                        <span className="text-muted">{safeT(t, 'Loading', 'Loading')}…</span>
+                      </div>
+                    ) : (
+                      <InterventionLeftPanel
+                        tagColors={generateTagColors(getTaxonomyTags())}
+                        selectedTab={store.selectedTab}
+                        setSelectedTab={(tab) => {
+                          store.setSelectedTab(tab);
+                          store.translateVisibleItems(store.userLang);
+                        }}
+                        data={{
+                          activeItems: store.activePatientItems,
+                          pastItems: store.pastPatientItems,
+                          visibleItems: store.filteredRecommendations,
+                          titleMap: store.titleMap,
+                          typeMap: store.typeMap,
+                          diagnoses: store.diagnoses,
+                        }}
+                        filters={{
+                          searchTerm: store.searchTerm,
+                          setSearchTerm: store.setSearchTerm,
+                          patientTypeFilter: store.patientTypeFilter,
+                          setPatientTypeFilter: store.setPatientTypeFilter,
+                          contentTypeFilter: store.contentTypeFilter,
+                          setContentTypeFilter: store.setContentTypeFilter,
+                          tagFilter: store.tagFilter,
+                          setTagFilter: store.setTagFilter,
+                          benefitForFilter: store.benefitForFilter,
+                          setBenefitForFilter: store.setBenefitForFilter,
+                          resetAllFilters: store.resetAllFilters,
+                        }}
+                        actions={{
+                          handleExerciseClick: store.handleExerciseClick,
+                          showStats: store.showStats,
+                          openFeedbackBrowser: store.openFeedbackBrowser,
+                          handleModifyIntervention: store.openModifyIntervention,
+                          handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
+                          handleAddIntervention: store.openAddIntervention,
+                        }}
+                        patientData={store.patientData as any}
+                        t={t as any}
+                      />
+                    )}
+                  </RehaLeftPanelShell>
+                </Col>
+
+                {/* RIGHT */}
+                <Col xs={12} lg={8} xl={9} className="rehaCol rehaCol--right">
+                  <RehaCalendarPanelShell title={safeT(t, 'Reha Calendar', 'Reha Calendar')}>
+                    <div className="rehaCalendarWrap">
+                      <InterventionCalendar
+                        patientData={store.patientData as any}
+                        titleMap={store.titleMap}
+                        onSelectIntervention={store.handleExerciseClick}
+                      />
+                    </div>
+                  </RehaCalendarPanelShell>
+                </Col>
+              </Row>
+            ) : (
+              <QuestionnairePanel
+                data={{
+                  questionnaires,
+                  assignedQuestionnaires,
+                }}
+                actions={{
+                  openAddQ,
+                  openModifyQ,
+                  removeQ,
+                  openBuilder: () => setQBuilderOpen(true),
+                }}
+                t={t as any}
+              />
+            )}
+
+            <QuestionnaireScheduleModal
+              show={qModalOpen}
+              mode={qMode}
+              onHide={() => setQModalOpen(false)}
+              onSuccess={async () => {
+                setQModalOpen(false);
+                await fetchAssignedQuestionnaires();
               }}
-              actions={{
-                openAddQ,
-                openModifyQ,
-                removeQ,
-                openBuilder: () => setQBuilderOpen(true),
-              }}
-              t={t as any}
+              patientId={store.patientIdForCalls}
+              questionnaire={selectedQ}
+              defaults={qDefaults}
             />
-          )}
 
-          <QuestionnaireScheduleModal
-            show={qModalOpen}
-            mode={qMode}
-            onHide={() => setQModalOpen(false)}
-            onSuccess={async () => {
-              setQModalOpen(false);
-              await fetchAssignedQuestionnaires();
-            }}
-            patientId={store.patientIdForCalls}
-            questionnaire={selectedQ}
-            defaults={qDefaults}
+            <QuestionnaireBuilderModal
+              show={qBuilderOpen}
+              onHide={() => setQBuilderOpen(false)}
+              onSuccess={async () => {
+                await fetchQuestionnaires();
+              }}
+            />
+          </RehaPageLayout>
+        </main>
+
+        {/* INFO POPUP */}
+        {store.showInfoInterventionModal && store.selectedExerciseFromPlan ? (
+          <PatientInterventionPopUp
+            show
+            item={store.selectedExerciseFromPlan as any}
+            handleClose={store.closeInfoModal}
           />
+        ) : null}
 
-          <QuestionnaireBuilderModal
-            show={qBuilderOpen}
-            onHide={() => setQBuilderOpen(false)}
+        {/* ✅ REPEAT MODAL (UPDATED) */}
+        {store.showRepeatModal && store.selectedExerciseFromPlan ? (
+          <InterventionRepeatModal
+            show
+            onHide={store.closeRepeatModal}
+            mode={store.repeatMode}
+            intervention={store.selectedExerciseFromPlan as any}
+            defaults={store.modifyDefaults}
+            patient={store.patientIdForCalls}
+            therapistId={authStore.id || undefined}
             onSuccess={async () => {
-              await fetchQuestionnaires();
+              await refreshAfterScheduleChange();
             }}
           />
-        </RehaPageLayout>
-      </main>
+        ) : null}
 
-      {/* INFO POPUP */}
-      {store.showInfoInterventionModal && store.selectedExerciseFromPlan ? (
-        <PatientInterventionPopUp
-          show
-          item={store.selectedExerciseFromPlan as any}
-          handleClose={store.closeInfoModal}
-        />
-      ) : null}
+        {/* STATS MODAL */}
+        {store.showExerciseStats && store.selectedExerciseFromPlan ? (
+          <InterventionStatsModal
+            show
+            onHide={store.closeStatsModal}
+            intervention={store.selectedExerciseFromPlan as any}
+            patientData={store.patientData as any}
+            t={t as any}
+          />
+        ) : null}
 
-      {/* ✅ REPEAT MODAL (UPDATED) */}
-      {store.showRepeatModal && store.selectedExerciseFromPlan ? (
-        <InterventionRepeatModal
-          show
-          onHide={store.closeRepeatModal}
-          mode={store.repeatMode}
-          intervention={store.selectedExerciseFromPlan as any}
-          defaults={store.modifyDefaults}
-          patient={store.patientIdForCalls}
-          therapistId={authStore.id || undefined}
-          onSuccess={async () => {
-            await refreshAfterScheduleChange();
-          }}
-        />
-      ) : null}
-
-      {/* STATS MODAL */}
-      {store.showExerciseStats && store.selectedExerciseFromPlan ? (
-        <InterventionStatsModal
-          show
-          onHide={store.closeStatsModal}
-          intervention={store.selectedExerciseFromPlan as any}
-          patientData={store.patientData as any}
-          t={t as any}
-        />
-      ) : null}
-
-      {/* FEEDBACK MODAL */}
-      {store.showFeedbackBrowser && store.feedbackBrowserIntervention ? (
-        <InterventionFeedbackModal
-          show
-          onHide={store.closeFeedbackBrowser}
-          intervention={store.feedbackBrowserIntervention as any}
-          t={t as any}
-        />
-      ) : null}
-
-      <Footer />
-    </div>
+        {/* FEEDBACK MODAL */}
+        {store.showFeedbackBrowser && store.feedbackBrowserIntervention ? (
+          <InterventionFeedbackModal
+            show
+            onHide={store.closeFeedbackBrowser}
+            intervention={store.feedbackBrowserIntervention as any}
+            t={t as any}
+          />
+        ) : null}
+      </div>
+    </Layout>
   );
 });
 
