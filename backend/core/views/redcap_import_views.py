@@ -36,6 +36,20 @@ def _is_objectid(v: str) -> bool:
         return False
 
 
+def _has_informed_consent(row: Dict[str, Any]) -> bool:
+    """
+    REDCap informed consent gate:
+    only rows with field `ic == 1` are considered importable.
+    """
+    raw = _norm(row.get("ic"))
+    if raw == "1":
+        return True
+    try:
+        return float(raw) == 1.0
+    except Exception:
+        return False
+
+
 def _bad(message: str, status: int = 400, extra: dict | None = None):
     payload = {"ok": False, "error": message}
     if extra:
@@ -207,7 +221,7 @@ def redcap_export_minimal(
     record_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Minimal export: record_id + pat_id (if supported) + DAG.
+    Minimal export: record_id + pat_id (if supported) + ic + DAG.
 
     Automatically retries without fields that the project doesn't have
     (e.g. COMPASS lacks pat_id).
@@ -231,7 +245,7 @@ def redcap_export_minimal(
     if record_id:
         base["records[0]"] = record_id
 
-    rows = _post_redcap_minimal(api_url, base, ["record_id", "pat_id"])
+    rows = _post_redcap_minimal(api_url, base, ["record_id", "pat_id", "ic"])
 
     # client-side filter by patient_id (pat_id)
     if patient_id:
@@ -372,6 +386,10 @@ def available_redcap_patients(request):
             existing_ids = _get_existing_identifiers_for_project(project)
 
             for r in rows:
+                # Compliance gate: only consented participants are import candidates.
+                if not _has_informed_consent(r):
+                    continue
+
                 record_id = _norm(r.get("record_id"))
                 pat_id = _norm(r.get("pat_id"))
                 dag = _norm(r.get("redcap_data_access_group"))
@@ -537,6 +555,13 @@ def import_patient_from_redcap(request):
         return _bad(
             "No REDCap record found for this identifier in this project.",
             status=404,
+            extra={"project": project, "identifier": identifier},
+        )
+
+    if not _has_informed_consent(rc_row):
+        return _bad(
+            "Forbidden: participant has not provided informed consent (ic must be 1).",
+            status=403,
             extra={"project": project, "identifier": identifier},
         )
 
