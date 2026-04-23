@@ -97,3 +97,21 @@ def test_refresh_token_rejects_inactive_mongo_user(mongo_mock):
     resp = _post({"refresh": _make_refresh_token(user)})
 
     assert resp.status_code == 401
+
+
+def test_refresh_token_rotation_does_not_raise_attribute_error(mongo_mock):
+    """
+    Regression: with ROTATE_REFRESH_TOKENS=True the endpoint previously crashed
+    with AttributeError because jwt_refresh.py called refresh.outstand(), which
+    does not exist on simplejwt's RefreshToken. The response must be 200 and
+    contain a fresh rotated refresh token.
+    """
+    user = _make_user(email="rotate@example.com")
+
+    resp = _post({"refresh": _make_refresh_token(user)})
+
+    assert resp.status_code == 200, resp.json()
+    data = resp.json()
+    assert "access" in data
+    assert "refresh" in data
+    assert data["refresh"] != _make_refresh_token(user), "rotated token should differ"
