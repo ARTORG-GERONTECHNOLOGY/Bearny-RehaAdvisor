@@ -51,20 +51,20 @@ describe('Navigation - navLinks by user type', () => {
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
   });
 
-  it('shows Patients + Library + Profile for Therapist', () => {
+  it('shows Patients + Interventions + Profile for Therapist', () => {
     mockAuthStore.userType = 'Therapist';
     renderNav('/therapist');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Interventions').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Patients + Library + Profile for Researcher', () => {
+  it('shows Patients + Interventions + Profile for Researcher', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getAllByText('Patients').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Interventions').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
@@ -147,5 +147,55 @@ describe('Navigation - therapist and researcher path uses lowercased userType', 
     patientsBtns.forEach((btn) => {
       expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
     });
+  });
+});
+
+// ── Desktop avatar button ─────────────────────────────────────────────────────
+
+describe('Navigation - desktop avatar button', () => {
+  it('renders the avatar button for Patient (links to /patient-profile)', () => {
+    mockAuthStore.userType = 'Patient';
+    renderNav('/patient');
+    expect(screen.getByTestId('avatar-button')).toBeInTheDocument();
+  });
+
+  it('renders the avatar button for Therapist (links to /userprofile)', () => {
+    mockAuthStore.userType = 'Therapist';
+    renderNav('/therapist');
+    expect(screen.getByTestId('avatar-button')).toBeInTheDocument();
+  });
+
+  it('renders the avatar button for Researcher (links to /userprofile)', () => {
+    mockAuthStore.userType = 'Researcher';
+    renderNav('/researcher');
+    expect(screen.getByTestId('avatar-button')).toBeInTheDocument();
+  });
+
+  it('does NOT render the avatar button when unauthenticated', () => {
+    mockAuthStore.userType = null;
+    mockAuthStore.isAuthenticated = false;
+    renderNav('/');
+    expect(screen.queryByTestId('avatar-button')).not.toBeInTheDocument();
+  });
+
+  it('marks the avatar button as active when on /patient-profile', () => {
+    mockAuthStore.userType = 'Patient';
+    renderNav('/patient-profile');
+    const btn = screen.getByTestId('avatar-button');
+    expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
+  });
+
+  it('marks the avatar button as active when on /userprofile', () => {
+    mockAuthStore.userType = 'Therapist';
+    renderNav('/userprofile');
+    const btn = screen.getByTestId('avatar-button');
+    expect(btn.className).toMatch(/(^|\s)text-brand(\s|$)/);
+  });
+
+  it('does NOT mark the avatar button as active when on a different page', () => {
+    mockAuthStore.userType = 'Patient';
+    renderNav('/patient');
+    const btn = screen.getByTestId('avatar-button');
+    expect(btn.className).not.toMatch(/(^|\s)text-brand(\s|$)/);
   });
 });
