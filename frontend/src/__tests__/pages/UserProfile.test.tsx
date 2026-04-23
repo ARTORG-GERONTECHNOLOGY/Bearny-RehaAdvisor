@@ -65,6 +65,11 @@ jest.mock('@/components/UserProfile/ProfileDetails', () => ({
   ),
 }));
 
+jest.mock('@/components/UserProfile/LanguageSelectorCard', () => ({
+  __esModule: true,
+  default: () => <div data-testid="language-selector-card" />,
+}));
+
 jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
   __esModule: true,
   default: ({ show, handleClose, handleConfirm, isLoading }: any) =>
