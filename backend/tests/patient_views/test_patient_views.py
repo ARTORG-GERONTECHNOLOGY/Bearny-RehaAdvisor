@@ -1702,3 +1702,143 @@ def test_get_patient_plan_lang_param_ignored_for_intervention_without_external_i
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2  # both assignments returned without error
+
+
+# ---------------------------------------------------------------------------
+# get_feedback_questions — Intervention type, star-rating fallback
+# ---------------------------------------------------------------------------
+
+
+def _seed_star_questions():
+    """Create the two star rating FeedbackQuestions used by the endpoint."""
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_education",
+        answer_type="select",
+        applicable_types=["Education", "Instruction", "Text", "PDF", "Video", "Audio", "Website", "Apps"],
+        translations=[Translation(language="en", text="How did you like the content?")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{'★'*i}{'☆'*(5-i)} ({i}/5)")])
+            for i in range(1, 6)
+        ],
+    ).save()
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        answer_type="select",
+        applicable_types=["Exercise", "Exercises", "Physiotherapy", "Training", "Movement"],
+        translations=[Translation(language="en", text="How did you like the exercise?")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{'★'*i}{'☆'*(5-i)} ({i}/5)")])
+            for i in range(1, 6)
+        ],
+    ).save()
+
+
+def _setup_patient_with_intervention(content_type):
+    """Patient + intervention with the given content_type, no rehab plan."""
+    t_user = User(username="tu2", email="tu2@example.com", phone="2", createdAt=datetime.now(), isActive=True).save()
+    therapist = Therapist(
+        userId=t_user, name="Doe", first_name="Jane", specializations=[], clinics=["Inselspital"]
+    ).save()
+    p_user = User(username="pu2", email="pu2@example.com", phone="3", createdAt=datetime.now(), isActive=True).save()
+    patient = Patient(
+        userId=p_user,
+        patient_code="PX",
+        name="Patient",
+        first_name="X",
+        access_word="pw",
+        age="40",
+        sex="Female",
+        therapist=therapist,
+        diagnosis=[],
+        function=[],
+        level_of_education="",
+        professional_status="",
+        marital_status="",
+        lifestyle=[],
+        personal_goals=[],
+    ).save()
+    iv = Intervention(
+        title="T",
+        description="",
+        content_type=content_type,
+        language="en",
+        external_id=f"TEST_{content_type or 'NONE'}",
+    ).save()
+    return patient, iv
+
+
+def test_get_intervention_feedback_questions_known_type_returns_matching_star(mongo_mock):
+    """
+    An intervention with content_type="Video" should return rating_stars_education
+    (which covers Video in its applicable_types), not the exercise star.
+    """
+    _seed_star_questions()
+    patient, iv = _setup_patient_with_intervention("Video")
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_education" in keys
+    assert "rating_stars_exercise" not in keys
+
+
+def test_get_intervention_feedback_questions_exercise_type_returns_exercise_star(mongo_mock):
+    """
+    An intervention with content_type="Exercise" should return rating_stars_exercise.
+    """
+    _seed_star_questions()
+    patient, iv = _setup_patient_with_intervention("Exercise")
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_exercise" in keys
+    assert "rating_stars_education" not in keys
+
+
+def test_get_intervention_feedback_questions_missing_content_type_gets_fallback_star(mongo_mock):
+    """
+    An intervention with no content_type should still receive a star rating
+    question (rating_stars_education as the fallback).
+    """
+    _seed_star_questions()
+    patient, iv = _setup_patient_with_intervention("")
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert any(k.startswith("rating_stars_") for k in keys), "Expected a star rating question but got: " + str(keys)
+
+
+def test_get_intervention_feedback_questions_unknown_content_type_gets_fallback_star(mongo_mock):
+    """
+    An intervention with an unrecognised content_type (not in any
+    applicable_types list) should still receive a star rating question.
+    """
+    _seed_star_questions()
+    patient, iv = _setup_patient_with_intervention("Quiz")
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert any(
+        k.startswith("rating_stars_") for k in keys
+    ), "Expected a star rating question for unknown type but got: " + str(keys)
