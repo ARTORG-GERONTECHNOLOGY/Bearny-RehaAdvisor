@@ -4,6 +4,7 @@ from django.urls import path
 
 import core.views.auth_views as auth_views
 import core.views.fitbit_view as fitbit_views
+import core.views.google_health_view as google_health_views
 import core.views.patient_views as patient_views
 import core.views.recomendation_views as recomendation_views
 import core.views.template_views as template_views
@@ -197,6 +198,7 @@ urlpatterns = [
         recomendation_views.create_patient_group,
         name="post_add_new_patient_group",
     ),
+    # Fitbit (legacy — keep for existing connected users)
     path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
     path(
         "api/fitbit/status/<str:patient_id>/",
@@ -260,6 +262,14 @@ urlpatterns = [
         fitbit_views.health_combined_history,
         name="health_combined_history",
     ),
+    # Google Health API
+    path("api/google-health/callback/", google_health_views.google_health_callback, name="google_health_callback"),
+    path("api/google-health/status/<str:patient_id>/", google_health_views.google_health_status, name="google_health_status"),
+    path("api/google-health/summary/", google_health_views.google_health_summary, name="google_health_summary_me"),
+    path("api/google-health/summary/<str:patient_id>/", google_health_views.google_health_summary, name="google_health_summary"),
+    path("api/google-health/health-data/<str:patient_id>/", google_health_views.get_google_health_data, name="google_health_data"),
+    path("api/google-health/manual_steps/<str:patient_id>/", google_health_views.google_manual_steps, name="google_manual_steps"),
+    path("api/google-health/combined-history/<str:patient_id>/", google_health_views.google_health_combined_history, name="google_health_combined_history"),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
     # ICF/EVA Healthslider
     path("api/healthslider/auth/", healthslider_download_auth),
