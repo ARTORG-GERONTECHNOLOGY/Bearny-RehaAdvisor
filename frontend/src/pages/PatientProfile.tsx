@@ -121,142 +121,140 @@ const PatientProfile: React.FC = observer(() => {
   }, [navigate]);
 
   return (
-    <>
-      <Layout>
-        <PageHeader title={displayName} />
-        <div className="mt-8 grid grid-cols-1 gap-2 lg:grid-cols-3 lg:items-start">
-          <Section>
-            <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
+    <Layout>
+      <PageHeader title={displayName} />
+      <div className="mt-8 grid grid-cols-1 gap-2 lg:grid-cols-3 lg:items-start">
+        <Section>
+          <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Settings')}</div>
 
-            <Card className="flex flex-col gap-1">
-              <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
-              <Select onValueChange={(value) => handleLanguageChange(value)} defaultValue={lang}>
-                <SelectTrigger className="bg-white border-white shadow-none p-0">
-                  <SelectValue placeholder={t('Select language')} />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-50 rounded-3xl p-1">
-                  <SelectGroup>
-                    {languages.map((l) => (
-                      <SelectItem key={l} value={l}>
-                        <span className="font-bold text-lg leading-6 text-zinc-800">
-                          {languageNames[l]}
-                        </span>
-                        <img src={flagMap[l]} className="h-4 w-4 rounded-full ml-1 -mt-1" />
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Card>
+          <Card className="flex flex-col gap-1">
+            <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
+            <Select onValueChange={(value) => handleLanguageChange(value)} defaultValue={lang}>
+              <SelectTrigger className="bg-white border-white shadow-none p-0">
+                <SelectValue placeholder={t('Select language')} />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-50 rounded-3xl p-1">
+                <SelectGroup>
+                  {languages.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      <span className="font-bold text-lg leading-6 text-zinc-800">
+                        {languageNames[l]}
+                      </span>
+                      <img src={flagMap[l]} className="h-4 w-4 rounded-full ml-1 -mt-1" />
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Card>
 
-            <Card className="flex flex-col gap-1">
-              <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <div className="font-bold text-lg leading-6 text-zinc-800">
-                    {t('Receive reminders')}
-                  </div>
-                  {permission === 'denied' && (
-                    <div className="text-nok text-xs">
-                      {t('Notification permission denied. Please enable in browser settings.')}
-                    </div>
-                  )}
-                  {!supportsPeriodicSync && (
-                    <div className="text-amber-600 text-xs">
-                      {t('Background notifications not supported in this browser.')}
-                    </div>
-                  )}
+          <Card className="flex flex-col gap-1">
+            <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <div className="font-bold text-lg leading-6 text-zinc-800">
+                  {t('Receive reminders')}
                 </div>
-                <Switch checked={enabled} onCheckedChange={toggleNotifications} />
+                {permission === 'denied' && (
+                  <div className="text-nok text-xs">
+                    {t('Notification permission denied. Please enable in browser settings.')}
+                  </div>
+                )}
+                {!supportsPeriodicSync && (
+                  <div className="text-amber-600 text-xs">
+                    {t('Background notifications not supported in this browser.')}
+                  </div>
+                )}
               </div>
-            </Card>
-
-            <div
-              className={`p-4 rounded-3xl flex gap-1 justify-between items-center ${patientFitbitStore.connected === false ? 'bg-zinc-100' : 'border border-accent'}`}
-            >
-              {patientFitbitStore.connected === true ? (
-                <div className="flex flex-col">
-                  <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
-                  <div className="font-bold text-lg text-zinc-800">{t('Fitbit Connected')}</div>
-                </div>
-              ) : patientFitbitStore.connected === false ? (
-                <>
-                  <div className="flex flex-col">
-                    <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
-                    <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
-                  </div>
-                  <FitbitConnectButton />
-                </>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-6 w-32" />
-                </div>
-              )}
+              <Switch checked={enabled} onCheckedChange={toggleNotifications} />
             </div>
-          </Section>
+          </Card>
 
-          <Section>
-            <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
-
-            <Card className="flex flex-col items-start gap-2">
-              <div className="font-bold text-lg leading-6 text-zinc-800">
-                {t('Research Project Contact')}
+          <div
+            className={`p-4 rounded-3xl flex gap-1 justify-between items-center ${patientFitbitStore.connected === false ? 'bg-zinc-100' : 'border border-accent'}`}
+          >
+            {patientFitbitStore.connected === true ? (
+              <div className="flex flex-col">
+                <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
+                <div className="font-bold text-lg text-zinc-800">{t('Fitbit Connected')}</div>
               </div>
-              {config.contact.email && (
-                <Badge variant="card">
-                  <a
-                    href={`mailto:${config.contact.email}`}
-                    className="flex items-center gap-1 no-underline text-brand"
-                  >
-                    <Mail className="w-4 h-4" />
-                    <span>{config.contact.email}</span>
-                  </a>
-                </Badge>
-              )}
-              {config.contact.phone && (
-                <Badge variant="card">
-                  <a
-                    href={`tel:${config.contact.phone}`}
-                    className="flex items-center gap-1 no-underline text-brand"
-                  >
-                    <Phone className="w-4 h-4" />
-                    <span>{config.contact.phone}</span>
-                  </a>
-                </Badge>
-              )}
-            </Card>
-          </Section>
-
-          <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
-            {partnerLogos.map((logo) => (
-              <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
-            ))}
+            ) : patientFitbitStore.connected === false ? (
+              <>
+                <div className="flex flex-col">
+                  <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
+                  <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
+                </div>
+                <FitbitConnectButton />
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-6 w-32" />
+              </div>
+            )}
           </div>
+        </Section>
 
-          <Section>
-            <Button variant="secondary" onClick={handleLogout}>
-              {t('Logout')}
-              <LogoutFill />
-            </Button>
-          </Section>
-        </div>
+        <Section>
+          <div className="p-2 pl-4 font-medium text-lg text-zinc-500">{t('Contact')}</div>
 
-        <div className="hidden lg:flex lg:items-end lg:justify-start lg:gap-6 lg:mt-16">
+          <Card className="flex flex-col items-start gap-2">
+            <div className="font-bold text-lg leading-6 text-zinc-800">
+              {t('Research Project Contact')}
+            </div>
+            {config.contact.email && (
+              <Badge variant="card">
+                <a
+                  href={`mailto:${config.contact.email}`}
+                  className="flex items-center gap-1 no-underline text-brand"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>{config.contact.email}</span>
+                </a>
+              </Badge>
+            )}
+            {config.contact.phone && (
+              <Badge variant="card">
+                <a
+                  href={`tel:${config.contact.phone}`}
+                  className="flex items-center gap-1 no-underline text-brand"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>{config.contact.phone}</span>
+                </a>
+              </Badge>
+            )}
+          </Card>
+        </Section>
+
+        <div className="flex flex-col items-center gap-6 mt-4 mb-12 lg:hidden">
           {partnerLogos.map((logo) => (
             <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
           ))}
         </div>
 
-        <div className="flex flex-col gap-1 mt-16 text-sm text-zinc-500">
-          <Link to="/terms">{t('Terms & Conditions')}</Link>
-          <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
-          <div>
-            &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
-          </div>
+        <Section>
+          <Button variant="secondary" onClick={handleLogout}>
+            {t('Logout')}
+            <LogoutFill />
+          </Button>
+        </Section>
+      </div>
+
+      <div className="hidden lg:flex lg:items-end lg:justify-start lg:gap-6 lg:mt-16">
+        {partnerLogos.map((logo) => (
+          <img key={logo.src} src={logo.src} alt={logo.alt} className={logo.className} />
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-1 mt-16 text-sm text-zinc-500">
+        <Link to="/terms">{t('Terms & Conditions')}</Link>
+        <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
+        <div>
+          &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
         </div>
-      </Layout>
-    </>
+      </div>
+    </Layout>
   );
 });
 
