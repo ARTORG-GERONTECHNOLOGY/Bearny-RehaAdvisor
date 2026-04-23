@@ -35,34 +35,25 @@ jest.mock('@/components/common/StatusBanner', () => ({
 }));
 
 // child components: keep minimal but interactive
-jest.mock('@/components/UserProfile/EditTherapistInfo', () => ({
+jest.mock('@/components/UserProfile/EditProfileSheet', () => ({
   __esModule: true,
-  default: ({ onCancel }: any) => (
-    <div data-testid="edit-form">
-      <button onClick={onCancel}>cancel-edit</button>
-    </div>
-  ),
+  default: ({ show, onCancel, userData }: any) =>
+    show ? (
+      <div data-testid="edit-form">
+        <div>{userData?.email}</div>
+        <button onClick={onCancel}>cancel-edit</button>
+      </div>
+    ) : null,
 }));
 
-jest.mock('@/components/UserProfile/ChangePasswordForm', () => ({
+jest.mock('@/components/UserProfile/ChangePasswordSheet', () => ({
   __esModule: true,
-  default: ({ onCancel }: any) => (
-    <div data-testid="change-password-form">
-      <button onClick={onCancel}>cancel-pwd</button>
-    </div>
-  ),
-}));
-
-jest.mock('@/components/UserProfile/ProfileDetails', () => ({
-  __esModule: true,
-  default: ({ onEdit, onChangePassword, onDelete, deleting }: any) => (
-    <div data-testid="profile-details">
-      <div>deleting:{String(deleting)}</div>
-      <button onClick={onEdit}>go-edit</button>
-      <button onClick={onChangePassword}>go-change-password</button>
-      <button onClick={onDelete}>go-delete</button>
-    </div>
-  ),
+  default: ({ show, onCancel }: any) =>
+    show ? (
+      <div data-testid="change-password-form">
+        <button onClick={onCancel}>cancel-pwd</button>
+      </div>
+    ) : null,
 }));
 
 jest.mock('@/components/UserProfile/LanguageSelectorCard', () => ({
@@ -70,7 +61,7 @@ jest.mock('@/components/UserProfile/LanguageSelectorCard', () => ({
   default: () => <div data-testid="language-selector-card" />,
 }));
 
-jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
+jest.mock('@/components/UserProfile/DeleteConfirmationSheet', () => ({
   __esModule: true,
   default: ({ show, handleClose, handleConfirm, isLoading }: any) =>
     show ? (
@@ -80,23 +71,6 @@ jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
         <button onClick={handleConfirm}>confirm-delete</button>
       </div>
     ) : null,
-}));
-
-jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Spinner: () => <div data-testid="spinner" />,
-  Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Card: Object.assign(({ children }: any) => <div data-testid="card">{children}</div>, {
-    Header: ({ children }: any) => <div data-testid="card-header">{children}</div>,
-    Body: ({ children }: any) => <div data-testid="card-body">{children}</div>,
-    Footer: ({ children }: any) => <div data-testid="card-footer">{children}</div>,
-  }),
 }));
 
 // ---- authStore + userProfileStore mocks ----
@@ -181,10 +155,10 @@ describe('UserProfile page', () => {
   it('shows loading spinner when store.loading = true', () => {
     userProfileStoreMock.loading = true;
 
-    renderWithRouter(<UserProfile />);
+    const { container } = renderWithRouter(<UserProfile />);
 
-    expect(screen.getByTestId('spinner')).toBeInTheDocument();
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(screen.queryByText('No user data found.')).not.toBeInTheDocument();
   });
 
   it('shows "No user data found." when userData is null', () => {
@@ -200,12 +174,13 @@ describe('UserProfile page', () => {
 
     renderWithRouter(<UserProfile />);
 
-    expect(screen.getByTestId('profile-details')).toBeInTheDocument();
+    expect(screen.getByText('A B')).toBeInTheDocument();
+    expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'go-edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Info' }));
     expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('editProfile');
 
-    fireEvent.click(screen.getByRole('button', { name: 'go-change-password' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
     expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('changePassword');
   });
 
@@ -217,10 +192,6 @@ describe('UserProfile page', () => {
     expect(screen.getByTestId('edit-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-edit' }));
     expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
-
-    // footer should exist in edit mode
-    expect(screen.getByTestId('card-footer')).toBeInTheDocument();
-    expect(screen.getByText('Update your profile information.')).toBeInTheDocument();
   });
 
   it('renders ChangePasswordForm when mode=changePassword and can cancel back to view', () => {
@@ -231,9 +202,6 @@ describe('UserProfile page', () => {
     expect(screen.getByTestId('change-password-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-pwd' }));
     expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
-
-    expect(screen.getByTestId('card-footer')).toBeInTheDocument();
-    expect(screen.getByText('Change your account password.')).toBeInTheDocument();
   });
 
   it('shows StatusBanner messages and close triggers store clear methods', () => {
