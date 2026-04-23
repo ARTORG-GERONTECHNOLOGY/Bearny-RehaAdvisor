@@ -264,12 +264,32 @@ urlpatterns = [
     ),
     # Google Health API
     path("api/google-health/callback/", google_health_views.google_health_callback, name="google_health_callback"),
-    path("api/google-health/status/<str:patient_id>/", google_health_views.google_health_status, name="google_health_status"),
+    path(
+        "api/google-health/status/<str:patient_id>/",
+        google_health_views.google_health_status,
+        name="google_health_status",
+    ),
     path("api/google-health/summary/", google_health_views.google_health_summary, name="google_health_summary_me"),
-    path("api/google-health/summary/<str:patient_id>/", google_health_views.google_health_summary, name="google_health_summary"),
-    path("api/google-health/health-data/<str:patient_id>/", google_health_views.get_google_health_data, name="google_health_data"),
-    path("api/google-health/manual_steps/<str:patient_id>/", google_health_views.google_manual_steps, name="google_manual_steps"),
-    path("api/google-health/combined-history/<str:patient_id>/", google_health_views.google_health_combined_history, name="google_health_combined_history"),
+    path(
+        "api/google-health/summary/<str:patient_id>/",
+        google_health_views.google_health_summary,
+        name="google_health_summary",
+    ),
+    path(
+        "api/google-health/health-data/<str:patient_id>/",
+        google_health_views.get_google_health_data,
+        name="google_health_data",
+    ),
+    path(
+        "api/google-health/manual_steps/<str:patient_id>/",
+        google_health_views.google_manual_steps,
+        name="google_manual_steps",
+    ),
+    path(
+        "api/google-health/combined-history/<str:patient_id>/",
+        google_health_views.google_health_combined_history,
+        name="google_health_combined_history",
+    ),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
     # ICF/EVA Healthslider
     path("api/healthslider/auth/", healthslider_download_auth),

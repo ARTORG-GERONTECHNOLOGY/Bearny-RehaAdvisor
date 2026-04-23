@@ -136,13 +136,9 @@ def _summarize_period(
     user: Any, period_start: datetime, period_end: datetime, sleep_fmt: str
 ) -> Optional[Dict[str, Any]]:
     # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
-    records = list(
-        GoogleHealthData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date")
-    )
+    records = list(GoogleHealthData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date"))
     if not records:
-        records = list(
-            FitbitData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date")
-        )
+        records = list(FitbitData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date"))
     if not records:
         return None
 
