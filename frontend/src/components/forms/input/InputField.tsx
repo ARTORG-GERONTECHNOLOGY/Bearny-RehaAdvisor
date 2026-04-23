@@ -10,6 +10,7 @@ interface InputFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   required?: boolean;
   autoComplete?: string;
+  disabled?: boolean;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -21,6 +22,7 @@ const InputField: React.FC<InputFieldProps> = ({
   onChange,
   required = true,
   autoComplete,
+  disabled,
 }) => (
   <Field>
     <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -32,6 +34,7 @@ const InputField: React.FC<InputFieldProps> = ({
       placeholder={placeholder}
       required={required}
       autoComplete={autoComplete}
+      disabled={disabled}
       aria-required={required}
       aria-label={label}
       className="bg-zinc-100 shadow-none"

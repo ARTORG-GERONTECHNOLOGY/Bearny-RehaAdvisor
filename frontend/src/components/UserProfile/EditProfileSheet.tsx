@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import InputField from '@/components/forms/input/InputField';
 import { Label } from '@/components/ui/label';
 import {
   Sheet,
@@ -20,6 +20,9 @@ import config from '@/config/config.json';
 import apiClient from '@/api/client';
 import userProfileStore from '@/stores/userProfileStore';
 import { UserType } from '@/types';
+import Card from '@/components/Card';
+import { FieldGroup } from '@/components/ui/field';
+import { Badge } from '@/components/ui/badge';
 
 const therapistInfo = (config as any).therapistInfo || {};
 const allClinics: string[] = Object.keys(therapistInfo.clinic_projects || {});
@@ -183,7 +186,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
   const currentClinics: string[] = Array.isArray(userData.clinics) ? userData.clinics : [];
   const currentProjects: string[] = Array.isArray(userData.projects) ? userData.projects : [];
 
-  // TODO: use new input components (e.g. InputField), create new components for uncovered input types
+  // TODO: create new components for uncovered input types
   return (
     <>
       <Sheet open={show} onOpenChange={handleOpenChange}>
@@ -204,57 +207,58 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
           <form onSubmit={handleSubmit} aria-label={t('Edit Profile Form')}>
             {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
-            <div className="space-y-4 py-2">
+            <FieldGroup>
               {fields.map((field: any) => (
-                <div key={field.be_name} className="space-y-1">
-                  <Label htmlFor={field.be_name}>{t(field.label)}</Label>
-
+                <React.Fragment key={field.be_name}>
                   {field.type === 'multi-select' ? (
-                    <Select
-                      id={field.be_name}
-                      inputId={field.be_name}
-                      isMulti
-                      isDisabled={saving}
-                      options={resolveOptions(field).map((opt: string) => ({
-                        value: opt,
-                        label: t(opt),
-                      }))}
-                      value={(Array.isArray(formData[field.be_name])
-                        ? formData[field.be_name]
-                        : []
-                      ).map((val: string) => ({ value: val, label: t(val) }))}
-                      onChange={(selected) =>
-                        handleMultiSelectChange(selected as any, field.be_name)
-                      }
-                      placeholder={t('Select...')}
-                    />
+                    <>
+                      <Label htmlFor={field.be_name}>{t(field.label)}</Label>
+                      <Select
+                        id={field.be_name}
+                        inputId={field.be_name}
+                        isMulti
+                        isDisabled={saving}
+                        options={resolveOptions(field).map((opt: string) => ({
+                          value: opt,
+                          label: t(opt),
+                        }))}
+                        value={(Array.isArray(formData[field.be_name])
+                          ? formData[field.be_name]
+                          : []
+                        ).map((val: string) => ({ value: val, label: t(val) }))}
+                        onChange={(selected) =>
+                          handleMultiSelectChange(selected as any, field.be_name)
+                        }
+                        placeholder={t('Select...')}
+                      />
+                    </>
                   ) : (
-                    <Input
+                    <InputField
                       id={field.be_name}
+                      label={t(field.label)}
                       type={field.type}
                       value={formData[field.be_name] || ''}
+                      placeholder={field.placeholder || ''}
                       onChange={handleChange}
                       disabled={saving || field.be_name === 'email'}
+                      required={false}
                     />
                   )}
-                </div>
+                </React.Fragment>
               ))}
 
               {/* ── Clinic / Project: read-only display + request-change button ── */}
-              <div className="rounded-xl border border-accent bg-zinc-50 p-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="mb-2">
+              <Card className="bg-zinc-50">
+                <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-6">
+                  <div className="flex flex-col gap-2">
+                    <div>
                       <span className="text-sm font-semibold text-zinc-500">{t('Clinic')}</span>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {currentClinics.length ? (
                           currentClinics.map((c) => (
-                            <span
-                              key={c}
-                              className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
-                            >
+                            <Badge key={c} className="bg-zinc-200 text-zinc-700 px-2.5 py-0.5">
                               {c}
-                            </span>
+                            </Badge>
                           ))
                         ) : (
                           <span className="text-sm text-zinc-400">—</span>
@@ -266,12 +270,9 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                       <div className="mt-1 flex flex-wrap gap-1">
                         {currentProjects.length ? (
                           currentProjects.map((p) => (
-                            <span
-                              key={p}
-                              className="inline-flex items-center rounded-full bg-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-700"
-                            >
+                            <Badge key={p} className="bg-zinc-200 text-zinc-700 px-2.5 py-0.5">
                               {p}
-                            </span>
+                            </Badge>
                           ))
                         ) : (
                           <span className="text-sm text-zinc-400">—</span>
@@ -286,19 +287,19 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                       variant="secondary"
                       onClick={openAccessSheet}
                       disabled={saving}
-                      className="text-sm"
+                      className="text-sm px-3 py-2 h-auto"
                     >
                       {t('Request access change')}
                     </Button>
                     {hasPending && (
-                      <span className="text-xs font-medium text-amber-600">
+                      <span className="text-xs font-medium text-yellow">
                         {t('Change request pending admin approval')}
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
+              </Card>
+            </FieldGroup>
 
             <SheetFooter className="mt-4">
               <Button variant="secondary" type="button" onClick={onCancel} disabled={saving}>
@@ -338,56 +339,51 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
             </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-4 py-2">
-            {reqSuccess ? (
-              <div role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-                {reqSuccess}
+          {reqSuccess ? (
+            <div role="status" className="bg-ok/5 p-3 text-ok text-sm rounded-md">
+              {reqSuccess}
+            </div>
+          ) : (
+            <FieldGroup>
+              {reqError && (
+                <div role="alert" className="bg-nok/10 p-3 text-nok text-sm rounded-md">
+                  {reqError}
+                </div>
+              )}
+
+              <div>
+                <Label>{t('Requested clinics')}</Label>
+                <Select
+                  isMulti
+                  isDisabled={reqSubmitting}
+                  options={allClinics.map((c) => ({ value: c, label: c }))}
+                  value={reqClinics.map((c) => ({ value: c, label: c }))}
+                  onChange={handleReqClinicsChange as any}
+                />
               </div>
-            ) : (
-              <>
-                {reqError && (
-                  <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                    {reqError}
-                    <button className="ml-2 underline" onClick={() => setReqError('')}>
-                      ×
-                    </button>
-                  </div>
+
+              <div>
+                <Label>{t('Requested projects')}</Label>
+                <Select
+                  isMulti
+                  isDisabled={reqSubmitting}
+                  options={allowedProjectsForReq.map((p) => ({ value: p, label: p }))}
+                  value={reqProjects.map((p) => ({ value: p, label: p }))}
+                  onChange={handleReqProjectsChange as any}
+                  placeholder={
+                    reqClinics.length
+                      ? t('Choose...')
+                      : t('Select clinics first to see available projects')
+                  }
+                />
+                {reqClinics.length > 0 && (
+                  <p className="text-xs text-zinc-500">
+                    {t('Projects shown are those available for your selected clinics.')}
+                  </p>
                 )}
-
-                <div className="space-y-1">
-                  <Label>{t('Requested clinics')}</Label>
-                  <Select
-                    isMulti
-                    isDisabled={reqSubmitting}
-                    options={allClinics.map((c) => ({ value: c, label: c }))}
-                    value={reqClinics.map((c) => ({ value: c, label: c }))}
-                    onChange={handleReqClinicsChange as any}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label>{t('Requested projects')}</Label>
-                  <Select
-                    isMulti
-                    isDisabled={reqSubmitting}
-                    options={allowedProjectsForReq.map((p) => ({ value: p, label: p }))}
-                    value={reqProjects.map((p) => ({ value: p, label: p }))}
-                    onChange={handleReqProjectsChange as any}
-                    placeholder={
-                      reqClinics.length
-                        ? t('Choose...')
-                        : t('Select clinics first to see available projects')
-                    }
-                  />
-                  {reqClinics.length > 0 && (
-                    <p className="text-xs text-zinc-500">
-                      {t('Projects shown are those available for your selected clinics.')}
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+              </div>
+            </FieldGroup>
+          )}
 
           <SheetFooter className="mt-4">
             <Button
