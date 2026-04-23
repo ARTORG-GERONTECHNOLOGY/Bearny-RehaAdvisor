@@ -4,7 +4,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📋 Complete File List
 
-### Core Documentation (14 files)
+### Core Documentation (15 files)
 
 | File | Purpose | Audience | Length |
 |------|---------|----------|--------|
@@ -24,6 +24,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [10-USER_GUIDE.md](./10-USER_GUIDE.md) | End-user application guide | End Users | 11 KB |
 | [11-FAQ.md](./11-FAQ.md) | Frequently asked questions | Everyone | 10 KB |
 | [12-CONTRIBUTING.md](./12-CONTRIBUTING.md) | Code contribution guidelines | Contributors | 11 KB |
+| [15-STUDY_INTEGRATION.md](./15-STUDY_INTEGRATION.md) | REDCap connection, patient import, consent gate, wearables sync | Study Coordinators, DevOps | — |
 | [13-CODE_STANDARDS.md](./13-CODE_STANDARDS.md) | Code style and best practices | Developers | 15 KB |
 | [14-CI_ENVIRONMENT_CONTRACT.md](./14-CI_ENVIRONMENT_CONTRACT.md) | CI test environment and security contract | DevOps, Backend Developers | 3 KB |
 
