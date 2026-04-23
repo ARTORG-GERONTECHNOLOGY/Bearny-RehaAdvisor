@@ -41,3 +41,20 @@ REDCAP_TOKEN_COMPASS = os.environ.get("REDCAP_TOKEN_COMPASS", "")
 # but we also read it here so manage.py commands outside compose work.
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", CELERY_BROKER_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_RESULT_BACKEND)
+
+# Silence bot-triggered DisallowedHost rejections — bots probe with raw server
+# IP as Host header; Django correctly rejects them with 400 but Sentry captures
+# the SuspiciousOperation as an error, creating noise. These are not actionable.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "null": {"class": "logging.NullHandler"},
+    },
+    "loggers": {
+        "django.security.DisallowedHost": {
+            "handlers": ["null"],
+            "propagate": False,
+        },
+    },
+}
