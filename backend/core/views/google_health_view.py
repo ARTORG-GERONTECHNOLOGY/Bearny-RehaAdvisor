@@ -47,6 +47,8 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
         day_start_dt = timezone.make_aware(day_start_dt, timezone.get_current_timezone())
     wake_minute = int((sleep_end_dt - day_start_dt).total_seconds() // 60)
     return sleep_end_dt, max(0, min(1440, wake_minute))
+
+
 from core.views.google_health_sync import fetch_google_health_today_for_user
 
 logger = logging.getLogger(__name__)
@@ -214,7 +216,9 @@ def google_health_summary(request, patient_id=None):
                 }
             )
 
-            has_real = (st not in (None, 0)) or (am not in (None, 0)) or (sm not in (None, 0)) or bp_sys or bp_dia or weight_kg
+            has_real = (
+                (st not in (None, 0)) or (am not in (None, 0)) or (sm not in (None, 0)) or bp_sys or bp_dia or weight_kg
+            )
             if has_real:
                 valid_days += 1
                 steps_tot.append(st)
@@ -308,8 +312,7 @@ def get_google_health_data(request, patient_id):
         entries = GoogleHealthData.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by("date")
         vitals_qs = PatientVitals.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by("date")
         vitals_by_date = {
-            eu_date(v.date): {"weight_kg": v.weight_kg, "bp_sys": v.bp_sys, "bp_dia": v.bp_dia}
-            for v in vitals_qs
+            eu_date(v.date): {"weight_kg": v.weight_kg, "bp_sys": v.bp_sys, "bp_dia": v.bp_dia} for v in vitals_qs
         }
 
         out = []
@@ -508,29 +511,68 @@ def google_health_combined_history(request, patient_id):
             entries = list(getattr(q, "feedback_entries", None) or [])
             if not entries:
                 questionnaire_list.append(
-                    {"date": q.date.date().isoformat(), "questionKey": q.icfCode, "answers": [], "questionTranslations": [], "comment": "", "audio_url": None, "media_urls": []}
+                    {
+                        "date": q.date.date().isoformat(),
+                        "questionKey": q.icfCode,
+                        "answers": [],
+                        "questionTranslations": [],
+                        "comment": "",
+                        "audio_url": None,
+                        "media_urls": [],
+                    }
                 )
                 continue
             for entry in entries:
                 parsed_answers = []
                 for ans in getattr(entry, "answerKey", None) or []:
                     if hasattr(ans, "key"):
-                        parsed_answers.append({"key": ans.key, "translations": [{"language": tr.language, "text": tr.text} for tr in (getattr(ans, "translations", None) or [])]})
+                        parsed_answers.append(
+                            {
+                                "key": ans.key,
+                                "translations": [
+                                    {"language": tr.language, "text": tr.text}
+                                    for tr in (getattr(ans, "translations", None) or [])
+                                ],
+                            }
+                        )
                     else:
                         parsed_answers.append({"key": str(ans), "translations": [{"language": "en", "text": str(ans)}]})
                 question_obj = getattr(entry, "questionId", None)
                 question_key = getattr(question_obj, "questionKey", None) or getattr(q, "icfCode", None) or ""
-                question_translations = [{"language": tr.language, "text": tr.text} for tr in (getattr(question_obj, "translations", None) or [])]
+                question_translations = [
+                    {"language": tr.language, "text": tr.text}
+                    for tr in (getattr(question_obj, "translations", None) or [])
+                ]
                 audio_url = getattr(entry, "audio_url", None)
                 questionnaire_list.append(
-                    {"date": q.date.date().isoformat(), "questionKey": question_key, "answers": parsed_answers, "questionTranslations": question_translations, "comment": getattr(entry, "comment", "") or "", "audio_url": audio_url, "media_urls": [audio_url] if audio_url else []}
+                    {
+                        "date": q.date.date().isoformat(),
+                        "questionKey": question_key,
+                        "answers": parsed_answers,
+                        "questionTranslations": question_translations,
+                        "comment": getattr(entry, "comment", "") or "",
+                        "audio_url": audio_url,
+                        "media_urls": [audio_url] if audio_url else [],
+                    }
                 )
 
         # Adherence
-        logs = PatientInterventionLogs.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by("date")
-        adherence_list = [{"date": l.date.date().isoformat(), "scheduled": l.scheduled_count, "completed": l.completed_count, "pct": l.adherence_percentage} for l in logs]
+        logs = PatientInterventionLogs.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by(
+            "date"
+        )
+        adherence_list = [
+            {
+                "date": l.date.date().isoformat(),
+                "scheduled": l.scheduled_count,
+                "completed": l.completed_count,
+                "pct": l.adherence_percentage,
+            }
+            for l in logs
+        ]
 
-        return JsonResponse({"fitbit": wearable_list, "questionnaire": questionnaire_list, "adherence": adherence_list}, status=200)
+        return JsonResponse(
+            {"fitbit": wearable_list, "questionnaire": questionnaire_list, "adherence": adherence_list}, status=200
+        )
 
     except Exception:
         logger.exception("[google_health_combined_history] error")

@@ -1,8 +1,8 @@
 # core/views/google_health_sync.py
 import datetime
 import logging
-from datetime import timezone as dt_tz
 from datetime import timedelta
+from datetime import timezone as dt_tz
 
 import requests
 from django.conf import settings
@@ -291,7 +291,7 @@ def _sync_day(user, headers: dict, d: datetime.date) -> bool:
 
     # Heart rate: avg=value[0], max=value[1], min=value[2]
     p = pt("heart_rate.summary")
-    resting_hr = int(_fp(p, 2)) if p and _fp(p, 2) else None   # min HR ≈ resting
+    resting_hr = int(_fp(p, 2)) if p and _fp(p, 2) else None  # min HR ≈ resting
     max_hr = int(_fp(p, 1)) if p and _fp(p, 1) else None
 
     # Weight

@@ -148,7 +148,9 @@ class PatientFitbitStore {
     if (!cached || force) this.summaryLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/google-health/summary/${patientId}/`, { params: { days } });
+      const { data } = await apiClient.get(`/google-health/summary/${patientId}/`, {
+        params: { days },
+      });
       runInAction(() => {
         this.summary = data;
       });
