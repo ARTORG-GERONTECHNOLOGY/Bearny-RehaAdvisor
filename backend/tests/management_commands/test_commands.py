@@ -19,13 +19,14 @@ def test_seed_periodic_tasks_creates_or_updates_tasks():
                 (SimpleNamespace(name="Run Delete Expired Videos"), True),
                 (SimpleNamespace(name="Run Fetch Fitbit Data"), False),
                 (SimpleNamespace(name="Run Fetch Fitbit Data Today (4h)"), True),
+                (SimpleNamespace(name="Run Fetch Google Health Data"), True),
             ],
         ) as upsert,
     ):
         cmd.handle()
 
     assert get_sched.call_count == 2  # midnight + every-4h schedules
-    assert upsert.call_count == 3
+    assert upsert.call_count == 4
 
 
 def test_set_celerybeat_every_minute_updates_expected_tasks():

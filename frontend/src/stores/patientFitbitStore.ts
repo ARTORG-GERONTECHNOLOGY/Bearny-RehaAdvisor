@@ -132,7 +132,7 @@ class PatientFitbitStore {
     if (this.connected === null) this.statusLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/fitbit/status/${patientId}/`);
+      const { data } = await apiClient.get(`/google-health/status/${patientId}/`);
       runInAction(() => {
         this.connected = !!data?.connected;
         if (data?.wearable_device && ['fitbit', 'omron', 'none'].includes(data.wearable_device)) {
@@ -161,7 +161,7 @@ class PatientFitbitStore {
     if (!cached || force) this.summaryLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/`, { params: { days } });
+      const { data } = await apiClient.get(`/google-health/summary/${patientId}/`, { params: { days } });
       runInAction(() => {
         this.summary = data;
       });
@@ -187,7 +187,7 @@ class PatientFitbitStore {
 
   async submitManualSteps(patientId: string, date: string, steps: number) {
     this.error = '';
-    await apiClient.post(`/fitbit/manual_steps/${patientId}/`, { date, steps });
+    await apiClient.post(`/google-health/manual_steps/${patientId}/`, { date, steps });
     await this.fetchSummary(patientId, 7, true);
   }
 
