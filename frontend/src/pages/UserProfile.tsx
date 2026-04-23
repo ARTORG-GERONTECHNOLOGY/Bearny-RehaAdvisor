@@ -37,18 +37,16 @@
 
 // src/pages/UserProfile.tsx
 import React, { useEffect, useMemo } from 'react';
-import { Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import StatusBanner from '@/components/common/StatusBanner';
-import EditUserInfo from '@/components/UserProfile/EditTherapistInfo';
-import ChangePasswordForm from '@/components/UserProfile/ChangePasswordForm';
-import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmation';
-import ProfileDetails from '@/components/UserProfile/ProfileDetails';
+import EditProfileSheet from '@/components/UserProfile/EditProfileSheet';
+import DeleteConfirmationSheet from '@/components/UserProfile/DeleteConfirmationSheet';
 import Layout from '@/components/Layout';
 import LanguageSelectorCard from '@/components/UserProfile/LanguageSelectorCard';
+import ProfileDetailsCard from '@/components/UserProfile/ProfileDetailsCard';
 import PageHeader from '@/components/PageHeader';
 import Section from '@/components/Section';
 
@@ -57,6 +55,7 @@ import userProfileStore from '@/stores/userProfileStore';
 
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { Button } from '@/components/ui/button';
+import ChangePasswordSheet from '@/components/UserProfile/ChangePasswordSheet';
 
 const UserProfile: React.FC = observer(() => {
   const { t } = useTranslation();
@@ -84,10 +83,9 @@ const UserProfile: React.FC = observer(() => {
     userProfileStore.fetchProfile();
   }, [navigate, t]);
 
-  const renderModeTitle = () => {
-    if (userProfileStore.mode === 'editProfile') return t('Edit Info');
-    if (userProfileStore.mode === 'changePassword') return t('Change Password');
-    return t('User Profile');
+  const handleLogout = async () => {
+    await authStore.logout();
+    navigate('/');
   };
 
   const onDeleteConfirmed = async () => {
@@ -98,23 +96,41 @@ const UserProfile: React.FC = observer(() => {
     }
   };
 
-  const handleLogout = async () => {
-    await authStore.logout();
-    navigate('/');
-  };
-
   return (
     <Layout>
-      <PageHeader title={userProfileStore.userData?.first_name || t('User Profile')} />
+      <PageHeader title={t('User Profile')} />
+
       <div className="mt-8 grid grid-cols-1 gap-2 lg:grid-cols-3 lg:items-start">
         <Section>
           <LanguageSelectorCard />
         </Section>
-        <Section>Data</Section>
+        <Section>
+          <ProfileDetailsCard
+            loading={userProfileStore.loading}
+            userData={userProfileStore.userData}
+            userType={authStore.userType}
+          />
+          {userProfileStore.userData && (
+            <Button onClick={() => userProfileStore.setMode('editProfile')}>
+              {t('Edit Info')}
+            </Button>
+          )}
+          <Button onClick={() => userProfileStore.setMode('changePassword')}>
+            {t('Change Password')}
+          </Button>
+        </Section>
         <Section>
           <Button variant="secondary" onClick={handleLogout}>
             {t('Logout')}
             <LogoutFill />
+          </Button>
+
+          <Button
+            disabled={userProfileStore.deleting}
+            onClick={userProfileStore.openDelete}
+            className="bg-nok hover:bg-nok/90"
+          >
+            {t('Delete Account')}
           </Button>
         </Section>
       </div>
@@ -126,68 +142,20 @@ const UserProfile: React.FC = observer(() => {
         onClose={userProfileStore.clearSuccess}
       />
 
-      <Container className="my-5 flex-grow-1">
-        <Row className="justify-content-center">
-          <Col xs={12} md={10} lg={8} xl={6}>
-            <Card className="shadow-sm">
-              <Card.Header className="bg-primary text-white text-center">
-                <h2 className="mb-0">{renderModeTitle()}</h2>
-              </Card.Header>
+      {userProfileStore.userData && (
+        <EditProfileSheet
+          show={userProfileStore.mode === 'editProfile'}
+          onCancel={() => userProfileStore.setMode('view')}
+          userData={userProfileStore.userData}
+        />
+      )}
 
-              <Card.Body>
-                {userProfileStore.loading ? (
-                  <div className="text-center my-4">
-                    <Spinner animation="border" />
-                    <p className="mt-3">{t('Loading')}...</p>
-                  </div>
-                ) : userProfileStore.userData ? (
-                  userProfileStore.mode === 'editProfile' ? (
-                    <EditUserInfo
-                      userData={userProfileStore.userData}
-                      onCancel={() => userProfileStore.setMode('view')}
-                    />
-                  ) : userProfileStore.mode === 'changePassword' ? (
-                    <ChangePasswordForm onCancel={() => userProfileStore.setMode('view')} />
-                  ) : (
-                    <ProfileDetails
-                      userData={userProfileStore.userData}
-                      deleting={userProfileStore.deleting}
-                      onEdit={() => userProfileStore.setMode('editProfile')}
-                      onChangePassword={() => userProfileStore.setMode('changePassword')}
-                      onDelete={userProfileStore.openDelete}
-                    />
-                  )
-                ) : (
-                  <div className="text-center text-muted">{t('No user data found.')}</div>
-                )}
-              </Card.Body>
+      <ChangePasswordSheet
+        show={userProfileStore.mode === 'changePassword'}
+        onCancel={() => userProfileStore.setMode('view')}
+      />
 
-              {(userProfileStore.mode === 'editProfile' ||
-                userProfileStore.mode === 'changePassword') && (
-                <Card.Footer className="bg-light">
-                  <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                    <small className="text-muted">
-                      {userProfileStore.mode === 'editProfile'
-                        ? t('Update your profile information.')
-                        : t('Change your account password.')}
-                    </small>
-                    <Button
-                      variant="outline-secondary"
-                      size="sm"
-                      onClick={() => userProfileStore.setMode('view')}
-                      disabled={userProfileStore.saving}
-                    >
-                      {t('Back')}
-                    </Button>
-                  </div>
-                </Card.Footer>
-              )}
-            </Card>
-          </Col>
-        </Row>
-      </Container>
-
-      <DeleteConfirmation
+      <DeleteConfirmationSheet
         show={userProfileStore.showDeletePopup}
         handleClose={userProfileStore.closeDelete}
         handleConfirm={onDeleteConfirmed}

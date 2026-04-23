@@ -27,6 +27,7 @@ import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInt
 import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
 import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndConditionsSkeleton';
 import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
+import UserProfileSkeleton from '@/components/skeletons/UserProfileSkeleton';
 
 const smoke = (Component: React.ComponentType) => () => {
   const { container } = render(<Component />);
@@ -51,4 +52,5 @@ describe('Skeleton components', () => {
   it('PatientProfileSkeleton renders', smoke(PatientProfileSkeleton));
   it('TermsAndConditionsSkeleton renders', smoke(TermsAndConditionsSkeleton));
   it('PrivacyPolicySkeleton renders', smoke(PrivacyPolicySkeleton));
+  it('UserProfileSkeleton renders', smoke(UserProfileSkeleton));
 });

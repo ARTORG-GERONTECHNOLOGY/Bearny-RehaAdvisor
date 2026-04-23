@@ -9,6 +9,7 @@ import PatientInterventionsLibrarySkeleton from '@/components/skeletons/PatientI
 import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
 import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
 import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
+import UserProfileSkeleton from '@/components/skeletons/UserProfileSkeleton';
 import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndConditionsSkeleton';
 import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
 
@@ -104,7 +105,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/userprofile',
-    element: withSuspense(createElement(RootLayout, { children: createElement(UserProfile) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(UserProfile) }),
+      createElement(UserProfileSkeleton)
+    ),
   },
   {
     path: '/patient',
