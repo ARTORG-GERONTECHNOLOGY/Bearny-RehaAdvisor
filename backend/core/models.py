@@ -158,6 +158,53 @@ class FitbitData(Document):
     }
 
 
+class GoogleHealthUserToken(Document):
+    user = ReferenceField(User, required=True, unique=True)
+    access_token = StringField(required=True, max_length=2048)
+    refresh_token = StringField(required=True, max_length=2048)
+    expires_at = DateTimeField()
+    google_user_id = StringField()  # Google "sub" claim
+
+
+class GoogleHealthData(Document):
+    """Mirror of FitbitData for Google Fit — identical schema, separate collection."""
+
+    user = ReferenceField(User, required=True)
+    date = DateTimeField(required=True, unique_with="user")
+
+    steps = IntField()
+    resting_heart_rate = IntField()
+    heart_rate_zones = ListField(EmbeddedDocumentField(HeartRateZone))
+    max_heart_rate = IntField(null=True)
+
+    floors = IntField()
+    distance = FloatField()  # km
+    calories = FloatField()
+    active_minutes = IntField()
+
+    sleep = EmbeddedDocumentField(SleepData)
+
+    # Not available via Google Fit REST API — stored as None
+    breathing_rate = DictField()
+    hrv = DictField()
+
+    exercise = DynamicField()
+    inactivity_minutes = IntField()
+
+    # Wear time: derived from 15-minute HR bucket presence (see google_health_sync.py)
+    wear_time_minutes = IntField(null=True)
+
+    weight_kg = FloatField()
+    bp_sys = IntField()
+    bp_dia = IntField()
+
+    meta = {
+        "collection": "google_health_data",
+        "indexes": ["user", "date"],
+        "ordering": ["-date"],
+    }
+
+
 class Logs(Document):
     meta = {"collection": "logs"}  # MongoDB collection
     userId = ReferenceField(User, required=True)
