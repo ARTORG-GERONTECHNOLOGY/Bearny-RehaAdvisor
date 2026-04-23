@@ -12,11 +12,11 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 
 | Group | Tests |
 |---|---|
-| `available_redcap_patients` | 10 |
-| `import_patient_from_redcap` | 13 |
+| `available_redcap_patients` | 11 |
+| `import_patient_from_redcap` | 14 |
 | Utility and service helpers | 6 |
 
-**Total: 29 tests**
+**Total: 31 tests**
 
 ---
 
@@ -48,7 +48,7 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 - Missing REDCap token → `200` with error in `errors[]`.
 - REDCap export error collected per project → `200` with `errors[]` populated.
 - DAG filter: records whose `redcap_data_access_group` is not in the allowed DAG set are excluded.
-- Informed-consent filter: records with `ic != 1` are excluded from candidates.
+- **Informed-consent filter**: records with `ic != 1` are excluded from candidates (`test_available_patients_excludes_non_consented_records`).
 - Deduplication: duplicate `(project, identifier)` pairs collapsed.
 - Already-imported patients excluded from candidates.
 - Successful candidate listing.
@@ -61,7 +61,7 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 - Already-imported patient (existing `patient_code`) → `409`.
 - Missing REDCap token → `400`.
 - DAG forbidden: record's DAG not in therapist's allowed DAGs → `403`.
-- Non-consented REDCap record (`ic != 1`) is rejected → `403`.
+- **Non-consented REDCap record** (`ic != 1`) is rejected → `403` (`test_import_patient_rejects_non_consented_record`).
 - Record not found in REDCap → `404`.
 - Fallback: first lookup by `record_id` returns empty → retries by `pat_id` filter.
 - Fallback REDCap error on second attempt → `502`.
@@ -77,9 +77,24 @@ Tests in [`test_redcap_import_views.py`](test_redcap_import_views.py) cover:
 |---|---|
 | Inselspital+COPAIN therapist → allowed DAGs = `{"inselspital"}` | `test_env_helpers_and_therapist_resolution_branches` |
 | Record with DAG outside allowed set is blocked | `test_import_patient_dag_forbidden` |
+| Record with `ic = 0` is excluded from available candidates | `test_available_patients_excludes_non_consented_records` |
+| Record with `ic = 0` is rejected at import | `test_import_patient_rejects_non_consented_record` |
+| Mixed-consent list: only `ic = 1` rows appear as candidates | `test_available_patients_dag_filter_and_dedupe` |
 | Imported patient receives `project` field | `test_import_patient_success` |
 | Imported patient `clinic` is derived from DAG, not therapist's first clinic | `test_import_patient_success` |
 | Per-project errors surface in `errors[]` at HTTP 200 | `test_available_patients_collects_errors` |
+
+---
+
+## Informed-Consent Gate
+
+The consent check is applied at two independent points in the flow, so neither endpoint can be bypassed to import a non-consented participant:
+
+1. **List endpoint** (`available_redcap_patients`) — `_has_informed_consent(row)` is called for every row returned by REDCap before it is added to the candidate list. Records with `ic = ""` (no decision recorded) or `ic = "0"` (refused) are silently skipped.
+
+2. **Import endpoint** (`import_patient_from_redcap`) — consent is re-checked on the single row fetched for the specific participant being imported. If `ic != 1` the endpoint returns `403` with an `"informed consent"` message before any database write occurs.
+
+The check itself (`_has_informed_consent`) accepts `"1"` (string) or `1.0` (numeric); anything else — including an empty string or a missing `ic` key — is treated as not consented.
 
 ---
 
