@@ -18,13 +18,14 @@ def test_seed_periodic_tasks_creates_or_updates_tasks():
             side_effect=[
                 (SimpleNamespace(name="Run Delete Expired Videos"), True),
                 (SimpleNamespace(name="Run Fetch Fitbit Data"), False),
+                (SimpleNamespace(name="Run Fetch Google Health Data"), True),
             ],
         ) as upsert,
     ):
         cmd.handle()
 
     get_sched.assert_called_once()
-    assert upsert.call_count == 2
+    assert upsert.call_count == 3
 
 
 def test_set_celerybeat_every_minute_updates_expected_tasks():

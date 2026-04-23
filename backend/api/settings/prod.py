@@ -26,11 +26,18 @@ STATIC_ROOT = BASE_DIR / "static"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# Fitbit settings
+# Fitbit settings (legacy — keep until all users have migrated)
 FITBIT_CLIENT_ID = os.environ.get("FITBIT_CLIENT_ID", "")
 FITBIT_CLIENT_SECRET = os.environ.get("FITBIT_CLIENT_SECRET", "")
 FITBIT_REDIRECT_URI = os.environ.get("FITBIT_REDIRECT_URI", "https://reha-advisor.ch/api/fitbit/callback/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://reha-advisor.ch")
+
+# Google Health / Google Fit settings
+GOOGLE_HEALTH_CLIENT_ID = os.environ.get("GOOGLE_HEALTH_CLIENT_ID", "")
+GOOGLE_HEALTH_CLIENT_SECRET = os.environ.get("GOOGLE_HEALTH_CLIENT_SECRET", "")
+GOOGLE_HEALTH_REDIRECT_URI = os.environ.get(
+    "GOOGLE_HEALTH_REDIRECT_URI", "https://reha-advisor.ch/api/google-health/callback/"
+)
 
 # REDCap settings
 REDCAP_API_URL = os.environ.get("REDCAP_API_URL", "https://redcap.unibe.ch/api/")

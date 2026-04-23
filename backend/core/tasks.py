@@ -7,6 +7,7 @@ from celery import shared_task
 from django.core.management import call_command
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
+from core.views.google_health_sync import fetch_google_health_today_for_user
 
 logger = logging.getLogger(__name__)
 from core.models import (
@@ -80,6 +81,32 @@ def fetch_fitbit_data_async(user_id):
     user = User.objects(pk=user_id).first()
     if user:
         fetch_fitbit_today_for_user(user)
+
+
+@shared_task(
+    name="core.tasks.run_fetch_google_health_data",
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    max_retries=3,
+)
+def run_fetch_google_health_data():
+    t0 = time.time()
+    try:
+        call_command("fetch_google_health_data")
+        elapsed = time.time() - t0
+        logger.info("[fetch_google_health_data] ✅ finished in %.1fs", elapsed)
+        return "ok"
+    except Exception:
+        elapsed = time.time() - t0
+        logger.exception("[fetch_google_health_data] ❌ failed after %.1fs", elapsed)
+        raise
+
+
+@shared_task(name="core.tasks.fetch_google_health_data_async")
+def fetch_google_health_data_async(user_id: str):
+    user = User.objects(pk=user_id).first()
+    if user:
+        fetch_google_health_today_for_user(user)
 
 
 @shared_task(

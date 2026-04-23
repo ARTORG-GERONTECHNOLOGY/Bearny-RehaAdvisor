@@ -40,11 +40,18 @@ SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "False") == "True"
 SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "False") == "True"
 CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", "False")
 
-# Fitbit settings
+# Fitbit settings (legacy — keep until all users have migrated)
 FITBIT_CLIENT_ID = os.environ.get("FITBIT_CLIENT_ID")
 FITBIT_CLIENT_SECRET = os.environ.get("FITBIT_CLIENT_SECRET")
 FITBIT_REDIRECT_URI = os.environ.get("FITBIT_REDIRECT_URI")
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
+
+# Google Health / Google Fit settings
+GOOGLE_HEALTH_CLIENT_ID = os.environ.get("GOOGLE_HEALTH_CLIENT_ID", "")
+GOOGLE_HEALTH_CLIENT_SECRET = os.environ.get("GOOGLE_HEALTH_CLIENT_SECRET", "")
+GOOGLE_HEALTH_REDIRECT_URI = os.environ.get(
+    "GOOGLE_HEALTH_REDIRECT_URI", "http://localhost:8000/api/google-health/callback/"
+)
 
 
 REDCAP_API_URL = os.environ.get("REDCAP_API_URL", default="https://redcap.unibe.ch/api/")
