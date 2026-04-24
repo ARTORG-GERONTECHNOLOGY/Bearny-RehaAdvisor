@@ -69,9 +69,10 @@ describe('Navigation - navLinks by user type', () => {
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows no navigation links for Admin', () => {
+  it('shows Admin Dashboard link for Admin', () => {
     mockAuthStore.userType = 'Admin';
     renderNav('/admin');
+    expect(screen.getAllByText('Admin Dashboard').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();

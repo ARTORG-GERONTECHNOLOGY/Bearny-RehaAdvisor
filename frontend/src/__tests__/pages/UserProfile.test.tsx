@@ -13,16 +13,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('@/components/common/Header', () => ({
-  __esModule: true,
-  default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
-}));
-
-jest.mock('@/components/common/Footer', () => ({
-  __esModule: true,
-  default: () => <div data-testid="footer" />,
-}));
-
 jest.mock('@/components/common/StatusBanner', () => ({
   __esModule: true,
   default: ({ type, message, onClose }: any) =>

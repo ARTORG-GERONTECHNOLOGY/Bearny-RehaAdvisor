@@ -4,9 +4,6 @@ import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import UnauthorizedAccess from '@/pages/UnauthorizedAccess';
 import '@testing-library/jest-dom';
 
-jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
-
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

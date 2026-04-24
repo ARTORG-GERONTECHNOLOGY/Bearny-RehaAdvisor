@@ -23,18 +23,6 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/common/Header', () => {
-  const MockHeader = () => <div>Mock Header</div>;
-  MockHeader.displayName = 'MockHeader';
-  return MockHeader;
-});
-
-jest.mock('@/components/common/Footer', () => {
-  const MockFooter = () => <div>Mock Footer</div>;
-  MockFooter.displayName = 'MockFooter';
-  return MockFooter;
-});
-
 jest.mock('@/hooks/useAuthGuard', () => ({
   __esModule: true,
   default: jest.fn(),

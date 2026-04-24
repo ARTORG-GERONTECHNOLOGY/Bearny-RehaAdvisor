@@ -74,7 +74,14 @@ export default function Navigation() {
             },
           ]
         : authStore.userType === 'Admin'
-          ? [] // Admin: no nav links, only logout button
+          ? [
+              {
+                path: '/admin',
+                iconOutline: SunriseOutline,
+                iconFill: SunriseFill,
+                label: t('Admin Dashboard'),
+              },
+            ]
           : [
               {
                 path: '/',

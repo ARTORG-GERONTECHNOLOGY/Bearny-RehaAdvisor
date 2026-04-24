@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import '@/assets/styles/home.css';
-import Header from '@/components/common/Header';
 import Footer from '@/components/common/Footer';
 import LoginForm from '@/components/HomePage/LoginForm';
 import FormRegister from '@/components/HomePage/RegisteringForm';
@@ -31,7 +30,6 @@ const Home: React.FC = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100 home-root bg-back">
-      <Header isLoggedIn={authStore.isAuthenticated} />
       <HomeIllustration className="ml-auto md:absolute right-0 top-28 md:top-1/4" />
 
       {/* HERO */}
