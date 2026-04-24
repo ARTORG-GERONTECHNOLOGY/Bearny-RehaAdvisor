@@ -7,17 +7,13 @@
 
 ## Type of change
 
-For a new feature or function, please create an issue first to discuss it
-with us before submitting a pull request.
-
-Note: Please delete options that are not relevant.
+For a new feature, please create an issue first to discuss it with us before submitting a pull request.
 
 - [ ] Bug fix (non-breaking change that fixes an issue)
 - [ ] Documentation update
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] A new research paper code implementation
-- [ ] Other (Specify)
+- [ ] Other (specify)
 
 ## Tests
 
@@ -30,9 +26,9 @@ Note: Please delete options that are not relevant.
 
 ## Checklist
 
-- [ ] I have read the [guidelines for contributing](https://github.com/fastmachinelearning/hls4ml/blob/main/CONTRIBUTING.md).
+- [ ] I have read the [contributing guidelines](/docs/12-CONTRIBUTING.md).
+- [ ] I have read the [code of conduct](/CODE_OF_CONDUCT.md).
 - [ ] I have commented my code, particularly in hard-to-understand areas.
 - [ ] I have made corresponding changes to the documentation.
 - [ ] My changes generate no new warnings.
-- [ ] I have installed and run `pre-commit` on the files I edited or added.
 - [ ] I have added tests that prove my fix is effective or that my feature works.

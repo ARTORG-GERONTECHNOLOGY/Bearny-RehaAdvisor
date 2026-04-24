@@ -327,7 +327,7 @@ docker stats
 ## Support
 
 For issues or questions:
-1. Review [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
+1. Review [PRODUCTION_DEPLOYMENT.md](../docs/deployment/PRODUCTION_DEPLOYMENT.md)
 2. Check [Troubleshooting Guide](../docs/08-TROUBLESHOOTING.md)
 3. Review script logs in `/opt/reha-advisor/logs/`
 4. Contact support team
