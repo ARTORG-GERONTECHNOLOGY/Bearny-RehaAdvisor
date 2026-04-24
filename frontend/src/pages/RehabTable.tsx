@@ -27,6 +27,7 @@ import QuestionnaireBuilderModal from '@/components/RehaTablePage/QuestionnaireB
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 const safeT = (t: any, key: string, fallback: string) => {
   try {
@@ -253,26 +254,26 @@ const RehabTable: React.FC = observer(() => {
 
         <main className="rehaPage__content">
           <RehaPageLayout>
-            {(localStorage.getItem('selectedPatientId') || store.patientName) && (
-              <div className="mb-3">
-                <h4 className="mb-0">
-                  {localStorage.getItem('selectedPatientId') || store.patientName}
-                </h4>
-              </div>
-            )}
+            <PageHeader
+              title={
+                localStorage.getItem('selectedPatientId') ||
+                store.patientName ||
+                t('Rehabilitation Plan')
+              }
+            />
 
             {store.error ? (
               <Alert
                 variant="danger"
                 onClose={() => store.setError(null)}
                 dismissible
-                className="mb-3"
+                className="my-3"
               >
                 {store.error}
               </Alert>
             ) : null}
 
-            <Row className="mb-3">
+            <Row className="my-3">
               <Col>
                 <Nav
                   variant="tabs"

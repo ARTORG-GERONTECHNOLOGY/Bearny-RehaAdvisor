@@ -16,10 +16,6 @@ const AddPatient: React.FC = () => {
 
   const therapistId = authStore.id;
 
-  useEffect(() => {
-    document.title = t('AddaNewPatient') || 'Add New Patient';
-  }, [t]);
-
   return (
     <Layout>
       <PageHeader title={t('AddaNewPatient')} />

@@ -79,7 +79,6 @@ const UserProfile: React.FC = observer(() => {
       return;
     }
 
-    document.title = t('User Profile') || 'User Profile';
     userProfileStore.fetchProfile();
   }, [navigate, t]);
 

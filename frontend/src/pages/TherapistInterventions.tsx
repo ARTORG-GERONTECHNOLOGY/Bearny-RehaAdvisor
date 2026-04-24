@@ -205,7 +205,6 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── computed data ───────────────────────────
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
-  const patientTypes = authStore.specialisations; // observer() => reactive
 
   const diagnoses = useMemo(
     () =>

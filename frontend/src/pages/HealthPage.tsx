@@ -4,7 +4,7 @@ import * as d3 from 'd3';
 import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
-import { Alert, Container, Row, Col, Spinner } from 'react-bootstrap';
+import { Alert, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +19,7 @@ import HealthPageStore from '@/stores/healthPageStore';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 /* --------- helpers for European date formatting ---------- */
 const toEuroDate = (iso: string | null | undefined): string => {
@@ -448,61 +449,55 @@ const HealthPage: React.FC = observer(() => {
           <span className="sr-only">{t('Back')}</span>
         </Button>
 
-        <main className="flex-grow-1">
-          <Container fluid className="py-4 px-2 px-md-4">
-            <Row className="justify-content-center">
-              <Col xs={12} xxl={10}>
-                {(localStorage.getItem('selectedPatientId') || store.patientName) && (
-                  <div className="mb-3">
-                    <h4 className="mb-0">
-                      {localStorage.getItem('selectedPatientId') || store.patientName}
-                    </h4>
-                  </div>
-                )}
+        <div className="flex-grow-1 mt-2">
+          <PageHeader
+            title={
+              localStorage.getItem('selectedPatientId') ||
+              store.patientName ||
+              t('Outcomes Dashboard')
+            }
+          />
 
-                {/* Threshold load error (non-blocking) */}
-                {store.thresholdsError && (
-                  <Alert variant="warning" className="mb-3" role="alert">
-                    {store.thresholdsError}
-                  </Alert>
-                )}
+          {/* Threshold load error (non-blocking) */}
+          {store.thresholdsError && (
+            <Alert variant="warning" className="my-3" role="alert">
+              {store.thresholdsError}
+            </Alert>
+          )}
 
-                {/* Controls */}
-                <div className="mb-3">
-                  <HealthViewControls
-                    store={store}
-                    t={t}
-                    formatRangeLabel={formatRangeLabel}
-                    onExportClick={() => setShowExport(true)}
-                  />
-                </div>
+          {/* Controls */}
+          <div className="my-3">
+            <HealthViewControls
+              store={store}
+              t={t}
+              formatRangeLabel={formatRangeLabel}
+              onExportClick={() => setShowExport(true)}
+            />
+          </div>
 
-                {/* Error / Loading */}
-                {store.error && (
-                  <Alert variant="danger" className="mb-3" role="alert">
-                    {store.error}
-                  </Alert>
-                )}
+          {/* Error / Loading */}
+          {store.error && (
+            <Alert variant="danger" className="mb-3" role="alert">
+              {store.error}
+            </Alert>
+          )}
 
-                {store.loading ? (
-                  <div className="d-flex justify-content-center align-items-center py-5">
-                    <div className="text-center">
-                      <Spinner animation="border" role="status" />
-                      <div className="text-muted mt-2">{t('Loading')}...</div>
-                    </div>
-                  </div>
-                ) : (
-                  <HealthChartsAccordion
-                    store={store}
-                    t={t}
-                    lang={(i18n.language || 'en').split('-')[0]}
-                    svgRefs={svgRefs}
-                  />
-                )}
-              </Col>
-            </Row>
-          </Container>
-        </main>
+          {store.loading ? (
+            <div className="d-flex justify-content-center align-items-center py-5">
+              <div className="text-center">
+                <Spinner animation="border" role="status" />
+                <div className="text-muted mt-2">{t('Loading')}...</div>
+              </div>
+            </div>
+          ) : (
+            <HealthChartsAccordion
+              store={store}
+              t={t}
+              lang={(i18n.language || 'en').split('-')[0]}
+              svgRefs={svgRefs}
+            />
+          )}
+        </div>
 
         <ExportModal
           show={showExport}
