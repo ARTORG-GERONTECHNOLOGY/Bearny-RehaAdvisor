@@ -18,11 +18,6 @@ const Footer: FunctionComponent = () => {
   const [showPwaInstall, setShowPwaInstall] = useState(false);
   const isAppInstalled = useIsStandalone();
 
-  const getInitialLang = () =>
-    localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
-
-  const [currentLanguage, setCurrentLanguage] = useState(getInitialLang);
-
   const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
 
   const flagMap: Record<string, string> = {
@@ -34,11 +29,10 @@ const Footer: FunctionComponent = () => {
     nl: flagNl,
   };
 
-  const lang = currentLanguage.slice(0, 2);
+  const lang = (i18n.resolvedLanguage ?? i18n.language ?? 'en').slice(0, 2);
 
   const handleLanguageChange = (l: string) => {
     i18n.changeLanguage(l);
-    setCurrentLanguage(l);
   };
 
   return (
@@ -46,9 +40,17 @@ const Footer: FunctionComponent = () => {
       <footer className="bg-white py-4">
         <div className="container-fluid">
           <div className="flex justify-center md:block w-full mb-4">
-            <img src="/artorg_unibern_logo.gif" className="h-8" />
-            <img src="/insel_logo.svg" className="h-8" />
-            <img src="/brz_logo.png" className="h-8" />
+            <img
+              src="/artorg_unibern_logo.gif"
+              alt="ARTORG Center for Biomedical Engineering Research"
+              className="h-8"
+            />
+            <img
+              src="/insel_logo.svg"
+              alt="Inselspital - Universitatsspital Bern"
+              className="h-8"
+            />
+            <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="h-8" />
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
             <div className="text-center text-md-start">

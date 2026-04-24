@@ -1,4 +1,5 @@
 import { createElement, lazy, Suspense } from 'react';
+import type { ComponentType, LazyExoticComponent, ReactElement } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 import RootLayout from '@/RootLayout';
@@ -19,8 +20,8 @@ import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton'
  * fresh HTML/chunk paths. Uses sessionStorage to avoid reload loops.
  */
 function lazyWithRetry(
-  fn: () => Promise<{ default: React.ComponentType<any> }>
-): React.LazyExoticComponent<React.ComponentType<any>> {
+  fn: () => Promise<{ default: ComponentType<any> }>
+): LazyExoticComponent<ComponentType<any>> {
   return lazy(() =>
     fn().catch((error: unknown) => {
       const key = 'chunk-load-reloaded';
@@ -72,10 +73,8 @@ function LoadingFallback() {
 }
 
 // helper to wrap lazy pages consistently (optionally pass a custom fallback)
-const withSuspense = (
-  el: React.ReactElement,
-  fallback: React.ReactElement = createElement(LoadingFallback)
-) => createElement(Suspense, { fallback }, el);
+const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(LoadingFallback)) =>
+  createElement(Suspense, { fallback }, el);
 
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([

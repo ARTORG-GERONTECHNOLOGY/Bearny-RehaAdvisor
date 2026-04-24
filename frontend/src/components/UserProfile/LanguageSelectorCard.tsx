@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '@/components/Card';
 import {
@@ -39,21 +38,16 @@ const languageNames: Record<string, string> = {
 export default function LanguageSelectorCard() {
   const { t, i18n } = useTranslation();
 
-  const getInitialLang = () =>
-    localStorage.getItem('i18nextLng')?.slice(0, 2) || i18n.language?.slice(0, 2) || 'en';
-
-  const [currentLanguage, setCurrentLanguage] = useState(getInitialLang);
-  const lang = currentLanguage.slice(0, 2);
+  const lang = (i18n.resolvedLanguage ?? i18n.language ?? 'en').slice(0, 2);
 
   const handleChange = (value: string) => {
     i18n.changeLanguage(value);
-    setCurrentLanguage(value);
   };
 
   return (
     <Card className="flex flex-col gap-1">
       <div className="text-sm font-medium text-zinc-500">{t('Language')}</div>
-      <Select onValueChange={handleChange} defaultValue={lang}>
+      <Select onValueChange={handleChange} value={lang}>
         <SelectTrigger className="bg-white border-white shadow-none p-0">
           <SelectValue placeholder={t('Select language')} />
         </SelectTrigger>

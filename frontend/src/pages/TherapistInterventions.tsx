@@ -722,7 +722,7 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   return (
     <Layout>
-      <WelcomeArea user="TherapistPatients" />
+      <WelcomeArea user="therapist" />
 
       <Container className="main-content mt-4">
         {error && (
