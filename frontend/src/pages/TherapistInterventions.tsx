@@ -11,7 +11,7 @@ import ErrorAlert from '@/components/common/ErrorAlert';
 import ImportInterventionsModal from '@/components/TherapistInterventionPage/ImportInterventionsModal';
 
 import ProductPopup from '@/components/TherapistInterventionPage/ProductPopup';
-import AddInterventionPopup from '@/components/AddIntervention/AddRecomendationPopUp'; // ✅ use the updated manual creation popup
+import AddInterventionPopup from '@/components/AddIntervention/AddRecomendationPopUp';
 
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import TemplateTimeline from '@/components/TherapistInterventionPage/TemplateTimeline';

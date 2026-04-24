@@ -1,40 +1,3 @@
-/**
- * UserProfile page  (/userprofile)
- *
- * Displays and allows editing of the currently logged-in therapist's profile.
- * Rendered as an MobX observer so it reacts to userProfileStore changes.
- *
- * Modes (controlled by userProfileStore.mode)
- * --------------------------------------------
- * 'view'           — ProfileDetails component; shows name, email, phone,
- *                    specializations, clinics.  Buttons: Edit Info, Change Password,
- *                    Delete Account.
- * 'editProfile'    — EditTherapistInfo component; allows updating name, first_name,
- *                    phone, specializations, clinics.  Email field is read-only.
- *                    Submits PUT /api/users/<id>/profile/ via userProfileStore.updateProfile().
- * 'changePassword' — ChangePasswordForm component; verifies old password, enforces
- *                    strength rules, submits PUT /api/users/<id>/profile/ with
- *                    oldPassword + newPassword.
- *
- * Status banners (translated at render time)
- * ------------------------------------------
- * errorBanner and successBanner are read from the store as stable i18n keys and
- * translated here so the store itself stays language-agnostic.
- *
- * Deletion flow
- * -------------
- * "Delete Account" opens DeleteConfirmation modal.  On confirm,
- * userProfileStore.deleteAccount() issues DELETE /api/users/<id>/profile/ (soft-delete:
- * isActive=False).  authStore.logout() runs automatically on success and the
- * user is redirected to '/'.
- *
- * Data flow
- * ---------
- * On mount: userProfileStore.fetchProfile() → GET /api/users/<id>/profile/
- * On save:  updateProfile() → PUT, then re-fetches via GET to ensure the modal
- *           always shows the latest server state.
- */
-
 // src/pages/UserProfile.tsx
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -110,13 +73,9 @@ const UserProfile: React.FC = observer(() => {
             userType={authStore.userType}
           />
           {userProfileStore.userData && (
-            <Button onClick={() => userProfileStore.setMode('editProfile')}>
-              {t('Edit Info')}
-            </Button>
+            <Button onClick={userProfileStore.openEditProfile}>{t('Edit Info')}</Button>
           )}
-          <Button onClick={() => userProfileStore.setMode('changePassword')}>
-            {t('Change Password')}
-          </Button>
+          <Button onClick={userProfileStore.openChangePassword}>{t('Change Password')}</Button>
         </Section>
         <Section>
           <Button variant="secondary" onClick={handleLogout}>
@@ -144,15 +103,15 @@ const UserProfile: React.FC = observer(() => {
 
       {userProfileStore.userData && (
         <EditProfileSheet
-          show={userProfileStore.mode === 'editProfile'}
-          onCancel={() => userProfileStore.setMode('view')}
+          show={userProfileStore.showEditProfile}
+          onCancel={userProfileStore.closeEditProfile}
           userData={userProfileStore.userData}
         />
       )}
 
       <ChangePasswordSheet
-        show={userProfileStore.mode === 'changePassword'}
-        onCancel={() => userProfileStore.setMode('view')}
+        show={userProfileStore.showChangePassword}
+        onCancel={userProfileStore.closeChangePassword}
       />
 
       <DeleteConfirmationSheet

@@ -71,7 +71,8 @@ const authStoreMock = {
 };
 
 const userProfileStoreMock = {
-  mode: 'view' as 'view' | 'editProfile' | 'changePassword',
+  showEditProfile: false,
+  showChangePassword: false,
   showDeletePopup: false,
   userData: { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' } as any,
   loading: false,
@@ -83,8 +84,17 @@ const userProfileStoreMock = {
   deleteAccount: jest.fn(async () => {}),
   clearError: jest.fn(),
   clearSuccess: jest.fn(),
-  setMode: jest.fn((m: any) => {
-    userProfileStoreMock.mode = m;
+  openEditProfile: jest.fn(() => {
+    userProfileStoreMock.showEditProfile = true;
+  }),
+  closeEditProfile: jest.fn(() => {
+    userProfileStoreMock.showEditProfile = false;
+  }),
+  openChangePassword: jest.fn(() => {
+    userProfileStoreMock.showChangePassword = true;
+  }),
+  closeChangePassword: jest.fn(() => {
+    userProfileStoreMock.showChangePassword = false;
   }),
   openDelete: jest.fn(() => {
     userProfileStoreMock.showDeletePopup = true;
@@ -116,7 +126,8 @@ describe('UserProfile page', () => {
     authStoreMock.isAuthenticated = true;
     authStoreMock.userType = 'Therapist';
 
-    userProfileStoreMock.mode = 'view';
+    userProfileStoreMock.showEditProfile = false;
+    userProfileStoreMock.showChangePassword = false;
     userProfileStoreMock.showDeletePopup = false;
     userProfileStoreMock.userData = { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' };
     userProfileStoreMock.loading = false;
@@ -160,7 +171,8 @@ describe('UserProfile page', () => {
   });
 
   it('renders ProfileDetails in view mode and can switch to edit/changePassword via callbacks', async () => {
-    userProfileStoreMock.mode = 'view';
+    userProfileStoreMock.showEditProfile = false;
+    userProfileStoreMock.showChangePassword = false;
 
     renderWithRouter(<UserProfile />);
 
@@ -168,30 +180,30 @@ describe('UserProfile page', () => {
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Info' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('editProfile');
+    expect(userProfileStoreMock.openEditProfile).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('changePassword');
+    expect(userProfileStoreMock.openChangePassword).toHaveBeenCalled();
   });
 
-  it('renders EditUserInfo when mode=editProfile and can cancel back to view', () => {
-    userProfileStoreMock.mode = 'editProfile';
+  it('renders EditUserInfo when showEditProfile=true and can cancel', () => {
+    userProfileStoreMock.showEditProfile = true;
 
     renderWithRouter(<UserProfile />);
 
     expect(screen.getByTestId('edit-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-edit' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
+    expect(userProfileStoreMock.closeEditProfile).toHaveBeenCalled();
   });
 
-  it('renders ChangePasswordForm when mode=changePassword and can cancel back to view', () => {
-    userProfileStoreMock.mode = 'changePassword';
+  it('renders ChangePasswordForm when showChangePassword=true and can cancel', () => {
+    userProfileStoreMock.showChangePassword = true;
 
     renderWithRouter(<UserProfile />);
 
     expect(screen.getByTestId('change-password-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-pwd' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
+    expect(userProfileStoreMock.closeChangePassword).toHaveBeenCalled();
   });
 
   it('shows StatusBanner messages and close triggers store clear methods', () => {
