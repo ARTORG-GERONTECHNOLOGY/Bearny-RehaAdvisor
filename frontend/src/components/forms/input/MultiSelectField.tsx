@@ -37,6 +37,31 @@ const MultiSelectField: React.FC<MultiSelectFieldProps> = ({
       value={value}
       onChange={(selected) => onChange(selected as Option[] | null)}
       placeholder={placeholder}
+      styles={{
+        control: (provided) => ({
+          ...provided,
+          borderRadius: '6px',
+          borderColor: '#dee2e6',
+          boxShadow: 'none',
+          '&:hover': { borderColor: '#dee2e6' },
+        }),
+        multiValue: (provided) => ({
+          ...provided,
+          backgroundColor: '#f4f4f5',
+          borderRadius: '6px',
+        }),
+        menu: (provided) => ({
+          ...provided,
+          backgroundColor: '#fafafa',
+          borderRadius: '24px',
+        }),
+        option: (provided, state) => ({
+          ...provided,
+          backgroundColor: state.isFocused ? '#f4f4f5' : 'transparent',
+          color: '#333',
+          borderRadius: '24px',
+        }),
+      }}
     />
   </>
 );
