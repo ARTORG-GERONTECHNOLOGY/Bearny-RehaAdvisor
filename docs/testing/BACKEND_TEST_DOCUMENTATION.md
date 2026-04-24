@@ -896,4 +896,4 @@ def test_debug(db):
 **Last Updated**: 2024  
 **Test Count**: 40+ files, 200+ test functions  
 **Maintainers**: Development Team  
-**Related**: [CICD_TESTING_GUIDE.md](../CICD_TESTING_GUIDE.md), [TESTING_GUIDE.md](../TESTING_GUIDE.md)
+**Related**: [CICD_TESTING_GUIDE.md](./CICD_TESTING_GUIDE.md), [TESTING_GUIDE.md](../TESTING_GUIDE.md)

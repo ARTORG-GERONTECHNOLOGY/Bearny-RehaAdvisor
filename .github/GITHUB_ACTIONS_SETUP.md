@@ -559,8 +559,8 @@ gh run watch <run-id>
 
 - **Workflow Documentation:** [.github/workflows/README.md](.github/workflows/README.md)
 - **GitHub Actions Docs:** https://docs.github.com/en/actions
-- **Deployment Guide:** [PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)
-- **Quick Start:** [QUICKSTART_PRODUCTION.md](../../QUICKSTART_PRODUCTION.md)
+- **Deployment Guide:** [PRODUCTION_DEPLOYMENT.md](../../docs/deployment/PRODUCTION_DEPLOYMENT.md)
+- **Quick Start:** [QUICKSTART_PRODUCTION.md](../../docs/deployment/QUICKSTART_PRODUCTION.md)
 
 ---
 
