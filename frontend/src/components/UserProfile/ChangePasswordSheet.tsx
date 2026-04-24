@@ -1,5 +1,5 @@
 // src/components/UserProfile/ChangePasswordSheet.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
@@ -24,6 +24,18 @@ const ChangePasswordSheet: React.FC<Props> = observer(({ show, onCancel }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [localError, setLocalError] = useState('');
+
+  const reset = () => {
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setLocalError('');
+  };
+
+  // clear fields whenever the sheet is closed
+  useEffect(() => {
+    if (!show) reset();
+  }, [show]);
 
   const saving = userProfileStore.saving;
 
