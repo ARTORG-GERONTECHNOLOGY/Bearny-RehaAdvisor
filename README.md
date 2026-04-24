@@ -121,10 +121,11 @@ cd backend && pytest
 
 Complete testing documentation is available in these guides:
 
-- **[Master Testing Guide](MASTER_TESTING_GUIDE.md)** - Overview and quick reference for all testing
-- **[Frontend Testing Guide](FRONTEND_TEST_DOCUMENTATION.md)** - Jest, React Testing Library, component tests (45+ files)
-- **[Backend Testing Guide](BACKEND_TEST_DOCUMENTATION.md)** - Pytest, Django, model/view tests (40+ files)
-- **[CI/CD Testing Guide](CICD_TESTING_GUIDE.md)** - GitHub Actions, coverage reporting, deployment validation
+- **[Testing Hub](docs/TESTING.md)** - Canonical testing entry point
+- **[Master Testing Guide](docs/testing/MASTER_TESTING_GUIDE.md)** - Overview and quick reference for all testing
+- **[Frontend Testing Guide](docs/testing/FRONTEND_TEST_DOCUMENTATION.md)** - Jest, React Testing Library, component tests (45+ files)
+- **[Backend Testing Guide](docs/testing/BACKEND_TEST_DOCUMENTATION.md)** - Pytest, Django, model/view tests (40+ files)
+- **[CI/CD Testing Guide](docs/testing/CICD_TESTING_GUIDE.md)** - GitHub Actions, coverage reporting, deployment validation
 
 ### Test Coverage
 
@@ -190,3 +191,18 @@ Coverage reports are automatically uploaded to [Codecov](https://codecov.io/) fo
 - PR impact analysis
 - File-level coverage details
 - Coverage badges for README
+
+## Contributing
+
+- [Contributing Guidelines](docs/12-CONTRIBUTING.md)
+- [First Contribution Quickstart](docs/CONTRIBUTING_QUICKSTART.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security Policy](SECURITY.md)
+- [Contributors](CONTRIBUTORS.md)
+- [Project Changelog](CHANGELOG.md)
+
+## Deployment
+
+- [Deployment Hub](docs/DEPLOYMENT.md) - canonical deployment entry point
+- [Deployment Guide](docs/06-DEPLOYMENT_GUIDE.md)
+- [Production Deploy Runbook](docs/PRODUCTION_DEPLOY_RUNBOOK.md)
