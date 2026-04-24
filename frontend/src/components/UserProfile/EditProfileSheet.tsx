@@ -41,6 +41,13 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
   const [formData, setFormData] = useState<Record<string, any>>({ ...userData });
   const [error, setError] = useState<string>('');
 
+  useEffect(() => {
+    if (show) {
+      setFormData({ ...userData });
+      setError('');
+    }
+  }, [show, userData]);
+
   // --- Access change request sheet ---
   const [showAccessSheet, setShowAccessSheet] = useState(false);
   const [reqClinics, setReqClinics] = useState<string[]>([]);
