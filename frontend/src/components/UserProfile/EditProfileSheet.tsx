@@ -1,12 +1,11 @@
 // src/components/UserProfile/EditProfileSheet.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { Button } from '@/components/ui/button';
 import InputField from '@/components/forms/input/InputField';
-import { Label } from '@/components/ui/label';
+import MultiSelectField from '@/components/forms/input/MultiSelectField';
 import {
   Sheet,
   SheetContent,
@@ -186,7 +185,6 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
   const currentClinics: string[] = Array.isArray(userData.clinics) ? userData.clinics : [];
   const currentProjects: string[] = Array.isArray(userData.projects) ? userData.projects : [];
 
-  // TODO: create new components for uncovered input types
   return (
     <>
       <Sheet open={show} onOpenChange={handleOpenChange}>
@@ -211,27 +209,23 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
               {fields.map((field: any) => (
                 <React.Fragment key={field.be_name}>
                   {field.type === 'multi-select' ? (
-                    <>
-                      <Label htmlFor={field.be_name}>{t(field.label)}</Label>
-                      <Select
-                        id={field.be_name}
-                        inputId={field.be_name}
-                        isMulti
-                        isDisabled={saving}
-                        options={resolveOptions(field).map((opt: string) => ({
-                          value: opt,
-                          label: t(opt),
-                        }))}
-                        value={(Array.isArray(formData[field.be_name])
-                          ? formData[field.be_name]
-                          : []
-                        ).map((val: string) => ({ value: val, label: t(val) }))}
-                        onChange={(selected) =>
-                          handleMultiSelectChange(selected as any, field.be_name)
-                        }
-                        placeholder={t('Select...')}
-                      />
-                    </>
+                    <MultiSelectField
+                      id={field.be_name}
+                      label={t(field.label)}
+                      isDisabled={saving}
+                      options={resolveOptions(field).map((opt: string) => ({
+                        value: opt,
+                        label: t(opt),
+                      }))}
+                      value={(Array.isArray(formData[field.be_name])
+                        ? formData[field.be_name]
+                        : []
+                      ).map((val: string) => ({ value: val, label: t(val) }))}
+                      onChange={(selected) =>
+                        handleMultiSelectChange(selected as any, field.be_name)
+                      }
+                      placeholder={t('Select...')}
+                    />
                   ) : (
                     <InputField
                       id={field.be_name}
@@ -248,7 +242,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
               ))}
 
               {/* ── Clinic / Project: read-only display + request-change button ── */}
-              <Card className="bg-zinc-50">
+              <Card className="bg-zinc-50 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-6">
                   <div className="flex flex-col gap-2">
                     <div>
@@ -351,21 +345,19 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                 </div>
               )}
 
-              <div>
-                <Label>{t('Requested clinics')}</Label>
-                <Select
-                  isMulti
-                  isDisabled={reqSubmitting}
-                  options={allClinics.map((c) => ({ value: c, label: c }))}
-                  value={reqClinics.map((c) => ({ value: c, label: c }))}
-                  onChange={handleReqClinicsChange as any}
-                />
-              </div>
+              <MultiSelectField
+                id="req-clinics"
+                label={t('Requested clinics')}
+                isDisabled={reqSubmitting}
+                options={allClinics.map((c) => ({ value: c, label: c }))}
+                value={reqClinics.map((c) => ({ value: c, label: c }))}
+                onChange={handleReqClinicsChange as any}
+              />
 
               <div>
-                <Label>{t('Requested projects')}</Label>
-                <Select
-                  isMulti
+                <MultiSelectField
+                  id="req-projects"
+                  label={t('Requested projects')}
                   isDisabled={reqSubmitting}
                   options={allowedProjectsForReq.map((p) => ({ value: p, label: p }))}
                   value={reqProjects.map((p) => ({ value: p, label: p }))}
