@@ -33,7 +33,7 @@ export default function UserProfileSkeleton() {
         <Section>
           <div className="flex flex-col gap-2">
             <Skeleton className="h-14 w-full rounded-full" />
-            <Skeleton className="h-14 w-full rounded-full" />
+            <Skeleton className="h-7 w-full rounded-full" />
           </div>
         </Section>
       </div>

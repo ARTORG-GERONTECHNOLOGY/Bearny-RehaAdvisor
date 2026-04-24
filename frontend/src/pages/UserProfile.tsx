@@ -125,9 +125,10 @@ const UserProfile: React.FC = observer(() => {
           </Button>
 
           <Button
+            variant="ghost"
             disabled={userProfileStore.deleting}
             onClick={userProfileStore.openDelete}
-            className="bg-nok hover:bg-nok/90"
+            className="text-nok p-0 h-auto"
           >
             {t('Delete Account')}
           </Button>
