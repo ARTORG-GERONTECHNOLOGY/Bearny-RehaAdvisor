@@ -275,7 +275,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col gap-1">
                     <Button
                       type="button"
                       variant="secondary"

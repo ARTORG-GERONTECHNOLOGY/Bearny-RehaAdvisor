@@ -33,7 +33,7 @@ const ForgotPassword: React.FC = observer(() => {
           <span className="sr-only">{t('Back')}</span>
         </Button>
         <PageHeader title={t('ForgottenPassword')} />
-        <Card className="bg-white mt-2">
+        <Card className="bg-white max-w-lg mt-2">
           {store.success && (
             <Alert variant="success" className="text-center">
               {t('Passwordresetlinksent.Pleasecheckyouremail.')}
