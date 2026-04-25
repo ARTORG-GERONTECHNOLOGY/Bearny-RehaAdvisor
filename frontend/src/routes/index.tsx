@@ -1,4 +1,5 @@
 import { createElement, lazy, Suspense } from 'react';
+import type { ComponentType, LazyExoticComponent, ReactElement } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 import RootLayout from '@/RootLayout';
@@ -9,35 +10,62 @@ import PatientInterventionsLibrarySkeleton from '@/components/skeletons/PatientI
 import PatientProcessSkeleton from '@/components/skeletons/PatientProcessSkeleton';
 import PatientInterventionDetailSkeleton from '@/components/skeletons/PatientInterventionDetailSkeleton';
 import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleton';
+import UserProfileSkeleton from '@/components/skeletons/UserProfileSkeleton';
 import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndConditionsSkeleton';
 import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
 
-const Home = lazy(() => import('@/pages/Home'));
-const Therapist = lazy(() => import('@/pages/Therapist'));
-const UnauthorizedAccess = lazy(() => import('@/pages/UnauthorizedAccess'));
-const ForgottenPassword = lazy(() => import('@/pages/ForgottenPassword'));
-const UserProfile = lazy(() => import('@/pages/UserProfile'));
-const PatientView = lazy(() => import('@/pages/Patient'));
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
-const AddRecomendations = lazy(() => import('@/pages/AddInterventionView'));
-const AddPatient = lazy(() => import('@/pages/AddPatient'));
-const RehabTable = lazy(() => import('@/pages/RehabTable'));
-const TherapistRecomendations = lazy(() => import('@/pages/TherapistInterventions'));
-const ErrorPages = lazy(() => import('@/components/common/Error'));
-const HealthSlider = lazy(() => import('@/pages/eva'));
-const TermsAndConditions = lazy(() => import('@/pages/TermsAndConditions'));
-const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
-const SuccessPage = lazy(() => import('@/pages/SuccessPage'));
-const ErrorPage = lazy(() => import('@/pages/ErrorPage'));
-const HealthPage = lazy(() => import('@/pages/HealthPage'));
-const HelpPage = lazy(() => import('@/pages/Help'));
-const Eva = lazy(() => import('@/pages/eva2'));
-const HealthSliderDownloadsPage = lazy(() => import('@/pages/HealthSliderDownloadsPage'));
-const PatientInterventionsLibrary = lazy(() => import('@/pages/PatientInterventionsLibrary'));
-const PatientPlan = lazy(() => import('@/pages/PatientPlan'));
-const PatientProcess = lazy(() => import('@/pages/PatientProcess'));
-const PatientInterventionDetail = lazy(() => import('@/pages/PatientInterventionDetail'));
-const PatientProfile = lazy(() => import('@/pages/PatientProfile'));
+/**
+ * React.lazy wrapper for stale deploy chunks.
+ * If a dynamic import fails (old hashed asset URL), reload once to fetch
+ * fresh HTML/chunk paths. Uses sessionStorage to avoid reload loops.
+ */
+function lazyWithRetry(
+  fn: () => Promise<{ default: ComponentType<any> }>
+): LazyExoticComponent<ComponentType<any>> {
+  return lazy(() =>
+    fn().catch((error: unknown) => {
+      const key = 'chunk-load-reloaded';
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+        // Never resolves – the reload takes over
+        return new Promise<never>(() => {});
+      }
+      // Already reloaded once; clear flag and surface the real error
+      sessionStorage.removeItem(key);
+      throw error;
+    })
+  );
+}
+
+const Home = lazyWithRetry(() => import('@/pages/Home'));
+const Therapist = lazyWithRetry(() => import('@/pages/Therapist'));
+const UnauthorizedAccess = lazyWithRetry(() => import('@/pages/UnauthorizedAccess'));
+const ForgottenPassword = lazyWithRetry(() => import('@/pages/ForgottenPassword'));
+const UserProfile = lazyWithRetry(() => import('@/pages/UserProfile'));
+const PatientView = lazyWithRetry(() => import('@/pages/Patient'));
+const AdminDashboard = lazyWithRetry(() => import('@/pages/AdminDashboard'));
+const AddRecomendations = lazyWithRetry(() => import('@/pages/AddInterventionView'));
+const AddPatient = lazyWithRetry(() => import('@/pages/AddPatient'));
+const RehabTable = lazyWithRetry(() => import('@/pages/RehabTable'));
+const TherapistRecomendations = lazyWithRetry(() => import('@/pages/TherapistInterventions'));
+const ErrorPages = lazyWithRetry(() => import('@/components/common/Error'));
+const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
+const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
+const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
+const SuccessPage = lazyWithRetry(() => import('@/pages/SuccessPage'));
+const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
+const HealthPage = lazyWithRetry(() => import('@/pages/HealthPage'));
+const HelpPage = lazyWithRetry(() => import('@/pages/Help'));
+const Eva = lazyWithRetry(() => import('@/pages/eva2'));
+const HealthSliderDownloadsPage = lazyWithRetry(() => import('@/pages/HealthSliderDownloadsPage'));
+const PatientInterventionsLibrary = lazyWithRetry(
+  () => import('@/pages/PatientInterventionsLibrary')
+);
+const PatientPlan = lazyWithRetry(() => import('@/pages/PatientPlan'));
+const PatientProcess = lazyWithRetry(() => import('@/pages/PatientProcess'));
+const PatientInterventionDetail = lazyWithRetry(() => import('@/pages/PatientInterventionDetail'));
+const PatientProfile = lazyWithRetry(() => import('@/pages/PatientProfile'));
 
 // -------------------- Loading Fallback --------------------
 function LoadingFallback() {
@@ -45,10 +73,8 @@ function LoadingFallback() {
 }
 
 // helper to wrap lazy pages consistently (optionally pass a custom fallback)
-const withSuspense = (
-  el: React.ReactElement,
-  fallback: React.ReactElement = createElement(LoadingFallback)
-) => createElement(Suspense, { fallback }, el);
+const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(LoadingFallback)) =>
+  createElement(Suspense, { fallback }, el);
 
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
@@ -78,7 +104,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/userprofile',
-    element: withSuspense(createElement(RootLayout, { children: createElement(UserProfile) })),
+    element: withSuspense(
+      createElement(RootLayout, { children: createElement(UserProfile) }),
+      createElement(UserProfileSkeleton)
+    ),
   },
   {
     path: '/patient',

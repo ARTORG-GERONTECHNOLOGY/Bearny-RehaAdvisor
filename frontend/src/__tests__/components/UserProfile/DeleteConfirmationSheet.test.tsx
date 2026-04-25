@@ -1,36 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmation';
+import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmationSheet';
 import '@testing-library/jest-dom';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
 }));
 
-jest.mock('@/components/common/StandardModal', () => ({
-  __esModule: true,
-  default: ({ show, title, children, footer }: any) =>
-    show ? (
-      <div data-testid="modal">
-        <div data-testid="title">{title}</div>
-        <div>{children}</div>
-        <div>{footer}</div>
-      </div>
-    ) : null,
-}));
-
-jest.mock('react-bootstrap', () => ({
-  Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Spinner: () => <div data-testid="spinner" />,
-}));
-
 describe('DeleteConfirmation', () => {
   it('does not render when show is false', () => {
     render(<DeleteConfirmation show={false} handleClose={jest.fn()} handleConfirm={jest.fn()} />);
-    expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete Account')).not.toBeInTheDocument();
   });
 
   it('renders content and calls handleClose/handleConfirm', () => {
@@ -46,8 +25,7 @@ describe('DeleteConfirmation', () => {
       />
     );
 
-    expect(screen.getByTestId('modal')).toBeInTheDocument();
-    expect(screen.getByTestId('title')).toHaveTextContent('Delete Account');
+    expect(screen.getByRole('heading', { name: 'Delete Account' })).toBeInTheDocument();
     expect(
       screen.getByText(
         'Are you sure you want to delete your account? This action cannot be undone.'
@@ -61,12 +39,10 @@ describe('DeleteConfirmation', () => {
     expect(handleConfirm).toHaveBeenCalled();
   });
 
-  it('when loading, disables buttons and shows spinners/text', () => {
+  it('when loading, disables action buttons and shows loading label', () => {
     render(<DeleteConfirmation show handleClose={jest.fn()} handleConfirm={jest.fn()} isLoading />);
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Deleting...' })).toBeDisabled();
-    expect(screen.getAllByTestId('spinner').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Deleting account...')).toBeInTheDocument();
   });
 });

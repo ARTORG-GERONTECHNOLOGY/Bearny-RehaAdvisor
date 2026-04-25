@@ -7,6 +7,7 @@ import apiClient from '../../api/client';
 import config from '../../config/config.json';
 import { useTranslation } from 'react-i18next';
 import InfoBubble from '../common/InfoBubble';
+import { isValidEmail, isValidPhone } from '@/utils/validation';
 
 interface FormData {
   [key: string]: string | number | string[] | boolean;
@@ -300,14 +301,14 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       }
     });
 
-    if (formData.phone && !/^\d{8,15}$/.test(formData.phone as string)) {
-      newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
+    if (formData.phone && !isValidPhone(formData.phone as string)) {
+      newErrors.phone = t('Invalid phone number format.');
     }
 
     if (
       formData.email &&
       currentStep.fields.some((f: any) => f.name === 'email') &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email as string)
+      !isValidEmail(formData.email as string)
     ) {
       newErrors.email = t('Invalid email format.');
     }
