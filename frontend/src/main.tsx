@@ -12,14 +12,29 @@ const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
+    enableLogs: true,
     sendDefaultPii: true,
     tracesSampleRate: 1.0,
-    integrations: [Sentry.browserTracingIntegration()],
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.feedbackIntegration({
+        colorScheme: 'light',
+      }),
+    ],
   });
 }
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+const root = createRoot(container!, {
+  // Callback called when an error is thrown and not caught by an ErrorBoundary.
+  onUncaughtError: Sentry.reactErrorHandler((error, errorInfo) => {
+    console.warn('Uncaught error', error, errorInfo.componentStack);
+  }),
+  // Callback called when React catches an error in an ErrorBoundary.
+  onCaughtError: Sentry.reactErrorHandler(),
+  // Callback called when React automatically recovers from errors.
+  onRecoverableError: Sentry.reactErrorHandler(),
+});
 
 root.render(
   <React.StrictMode>
