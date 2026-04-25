@@ -6,42 +6,41 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
-import WelcomeArea from '../components/common/WelcomeArea';
-import ErrorAlert from '../components/common/ErrorAlert';
-import ImportInterventionsModal from '../components/TherapistInterventionPage/ImportInterventionsModal';
+import WelcomeArea from '@/components/common/WelcomeArea';
+import ErrorAlert from '@/components/common/ErrorAlert';
+import ImportInterventionsModal from '@/components/TherapistInterventionPage/ImportInterventionsModal';
 
-import ProductPopup from '../components/TherapistInterventionPage/ProductPopup';
-import AddInterventionPopup from '../components/AddIntervention/AddRecomendationPopUp'; // ✅ use the updated manual creation popup
+import ProductPopup from '@/components/TherapistInterventionPage/ProductPopup';
+import AddInterventionPopup from '@/components/AddIntervention/AddRecomendationPopUp';
 
-import TemplateAssignModal from '../components/TherapistInterventionPage/TemplateAssignModal';
-import TemplateTimeline from '../components/TherapistInterventionPage/TemplateTimeline';
+import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
+import TemplateTimeline from '@/components/TherapistInterventionPage/TemplateTimeline';
 
-import authStore from '../stores/authStore';
-import { therapistInterventionsLibraryStore } from '../stores/interventionsLibraryStore';
-import templateStore from '../stores/templateStore';
-import ApplyTemplateModal from '../components/TherapistInterventionPage/ApplyTemplateModal';
+import authStore from '@/stores/authStore';
+import { therapistInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import templateStore from '@/stores/templateStore';
+import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
 
-import config from '../config/config.json';
-import apiClient from '../api/client';
+import config from '@/config/config.json';
+import apiClient from '@/api/client';
 
-import { filterInterventions } from '../utils/filterUtils';
-import { generateTagColors, getTaxonomyTags } from '../utils/interventions';
-import { translateText } from '../utils/translate';
+import { filterInterventions } from '@/utils/filterUtils';
+import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
+import { translateText } from '@/utils/translate';
 
-import type { TemplateItem, TemplatePayload } from '../types/templates';
-import type { InterventionTypeTh } from '../types';
+import type { TemplateItem, TemplatePayload } from '@/types/templates';
+import type { InterventionTypeTh } from '@/types';
 
-import MainTabs from '../components/TherapistInterventionPage/MainTabs';
+import MainTabs from '@/components/TherapistInterventionPage/MainTabs';
 import LibraryFiltersCard, {
   LibraryFiltersState,
-} from '../components/TherapistInterventionPage/LibraryFiltersCard';
-import LibraryListSection from '../components/TherapistInterventionPage/LibraryListSection';
-import AddInterventionRow from '../components/TherapistInterventionPage/AddInterventionRow';
+} from '@/components/TherapistInterventionPage/LibraryFiltersCard';
+import LibraryListSection from '@/components/TherapistInterventionPage/LibraryListSection';
+import AddInterventionRow from '@/components/TherapistInterventionPage/AddInterventionRow';
 import TemplatesLayout, {
   TemplatesFiltersState,
-} from '../components/TherapistInterventionPage/TemplatesLayout';
+} from '@/components/TherapistInterventionPage/TemplatesLayout';
+import Layout from '@/components/Layout';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -206,7 +205,6 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── computed data ───────────────────────────
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
-  const patientTypes = authStore.specialisations; // observer() => reactive
 
   const diagnoses = useMemo(
     () =>
@@ -723,12 +721,10 @@ const TherapistRecomendations: React.FC = observer(() => {
   const loading = therapistInterventionsLibraryStore.loading;
 
   return (
-    <div className="therapist-view-container">
-      <Header isLoggedIn />
+    <Layout>
+      <WelcomeArea user="therapist" />
 
       <Container className="main-content mt-4">
-        <WelcomeArea user="TherapistPatients" />
-
         {error && (
           <ErrorAlert
             message={error}
@@ -1312,9 +1308,7 @@ const TherapistRecomendations: React.FC = observer(() => {
           </Button>
         </Modal.Footer>
       </Modal>
-
-      <Footer />
-    </div>
+    </Layout>
   );
 });
 
