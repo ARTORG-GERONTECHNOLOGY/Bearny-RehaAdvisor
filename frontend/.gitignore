@@ -25,3 +25,6 @@ test-results
 *.sln
 *.sw?
 src/config/config.json
+
+# Sentry Config File
+.env.sentry-build-plugin
