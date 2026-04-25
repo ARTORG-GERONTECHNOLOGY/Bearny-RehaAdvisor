@@ -57,8 +57,7 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
 }));
 
 // Child component mocks
-jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
+jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
 jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
 jest.mock('@/components/TherapistInterventionPage/ProductPopup', () => (props) => (
   <div>
@@ -288,10 +287,9 @@ describe('TherapistInterventions Page', () => {
         <TherapistInterventions />
       </MemoryRouter>
     );
-    expect(screen.getByText('Mock Header')).toBeInTheDocument();
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
     expect(screen.getByText('Mocked Welcome Area')).toBeInTheDocument();
     expect(await screen.findByText('Stretching for 30 minutes')).toBeInTheDocument();
-    expect(screen.getByText('Mock Footer')).toBeInTheDocument();
   });
 
   test('fetches and renders interventions', async () => {
