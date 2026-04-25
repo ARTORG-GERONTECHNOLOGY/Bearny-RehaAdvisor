@@ -29,7 +29,7 @@ const Home: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-back">
-      <HomeIllustration className="ml-auto md:absolute right-0 top-28 md:top-1/4" />
+      <HomeIllustration className="ml-auto md:absolute md:right-0 md:top-28" />
 
       {/* HERO */}
       <main className="flex-1 flex items-center py-8">
