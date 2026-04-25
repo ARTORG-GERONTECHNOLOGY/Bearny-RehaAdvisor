@@ -1,33 +1,30 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { Container, Row, Col } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
+import Card from '@/components/Card';
+import Layout from '@/components/Layout';
 
 const ErrorPage: React.FC = () => {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
   const { t } = useTranslation();
+  const error = useRouteError();
 
-  const message =
-    queryParams.get('message') ||
-    t('There was a problem connecting your Fitbit account. Please try again.');
+  let message = t('Something went wrong. Please try again later.');
+
+  if (isRouteErrorResponse(error)) {
+    message = error.statusText || message;
+  } else if (error instanceof Error) {
+    message = error.message;
+  }
 
   return (
-    <main className="d-flex flex-column justify-content-center align-items-center min-vh-100 px-3">
-      <Container>
-        <Row className="justify-content-center text-center">
-          <Col xs={12} sm={10} md={8} lg={6}>
-            <section className="p-4">
-              <h1 className="text-danger display-5 mb-3" aria-label="Error">
-                ⚠️ {t('Error')}
-              </h1>
-              <p className="lead text-break">{message}</p>
-              <p className="text-muted mt-3">{t('Please close this window and try again.')}</p>
-            </section>
-          </Col>
-        </Row>
-      </Container>
-    </main>
+    <Layout>
+      <Card className="bg-white">
+        <h1 className="font-bold text-nok" aria-label="Error">
+          {t('Error')}
+        </h1>
+        <div>{message}</div>
+      </Card>
+    </Layout>
   );
 };
 
