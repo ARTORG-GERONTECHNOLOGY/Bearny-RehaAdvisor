@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Container, Form } from 'react-bootstrap';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import authStore from '../stores/authStore';
@@ -13,6 +11,7 @@ import interventionsConfig from '../config/interventions.json';
 import axios from 'axios';
 import PatientTypeSection from '../components/AddIntervention/PatientTypeSection';
 import InterventionFormFileInputs from '../components/AddIntervention/InterventionFormFileInputs';
+import Layout from '@/components/Layout';
 
 const VALID_FORMAT_CODES = new Set(['vid', 'img', 'pdf', 'web', 'aud', 'app', 'br', 'gfx']);
 
@@ -188,188 +187,187 @@ const AddInterventionView: React.FC = observer(() => {
   };
 
   return (
-    <div className="d-flex flex-column vh-100 overflow-auto">
-      <Header isLoggedIn={!!authStore.userType} />
+    <Layout>
+      <div className="d-flex flex-column">
+        <Container className="flex-grow-1 d-flex justify-content-center align-items-center">
+          <div className="main-content p-5" style={{ maxWidth: 650, width: '100%' }}>
+            <h2 className="mb-4 text-center">{t('AddNewIntervention')}</h2>
 
-      <Container className="flex-grow-1 d-flex justify-content-center align-items-center">
-        <div className="main-content p-5" style={{ maxWidth: 650, width: '100%' }}>
-          <h2 className="mb-4 text-center">{t('AddNewIntervention')}</h2>
+            <div ref={alertRef}>
+              {error && <Alert variant="danger">{error}</Alert>}
+              {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
+            </div>
 
-          <div ref={alertRef}>
-            {error && <Alert variant="danger">{error}</Alert>}
-            {success && <Alert variant="success">{t('Interventionsuccessfullyadded')}</Alert>}
-          </div>
+            <Form onSubmit={handleSubmit}>
+              <Form.Group controlId="title">
+                <Form.Label>{t('InterventionTitle')}</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder={t('Enterrecommendationtitle')}
+                  value={formData.title}
+                  onChange={handleChange}
+                  required
+                />
+              </Form.Group>
 
-          <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="title">
-              <Form.Label>{t('InterventionTitle')}</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder={t('Enterrecommendationtitle')}
-                value={formData.title}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
+              <Form.Group controlId="description" className="mt-3">
+                <Form.Label>{t('Description')}</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  placeholder={t('Enterdescription')}
+                  value={formData.description}
+                  onChange={handleChange}
+                  required
+                />
+              </Form.Group>
 
-            <Form.Group controlId="description" className="mt-3">
-              <Form.Label>{t('Description')}</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder={t('Enterdescription')}
-                value={formData.description}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
+              <Form.Group controlId="duration" className="mt-3">
+                <Form.Label>
+                  {t('Duration')} ({t('minutes')})
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  min={1}
+                  value={formData.duration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      duration: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                  required
+                />
+              </Form.Group>
 
-            <Form.Group controlId="duration" className="mt-3">
-              <Form.Label>
-                {t('Duration')} ({t('minutes')})
-              </Form.Label>
-              <Form.Control
-                type="number"
-                min={1}
-                value={formData.duration}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    duration: Math.max(1, parseInt(e.target.value) || 1),
-                  }))
-                }
-                required
-              />
-            </Form.Group>
+              <Form.Group controlId="contentType" className="mt-3">
+                <Form.Label>{t('ContentType')}</Form.Label>
+                <Form.Control
+                  as="select"
+                  value={formData.contentType}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">{t('SelectContentType')}</option>
+                  {config.RecomendationInfo.types.map((type: string) => (
+                    <option key={type} value={type}>
+                      {t(type)}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
 
-            <Form.Group controlId="contentType" className="mt-3">
-              <Form.Label>{t('ContentType')}</Form.Label>
-              <Form.Control
-                as="select"
-                value={formData.contentType}
-                onChange={handleChange}
-                required
-              >
-                <option value="">{t('SelectContentType')}</option>
-                {config.RecomendationInfo.types.map((type: string) => (
-                  <option key={type} value={type}>
-                    {t(type)}
-                  </option>
-                ))}
-              </Form.Control>
-            </Form.Group>
+              <Form.Group controlId="externalId" className="mt-3">
+                <Form.Label>{t('ID')}</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="3500_web"
+                  value={formData.externalId}
+                  onChange={handleChange}
+                  isInvalid={!!formData.externalId && !!validateExternalId(formData.externalId)}
+                />
+                <Form.Text className="text-muted">
+                  {t('ID format')}
+                  {': '}
+                  <code>3500_web</code> {t('(original)')} / <code>30500_vid</code>{' '}
+                  {t('(self-made)')}
+                  {' — '}
+                  <code>vid, img, gfx, pdf, br, web, aud, app</code>
+                </Form.Text>
+                {formData.externalId && (
+                  <Form.Control.Feedback type="invalid">
+                    {validateExternalId(formData.externalId)}
+                  </Form.Control.Feedback>
+                )}
+              </Form.Group>
 
-            <Form.Group controlId="externalId" className="mt-3">
-              <Form.Label>{t('ID')}</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="3500_web"
-                value={formData.externalId}
-                onChange={handleChange}
-                isInvalid={!!formData.externalId && !!validateExternalId(formData.externalId)}
-              />
-              <Form.Text className="text-muted">
-                {t('ID format')}
-                {': '}
-                <code>3500_web</code> {t('(original)')} / <code>30500_vid</code> {t('(self-made)')}
-                {' — '}
-                <code>vid, img, gfx, pdf, br, web, aud, app</code>
-              </Form.Text>
-              {formData.externalId && (
-                <Form.Control.Feedback type="invalid">
-                  {validateExternalId(formData.externalId)}
-                </Form.Control.Feedback>
-              )}
-            </Form.Group>
-
-            <Form.Group controlId="language" className="mt-3">
-              <Form.Label>{t('Language')}</Form.Label>
-              <Form.Select id="language" value={formData.language} onChange={handleChange}>
-                <option value="">{t('SelectType')}</option>
-                {LANGUAGES.map((l) => (
-                  <option key={l.value} value={l.value}>
-                    {l.label}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            {AIMS.length > 0 && (
-              <Form.Group controlId="aim" className="mt-3">
-                <Form.Label>{t('Aim')}</Form.Label>
-                <Form.Select id="aim" value={formData.aim} onChange={handleChange}>
-                  <option value="">{t('SelectAim')}</option>
-                  {AIMS.map((a) => (
-                    <option key={a} value={a}>
-                      {t(a)}
+              <Form.Group controlId="language" className="mt-3">
+                <Form.Label>{t('Language')}</Form.Label>
+                <Form.Select id="language" value={formData.language} onChange={handleChange}>
+                  <option value="">{t('SelectType')}</option>
+                  {LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
                     </option>
                   ))}
                 </Form.Select>
               </Form.Group>
-            )}
 
-            {diagnoses.length > 0 && (
-              <Form.Group className="mt-3">
-                <Form.Label>{t('Diagnosis')}</Form.Label>
-                <div className="border rounded p-2" style={{ maxHeight: 160, overflowY: 'auto' }}>
-                  {diagnoses.map((d: string) => (
-                    <Form.Check
-                      key={d}
-                      id={`pd-${d}`}
-                      label={t(d)}
-                      checked={formData.primaryDiagnosis.includes(d)}
-                      onChange={() => handlePrimaryDiagnosisChange(d)}
-                    />
-                  ))}
-                </div>
-                <Form.Text className="text-muted">{t('SelectDiagnosis')}</Form.Text>
+              {AIMS.length > 0 && (
+                <Form.Group controlId="aim" className="mt-3">
+                  <Form.Label>{t('Aim')}</Form.Label>
+                  <Form.Select id="aim" value={formData.aim} onChange={handleChange}>
+                    <option value="">{t('SelectAim')}</option>
+                    {AIMS.map((a) => (
+                      <option key={a} value={a}>
+                        {t(a)}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              )}
+
+              {diagnoses.length > 0 && (
+                <Form.Group className="mt-3">
+                  <Form.Label>{t('Diagnosis')}</Form.Label>
+                  <div className="border rounded p-2" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                    {diagnoses.map((d: string) => (
+                      <Form.Check
+                        key={d}
+                        id={`pd-${d}`}
+                        label={t(d)}
+                        checked={formData.primaryDiagnosis.includes(d)}
+                        onChange={() => handlePrimaryDiagnosisChange(d)}
+                      />
+                    ))}
+                  </div>
+                  <Form.Text className="text-muted">{t('SelectDiagnosis')}</Form.Text>
+                </Form.Group>
+              )}
+
+              <Form.Group controlId="link" className="mt-3">
+                <Form.Label>{t('Link')}</Form.Label>
+                <Form.Control
+                  type="url"
+                  placeholder={t('Enterbloglink')}
+                  value={formData.link}
+                  onChange={handleChange}
+                />
               </Form.Group>
-            )}
 
-            <Form.Group controlId="link" className="mt-3">
-              <Form.Label>{t('Link')}</Form.Label>
-              <Form.Control
-                type="url"
-                placeholder={t('Enterbloglink')}
-                value={formData.link}
-                onChange={handleChange}
+              <InterventionFormFileInputs
+                show={formData.contentType !== 'app'}
+                onFileChange={handleFileChange}
+                key={formData.mediaFile ? formData.mediaFile.name : 'fileinput'}
               />
-            </Form.Group>
 
-            <InterventionFormFileInputs
-              show={formData.contentType !== 'app'}
-              onFileChange={handleFileChange}
-              key={formData.mediaFile ? formData.mediaFile.name : 'fileinput'}
-            />
+              <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
 
-            <h5 className="mt-4">{t('PatientTypeandFrequency')}</h5>
+              <PatientTypeSection
+                types={formData.patientTypes}
+                diagnoses={diagnoses}
+                onChange={handlePatientTypeChange}
+              />
 
-            <PatientTypeSection
-              types={formData.patientTypes}
-              diagnoses={diagnoses}
-              onChange={handlePatientTypeChange}
-            />
-
-            <Button
-              variant="link"
-              className="mt-3"
-              onClick={addPatientType}
-              aria-label="Add another patient type"
-            >
-              <FaPlus /> {t('AddAnotherPatientType')}
-            </Button>
-
-            {!success && (
-              <Button type="submit" className="mt-4 w-100" disabled={isSubmitting}>
-                {isSubmitting ? t('Submitting...') : t('Submit')}
+              <Button
+                variant="link"
+                className="mt-3"
+                onClick={addPatientType}
+                aria-label="Add another patient type"
+              >
+                <FaPlus /> {t('AddAnotherPatientType')}
               </Button>
-            )}
-          </Form>
-        </div>
-      </Container>
 
-      <Footer />
-    </div>
+              {!success && (
+                <Button type="submit" className="mt-4 w-100" disabled={isSubmitting}>
+                  {isSubmitting ? t('Submitting...') : t('Submit')}
+                </Button>
+              )}
+            </Form>
+          </div>
+        </Container>
+      </div>
+    </Layout>
   );
 });
 
