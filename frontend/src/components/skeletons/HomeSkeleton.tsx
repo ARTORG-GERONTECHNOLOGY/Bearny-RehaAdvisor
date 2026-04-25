@@ -1,31 +1,27 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import Container from '@/components/Container';
 
 export default function HomeSkeleton() {
   return (
-    <div className="d-flex flex-column min-vh-100 bg-back">
-      {/* Header placeholder */}
-      <div className="d-flex align-items-center px-4 py-3 border-bottom bg-white">
-        <Skeleton className="h-8 w-32" />
-        <div className="ms-auto">
-          <Skeleton className="h-8 w-24" />
-        </div>
-      </div>
-
-      {/* Hero placeholder */}
-      <div className="flex-grow-1 d-flex align-items-center py-5">
-        <div className="container-md px-4 px-sm-5">
-          <div className="d-flex flex-column gap-3" style={{ maxWidth: '480px' }}>
+    <div className="flex flex-col min-h-screen bg-back">
+      <main className="flex-1 flex items-center py-8">
+        <Container>
+          <div className="flex flex-col gap-3 text-center items-center md:text-start md:items-start w-full md:w-1/2">
+            {/* h1 headline */}
             <Skeleton className="h-10 w-3/4" />
+            {/* h2 subheadline */}
+            <Skeleton className="h-6 w-2/3" />
+            {/* body copy */}
             <Skeleton className="h-5 w-full" />
-            <Skeleton className="h-5 w-5/6" />
-            <Skeleton className="h-12 w-36 mt-2" />
-            <Skeleton className="h-5 w-48" />
+            {/* Login button */}
+            <Skeleton className="h-10 w-36 mt-2" />
+            {/* Register link */}
+            <Skeleton className="h-4 w-48" />
           </div>
-        </div>
-      </div>
+        </Container>
+      </main>
 
-      {/* Footer placeholder */}
-      <div className="d-flex align-items-center justify-content-center px-4 py-3 border-top bg-white">
+      <div className="flex items-center justify-center px-4 py-3 border-t bg-white">
         <Skeleton className="h-4 w-48" />
       </div>
     </div>
