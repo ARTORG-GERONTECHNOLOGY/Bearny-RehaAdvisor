@@ -17,17 +17,18 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
-import WelcomeArea from '@/components/common/WelcomeArea';
-import PatientPopup from '@/components/TherapistPatientPage/PatientPopup';
-import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';
-import ImportFromRedcapModal from '@/components/TherapistPatientPage/ImportFromRedcapModal';
-import Layout from '@/components/Layout';
+import Header from '../components/common/Header';
+import Footer from '../components/common/Footer';
+import WelcomeArea from '../components/common/WelcomeArea';
+import PatientPopup from '../components/TherapistPatientPage/PatientPopup';
+import AddPatientPopup from '../components/AddPatient/AddPatientPopUp';
+import ImportFromRedcapModal from '../components/TherapistPatientPage/ImportFromRedcapModal';
 
-import authStore from '@/stores/authStore';
-import config from '@/config/config.json';
+import authStore from '../stores/authStore';
+import config from '../config/config.json';
 
-import { TherapistPatientsStore, SortKey, RedcapCandidate } from '@/stores/therapistPatientsStore';
-import type { PatientType } from '@/types';
+import { TherapistPatientsStore, SortKey, RedcapCandidate } from '../stores/therapistPatientsStore';
+import type { PatientType } from '../types';
 
 // -------------------- local, typed helpers (no any) --------------------
 
@@ -652,345 +653,347 @@ const Therapist: React.FC = observer(() => {
   );
 
   return (
-    <Layout>
-      <WelcomeArea user="therapist" />
+    <div className="d-flex flex-column min-vh-100">
+      <Header isLoggedIn={authStore.isAuthenticated} />
+      <Container className="main-content mt-4">
+        <WelcomeArea user="Therapist" />
 
-      <div className="d-flex flex-column mt-4">
-        <Container>
-          {store.error && (
-            <Row className="mb-3">
-              <Col>
-                <div className="alert alert-danger d-flex justify-content-between align-items-start">
-                  <div>
-                    <div>{store.error}</div>
-                    {store.showErrorDetails && store.errorDetails && (
-                      <pre
-                        className="bg-light p-2 mt-2 border rounded small"
-                        style={{ whiteSpace: 'pre-wrap' }}
-                      >
-                        {store.errorDetails}
-                      </pre>
-                    )}
-                  </div>
-                  <div className="ms-3 d-flex flex-column gap-2 align-items-end">
-                    {store.errorDetails && (
-                      <Button size="sm" variant="outline-light" onClick={store.toggleErrorDetails}>
-                        {store.showErrorDetails
-                          ? String(t('Hide details'))
-                          : String(t('Show details'))}
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="light"
-                      onClick={() => store.fetchPatients(t)}
-                      disabled={store.loading}
-                    >
-                      {store.loading ? String(t('Loading...')) : String(t('Retry'))}
-                    </Button>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          )}
-
+        {store.error && (
           <Row className="mb-3">
-            <Col className="d-flex gap-2 flex-wrap">
-              <Button onClick={store.openAddPatient} disabled={store.loading}>
-                {String(t('Add a New Patient'))}
-              </Button>
-
-              <Button
-                variant="outline-primary"
-                onClick={async () => {
-                  store.openImportRedcap();
-                  await store.fetchRedcapCandidates(t);
-                }}
-                disabled={store.loading}
-              >
-                {String(t('Import from REDCap'))}
-              </Button>
+            <Col>
+              <div className="alert alert-danger d-flex justify-content-between align-items-start">
+                <div>
+                  <div>{store.error}</div>
+                  {store.showErrorDetails && store.errorDetails && (
+                    <pre
+                      className="bg-light p-2 mt-2 border rounded small"
+                      style={{ whiteSpace: 'pre-wrap' }}
+                    >
+                      {store.errorDetails}
+                    </pre>
+                  )}
+                </div>
+                <div className="ms-3 d-flex flex-column gap-2 align-items-end">
+                  {store.errorDetails && (
+                    <Button size="sm" variant="outline-light" onClick={store.toggleErrorDetails}>
+                      {store.showErrorDetails
+                        ? String(t('Hide details'))
+                        : String(t('Show details'))}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="light"
+                    onClick={() => store.fetchPatients(t)}
+                    disabled={store.loading}
+                  >
+                    {store.loading ? String(t('Loading...')) : String(t('Retry'))}
+                  </Button>
+                </div>
+              </div>
             </Col>
           </Row>
-
-          <Card className="mb-3">
-            <Card.Body>
-              <Row className="g-3">
-                <Col xs={12} md={3}>
-                  <Form.Control
-                    type="text"
-                    placeholder={String(t('Search by name, ID or username'))}
-                    value={store.searchTerm}
-                    onChange={(e) => store.setSearchTerm(e.target.value)}
-                  />
-                </Col>
-
-                <Col xs={12} md={3}>
-                  <Form.Control
-                    type="date"
-                    value={store.birthdateFilter}
-                    onChange={(e) => store.setBirthdateFilter(e.target.value)}
-                    aria-label={String(t('Filter by Birth Date'))}
-                  />
-                </Col>
-
-                <Col xs={12} md={3}>
-                  <Form.Select
-                    value={store.sexFilter}
-                    onChange={(e) => store.setSexFilter(e.target.value)}
-                  >
-                    <option value="">{String(t('Filter by Sex'))}</option>
-                    {sexOptions.map((sex) => (
-                      <option key={sex} value={sex}>
-                        {String(t(sex))}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-
-                <Col xs={12} md={3}>
-                  <Form.Select
-                    value={store.durationFilter}
-                    onChange={(e) => store.setDurationFilter(e.target.value)}
-                  >
-                    <option value="">{String(t('Filter by Duration'))}</option>
-                    {durationOptions.map((duration) => (
-                      <option key={duration} value={duration}>
-                        {String(t(duration))}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-              </Row>
-
-              <Row className="mt-3 align-items-center">
-                <Col xs={12} md={3}>
-                  <Form.Select
-                    value={store.diseaseFilter}
-                    onChange={(e) => store.setDiseaseFilter(e.target.value)}
-                  >
-                    <option value="">{String(t('Filter by Disease'))}</option>
-                    {store.diseaseOptions.map((d) => (
-                      <option key={d} value={d}>
-                        {String(t(d))}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-
-                <Col xs={12} md={6}>
-                  <Form.Label className="me-2">{String(t('Sort by'))}</Form.Label>
-                  <Form.Select
-                    aria-label="Sort by"
-                    value={store.sortBy}
-                    onChange={(e) => store.setSortBy(e.target.value as SortKey)}
-                    style={{ maxWidth: 320, display: 'inline-block' }}
-                  >
-                    <option value="ampel">{String(t('Performance'))}</option>
-                    <option value="created">{String(t('Newest created'))}</option>
-                    <option value="last_login">{String(t('Last login (recent first)'))}</option>
-                    <option value="adherence">{String(t('Adherence (high → low)'))}</option>
-                    <option value="health">{String(t('Health (best → worst)'))}</option>
-                    <option value="feedback">{String(t('Feedback (worst → best)'))}</option>
-                  </Form.Select>
-                </Col>
-
-                <Col className="d-flex flex-wrap gap-3 justify-content-end">
-                  <Button variant="outline-secondary" onClick={store.resetFilters}>
-                    {String(t('Reset filters'))}
-                  </Button>
-                </Col>
-
-                <Col className="d-flex flex-wrap gap-3 justify-content-end">
-                  <Form.Check
-                    type="switch"
-                    id="toggle-completed"
-                    label={String(t('Show completed'))}
-                    checked={store.showCompleted}
-                    onChange={(e) => store.setShowCompleted(e.currentTarget.checked)}
-                  />
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-
-          <h5 className="mb-2">
-            {String(t('Active patients'))} ({activePatients.length})
-          </h5>
-
-          <Table responsive hover className="align-middle">
-            <thead>
-              <tr>
-                <th>{String(t('Patient ID'))}</th>
-                <th>{String(t('Full Name'))}</th>
-                <th>{String(t('Birth Date'))}</th>
-                <th>{String(t('Sex'))}</th>
-                <th>{String(t('Diagnosis_patient_list'))}</th>
-                <th>{String(t('Status'))}</th>
-                <th className="text-end">{String(t('Actions'))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activePatients.map((p) => {
-                const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                const diagnosis = Array.isArray(p.diagnosis)
-                  ? p.diagnosis.join(', ')
-                  : String(p.diagnosis || '');
-                const patientId = getPatientIdStr(p);
-                const mongoId = getPatientMongoId(p);
-
-                return (
-                  <tr key={mongoId || patientId}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
-                    <td>{fullName}</td>
-                    <td>{fmtDate(String(p.age || ''))}</td>
-                    <td>{String(t(p.sex))}</td>
-                    <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                    <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
-                    <td className="text-end">
-                      <div className="d-flex justify-content-end gap-2 flex-wrap">
-                        <Button size="sm" variant="success" onClick={() => store.openPatient(p)}>
-                          {String(t('Info'))}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleRehabButton(mongoId, fullName, patientId)}
-                        >
-                          {String(t('Rehabilitation Plan'))}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => handleProgressButton(mongoId, fullName, patientId)}
-                        >
-                          {String(t('Outcomes Dashboard'))}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {activePatients.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
-                    {store.loading
-                      ? String(t('Loading patients...'))
-                      : String(t('No active patients'))}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-
-          <Collapse in={store.showCompleted}>
-            <div>
-              <h5 className="mt-4 mb-2">
-                {String(t('Completed'))} ({completedPatients.length})
-              </h5>
-
-              <Table responsive hover className="align-middle">
-                <thead>
-                  <tr>
-                    <th>{String(t('Patient ID'))}</th>
-                    <th>{String(t('Full Name'))}</th>
-                    <th>{String(t('Birth Date'))}</th>
-                    <th>{String(t('Sex'))}</th>
-                    <th>{String(t('Diagnosis'))}</th>
-                    <th>{String(t('Status'))}</th>
-                    <th className="text-end">{String(t('Actions'))}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {completedPatients.map((p) => {
-                    const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                    const diagnosis = Array.isArray(p.diagnosis)
-                      ? p.diagnosis.join(', ')
-                      : String(p.diagnosis || '');
-                    const extra = getPatientExtra(p);
-                    const endDate = getIsoMaybe(extra.rehab_end_date);
-                    const patientId = getPatientIdStr(p);
-                    const mongoId = getPatientMongoId(p);
-
-                    return (
-                      <tr key={mongoId || patientId} className="completed-row">
-                        <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
-                        <td>
-                          {fullName}{' '}
-                          <Badge bg="success" className="ms-2">
-                            {String(t('Completed'))}
-                          </Badge>
-                          {endDate && (
-                            <small className="text-muted ms-2">
-                              {String(t('Discharged'))}: {fmtDate(endDate)}
-                            </small>
-                          )}
-                        </td>
-                        <td>{fmtDate(String(p.age || ''))}</td>
-                        <td>{String(t(p.sex))}</td>
-                        <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                        <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
-                        <td className="text-end">
-                          <div className="d-flex justify-content-end gap-2 flex-wrap">
-                            <Button
-                              size="sm"
-                              variant="outline-secondary"
-                              onClick={() => store.openPatient(p)}
-                            >
-                              {String(t('Info'))}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline-primary"
-                              onClick={() => handleProgressButton(mongoId, fullName, patientId)}
-                            >
-                              {String(t('Outcomes Dashboard'))}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {completedPatients.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center text-muted py-4">
-                        {String(t('No completed patients'))}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-            </div>
-          </Collapse>
-        </Container>
-
-        {store.selectedPatient && (
-          <PatientPopup
-            patient_id={store.selectedPatient}
-            show={store.showPatientPopup}
-            handleClose={store.closePatient}
-          />
         )}
 
-        <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />
+        <Row className="mb-3">
+          <Col className="d-flex gap-2 flex-wrap">
+            <Button onClick={store.openAddPatient} disabled={store.loading}>
+              {String(t('Add a New Patient'))}
+            </Button>
 
-        <ImportFromRedcapModal
-          show={store.showImportRedcapModal}
-          onHide={store.closeImportRedcap}
-          loading={store.redcapLoading}
-          error={store.redcapError || ''}
-          candidates={store.redcapCandidates ?? []}
-          rowPasswords={store.redcapRowPasswords ?? {}}
-          setRowPassword={store.setRedcapRowPassword}
-          importingKey={store.importingKey}
-          importedKeys={store.importedKeys ?? {}}
-          onRefresh={() => store.fetchRedcapCandidates(t)}
-          onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
+            <Button
+              variant="outline-primary"
+              onClick={async () => {
+                store.openImportRedcap();
+                await store.fetchRedcapCandidates(t);
+              }}
+              disabled={store.loading}
+            >
+              {String(t('Import from REDCap'))}
+            </Button>
+          </Col>
+        </Row>
+
+        <Card className="mb-3">
+          <Card.Body>
+            <Row className="g-3">
+              <Col xs={12} md={3}>
+                <Form.Control
+                  type="text"
+                  placeholder={String(t('Search by name, ID or username'))}
+                  value={store.searchTerm}
+                  onChange={(e) => store.setSearchTerm(e.target.value)}
+                />
+              </Col>
+
+              <Col xs={12} md={3}>
+                <Form.Control
+                  type="date"
+                  value={store.birthdateFilter}
+                  onChange={(e) => store.setBirthdateFilter(e.target.value)}
+                  aria-label={String(t('Filter by Birth Date'))}
+                />
+              </Col>
+
+              <Col xs={12} md={3}>
+                <Form.Select
+                  value={store.sexFilter}
+                  onChange={(e) => store.setSexFilter(e.target.value)}
+                >
+                  <option value="">{String(t('Filter by Sex'))}</option>
+                  {sexOptions.map((sex) => (
+                    <option key={sex} value={sex}>
+                      {String(t(sex))}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              <Col xs={12} md={3}>
+                <Form.Select
+                  value={store.durationFilter}
+                  onChange={(e) => store.setDurationFilter(e.target.value)}
+                >
+                  <option value="">{String(t('Filter by Duration'))}</option>
+                  {durationOptions.map((duration) => (
+                    <option key={duration} value={duration}>
+                      {String(t(duration))}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            </Row>
+
+            <Row className="mt-3 align-items-center">
+              <Col xs={12} md={3}>
+                <Form.Select
+                  value={store.diseaseFilter}
+                  onChange={(e) => store.setDiseaseFilter(e.target.value)}
+                >
+                  <option value="">{String(t('Filter by Disease'))}</option>
+                  {store.diseaseOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {String(t(d))}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              <Col xs={12} md={6}>
+                <Form.Label className="me-2">{String(t('Sort by'))}</Form.Label>
+                <Form.Select
+                  aria-label="Sort by"
+                  value={store.sortBy}
+                  onChange={(e) => store.setSortBy(e.target.value as SortKey)}
+                  style={{ maxWidth: 320, display: 'inline-block' }}
+                >
+                  <option value="ampel">{String(t('Performance'))}</option>
+                  <option value="created">{String(t('Newest created'))}</option>
+                  <option value="last_login">{String(t('Last login (recent first)'))}</option>
+                  <option value="adherence">{String(t('Adherence (high → low)'))}</option>
+                  <option value="health">{String(t('Health (best → worst)'))}</option>
+                  <option value="feedback">{String(t('Feedback (worst → best)'))}</option>
+                </Form.Select>
+              </Col>
+
+              <Col className="d-flex flex-wrap gap-3 justify-content-end">
+                <Button variant="outline-secondary" onClick={store.resetFilters}>
+                  {String(t('Reset filters'))}
+                </Button>
+              </Col>
+
+              <Col className="d-flex flex-wrap gap-3 justify-content-end">
+                <Form.Check
+                  type="switch"
+                  id="toggle-completed"
+                  label={String(t('Show completed'))}
+                  checked={store.showCompleted}
+                  onChange={(e) => store.setShowCompleted(e.currentTarget.checked)}
+                />
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+
+        <h5 className="mb-2">
+          {String(t('Active patients'))} ({activePatients.length})
+        </h5>
+
+        <Table responsive hover className="align-middle">
+          <thead>
+            <tr>
+              <th>{String(t('Patient ID'))}</th>
+              <th>{String(t('Full Name'))}</th>
+              <th>{String(t('Birth Date'))}</th>
+              <th>{String(t('Sex'))}</th>
+              <th>{String(t('Diagnosis_patient_list'))}</th>
+              <th>{String(t('Status'))}</th>
+              <th className="text-end">{String(t('Actions'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activePatients.map((p) => {
+              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+              const diagnosis = Array.isArray(p.diagnosis)
+                ? p.diagnosis.join(', ')
+                : String(p.diagnosis || '');
+              const patientId = getPatientIdStr(p);
+              const mongoId = getPatientMongoId(p);
+
+              return (
+                <tr key={mongoId || patientId}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
+                  <td>{fullName}</td>
+                  <td>{fmtDate(String(p.age || ''))}</td>
+                  <td>{String(t(p.sex))}</td>
+                  <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                  <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
+                  <td className="text-end">
+                    <div className="d-flex justify-content-end gap-2 flex-wrap">
+                      <Button size="sm" variant="success" onClick={() => store.openPatient(p)}>
+                        {String(t('Info'))}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleRehabButton(mongoId, fullName, patientId)}
+                      >
+                        {String(t('Rehabilitation Plan'))}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        onClick={() => handleProgressButton(mongoId, fullName, patientId)}
+                      >
+                        {String(t('Outcomes Dashboard'))}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+
+            {activePatients.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center text-muted py-4">
+                  {store.loading
+                    ? String(t('Loading patients...'))
+                    : String(t('No active patients'))}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
+
+        <Collapse in={store.showCompleted}>
+          <div>
+            <h5 className="mt-4 mb-2">
+              {String(t('Completed'))} ({completedPatients.length})
+            </h5>
+
+            <Table responsive hover className="align-middle">
+              <thead>
+                <tr>
+                  <th>{String(t('Patient ID'))}</th>
+                  <th>{String(t('Full Name'))}</th>
+                  <th>{String(t('Birth Date'))}</th>
+                  <th>{String(t('Sex'))}</th>
+                  <th>{String(t('Diagnosis'))}</th>
+                  <th>{String(t('Status'))}</th>
+                  <th className="text-end">{String(t('Actions'))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {completedPatients.map((p) => {
+                  const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+                  const diagnosis = Array.isArray(p.diagnosis)
+                    ? p.diagnosis.join(', ')
+                    : String(p.diagnosis || '');
+                  const extra = getPatientExtra(p);
+                  const endDate = getIsoMaybe(extra.rehab_end_date);
+                  const patientId = getPatientIdStr(p);
+                  const mongoId = getPatientMongoId(p);
+
+                  return (
+                    <tr key={mongoId || patientId} className="completed-row">
+                      <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
+                      <td>
+                        {fullName}{' '}
+                        <Badge bg="success" className="ms-2">
+                          {String(t('Completed'))}
+                        </Badge>
+                        {endDate && (
+                          <small className="text-muted ms-2">
+                            {String(t('Discharged'))}: {fmtDate(endDate)}
+                          </small>
+                        )}
+                      </td>
+                      <td>{fmtDate(String(p.age || ''))}</td>
+                      <td>{String(t(p.sex))}</td>
+                      <td style={{ minWidth: 200 }}>{diagnosis}</td>
+                      <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
+                      <td className="text-end">
+                        <div className="d-flex justify-content-end gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline-secondary"
+                            onClick={() => store.openPatient(p)}
+                          >
+                            {String(t('Info'))}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => handleProgressButton(mongoId, fullName, patientId)}
+                          >
+                            {String(t('Outcomes Dashboard'))}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {completedPatients.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center text-muted py-4">
+                      {String(t('No completed patients'))}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        </Collapse>
+      </Container>
+
+      {store.selectedPatient && (
+        <PatientPopup
+          patient_id={store.selectedPatient}
+          show={store.showPatientPopup}
+          handleClose={store.closePatient}
         />
+      )}
 
-        <style>{`
+      <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />
+
+      <ImportFromRedcapModal
+        show={store.showImportRedcapModal}
+        onHide={store.closeImportRedcap}
+        loading={store.redcapLoading}
+        error={store.redcapError || ''}
+        candidates={store.redcapCandidates ?? []}
+        rowPasswords={store.redcapRowPasswords ?? {}}
+        setRowPassword={store.setRedcapRowPassword}
+        importingKey={store.importingKey}
+        importedKeys={store.importedKeys ?? {}}
+        onRefresh={() => store.fetchRedcapCandidates(t)}
+        onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
+      />
+
+      <Footer />
+
+      <style>{`
         .status-stack { display: flex; flex-direction: column; gap: 6px; }
         .status-chip {
           display: inline-block;
@@ -1004,8 +1007,7 @@ const Therapist: React.FC = observer(() => {
         .completed-row { opacity: .85; }
         .completed-row td:first-child { color: #555; }
       `}</style>
-      </div>
-    </Layout>
+    </div>
   );
 });
 

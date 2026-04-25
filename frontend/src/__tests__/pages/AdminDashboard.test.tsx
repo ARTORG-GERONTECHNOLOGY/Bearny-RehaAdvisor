@@ -91,6 +91,8 @@ import { MemoryRouter } from 'react-router-dom';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
 
+jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
 jest.mock('@/components/common/ErrorAlert', () => () => <div>Mock ErrorAlert</div>);
 jest.mock('@/components/common/ConfirmModal', () => () => <div>Mock ConfirmModal</div>);
 
@@ -182,12 +184,7 @@ describe('AdminDashboard', () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('heading', {
-          name: 'Admin Dashboard',
-          level: 1,
-        })
-      ).toBeInTheDocument();
+      expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Test User')).toBeInTheDocument();

@@ -43,6 +43,9 @@ jest.mock('../../config/config.json', () => ({
   },
 }));
 
+jest.mock('@/components/common/Header', () => () => null);
+jest.mock('@/components/common/Footer', () => () => null);
+
 import AddInterventionView from '@/pages/AddInterventionView';
 
 const renderPage = () =>

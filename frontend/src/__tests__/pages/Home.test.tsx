@@ -33,6 +33,18 @@ jest.mock('@/stores/authStore', () => ({
 // Get reference to the mocked store
 const mockAuthStore = require('@/stores/authStore').default;
 
+// --- Mock Header/Footer/LoginForm/FormRegister so Home tests focus on Home logic
+const HeaderMock = jest.fn(({ isLoggedIn }: { isLoggedIn: boolean }) => (
+  <div data-testid="header">
+    <div data-testid="header-isLoggedIn">{String(isLoggedIn)}</div>
+  </div>
+));
+
+jest.mock('@/components/common/Header', () => ({
+  __esModule: true,
+  default: (props: any) => HeaderMock(props),
+}));
+
 jest.mock('@/components/common/Footer', () => ({
   __esModule: true,
   default: () => <div data-testid="footer" />,
@@ -97,6 +109,19 @@ describe('Home page', () => {
     render(<Home />);
 
     expect(mockNavigate).toHaveBeenCalledWith('/therapist');
+  });
+
+  it('renders header with logged out state', () => {
+    render(<Home />);
+    expect(screen.getByTestId('header-isLoggedIn')).toHaveTextContent('false');
+  });
+
+  it('renders header with logged in state when authenticated', () => {
+    mockAuthStore.isAuthenticated = true;
+    mockAuthStore.userType = 'Patient';
+
+    render(<Home />);
+    expect(screen.getByTestId('header-isLoggedIn')).toHaveTextContent('true');
   });
 
   it('opens and closes the login modal when clicking Login CTA and closing', () => {

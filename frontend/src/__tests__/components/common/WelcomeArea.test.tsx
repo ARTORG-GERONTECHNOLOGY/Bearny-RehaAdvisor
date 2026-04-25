@@ -27,8 +27,8 @@ describe('WelcomeArea Component', () => {
 
   it('renders morning greeting and patient message', () => {
     render(<WelcomeArea user="patient" />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Good Morning, Alex/i);
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/Good Morning, Alex/i);
+    expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent(
       /Here are your recommendations for/i
     );
   });

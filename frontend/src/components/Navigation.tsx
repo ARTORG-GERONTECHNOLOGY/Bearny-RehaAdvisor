@@ -64,7 +64,7 @@ export default function Navigation() {
               path: '/interventions',
               iconOutline: GridCircleOutline,
               iconFill: GridCircleFill,
-              label: t('Interventions'),
+              label: t('Library'),
             },
             {
               path: '/userprofile',
@@ -74,14 +74,7 @@ export default function Navigation() {
             },
           ]
         : authStore.userType === 'Admin'
-          ? [
-              {
-                path: '/admin',
-                iconOutline: SunriseOutline,
-                iconFill: SunriseFill,
-                label: t('Admin Dashboard'),
-              },
-            ]
+          ? [] // Admin: no nav links, only logout button
           : [
               {
                 path: '/',
@@ -129,7 +122,7 @@ export default function Navigation() {
         <div className="w-full flex justify-center gap-2">
           <div className="bg-white/80 backdrop-blur-2xl border border-accent rounded-full p-2 flex">
             {navLinks
-              .filter((link) => link.path !== '/patient-profile' && link.path !== '/userprofile')
+              .filter((link) => link.path !== '/patient-profile')
               .map((link) => (
                 <NavItem
                   key={link.path}
@@ -142,29 +135,20 @@ export default function Navigation() {
                 />
               ))}
           </div>
-          {(() => {
-            const profileLink = navLinks.find(
-              (link) => link.path === '/patient-profile' || link.path === '/userprofile'
-            );
-            if (!profileLink) return null;
-            const isActive = location.pathname === profileLink.path;
-            return (
-              <button
-                aria-label="Profile"
-                data-testid="avatar-button"
-                onClick={() => navigate(profileLink.path)}
-                className={`bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${isActive ? 'text-brand' : 'text-zinc-500 hover:text-black'}`}
-              >
-                <span className={`flex p-2 rounded-full ${isActive ? 'bg-brand/5' : ''}`}>
-                  {isActive ? (
-                    <UserFill className="w-5 h-5" />
-                  ) : (
-                    <UserOutline className="w-5 h-5" />
-                  )}
-                </span>
-              </button>
-            );
-          })()}
+          <button
+            onClick={() => navigate('/patient-profile')}
+            className={`bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${location.pathname === '/patient-profile' ? 'text-brand' : 'text-zinc-500 hover:text-black'}`}
+          >
+            <span
+              className={`flex p-2 rounded-full ${location.pathname === '/patient-profile' ? 'bg-brand/5' : ''}`}
+            >
+              {location.pathname === '/patient-profile' ? (
+                <UserFill className="w-5 h-5" />
+              ) : (
+                <UserOutline className="w-5 h-5" />
+              )}
+            </span>
+          </button>
         </div>
       </nav>
     </>

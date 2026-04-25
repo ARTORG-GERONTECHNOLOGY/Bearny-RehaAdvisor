@@ -4,6 +4,8 @@ import apiClient from '../api/client';
 import authStore from './authStore';
 import { UserType } from '../types';
 
+type Mode = 'view' | 'editProfile' | 'changePassword';
+
 // ---- typed error helpers (no `any`) ----
 type ApiErrorResponse = {
   data?: {
@@ -19,8 +21,7 @@ type ApiErrorLike = {
 };
 
 class UserProfileStore {
-  showEditProfile = false;
-  showChangePassword = false;
+  mode: Mode = 'view';
   showDeletePopup = false;
 
   userData: UserType | null = null;
@@ -36,20 +37,8 @@ class UserProfileStore {
     makeAutoObservable(this);
   }
 
-  openEditProfile = () => {
-    this.showEditProfile = true;
-  };
-
-  closeEditProfile = () => {
-    this.showEditProfile = false;
-  };
-
-  openChangePassword = () => {
-    this.showChangePassword = true;
-  };
-
-  closeChangePassword = () => {
-    this.showChangePassword = false;
+  setMode = (mode: Mode) => {
+    this.mode = mode;
   };
 
   openDelete = () => {
@@ -128,7 +117,7 @@ class UserProfileStore {
       runInAction(() => {
         this.userData = refreshed.data as UserType;
         this.setSuccess('Profile updated successfully');
-        this.showEditProfile = false;
+        this.mode = 'view';
       });
     } catch (err: unknown) {
       console.error('Update failed:', err);
@@ -159,7 +148,7 @@ class UserProfileStore {
 
       runInAction(() => {
         this.setSuccess('Password updated successfully');
-        this.showChangePassword = false;
+        this.mode = 'view';
       });
     } catch (err: unknown) {
       const e = err as ApiErrorLike;
@@ -213,3 +202,4 @@ class UserProfileStore {
 
 const userProfileStore = new UserProfileStore();
 export default userProfileStore;
+export type { Mode };
