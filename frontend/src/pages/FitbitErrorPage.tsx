@@ -14,7 +14,7 @@ const FitbitErrorPage: React.FC = () => {
 
   return (
     <Layout>
-      <Card className="bg-white">
+      <Card className="bg-white max-w-lg">
         <h1 className="font-bold text-nok" aria-label="Error">
           {t('Error')}
         </h1>
