@@ -23,12 +23,12 @@ const AddRecomendations = lazy(() => import('@/pages/AddInterventionView'));
 const AddPatient = lazy(() => import('@/pages/AddPatient'));
 const RehabTable = lazy(() => import('@/pages/RehabTable'));
 const TherapistRecomendations = lazy(() => import('@/pages/TherapistInterventions'));
-const ErrorPages = lazy(() => import('@/components/common/Error'));
+const ErrorPage = lazy(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazy(() => import('@/pages/eva'));
 const TermsAndConditions = lazy(() => import('@/pages/TermsAndConditions'));
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const SuccessPage = lazy(() => import('@/pages/SuccessPage'));
-const ErrorPage = lazy(() => import('@/pages/ErrorPage'));
+const FitbitErrorPage = lazy(() => import('@/pages/FitbitErrorPage'));
 const HealthPage = lazy(() => import('@/pages/HealthPage'));
 const HelpPage = lazy(() => import('@/pages/Help'));
 const Eva = lazy(() => import('@/pages/eva2'));
@@ -53,147 +53,156 @@ const withSuspense = (
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
   {
+    // Root catch-all: errorElement here covers every child route
     path: '/',
-    element: withSuspense(createElement(Home), createElement(HomeSkeleton)),
-  },
-  {
-    path: '/error',
-    element: withSuspense(createElement(RootLayout, { children: createElement(ErrorPages) })),
-  },
-  {
-    path: '/therapist',
-    element: withSuspense(createElement(RootLayout, { children: createElement(Therapist) })),
-  },
-  {
-    path: '/unauthorized',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(UnauthorizedAccess) })
-    ),
-  },
-  {
-    path: '/forgottenpwd',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(ForgottenPassword) })
-    ),
-  },
-  {
-    path: '/userprofile',
-    element: withSuspense(createElement(RootLayout, { children: createElement(UserProfile) })),
-  },
-  {
-    path: '/patient',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientView) }),
-      createElement(PatientSkeleton)
-    ),
-  },
-  {
-    path: '/admin',
-    element: withSuspense(createElement(RootLayout, { children: createElement(AdminDashboard) })),
-  },
-  {
-    path: '/addcontent',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(AddRecomendations) })
-    ),
-  },
-  {
-    path: '/addpatient',
-    element: withSuspense(createElement(RootLayout, { children: createElement(AddPatient) })),
-  },
-  {
-    path: '/rehabtable',
-    element: withSuspense(createElement(RootLayout, { children: createElement(RehabTable) })),
-  },
-  {
-    path: '/interventions',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(TherapistRecomendations) })
-    ),
-  },
-  {
-    path: '/eva',
-    element: withSuspense(createElement(HealthSlider)),
-  },
-  {
-    path: '/terms',
-    element: withSuspense(
-      createElement(TermsAndConditions),
-      createElement(TermsAndConditionsSkeleton)
-    ),
-  },
-  {
-    path: '/privacypolicy',
-    element: withSuspense(createElement(PrivacyPolicy), createElement(PrivacyPolicySkeleton)),
-  },
-  {
-    path: '/fitbit-success',
-    element: createElement(SuccessPage),
-  },
-  {
-    path: '/fitbit-error',
-    element: createElement(ErrorPage),
-  },
-  {
-    path: '/health',
-    element: withSuspense(createElement(HealthPage)),
-  },
-  {
-    path: '/help',
-    element: withSuspense(createElement(HelpPage)),
-  },
-  {
-    path: '/icf/:patientId?',
-    element: withSuspense(createElement(Eva)),
-  },
-  {
-    path: '/eva2',
-    element: createElement(Navigate, { to: '/icf', replace: true }),
-  },
-  {
-    path: '/healthslider-downloads',
-    element: withSuspense(createElement(HealthSliderDownloadsPage)),
-  },
-  {
-    path: '/patient-plan',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientPlan) }),
-      createElement(PatientPlanSkeleton)
-    ),
-  },
-  {
-    path: '/patient-process',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientProcess) }),
-      createElement(PatientProcessSkeleton)
-    ),
-  },
-  {
-    path: '/patient-interventions',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
-      createElement(PatientInterventionsLibrarySkeleton)
-    ),
-  },
-  {
-    path: '/patient-intervention/:interventionId',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
-      createElement(PatientInterventionDetailSkeleton)
-    ),
-  },
-  {
-    path: '/patient-profile',
-    element: withSuspense(
-      createElement(RootLayout, { children: createElement(PatientProfile) }),
-      createElement(PatientProfileSkeleton)
-    ),
-  },
+    errorElement: createElement(ErrorPage),
+    children: [
+      {
+        index: true,
+        element: withSuspense(createElement(Home), createElement(HomeSkeleton)),
+      },
+      {
+        path: 'error',
+        element: withSuspense(createElement(RootLayout, { children: createElement(ErrorPage) })),
+      },
+      {
+        path: 'therapist',
+        element: withSuspense(createElement(RootLayout, { children: createElement(Therapist) })),
+      },
+      {
+        path: 'unauthorized',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(UnauthorizedAccess) })
+        ),
+      },
+      {
+        path: 'forgottenpwd',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(ForgottenPassword) })
+        ),
+      },
+      {
+        path: 'userprofile',
+        element: withSuspense(createElement(RootLayout, { children: createElement(UserProfile) })),
+      },
+      {
+        path: 'patient',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientView) }),
+          createElement(PatientSkeleton)
+        ),
+      },
+      {
+        path: 'admin',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(AdminDashboard) })
+        ),
+      },
+      {
+        path: 'addcontent',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(AddRecomendations) })
+        ),
+      },
+      {
+        path: 'addpatient',
+        element: withSuspense(createElement(RootLayout, { children: createElement(AddPatient) })),
+      },
+      {
+        path: 'rehabtable',
+        element: withSuspense(createElement(RootLayout, { children: createElement(RehabTable) })),
+      },
+      {
+        path: 'interventions',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(TherapistRecomendations) })
+        ),
+      },
+      {
+        path: 'eva',
+        element: withSuspense(createElement(HealthSlider)),
+      },
+      {
+        path: 'terms',
+        element: withSuspense(
+          createElement(TermsAndConditions),
+          createElement(TermsAndConditionsSkeleton)
+        ),
+      },
+      {
+        path: 'privacypolicy',
+        element: withSuspense(createElement(PrivacyPolicy), createElement(PrivacyPolicySkeleton)),
+      },
+      {
+        path: 'fitbit-success',
+        element: createElement(SuccessPage),
+      },
+      {
+        path: 'fitbit-error',
+        element: createElement(FitbitErrorPage),
+      },
+      {
+        path: 'health',
+        element: withSuspense(createElement(HealthPage)),
+      },
+      {
+        path: 'help',
+        element: withSuspense(createElement(HelpPage)),
+      },
+      {
+        path: 'icf/:patientId?',
+        element: withSuspense(createElement(Eva)),
+      },
+      {
+        path: 'eva2',
+        element: createElement(Navigate, { to: '/icf', replace: true }),
+      },
+      {
+        path: 'healthslider-downloads',
+        element: withSuspense(createElement(HealthSliderDownloadsPage)),
+      },
+      {
+        path: 'patient-plan',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientPlan) }),
+          createElement(PatientPlanSkeleton)
+        ),
+      },
+      {
+        path: 'patient-process',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientProcess) }),
+          createElement(PatientProcessSkeleton)
+        ),
+      },
+      {
+        path: 'patient-interventions',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
+          createElement(PatientInterventionsLibrarySkeleton)
+        ),
+      },
+      {
+        path: 'patient-intervention/:interventionId',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
+          createElement(PatientInterventionDetailSkeleton)
+        ),
+      },
+      {
+        path: 'patient-profile',
+        element: withSuspense(
+          createElement(RootLayout, { children: createElement(PatientProfile) }),
+          createElement(PatientProfileSkeleton)
+        ),
+      },
 
-  // Catch-all (must be last)
-  {
-    path: '*',
-    element: createElement(Navigate, { to: '/', replace: true }),
+      // Catch-all (must be last)
+      {
+        path: '*',
+        element: createElement(Navigate, { to: '/', replace: true }),
+      },
+    ],
   },
 ]);
 
