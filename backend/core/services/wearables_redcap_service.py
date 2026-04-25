@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
-from core.models import FitbitData, Patient
+from core.models import FitbitData, GoogleHealthData, Patient
 from core.services.redcap_service import (
     RedcapError,
     _post_redcap,
@@ -135,13 +135,10 @@ def _compute_averages(records: List[FitbitData], sleep_fmt: str) -> Dict[str, An
 def _summarize_period(
     user: Any, period_start: datetime, period_end: datetime, sleep_fmt: str
 ) -> Optional[Dict[str, Any]]:
-    records = list(
-        FitbitData.objects(
-            user=user,
-            date__gte=period_start,
-            date__lt=period_end,
-        ).order_by("date")
-    )
+    # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
+    records = list(GoogleHealthData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date"))
+    if not records:
+        records = list(FitbitData.objects(user=user, date__gte=period_start, date__lt=period_end).order_by("date"))
     if not records:
         return None
 

@@ -6,7 +6,7 @@ import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
-import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
+import FitbitConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
 import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';

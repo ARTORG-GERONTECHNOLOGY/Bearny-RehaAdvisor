@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
+import FitbitConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import { useNotifications } from '@/hooks/useNotifications';
 import authStore from '@/stores/authStore';
 import flagDe from '@/assets/flags/de.png';
