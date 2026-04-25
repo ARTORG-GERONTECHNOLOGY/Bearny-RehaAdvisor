@@ -4,16 +4,15 @@ import { Table, Button, Spinner, Modal, Form, Badge, Alert, Nav, Tab } from 'rea
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-import ErrorAlert from '@/components/common/ErrorAlert';
-import ConfirmModal from '@/components/common/ConfirmModal';
+import ErrorAlert from '../components/common/ErrorAlert';
+import Header from '../components/common/Header';
+import Footer from '../components/common/Footer';
+import ConfirmModal from '../components/common/ConfirmModal';
 
-import adminStore from '@/stores/adminStore';
-import authStore from '@/stores/authStore';
-import { AdminDashboardStore } from '@/stores/adminDashboardStore';
-import apiClient from '@/api/client';
-import Layout from '@/components/Layout';
-import PageHeader from '@/components/PageHeader';
-import LogoutFill from '@/assets/icons/logout-fill.svg?react';
+import adminStore from '../stores/adminStore';
+import authStore from '../stores/authStore';
+import { AdminDashboardStore } from '../stores/adminDashboardStore';
+import apiClient from '../api/client';
 
 type AccessModalState = {
   open: boolean;
@@ -267,365 +266,353 @@ const AdminDashboard: React.FC = observer(() => {
     }
   };
 
-  const handleLogout = async () => {
-    await authStore.logout();
-    navigate('/');
-  };
-
   return (
-    <Layout>
-      <div className="d-flex flex-column">
-        <main className="container my-5 flex-grow-1">
-          <div className="flex flex-wrap justify-between items-center mb-4">
-            <PageHeader title={t('Admin Dashboard')} />
-            <Button variant="secondary" onClick={handleLogout}>
-              {t('Logout')}
-              <LogoutFill />
-            </Button>
-          </div>
+    <div className="d-flex flex-column min-vh-100">
+      <Header isLoggedIn={authStore.isAuthenticated} />
 
-          {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
+      <main className="container my-5 flex-grow-1">
+        <h1 className="text-center">{t('Admin Dashboard')}</h1>
 
-          <Tab.Container defaultActiveKey="pending">
-            <Nav variant="tabs" className="mb-3">
-              <Nav.Item>
-                <Nav.Link eventKey="pending">
-                  {t('Pending registrations')}
-                  {adminStore.pendingEntries.length > 0 && (
-                    <Badge bg="danger" className="ms-2">
-                      {adminStore.pendingEntries.length}
-                    </Badge>
-                  )}
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="access-requests">
-                  {t('Access change requests')}
-                  {changeRequests.length > 0 && (
-                    <Badge bg="warning" text="dark" className="ms-2">
-                      {changeRequests.length}
-                    </Badge>
-                  )}
-                </Nav.Link>
-              </Nav.Item>
-            </Nav>
+        {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
 
-            <Tab.Content>
-              {/* ── Tab 1: pending registrations ── */}
-              <Tab.Pane eventKey="pending">
-                {store.loading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : adminStore.pendingEntries.length === 0 ? (
-                  <p className="text-center text-muted">{t('No pending entries')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('Name')}</th>
-                        <th>{t('Email')}</th>
-                        <th>{t('Type')}</th>
-                        <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
-                        <th style={{ minWidth: 220 }}>{t('Projects')}</th>
-                        <th style={{ minWidth: 260 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminStore.pendingEntries.map((entry: any) => {
-                        const role = String(entry.role || '').toLowerCase();
-                        const isTherapist = role === 'therapist';
-                        const clinics: string[] = Array.isArray(entry?.clinics)
-                          ? entry.clinics
-                          : [];
-                        const projects: string[] = Array.isArray(entry?.projects)
-                          ? entry.projects
-                          : [];
-                        return (
-                          <tr key={entry.id}>
-                            <td>{entry.name || '—'}</td>
-                            <td>{entry.email || '—'}</td>
-                            <td>{t(entry.role)}</td>
-                            <td>
-                              {isTherapist ? (
-                                renderBadges(clinics, 'info')
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td>
-                              {isTherapist ? (
-                                renderBadges(projects, 'secondary')
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td className="d-flex gap-2 flex-wrap">
-                              {isTherapist && (
-                                <Button
-                                  variant="outline-primary"
-                                  onClick={() => openAccessModal(entry)}
-                                >
-                                  {t('Edit access')}
-                                </Button>
-                              )}
-                              <Button variant="success" onClick={() => store.accept(entry.id, t)}>
-                                {t('Accept')}
-                              </Button>
-                              <Button
-                                variant="danger"
-                                onClick={() => store.openDeclineConfirm(entry.id)}
-                              >
-                                {t('Decline')}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </Table>
+        <Tab.Container defaultActiveKey="pending">
+          <Nav variant="tabs" className="mb-3">
+            <Nav.Item>
+              <Nav.Link eventKey="pending">
+                {t('Pending registrations')}
+                {adminStore.pendingEntries.length > 0 && (
+                  <Badge bg="danger" className="ms-2">
+                    {adminStore.pendingEntries.length}
+                  </Badge>
                 )}
-              </Tab.Pane>
-
-              {/* ── Tab 2: access change requests ── */}
-              <Tab.Pane eventKey="access-requests">
-                {changeReqError && (
-                  <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
-                    {changeReqError}
-                  </Alert>
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="access-requests">
+                {t('Access change requests')}
+                {changeRequests.length > 0 && (
+                  <Badge bg="warning" text="dark" className="ms-2">
+                    {changeRequests.length}
+                  </Badge>
                 )}
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
 
-                {changeReqLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : changeRequests.length === 0 ? (
-                  <p className="text-center text-muted">{t('No pending access change requests')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('Therapist')}</th>
-                        <th>{t('Email')}</th>
-                        <th>{t('Current clinics')}</th>
-                        <th>{t('Current projects')}</th>
-                        <th>{t('Requested clinics')}</th>
-                        <th>{t('Requested projects')}</th>
-                        <th>{t('Submitted')}</th>
-                        <th style={{ minWidth: 200 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {changeRequests.map((req) => (
-                        <tr key={req.id}>
-                          <td>{req.therapistName || '—'}</td>
-                          <td>{req.therapistEmail || '—'}</td>
-                          <td>{renderBadges(req.currentClinics, 'info')}</td>
-                          <td>{renderBadges(req.currentProjects, 'secondary')}</td>
-                          <td>{renderBadges(req.requestedClinics, 'primary')}</td>
-                          <td>{renderBadges(req.requestedProjects, 'dark')}</td>
+          <Tab.Content>
+            {/* ── Tab 1: pending registrations ── */}
+            <Tab.Pane eventKey="pending">
+              {store.loading ? (
+                <div className="text-center my-5">
+                  <Spinner animation="border" role="status" />
+                  <div>{t('Loading')}...</div>
+                </div>
+              ) : adminStore.pendingEntries.length === 0 ? (
+                <p className="text-center text-muted">{t('No pending entries')}</p>
+              ) : (
+                <Table striped bordered hover responsive>
+                  <thead>
+                    <tr>
+                      <th>{t('Name')}</th>
+                      <th>{t('Email')}</th>
+                      <th>{t('Type')}</th>
+                      <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
+                      <th style={{ minWidth: 220 }}>{t('Projects')}</th>
+                      <th style={{ minWidth: 260 }}>{t('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminStore.pendingEntries.map((entry: any) => {
+                      const role = String(entry.role || '').toLowerCase();
+                      const isTherapist = role === 'therapist';
+                      const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];
+                      const projects: string[] = Array.isArray(entry?.projects)
+                        ? entry.projects
+                        : [];
+                      return (
+                        <tr key={entry.id}>
+                          <td>{entry.name || '—'}</td>
+                          <td>{entry.email || '—'}</td>
+                          <td>{t(entry.role)}</td>
                           <td>
-                            <small>
-                              {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
-                            </small>
+                            {isTherapist ? (
+                              renderBadges(clinics, 'info')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {isTherapist ? (
+                              renderBadges(projects, 'secondary')
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                           <td className="d-flex gap-2 flex-wrap">
-                            <Button
-                              variant="success"
-                              size="sm"
-                              onClick={() => approveRequest(req.id)}
-                            >
-                              {t('Approve')}
+                            {isTherapist && (
+                              <Button
+                                variant="outline-primary"
+                                onClick={() => openAccessModal(entry)}
+                              >
+                                {t('Edit access')}
+                              </Button>
+                            )}
+                            <Button variant="success" onClick={() => store.accept(entry.id, t)}>
+                              {t('Accept')}
                             </Button>
                             <Button
                               variant="danger"
-                              size="sm"
-                              onClick={() => openRejectModal(req.id)}
+                              onClick={() => store.openDeclineConfirm(entry.id)}
                             >
                               {t('Decline')}
                             </Button>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Tab.Pane>
-            </Tab.Content>
-          </Tab.Container>
-        </main>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              )}
+            </Tab.Pane>
 
-        {/* Reject access request modal */}
-        <Modal
-          show={rejectModal.open}
-          onHide={() => setRejectModal({ open: false, requestId: '' })}
-          centered
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>{t('Decline access change request')}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form.Group>
-              <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={rejectNote}
-                onChange={(e) => setRejectNote(e.target.value)}
-                placeholder={t('Explain why the request is being declined...')}
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() => setRejectModal({ open: false, requestId: '' })}
-              disabled={rejectSubmitting}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
-              {rejectSubmitting ? t('Declining...') : t('Decline')}
-            </Button>
-          </Modal.Footer>
-        </Modal>
+            {/* ── Tab 2: access change requests ── */}
+            <Tab.Pane eventKey="access-requests">
+              {changeReqError && (
+                <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
+                  {changeReqError}
+                </Alert>
+              )}
 
-        {/* Decline confirm */}
-        <ConfirmModal
-          show={store.showDeclineConfirm}
-          onHide={store.closeDeclineConfirm}
-          title={t('ConfirmDeletion')}
-          body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
-          cancelText={t('Cancel')}
-          confirmText={t('Decline')}
-          confirmVariant="danger"
-          onConfirm={() => store.declineConfirmed(t)}
-        />
+              {changeReqLoading ? (
+                <div className="text-center my-5">
+                  <Spinner animation="border" role="status" />
+                  <div>{t('Loading')}...</div>
+                </div>
+              ) : changeRequests.length === 0 ? (
+                <p className="text-center text-muted">{t('No pending access change requests')}</p>
+              ) : (
+                <Table striped bordered hover responsive>
+                  <thead>
+                    <tr>
+                      <th>{t('Therapist')}</th>
+                      <th>{t('Email')}</th>
+                      <th>{t('Current clinics')}</th>
+                      <th>{t('Current projects')}</th>
+                      <th>{t('Requested clinics')}</th>
+                      <th>{t('Requested projects')}</th>
+                      <th>{t('Submitted')}</th>
+                      <th style={{ minWidth: 200 }}>{t('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {changeRequests.map((req) => (
+                      <tr key={req.id}>
+                        <td>{req.therapistName || '—'}</td>
+                        <td>{req.therapistEmail || '—'}</td>
+                        <td>{renderBadges(req.currentClinics, 'info')}</td>
+                        <td>{renderBadges(req.currentProjects, 'secondary')}</td>
+                        <td>{renderBadges(req.requestedClinics, 'primary')}</td>
+                        <td>{renderBadges(req.requestedProjects, 'dark')}</td>
+                        <td>
+                          <small>
+                            {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                          </small>
+                        </td>
+                        <td className="d-flex gap-2 flex-wrap">
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => approveRequest(req.id)}
+                          >
+                            {t('Approve')}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => openRejectModal(req.id)}
+                          >
+                            {t('Decline')}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Tab.Pane>
+          </Tab.Content>
+        </Tab.Container>
+      </main>
 
-        {/* Access Modal */}
-        <Modal
-          show={accessModal.open}
-          onHide={closeAccessModal}
-          centered
-          size="lg"
-          backdrop={accessLoading ? 'static' : true}
-          keyboard={!accessLoading}
-        >
-          <Modal.Header closeButton={!accessLoading}>
-            <Modal.Title>
-              {t('Therapist access')} — {accessModal.therapistName}
-            </Modal.Title>
-          </Modal.Header>
+      {/* Reject access request modal */}
+      <Modal
+        show={rejectModal.open}
+        onHide={() => setRejectModal({ open: false, requestId: '' })}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Decline access change request')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              placeholder={t('Explain why the request is being declined...')}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setRejectModal({ open: false, requestId: '' })}
+            disabled={rejectSubmitting}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
+            {rejectSubmitting ? t('Declining...') : t('Decline')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
-          <Modal.Body>
-            {accessSuccess && (
-              <Alert variant="success" dismissible onClose={() => setAccessSuccess(null)}>
-                {accessSuccess}
-              </Alert>
-            )}
+      {/* Decline confirm */}
+      <ConfirmModal
+        show={store.showDeclineConfirm}
+        onHide={store.closeDeclineConfirm}
+        title={t('ConfirmDeletion')}
+        body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
+        cancelText={t('Cancel')}
+        confirmText={t('Decline')}
+        confirmVariant="danger"
+        onConfirm={() => store.declineConfirmed(t)}
+      />
 
-            {accessError && (
-              <Alert variant="danger" dismissible onClose={() => setAccessError(null)}>
-                {accessError}
-              </Alert>
-            )}
+      {/* Access Modal */}
+      <Modal
+        show={accessModal.open}
+        onHide={closeAccessModal}
+        centered
+        size="lg"
+        backdrop={accessLoading ? 'static' : true}
+        keyboard={!accessLoading}
+      >
+        <Modal.Header closeButton={!accessLoading}>
+          <Modal.Title>
+            {t('Therapist access')} — {accessModal.therapistName}
+          </Modal.Title>
+        </Modal.Header>
 
-            {accessLoading ? (
-              <div className="d-flex align-items-center gap-2">
-                <Spinner animation="border" size="sm" />
-                <div>{t('Loading')}...</div>
-              </div>
-            ) : (
-              <>
-                <p className="text-muted mb-2">{t('Projects')}</p>
-                {availableProjects.length === 0 ? (
-                  <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
-                ) : (
-                  <Form className="mb-3">
-                    <div className="d-flex flex-wrap gap-3">
-                      {availableProjects.map((p) => (
-                        <Form.Check
-                          key={p}
-                          type="checkbox"
-                          id={`proj_${p}`}
-                          label={p}
-                          checked={selectedProjects.includes(p)}
-                          onChange={() => toggleProject(p)}
-                        />
-                      ))}
-                    </div>
+        <Modal.Body>
+          {accessSuccess && (
+            <Alert variant="success" dismissible onClose={() => setAccessSuccess(null)}>
+              {accessSuccess}
+            </Alert>
+          )}
 
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        {t('Selected')}:{' '}
-                        {selectedProjects.length ? selectedProjects.join(', ') : '—'}
-                      </small>
-                    </div>
-                  </Form>
-                )}
+          {accessError && (
+            <Alert variant="danger" dismissible onClose={() => setAccessError(null)}>
+              {accessError}
+            </Alert>
+          )}
 
-                <p className="text-muted mb-2">{t('Clinics')}</p>
-                {!selectedProjects.length ? (
-                  <Alert variant="info" className="mb-0">
-                    {t('Select a project to see available clinics.')}
-                  </Alert>
-                ) : allowedClinicsForSelectedProjects.length === 0 ? (
-                  <Alert variant="warning" className="mb-0">
-                    {t('No clinics are configured for the selected project(s).')}
-                  </Alert>
-                ) : (
-                  <Form>
-                    <div className="d-flex flex-wrap gap-3">
-                      {allowedClinicsForSelectedProjects.map((c) => (
-                        <Form.Check
-                          key={c}
-                          type="checkbox"
-                          id={`clinic_${c}`}
-                          label={c}
-                          checked={selectedClinics.includes(c)}
-                          onChange={() => toggleClinic(c)}
-                        />
-                      ))}
-                    </div>
-                  </Form>
-                )}
+          {accessLoading ? (
+            <div className="d-flex align-items-center gap-2">
+              <Spinner animation="border" size="sm" />
+              <div>{t('Loading')}...</div>
+            </div>
+          ) : (
+            <>
+              <p className="text-muted mb-2">{t('Projects')}</p>
+              {availableProjects.length === 0 ? (
+                <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
+              ) : (
+                <Form className="mb-3">
+                  <div className="d-flex flex-wrap gap-3">
+                    {availableProjects.map((p) => (
+                      <Form.Check
+                        key={p}
+                        type="checkbox"
+                        id={`proj_${p}`}
+                        label={p}
+                        checked={selectedProjects.includes(p)}
+                        onChange={() => toggleProject(p)}
+                      />
+                    ))}
+                  </div>
 
-                {selectedProjects.length > 0 && (
                   <div className="mt-2">
                     <small className="text-muted">
-                      {t('Clinics are filtered by selected projects.')}
+                      {t('Selected')}: {selectedProjects.length ? selectedProjects.join(', ') : '—'}
                     </small>
                   </div>
-                )}
-              </>
-            )}
-          </Modal.Body>
-
-          <Modal.Footer>
-            <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
-              {t('Close')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveAccess}
-              disabled={accessLoading || selectedProjects.length === 0}
-              title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
-            >
-              {accessLoading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  {t('Saving')}...
-                </>
-              ) : (
-                t('Save')
+                </Form>
               )}
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      </div>
-    </Layout>
+
+              <p className="text-muted mb-2">{t('Clinics')}</p>
+              {!selectedProjects.length ? (
+                <Alert variant="info" className="mb-0">
+                  {t('Select a project to see available clinics.')}
+                </Alert>
+              ) : allowedClinicsForSelectedProjects.length === 0 ? (
+                <Alert variant="warning" className="mb-0">
+                  {t('No clinics are configured for the selected project(s).')}
+                </Alert>
+              ) : (
+                <Form>
+                  <div className="d-flex flex-wrap gap-3">
+                    {allowedClinicsForSelectedProjects.map((c) => (
+                      <Form.Check
+                        key={c}
+                        type="checkbox"
+                        id={`clinic_${c}`}
+                        label={c}
+                        checked={selectedClinics.includes(c)}
+                        onChange={() => toggleClinic(c)}
+                      />
+                    ))}
+                  </div>
+                </Form>
+              )}
+
+              {selectedProjects.length > 0 && (
+                <div className="mt-2">
+                  <small className="text-muted">
+                    {t('Clinics are filtered by selected projects.')}
+                  </small>
+                </div>
+              )}
+            </>
+          )}
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
+            {t('Close')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={saveAccess}
+            disabled={accessLoading || selectedProjects.length === 0}
+            title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
+          >
+            {accessLoading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                {t('Saving')}...
+              </>
+            ) : (
+              t('Save')
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Footer />
+    </div>
   );
 });
 

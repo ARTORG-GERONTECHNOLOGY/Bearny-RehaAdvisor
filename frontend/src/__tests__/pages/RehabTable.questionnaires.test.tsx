@@ -6,6 +6,8 @@ import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
+jest.mock('@/components/common/Header', () => () => <div>Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Footer</div>);
 jest.mock('@/components/RehaTablePage/layout/RehaPageLayout', () => ({ children }: any) => (
   <div>{children}</div>
 ));

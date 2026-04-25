@@ -1,0 +1,12 @@
+.therapist-view-container {
+  padding: 20px; /* Add padding around the container */
+}
+
+.filter-buttons {
+  display: flex;
+  flex-direction: column; /* Stack buttons vertically */
+}
+
+.patient-list {
+  flex-grow: 1; /* Allow the list to take available space */
+}

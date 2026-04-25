@@ -1,87 +1,85 @@
 import React, { useMemo } from 'react';
-import { Alert, Spinner } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { Alert, Button, Col, Container, Form, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
+import Header from '@/components/common/Header';
+import Footer from '@/components/common/Footer';
 import ErrorAlert from '@/components/common/ErrorAlert';
+import AuthCard from '@/components/Auth/AuthCard';
 
 import { ForgotPasswordStore } from '@/stores/forgotPasswordStore';
-import { ArrowLeftIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Container from '@/components/Container';
-import PageHeader from '@/components/PageHeader';
-import { FieldGroup } from '@/components/ui/field';
-import InputField from '@/components/forms/input/InputField';
-import Card from '@/components/Card';
 
 const ForgotPassword: React.FC = observer(() => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const store = useMemo(() => new ForgotPasswordStore(), []);
 
   return (
-    <div className="min-h-screen bg-back py-16">
-      <Container>
-        <Button
-          size="icon"
-          variant="secondary"
-          onClick={() => navigate(-1)}
-          className="bg-white mb-4"
-        >
-          <ArrowLeftIcon />
-          <span className="sr-only">{t('Back')}</span>
-        </Button>
-        <PageHeader title={t('ForgottenPassword')} />
-        <Card className="bg-white max-w-lg mt-2">
-          {store.success && (
-            <Alert variant="success" className="text-center">
-              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
-            </Alert>
-          )}
+    <Container fluid className="d-flex flex-column min-vh-100 px-3 px-md-4">
+      <Header isLoggedIn={false} />
 
-          {store.error && <ErrorAlert message={store.error} onClose={() => (store.error = null)} />}
+      <main className="flex-grow-1 d-flex justify-content-center align-items-center">
+        <Row className="w-100 justify-content-center">
+          <Col xs={12} sm={10} md={8} lg={6} xl={5}>
+            <AuthCard title={t('ForgottenPassword')}>
+              {store.success && (
+                <Alert variant="success" className="text-center">
+                  {t('Passwordresetlinksent.Pleasecheckyouremail.')}
+                </Alert>
+              )}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              store.submit(t);
-            }}
-          >
-            <FieldGroup>
-              <InputField
-                id="email"
-                label={t('Emailaddress')}
-                type="email"
-                placeholder={t('Enteryouremail')}
-                value={store.email}
-                onChange={(e) => store.setEmail(e.target.value)}
-                required
-                disabled={store.loading}
-                autoComplete="email"
-              />
+              {store.error && (
+                <ErrorAlert message={store.error} onClose={() => (store.error = null)} />
+              )}
 
-              <Button type="submit" disabled={store.loading}>
-                {store.loading ? (
-                  <>
-                    <Spinner
-                      size="sm"
-                      className="me-2"
-                      animation="border"
-                      role="status"
-                      aria-hidden="true"
-                    />
-                    {t('Loading...')}
-                  </>
-                ) : (
-                  t('Submit')
-                )}
-              </Button>
-            </FieldGroup>
-          </form>
-        </Card>
-      </Container>
-    </div>
+              <Form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  store.submit(t);
+                }}
+              >
+                <Form.Group controlId="formEmail" className="mb-3">
+                  <Form.Label>{t('Emailaddress')}</Form.Label>
+                  <Form.Control
+                    type="email"
+                    placeholder={t('Enteryouremail')}
+                    value={store.email}
+                    onChange={(e) => store.setEmail(e.target.value)}
+                    required
+                    disabled={store.loading}
+                    autoComplete="email"
+                  />
+                </Form.Group>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-100 py-2"
+                  disabled={store.loading}
+                >
+                  {store.loading ? (
+                    <>
+                      <Spinner
+                        size="sm"
+                        className="me-2"
+                        animation="border"
+                        role="status"
+                        aria-hidden="true"
+                      />
+                      {t('Loading...')}
+                    </>
+                  ) : (
+                    t('Submit')
+                  )}
+                </Button>
+              </Form>
+            </AuthCard>
+          </Col>
+        </Row>
+      </main>
+
+      <Footer />
+    </Container>
   );
 });
 

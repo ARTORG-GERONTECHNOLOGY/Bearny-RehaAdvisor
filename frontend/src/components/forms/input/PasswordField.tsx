@@ -11,7 +11,6 @@ type PasswordFieldProps = {
   label: React.ReactNode;
   placeholder: string;
   autoComplete?: string;
-  disabled?: boolean;
 };
 
 const PasswordField: React.FC<PasswordFieldProps> = ({
@@ -22,7 +21,6 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
   label,
   placeholder,
   autoComplete = 'current-password',
-  disabled = false,
 }) => {
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -38,7 +36,6 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
           placeholder={placeholder}
           autoComplete={autoComplete}
           required={required}
-          disabled={disabled}
           aria-label={typeof label === 'string' ? label : undefined}
           aria-required={required}
         />

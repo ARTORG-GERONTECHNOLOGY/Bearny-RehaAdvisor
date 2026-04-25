@@ -1,0 +1,71 @@
+/* ============================================= */
+/*                 HEADER STYLES                 */
+/* ============================================= */
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* LOGOS */
+.brand-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-logo {
+  height: clamp(28px, 4vw, 52px);
+  width: auto;
+  object-fit: contain;
+}
+
+/* ACTIONS (help, lang, register, logout, burger) */
+.action-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.help-btn {
+  padding: 0.2rem 0.4rem !important;
+}
+
+.lang-btn {
+  padding: 0.2rem 0.4rem !important;
+}
+
+.flag-icon {
+  height: 20px;
+  width: auto;
+  border-radius: 3px;
+}
+
+/* NAVIGATION ROW (desktop & tablet landscape) */
+.nav-row-desktop .nav-link {
+  padding: 0.35rem 0.75rem;
+  margin-right: 0.25rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.nav-row-desktop .nav-link.active {
+  color: white !important;
+  background-color: #0d6efd;
+}
+
+/* MOBILE (<768px): collapse mode */
+@media (max-width: 767px) {
+  .nav-row-desktop {
+    flex-direction: column;
+  }
+
+  .brand-logo {
+    height: clamp(24px, 7vw, 40px);
+  }
+
+  .flag-icon {
+    height: 22px;
+  }
+}

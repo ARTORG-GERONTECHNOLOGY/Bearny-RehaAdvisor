@@ -1,6 +1,5 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '@/api/client';
-import { isValidEmail } from '@/utils/validation';
+import apiClient from '../api/client';
 
 export class ForgotPasswordStore {
   email = '';
@@ -21,6 +20,10 @@ export class ForgotPasswordStore {
     this.success = false;
   }
 
+  private isValidEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }
+
   async submit(t: (key: string) => string) {
     runInAction(() => {
       this.clearMessages();
@@ -29,7 +32,7 @@ export class ForgotPasswordStore {
 
     const email = this.email.trim();
 
-    if (!isValidEmail(email)) {
+    if (!this.isValidEmail(email)) {
       runInAction(() => {
         this.error = t('Invalid email format.');
         this.loading = false;

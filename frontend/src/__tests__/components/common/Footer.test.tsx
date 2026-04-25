@@ -6,11 +6,7 @@ import { useIsStandalone } from '@/components/PwaInstallSheet';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en',
-      changeLanguage: jest.fn(),
-    },
+    t: (key: string) => key, // returns the key itself as mock translation
   }),
 }));
 
