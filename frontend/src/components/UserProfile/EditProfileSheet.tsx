@@ -18,6 +18,7 @@ import ErrorAlert from '@/components/common/ErrorAlert';
 import config from '@/config/config.json';
 import apiClient from '@/api/client';
 import userProfileStore from '@/stores/userProfileStore';
+import { isValidEmail, isValidPhone } from '@/utils/validation';
 import { UserType } from '@/types';
 import Card from '@/components/Card';
 import { FieldGroup } from '@/components/ui/field';
@@ -111,11 +112,11 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
   };
 
   const validateProfile = (): boolean => {
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email && !isValidEmail(formData.email)) {
       setError(t('Invalid email format.'));
       return false;
     }
-    if (formData.phone && !/^\+?[0-9]{7,15}$/.test(formData.phone)) {
+    if (formData.phone && !isValidPhone(formData.phone)) {
       setError(t('Invalid phone number format.'));
       return false;
     }
