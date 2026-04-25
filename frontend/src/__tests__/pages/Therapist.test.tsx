@@ -18,7 +18,8 @@ global.ResizeObserver = class ResizeObserver {
 // Mock the apiClient
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 // Mock child components
-jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
+jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
+jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
 jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
 jest.mock('@/components/TherapistPatientPage/PatientPopup', () => () => <div>Patient Popup</div>);
 jest.mock('../../config/config.json', () => ({
@@ -247,13 +248,15 @@ describe('Therapist Page', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTestId('layout')).toBeInTheDocument();
+    expect(screen.getByText('Mock Header')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('Mark Ruffalo')).toBeInTheDocument();
       expect(screen.getByText('Jennifer Anniston')).toBeInTheDocument();
       expect(screen.getByText('Tom Day')).toBeInTheDocument();
     });
+
+    expect(screen.getByText('Mock Footer')).toBeInTheDocument();
   });
 
   test('redirects if user is not a Therapist', async () => {
