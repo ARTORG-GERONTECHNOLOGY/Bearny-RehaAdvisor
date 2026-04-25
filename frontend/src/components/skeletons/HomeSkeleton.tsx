@@ -1,14 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import Container from '@/components/Container';
 
 export default function HomeSkeleton() {
   return (
-    <div className="d-flex flex-column min-vh-100 home-root bg-back">
-      <main className="flex-grow-1 d-flex align-items-center py-4 py-sm-5 z-1">
-        <div className="container-md px-3 px-sm-4 px-md-5">
-          <div
-            className="d-flex flex-column gap-3 text-center text-md-start align-items-center align-items-md-start"
-            style={{ maxWidth: '480px' }}
-          >
+    <div className="flex flex-col min-h-screen bg-back">
+      <main className="flex-1 flex items-center py-8">
+        <Container>
+          <div className="flex flex-col gap-3 text-center items-center md:text-start md:items-start w-full md:w-1/2">
             {/* h1 headline */}
             <Skeleton className="h-10 w-3/4" />
             {/* h2 subheadline */}
@@ -16,14 +14,14 @@ export default function HomeSkeleton() {
             {/* body copy */}
             <Skeleton className="h-5 w-full" />
             {/* Login button */}
-            <Skeleton className="h-12 w-36 mt-2" />
+            <Skeleton className="h-10 w-36 mt-2" />
             {/* Register link */}
             <Skeleton className="h-4 w-48" />
           </div>
-        </div>
+        </Container>
       </main>
 
-      <div className="d-flex align-items-center justify-content-center px-4 py-3 border-top bg-white">
+      <div className="flex items-center justify-center px-4 py-3 border-t bg-white">
         <Skeleton className="h-4 w-48" />
       </div>
     </div>

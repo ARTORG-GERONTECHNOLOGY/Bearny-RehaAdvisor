@@ -11,6 +11,7 @@ import flagEn from '@/assets/flags/gb.png';
 import flagIt from '@/assets/flags/it.png';
 import flagPt from '@/assets/flags/pt.png';
 import flagNl from '@/assets/flags/be.png';
+import Container from '@/components/Container';
 
 const Footer: FunctionComponent = () => {
   const { t, i18n } = useTranslation();
@@ -38,8 +39,8 @@ const Footer: FunctionComponent = () => {
   return (
     <>
       <footer className="bg-white py-4">
-        <div className="container-fluid">
-          <div className="flex justify-center md:block w-full mb-4">
+        <Container>
+          <div className="flex flex-wrap gap-1 justify-center md:block w-full mb-4">
             <img
               src="/artorg_unibern_logo.gif"
               alt="ARTORG Center for Biomedical Engineering Research"
@@ -91,7 +92,7 @@ const Footer: FunctionComponent = () => {
               </Dropdown>
             </div>
           </div>
-        </div>
+        </Container>
       </footer>
 
       <PwaInstallSheet open={showPwaInstall} onOpenChange={setShowPwaInstall} />
