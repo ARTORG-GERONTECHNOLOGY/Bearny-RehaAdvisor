@@ -21,7 +21,6 @@ export function initSentry(): void {
           accentBackground: colors.brand,
           successColor: colors.ok,
           errorColor: colors.nok,
-          boxShadow: 'none',
         },
         showName: false,
         showEmail: true,

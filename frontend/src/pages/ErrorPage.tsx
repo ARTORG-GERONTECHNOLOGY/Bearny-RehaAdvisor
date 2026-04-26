@@ -62,7 +62,7 @@ const ErrorPage: React.FC = () => {
   return (
     <Layout>
       <Card className="bg-white max-w-lg mx-auto">
-        <h1 className="font-bold text-nok" aria-label="Error">
+        <h1 className="font-bold" aria-label="Error">
           {t('Error')}
         </h1>
         <div>{message}</div>
