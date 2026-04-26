@@ -54,17 +54,17 @@ const Footer: FunctionComponent = () => {
             <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="h-8" />
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
-            <div className="text-center text-md-start">
-              <div className="text-sm">
-                &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
-              </div>
-              <div className="mt-2 flex gap-2 flex-wrap items-center justify-center">
+            <div className="text-center md:text-left">
+              <div className="flex gap-1 flex-wrap justify-center md:justify-start">
                 <NavLink to="/terms" className="text-sm">
                   {t('Terms & Conditions')}
                 </NavLink>
                 <NavLink to="/privacypolicy" className="text-sm">
                   {t('Privacy Policy')}
                 </NavLink>
+              </div>
+              <div className="text-sm">
+                &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
