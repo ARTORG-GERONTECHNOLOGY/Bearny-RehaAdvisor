@@ -49,12 +49,12 @@ const AddRecomendations = lazyWithRetry(() => import('@/pages/AddInterventionVie
 const AddPatient = lazyWithRetry(() => import('@/pages/AddPatient'));
 const RehabTable = lazyWithRetry(() => import('@/pages/RehabTable'));
 const TherapistRecomendations = lazyWithRetry(() => import('@/pages/TherapistInterventions'));
-const ErrorPage = lazy(() => import('@/pages/ErrorPage'));
+const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
 const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
 const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
 const SuccessPage = lazyWithRetry(() => import('@/pages/SuccessPage'));
-const FitbitErrorPage = lazy(() => import('@/pages/FitbitErrorPage'));
+const FitbitErrorPage = lazyWithRetry(() => import('@/pages/FitbitErrorPage'));
 const HealthPage = lazyWithRetry(() => import('@/pages/HealthPage'));
 const HelpPage = lazyWithRetry(() => import('@/pages/Help'));
 const Eva = lazyWithRetry(() => import('@/pages/eva2'));
