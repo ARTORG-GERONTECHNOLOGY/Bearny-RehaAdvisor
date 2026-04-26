@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import ErrorPage from '@/pages/ErrorPage';
 
@@ -25,11 +25,21 @@ jest.mock('@/components/Card', () => ({
   default: ({ children }: { children: ReactNode }) => <div data-testid="card">{children}</div>,
 }));
 
+const mockCaptureException = jest.fn().mockReturnValue('test-event-id');
+const mockGetFeedback = jest.fn().mockReturnValue(null);
+
+jest.mock('@sentry/react', () => ({
+  captureException: (...args: unknown[]) => mockCaptureException(...args),
+  getFeedback: () => mockGetFeedback(),
+}));
+
 describe('ErrorPage', () => {
   beforeEach(() => {
     mockUseRouteError.mockReturnValue(undefined);
     mockIsRouteErrorResponse.mockReturnValue(false);
     jest.clearAllMocks();
+    mockCaptureException.mockReturnValue('test-event-id');
+    mockGetFeedback.mockReturnValue(null);
   });
 
   it('renders the default fallback message when there is no route error', () => {
@@ -62,5 +72,38 @@ describe('ErrorPage', () => {
 
     expect(screen.getByTestId('layout')).toBeInTheDocument();
     expect(screen.getByTestId('card')).toBeInTheDocument();
+  });
+
+  it('calls captureException with the error when useRouteError returns an Error', async () => {
+    const error = new Error('Unexpected crash');
+    mockUseRouteError.mockReturnValue(error);
+
+    await act(async () => {
+      render(<ErrorPage />);
+    });
+
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+
+  it('does not call captureException when there is no Error', async () => {
+    mockUseRouteError.mockReturnValue(undefined);
+
+    await act(async () => {
+      render(<ErrorPage />);
+    });
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('does not call captureException for a route error response', async () => {
+    mockUseRouteError.mockReturnValue({ statusText: 'Not Found' });
+    mockIsRouteErrorResponse.mockReturnValue(true);
+
+    await act(async () => {
+      render(<ErrorPage />);
+    });
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });

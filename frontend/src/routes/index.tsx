@@ -81,7 +81,7 @@ export const router = createBrowserRouter([
   {
     // Root catch-all: errorElement here covers every child route
     path: '/',
-    errorElement: createElement(ErrorPage),
+    errorElement: withSuspense(createElement(ErrorPage)),
     children: [
       {
         index: true,
