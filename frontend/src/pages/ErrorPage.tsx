@@ -16,6 +16,7 @@ type FeedbackFormHandle = {
 const ErrorPage: React.FC = () => {
   const { t } = useTranslation();
   const error = useRouteError();
+  const feedback = Sentry.getFeedback();
   const feedbackFormRef = React.useRef<FeedbackFormHandle | null>(null);
   const [eventId, setEventId] = React.useState<string | null>(null);
 
@@ -30,8 +31,6 @@ const ErrorPage: React.FC = () => {
   }, [error]);
 
   const handleReportBug = async () => {
-    const feedback = Sentry.getFeedback();
-
     if (!feedback) {
       console.warn('Sentry feedback integration is not available.');
       return;
@@ -66,7 +65,7 @@ const ErrorPage: React.FC = () => {
           {t('Error')}
         </h1>
         <div>{message}</div>
-        {Sentry.getFeedback() && (
+        {feedback && (
           <Button onClick={handleReportBug} className="mt-3 bg-nok hover:bg-nok/90">
             {t('Report Bug')}
           </Button>
