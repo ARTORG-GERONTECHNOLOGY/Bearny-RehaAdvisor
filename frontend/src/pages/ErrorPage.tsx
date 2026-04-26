@@ -17,12 +17,17 @@ const ErrorPage: React.FC = () => {
   const { t } = useTranslation();
   const error = useRouteError();
   const feedbackFormRef = React.useRef<FeedbackFormHandle | null>(null);
+  const [eventId, setEventId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (error instanceof Error) {
+      const id = Sentry.captureException(error);
+      setEventId(id);
+    }
     return () => {
       feedbackFormRef.current?.removeFromDom();
     };
-  }, []);
+  }, [error]);
 
   const handleReportBug = async () => {
     const feedback = Sentry.getFeedback();
@@ -38,7 +43,9 @@ const ErrorPage: React.FC = () => {
     });
 
     if (!feedbackFormRef.current) {
-      feedbackFormRef.current = await feedback.createForm();
+      feedbackFormRef.current = await feedback.createForm(
+        eventId ? { tags: { error_event_id: eventId } } : undefined
+      );
     }
 
     feedbackFormRef.current.appendToDom();
