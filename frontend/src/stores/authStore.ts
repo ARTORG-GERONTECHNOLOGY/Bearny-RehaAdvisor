@@ -1,5 +1,6 @@
 // src/stores/authStore.ts
 import axios from 'axios';
+import * as Sentry from '@sentry/react';
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '../api/client';
 
@@ -193,6 +194,8 @@ class AuthStore {
 
       // Fetch profile after tokens exist
       await this.fetchAndStoreUserInfo(this.id);
+
+      Sentry.logger.info('User logged in', { userId: this.id, userType: this.userType });
     } catch (err: any) {
       runInAction(() => {
         this.setLoginError(err?.response?.data?.error || 'Login failed');
@@ -214,6 +217,8 @@ class AuthStore {
     this.startInactivityTimer();
 
     await this.fetchAndStoreUserInfo(this.id);
+
+    Sentry.logger.info('User logged in via 2FA', { userId: this.id, userType: this.userType });
   }
 
   // ───────────────────────────
