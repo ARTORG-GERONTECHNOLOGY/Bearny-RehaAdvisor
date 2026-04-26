@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     build: {
-      sourcemap: true,
+      sourcemap: 'hidden',
     },
     plugins: [
       react(),
@@ -110,11 +110,12 @@ export default defineConfig(({ mode }) => {
           ],
         },
       }),
-      sentryVitePlugin({
-        authToken: env.SENTRY_AUTH_TOKEN,
-        org: 'artorg-ger',
-        project: 'react',
-      }),
+      env.SENTRY_AUTH_TOKEN &&
+        sentryVitePlugin({
+          authToken: env.SENTRY_AUTH_TOKEN,
+          org: 'artorg-ger',
+          project: 'react',
+        }),
     ],
     server: {
       host: true, // or '0.0.0.0'
