@@ -78,7 +78,9 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
 
   // Reload to replace the pending pushState event with a real committed navigation,
   // preventing subsequent page.goto() calls from throwing "interrupted by another navigation".
-  await page.reload({ waitUntil: 'networkidle' });
+  // await page.reload({ waitUntil: 'networkidle' });
+  // try copilot suggestion:
+  await page.waitForLoadState('networkidle');
 }
 
 function readEmailFiles(dir: string): string[] {
