@@ -73,7 +73,12 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const verifyResponse = await verifyDonePromise;
   expect(verifyResponse.status()).toBe(200);
 
-  await expect(page).toHaveURL(/\/therapist/);
+  // waitForURL (not just toHaveURL) ensures Playwright's internal navigation
+  // tracker has fully committed the pushState to /therapist before we return.
+  // toHaveURL only checks the URL value and can return while Playwright still
+  // considers the navigation "in flight", causing any subsequent page.goto to
+  // throw "interrupted by another navigation".
+  await page.waitForURL(/\/therapist/, { waitUntil: 'networkidle', timeout: 30_000 });
 }
 
 function readEmailFiles(dir: string): string[] {
