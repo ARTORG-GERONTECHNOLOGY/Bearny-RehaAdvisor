@@ -1,0 +1,11 @@
+# CODEOWNERS
+#
+# Update these owners to your actual GitHub usernames or team handles if needed.
+# GitHub uses this file to auto-request reviewers on pull requests.
+
+* @ARTORG-GERONTECHNOLOGY
+
+/backend/ @ARTORG-GERONTECHNOLOGY
+/frontend/ @ARTORG-GERONTECHNOLOGY
+/docs/ @ARTORG-GERONTECHNOLOGY
+/.github/ @ARTORG-GERONTECHNOLOGY

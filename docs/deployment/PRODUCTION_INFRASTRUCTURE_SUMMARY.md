@@ -1,5 +1,8 @@
 # Production Infrastructure Summary
 
+> Canonical entry point: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).  
+> This summary is retained as background/reference material.
+
 ## Overview
 
 This document provides a comprehensive overview of the production infrastructure created for deploying RehaAdvisor at reha-advisor.ch.

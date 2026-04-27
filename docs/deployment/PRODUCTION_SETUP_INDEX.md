@@ -1,5 +1,8 @@
 # RehaAdvisor Production Setup - Complete Index
 
+> Canonical entry point: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).  
+> This index is retained for historical context.
+
 ## 📋 Project Completion Status
 
 ### ✅ Completed Tasks

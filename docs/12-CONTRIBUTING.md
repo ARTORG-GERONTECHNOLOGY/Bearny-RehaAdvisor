@@ -11,7 +11,12 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
 - Be respectful and inclusive
 - Welcome diverse perspectives
 - Provide constructive criticism
-- Report inappropriate behavior to maintainers
+- Report inappropriate behavior using the process in [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)
+
+Quick onboarding path:
+- [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md)
+- [Testing Hub](./TESTING.md)
+- [Security Policy](../SECURITY.md)
 
 ## Getting Started
 
@@ -474,15 +479,16 @@ Uses semantic versioning: `MAJOR.MINOR.PATCH`
 ### Communication Channels
 
 - **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: Questions and general discussion
-- **Email**: support@yourdomain.com
+- **Pull Request Comments**: Design and implementation feedback during review
+- **GitHub Discussions**: Questions and general discussion (if enabled for this repository)
+- **Security Reports**: Follow [../SECURITY.md](../SECURITY.md) for private disclosure
 
 ### Getting Help
 
 1. Check existing documentation
 2. Search GitHub issues
-3. Ask in GitHub Discussions
-4. Contact maintainers if urgent
+3. Open or join a PR discussion for implementation-specific help
+4. Ask in GitHub Discussions if available
 
 ## Recognition
 
@@ -501,8 +507,8 @@ By contributing to RehaAdvisor, you agree that:
 ## Questions?
 
 Feel free to:
-- Open a GitHub Discussion
-- Email maintainers
+- Open a GitHub issue
+- Start with [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md)
 - Check existing documentation
 
 ## Thank You!
@@ -512,8 +518,12 @@ We appreciate your contributions to making RehaAdvisor better!
 ---
 
 **Quick Links**:
-- [Code of Conduct](./CODE_OF_CONDUCT.md)
-- [License](./LICENSE)
+- [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md)
+- [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [Security Policy](../SECURITY.md)
+- [Contributors](../CONTRIBUTORS.md)
+- [Project Changelog](../CHANGELOG.md)
+- [License](../LICENSE)
 - [Architecture](./02-ARCHITECTURE.md)
 - [Backend Guide](./04-BACKEND_GUIDE.md)
 - [Frontend Guide](./03-FRONTEND_GUIDE.md)
