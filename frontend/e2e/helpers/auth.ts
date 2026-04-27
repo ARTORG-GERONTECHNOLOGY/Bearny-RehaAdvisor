@@ -73,19 +73,11 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const verifyResponse = await verifyDonePromise;
   expect(verifyResponse.status()).toBe(200);
 
-  // 1. Wait until the SPA's history.pushState('/therapist') has changed the URL.
-  //    We deliberately do NOT use waitUntil:'networkidle' here so we get the URL
-  //    confirmation as early as possible.
+  // Confirm the SPA's history.pushState has changed the URL to /therapist.
   await page.waitForURL(/\/therapist/, { timeout: 30_000 });
 
-  // 2. Force a real full-browser reload of /therapist.
-  //    The login 2FA flow ends with a React Router history.pushState('/therapist').
-  //    Playwright tracks pushState as a "pending navigation event" that is never
-  //    fully "committed" in the same way a real HTTP navigation is.  Any
-  //    subsequent page.goto() fires while that pushState event is still registered
-  //    → Playwright throws "interrupted by another navigation to /therapist".
-  //    page.reload() issues a genuine browser navigation (GET /therapist),
-  //    discarding the pending pushState record and giving us a clean slate.
+  // Reload to replace the pending pushState event with a real committed navigation,
+  // preventing subsequent page.goto() calls from throwing "interrupted by another navigation".
   await page.reload({ waitUntil: 'networkidle' });
 }
 

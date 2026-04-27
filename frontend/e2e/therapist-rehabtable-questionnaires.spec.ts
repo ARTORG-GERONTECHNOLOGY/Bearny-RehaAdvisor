@@ -25,9 +25,6 @@ test.describe('Therapist rehab table questionnaires', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
     await loginAsTherapist(page);
-    // loginAsTherapist now uses page.waitForURL with waitUntil:'networkidle'
-    // internally, so the pushState navigation is fully committed and the
-    // network is idle before it returns. No extra goto needed here.
 
     const { patientId } = creds();
     await page.evaluate((pid) => {
