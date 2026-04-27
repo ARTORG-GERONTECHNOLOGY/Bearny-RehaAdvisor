@@ -26,6 +26,13 @@ test.describe('Therapist rehab table questionnaires', () => {
     skipUnlessSeeded(test);
     await loginAsTherapist(page);
 
+    // Wait for the /therapist SPA navigation and all post-login API calls
+    // (e.g. fetchPatients) to fully settle. Without this, calling page.goto()
+    // immediately can race with the still-in-flight client-side navigation,
+    // causing NS_BINDING_ABORTED (Firefox) or "interrupted by /therapist"
+    // (webkit) errors.
+    await page.waitForLoadState('networkidle');
+
     const { patientId } = creds();
     await page.evaluate((pid) => {
       window.localStorage.setItem('selectedPatient', pid as string);
