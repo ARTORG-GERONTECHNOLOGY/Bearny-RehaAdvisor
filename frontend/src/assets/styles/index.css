@@ -2,16 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prefer balanced headings on supporting browsers */
-.home-balance {
-  text-wrap: balance;
-}
-
-/* Ensure the hero image scales nicely across devices */
-.home-hero img {
-  object-fit: contain;
-}
-
 /* Better “safe” wrapping for long localized strings (older browsers fallback gracefully) */
 .lead {
   overflow-wrap: anywhere;
@@ -32,6 +22,11 @@
   .ratio-lg-16x9 {
     --bs-aspect-ratio: calc(9 / 16 * 100%);
   }
+}
+
+/* Sentry Feedback Widget Customization */
+#sentry-feedback {
+  --inset: auto auto 0 auto;
 }
 
 /* Shadcn CSS Variables */
