@@ -3,8 +3,7 @@ import logging
 from typing import Any, Dict, List
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.services.redcap_access import (
@@ -17,7 +16,7 @@ from core.views.redcap_import_views import _norm, get_therapist_by_user_id
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def redcap_patient(request):
     """
@@ -43,7 +42,7 @@ def redcap_patient(request):
     if not therapist:
         return JsonResponse({"ok": False, "error": "Therapist profile not found."}, status=404)
 
-    allowed = therapist.projects
+    allowed = get_allowed_redcap_projects_for_therapist(therapist)
     print("Allowed REDCap projects for therapist:", allowed)
     if not allowed:
         return JsonResponse(
