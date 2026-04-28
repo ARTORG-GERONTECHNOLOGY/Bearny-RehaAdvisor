@@ -1,5 +1,8 @@
 # Production Deployment Guide for reha-advisor.ch
 
+> Canonical entry point: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).  
+> For release operations, follow [`docs/PRODUCTION_DEPLOY_RUNBOOK.md`](docs/PRODUCTION_DEPLOY_RUNBOOK.md).
+
 ## Overview
 
 This guide provides step-by-step instructions for deploying RehaAdvisor to production at reha-advisor.ch using the separate production Docker Compose configuration.

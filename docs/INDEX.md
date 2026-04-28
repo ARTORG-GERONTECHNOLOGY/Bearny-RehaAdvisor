@@ -4,10 +4,11 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📋 Complete File List
 
-### Core Documentation (15 files)
+### Core Documentation (16 files)
 
 | File | Purpose | Audience | Length |
 |------|---------|----------|--------|
+| [CLAUDE.md](../CLAUDE.md) | Quick-reference for AI-assisted development (Claude Code) | Developers | — |
 | [README.md](./README.md) | Main documentation hub with overview | Everyone | 4.4 KB |
 | [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) | Fast lookup for common tasks | Everyone | Quick ref |
 | [01-GETTING_STARTED.md](./01-GETTING_STARTED.md) | Development setup and installation | Developers | 6.0 KB |
@@ -15,6 +16,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [03-FRONTEND_GUIDE.md](./03-FRONTEND_GUIDE.md) | React/TypeScript development guide | Frontend Developers | 13 KB |
 | [04-BACKEND_GUIDE.md](./04-BACKEND_GUIDE.md) | Django/DRF development guide | Backend Developers | 15 KB |
 | [05-DATABASE_GUIDE.md](./05-DATABASE_GUIDE.md) | MongoDB design and operations | Database Admins, Developers | 12 KB |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Canonical deployment entry point and document order | DevOps, System Admins | Hub |
 | [06-DEPLOYMENT_GUIDE.md](./06-DEPLOYMENT_GUIDE.md) | Production deployment procedures | DevOps, System Admins | 12 KB |
 | [PRODUCTION_DEPLOY_RUNBOOK.md](./PRODUCTION_DEPLOY_RUNBOOK.md) | Canonical release-to-prod deploy runbook and diagnostics | DevOps, On-call Engineers | Runbook |
 | [07-ENVIRONMENT_CONFIG.md](./07-ENVIRONMENT_CONFIG.md) | Configuration and environment variables | DevOps, Developers | 12 KB |
@@ -24,6 +26,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [10-USER_GUIDE.md](./10-USER_GUIDE.md) | End-user application guide | End Users | 11 KB |
 | [11-FAQ.md](./11-FAQ.md) | Frequently asked questions | Everyone | 10 KB |
 | [12-CONTRIBUTING.md](./12-CONTRIBUTING.md) | Code contribution guidelines | Contributors | 11 KB |
+| [CONTRIBUTING_QUICKSTART.md](./CONTRIBUTING_QUICKSTART.md) | First contribution path and review expectations | New Contributors | Quickstart |
 | [15-STUDY_INTEGRATION.md](./15-STUDY_INTEGRATION.md) | REDCap connection, patient import, consent gate, wearables sync | Study Coordinators, DevOps | — |
 | [13-CODE_STANDARDS.md](./13-CODE_STANDARDS.md) | Code style and best practices | Developers | 15 KB |
 | [14-CI_ENVIRONMENT_CONTRACT.md](./14-CI_ENVIRONMENT_CONTRACT.md) | CI test environment and security contract | DevOps, Backend Developers | 3 KB |
@@ -62,9 +65,10 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ### 🤝 For Contributors
 1. [Contributing Guidelines](./12-CONTRIBUTING.md)
-2. [Code Standards](./13-CODE_STANDARDS.md)
-3. [Backend Guide](./04-BACKEND_GUIDE.md) (best practices)
-4. [Frontend Guide](./03-FRONTEND_GUIDE.md) (best practices)
+2. [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md)
+3. [Code Standards](./13-CODE_STANDARDS.md)
+4. [Backend Guide](./04-BACKEND_GUIDE.md) (best practices)
+5. [Frontend Guide](./03-FRONTEND_GUIDE.md) (best practices)
 
 ## 📊 Documentation Statistics
 
@@ -89,6 +93,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 - [Code Standards](./13-CODE_STANDARDS.md) - Best practices
 
 ### Deployment & Operations
+- [Deployment Hub](./DEPLOYMENT.md)
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
 - [Production Deploy Runbook](./PRODUCTION_DEPLOY_RUNBOOK.md)
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)
@@ -106,6 +111,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ### Community
 - [Contributing Guidelines](./12-CONTRIBUTING.md)
+- [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md)
 - [Code Standards](./13-CODE_STANDARDS.md)
 
 ## ✨ Key Features of This Documentation
