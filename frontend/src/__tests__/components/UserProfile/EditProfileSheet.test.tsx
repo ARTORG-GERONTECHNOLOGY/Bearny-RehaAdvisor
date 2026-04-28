@@ -1,6 +1,6 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
-import EditUserInfo from '@/components/UserProfile/EditTherapistInfo';
+import EditUserInfo from '@/components/UserProfile/EditProfileSheet';
 
 // ── i18n ─────────────────────────────────────────────────────────────────────
 jest.mock('react-i18next', () => ({
@@ -66,78 +66,6 @@ jest.mock('react-select', () => ({
   ),
 }));
 
-// ── react-bootstrap ───────────────────────────────────────────────────────────
-jest.mock('react-bootstrap', () => {
-  const React = require('react');
-
-  const Modal = Object.assign(
-    ({ show, children }: any) => (show ? <div role="dialog">{children}</div> : null),
-    {
-      Header: ({ children }: any) => <div>{children}</div>,
-      Title: ({ children }: any) => <h5>{children}</h5>,
-      Body: ({ children }: any) => <div>{children}</div>,
-      Footer: ({ children }: any) => <div>{children}</div>,
-    }
-  );
-
-  const Form = Object.assign(
-    ({ children, onSubmit, ...rest }: any) => (
-      <form onSubmit={onSubmit} {...rest}>
-        {children}
-      </form>
-    ),
-    {
-      Group: ({ children }: any) => <div>{children}</div>,
-      Label: ({ children, htmlFor }: any) => <label htmlFor={htmlFor}>{children}</label>,
-      Control: ({ id, value, onChange, disabled, type, as, rows, placeholder }: any) =>
-        as === 'textarea' ? (
-          <textarea
-            id={id}
-            aria-label={id || placeholder}
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-            rows={rows}
-            placeholder={placeholder}
-          />
-        ) : (
-          <input
-            aria-label={id}
-            id={id}
-            type={type || 'text'}
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-          />
-        ),
-      Text: ({ children }: any) => <small>{children}</small>,
-    }
-  );
-
-  return {
-    Form,
-    Modal,
-    Button: ({ children, onClick, type, disabled, variant, size }: any) => (
-      <button
-        type={type || 'button'}
-        onClick={onClick}
-        disabled={disabled}
-        data-variant={variant}
-        data-size={size}
-      >
-        {children}
-      </button>
-    ),
-    Badge: ({ children, bg }: any) => <span className={`badge bg-${bg}`}>{children}</span>,
-    Alert: ({ children, variant, dismissible, onClose }: any) => (
-      <div role="alert" data-variant={variant}>
-        {children}
-        {dismissible && <button onClick={onClose}>×</button>}
-      </div>
-    ),
-  };
-});
-
 // ── ErrorAlert ────────────────────────────────────────────────────────────────
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
@@ -161,7 +89,7 @@ const baseUser = {
 } as any;
 
 function setup(userData = baseUser, onCancel = jest.fn()) {
-  return renderWithRouter(<EditUserInfo userData={userData} onCancel={onCancel} />);
+  return renderWithRouter(<EditUserInfo show userData={userData} onCancel={onCancel} />);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -181,7 +109,14 @@ describe('EditTherapistInfo', () => {
 
   it('email field is disabled', () => {
     setup();
-    expect(screen.getByLabelText('email')).toBeDisabled();
+    expect(screen.getByLabelText('Email')).toBeDisabled();
+  });
+
+  it('does not render password fields', () => {
+    setup();
+    expect(screen.queryByLabelText('Old Password')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('New Password')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Confirm New Password')).not.toBeInTheDocument();
   });
 
   it('invalid email triggers local validation error', () => {
@@ -193,7 +128,7 @@ describe('EditTherapistInfo', () => {
 
   it('invalid phone triggers local validation error', () => {
     setup();
-    fireEvent.change(screen.getByLabelText('phone'), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid phone number format.');
     expect(mockStore.updateProfile).not.toHaveBeenCalled();
@@ -201,7 +136,7 @@ describe('EditTherapistInfo', () => {
 
   it('valid submit calls userProfileStore.updateProfile', async () => {
     setup();
-    fireEvent.change(screen.getByLabelText('phone'), { target: { value: '+41791234567' } });
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '+41791234567' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => {
       expect(mockStore.updateProfile).toHaveBeenCalledWith(
@@ -278,15 +213,16 @@ describe('EditTherapistInfo', () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument();
     });
-    expect(screen.getByText('Request clinic / project change')).toBeInTheDocument();
   });
 
   it('submits access change request and shows pending badge', async () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
 
     // Submit with default pre-populated values (clinics=Inselspital, projects=COPAIN)
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
@@ -311,7 +247,9 @@ describe('EditTherapistInfo', () => {
 
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
 

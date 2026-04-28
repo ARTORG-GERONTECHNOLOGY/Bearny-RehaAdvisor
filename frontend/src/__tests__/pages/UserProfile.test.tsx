@@ -13,16 +13,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-jest.mock('@/components/common/Header', () => ({
-  __esModule: true,
-  default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
-}));
-
-jest.mock('@/components/common/Footer', () => ({
-  __esModule: true,
-  default: () => <div data-testid="footer" />,
-}));
-
 jest.mock('@/components/common/StatusBanner', () => ({
   __esModule: true,
   default: ({ type, message, onClose }: any) =>
@@ -35,37 +25,33 @@ jest.mock('@/components/common/StatusBanner', () => ({
 }));
 
 // child components: keep minimal but interactive
-jest.mock('@/components/UserProfile/EditTherapistInfo', () => ({
+jest.mock('@/components/UserProfile/EditProfileSheet', () => ({
   __esModule: true,
-  default: ({ onCancel }: any) => (
-    <div data-testid="edit-form">
-      <button onClick={onCancel}>cancel-edit</button>
-    </div>
-  ),
+  default: ({ show, onCancel, userData }: any) =>
+    show ? (
+      <div data-testid="edit-form">
+        <div>{userData?.email}</div>
+        <button onClick={onCancel}>cancel-edit</button>
+      </div>
+    ) : null,
 }));
 
-jest.mock('@/components/UserProfile/ChangePasswordForm', () => ({
+jest.mock('@/components/UserProfile/ChangePasswordSheet', () => ({
   __esModule: true,
-  default: ({ onCancel }: any) => (
-    <div data-testid="change-password-form">
-      <button onClick={onCancel}>cancel-pwd</button>
-    </div>
-  ),
+  default: ({ show, onCancel }: any) =>
+    show ? (
+      <div data-testid="change-password-form">
+        <button onClick={onCancel}>cancel-pwd</button>
+      </div>
+    ) : null,
 }));
 
-jest.mock('@/components/UserProfile/ProfileDetails', () => ({
+jest.mock('@/components/UserProfile/LanguageSelectorCard', () => ({
   __esModule: true,
-  default: ({ onEdit, onChangePassword, onDelete, deleting }: any) => (
-    <div data-testid="profile-details">
-      <div>deleting:{String(deleting)}</div>
-      <button onClick={onEdit}>go-edit</button>
-      <button onClick={onChangePassword}>go-change-password</button>
-      <button onClick={onDelete}>go-delete</button>
-    </div>
-  ),
+  default: () => <div data-testid="language-selector-card" />,
 }));
 
-jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
+jest.mock('@/components/UserProfile/DeleteConfirmationSheet', () => ({
   __esModule: true,
   default: ({ show, handleClose, handleConfirm, isLoading }: any) =>
     show ? (
@@ -77,23 +63,6 @@ jest.mock('@/components/UserProfile/DeleteConfirmation', () => ({
     ) : null,
 }));
 
-jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Spinner: () => <div data-testid="spinner" />,
-  Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Card: Object.assign(({ children }: any) => <div data-testid="card">{children}</div>, {
-    Header: ({ children }: any) => <div data-testid="card-header">{children}</div>,
-    Body: ({ children }: any) => <div data-testid="card-body">{children}</div>,
-    Footer: ({ children }: any) => <div data-testid="card-footer">{children}</div>,
-  }),
-}));
-
 // ---- authStore + userProfileStore mocks ----
 const authStoreMock = {
   isAuthenticated: true,
@@ -102,7 +71,8 @@ const authStoreMock = {
 };
 
 const userProfileStoreMock = {
-  mode: 'view' as 'view' | 'editProfile' | 'changePassword',
+  showEditProfile: false,
+  showChangePassword: false,
   showDeletePopup: false,
   userData: { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' } as any,
   loading: false,
@@ -114,8 +84,17 @@ const userProfileStoreMock = {
   deleteAccount: jest.fn(async () => {}),
   clearError: jest.fn(),
   clearSuccess: jest.fn(),
-  setMode: jest.fn((m: any) => {
-    userProfileStoreMock.mode = m;
+  openEditProfile: jest.fn(() => {
+    userProfileStoreMock.showEditProfile = true;
+  }),
+  closeEditProfile: jest.fn(() => {
+    userProfileStoreMock.showEditProfile = false;
+  }),
+  openChangePassword: jest.fn(() => {
+    userProfileStoreMock.showChangePassword = true;
+  }),
+  closeChangePassword: jest.fn(() => {
+    userProfileStoreMock.showChangePassword = false;
   }),
   openDelete: jest.fn(() => {
     userProfileStoreMock.showDeletePopup = true;
@@ -147,7 +126,8 @@ describe('UserProfile page', () => {
     authStoreMock.isAuthenticated = true;
     authStoreMock.userType = 'Therapist';
 
-    userProfileStoreMock.mode = 'view';
+    userProfileStoreMock.showEditProfile = false;
+    userProfileStoreMock.showChangePassword = false;
     userProfileStoreMock.showDeletePopup = false;
     userProfileStoreMock.userData = { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' };
     userProfileStoreMock.loading = false;
@@ -176,10 +156,10 @@ describe('UserProfile page', () => {
   it('shows loading spinner when store.loading = true', () => {
     userProfileStoreMock.loading = true;
 
-    renderWithRouter(<UserProfile />);
+    const { container } = renderWithRouter(<UserProfile />);
 
-    expect(screen.getByTestId('spinner')).toBeInTheDocument();
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(screen.queryByText('No user data found.')).not.toBeInTheDocument();
   });
 
   it('shows "No user data found." when userData is null', () => {
@@ -191,44 +171,39 @@ describe('UserProfile page', () => {
   });
 
   it('renders ProfileDetails in view mode and can switch to edit/changePassword via callbacks', async () => {
-    userProfileStoreMock.mode = 'view';
+    userProfileStoreMock.showEditProfile = false;
+    userProfileStoreMock.showChangePassword = false;
 
     renderWithRouter(<UserProfile />);
 
-    expect(screen.getByTestId('profile-details')).toBeInTheDocument();
+    expect(screen.getByText('A B')).toBeInTheDocument();
+    expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'go-edit' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('editProfile');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Info' }));
+    expect(userProfileStoreMock.openEditProfile).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'go-change-password' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('changePassword');
+    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
+    expect(userProfileStoreMock.openChangePassword).toHaveBeenCalled();
   });
 
-  it('renders EditUserInfo when mode=editProfile and can cancel back to view', () => {
-    userProfileStoreMock.mode = 'editProfile';
+  it('renders EditUserInfo when showEditProfile=true and can cancel', () => {
+    userProfileStoreMock.showEditProfile = true;
 
     renderWithRouter(<UserProfile />);
 
     expect(screen.getByTestId('edit-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-edit' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
-
-    // footer should exist in edit mode
-    expect(screen.getByTestId('card-footer')).toBeInTheDocument();
-    expect(screen.getByText('Update your profile information.')).toBeInTheDocument();
+    expect(userProfileStoreMock.closeEditProfile).toHaveBeenCalled();
   });
 
-  it('renders ChangePasswordForm when mode=changePassword and can cancel back to view', () => {
-    userProfileStoreMock.mode = 'changePassword';
+  it('renders ChangePasswordForm when showChangePassword=true and can cancel', () => {
+    userProfileStoreMock.showChangePassword = true;
 
     renderWithRouter(<UserProfile />);
 
     expect(screen.getByTestId('change-password-form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'cancel-pwd' }));
-    expect(userProfileStoreMock.setMode).toHaveBeenCalledWith('view');
-
-    expect(screen.getByTestId('card-footer')).toBeInTheDocument();
-    expect(screen.getByText('Change your account password.')).toBeInTheDocument();
+    expect(userProfileStoreMock.closeChangePassword).toHaveBeenCalled();
   });
 
   it('shows StatusBanner messages and close triggers store clear methods', () => {

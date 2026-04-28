@@ -533,7 +533,80 @@ validate_required_env_vars()
 
 ---
 
+## LibreTranslate Service
+
+RehaAdvisor bundles a self-hosted [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) container for machine translation of intervention content. It is **not optional** — the backend calls it whenever a therapist requests translation of an intervention.
+
+### Required environment variables (set inside `docker-compose.*.yml`)
+
+| Variable | Value | Description |
+|---|---|---|
+| `LT_LOAD_ONLY` | `en,fr,de,it,nl,pt` | Comma-separated list of language pairs to load. Reducing this list speeds up startup and saves disk. |
+| `LT_UPDATE_MODELS` | `true` | Re-downloads updated language models when the container image is updated. |
+| `LT_PACKAGES_ROOT` | `/app/packages` | Path inside the container where downloaded language model packages are stored. |
+
+### Named volume
+
+```yaml
+volumes:
+  libretranslate_packages:/app/packages
+```
+
+The `libretranslate_packages` named volume **must** be declared. Without it:
+
+- Language models are re-downloaded from the internet on every container restart.
+- The service is unavailable for several minutes after each restart.
+- Translations fail with "language pair not available" errors during the download window.
+
+If you see those errors, check that the volume exists:
+
+```bash
+docker volume ls | grep libretranslate
+```
+
+If it is missing, recreate it and restart the service:
+
+```bash
+docker volume create libretranslate_packages
+docker compose -f docker-compose.dev.yml restart libretranslate
+```
+
+---
+
+## Three-Environment Setup
+
+The project runs three distinct Docker Compose stacks on the same server host:
+
+| Stack | Compose file | `.env` file | Purpose |
+|---|---|---|---|
+| **dev** | `docker-compose.dev.yml` | `.env.dev` | Active development — code mounted as volumes, hot-reload enabled |
+| **local-prod** | `docker-compose.local-prod.yml` | `.env.local-prod` | Staging on the same host — built images, prod-like settings, accessible on port 8080 |
+| **prod** | `docker-compose.prod.reha-advisor.yml` (in `/home/ubuntu/repos/telerehabapp-prod`) | `.env.prod` | Live production — pulls images from GHCR, accessible on port 443 |
+
+### Gateway nginx
+
+A dedicated `docker-compose.gateway.yml` runs an nginx reverse proxy that routes incoming HTTPS traffic to either the local-prod or production stack depending on the hostname. Both stacks attach to separate Docker networks (`telereha` and `telereha-prod`); the gateway container joins both:
+
+```bash
+docker network connect telereha-prod gateway
+```
+
+When adding a new service to either stack that should be reachable through the gateway, update `docker-compose.gateway.yml` to proxy the relevant upstream.
+
+### Dev vs local-prod differences
+
+| Feature | dev | local-prod |
+|---|---|---|
+| Code mounting | `./backend:/app` volume | Image only (no bind mount) |
+| Settings module | `api.settings.dev` | `api.settings.local_prod` |
+| Debug | `True` | `False` |
+| Hot reload | Vite HMR active | Static build served by nginx |
+| Celery broker | `redis://redis:6379/0` | `redis://redis-localprod:6379/0` |
+
+---
+
 **Related Documentation**:
 - [Getting Started](./01-GETTING_STARTED.md)
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md)
+- [Production Deploy Runbook](./PRODUCTION_DEPLOY_RUNBOOK.md)
 - [Troubleshooting](./08-TROUBLESHOOTING.md)

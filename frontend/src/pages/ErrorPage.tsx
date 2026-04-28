@@ -1,33 +1,77 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { Container, Row, Col } from 'react-bootstrap';
+import * as Sentry from '@sentry/react';
 import { useTranslation } from 'react-i18next';
+import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
+import Card from '@/components/Card';
+import Layout from '@/components/Layout';
+import { Button } from '@/components/ui/button';
+import authStore from '@/stores/authStore';
+
+type FeedbackFormHandle = {
+  appendToDom: () => void;
+  open: () => void;
+  removeFromDom: () => void;
+};
 
 const ErrorPage: React.FC = () => {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
   const { t } = useTranslation();
+  const error = useRouteError();
+  const feedback = Sentry.getFeedback();
+  const feedbackFormRef = React.useRef<FeedbackFormHandle | null>(null);
+  const [eventId, setEventId] = React.useState<string | null>(null);
 
-  const message =
-    queryParams.get('message') ||
-    t('There was a problem connecting your Fitbit account. Please try again.');
+  React.useEffect(() => {
+    if (error instanceof Error) {
+      const id = Sentry.captureException(error);
+      setEventId(id);
+    }
+    return () => {
+      feedbackFormRef.current?.removeFromDom();
+    };
+  }, [error]);
+
+  const handleReportBug = async () => {
+    if (!feedback) {
+      console.warn('Sentry feedback integration is not available.');
+      return;
+    }
+
+    Sentry.setUser({
+      email: authStore.email || undefined,
+      username: authStore.firstName || undefined,
+    });
+
+    if (!feedbackFormRef.current) {
+      feedbackFormRef.current = await feedback.createForm(
+        eventId ? { tags: { error_event_id: eventId } } : undefined
+      );
+    }
+
+    feedbackFormRef.current.appendToDom();
+    feedbackFormRef.current.open();
+  };
+
+  let message = t('Something went wrong. Please try again later.');
+  if (isRouteErrorResponse(error)) {
+    message = error.statusText || message;
+  } else if (error instanceof Error) {
+    message = error.message;
+  }
 
   return (
-    <main className="d-flex flex-column justify-content-center align-items-center min-vh-100 px-3">
-      <Container>
-        <Row className="justify-content-center text-center">
-          <Col xs={12} sm={10} md={8} lg={6}>
-            <section className="p-4">
-              <h1 className="text-danger display-5 mb-3" aria-label="Error">
-                ⚠️ {t('Error')}
-              </h1>
-              <p className="lead text-break">{message}</p>
-              <p className="text-muted mt-3">{t('Please close this window and try again.')}</p>
-            </section>
-          </Col>
-        </Row>
-      </Container>
-    </main>
+    <Layout>
+      <Card className="bg-white max-w-lg mx-auto">
+        <h1 className="font-bold" aria-label="Error">
+          {t('Error')}
+        </h1>
+        <div>{message}</div>
+        {feedback && (
+          <Button onClick={handleReportBug} className="mt-3 bg-nok hover:bg-nok/90">
+            {t('Report Bug')}
+          </Button>
+        )}
+      </Card>
+    </Layout>
   );
 };
 
