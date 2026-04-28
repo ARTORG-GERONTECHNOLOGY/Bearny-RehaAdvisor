@@ -815,8 +815,7 @@ def apply_named_template(request, template_id):
     if patient_errors:
         response["partial_errors"] = patient_errors
         response["warning"] = (
-            f"Applied to {patients_affected} patient(s). "
-            f"{len(patient_errors)} patient(s) could not be updated."
+            f"Applied to {patients_affected} patient(s). " f"{len(patient_errors)} patient(s) could not be updated."
         )
     return JsonResponse(response, status=200)
 
