@@ -1126,14 +1126,15 @@ const TherapistRecomendations: React.FC = observer(() => {
         defaultDiagnosis={templateDiag || undefined}
         templateId={activeTemplateId || undefined}
         onApplied={(res) => {
-          setShowApplyModal(false);
+          if (!res.partial_errors?.length) {
+            setShowApplyModal(false);
+          }
           setError('');
-          window.alert(
-            t('Template applied: {{applied}} interventions, {{sessions}} sessions', {
-              applied: res.applied,
-              sessions: res.sessions_created,
-            })
-          );
+          const summary = t('Template applied: {{applied}} interventions, {{sessions}} sessions', {
+            applied: res.applied,
+            sessions: res.sessions_created,
+          });
+          window.alert(res.warning ? `${summary}\n\n${res.warning}` : summary);
         }}
       />
 
