@@ -174,8 +174,9 @@ def test_therapist_with_only_clinics_set_can_access_redcap(arf):
     ).save()
     th = Therapist(userId=u, clinics=["Inselspital"], projects=[]).save()
 
-    with patch("core.views.redcap_patient_views.get_therapist_for_user", return_value=th), patch(
-        "core.views.redcap_patient_views.export_record_by_pat_id", return_value=[]
+    with (
+        patch("core.views.redcap_patient_views.get_therapist_for_user", return_value=th),
+        patch("core.views.redcap_patient_views.export_record_by_pat_id", return_value=[]),
     ):
         resp = _get(arf, params="patient_code=P_MISSING", user=DummyUser())
 
