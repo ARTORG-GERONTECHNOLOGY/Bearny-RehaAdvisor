@@ -207,7 +207,9 @@ const ApplyTemplateModal: React.FC<Props> = ({
       if (data.partial_errors?.length) {
         applyErrors({
           message: data.warning || t('Template was partially applied.'),
-          non_field_errors: data.partial_errors.map((e: { patient: string; reason: string }) => `${e.patient}: ${e.reason}`),
+          non_field_errors: data.partial_errors.map(
+            (e: { patient: string; reason: string }) => `${e.patient}: ${e.reason}`
+          ),
         });
         setSubmitting(false);
         onApplied?.(data);
