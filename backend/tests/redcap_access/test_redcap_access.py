@@ -67,7 +67,7 @@ def test_get_allowed_projects_with_clinic_union_and_project_intersection(monkeyp
     monkeypatch.setattr(
         redcap_access,
         "config",
-        {"clinic_projects": {"ClinicA": ["PRJ1", "PRJ2"], "ClinicB": ["PRJ3", "PRJX"]}},
+        {"therapistInfo": {"clinic_projects": {"ClinicA": ["PRJ1", "PRJ2"], "ClinicB": ["PRJ3", "PRJX"]}}},
         raising=False,
     )
 
@@ -83,7 +83,7 @@ def test_assert_project_allowed_for_therapist(monkeypatch):
     monkeypatch.setattr(
         redcap_access,
         "config",
-        {"clinic_projects": {"ClinicA": ["PRJ1", "PRJ2"]}},
+        {"therapistInfo": {"clinic_projects": {"ClinicA": ["PRJ1", "PRJ2"]}}},
         raising=False,
     )
 
