@@ -9,8 +9,6 @@ jest.mock('react-i18next', () => ({
 // Mock child components
 // Mock the apiClient
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
-jest.mock('@/components/common/Header', () => () => <div>Mock Header</div>);
-jest.mock('@/components/common/Footer', () => () => <div>Mock Footer</div>);
 jest.mock('@/components/common/WelcomeArea', () => ({ user }) => <div>Welcome {user}</div>);
 jest.mock(
   '@/components/TherapistInterventionPage/LibraryFiltersCard',
