@@ -4,10 +4,11 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📋 Complete File List
 
-### Core Documentation (15 files)
+### Core Documentation (16 files)
 
 | File | Purpose | Audience | Length |
 |------|---------|----------|--------|
+| [CLAUDE.md](../CLAUDE.md) | Quick-reference for AI-assisted development (Claude Code) | Developers | — |
 | [README.md](./README.md) | Main documentation hub with overview | Everyone | 4.4 KB |
 | [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) | Fast lookup for common tasks | Everyone | Quick ref |
 | [01-GETTING_STARTED.md](./01-GETTING_STARTED.md) | Development setup and installation | Developers | 6.0 KB |

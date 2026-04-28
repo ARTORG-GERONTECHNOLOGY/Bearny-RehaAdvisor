@@ -21,10 +21,22 @@ from unittest.mock import patch
 import mongomock
 import pytest
 from django.test import Client
+from rest_framework.test import APIClient
 
 from core.services.redcap_service import RedcapError
 
 client = Client()
+
+# redcap_patient uses @api_view + @permission_classes([IsAuthenticated]), so
+# it requires a properly authenticated DRF request. force_authenticate bypasses
+# JWT validation while still satisfying IsAuthenticated.
+_AUTH_USER = type("U", (), {"is_authenticated": True})()
+
+
+def _auth_client():
+    c = APIClient()
+    c.force_authenticate(user=_AUTH_USER)
+    return c
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -85,37 +97,42 @@ def test_redcap_projects_method_not_allowed():
 
 
 def test_redcap_patient_requires_patient_code():
-    resp = client.get("/api/redcap/patient/", HTTP_AUTHORIZATION="Bearer test")
+    resp = _auth_client().get("/api/redcap/patient/")
     assert resp.status_code == 400
     assert resp.json()["error"] == "patient_code is required"
 
 
 @patch("core.views.redcap_patient_views.get_therapist_for_user", return_value=None)
 def test_redcap_patient_therapist_not_found(mock_get_th):
-    resp = client.get("/api/redcap/patient/?patient_code=P17", HTTP_AUTHORIZATION="Bearer test")
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17")
     assert resp.status_code == 404
     assert resp.json()["error"] == "Therapist profile not found."
 
 
 @patch(
+    "core.views.redcap_patient_views.get_allowed_redcap_projects_for_therapist",
+    return_value=[],
+)
+@patch(
     "core.views.redcap_patient_views.get_therapist_for_user",
     return_value=DummyTherapist(projects=[]),
 )
-def test_redcap_patient_no_allowed_projects(mock_get_th):
-    resp = client.get("/api/redcap/patient/?patient_code=P17", HTTP_AUTHORIZATION="Bearer test")
+def test_redcap_patient_no_allowed_projects(mock_get_th, mock_allowed):
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17")
     assert resp.status_code == 403
     assert resp.json()["error"] == "No REDCap projects configured for your clinic."
 
 
 @patch(
+    "core.views.redcap_patient_views.get_allowed_redcap_projects_for_therapist",
+    return_value=["COPAIN"],
+)
+@patch(
     "core.views.redcap_patient_views.get_therapist_for_user",
     return_value=DummyTherapist(projects=["COPAIN"]),
 )
-def test_redcap_patient_forbidden_project(mock_get_th):
-    resp = client.get(
-        "/api/redcap/patient/?patient_code=P17&project=COMPASS",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
+def test_redcap_patient_forbidden_project(mock_get_th, mock_allowed):
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17&project=COMPASS")
     assert resp.status_code == 403
     body = resp.json()
     assert body["error"] == "Not allowed to access this REDCap project for your clinic."
@@ -124,14 +141,15 @@ def test_redcap_patient_forbidden_project(mock_get_th):
 
 @patch("core.views.redcap_patient_views.export_record_by_pat_id", return_value=[])
 @patch(
+    "core.views.redcap_patient_views.get_allowed_redcap_projects_for_therapist",
+    return_value=["COPAIN"],
+)
+@patch(
     "core.views.redcap_patient_views.get_therapist_for_user",
     return_value=DummyTherapist(projects=["COPAIN"]),
 )
-def test_redcap_patient_not_found_when_no_rows(mock_get_th, mock_export):
-    resp = client.get(
-        "/api/redcap/patient/?patient_code=P17&project=COPAIN",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
+def test_redcap_patient_not_found_when_no_rows(mock_get_th, mock_allowed, mock_export):
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17&project=COPAIN")
     assert resp.status_code == 404
     assert "No REDCap record found" in resp.json()["error"]
 
@@ -141,11 +159,15 @@ def test_redcap_patient_not_found_when_no_rows(mock_get_th, mock_export):
     side_effect=RedcapError("upstream error", detail="timeout"),
 )
 @patch(
+    "core.views.redcap_patient_views.get_allowed_redcap_projects_for_therapist",
+    return_value=["COPAIN"],
+)
+@patch(
     "core.views.redcap_patient_views.get_therapist_for_user",
     return_value=DummyTherapist(projects=["COPAIN"]),
 )
-def test_redcap_patient_returns_502_when_all_projects_error(mock_get_th, mock_export):
-    resp = client.get("/api/redcap/patient/?patient_code=P17", HTTP_AUTHORIZATION="Bearer test")
+def test_redcap_patient_returns_502_when_all_projects_error(mock_get_th, mock_allowed, mock_export):
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17")
     assert resp.status_code == 502
     body = resp.json()
     assert "Failed to retrieve REDCap records" in body["error"]
@@ -153,11 +175,15 @@ def test_redcap_patient_returns_502_when_all_projects_error(mock_get_th, mock_ex
 
 
 @patch(
+    "core.views.redcap_patient_views.get_allowed_redcap_projects_for_therapist",
+    return_value=["COPAIN", "COMPASS"],
+)
+@patch(
     "core.views.redcap_patient_views.get_therapist_for_user",
     return_value=DummyTherapist(projects=["COPAIN", "COMPASS"]),
 )
 @patch("core.views.redcap_patient_views.export_record_by_pat_id")
-def test_redcap_patient_success_with_partial_errors(mock_export, mock_get_th):
+def test_redcap_patient_success_with_partial_errors(mock_export, mock_get_th, mock_allowed):
     def side_effect(project, _patient_code):
         if project == "COPAIN":
             return [{"record_id": "1", "pat_id": "P17"}]
@@ -165,7 +191,7 @@ def test_redcap_patient_success_with_partial_errors(mock_export, mock_get_th):
 
     mock_export.side_effect = side_effect
 
-    resp = client.get("/api/redcap/patient/?patient_code=P17", HTTP_AUTHORIZATION="Bearer test")
+    resp = _auth_client().get("/api/redcap/patient/?patient_code=P17")
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True

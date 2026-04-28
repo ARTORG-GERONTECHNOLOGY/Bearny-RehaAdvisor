@@ -7,19 +7,16 @@ import { I18nextProvider } from 'react-i18next';
 import { Router } from '@/routes/index';
 import '@/assets/styles/index.css'; // TODO: link in index.html for global styles after fully removing Bootstrap
 import '@/assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides (TODO: remove after redesign with Tailwind is complete)
+import { initSentry } from '@/lib/sentry';
 
-const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-if (sentryDsn) {
-  Sentry.init({
-    dsn: sentryDsn,
-    sendDefaultPii: true,
-    tracesSampleRate: 1.0,
-    integrations: [Sentry.browserTracingIntegration()],
-  });
-}
+initSentry();
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+const root = createRoot(container!, {
+  onUncaughtError: Sentry.reactErrorHandler(),
+  onCaughtError: Sentry.reactErrorHandler(),
+  onRecoverableError: Sentry.reactErrorHandler(),
+});
 
 root.render(
   <React.StrictMode>

@@ -7,17 +7,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
-// Header/Footer
-jest.mock('@/components/common/Header', () => ({
-  __esModule: true,
-  default: ({ isLoggedIn }: any) => <div data-testid="header">logged:{String(isLoggedIn)}</div>,
-}));
-
-jest.mock('@/components/common/Footer', () => ({
-  __esModule: true,
-  default: () => <div data-testid="footer" />,
-}));
-
 // ErrorAlert
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
@@ -29,14 +18,57 @@ jest.mock('@/components/common/ErrorAlert', () => ({
   ),
 }));
 
-// AuthCard
-jest.mock('@/components/Auth/AuthCard', () => ({
+// Container
+jest.mock('@/components/Container', () => ({
   __esModule: true,
-  default: ({ title, children }: any) => (
-    <div data-testid="auth-card">
-      <div data-testid="auth-card-title">{title}</div>
+  default: ({ children }: any) => <div>{children}</div>,
+}));
+
+// PageHeader
+jest.mock('@/components/PageHeader', () => ({
+  __esModule: true,
+  default: ({ title }: any) => <h1 data-testid="page-header">{title}</h1>,
+}));
+
+// UI Button (back button + submit button)
+jest.mock('@/components/ui/button', () => ({
+  __esModule: true,
+  Button: ({ children, disabled, onClick, type }: any) => (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      type={type || 'button'}
+      {...(type === 'submit' ? { 'data-testid': 'submit-btn' } : {})}
+    >
       {children}
-    </div>
+    </button>
+  ),
+}));
+
+// Card
+jest.mock('@/components/Card', () => ({
+  __esModule: true,
+  default: ({ children }: any) => <div>{children}</div>,
+}));
+
+// FieldGroup
+jest.mock('@/components/ui/field', () => ({
+  __esModule: true,
+  FieldGroup: ({ children }: any) => <div>{children}</div>,
+}));
+
+// InputField
+jest.mock('@/components/forms/input/InputField', () => ({
+  __esModule: true,
+  default: ({ label, value, onChange, disabled, type, placeholder }: any) => (
+    <input
+      aria-label={label}
+      type={type || 'text'}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+    />
   ),
 }));
 
@@ -47,28 +79,6 @@ jest.mock('react-bootstrap', () => ({
   Col: ({ children }: any) => <div data-testid="col">{children}</div>,
   Alert: ({ children }: any) => <div role="alert">{children}</div>,
   Spinner: ({ role }: any) => <div role={role || 'status'}>spinner</div>,
-  Button: ({ children, disabled, onClick, type }: any) => (
-    <button disabled={disabled} onClick={onClick} type={type || 'button'}>
-      {children}
-    </button>
-  ),
-  Form: Object.assign(
-    ({ children, onSubmit }: any) => <form onSubmit={onSubmit}>{children}</form>,
-    {
-      Group: ({ children }: any) => <div>{children}</div>,
-      Label: ({ children }: any) => <label>{children}</label>,
-      Control: ({ value, onChange, placeholder, disabled, type }: any) => (
-        <input
-          type={type || 'text'}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-label="email"
-        />
-      ),
-    }
-  ),
 }));
 
 /**
@@ -102,19 +112,16 @@ describe('ForgotPassword page', () => {
     storeMock.loading = false;
   });
 
-  it('renders header/footer and title inside AuthCard', () => {
+  it('renders page title', () => {
     renderWithRouter(<ForgotPassword />);
 
-    expect(screen.getByTestId('header')).toHaveTextContent('logged:false');
-    expect(screen.getByTestId('footer')).toBeInTheDocument();
-    expect(screen.getByTestId('auth-card')).toBeInTheDocument();
-    expect(screen.getByTestId('auth-card-title')).toHaveTextContent('ForgottenPassword');
+    expect(screen.getByTestId('page-header')).toHaveTextContent('ForgottenPassword');
   });
 
   it('typing email calls store.setEmail', () => {
     renderWithRouter(<ForgotPassword />);
 
-    const input = screen.getByLabelText('email');
+    const input = screen.getByLabelText('Emailaddress');
     fireEvent.change(input, { target: { value: 'test@example.com' } });
 
     expect(storeMock.setEmail).toHaveBeenCalledWith('test@example.com');
@@ -123,7 +130,7 @@ describe('ForgotPassword page', () => {
   it('submitting the form calls store.submit(t)', async () => {
     renderWithRouter(<ForgotPassword />);
 
-    const input = screen.getByLabelText('email');
+    const input = screen.getByLabelText('Emailaddress');
     fireEvent.change(input, { target: { value: 'test@example.com' } });
 
     fireEvent.submit(input.closest('form')!);
@@ -163,10 +170,8 @@ describe('ForgotPassword page', () => {
 
     renderWithRouter(<ForgotPassword />);
 
-    expect(screen.getByLabelText('email')).toBeDisabled();
-    // only one submit button on page
-    const submitBtn = screen.getByRole('button');
-    expect(submitBtn).toBeDisabled();
+    expect(screen.getByLabelText('Emailaddress')).toBeDisabled();
+    expect(screen.getByTestId('submit-btn')).toBeDisabled();
   });
 
   it('shows spinner + "Loading..." label inside submit button when loading', () => {
