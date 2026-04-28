@@ -46,7 +46,7 @@ def get_allowed_redcap_projects_for_therapist(therapist: Therapist) -> List[str]
     Clinic-based access control.
     Returns union of projects allowed for therapist's clinic(s).
     """
-    clinic_projects = config.get("clinic_projects", {}) or {}
+    clinic_projects = (config.get("therapistInfo") or {}).get("clinic_projects") or {}
     allowed = set()
 
     for clinic in therapist.clinics or []:
