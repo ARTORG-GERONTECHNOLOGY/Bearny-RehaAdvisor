@@ -1713,3 +1713,120 @@ def test_remove_diagnosis_block_persisted(mongo_mock):
     da_after = recs_after[0]["diagnosis_assignments"]
     assert "MS" not in da_after, "MS block must be removed from DB (dirty-tracking bug regression)"
     assert "Stroke" in da_after, "Stroke block must be untouched"
+
+
+# ===========================================================================
+# apply_named_template — error surfacing (bug #187)
+# ===========================================================================
+
+
+def _make_patient_no_end_date(therapist):
+    """Create a patient with no reha_end_date or study_end_date."""
+    p_user = User(
+        username=f"patient_{str(ObjectId())[-6:]}",
+        email=f"p_{str(ObjectId())[-6:]}@example.com",
+        phone="456",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(
+        userId=p_user,
+        patient_code=f"PAT-NOEND-{str(ObjectId())[-6:]}",
+        name="Noend",
+        first_name="Pat",
+        access_word="word",
+        age="40",
+        therapist=therapist,
+        clinic="Inselspital",
+        sex="Female",
+        diagnosis=["Stroke"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=[],
+        personal_goals=[],
+        # reha_end_date and study_end_date deliberately omitted
+    ).save()
+    return p_user, patient
+
+
+def test_apply_template_total_failure_returns_400_with_reason(mongo_mock):
+    """
+    Bug #187 regression: when every patient fails with a ValidationError
+    (e.g. missing endDate), the response must be 400, not a silent 200.
+    The error body must contain a human-readable reason.
+    """
+    _, therapist = _make_therapist()
+    _, patient = _make_patient_no_end_date(therapist)
+    tmpl = _make_template(therapist, with_intervention=True)
+
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"patientIds": [str(patient.id)], "effectiveFrom": tomorrow},
+        therapist,
+    )
+
+    assert resp.status_code == 400, resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is False
+    errors = body.get("non_field_errors", [])
+    assert errors, "non_field_errors must be populated"
+    # The error for missing endDate must be human-readable, not a raw MongoEngine string
+    combined = " ".join(errors)
+    assert "end date" in combined.lower(), f"Expected 'end date' in error message, got: {combined}"
+
+
+def test_apply_template_partial_failure_returns_200_with_partial_errors(mongo_mock):
+    """
+    Bug #187 regression: when some patients succeed and one fails, the response
+    must be 200 with success=True, include the successful counts, AND include
+    a partial_errors list with a human-readable reason for the failing patient.
+    """
+    _, therapist = _make_therapist()
+    _, good_patient = _make_patient(therapist)
+    _, bad_patient = _make_patient_no_end_date(therapist)
+    tmpl = _make_template(therapist, with_intervention=True)
+
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"patientIds": [str(good_patient.id), str(bad_patient.id)], "effectiveFrom": tomorrow},
+        therapist,
+    )
+
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is True
+    assert body.get("applied", 0) >= 1, "at least one patient must have been applied"
+    assert body.get("patients_affected", 0) >= 1
+
+    partial = body.get("partial_errors", [])
+    assert len(partial) == 1, f"expected 1 partial error, got {partial}"
+    assert bad_patient.patient_code in partial[0]["patient"]
+    assert "end date" in partial[0]["reason"].lower()
+
+    assert "warning" in body, "response must include a 'warning' summary string"
+
+
+def test_apply_template_success_has_no_partial_errors_key(mongo_mock):
+    """
+    When all patients succeed, partial_errors must not appear in the response
+    (keeps the happy-path payload clean).
+    """
+    _, therapist = _make_therapist()
+    _, patient = _make_patient(therapist)
+    tmpl = _make_template(therapist, with_intervention=True)
+
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = _post_json(
+        APPLY_URL.format(id=tmpl.id),
+        {"patientIds": [str(patient.id)], "effectiveFrom": tomorrow},
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "partial_errors" not in body
+    assert "warning" not in body

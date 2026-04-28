@@ -22,6 +22,8 @@ type Props = {
     applied: number;
     sessions_created: number;
     patients_affected?: number;
+    partial_errors?: { patient: string; reason: string }[];
+    warning?: string;
   }) => void;
   templateId?: string;
 };
@@ -201,10 +203,20 @@ const ApplyTemplateModal: React.FC<Props> = ({
         notes,
       });
 
-      onApplied?.(res.data);
-      resetLocalErrors();
-      setSubmitting(false);
-      onHide();
+      const data = res.data;
+      if (data.partial_errors?.length) {
+        applyErrors({
+          message: data.warning || t('Template was partially applied.'),
+          non_field_errors: data.partial_errors.map((e: { patient: string; reason: string }) => `${e.patient}: ${e.reason}`),
+        });
+        setSubmitting(false);
+        onApplied?.(data);
+      } else {
+        onApplied?.(data);
+        resetLocalErrors();
+        setSubmitting(false);
+        onHide();
+      }
     } catch (e: any) {
       console.error('apply_template error:', e?.response?.data || e);
       applyErrors(e?.response?.data || {});
