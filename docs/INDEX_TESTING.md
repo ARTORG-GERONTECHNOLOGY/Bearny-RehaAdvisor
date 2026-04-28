@@ -1,5 +1,8 @@
 # Testing Documentation Index
 
+> Canonical entry point: [`TESTING.md`](./TESTING.md).  
+> This legacy index remains available for deeper historical navigation.
+
 ## 📚 Complete Testing Documentation Library
 
 Welcome! This is your starting point for understanding the RehaAdvisor testing infrastructure.
