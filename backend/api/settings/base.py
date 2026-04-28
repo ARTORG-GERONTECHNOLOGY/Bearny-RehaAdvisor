@@ -148,11 +148,6 @@ if _use_e2e_file_email_backend and _e2e_email_dir:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
-import sys
-
-print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
-print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -168,6 +163,7 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "null": {"class": "logging.NullHandler"},
     },
     "root": {
         "handlers": ["console"],
@@ -182,6 +178,12 @@ LOGGING = {
         "core": {
             "handlers": ["console"],
             "level": os.getenv("APP_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+        # Bots probe with raw IP as Host — Django rejects correctly but Sentry
+        # captures the SuspiciousOperation as noise. Silence in all environments.
+        "django.security.DisallowedHost": {
+            "handlers": ["null"],
             "propagate": False,
         },
     },
