@@ -73,7 +73,12 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   const verifyResponse = await verifyDonePromise;
   expect(verifyResponse.status()).toBe(200);
 
-  await expect(page).toHaveURL(/\/therapist/);
+  // Confirm the SPA's history.pushState has changed the URL to /therapist.
+  await page.waitForURL(/\/therapist/, { timeout: 30_000 });
+
+  // Reload to replace the pending pushState event with a real committed navigation,
+  // preventing subsequent page.goto() calls from throwing "interrupted by another navigation".
+  await page.reload({ waitUntil: 'networkidle' });
 }
 
 function readEmailFiles(dir: string): string[] {
