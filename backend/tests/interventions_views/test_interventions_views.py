@@ -359,7 +359,7 @@ def test_add_new_intervention_missing_duration(mongo_mock):
     """
     Omitting the ``duration`` key entirely returns 400 with ``field_errors.duration``.
 
-    Regression test: the AddInterventionView frontend form previously did not send
+    Regression test: the AddInterventionPopup frontend form previously did not send
     ``duration`` at all, causing every manual upload to fail silently with a generic
     error.  This test pins the backend's validation path so the error is explicit.
     """
