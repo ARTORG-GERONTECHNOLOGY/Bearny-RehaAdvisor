@@ -509,9 +509,7 @@ def test_create_log_truncates_details_to_500_chars(mongo_mock):
 
     client.post(
         "/api/analytics/log",
-        data=json.dumps(
-            {"user": str(th_user.id), "action": "REHATABLE", "details": long_details}
-        ),
+        data=json.dumps({"user": str(th_user.id), "action": "REHATABLE", "details": long_details}),
         content_type="application/json",
     )
     log = Logs.objects.first()
@@ -577,9 +575,9 @@ def test_logs_actor_role_stored_in_useragent_db_field(mongo_mock):
 
     raw = get_db()["logs"].find_one({"action": "LOGIN"})
     assert raw is not None
-    assert raw.get("userAgent") == "Therapist", (
-        "actor_role must be stored under the 'userAgent' MongoDB field for backward compat"
-    )
+    assert (
+        raw.get("userAgent") == "Therapist"
+    ), "actor_role must be stored under the 'userAgent' MongoDB field for backward compat"
     assert "actor_role" not in raw, "Python attribute name must NOT appear in the raw document"
 
 
