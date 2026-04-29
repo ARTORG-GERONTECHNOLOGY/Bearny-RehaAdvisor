@@ -87,7 +87,7 @@ const PatientPlan: React.FC = observer(() => {
   return (
     <Layout aria-label={t('Week range and current month')}>
       <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
-        <div className="flex gap-2">
+        <div className="flex gap-2 select-none">
           <ArrowLeftIcon className="mt-2 h-4 w-4 hover:cursor-pointer" onClick={goToPreviousWeek} />
           <PageHeader
             title={`${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`}

@@ -8,6 +8,7 @@ import { Router } from '@/routes/index';
 import '@/assets/styles/index.css'; // TODO: link in index.html for global styles after fully removing Bootstrap
 import '@/assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides (TODO: remove after redesign with Tailwind is complete)
 import { initSentry } from '@/lib/sentry';
+import DevBanner from '@/components/common/DevBanner';
 
 initSentry();
 
@@ -22,6 +23,7 @@ root.render(
   <React.StrictMode>
     <I18nextProvider i18n={i18n}>
       <Router />
+      <DevBanner />
     </I18nextProvider>
   </React.StrictMode>
 );
