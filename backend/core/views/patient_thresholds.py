@@ -121,6 +121,15 @@ def _parse_iso_dt(value: Any) -> Optional[datetime]:
     return dt
 
 
+def _coerce_aware(dt) -> datetime:
+    """Return dt as a timezone-aware datetime, treating naive values as local time."""
+    if dt is None:
+        return timezone.now()
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
 def _user_is_admin(user: User) -> bool:
     return getattr(user, "role", "") == "Admin"
 
@@ -448,7 +457,7 @@ def patient_thresholds_view(request, patient_id: str):
         # Sort history descending by effective_from
         hist_sorted = sorted(
             hist,
-            key=lambda x: getattr(x, "effective_from", timezone.now()),
+            key=lambda x: _coerce_aware(getattr(x, "effective_from", None)),
             reverse=True,
         )
 
@@ -496,7 +505,7 @@ def patient_thresholds_view(request, patient_id: str):
     hist = list(getattr(updated, "thresholds_history", []) or [])
     hist_sorted = sorted(
         hist,
-        key=lambda x: getattr(x, "effective_from", timezone.now()),
+        key=lambda x: _coerce_aware(getattr(x, "effective_from", None)),
         reverse=True,
     )
 

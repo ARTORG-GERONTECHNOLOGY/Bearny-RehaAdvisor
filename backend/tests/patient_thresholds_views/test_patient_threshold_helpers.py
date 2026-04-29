@@ -8,10 +8,11 @@ import pytest
 from django.test import RequestFactory
 from django.utils import timezone
 
-from core.models import Patient, PatientThresholds, Therapist, User
+from core.models import Patient, PatientThresholds, PatientThresholdsSnapshot, Therapist, User
 from core.views.patient_thresholds import (
     PatientThresholdsSerializer,
     ThresholdsUpdateSerializer,
+    _coerce_aware,
     _ensure_patient_thresholds,
     _merge_thresholds,
     _parse_iso_dt,
@@ -100,6 +101,56 @@ def test_thresholds_serializer_and_merge_logic():
     merged = _merge_thresholds(current, patch)
     assert merged.steps_goal == 11000
     assert _thresholds_equal(current, PatientThresholds(steps_goal=10000)) is True
+
+
+def test_coerce_aware():
+    # None → returns timezone.now() (aware)
+    result = _coerce_aware(None)
+    assert timezone.is_aware(result)
+
+    # naive datetime → made aware
+    naive = datetime(2025, 6, 1, 12, 0, 0)
+    assert timezone.is_naive(naive)
+    result = _coerce_aware(naive)
+    assert timezone.is_aware(result)
+    assert result.year == 2025 and result.month == 6
+
+    # already-aware datetime → returned unchanged
+    aware = timezone.now()
+    result = _coerce_aware(aware)
+    assert timezone.is_aware(result)
+    assert result == aware
+
+
+def test_history_sort_tolerates_naive_effective_from():
+    """GET /thresholds/ must not raise TypeError when history contains naive datetimes."""
+    patient = _create_patient()
+    _ensure_patient_thresholds(patient)
+
+    # Inject two history snapshots with naive effective_from values directly,
+    # simulating records written before timezone awareness was enforced.
+    snap1 = PatientThresholdsSnapshot(
+        effective_from=datetime(2025, 1, 1, 8, 0, 0),  # naive
+        reason="old record 1",
+        thresholds=PatientThresholds(steps_goal=8000),
+    )
+    snap2 = PatientThresholdsSnapshot(
+        effective_from=datetime(2025, 6, 1, 8, 0, 0),  # naive
+        reason="old record 2",
+        thresholds=PatientThresholds(steps_goal=9000),
+    )
+    patient.thresholds_history = [snap1, snap2]
+    patient.save()
+
+    req = rf.get(f"/api/patients/{patient.id}/thresholds/")
+    resp = patient_thresholds_view(req, str(patient.id))
+
+    assert resp.status_code == 200
+    data = json.loads(resp.content)
+    assert len(data["history"]) == 2
+    # History is returned newest-first; June comes before January
+    assert data["history"][0]["reason"] == "old record 2"
+    assert data["history"][1]["reason"] == "old record 1"
 
 
 def test_update_thresholds_noop_and_history_and_view_error_branches():
