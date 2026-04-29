@@ -46,7 +46,6 @@ const UserProfile = lazyWithRetry(() => import('@/pages/UserProfile'));
 const PatientView = lazyWithRetry(() => import('@/pages/Patient'));
 const AdminDashboard = lazyWithRetry(() => import('@/pages/AdminDashboard'));
 const AddRecomendations = lazyWithRetry(() => import('@/pages/AddInterventionView'));
-const AddPatient = lazyWithRetry(() => import('@/pages/AddPatient'));
 const RehabTable = lazyWithRetry(() => import('@/pages/RehabTable'));
 const TherapistRecomendations = lazyWithRetry(() => import('@/pages/TherapistInterventions'));
 const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
@@ -124,10 +123,6 @@ export const router = createBrowserRouter([
       {
         path: 'addcontent',
         element: withSuspense(createElement(RootLayout, null, createElement(AddRecomendations))),
-      },
-      {
-        path: 'addpatient',
-        element: withSuspense(createElement(RootLayout, null, createElement(AddPatient))),
       },
       {
         path: 'rehabtable',
