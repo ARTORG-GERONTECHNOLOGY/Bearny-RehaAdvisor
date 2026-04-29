@@ -19,7 +19,7 @@ Current scope starts with the home/login journey.
 | `patient-interventions-page.spec.ts`                | Patient interventions library auth-guard, API load trigger, filter interactions, and details modal open/close behavior.                                                                                                                                                                                                                                                                         |
 | `therapist-interventions-templates.spec.ts`         | Named-template management on `/interventions` Templates tab: create, select, apply, copy, delete, and calendar load. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`; tests skip gracefully without them.                                                                                                                                                                             |
 | `therapist-interventions-import.spec.ts`            | Import Interventions modal — Excel tab, Upload Media tab, UI validation. Also covers COPAIN MSK file import using the real `COPAIN_MSK_LINKS_UPLOAD.xlsm` fixture: dry-run, live import, idempotency, wrong-sheet-name error (API-level, 4 tests) and modal-level import flow (UI-level, 2 tests). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                   |
-| `template-assign-apply.spec.ts`                     | Template assign/apply MongoEngine dirty-tracking regression: assign → apply produces sessions, update existing schedule persists, remove diagnosis block persists. API-level (4) + UI-level (2). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                  |
+| `template-assign-apply.spec.ts`                     | Template assign/apply regressions: dirty-tracking checks plus auto-apply scope (`future`, `all_past_and_future`) at API level, and UI apply flow checks. Includes one documented `test.fixme` for a currently flaky CI-sensitive UI scenario. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID` for patient-apply flows.                                             |
 | `spurious-logout.spec.ts`                           | Spurious logout regression: concurrent 401 refresh-token race, stale `expiresAt` on reload, corrupted `expiresAt`, multi-tab logout sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD`.                                                                                                                                                                                            |
 | `therapist-rehabtable-questionnaires.spec.ts`       | Therapist RehabTable questionnaire tab: endpoint fetches, schedule modal open, questionnaire-content visibility, and answered-results rendering for assigned questionnaires. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                                      |
 | `therapist-health-export-questionnaire-csv.spec.ts` | Therapist Health page export regression: CSV questionnaire section includes question text, multi-answer keys/texts, comments, and media URLs. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_PATIENT_ID`.                                                                                                                                                                     |
@@ -72,6 +72,9 @@ Current scope starts with the home/login journey.
   - Applying an empty template returns `applied=0, sessions_created=0`
   - Full UI flow: create via UI + apply → `sessions_created > 0`
   - Apply dialog shows a non-zero session count
+  - Auto-apply scope API checks:
+    - `auto_apply_scope=future` persists diagnosis rule in template
+    - `auto_apply_scope=all_past_and_future` returns existing-patient backfill summary
 - Import Interventions modal (`therapist-interventions-import.spec.ts`, seeded therapist required):
   - Excel tab is shown by default; both tab links are visible
   - Switching to Upload Media tab and back restores the correct UI
@@ -131,6 +134,13 @@ Current scope starts with the home/login journey.
     - `graphics` → `image`, `brochure` → `pdf`, `video` → `video`
     - `audio` → `audio`, `app` → `app`, `website` → `website`
     - (backend `normalize_content_type` then maps lowercase → stored title-case)
+
+## Known flaky / currently failing notes
+
+- `template-assign-apply.spec.ts`
+  - UI scenario for scope options + backfill summary is currently marked `test.fixme`.
+  - Reason: environment-dependent diagnosis distribution and modal timing make this unstable in CI.
+  - API-level tests for the same behavior are active and stable.
 
 ---
 
