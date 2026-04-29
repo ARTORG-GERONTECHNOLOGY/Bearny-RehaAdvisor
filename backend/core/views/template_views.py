@@ -19,6 +19,7 @@ from bson import ObjectId
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
+from mongoengine.errors import ValidationError as MongoValidationError
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -29,6 +30,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionTemplate,
+    Logs,
     Patient,
     RehabilitationPlan,
     Therapist,
@@ -61,6 +63,24 @@ def _get_therapist(request) -> Therapist | None:
         return Therapist.objects.get(userId=str(request.user.id))
     except Exception:
         return None
+
+
+_FIELD_MESSAGES = {
+    "endDate": "Patient has no rehabilitation end date. Set a rehab or study end date on the patient profile before applying a template.",
+    "startDate": "Patient has no start date. Ensure the patient profile has a valid start date.",
+    "patientId": "Patient reference is invalid or missing.",
+    "therapistId": "Therapist reference is invalid or missing.",
+}
+
+
+def _describe_validation_error(e: MongoValidationError) -> str:
+    errors = getattr(e, "errors", {}) or {}
+    if not errors:
+        return str(e)
+    parts = []
+    for field, detail in errors.items():
+        parts.append(_FIELD_MESSAGES.get(field) or f"'{field}' is required or invalid ({detail}).")
+    return " ".join(parts)
 
 
 def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dict:
@@ -750,8 +770,10 @@ def apply_named_template(request, template_id):
     total_applied = 0
     total_sessions = 0
     patients_affected = 0
+    patient_errors: List[Dict] = []
 
     for patient in patients:
+        patient_code = getattr(patient, "patient_code", str(patient.pk))
         try:
             a, s = _apply_template_to_single_patient(
                 tmpl, patient, therapist, eff_dt, diagnosis_filter, notes, force_video, overwrite
@@ -760,23 +782,57 @@ def apply_named_template(request, template_id):
             total_sessions += s
             if a > 0:
                 patients_affected += 1
-        except Exception as e:
+        except MongoValidationError as e:
+            reason = _describe_validation_error(e)
             logger.error(
                 "apply_named_template: error applying to patient %s: %s",
-                getattr(patient, "patient_code", str(patient.pk)),
+                patient_code,
                 str(e),
                 exc_info=True,
             )
+            patient_errors.append({"patient": patient_code, "reason": reason})
+        except Exception as e:
+            logger.error(
+                "apply_named_template: error applying to patient %s: %s",
+                patient_code,
+                str(e),
+                exc_info=True,
+            )
+            patient_errors.append({"patient": patient_code, "reason": "Unexpected error. Check server logs."})
 
-    return JsonResponse(
-        {
-            "success": True,
-            "applied": total_applied,
-            "sessions_created": total_sessions,
-            "patients_affected": patients_affected,
-        },
-        status=200,
-    )
+    if patient_errors and not total_applied:
+        return bad(
+            "Template could not be applied to any patient.",
+            non_field_errors=[f"{e['patient']}: {e['reason']}" for e in patient_errors],
+            status=400,
+        )
+
+    try:
+        Logs(
+            userId=therapist.userId,
+            action="TEMPLATE_APPLY",
+            actor_role="Therapist",
+            details=(
+                f"template={tmpl.id} applied={total_applied} "
+                f"sessions={total_sessions} patients={patients_affected} "
+                f"errors={len(patient_errors)}"
+            ),
+        ).save()
+    except Exception:
+        pass
+
+    response: Dict = {
+        "success": True,
+        "applied": total_applied,
+        "sessions_created": total_sessions,
+        "patients_affected": patients_affected,
+    }
+    if patient_errors:
+        response["partial_errors"] = patient_errors
+        response["warning"] = (
+            f"Applied to {patients_affected} patient(s). " f"{len(patient_errors)} patient(s) could not be updated."
+        )
+    return JsonResponse(response, status=200)
 
 
 # ---------------------------------------------------------------------------

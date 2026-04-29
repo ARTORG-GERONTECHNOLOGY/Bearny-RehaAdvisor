@@ -319,6 +319,21 @@ jobs:
             # Clean up old images to free disk space
             docker image prune -f
 
+      - name: Run backup script tests on prod server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            PROD_DIR=/home/ubuntu/repos/telerehabapp-prod
+            cd "$PROD_DIR"
+            command -v bats >/dev/null 2>&1 || sudo apt-get install -y bats
+            echo "Running backup script tests..."
+            bats scripts/tests/
+            echo "✅ All script tests passed"
+
       - name: Production health check
         run: |
           max_attempts=60

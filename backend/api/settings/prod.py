@@ -22,7 +22,8 @@ ALLOWED_HOSTS = [
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "false").lower() == "true"
 
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = "/srv/app/static"
+MEDIA_ROOT = "/srv/app/media"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
