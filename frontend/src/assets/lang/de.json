@@ -105,6 +105,11 @@
   "Choose...": "Wählen...",
   "Patient ID or username": "Patienten-ID oder Benutzername",
   "Apply template to patient": "Vorlage auf Patient anwenden",
+  "Apply this template for this diagnosis": "Diese Vorlage für diese Diagnose anwenden",
+  "Only keep in template (no automatic assignment)": "Nur in Vorlage behalten (keine automatische Zuweisung)",
+  "Automatically assign to new matching patients": "Automatisch neuen passenden Patienten zuweisen",
+  "Assign now to all existing matching patients and future ones": "Jetzt allen bestehenden passenden Patienten und zukünftigen zuweisen",
+  "Matching patients are limited to your own clinic/project access.": "Passende Patienten sind auf Ihren eigenen Klinik-/Projektzugriff begrenzt.",
   "Failed to apply template.": "Vorlage konnte nicht angewendet werden. Versuchen Sie es jetzt oder später erneut.",
   "Adherence (%)": "Adhärenz (%)",
   "Discharged": "Entlassen",
@@ -1224,5 +1229,9 @@
   "Private intervention": "Private Intervention",
   "Select...": "Auswählen...",
   "homeHeadline": "Bärni",
-  "homeSubheadline": "Bäreit nach der Rehabilitation"
+  "homeSubheadline": "Bäreit nach der Rehabilitation",
+  "Diagnosis auto-apply mode": "Modus zur automatischen Diagnose-Zuweisung",
+  "Start assigning from date": "Zuweisung starten ab Datum",
+  "Defaults to today. Existing patients receive sessions from this date onward.": "Standard ist heute. Bestehende Patienten erhalten Sitzungen ab diesem Datum.",
+  "New matching patients means future registrations with this diagnosis.": "Neue passende Patienten bedeutet zukünftige Registrierungen mit dieser Diagnose."
 }

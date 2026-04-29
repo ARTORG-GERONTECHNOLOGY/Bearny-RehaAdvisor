@@ -1248,6 +1248,27 @@ def assign_intervention_to_types(request, therapist_id):
     )
 
     keep_previous = bool(payload.get("keep_previous", False))
+    auto_apply_scope = (payload.get("auto_apply_scope") or "future").strip().lower()
+    if auto_apply_scope not in {"future", "all_past_and_future"}:
+        add_error("auto_apply_scope", "Must be one of: future, all_past_and_future.")
+    auto_apply_starting_from = (payload.get("auto_apply_starting_from") or "").strip()
+    if auto_apply_scope == "all_past_and_future":
+        if not auto_apply_starting_from:
+            auto_apply_starting_from = timezone.localdate().isoformat()
+        try:
+            datetime.fromisoformat(auto_apply_starting_from)
+        except Exception:
+            add_error("auto_apply_starting_from", "Use YYYY-MM-DD format.")
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
 
     entry = next(
         (rec for rec in therapist_obj.default_recommendations or [] if rec.recommendation == inter_obj),
@@ -1293,12 +1314,106 @@ def assign_intervention_to_types(request, therapist_id):
             status=500,
         )
 
+    existing_patients_applied = {"patients_affected": 0, "applied": 0, "sessions_created": 0}
+    if auto_apply_scope == "all_past_and_future":
+        from core.models import RehabilitationPlan
+
+        eff_dt = make_aware(datetime.fromisoformat(f"{auto_apply_starting_from}T00:00:00"))
+        start_minutes = int(payload.get("suggested_execution_time") or 480)
+        start_h = str(max(0, min(23, start_minutes // 60))).zfill(2)
+        start_m = str(max(0, min(59, start_minutes % 60))).zfill(2)
+        start_time = f"{start_h}:{start_m}"
+
+        bulk_filter = {"clinic__in": therapist_obj.clinics, "diagnosis": diagnosis}
+        if therapist_obj.projects:
+            bulk_filter["project__in"] = therapist_obj.projects
+        for patient in Patient.objects(**bulk_filter):
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+            if not plan:
+                plan = RehabilitationPlan(
+                    patientId=patient,
+                    therapistId=therapist_obj,
+                    startDate=getattr(patient.userId, "createdAt", timezone.now()),
+                    endDate=getattr(patient, "study_end_date", None) or getattr(patient, "reha_end_date", None),
+                    status="active",
+                    interventions=[],
+                    questionnaires=[],
+                    createdAt=timezone.now(),
+                    updatedAt=timezone.now(),
+                )
+
+            collected_dates = []
+            for seg in coerced:
+                seg_start = eff_dt + timedelta(days=max(1, int(seg.start_day or 1)) - 1)
+                if seg.unit == "day":
+                    count = _occ_count_for_day_range(
+                        int(seg.start_day or 1), int(seg.end_day or seg.start_day or 1), int(seg.interval or 1)
+                    )
+                    end_obj = {"type": "count", "count": count}
+                    max_occ = count
+                else:
+                    seg_end = eff_dt + timedelta(days=max(1, int(seg.end_day or seg.start_day or 1)) - 1)
+                    end_obj = {
+                        "type": "date",
+                        "date": seg_end.replace(hour=23, minute=59, second=59, microsecond=0).isoformat(),
+                    }
+                    max_occ = 1000
+                occ = _expand_dates(
+                    start_date=seg_start.date().isoformat(),
+                    start_time=start_time,
+                    unit=seg.unit,
+                    interval=int(seg.interval),
+                    selected_days=seg.selected_days or [],
+                    end=end_obj,
+                    max_occurrences=max_occ,
+                )
+                collected_dates.extend(occ or [])
+
+            dates = sorted({make_aware(d) if is_naive(d) else d for d in collected_dates})
+            if not dates:
+                continue
+
+            existing = None
+            for ia in plan.interventions or []:
+                if getattr(getattr(ia, "interventionId", None), "id", None) == inter_obj.id:
+                    existing = ia
+                    break
+            if existing:
+                before = len(existing.dates or [])
+                have = {d.replace(microsecond=0) for d in (existing.dates or [])}
+                for d in dates:
+                    dt = d.replace(microsecond=0)
+                    if dt not in have:
+                        existing.dates.append(d)
+                        have.add(dt)
+                added = len(existing.dates or []) - before
+                if added > 0:
+                    existing_patients_applied["patients_affected"] += 1
+                    existing_patients_applied["applied"] += 1
+                    existing_patients_applied["sessions_created"] += added
+            else:
+                plan.interventions.append(
+                    InterventionAssignment(
+                        interventionId=inter_obj,
+                        frequency="",
+                        dates=dates,
+                        notes="",
+                        require_video_feedback=False,
+                    )
+                )
+                existing_patients_applied["patients_affected"] += 1
+                existing_patients_applied["applied"] += 1
+                existing_patients_applied["sessions_created"] += len(dates)
+            plan.updatedAt = timezone.now()
+            plan.save()
+
     return JsonResponse(
         {
             "success": True,
             "message": "Intervention assignment saved successfully.",
             "diagnosis": diagnosis,
             "blocks": len(coerced),
+            "existing_patients_applied": existing_patients_applied,
         },
         status=200,
     )

@@ -714,6 +714,34 @@ def test_assign_intervention_to_types_success(mongo_mock):
     assert resp.json().get("success") is True
 
 
+def test_assign_intervention_to_types_all_past_and_future_payload(mongo_mock):
+    """
+    all_past_and_future scope accepts auto_apply_starting_from and returns
+    existing patient apply summary in the response.
+    """
+    therapist, intervention = create_therapist_and_intervention()
+    payload = dict(VALID_ASSIGN_PAYLOAD)
+    payload["auto_apply_scope"] = "all_past_and_future"
+    payload["auto_apply_starting_from"] = "2026-02-01"
+    payload["interventions"] = [
+        {
+            **VALID_ASSIGN_PAYLOAD["interventions"][0],
+            "interventionId": str(intervention.id),
+        }
+    ]
+
+    resp = client.post(
+        ASSIGN_URL.format(th_id=therapist.userId.id),
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is True
+    assert "existing_patients_applied" in body
+
+
 def test_assign_intervention_to_types_therapist_not_found(mongo_mock):
     """
     Supplying an unknown therapist ObjectId returns 404.

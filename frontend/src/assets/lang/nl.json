@@ -104,6 +104,11 @@
   "Choose...": "Kiezen...",
   "Patient ID or username": "Patiënt-ID of gebruikersnaam",
   "Apply template to patient": "Sjabloon toepassen op patiënt",
+  "Apply this template for this diagnosis": "Dit sjabloon toepassen voor deze diagnose",
+  "Only keep in template (no automatic assignment)": "Alleen in sjabloon bewaren (geen automatische toewijzing)",
+  "Automatically assign to new matching patients": "Automatisch toewijzen aan nieuwe overeenkomende patiënten",
+  "Assign now to all existing matching patients and future ones": "Nu toewijzen aan alle bestaande overeenkomende patiënten en toekomstige patiënten",
+  "Matching patients are limited to your own clinic/project access.": "Overeenkomende patiënten zijn beperkt tot uw eigen kliniek-/projecttoegang.",
   "Failed to apply template.": "Toepassen van sjabloon mislukt. Probeer het nu of later opnieuw.",
   "Adherence (%)": "Therapietrouw (%)",
   "Discharged": "Ontslagen",
@@ -1219,5 +1224,9 @@
   "Private intervention": "Privé-interventie",
   "Select...": "Selecteren...",
   "homeHeadline": "Bearny",
-  "homeSubheadline": "klaar na de revalidatie"
+  "homeSubheadline": "klaar na de revalidatie",
+  "Diagnosis auto-apply mode": "Diagnose automatische toewijzingsmodus",
+  "Start assigning from date": "Begin toewijzen vanaf datum",
+  "Defaults to today. Existing patients receive sessions from this date onward.": "Standaard op vandaag. Bestaande patiënten krijgen sessies vanaf deze datum.",
+  "New matching patients means future registrations with this diagnosis.": "Nieuwe overeenkomende patiënten betekent toekomstige registraties met deze diagnose."
 }
