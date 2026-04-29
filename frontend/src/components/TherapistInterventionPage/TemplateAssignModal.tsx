@@ -21,6 +21,7 @@ type Props = {
 };
 
 type ErrorMap = Record<string, string>;
+type AutoApplyScope = 'off' | 'future' | 'all_past_and_future';
 
 const TemplateAssignModal: React.FC<Props> = ({
   show,
@@ -42,6 +43,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const [startTime, setStartTime] = useState<string>('08:00');
   const [keepPrevious, setKeepPrevious] = useState<boolean>(mode === 'modify');
+  const [autoApplyScope, setAutoApplyScope] = useState<AutoApplyScope>('off');
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -58,6 +60,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     setEveryK(1);
     setStartTime('08:00');
     setKeepPrevious(mode === 'modify');
+    setAutoApplyScope('off');
 
     setError('');
     setFieldErrors({});
@@ -88,7 +91,8 @@ const TemplateAssignModal: React.FC<Props> = ({
       lastDay !== 10 ||
       everyK !== 1 ||
       startTime !== '08:00' ||
-      (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false);
+      (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false) ||
+      autoApplyScope !== 'off';
     return diagChanged || defaultsChanged || !!error;
   }, [
     success,
@@ -99,6 +103,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     everyK,
     startTime,
     keepPrevious,
+    autoApplyScope,
     mode,
     error,
   ]);
@@ -184,6 +189,7 @@ const TemplateAssignModal: React.FC<Props> = ({
           unit: 'day',
           selected_days: [],
           suggested_execution_time: suggestedExecution,
+          auto_apply_scope: autoApplyScope,
         };
         res = await apiClient.post(`templates/${templateId}/interventions/`, payload);
       } else {
@@ -382,6 +388,25 @@ const TemplateAssignModal: React.FC<Props> = ({
               'These are relative template days. Actual calendar dates are set when applying to a patient.'
             )}
           </Alert>
+
+          {templateId && diagnosis && (
+            <Form.Group className="mb-3">
+              <Form.Label>{t('Apply this template for this diagnosis')}</Form.Label>
+              <Form.Select
+                value={autoApplyScope}
+                onChange={(e) => setAutoApplyScope(e.target.value as AutoApplyScope)}
+              >
+                <option value="off">{t('Only keep in template (no automatic assignment)')}</option>
+                <option value="future">{t('Automatically assign to new matching patients')}</option>
+                <option value="all_past_and_future">
+                  {t('Assign now to all existing matching patients and future ones')}
+                </option>
+              </Form.Select>
+              <small className="text-muted">
+                {t('Matching patients are limited to your own clinic/project access.')}
+              </small>
+            </Form.Group>
+          )}
 
           <div className="text-muted">
             {validRange

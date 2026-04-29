@@ -161,6 +161,7 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
             )
         obj["recommendations"] = recs
         obj["intervention_count"] = len(recs)
+        obj["auto_apply_rules"] = dict(tmpl.auto_apply_rules or {})
     else:
         # Just a count for list views.
         obj["intervention_count"] = len(tmpl.recommendations or [])
@@ -370,6 +371,7 @@ def copy_template(request, template_id):
         specialization=original.specialization,
         diagnosis=original.diagnosis,
         recommendations=list(original.recommendations),  # shallow copy of embedded list
+        auto_apply_rules=dict(original.auto_apply_rules or {}),
     )
     copy.save()
     return JsonResponse({"template": _serialize_template(copy, detail=True)}, status=201)
@@ -451,6 +453,14 @@ def template_intervention_assign(request, template_id):
     if suggested_execution_time is not None:
         suggested_execution_time = int(suggested_execution_time)
 
+    auto_apply_scope = (body.get("auto_apply_scope") or "").strip().lower()
+    if auto_apply_scope not in ("", "off", "future", "all_past_and_future"):
+        field_errors["auto_apply_scope"] = [
+            "auto_apply_scope must be one of: off, future, all_past_and_future.",
+        ]
+    if diagnosis_key == _ALL_DX and auto_apply_scope in ("future", "all_past_and_future"):
+        field_errors["auto_apply_scope"] = ["A specific diagnosis is required for auto-apply."]
+
     if field_errors:
         return bad("Validation error.", field_errors, [], status=400)
 
@@ -488,8 +498,49 @@ def template_intervention_assign(request, template_id):
         )
         tmpl.recommendations.append(entry)
 
+    # Persist per-diagnosis auto-apply settings on the template.
+    if diagnosis_key != _ALL_DX:
+        rules = dict(tmpl.auto_apply_rules or {})
+        if auto_apply_scope in ("future", "all_past_and_future"):
+            rules[diagnosis_key] = auto_apply_scope
+        elif auto_apply_scope == "off":
+            rules.pop(diagnosis_key, None)
+        tmpl.auto_apply_rules = rules
+
     tmpl.save()
-    return JsonResponse({"template": _serialize_template(tmpl, detail=True)})
+
+    existing_patients_applied = {
+        "patients_affected": 0,
+        "applied": 0,
+        "sessions_created": 0,
+    }
+    if auto_apply_scope == "all_past_and_future" and diagnosis_key != _ALL_DX:
+        bulk_filter: dict = {"clinic__in": therapist.clinics, "diagnosis": diagnosis_key}
+        if therapist.projects:
+            bulk_filter["project__in"] = therapist.projects
+        patients = list(Patient.objects(**bulk_filter))
+        for patient in patients:
+            a, s = _apply_template_to_single_patient(
+                tmpl,
+                patient,
+                therapist,
+                timezone.now(),
+                diagnosis_key,
+                "",
+                False,
+                False,
+            )
+            if a > 0:
+                existing_patients_applied["patients_affected"] += 1
+            existing_patients_applied["applied"] += a
+            existing_patients_applied["sessions_created"] += s
+
+    return JsonResponse(
+        {
+            "template": _serialize_template(tmpl, detail=True),
+            "existing_patients_applied": existing_patients_applied,
+        }
+    )
 
 
 @api_view(["DELETE"])
@@ -652,6 +703,55 @@ def _apply_template_to_single_patient(
     plan.updatedAt = timezone.now()
     plan.save()
     return applied, total_sessions
+
+
+def auto_apply_templates_for_new_patient(patient: Patient) -> Dict[str, int]:
+    """
+    Apply templates flagged for auto-apply to a newly created patient.
+    Only templates owned by the patient's therapist are considered.
+    """
+    therapist = getattr(patient, "therapist", None)
+    if therapist is None:
+        return {"templates_applied": 0, "applied": 0, "sessions_created": 0}
+
+    diagnoses = [
+        str(d).strip()
+        for d in (getattr(patient, "diagnosis", None) or [])
+        if str(d).strip()
+    ]
+    if not diagnoses:
+        return {"templates_applied": 0, "applied": 0, "sessions_created": 0}
+
+    templates = InterventionTemplate.objects(created_by=therapist)
+    templates_applied = 0
+    total_applied = 0
+    total_sessions = 0
+
+    for tmpl in templates:
+        rules = dict(getattr(tmpl, "auto_apply_rules", None) or {})
+        matched = [dx for dx in diagnoses if rules.get(dx) in ("future", "all_past_and_future")]
+        if not matched:
+            continue
+        templates_applied += 1
+        for diagnosis_filter in matched:
+            a, s = _apply_template_to_single_patient(
+                tmpl,
+                patient,
+                therapist,
+                timezone.now(),
+                diagnosis_filter,
+                "",
+                False,
+                False,
+            )
+            total_applied += a
+            total_sessions += s
+
+    return {
+        "templates_applied": templates_applied,
+        "applied": total_applied,
+        "sessions_created": total_sessions,
+    }
 
 
 @api_view(["POST"])
