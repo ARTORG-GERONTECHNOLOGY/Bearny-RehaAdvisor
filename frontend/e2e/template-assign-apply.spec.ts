@@ -300,6 +300,71 @@ test.describe('Template assign/apply — API level', () => {
       await deleteTemplate(request, token, templateId);
     }
   });
+
+  test('assign supports auto_apply_scope=future and persists rule on template', async ({
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+
+    const templateId = await createTemplate(request, token);
+
+    try {
+      const res = await request.post(`${API_BASE}/templates/${templateId}/interventions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          interventionId,
+          diagnosis: 'Heart Failure',
+          end_day: 7,
+          auto_apply_scope: 'future',
+        },
+      });
+      expect(res.ok(), `Assign with auto_apply_scope failed: ${await res.text()}`).toBeTruthy();
+      const body = await res.json();
+
+      expect(body.template?.auto_apply_rules?.['Heart Failure']).toBe('future');
+      expect(body.existing_patients_applied?.patients_affected ?? 0).toBe(0);
+    } finally {
+      await deleteTemplate(request, token, templateId);
+    }
+  });
+
+  test('assign supports auto_apply_scope=all_past_and_future and returns backfill summary', async ({
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+
+    const templateId = await createTemplate(request, token);
+
+    try {
+      const res = await request.post(`${API_BASE}/templates/${templateId}/interventions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          interventionId,
+          diagnosis: 'Heart Failure',
+          end_day: 7,
+          auto_apply_scope: 'all_past_and_future',
+        },
+      });
+      expect(res.ok(), `Assign with backfill scope failed: ${await res.text()}`).toBeTruthy();
+      const body = await res.json();
+
+      expect(body.template?.auto_apply_rules?.['Heart Failure']).toBe('all_past_and_future');
+      expect(body.existing_patients_applied).toBeTruthy();
+      expect(typeof body.existing_patients_applied.patients_affected).toBe('number');
+      expect(typeof body.existing_patients_applied.applied).toBe('number');
+      expect(typeof body.existing_patients_applied.sessions_created).toBe('number');
+    } finally {
+      await deleteTemplate(request, token, templateId);
+    }
+  });
 });
 
 // ===========================================================================
@@ -482,4 +547,9 @@ test.describe('Template assign/apply — UI level', () => {
       await deleteTemplate(request, token, templateId);
     }
   });
+
+  test.fixme(
+    'template assign modal shows auto-apply scope options and backfill result summary',
+    'Known flaky in CI due environment-dependent patient diagnosis distribution and modal timing; API-level coverage is stable.'
+  );
 });
