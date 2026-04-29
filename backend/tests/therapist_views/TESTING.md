@@ -10,12 +10,12 @@ endpoints in `core/views/therapist_views.py`.
 
 | Endpoint | HTTP verb | View function | Tests |
 |---|---|---|---|
-| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 14 |
+| `/api/therapists/<therapist_id>/patients/` | GET | `list_therapist_patients` | 13 |
 | `/api/analytics/log` | POST | `create_log` | 4 |
 | Internal helpers (unit-level) | N/A | `_avg`, `_day_key`, `_sum_points_for_day`, `_adherence`, `_feedback_computing`, `_intervention_feedback_summary` | 9 |
 | Project-based access filter (unit-level) | N/A | `list_therapist_patients` queryset | 4 |
 
-**Total: 35 tests**
+**Total: 34 tests**
 
 ---
 
