@@ -12,6 +12,7 @@ Welcome to the RehaAdvisor technical documentation. This comprehensive guide is 
 - [Database Documentation](./05-DATABASE_GUIDE.md) - MongoDB schema and data models
 
 ### For System Administrators
+- [Deployment Hub](./DEPLOYMENT.md) - Canonical deployment entry point
 - [Deployment Guide](./06-DEPLOYMENT_GUIDE.md) - Production deployment instructions
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md) - Configuration files and variables
 - [CI Environment Contract](./14-CI_ENVIRONMENT_CONTRACT.md) - Required CI test/runtime env rules
@@ -24,11 +25,12 @@ Welcome to the RehaAdvisor technical documentation. This comprehensive guide is 
 
 ### For Contributors
 - [Contributing Guidelines](./12-CONTRIBUTING.md) - How to contribute to the project
+- [First Contribution Quickstart](./CONTRIBUTING_QUICKSTART.md) - Fast path for first-time contributors
 - [Code Standards](./13-CODE_STANDARDS.md) - Coding conventions and best practices
 
 ### For Testing
-- [Testing Documentation Index](../TESTING_DOCUMENTATION_INDEX.md) - Central index for all testing guides
-- [Frontend E2E Test Documentation](../FRONTEND_E2E_TEST_DOCUMENTATION.md) - Playwright FE↔BE E2E setup and flows
+- [Testing Hub](./TESTING.md) - Canonical testing entry point
+- [Frontend E2E Test Documentation](./testing/FRONTEND_E2E_TEST_DOCUMENTATION.md) - Playwright FE↔BE E2E setup and flows
 
 ## Project Overview
 

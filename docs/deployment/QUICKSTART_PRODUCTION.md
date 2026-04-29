@@ -1,5 +1,8 @@
 # Production Deployment Quick Start Guide
 
+> Canonical entry point: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).  
+> Use this quickstart as supplementary material only.
+
 This guide provides a fast-track to deploying RehaAdvisor to reha-advisor.ch.
 
 ## 30-Minute Quick Start
@@ -345,13 +348,13 @@ ls -lh /opt/reha-advisor/backups/
 If services are down and you need help:
 1. Check logs: `make prod_logs`
 2. Try restart: `make prod_restart`
-3. Review [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
+3. Review [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 4. Contact support team
 
 ## Next Steps
 
 1. ✅ Deployment complete!
-2. 📋 Review [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) for detailed guide
+2. 📋 Review [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for detailed guide
 3. 📊 Set up monitoring with [health-check.sh](../scripts/health-check.sh)
 4. 💾 Configure automated backups with [backup.sh](../scripts/backup.sh)
 5. 👥 Train team on operational procedures
@@ -362,6 +365,6 @@ If services are down and you need help:
 
 **Estimated Time:** 30 minutes
 **Difficulty:** Intermediate
-**Support:** See [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
+**Support:** See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
 For detailed information on each component, see the complete documentation in `/docs/`
