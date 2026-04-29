@@ -714,11 +714,7 @@ def auto_apply_templates_for_new_patient(patient: Patient) -> Dict[str, int]:
     if therapist is None:
         return {"templates_applied": 0, "applied": 0, "sessions_created": 0}
 
-    diagnoses = [
-        str(d).strip()
-        for d in (getattr(patient, "diagnosis", None) or [])
-        if str(d).strip()
-    ]
+    diagnoses = [str(d).strip() for d in (getattr(patient, "diagnosis", None) or []) if str(d).strip()]
     if not diagnoses:
         return {"templates_applied": 0, "applied": 0, "sessions_created": 0}
 
