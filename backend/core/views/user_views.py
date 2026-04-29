@@ -100,7 +100,6 @@ from django.core.mail import send_mail
 from django.views.decorators.http import require_http_methods
 from mongoengine.queryset.visitor import Q
 
-
 # ----------------------------------------
 # Helpers
 # ----------------------------------------
