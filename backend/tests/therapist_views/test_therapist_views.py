@@ -780,7 +780,6 @@ def test_biomarker_sleep_falls_back_to_duration_when_no_minutes_asleep():
     assert row["biomarker"]["sleep_avg_h"] == pytest.approx(7.5, rel=1e-3)
 
 
-
 def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedback():
     therapist, patient = create_therapist_with_patient()
     user = patient.userId
