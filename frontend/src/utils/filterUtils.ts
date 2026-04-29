@@ -1,5 +1,12 @@
 import type { Intervention } from '@/types';
 
+// Maps taxonomy display labels to the canonical lowercase value stored after backend normalization.
+// "brochure" and "graphics" differ from their stored equivalents; all others are identity.
+const CONTENT_TYPE_LABEL_TO_CANONICAL: Record<string, string> = {
+  brochure: 'pdf',
+  graphics: 'image',
+};
+
 export const filterInterventions = (
   recommendations: Intervention[],
   translatedTitles: Record<string, { title: string; lang: string | null }> | undefined,
@@ -33,7 +40,9 @@ export const filterInterventions = (
   }
 
   if (filters.contentTypeFilter) {
-    result = result.filter((rec) => rec.content_type === filters.contentTypeFilter);
+    const raw = filters.contentTypeFilter.toLowerCase();
+    const needle = CONTENT_TYPE_LABEL_TO_CANONICAL[raw] ?? raw;
+    result = result.filter((rec) => (rec.content_type || '').toLowerCase() === needle);
   }
 
   if (filters.tagFilter.length > 0) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 jest.mock('react-i18next', () => ({
@@ -71,7 +71,11 @@ jest.mock('react-select', () => ({
   ),
 }));
 
+import interventionsTaxonomyStore from '@/stores/interventionsTaxonomyStore';
+import mockApiClient from '@/__mocks__/api/client';
 import AddRecomendationPopUp from '@/components/AddIntervention/AddRecomendationPopUp';
+
+const ORIGINAL_CONTENT_TYPES = ['brochure', 'video', 'audio', 'graphics', 'app', 'website'];
 
 describe('AddRecomendationPopUp', () => {
   const renderPopup = () =>
@@ -110,5 +114,91 @@ describe('AddRecomendationPopUp', () => {
       renderPopup();
       expect(screen.getByText(/vid.*img.*gfx.*pdf.*br.*web.*aud.*app/i)).toBeInTheDocument();
     });
+  });
+
+  describe('Content type dropdown', () => {
+    beforeEach(() => {
+      (interventionsTaxonomyStore as any).contentTypes = ORIGINAL_CONTENT_TYPES;
+    });
+
+    afterEach(() => {
+      (interventionsTaxonomyStore as any).contentTypes = [
+        'Video', 'Audio', 'Website', 'Text', 'Image', 'App', 'Streaming',
+      ];
+    });
+
+    it('renders the original taxonomy values in the dropdown', () => {
+      renderPopup();
+      const select = document.getElementById('contentType') as HTMLSelectElement;
+      expect(select).not.toBeNull();
+      const values = Array.from(select.options)
+        .map((o) => o.value)
+        .filter(Boolean);
+      expect(values).toEqual(ORIGINAL_CONTENT_TYPES);
+    });
+
+    it('shows each original label as option text', () => {
+      renderPopup();
+      for (const ct of ORIGINAL_CONTENT_TYPES) {
+        expect(screen.getByRole('option', { name: ct })).toBeInTheDocument();
+      }
+    });
+  });
+
+  describe('Content type mapping on submit', () => {
+    const MAPPINGS: [string, string][] = [
+      ['graphics', 'image'],
+      ['brochure', 'pdf'],
+      ['video', 'video'],
+      ['audio', 'audio'],
+      ['app', 'app'],
+      ['website', 'website'],
+    ];
+
+    beforeEach(() => {
+      (interventionsTaxonomyStore as any).contentTypes = ORIGINAL_CONTENT_TYPES;
+      (mockApiClient.post as jest.Mock).mockResolvedValue({ data: {} });
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      (interventionsTaxonomyStore as any).contentTypes = [
+        'Video', 'Audio', 'Website', 'Text', 'Image', 'App', 'Streaming',
+      ];
+    });
+
+    const fillAndSubmit = async (contentTypeValue: string) => {
+      renderPopup();
+
+      fireEvent.change(document.getElementById('title') as HTMLElement, {
+        target: { value: 'Test intervention' },
+      });
+      fireEvent.change(document.getElementById('description') as HTMLElement, {
+        target: { value: 'Test description' },
+      });
+      fireEvent.change(document.getElementById('duration') as HTMLElement, {
+        target: { value: '10' },
+      });
+
+      const contentTypeSelect = document.getElementById('contentType') as HTMLSelectElement;
+      fireEvent.change(contentTypeSelect, { target: { value: contentTypeValue } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+    };
+
+    for (const [frontendValue, backendValue] of MAPPINGS) {
+      it(`maps "${frontendValue}" → "${backendValue}" in the API payload`, async () => {
+        await fillAndSubmit(frontendValue);
+
+        await waitFor(() => {
+          expect(mockApiClient.post).toHaveBeenCalled();
+        });
+
+        const formData: FormData = (mockApiClient.post as jest.Mock).mock.calls[0][1];
+        expect(formData.get('contentType')).toBe(backendValue);
+      });
+    }
   });
 });

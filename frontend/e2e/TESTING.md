@@ -27,6 +27,7 @@ Current scope starts with the home/login journey.
 | `therapist-characteristics-space-input.spec.ts`     | Therapist patient-popup characteristics regression: verifies multi-word values can be typed in comma-separated fields and that save payload preserves spaces within words (normalizing by comma). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                                |
 | `therapist-wearables-sync.spec.ts`                  | Therapist patient popup wearables sync regression: verifies sync success status (`ok`/`skipped`), payload detail rendering (`sent_payloads` table view), and informative backend error visibility on failed sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                |
 | `patient-health-questionnaire-ui.spec.ts`           | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials.                                                                                                                                     |
+| `therapist-recommendation-content-type.spec.ts`    | Add Recommendation content type field regression: verifies dropdown exposes original taxonomy labels (`brochure`, `graphics`, etc.) rather than backend type names, and that the frontend maps each label to the correct backend value (`graphics`→`Image`, `brochure`→`PDF`, etc.) in the multipart POST payload. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`. |
 
 ---
 
@@ -123,6 +124,13 @@ Current scope starts with the home/login journey.
   - Patient login opens the questionnaire popup
   - Patient answers at least one question through UI controls
   - Frontend submits to `/patients/feedback/questionaire/`
+- Add Recommendation content type regression (`therapist-recommendation-content-type.spec.ts`, seeded therapist required):
+  - Content type dropdown shows original taxonomy labels (`brochure`, `video`, `audio`, `graphics`, `app`, `website`)
+  - Dropdown does NOT expose raw backend type names (`Image`, `PDF`, `Streaming`, `Text`)
+  - Each label is mapped to the correct backend value in the multipart POST payload:
+    - `graphics` → `image`, `brochure` → `pdf`, `video` → `video`
+    - `audio` → `audio`, `app` → `app`, `website` → `website`
+    - (backend `normalize_content_type` then maps lowercase → stored title-case)
 
 ---
 
@@ -287,6 +295,16 @@ E2E_PATIENT_LOGIN=<seeded-patient-email-or-id> \
 E2E_PATIENT_PASSWORD=<seeded-patient-password> \
 E2E_PATIENT_ID=<patient-object-id> \
 npm run test:e2e -- e2e/patient-health-questionnaire-ui.spec.ts
+```
+
+Add Recommendation content type mapping regression (requires seeded therapist + OTP email directory):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-recommendation-content-type.spec.ts
 ```
 
 ---
