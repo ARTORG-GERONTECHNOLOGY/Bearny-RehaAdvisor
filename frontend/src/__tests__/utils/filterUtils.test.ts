@@ -99,6 +99,60 @@ describe('filterInterventions', () => {
       });
       expect(result.map((r) => r._id)).toEqual(['a']);
     });
+
+    it('is case-insensitive (title-case stored value matches lowercase filter)', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'Image' }),
+        makeIntervention({ _id: 'b', content_type: 'video' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'image',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('maps taxonomy label "graphics" to stored canonical "image"', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'image' }),
+        makeIntervention({ _id: 'b', content_type: 'pdf' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'graphics',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('maps taxonomy label "brochure" to stored canonical "pdf"', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'image' }),
+        makeIntervention({ _id: 'b', content_type: 'pdf' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'brochure',
+      });
+      expect(result.map((r) => r._id)).toEqual(['b']);
+    });
+
+    it('maps taxonomy label "graphics" even when stored as title-case "Image"', () => {
+      const items = [makeIntervention({ _id: 'a', content_type: 'Image' })];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'graphics',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('maps taxonomy label "brochure" even when stored as title-case "PDF"', () => {
+      const items = [makeIntervention({ _id: 'a', content_type: 'PDF' })];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'brochure',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
   });
 
   describe('tagFilter', () => {
