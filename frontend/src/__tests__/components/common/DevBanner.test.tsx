@@ -3,15 +3,10 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 // import.meta.env is not available in Jest — mock the module instead
-jest.mock('@/components/common/DevBanner', () => {
-  // Re-export a factory so individual tests can control isDev
-  const React = require('react');
-  return {
-    __esModule: true,
-    // replaced per-test via jest.resetModules / manual mock below
-    default: jest.fn(),
-  };
-});
+jest.mock('@/components/common/DevBanner', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
 
 import DevBanner from '@/components/common/DevBanner';
 
