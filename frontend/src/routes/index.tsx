@@ -90,10 +90,6 @@ export const router = createBrowserRouter([
         element: withSuspense(createElement(RootLayout, null, createElement(ErrorPage))),
       },
       {
-        path: 'therapist',
-        element: withSuspense(createElement(RootLayout, null, createElement(Therapist))),
-      },
-      {
         path: 'unauthorized',
         element: withSuspense(createElement(RootLayout, null, createElement(UnauthorizedAccess))),
       },
@@ -109,40 +105,26 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: 'patient',
-        element: withSuspense(
-          createElement(RootLayout, null, createElement(PatientView)),
-          createElement(PatientSkeleton)
-        ),
-      },
-      {
         path: 'admin',
         element: withSuspense(createElement(RootLayout, null, createElement(AdminDashboard))),
+      },
+      {
+        path: 'therapist',
+        element: withSuspense(createElement(RootLayout, null, createElement(Therapist))),
       },
       {
         path: 'rehabtable',
         element: withSuspense(createElement(RootLayout, null, createElement(RehabTable))),
       },
       {
+        path: 'health',
+        element: withSuspense(createElement(HealthPage)),
+      },
+      {
         path: 'interventions',
         element: withSuspense(
           createElement(RootLayout, null, createElement(TherapistRecomendations))
         ),
-      },
-      {
-        path: 'eva',
-        element: withSuspense(createElement(HealthSlider)),
-      },
-      {
-        path: 'terms',
-        element: withSuspense(
-          createElement(TermsAndConditions),
-          createElement(TermsAndConditionsSkeleton)
-        ),
-      },
-      {
-        path: 'privacypolicy',
-        element: withSuspense(createElement(PrivacyPolicy), createElement(PrivacyPolicySkeleton)),
       },
       {
         path: 'fitbit-success',
@@ -153,16 +135,12 @@ export const router = createBrowserRouter([
         element: createElement(FitbitErrorPage),
       },
       {
-        path: 'health',
-        element: withSuspense(createElement(HealthPage)),
-      },
-      {
-        path: 'help',
-        element: withSuspense(createElement(HelpPage)),
-      },
-      {
         path: 'icf/:patientId?',
         element: withSuspense(createElement(Eva)),
+      },
+      {
+        path: 'eva',
+        element: withSuspense(createElement(HealthSlider)),
       },
       {
         path: 'eva2',
@@ -171,6 +149,13 @@ export const router = createBrowserRouter([
       {
         path: 'healthslider-downloads',
         element: withSuspense(createElement(HealthSliderDownloadsPage)),
+      },
+      {
+        path: 'patient',
+        element: withSuspense(
+          createElement(RootLayout, null, createElement(PatientView)),
+          createElement(PatientSkeleton)
+        ),
       },
       {
         path: 'patient-plan',
@@ -206,6 +191,21 @@ export const router = createBrowserRouter([
           createElement(RootLayout, null, createElement(PatientProfile)),
           createElement(PatientProfileSkeleton)
         ),
+      },
+      {
+        path: 'help',
+        element: withSuspense(createElement(HelpPage)),
+      },
+      {
+        path: 'terms',
+        element: withSuspense(
+          createElement(TermsAndConditions),
+          createElement(TermsAndConditionsSkeleton)
+        ),
+      },
+      {
+        path: 'privacypolicy',
+        element: withSuspense(createElement(PrivacyPolicy), createElement(PrivacyPolicySkeleton)),
       },
 
       // Catch-all (must be last)
