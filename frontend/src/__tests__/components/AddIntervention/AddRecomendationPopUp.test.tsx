@@ -33,7 +33,8 @@ jest.mock('@/stores/interventionsTaxonomyStore', () => ({
     durationBuckets: [],
     sexSpecific: [],
     inputFrom: [],
-    contentTypes: ['Video', 'Audio', 'Website', 'Text', 'Image', 'App', 'Streaming'],
+    // Real taxonomy labels — lowercase keys, not backend canonical names
+    contentTypes: ['brochure', 'video', 'audio', 'graphics', 'app', 'website'],
     primaryDiagnoses: [],
   },
 }));
@@ -100,6 +101,26 @@ describe('AddRecomendationPopUp', () => {
       renderPopup();
       const select = document.getElementById('language') as HTMLSelectElement;
       expect(select.value).toBe('en');
+    });
+  });
+
+  describe('Content type dropdown', () => {
+    it('shows the taxonomy labels including brochure and graphics', () => {
+      renderPopup();
+      const select = document.getElementById('contentType') as HTMLSelectElement;
+      expect(select).not.toBeNull();
+      const values = Array.from(select.options).map((o) => o.value);
+      expect(values).toContain('brochure');
+      expect(values).toContain('graphics');
+      expect(values).toContain('video');
+    });
+
+    it('does not show backend canonical names like pdf or image as options', () => {
+      renderPopup();
+      const select = document.getElementById('contentType') as HTMLSelectElement;
+      const values = Array.from(select.options).map((o) => o.value);
+      expect(values).not.toContain('pdf');
+      expect(values).not.toContain('image');
     });
   });
 

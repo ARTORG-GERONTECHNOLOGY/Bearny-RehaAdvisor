@@ -100,7 +100,7 @@ describe('filterInterventions', () => {
       expect(result.map((r) => r._id)).toEqual(['a']);
     });
 
-    it('is case-insensitive (title-case stored value matches lowercase filter)', () => {
+    it('is case-insensitive for stored values', () => {
       const items = [
         makeIntervention({ _id: 'a', content_type: 'Image' }),
         makeIntervention({ _id: 'b', content_type: 'video' }),
@@ -112,10 +112,46 @@ describe('filterInterventions', () => {
       expect(result.map((r) => r._id)).toEqual(['a']);
     });
 
-    it('maps taxonomy label "graphics" to stored canonical "image"', () => {
+    it('"brochure" label matches legacy content_type "brochure"', () => {
       const items = [
-        makeIntervention({ _id: 'a', content_type: 'image' }),
-        makeIntervention({ _id: 'b', content_type: 'pdf' }),
+        makeIntervention({ _id: 'a', content_type: 'brochure' }),
+        makeIntervention({ _id: 'b', content_type: 'video' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'brochure',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('"brochure" label also matches new content_type "pdf"', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'pdf' }),
+        makeIntervention({ _id: 'b', content_type: 'video' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'brochure',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('"brochure" label matches title-case "PDF" stored values', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'PDF' }),
+        makeIntervention({ _id: 'b', content_type: 'Video' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        contentTypeFilter: 'brochure',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('"graphics" label matches legacy content_type "graphics"', () => {
+      const items = [
+        makeIntervention({ _id: 'a', content_type: 'graphics' }),
+        makeIntervention({ _id: 'b', content_type: 'audio' }),
       ];
       const result = filterInterventions(items, undefined, {
         ...emptyFilters,
@@ -124,32 +160,23 @@ describe('filterInterventions', () => {
       expect(result.map((r) => r._id)).toEqual(['a']);
     });
 
-    it('maps taxonomy label "brochure" to stored canonical "pdf"', () => {
+    it('"graphics" label also matches new content_type "image"', () => {
       const items = [
         makeIntervention({ _id: 'a', content_type: 'image' }),
-        makeIntervention({ _id: 'b', content_type: 'pdf' }),
+        makeIntervention({ _id: 'b', content_type: 'audio' }),
       ];
       const result = filterInterventions(items, undefined, {
         ...emptyFilters,
-        contentTypeFilter: 'brochure',
+        contentTypeFilter: 'graphics',
       });
-      expect(result.map((r) => r._id)).toEqual(['b']);
+      expect(result.map((r) => r._id)).toEqual(['a']);
     });
 
-    it('maps taxonomy label "graphics" even when stored as title-case "Image"', () => {
+    it('"graphics" label matches title-case "Image" stored values', () => {
       const items = [makeIntervention({ _id: 'a', content_type: 'Image' })];
       const result = filterInterventions(items, undefined, {
         ...emptyFilters,
         contentTypeFilter: 'graphics',
-      });
-      expect(result.map((r) => r._id)).toEqual(['a']);
-    });
-
-    it('maps taxonomy label "brochure" even when stored as title-case "PDF"', () => {
-      const items = [makeIntervention({ _id: 'a', content_type: 'PDF' })];
-      const result = filterInterventions(items, undefined, {
-        ...emptyFilters,
-        contentTypeFilter: 'brochure',
       });
       expect(result.map((r) => r._id)).toEqual(['a']);
     });
