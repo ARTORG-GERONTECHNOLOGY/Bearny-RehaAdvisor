@@ -381,6 +381,17 @@ def submit_patient_feedback(request):
                 )
                 rating.save()
 
+        try:
+            Logs(
+                userId=patient.userId,
+                action="QUESTIONNAIRE_SUBMIT",
+                actor_role="Patient",
+                patient=patient,
+                details=f"intervention_id={intervention_id} date={target_day.isoformat()}",
+            ).save()
+        except Exception:
+            pass
+
         return JsonResponse({"message": "Feedback submitted successfully"}, status=200)
 
     except Exception as e:
@@ -511,9 +522,10 @@ def mark_intervention_completed(request):
 
             Logs(
                 userId=patient.userId,
-                action="OTHER",
-                userAgent="Patient",
-                details=f"Marked intervention {intervention.title} as done on {target_day.isoformat()}",
+                action="INTERVENTION_COMPLETE",
+                actor_role="Patient",
+                patient=patient,
+                details=f"intervention={intervention.title} date={target_day.isoformat()}",
             ).save()
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -532,9 +544,10 @@ def mark_intervention_completed(request):
 
         Logs(
             userId=patient.userId,
-            action="OTHER",
-            userAgent="Patient",
-            details=f"Marked intervention {intervention.title} as done on {target_day.isoformat()}",
+            action="INTERVENTION_COMPLETE",
+            actor_role="Patient",
+            patient=patient,
+            details=f"intervention={intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -634,9 +647,10 @@ def unmark_intervention_completed(request):
 
         Logs(
             userId=patient.userId,
-            action="OTHER",
-            userAgent="Patient",
-            details=f"Unmarked intervention {intervention.title} as done on {target_day.isoformat()}",
+            action="INTERVENTION_UNCOMPLETE",
+            actor_role="Patient",
+            patient=patient,
+            details=f"intervention={intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
@@ -3422,7 +3436,8 @@ def add_manual_vitals(request, patient_id: str):
         Logs.objects.create(
             userId=patient.userId,
             action="VITALS_SUBMIT",
-            userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+            actor_role="Patient",
+            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
             details=", ".join(fields),
         )
@@ -3594,7 +3609,8 @@ def log_intervention_view(request, patient_id: str):
         Logs.objects.create(
             userId=patient.userId,
             action="INTERVENTION_VIEW",
-            userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+            actor_role="Patient",
+            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
             details=f"intervention_id={intervention_id} date={date} seconds={seconds_viewed}",
         )
