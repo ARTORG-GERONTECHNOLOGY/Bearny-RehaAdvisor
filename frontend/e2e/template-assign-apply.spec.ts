@@ -68,6 +68,18 @@ async function getToken(request: APIRequestContext): Promise<string> {
   return body.access_token as string;
 }
 
+/** Obtain therapist user id from login response (used by legacy endpoint path). */
+async function getTherapistUserId(request: APIRequestContext): Promise<string> {
+  const { login, password } = creds();
+  const res = await request.post(`${API_BASE}/auth/login/`, {
+    data: { username: login, password },
+  });
+  expect(res.ok(), `Login failed: ${await res.text()}`).toBeTruthy();
+  const body = await res.json();
+  expect(body.id, `Login response has no therapist id: ${JSON.stringify(body)}`).toBeTruthy();
+  return body.id as string;
+}
+
 /** Create a minimal template and return its id. */
 async function createTemplate(request: APIRequestContext, token: string): Promise<string> {
   const res = await request.post(`${API_BASE}/templates/`, {
@@ -107,6 +119,42 @@ async function assignIntervention(
     data: { interventionId, end_day: endDay },
   });
   expect(res.ok(), `Assign failed: ${await res.text()}`).toBeTruthy();
+  return res.json();
+}
+
+/** Assign into therapist diagnosis defaults (legacy endpoint). */
+async function assignDiagnosisLegacy(
+  request: APIRequestContext,
+  token: string,
+  therapistUserId: string,
+  interventionId: string,
+  diagnosis: string,
+  autoApplyScope: 'future' | 'all_past_and_future',
+  autoApplyStartingFrom?: string
+) {
+  const res = await request.post(
+    `${API_BASE}/therapists/${therapistUserId}/interventions/assign-to-patient-types/`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        diagnosis,
+        auto_apply_scope: autoApplyScope,
+        auto_apply_starting_from: autoApplyStartingFrom,
+        interventions: [
+          {
+            interventionId,
+            interval: 1,
+            unit: 'day',
+            selectedDays: [],
+            start_day: 1,
+            end: { type: 'count', count: 7 },
+            suggested_execution_time: 480,
+          },
+        ],
+      },
+    }
+  );
+  expect(res.ok(), `Legacy assign failed: ${await res.text()}`).toBeTruthy();
   return res.json();
 }
 
@@ -299,6 +347,116 @@ test.describe('Template assign/apply — API level', () => {
     } finally {
       await deleteTemplate(request, token, templateId);
     }
+  });
+
+  test('named template assignment stores future auto-apply diagnosis rule', async ({ request }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+
+    const templateId = await createTemplate(request, token);
+    try {
+      const res = await request.post(`${API_BASE}/templates/${templateId}/interventions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          interventionId,
+          diagnosis: 'Stroke',
+          end_day: 10,
+          auto_apply_scope: 'future',
+        },
+      });
+      expect(res.ok(), `Assign failed: ${await res.text()}`).toBeTruthy();
+      const body = await res.json();
+      expect(body.template.auto_apply_rules.Stroke).toBe('future');
+    } finally {
+      await deleteTemplate(request, token, templateId);
+    }
+  });
+
+  test('named template all_past_and_future persists provided starting_from date', async ({
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+
+    const templateId = await createTemplate(request, token);
+    try {
+      const res = await request.post(`${API_BASE}/templates/${templateId}/interventions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          interventionId,
+          diagnosis: 'Stroke',
+          end_day: 10,
+          auto_apply_scope: 'all_past_and_future',
+          auto_apply_starting_from: '2026-02-01',
+        },
+      });
+      expect(res.ok(), `Assign failed: ${await res.text()}`).toBeTruthy();
+      const body = await res.json();
+      expect(body.template.auto_apply_rules.Stroke).toBe('all_past_and_future');
+      expect(body.template.auto_apply_start_dates.Stroke).toBe('2026-02-01');
+      expect(body.existing_patients_applied).toBeTruthy();
+    } finally {
+      await deleteTemplate(request, token, templateId);
+    }
+  });
+
+  test('named template all_past_and_future defaults starting_from to today when omitted', async ({
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+    const today = new Date().toISOString().slice(0, 10);
+
+    const templateId = await createTemplate(request, token);
+    try {
+      const res = await request.post(`${API_BASE}/templates/${templateId}/interventions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          interventionId,
+          diagnosis: 'Stroke',
+          end_day: 10,
+          auto_apply_scope: 'all_past_and_future',
+        },
+      });
+      expect(res.ok(), `Assign failed: ${await res.text()}`).toBeTruthy();
+      const body = await res.json();
+      expect(body.template.auto_apply_start_dates.Stroke).toBe(today);
+    } finally {
+      await deleteTemplate(request, token, templateId);
+    }
+  });
+
+  test('legacy diagnosis assignment accepts all_past_and_future with starting_from', async ({
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const token = await getToken(request);
+    const therapistUserId = await getTherapistUserId(request);
+    const interventionId = await getFirstInterventionId(request, token);
+    test.skip(!interventionId, 'No interventions available in the DB — skipping');
+
+    const body = await assignDiagnosisLegacy(
+      request,
+      token,
+      therapistUserId,
+      interventionId as string,
+      'Stroke',
+      'all_past_and_future',
+      '2026-03-01'
+    );
+
+    expect(body.success).toBe(true);
+    expect(body.existing_patients_applied).toBeTruthy();
   });
 });
 
