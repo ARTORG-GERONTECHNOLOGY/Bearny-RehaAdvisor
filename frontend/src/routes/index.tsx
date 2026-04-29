@@ -89,62 +89,54 @@ export const router = createBrowserRouter([
       },
       {
         path: 'error',
-        element: withSuspense(createElement(RootLayout, { children: createElement(ErrorPage) })),
+        element: withSuspense(createElement(RootLayout, null, createElement(ErrorPage))),
       },
       {
         path: 'therapist',
-        element: withSuspense(createElement(RootLayout, { children: createElement(Therapist) })),
+        element: withSuspense(createElement(RootLayout, null, createElement(Therapist))),
       },
       {
         path: 'unauthorized',
-        element: withSuspense(
-          createElement(RootLayout, { children: createElement(UnauthorizedAccess) })
-        ),
+        element: withSuspense(createElement(RootLayout, null, createElement(UnauthorizedAccess))),
       },
       {
         path: 'forgottenpwd',
-        element: withSuspense(
-          createElement(RootLayout, { children: createElement(ForgottenPassword) })
-        ),
+        element: withSuspense(createElement(RootLayout, null, createElement(ForgottenPassword))),
       },
       {
         path: 'userprofile',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(UserProfile) }),
+          createElement(RootLayout, null, createElement(UserProfile)),
           createElement(UserProfileSkeleton)
         ),
       },
       {
         path: 'patient',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientView) }),
+          createElement(RootLayout, null, createElement(PatientView)),
           createElement(PatientSkeleton)
         ),
       },
       {
         path: 'admin',
-        element: withSuspense(
-          createElement(RootLayout, { children: createElement(AdminDashboard) })
-        ),
+        element: withSuspense(createElement(RootLayout, null, createElement(AdminDashboard))),
       },
       {
         path: 'addcontent',
-        element: withSuspense(
-          createElement(RootLayout, { children: createElement(AddRecomendations) })
-        ),
+        element: withSuspense(createElement(RootLayout, null, createElement(AddRecomendations))),
       },
       {
         path: 'addpatient',
-        element: withSuspense(createElement(RootLayout, { children: createElement(AddPatient) })),
+        element: withSuspense(createElement(RootLayout, null, createElement(AddPatient))),
       },
       {
         path: 'rehabtable',
-        element: withSuspense(createElement(RootLayout, { children: createElement(RehabTable) })),
+        element: withSuspense(createElement(RootLayout, null, createElement(RehabTable))),
       },
       {
         path: 'interventions',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(TherapistRecomendations) })
+          createElement(RootLayout, null, createElement(TherapistRecomendations))
         ),
       },
       {
@@ -193,35 +185,35 @@ export const router = createBrowserRouter([
       {
         path: 'patient-plan',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientPlan) }),
+          createElement(RootLayout, null, createElement(PatientPlan)),
           createElement(PatientPlanSkeleton)
         ),
       },
       {
         path: 'patient-process',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientProcess) }),
+          createElement(RootLayout, null, createElement(PatientProcess)),
           createElement(PatientProcessSkeleton)
         ),
       },
       {
         path: 'patient-interventions',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientInterventionsLibrary) }),
+          createElement(RootLayout, null, createElement(PatientInterventionsLibrary)),
           createElement(PatientInterventionsLibrarySkeleton)
         ),
       },
       {
         path: 'patient-intervention/:interventionId',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientInterventionDetail) }),
+          createElement(RootLayout, null, createElement(PatientInterventionDetail)),
           createElement(PatientInterventionDetailSkeleton)
         ),
       },
       {
         path: 'patient-profile',
         element: withSuspense(
-          createElement(RootLayout, { children: createElement(PatientProfile) }),
+          createElement(RootLayout, null, createElement(PatientProfile)),
           createElement(PatientProfileSkeleton)
         ),
       },
