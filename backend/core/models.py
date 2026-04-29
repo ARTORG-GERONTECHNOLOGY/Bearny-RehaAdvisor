@@ -432,6 +432,9 @@ class InterventionTemplate(Document):
 
     # Schedule payload — same embedded structure as Therapist.default_recommendations
     recommendations = ListField(EmbeddedDocumentField(DefaultInterventions), default=list)
+    # Per-diagnosis auto-apply behavior when new patients are created.
+    # Values: "future" | "all_past_and_future"
+    auto_apply_rules = DictField(StringField(), default=dict)
 
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
