@@ -790,7 +790,7 @@ const Therapist: React.FC = observer(() => {
                     <option value="created">{String(t('Newest created'))}</option>
                     <option value="last_login">{String(t('Last login (recent first)'))}</option>
                     <option value="adherence">{String(t('Adherence (high → low)'))}</option>
-                    <option value="health">{String(t('Health (best → worst)'))}</option>
+                    <option value="health">{String(t('Health (worst → best)'))}</option>
                     <option value="feedback">{String(t('Feedback (worst → best)'))}</option>
                   </Form.Select>
                 </Col>

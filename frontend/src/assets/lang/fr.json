@@ -118,7 +118,7 @@
   "Active patients": "Patients actifs",
   "Reset filters": "Réinitialiser les filtres",
   "Feedback (worst → best)": "Retour (pire → meilleur)",
-  "Health (best → worst)": "Santé (meilleur → pire)",
+  "Health (worst → best)": "Santé (pire → meilleur)",
   "Adherence (high → low)": "Adhérence (élevée → faible)",
   "Last login (recent first)": "Dernière connexion (récent d'abord)",
   "Newest created": "Le plus récent",
