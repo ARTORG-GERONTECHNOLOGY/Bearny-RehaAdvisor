@@ -445,7 +445,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         provider: cleanStr(formData.provider),
         language: cleanStr(formData.language),
         contentType:
-          CONTENT_TYPE_TO_BACKEND[cleanStr(formData.contentType)] ?? cleanStr(formData.contentType),
+          CONTENT_TYPE_TO_BACKEND[cleanStr(formData.contentType)?.toLowerCase()] ??
+          cleanStr(formData.contentType),
 
         inputFrom: uniqueStrings(formData.inputFrom),
         aims: uniqueStrings(formData.aims),
