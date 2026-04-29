@@ -1,338 +1,194 @@
 # RehaAdvisor Production Scripts
 
-This directory contains utility scripts for managing the RehaAdvisor production environment at reha-advisor.ch.
-
-## Available Scripts
-
-### 1. `backup.sh` - Database Backup
-Creates compressed backups of the MongoDB database with optional cloud upload.
-
-**Usage:**
-```bash
-# Create local backup
-./scripts/backup.sh
-
-# Create backup and upload to S3
-./scripts/backup.sh --upload-s3 --s3-bucket my-backup-bucket
-```
-
-**Features:**
-- Automated gzip compression
-- Backup metadata tracking
-- Automatic cleanup of old backups (30 days retention)
-- Optional AWS S3 upload
-- Detailed logging
-
-**Cron Setup:**
-```bash
-# Daily backup at 2 AM
-0 2 * * * cd /opt/reha-advisor && ./scripts/backup.sh
-
-# Daily backup at 2 AM with S3 upload
-0 2 * * * cd /opt/reha-advisor && ./scripts/backup.sh --upload-s3 --s3-bucket reha-advisor-backups
-```
-
-**Output:**
-```
-=== RehaAdvisor Database Backup ===
-Timestamp: 2024-02-17T14:30:45+00:00
-Backup File: /opt/reha-advisor/backups/mongodb_20240217_143045.archive
-✓ Backup created successfully
-  Size: 125M
-```
+Utility scripts for managing the RehaAdvisor production environment.
 
 ---
 
-### 2. `restore.sh` - Database Restore
-Restores a backup created by backup.sh with confirmation prompts.
+## Backup system
 
-**Usage:**
+Three data stores are backed up:
+
+| Store | What | Where it lives |
+|---|---|---|
+| **MongoDB** | All patient/therapist data | `db-prod` Docker container |
+| **SQLite** | Celery-beat task schedules | `./data/db.sqlite3` bind-mount on host |
+| **Media** | Uploaded videos, PDFs, images | `/srv/app/media` inside `django-prod` container |
+
+Backups land in `./backups/` (gitignored, 30-day retention).
+
+---
+
+## Scripts
+
+### `backup.sh` — create a backup
+
 ```bash
-# Interactive restore (shows available backups)
+./scripts/backup.sh
+```
+
+Backs up all three stores and exits 1 if MongoDB fails (MongoDB is the only critical store — missing SQLite or media is logged and skipped).
+
+**Options:**
+
+| Flag | Description |
+|---|---|
+| `--upload-s3 --s3-bucket <bucket>` | Upload all backup files to S3 after creating them |
+
+**Output files per run:**
+
+| File | Contents |
+|---|---|
+| `backups/mongodb_YYYYMMDD_HHMMSS.archive` | Compressed MongoDB dump (gzip archive) |
+| `backups/sqlite_YYYYMMDD_HHMMSS.db` | Copy of Celery-beat SQLite database |
+| `backups/media_YYYYMMDD_HHMMSS.tar.gz` | Tarball of the media volume |
+| `backups/backup_YYYYMMDD_HHMMSS.log` | Stderr from mongodump/tar |
+| `backups/backup_YYYYMMDD_HHMMSS.meta` | JSON manifest (paths, sizes, timestamp) |
+
+**MongoDB credentials** are read automatically from `.env.prod` if present (`MONGO_INITDB_ROOT_USERNAME` / `MONGO_INITDB_ROOT_PASSWORD`).
+
+---
+
+### `restore.sh` — restore from a backup
+
+```bash
+# Interactive (lists available backups, prompts for selection and confirmation)
 ./scripts/restore.sh
 
-# Restore specific backup
-./scripts/restore.sh /opt/reha-advisor/backups/mongodb_20240217_143045.archive
+# Non-interactive (pass the archive file directly)
+./scripts/restore.sh backups/mongodb_20260101_030000.archive
 ```
 
-**Features:**
-- List available backups
-- Interactive selection
-- Confirmation prompt for safety
-- Restore verification
-- Collection and document count reporting
+Only MongoDB is restored. Uses `--drop` to atomically replace each collection before restoring. The script verifies the restore by counting collections and reporting document counts per collection.
 
-**Example Output:**
+**Safety:** A confirmation prompt (`Type 'yes' to confirm`) must be answered before any data is overwritten.
+
+---
+
+### `setup-cron.sh` — install the daily cron job
+
+```bash
+./scripts/setup-cron.sh                        # daily at 03:00 (default)
+./scripts/setup-cron.sh --hour 2 --minute 30   # daily at 02:30
 ```
-=== RehaAdvisor Database Restore ===
-Available backups:
-1	/opt/reha-advisor/backups/mongodb_20240217_143045.archive
-2	/opt/reha-advisor/backups/mongodb_20240217_020045.archive
 
-Enter backup file name or number: 1
-⚠️  WARNING: This will overwrite the current database!
-Are you sure you want to restore from this backup? Type 'yes' to confirm: yes
+Idempotent — safe to run multiple times. If the backup cron entry already exists it prints "already installed" and exits without modifying anything.
 
-✓ Restore completed successfully
-Collections in restored database:
-[ "users", "patients", "sessions", "assessments", "feedback" ]
+The installed entry looks like:
+```
+0 3 * * * /path/to/scripts/backup.sh >> /path/to/backups/cron.log 2>&1
+```
 
-Document counts:
-users: 42
-patients: 156
-sessions: 1203
+03:00 is chosen to run after the 02:30 Fitbit sync Celery task finishes.
+
+---
+
+## Other scripts
+
+| Script | Purpose |
+|---|---|
+| `health-check.sh` | Check all container and endpoint health |
+| `init-db.sh` | Initialise MongoDB schema on first deployment |
+| `install-git-hooks.sh` | Install pre-push style hooks for contributors |
+
+---
+
+## First-time setup
+
+```bash
+cd /home/ubuntu/repos/telerehabapp-prod
+
+# 1. Run a manual backup to verify it works before scheduling
+bash scripts/backup.sh
+ls -lh backups/
+
+# 2. Schedule the daily cron job
+bash scripts/setup-cron.sh
+
+# 3. Confirm the entry was installed
+crontab -l | grep backup
 ```
 
 ---
 
-### 3. `init-db.sh` - Database Initialization
-Initializes MongoDB with schema validation, collections, and indexes after first deployment.
+## Verifying a backup archive
 
-**Usage:**
 ```bash
-./scripts/init-db.sh
-```
-
-**Features:**
-- Creates required collections with schema validation
-- Sets up performance indexes
-- Creates admin user
-- Validates MongoDB connectivity
-- Detailed initialization logging
-
-**Collections Created:**
-- `users` - User accounts and profiles
-- `patients` - Patient records
-- `sessions` - Therapy sessions
-- `therapies` - Available therapies
-- `assessments` - Patient assessments
-- `feedback` - User feedback
-
-**Indexes Created:**
-- Unique email index on users
-- Foreign key indexes (therapist_id, patient_id, user_id)
-- Query optimization indexes (status, created_at, etc.)
-
-**Example Output:**
-```
-=== RehaAdvisor MongoDB Initialization ===
-Waiting for MongoDB to be ready...
-✓ MongoDB is ready
-Creating collections...
-✓ users collection created
-✓ patients collection created
-✓ sessions collection created
-✓ assessments collection created
-✓ feedback collection created
-
-Creating indexes...
-✓ users indexes created
-✓ patients indexes created
-✓ sessions indexes created
-✓ assessments indexes created
-✓ feedback indexes created
-
-=== Database initialization complete ===
+docker exec db-prod mongorestore --archive --gzip --dryRun \
+    -u "$MONGO_USER" -p "$MONGO_PASSWORD" \
+    --authenticationDatabase admin \
+    < backups/mongodb_YYYYMMDD_HHMMSS.archive
 ```
 
 ---
 
-### 4. `health-check.sh` - Service Health Monitor
-Comprehensive health check for all services with optional Slack notifications.
+## Restoring in an emergency
 
-**Usage:**
 ```bash
-# Basic health check
-./scripts/health-check.sh
+cd /home/ubuntu/repos/telerehabapp-prod
 
-# Detailed check with resource usage
-./scripts/health-check.sh --detailed
+# Interactive — lists available backups, prompts for selection and confirmation
+bash scripts/restore.sh
 
-# Health check with Slack notifications
-./scripts/health-check.sh --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-```
-
-**Features:**
-- Container status verification
-- HTTP/HTTPS endpoint testing
-- Resource usage monitoring (with --detailed)
-- Slack notifications
-- Detailed logging
-- Exit codes for monitoring systems
-
-**Services Checked:**
-- Docker daemon
-- LibreTranslate
-- MongoDB
-- Redis
-- Django Backend
-- Celery Worker
-- Celery Beat
-- React Frontend
-- NGINX Proxy
-- HTTPS/HTTP endpoints
-
-**Cron Setup:**
-```bash
-# Health check every 5 minutes
-*/5 * * * * cd /opt/reha-advisor && ./scripts/health-check.sh --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-```
-
-**Example Output:**
-```
-=== RehaAdvisor Health Check ===
-Domain: reha-advisor.ch
-Timestamp: 2024-02-17T14:35:22+00:00
-
-Docker Status:
-✓ Docker daemon is running
-
-Container Status:
-✓ LibreTranslate: Running
-✓ MongoDB: Healthy
-✓ Redis: Healthy
-✓ Django Backend: Healthy
-✓ Celery Worker: Running
-✓ Celery Beat: Running
-✓ React Frontend: Running
-✓ NGINX: Running
-
-HTTP/HTTPS Endpoints:
-✓ HTTPS Health: OK
-✓ API Health: OK
-✓ Frontend: OK
-
-=== Summary ===
-Services OK: 12
-
-Status: HEALTHY
+# Or restore a specific archive directly
+bash scripts/restore.sh backups/mongodb_20260101_030000.archive
 ```
 
 ---
 
-## Integration with Makefile
+## Running the tests
 
-All scripts can be run via the Makefile:
+The test suite requires [bats](https://github.com/bats-core/bats-core):
 
 ```bash
-# Production commands
-make prod_backup              # Run backup script
-make prod_migrate             # Initialize database
-make prod_health              # Run health check
-make prod_logs                # View all logs
-make prod_logs_django         # View Django logs
-make prod_shell_django        # Access Django shell
+sudo apt install bats
 ```
 
----
+```bash
+# All 26 tests
+bats scripts/tests/
 
-## Production Deployment Workflow
+# Individual suites
+bats scripts/tests/test_backup.bats
+bats scripts/tests/test_restore.bats
+bats scripts/tests/test_setup_cron.bats
+```
 
-1. **Initial Setup:**
-   ```bash
-   make build_prod
-   make prod_up
-   make prod_migrate
-   ```
+Tests run against copies of the scripts in a temporary directory. `docker`, `crontab`, and `aws` are replaced with lightweight mocks — no real Docker or cloud access is needed.
 
-2. **Database Initialization:**
-   ```bash
-   ./scripts/init-db.sh
-   make prod_superuser
-   ```
-
-3. **Verify Health:**
-   ```bash
-   ./scripts/health-check.sh --detailed
-   ```
-
-4. **Schedule Backups:**
-   ```bash
-   # Add cron jobs for backup and health checks
-   (crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/reha-advisor && ./scripts/backup.sh") | crontab -
-   (crontab -l 2>/dev/null; echo "*/5 * * * * cd /opt/reha-advisor && ./scripts/health-check.sh") | crontab -
-   ```
+| Test file | Tests | Covers |
+|---|---|---|
+| `test_backup.bats` | 11 | Arg parsing, MongoDB/SQLite/media backup paths, credential reading, meta file |
+| `test_restore.bats` | 9 | File resolution, interactive mode, confirmation prompt, restore flow, credentials |
+| `test_setup_cron.bats` | 6 | Default timing, custom timing, idempotency, correct paths |
 
 ---
 
 ## Troubleshooting
 
-### Backup script fails
+**Backup exits 1 immediately**
 ```bash
-# Check if MongoDB is running
-docker ps | grep db-prod
-
-# Check MongoDB logs
-docker logs db-prod
-
-# Verify disk space
-df -h /opt/reha-advisor
+docker ps | grep db-prod   # MongoDB container must be running
 ```
 
-### Restore fails
+**Backup log shows auth failure**
 ```bash
-# Check if backup file exists
-ls -lh /opt/reha-advisor/backups/
-
-# Verify MongoDB connectivity
-docker exec db-prod mongosh --eval 'db.adminCommand("ping")'
-
-# Check MongoDB logs
-docker logs db-prod
+grep MONGO_INITDB_ROOT /home/ubuntu/repos/telerehabapp-prod/.env.prod
 ```
 
-### Health check reports failures
+**Cron job not running**
 ```bash
-# Check individual service logs
-make prod_logs_django
-make prod_logs_nginx
-
-# Check Docker resources
-docker stats
-
-# Run detailed health check
-./scripts/health-check.sh --detailed
+crontab -l              # confirm entry exists
+cat backups/cron.log    # check last run output
 ```
 
----
+**Restore fails at collection verification**
+```bash
+# Check archive is non-empty
+ls -lh backups/mongodb_*.archive
 
-## Best Practices
-
-1. **Backups:**
-   - Run daily backups at low-traffic hours
-   - Test restores monthly
-   - Store backups off-site
-   - Monitor backup size trends
-
-2. **Health Checks:**
-   - Run every 5 minutes in production
-   - Enable Slack notifications
-   - Monitor check logs
-   - Alert on consecutive failures
-
-3. **Database:**
-   - Keep indexes optimized
-   - Monitor collection sizes
-   - Archive old data regularly
-   - Validate data integrity monthly
-
-4. **Monitoring:**
-   - Track response times
-   - Monitor error rates
-   - Review security logs
-   - Track resource usage
-
----
-
-## Support
-
-For issues or questions:
-1. Review [PRODUCTION_DEPLOYMENT.md](../docs/deployment/PRODUCTION_DEPLOYMENT.md)
-2. Check [Troubleshooting Guide](../docs/08-TROUBLESHOOTING.md)
-3. Review script logs in `/opt/reha-advisor/logs/`
-4. Contact support team
-
----
-
-**Last Updated:** February 17, 2024
-**Version:** 1.0
+# Dry run to validate the archive
+docker exec db-prod mongorestore --archive --gzip --dryRun \
+    -u "$MONGO_USER" -p "$MONGO_PASSWORD" \
+    --authenticationDatabase admin \
+    < backups/mongodb_*.archive
+```
