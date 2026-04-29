@@ -1353,7 +1353,10 @@ def assign_intervention_to_types(request, therapist_id):
                     max_occ = count
                 else:
                     seg_end = eff_dt + timedelta(days=max(1, int(seg.end_day or seg.start_day or 1)) - 1)
-                    end_obj = {"type": "date", "date": seg_end.replace(hour=23, minute=59, second=59, microsecond=0).isoformat()}
+                    end_obj = {
+                        "type": "date",
+                        "date": seg_end.replace(hour=23, minute=59, second=59, microsecond=0).isoformat(),
+                    }
                     max_occ = 1000
                 occ = _expand_dates(
                     start_date=seg_start.date().isoformat(),

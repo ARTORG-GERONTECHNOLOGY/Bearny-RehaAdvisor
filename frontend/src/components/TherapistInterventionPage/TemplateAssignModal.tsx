@@ -407,7 +407,9 @@ const TemplateAssignModal: React.FC<Props> = ({
                 onChange={(e) => setAutoApplyScope(e.target.value as AutoApplyScope)}
               >
                 {templateId && (
-                  <option value="off">{t('Only keep in template (no automatic assignment)')}</option>
+                  <option value="off">
+                    {t('Only keep in template (no automatic assignment)')}
+                  </option>
                 )}
                 <option value="future">{t('Automatically assign to new matching patients')}</option>
                 <option value="all_past_and_future">
@@ -423,7 +425,9 @@ const TemplateAssignModal: React.FC<Props> = ({
                     onChange={(e) => setAutoApplyStartingFrom(e.target.value)}
                   />
                   <small className="text-muted">
-                    {t('Defaults to today. Existing patients receive sessions from this date onward.')}
+                    {t(
+                      'Defaults to today. Existing patients receive sessions from this date onward.'
+                    )}
                   </small>
                 </Form.Group>
               )}
