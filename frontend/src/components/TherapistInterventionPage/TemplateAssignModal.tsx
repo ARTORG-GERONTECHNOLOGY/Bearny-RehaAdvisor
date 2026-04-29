@@ -21,6 +21,8 @@ type Props = {
 };
 
 type ErrorMap = Record<string, string>;
+type AutoApplyScope = 'off' | 'future' | 'all_past_and_future';
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const TemplateAssignModal: React.FC<Props> = ({
   show,
@@ -42,6 +44,10 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const [startTime, setStartTime] = useState<string>('08:00');
   const [keepPrevious, setKeepPrevious] = useState<boolean>(mode === 'modify');
+  const [autoApplyScope, setAutoApplyScope] = useState<AutoApplyScope>(
+    templateId ? 'off' : 'future'
+  );
+  const [autoApplyStartingFrom, setAutoApplyStartingFrom] = useState<string>(todayIso());
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -58,13 +64,15 @@ const TemplateAssignModal: React.FC<Props> = ({
     setEveryK(1);
     setStartTime('08:00');
     setKeepPrevious(mode === 'modify');
+    setAutoApplyScope(templateId ? 'off' : 'future');
+    setAutoApplyStartingFrom(todayIso());
 
     setError('');
     setFieldErrors({});
     setShowErrorDetails(false);
     setSubmitting(false);
     setSuccess(false);
-  }, [show, defaultDiagnosis, mode]);
+  }, [show, defaultDiagnosis, mode, templateId]);
 
   const validRange = startDay >= 1 && lastDay >= startDay;
   const canSubmit = useMemo(
@@ -88,7 +96,8 @@ const TemplateAssignModal: React.FC<Props> = ({
       lastDay !== 10 ||
       everyK !== 1 ||
       startTime !== '08:00' ||
-      (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false);
+      (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false) ||
+      autoApplyScope !== 'off';
     return diagChanged || defaultsChanged || !!error;
   }, [
     success,
@@ -99,6 +108,7 @@ const TemplateAssignModal: React.FC<Props> = ({
     everyK,
     startTime,
     keepPrevious,
+    autoApplyScope,
     mode,
     error,
   ]);
@@ -184,6 +194,9 @@ const TemplateAssignModal: React.FC<Props> = ({
           unit: 'day',
           selected_days: [],
           suggested_execution_time: suggestedExecution,
+          auto_apply_scope: autoApplyScope,
+          auto_apply_starting_from:
+            autoApplyScope === 'all_past_and_future' ? autoApplyStartingFrom : undefined,
         };
         res = await apiClient.post(`templates/${templateId}/interventions/`, payload);
       } else {
@@ -201,6 +214,9 @@ const TemplateAssignModal: React.FC<Props> = ({
               end: { type: 'count', count: lastDay },
               keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
               suggested_execution_time: suggestedExecution,
+              auto_apply_scope: autoApplyScope === 'off' ? 'future' : autoApplyScope,
+              auto_apply_starting_from:
+                autoApplyScope === 'all_past_and_future' ? autoApplyStartingFrom : undefined,
             },
           ],
         };
@@ -382,6 +398,48 @@ const TemplateAssignModal: React.FC<Props> = ({
               'These are relative template days. Actual calendar dates are set when applying to a patient.'
             )}
           </Alert>
+
+          {diagnosis && (
+            <Form.Group className="mb-3">
+              <Form.Label>{t('Diagnosis auto-apply mode')}</Form.Label>
+              <Form.Select
+                value={autoApplyScope}
+                onChange={(e) => setAutoApplyScope(e.target.value as AutoApplyScope)}
+              >
+                {templateId && (
+                  <option value="off">
+                    {t('Only keep in template (no automatic assignment)')}
+                  </option>
+                )}
+                <option value="future">{t('Automatically assign to new matching patients')}</option>
+                <option value="all_past_and_future">
+                  {t('Assign now to all existing matching patients and future ones')}
+                </option>
+              </Form.Select>
+              {autoApplyScope === 'all_past_and_future' && (
+                <Form.Group className="mt-2">
+                  <Form.Label>{t('Start assigning from date')}</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={autoApplyStartingFrom}
+                    onChange={(e) => setAutoApplyStartingFrom(e.target.value)}
+                  />
+                  <small className="text-muted">
+                    {t(
+                      'Defaults to today. Existing patients receive sessions from this date onward.'
+                    )}
+                  </small>
+                </Form.Group>
+              )}
+              <small className="text-muted">
+                {t('New matching patients means future registrations with this diagnosis.')}
+              </small>
+              <br />
+              <small className="text-muted">
+                {t('Matching patients are limited to your own clinic/project access.')}
+              </small>
+            </Form.Group>
+          )}
 
           <div className="text-muted">
             {validRange
