@@ -84,7 +84,7 @@ Accepts `multipart/form-data`.  Required fields: `title`, `description`,
 | `title` | Required, non-empty |
 | `description` | Required, non-empty |
 | `contentType` | Required; normalised to TitleCase; must be in `ALLOWED_CONTENT_TYPES` |
-| `duration` | Required; must be parseable integer > 0. **Note**: the frontend `AddInterventionPopup` previously omitted this field, causing every manual upload to fail silently. Fixed by adding a duration input (default 30 min) to the form. |
+| `duration` | Required; must be parseable integer > 0. **Note**: the frontend `AddInterventionPopup` previously omitted this field, causing every manual upload to fail silently. Fixed by adding a duration input (default 0 min) to the form. |
 | `external_id` + `language` | If provided, must be unique (no existing document with same pair) |
 | `media` / `media_file` | At least one media entry required. Filename for `media_file` is arbitrary (unlike the batch import endpoint which enforces `{id}_{format}_{lang}.{ext}`). |
 
