@@ -664,16 +664,6 @@ def list_therapist_patients(request, therapist_id):
                 }
             )
 
-        try:
-            Logs.objects.create(
-                userId=therapist.userId,
-                action="OPEN_PATIENT",
-                userAgent=(request.headers.get("User-Agent", "") or "")[:20],
-                details=f"patient_count={len(output_list)}",
-            )
-        except Exception:
-            pass
-
         # ✅ tests expect the response itself is a list
         return JsonResponse(output_list, safe=False, status=200)
 
@@ -720,10 +710,11 @@ def create_log(request):
             user = User.objects.get(id=ObjectId(user))
         log = Logs(
             userId=user,
-            action=data.get("action", "OTHER"),
+            action=data.get("action", "REHATABLE"),
             started=started,
             ended=ended,
-            userAgent=data.get("userAgent", ""),
+            actor_role=data.get("userAgent", data.get("actor_role", "Therapist")),
+            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
             details=data.get("details", "")[:500],
         )
