@@ -54,8 +54,8 @@ const Footer: FunctionComponent = () => {
             <img src="/brz_logo.png" alt="Berner Reha Zentrum" className="h-8" />
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
-            <div className="text-center md:text-left">
-              <div className="flex gap-1 flex-wrap justify-center md:justify-start">
+            <div className="flex flex-col items-center md:items-start">
+              <div className="flex gap-1 flex-wrap">
                 <NavLink to="/terms" className="text-sm">
                   {t('Terms & Conditions')}
                 </NavLink>
