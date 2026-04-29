@@ -119,10 +119,13 @@ Creates an analytics/audit log entry. Optional patient linkage is supported.
 
 ### Important behaviour covered
 
+- `action` defaults to `"REHATABLE"` when omitted (previously defaulted to the now-invalid `"OTHER"`).
+- The body key `userAgent` is accepted as a backward-compatible alias for `actor_role`.
+- The HTTP `User-Agent` request header is captured into the separate `user_agent` field.
 - `details` is truncated to 500 characters before save.
-- Unknown referenced `user` or malformed JSON currently returns HTTP 500.
+- Unknown referenced `user` or malformed JSON returns HTTP 500.
 
-### Tests
+### Tests (`test_therapist_views.py`)
 
 | Test | Scenario | Expected |
 |---|---|---|
@@ -130,6 +133,10 @@ Creates an analytics/audit log entry. Optional patient linkage is supported.
 | `test_create_log_with_patient_reference` | Valid user + valid patient reference | 201, saved log contains patient reference |
 | `test_create_log_invalid_json_returns_500` | Non-JSON payload with JSON content type | 500, `error: Failed to create log` |
 | `test_create_log_unknown_user_returns_500` | Non-existing user id in payload | 500, `error: Failed to create log` |
+
+> Additional `create_log` tests (default action, `userAgent`/`actor_role` key compat,
+> HTTP User-Agent capture, `log_id` in response) live in
+> [`tests/activity_logs/`](../activity_logs/TESTING.md).
 
 ---
 
