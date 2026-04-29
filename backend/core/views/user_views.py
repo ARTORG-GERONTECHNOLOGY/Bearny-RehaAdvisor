@@ -100,10 +100,35 @@ from django.core.mail import send_mail
 from django.views.decorators.http import require_http_methods
 from mongoengine.queryset.visitor import Q
 
+# ----------------------------------------
+# Helpers
+# ----------------------------------------
 
-# ----------------------------------------
-# Helper
-# ----------------------------------------
+
+def _get_viewer_user(request):
+    """Return the User who made this request by decoding the JWT Bearer token.
+
+    Plain Django function views don't go through DRF's authentication pipeline,
+    so request.user is always AnonymousUser for JWT-authenticated calls.  This
+    helper decodes the Authorization header directly so we can identify the
+    caller for audit logging without restructuring the view.
+    Returns None when the token is absent, invalid, or the user is not in DB.
+    """
+    try:
+        auth_header = request.headers.get("Authorization", "") or ""
+        if not auth_header.startswith("Bearer "):
+            return None
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        token = AccessToken(auth_header.split(" ", 1)[1])
+        user_id = token.get("user_id")
+        if not user_id:
+            return None
+        return User.objects.get(pk=str(user_id))
+    except Exception:
+        return None
+
+
 def valid_update_value(v):
     if v in ("", None, []):
         return False  # skip completely
@@ -213,7 +238,7 @@ def change_password(request, therapist_id):
     Logs.objects.create(
         userId=user,
         action="UPDATE_PROFILE",
-        userAgent="Therapist",
+        actor_role="Therapist",
         details="Password changed securely",
     )
 
@@ -234,7 +259,6 @@ def user_profile_view(request, user_id):
     """
 
     logger.info(f"[PROFILE] user_profile_view user_id={user_id}")
-    print(f"[PROFILE] user_profile_view user_id={user_id}")
 
     # ------------------------------------------------------------------
     # Resolve actual USER object (ID may be User ID OR Patient ID)
@@ -398,6 +422,22 @@ def user_profile_view(request, user_id):
                 except Exception:
                     logger.warning("Could not resolve therapist for patient %s", pt.id)
 
+                # Log therapist opening a patient profile
+                viewer = _get_viewer_user(request)
+                viewer_role = getattr(viewer, "role", "") if viewer else ""
+                if viewer_role == "Therapist":
+                    try:
+                        Logs(
+                            userId=viewer,
+                            action="OPEN_PATIENT",
+                            actor_role="Therapist",
+                            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
+                            patient=pt,
+                            details=f"patient_code={pt.patient_code}",
+                        ).save()
+                    except Exception:
+                        pass
+
             return JsonResponse(obj, status=200)
 
         except Exception as e:
@@ -433,7 +473,7 @@ def user_profile_view(request, user_id):
                 Logs.objects.create(
                     userId=user,
                     action="UPDATE_PROFILE",
-                    userAgent="Patient",
+                    actor_role="Patient",
                     details="Password changed via profile endpoint",
                 )
 
@@ -556,7 +596,7 @@ def user_profile_view(request, user_id):
             Logs.objects.create(
                 userId=user,
                 action="UPDATE_PROFILE",
-                userAgent="Patient",
+                actor_role="Patient",
                 details=f"Updated: {updated} | old: {old}",
             )
 
@@ -575,7 +615,7 @@ def user_profile_view(request, user_id):
             Logs.objects.create(
                 userId=user,
                 action="DELETE_ACCOUNT",
-                userAgent="Patient",
+                actor_role="Patient",
                 details=f"Soft-deleted {user_id}",
             )
 
@@ -645,7 +685,7 @@ def reset_patient_password(request, patient_id):
     Logs.objects.create(
         userId=user,
         action="UPDATE_PROFILE",
-        userAgent="Therapist",
+        actor_role="Therapist",
         details=f"Password reset by therapist for patient {patient_id}",
     )
 

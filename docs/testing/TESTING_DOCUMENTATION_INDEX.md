@@ -1,5 +1,8 @@
 # Testing Documentation Index
 
+> Canonical entry point: [`docs/TESTING.md`](docs/TESTING.md).  
+> This file is retained for backward compatibility.
+
 Welcome to the RehaAdvisor Testing Documentation. This index helps you find the information you need.
 
 ## 🎯 Quick Links

@@ -274,7 +274,8 @@ def apply_template_to_patient(request, therapist_id):
             Logs.objects.create(
                 userId=therapist.userId,
                 action="ASSIGN_INTERVENTION",
-                userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+                actor_role="Therapist",
+                user_agent=(request.headers.get("User-Agent", "") or "")[:300],
                 patient=patient,
                 details=f"diagnosis={diagnosis} applied={applied} sessions={total_sessions}",
             )

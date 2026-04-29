@@ -1,5 +1,8 @@
 # 📋 Testing Improvements - Complete Overview
 
+> Canonical entry point: [`TESTING.md`](./TESTING.md).  
+> This file is retained as a detailed companion guide.
+
 ## Executive Summary
 
 The RehaAdvisor testing infrastructure has been **comprehensively improved** with systematic consolidation, documentation, and scenario explanations across 120+ test files.

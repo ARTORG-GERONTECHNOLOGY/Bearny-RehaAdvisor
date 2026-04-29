@@ -155,7 +155,7 @@ def therapist_access(request, therapistId: str | None = None):
         Logs.objects.create(
             userId=th.userId,
             action="UPDATE_PROFILE",
-            userAgent="Admin",
+            actor_role="Admin",
             details=f"Updated therapist access therapist={str(th.id)} clinics {old_clinics}->{norm_clinics} projects {old_projects}->{norm_projects}",
         )
     except Exception:
