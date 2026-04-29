@@ -123,7 +123,13 @@ describe('AddRecomendationPopUp', () => {
 
     afterEach(() => {
       (interventionsTaxonomyStore as any).contentTypes = [
-        'Video', 'Audio', 'Website', 'Text', 'Image', 'App', 'Streaming',
+        'Video',
+        'Audio',
+        'Website',
+        'Text',
+        'Image',
+        'App',
+        'Streaming',
       ];
     });
 
@@ -163,7 +169,13 @@ describe('AddRecomendationPopUp', () => {
     afterEach(() => {
       jest.clearAllMocks();
       (interventionsTaxonomyStore as any).contentTypes = [
-        'Video', 'Audio', 'Website', 'Text', 'Image', 'App', 'Streaming',
+        'Video',
+        'Audio',
+        'Website',
+        'Text',
+        'Image',
+        'App',
+        'Streaming',
       ];
     });
 

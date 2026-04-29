@@ -69,9 +69,9 @@ test.describe('Recommendation content type — dropdown labels', () => {
     const select = page.locator('#contentType');
     await expect(select).toBeVisible();
 
-    const optionValues = await select.locator('option').evaluateAll((opts) =>
-      opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean)
-    );
+    const optionValues = await select
+      .locator('option')
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
 
     expect(optionValues).toContain('brochure');
     expect(optionValues).toContain('graphics');
@@ -88,9 +88,9 @@ test.describe('Recommendation content type — dropdown labels', () => {
     const select = page.locator('#contentType');
     await expect(select).toBeVisible();
 
-    const optionValues = await select.locator('option').evaluateAll((opts) =>
-      opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean)
-    );
+    const optionValues = await select
+      .locator('option')
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
 
     // Backend type names should not appear as option values; they are implementation details
     expect(optionValues).not.toContain('Image');
