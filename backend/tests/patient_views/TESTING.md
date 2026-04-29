@@ -74,6 +74,8 @@ PatientICFRating            (Healthstatus history)
 
 Accepts `multipart/form-data`.  Required field: `userId`.  Optional: `interventionId`, `date` (YYYY-MM-DD), plus one key per `FeedbackQuestion.questionKey` containing the answer (JSON-encoded if a list).  File fields whose content type is `audio/*` or `video/*` are transcribed / stored.
 
+On success, a `Logs` document with `action="QUESTIONNAIRE_SUBMIT"` is written (see [`tests/activity_logs/`](../activity_logs/TESTING.md)).
+
 ### Tests (`test_patient_views.py`, `test_audio.py`)
 
 | Test | Scenario | Expected |
@@ -91,6 +93,8 @@ Accepts `multipart/form-data`.  Required field: `userId`.  Optional: `interventi
 ## `mark_intervention_completed`  —  `POST /api/interventions/complete/`
 
 JSON body: `{ patient_id, intervention_id, date? }`.  Ensures at most one log per (patient, plan, intervention, day).  Optional `date` (YYYY-MM-DD) defaults to today.
+
+On success, a `Logs` document with `action="INTERVENTION_COMPLETE"` is written (see [`tests/activity_logs/`](../activity_logs/TESTING.md)).
 
 ### Date storage behaviour
 
@@ -128,6 +132,8 @@ The fix stores:
 ## `unmark_intervention_completed`  —  `POST /api/interventions/uncomplete/`
 
 JSON body: `{ patient_id, intervention_id, date }` (all required).  Removes 'completed' status from the log for that day; deduplicates duplicate logs.
+
+On success, a `Logs` document with `action="INTERVENTION_UNCOMPLETE"` is written (see [`tests/activity_logs/`](../activity_logs/TESTING.md)).
 
 ### Tests (`test_uncomplete_and_modify.py`)
 

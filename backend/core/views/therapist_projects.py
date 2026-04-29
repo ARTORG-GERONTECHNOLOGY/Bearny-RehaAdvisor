@@ -93,7 +93,7 @@ def therapist_projects(request):
         Logs.objects.create(
             userId=th.userId,
             action="UPDATE_PROFILE",
-            userAgent="Admin",
+            actor_role="Admin",
             details=f"Updated therapist.projects for therapist={str(th.id)} old={old_projects} new={normalized}",
         )
     except Exception:

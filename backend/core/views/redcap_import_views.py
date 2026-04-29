@@ -664,7 +664,8 @@ def import_patient_from_redcap(request):
             Logs.objects.create(
                 userId=therapist.userId,
                 action="REDCAP_IMPORT",
-                userAgent=(request.headers.get("User-Agent", "") or "")[:20],
+                actor_role="Therapist",
+                user_agent=(request.headers.get("User-Agent", "") or "")[:300],
                 patient=patient,
                 details=f"project={project} identifier={final_identifier} dag={dag}",
             )
