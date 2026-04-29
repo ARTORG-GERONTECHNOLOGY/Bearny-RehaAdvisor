@@ -95,8 +95,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # --------------------------------------------------------------------
 
-# Backend allowed content types are TitleCase (or "PDF")
-# Your config already contains these e.g. ["App","Audio",...]
 ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 
 # Accept any casing from frontend and normalize to canonical backend values.
@@ -613,7 +611,7 @@ def add_new_intervention(request):
             field_errors.setdefault("contentType", []).append("Content type is required.")
         elif content_type not in ALLOWED_CONTENT_TYPES:
             field_errors.setdefault("contentType", []).append(
-                f"Invalid. Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
+                "Invalid content type. Please select a valid type from the dropdown."
             )
 
         if preview_img and getattr(preview_img, "size", 0) > MAX_FILE_SIZE_BYTES:

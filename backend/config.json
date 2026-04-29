@@ -166,7 +166,7 @@
   "RecomendationInfo": {
     "frequency": ["Daily", "Every-2nd-day", "Weekly", "Once"],
     "frequencyDays": [1, 2, 7, 0],
-"types": ["Text", "Video", "Audio", "Image", "PDF", "Website", "App", "Streaming"],
+    "types": ["Text", "Video", "Audio", "Image", "PDF", "Website", "App", "Streaming"],
 
     "tags": [
       "Disease",

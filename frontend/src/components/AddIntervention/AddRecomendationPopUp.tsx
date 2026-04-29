@@ -21,6 +21,15 @@ type PatientType = {
   diagnosesOptions: string[];
 };
 
+const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
+  brochure: 'pdf',
+  video: 'video',
+  audio: 'audio',
+  graphics: 'image',
+  app: 'app',
+  website: 'website',
+};
+
 type MediaType = 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
 type MediaProvider = 'spotify' | 'youtube' | 'soundcloud' | 'vimeo' | string;
 
@@ -370,7 +379,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       if (!dur || Number.isNaN(dur) || dur <= 0) e.duration = t('Duration must be greater than 0');
       if (dur > 600) e.duration = t('Duration seems too high (max 600 minutes).');
 
-      if (!cleanStr(f.contentType)) e.contentType = t('Content type is required');
+      if (!cleanStr(f.contentType)) e.contentType = t('Please select a content type.');
 
       const lang = cleanStr(f.language);
       if (!lang) e.language = t('Language is required');
@@ -435,7 +444,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         externalId: cleanStr(formData.externalId),
         provider: cleanStr(formData.provider),
         language: cleanStr(formData.language),
-        contentType: cleanStr(formData.contentType),
+        contentType: CONTENT_TYPE_TO_BACKEND[cleanStr(formData.contentType)] ?? cleanStr(formData.contentType),
 
         inputFrom: uniqueStrings(formData.inputFrom),
         aims: uniqueStrings(formData.aims),
