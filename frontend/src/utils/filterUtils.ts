@@ -1,5 +1,13 @@
 import type { Intervention } from '@/types';
 
+// Maps frontend taxonomy display labels to the canonical storage values they represent.
+// "brochure" matches both legacy "brochure" and new "pdf" stored values.
+// "graphics" matches both legacy "graphics" and new "image" stored values.
+const CONTENT_TYPE_LABEL_TO_CANONICAL: Record<string, string[]> = {
+  brochure: ['brochure', 'pdf'],
+  graphics: ['graphics', 'image'],
+};
+
 export const filterInterventions = (
   recommendations: Intervention[],
   translatedTitles: Record<string, { title: string; lang: string | null }> | undefined,
@@ -33,7 +41,9 @@ export const filterInterventions = (
   }
 
   if (filters.contentTypeFilter) {
-    result = result.filter((rec) => rec.content_type === filters.contentTypeFilter);
+    const raw = filters.contentTypeFilter.toLowerCase();
+    const needles = CONTENT_TYPE_LABEL_TO_CANONICAL[raw] ?? [raw];
+    result = result.filter((rec) => needles.includes((rec.content_type || '').toLowerCase()));
   }
 
   if (filters.tagFilter.length > 0) {
