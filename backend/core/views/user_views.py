@@ -102,8 +102,34 @@ from mongoengine.queryset.visitor import Q
 
 
 # ----------------------------------------
-# Helper
+# Helpers
 # ----------------------------------------
+
+
+def _get_viewer_user(request):
+    """Return the User who made this request by decoding the JWT Bearer token.
+
+    Plain Django function views don't go through DRF's authentication pipeline,
+    so request.user is always AnonymousUser for JWT-authenticated calls.  This
+    helper decodes the Authorization header directly so we can identify the
+    caller for audit logging without restructuring the view.
+    Returns None when the token is absent, invalid, or the user is not in DB.
+    """
+    try:
+        auth_header = request.headers.get("Authorization", "") or ""
+        if not auth_header.startswith("Bearer "):
+            return None
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        token = AccessToken(auth_header.split(" ", 1)[1])
+        user_id = token.get("user_id")
+        if not user_id:
+            return None
+        return User.objects.get(pk=str(user_id))
+    except Exception:
+        return None
+
+
 def valid_update_value(v):
     if v in ("", None, []):
         return False  # skip completely
@@ -398,7 +424,7 @@ def user_profile_view(request, user_id):
                     logger.warning("Could not resolve therapist for patient %s", pt.id)
 
                 # Log therapist opening a patient profile
-                viewer = getattr(request, "user", None)
+                viewer = _get_viewer_user(request)
                 viewer_role = getattr(viewer, "role", "") if viewer else ""
                 if viewer_role == "Therapist":
                     try:
