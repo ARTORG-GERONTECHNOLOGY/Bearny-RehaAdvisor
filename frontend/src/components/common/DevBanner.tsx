@@ -1,4 +1,3 @@
-// src/components/DevBanner.tsx
 import { Badge } from '@/components/ui/badge';
 
 const isDev = import.meta.env.DEV;
