@@ -30,6 +30,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionTemplate,
+    Logs,
     Patient,
     RehabilitationPlan,
     Therapist,
@@ -805,6 +806,20 @@ def apply_named_template(request, template_id):
             non_field_errors=[f"{e['patient']}: {e['reason']}" for e in patient_errors],
             status=400,
         )
+
+    try:
+        Logs(
+            userId=therapist.userId,
+            action="TEMPLATE_APPLY",
+            actor_role="Therapist",
+            details=(
+                f"template={tmpl.id} applied={total_applied} "
+                f"sessions={total_sessions} patients={patients_affected} "
+                f"errors={len(patient_errors)}"
+            ),
+        ).save()
+    except Exception:
+        pass
 
     response: Dict = {
         "success": True,

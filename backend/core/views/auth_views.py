@@ -383,7 +383,7 @@ def login_view(request):
             )
 
         # Others: issue JWT immediately
-        Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
+        Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
 
         refresh = RefreshToken()
         refresh["user_id"] = user_id_str
@@ -425,7 +425,7 @@ def logout_view(request):
 
         user = User.objects.get(pk=ObjectId(user_id))
 
-        Logs.objects.create(userId=user, action="LOGOUT", userAgent=user.role)
+        Logs.objects.create(userId=user, action="LOGOUT", actor_role=user.role)
 
         return JsonResponse({"message": "Logout successful"}, status=200)
 
@@ -814,6 +814,17 @@ def register_view(request):
                 rollback()
                 return _err("Rehabilitation plan creation failed.", status=500)
 
+            try:
+                Logs(
+                    userId=pat_therapist.userId,
+                    action="PATIENT_REGISTER",
+                    actor_role="Therapist",
+                    patient=patient,
+                    details=f"patient_code={patient.patient_code} clinic={patient.clinic} project={patient.project}",
+                ).save()
+            except Exception:
+                pass
+
             return JsonResponse(
                 {
                     "success": True,
@@ -1008,7 +1019,7 @@ def verify_code_view(request):
         verification.delete()
 
         refresh = RefreshToken.for_user(user)
-        Logs.objects.create(userId=user, action="LOGIN", userAgent=user.role)
+        Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
 
         return JsonResponse(
             {
