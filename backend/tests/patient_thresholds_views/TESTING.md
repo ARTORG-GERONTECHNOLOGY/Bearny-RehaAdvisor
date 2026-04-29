@@ -16,7 +16,7 @@ for `core/views/patient_thresholds.py`.
 | `/api/patients/<patient_id>/thresholds/` | POST | `patient_thresholds_view` | 1 |
 | `/api/patients/<patient_id>/thresholds/` | DELETE | `patient_thresholds_view` | 1 |
 
-**Total: 11 tests**
+**Total: 13 tests**
 
 ---
 
@@ -35,6 +35,8 @@ for `core/views/patient_thresholds.py`.
 | `test_thresholds_helpers_parse_user_role_and_dict_fallback` | helper parsing/role/dict-conversion branches | helper outputs validated |
 | `test_thresholds_serializer_and_merge_logic` | serializer ranges + merge/equality helpers | expected validation and merge behavior |
 | `test_update_thresholds_noop_and_history_and_view_error_branches` | no-op update, history append, and exception path | no unnecessary writes + error response branch |
+| `test_coerce_aware` | `_coerce_aware()` with None, naive datetime, and aware datetime inputs | always returns aware datetime |
+| `test_history_sort_tolerates_naive_effective_from` | GET with history snapshots that have naive `effective_from` (legacy DB records) | 200, no TypeError, descending order preserved |
 
 ---
 

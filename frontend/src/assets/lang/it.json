@@ -105,6 +105,11 @@
   "Choose...": "Scegli...",
   "Patient ID or username": "ID Paziente o nome utente",
   "Apply template to patient": "Applica modello al paziente",
+  "Apply this template for this diagnosis": "Applica questo modello per questa diagnosi",
+  "Only keep in template (no automatic assignment)": "Mantieni solo nel modello (nessuna assegnazione automatica)",
+  "Automatically assign to new matching patients": "Assegna automaticamente ai nuovi pazienti corrispondenti",
+  "Assign now to all existing matching patients and future ones": "Assegna ora a tutti i pazienti corrispondenti esistenti e futuri",
+  "Matching patients are limited to your own clinic/project access.": "I pazienti corrispondenti sono limitati al tuo accesso clinica/progetto.",
   "Failed to apply template.": "Impossibile applicare il modello. Riprova ora o più tardi.",
   "Adherence (%)": "Aderenza (%)",
   "Discharged": "Dimesso",
@@ -112,7 +117,7 @@
   "Active patients": "Pazienti attivi",
   "Reset filters": "Reimposta",
   "Feedback (worst → best)": "Feedback (peggiore → migliore)",
-  "Health (best → worst)": "Salute (migliore → peggiore)",
+  "Health (worst → best)": "Salute (peggiore → migliore)",
   "Adherence (high → low)": "Aderenza (alto → basso)",
   "Last login (recent first)": "Ultimo accesso (recenti prima)",
   "Newest created": "Più recente",
@@ -1235,5 +1240,9 @@
   "Private intervention": "Intervento privato",
   "Select...": "Seleziona...",
   "homeHeadline": "Bearny",
-  "homeSubheadline": "pronto dopo la riabilitazione"
+  "homeSubheadline": "pronto dopo la riabilitazione",
+  "Diagnosis auto-apply mode": "Modalità di assegnazione automatica per diagnosi",
+  "Start assigning from date": "Inizia ad assegnare dalla data",
+  "Defaults to today. Existing patients receive sessions from this date onward.": "Predefinito a oggi. I pazienti esistenti ricevono sessioni a partire da questa data.",
+  "New matching patients means future registrations with this diagnosis.": "Nuovi pazienti corrispondenti significa future registrazioni con questa diagnosi."
 }
