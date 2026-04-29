@@ -159,7 +159,16 @@ class FitbitData(Document):
 
 
 class Logs(Document):
-    meta = {"collection": "logs"}  # MongoDB collection
+    meta = {
+        "collection": "logs",
+        "indexes": [
+            # Fast lookup by user + action ordered by time (used by last-login queries)
+            {"fields": ["userId", "action", "-timestamp"]},
+            # General time-range queries
+            {"fields": ["-timestamp"]},
+        ],
+    }
+
     userId = ReferenceField(User, required=True)
     action = StringField(
         choices=[
@@ -167,7 +176,6 @@ class Logs(Document):
             "LOGOUT",
             "UPDATE_PROFILE",
             "DELETE_ACCOUNT",
-            "OTHER",
             "REHATABLE",
             "HEALTH_PAGE",
             "VITALS_SUBMIT",
@@ -177,15 +185,22 @@ class Logs(Document):
             "UPDATE_PLAN",
             "REDCAP_IMPORT",
             "INTERVENTION_VIEW",
+            "INTERVENTION_COMPLETE",
+            "INTERVENTION_UNCOMPLETE",
+            "TEMPLATE_APPLY",
+            "PATIENT_REGISTER",
         ],
-        default="Therapist",
         required=True,
     )
     timestamp = DateTimeField(default=timezone.now)
-    ended = DateTimeField(required=False, null=True)  # Optional end time for actions like "REHATABLE"
-    started = DateTimeField(required=False, null=True)  # Optional start time for actions like "REHATABLE"
-    userAgent = StringField(max_length=20, required=True)
-    patient = ReferenceField("Patient", required=False, null=True)  # Optional, for actions related to patients
+    ended = DateTimeField(required=False, null=True)
+    started = DateTimeField(required=False, null=True)
+    # Stores the user's role ("Patient", "Therapist", "Admin") — not the browser UA.
+    # db_field keeps the MongoDB key unchanged so existing documents stay readable.
+    actor_role = StringField(max_length=50, required=True, db_field="userAgent")
+    # Optional browser User-Agent string (populated when the event originates from a web request)
+    user_agent = StringField(max_length=300, required=False, null=True)
+    patient = ReferenceField("Patient", required=False, null=True)
     details = StringField(max_length=1000)
 
     def __str__(self):
