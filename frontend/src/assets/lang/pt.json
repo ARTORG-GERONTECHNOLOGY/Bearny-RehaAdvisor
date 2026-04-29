@@ -104,6 +104,11 @@
   "Choose...": "Escolher...",
   "Patient ID or username": "ID do paciente ou nome de utilizador",
   "Apply template to patient": "Aplicar modelo ao paciente",
+  "Apply this template for this diagnosis": "Aplicar este modelo para este diagnóstico",
+  "Only keep in template (no automatic assignment)": "Manter apenas no modelo (sem atribuição automática)",
+  "Automatically assign to new matching patients": "Atribuir automaticamente a novos pacientes correspondentes",
+  "Assign now to all existing matching patients and future ones": "Atribuir agora a todos os pacientes correspondentes existentes e futuros",
+  "Matching patients are limited to your own clinic/project access.": "Os pacientes correspondentes estão limitados ao seu próprio acesso de clínica/projeto.",
   "Failed to apply template.": "Falha ao aplicar o modelo. Tente novamente agora ou mais tarde.",
   "Adherence (%)": "Adesão (%)",
   "Discharged": "Alta",
@@ -111,7 +116,7 @@
   "Active patients": "Pacientes ativos",
   "Reset filters": "Repor filtros",
   "Feedback (worst → best)": "Feedback (pior → melhor)",
-  "Health (best → worst)": "Saúde (melhor → pior)",
+  "Health (worst → best)": "Saúde (pior → melhor)",
   "Adherence (high → low)": "Adesão (alta → baixa)",
   "Last login (recent first)": "Último acesso (mais recente primeiro)",
   "Newest created": "Criados mais recentemente",
@@ -1235,5 +1240,9 @@
   "Private intervention": "Intervenção privada",
   "Select...": "Selecionar...",
   "homeHeadline": "Bearny",
-  "homeSubheadline": "pronto após a reabilitação"
+  "homeSubheadline": "pronto após a reabilitação",
+  "Diagnosis auto-apply mode": "Modo de atribuição automática por diagnóstico",
+  "Start assigning from date": "Começar a atribuir a partir da data",
+  "Defaults to today. Existing patients receive sessions from this date onward.": "Por predefinição, hoje. Os pacientes existentes recebem sessões a partir desta data.",
+  "New matching patients means future registrations with this diagnosis.": "Novos pacientes correspondentes significa registos futuros com este diagnóstico."
 }

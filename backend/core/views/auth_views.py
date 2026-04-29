@@ -825,6 +825,14 @@ def register_view(request):
             except Exception:
                 pass
 
+            # Auto-apply matching templates flagged for future patients.
+            try:
+                from core.views.template_views import auto_apply_templates_for_new_patient
+
+                auto_apply_templates_for_new_patient(patient)
+            except Exception:
+                logger.exception("Auto-apply templates for new patient failed.")
+
             return JsonResponse(
                 {
                     "success": True,
