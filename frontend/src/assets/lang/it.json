@@ -1237,5 +1237,9 @@
   "Private intervention": "Intervento privato",
   "Select...": "Seleziona...",
   "homeHeadline": "Bearny",
-  "homeSubheadline": "pronto dopo la riabilitazione"
+  "homeSubheadline": "pronto dopo la riabilitazione",
+  "Diagnosis auto-apply mode": "Modalità di assegnazione automatica per diagnosi",
+  "Start assigning from date": "Inizia ad assegnare dalla data",
+  "Defaults to today. Existing patients receive sessions from this date onward.": "Predefinito a oggi. I pazienti esistenti ricevono sessioni a partire da questa data.",
+  "New matching patients means future registrations with this diagnosis.": "Nuovi pazienti corrispondenti significa future registrazioni con questa diagnosi."
 }
