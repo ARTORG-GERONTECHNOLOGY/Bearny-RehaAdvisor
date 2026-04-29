@@ -652,6 +652,14 @@ def import_patient_from_redcap(request):
 
         patient.save()
 
+        # Auto-apply matching templates flagged for future patients.
+        try:
+            from core.views.template_views import auto_apply_templates_for_new_patient
+
+            auto_apply_templates_for_new_patient(patient)
+        except Exception:
+            logger.exception("Auto-apply templates for imported patient failed.")
+
         logger.info(
             "[REDCAP_IMPORT] project=%s identifier=%s patient_id=%s user_id=%s therapist=%s",
             project,

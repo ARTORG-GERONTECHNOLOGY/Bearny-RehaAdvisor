@@ -888,6 +888,113 @@ def test_assign_intervention_get_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+def test_assign_intervention_sets_future_auto_apply_rule(mongo_mock):
+    """
+    Assign endpoint stores per-diagnosis auto-apply setting when requested.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist)
+    intervention = _make_intervention()
+
+    resp = _post_json(
+        ASSIGN_URL.format(id=tmpl.id),
+        {
+            "interventionId": str(intervention.id),
+            "diagnosis": "Stroke",
+            "end_day": 10,
+            "auto_apply_scope": "future",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["template"]["auto_apply_rules"]["Stroke"] == "future"
+    assert body["existing_patients_applied"]["patients_affected"] == 0
+
+
+def test_assign_intervention_all_past_and_future_applies_existing_accessible(mongo_mock):
+    """
+    all_past_and_future applies immediately to existing accessible matching
+    patients (same clinic/project scope as template apply endpoints).
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist)
+    intervention = _make_intervention()
+
+    # Accessible + matching diagnosis.
+    _, p_ok = _make_patient(therapist)
+    p_ok.diagnosis = ["Heart Failure"]
+    p_ok.clinic = "Inselspital"
+    p_ok.save()
+
+    # Not accessible (different clinic) but same diagnosis.
+    p_user2 = User(
+        username=f"patient_{str(ObjectId())[-6:]}",
+        email=f"p_{str(ObjectId())[-6:]}@example.com",
+        phone="456",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    Patient(
+        userId=p_user2,
+        patient_code=f"PAT-{str(ObjectId())[-6:]}",
+        name="Doe",
+        first_name="Other",
+        access_word="word",
+        age="30",
+        therapist=therapist,
+        clinic="Leuven",
+        sex="Male",
+        diagnosis=["Heart Failure"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=[],
+        personal_goals=[],
+        reha_end_date=datetime.now() + timedelta(days=30),
+    ).save()
+
+    resp = _post_json(
+        ASSIGN_URL.format(id=tmpl.id),
+        {
+            "interventionId": str(intervention.id),
+            "diagnosis": "Heart Failure",
+            "end_day": 10,
+            "auto_apply_scope": "all_past_and_future",
+        },
+        therapist,
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["template"]["auto_apply_rules"]["Heart Failure"] == "all_past_and_future"
+    assert body["existing_patients_applied"]["patients_affected"] == 1
+
+
+def test_auto_apply_templates_for_new_patient(mongo_mock):
+    """
+    New matching patients receive template sessions when template rule is
+    set to future.
+    """
+    from core.views.template_views import auto_apply_templates_for_new_patient
+
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist, with_intervention=True)
+    tmpl.auto_apply_rules = {"Stroke": "future"}
+    tmpl.save()
+    _, patient = _make_patient(therapist)
+
+    out = auto_apply_templates_for_new_patient(patient)
+
+    assert out["templates_applied"] >= 1
+    assert out["applied"] >= 1
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    assert plan is not None
+    assert len(plan.interventions or []) >= 1
+
+
 # ===========================================================================
 # template_intervention_remove — DELETE /api/templates/<id>/interventions/<int_id>/
 # ===========================================================================
