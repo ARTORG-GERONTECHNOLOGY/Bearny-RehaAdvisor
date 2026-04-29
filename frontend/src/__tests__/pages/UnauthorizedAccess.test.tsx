@@ -14,13 +14,21 @@ jest.mock('react-router-dom', () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Card: Object.assign(({ children }: any) => <div data-testid="card">{children}</div>, {
-    Body: ({ children }: any) => <div data-testid="card-body">{children}</div>,
-  }),
+jest.mock('@/components/Layout', () => ({
+  __esModule: true,
+  default: ({ children }: any) => <div data-testid="layout">{children}</div>,
+}));
+
+jest.mock('@/components/Card', () => ({
+  __esModule: true,
+  default: ({ children, className }: any) => (
+    <div data-testid="card" className={className}>
+      {children}
+    </div>
+  ),
+}));
+
+jest.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, ...props }: any) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -56,13 +64,10 @@ describe('UnauthorizedAccess', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
-  it('renders layout containers/cards (smoke)', () => {
+  it('renders layout and card (smoke)', () => {
     renderWithRouter(<UnauthorizedAccess />);
 
-    expect(screen.getByTestId('container')).toBeInTheDocument();
-    expect(screen.getByTestId('row')).toBeInTheDocument();
-    expect(screen.getByTestId('col')).toBeInTheDocument();
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
     expect(screen.getByTestId('card')).toBeInTheDocument();
-    expect(screen.getByTestId('card-body')).toBeInTheDocument();
   });
 });
