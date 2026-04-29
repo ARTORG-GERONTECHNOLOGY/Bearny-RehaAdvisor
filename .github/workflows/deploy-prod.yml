@@ -173,6 +173,8 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_FITBIT_CLIENT_ID=23Q9W2
+            VITE_FITBIT_REDIRECT_URI=https://reha-advisor.ch/api/fitbit/callback/
           cache-from: type=gha,scope=frontend-root
           cache-to: type=gha,mode=max,scope=frontend-root
 
