@@ -963,6 +963,7 @@ def test_assign_intervention_all_past_and_future_applies_existing_accessible(mon
             "diagnosis": "Heart Failure",
             "end_day": 10,
             "auto_apply_scope": "all_past_and_future",
+            "auto_apply_starting_from": "2026-01-15",
         },
         therapist,
     )
@@ -970,6 +971,7 @@ def test_assign_intervention_all_past_and_future_applies_existing_accessible(mon
     assert resp.status_code == 200
     body = resp.json()
     assert body["template"]["auto_apply_rules"]["Heart Failure"] == "all_past_and_future"
+    assert body["template"]["auto_apply_start_dates"]["Heart Failure"] == "2026-01-15"
     assert body["existing_patients_applied"]["patients_affected"] == 1
 
 

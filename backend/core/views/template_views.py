@@ -162,6 +162,7 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
         obj["recommendations"] = recs
         obj["intervention_count"] = len(recs)
         obj["auto_apply_rules"] = dict(tmpl.auto_apply_rules or {})
+        obj["auto_apply_start_dates"] = dict(getattr(tmpl, "auto_apply_start_dates", None) or {})
     else:
         # Just a count for list views.
         obj["intervention_count"] = len(tmpl.recommendations or [])
@@ -372,6 +373,7 @@ def copy_template(request, template_id):
         diagnosis=original.diagnosis,
         recommendations=list(original.recommendations),  # shallow copy of embedded list
         auto_apply_rules=dict(original.auto_apply_rules or {}),
+        auto_apply_start_dates=dict(getattr(original, "auto_apply_start_dates", None) or {}),
     )
     copy.save()
     return JsonResponse({"template": _serialize_template(copy, detail=True)}, status=201)
@@ -460,6 +462,14 @@ def template_intervention_assign(request, template_id):
         ]
     if diagnosis_key == _ALL_DX and auto_apply_scope in ("future", "all_past_and_future"):
         field_errors["auto_apply_scope"] = ["A specific diagnosis is required for auto-apply."]
+    auto_apply_starting_from = (body.get("auto_apply_starting_from") or "").strip()
+    if auto_apply_scope == "all_past_and_future":
+        if not auto_apply_starting_from:
+            auto_apply_starting_from = timezone.localdate().isoformat()
+        try:
+            datetime.fromisoformat(auto_apply_starting_from)
+        except Exception:
+            field_errors["auto_apply_starting_from"] = ["Use YYYY-MM-DD format."]
 
     if field_errors:
         return bad("Validation error.", field_errors, [], status=400)
@@ -501,11 +511,16 @@ def template_intervention_assign(request, template_id):
     # Persist per-diagnosis auto-apply settings on the template.
     if diagnosis_key != _ALL_DX:
         rules = dict(tmpl.auto_apply_rules or {})
+        start_dates = dict(getattr(tmpl, "auto_apply_start_dates", None) or {})
         if auto_apply_scope in ("future", "all_past_and_future"):
             rules[diagnosis_key] = auto_apply_scope
+            if auto_apply_scope == "all_past_and_future" and auto_apply_starting_from:
+                start_dates[diagnosis_key] = auto_apply_starting_from
         elif auto_apply_scope == "off":
             rules.pop(diagnosis_key, None)
+            start_dates.pop(diagnosis_key, None)
         tmpl.auto_apply_rules = rules
+        tmpl.auto_apply_start_dates = start_dates
 
     tmpl.save()
 
@@ -515,6 +530,7 @@ def template_intervention_assign(request, template_id):
         "sessions_created": 0,
     }
     if auto_apply_scope == "all_past_and_future" and diagnosis_key != _ALL_DX:
+        eff_dt = make_aware(datetime.fromisoformat(f"{auto_apply_starting_from}T00:00:00"))
         bulk_filter: dict = {"clinic__in": therapist.clinics, "diagnosis": diagnosis_key}
         if therapist.projects:
             bulk_filter["project__in"] = therapist.projects
@@ -524,7 +540,7 @@ def template_intervention_assign(request, template_id):
                 tmpl,
                 patient,
                 therapist,
-                timezone.now(),
+                eff_dt,
                 diagnosis_key,
                 "",
                 False,
