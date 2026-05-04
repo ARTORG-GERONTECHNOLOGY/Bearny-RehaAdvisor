@@ -56,7 +56,10 @@ def get_valid_access_token(user):
     return token.access_token
 
 
-def fetch_fitbit_today_for_user(user) -> int:
+FETCH_COOLDOWN_MINUTES = 15
+
+
+def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
     """Fetch **today only** for a single user; returns upserted day-count (0|1)."""
     today = datetime.date.today()
     token = FitbitUserToken.objects(user=user).first()
@@ -64,6 +67,17 @@ def fetch_fitbit_today_for_user(user) -> int:
         logger.info(f"[fitbit] no token for user={user}. skip")
         print(f"[fitbit] no token for user={user}. skip")
         return 0
+
+    if not bypass_cooldown and token.last_fetched_at:
+        last = token.last_fetched_at
+        if is_naive(last):
+            # MongoDB always stores UTC; replace rather than make_aware to avoid
+            # local-timezone offset turning a fresh stamp into a stale one.
+            last = last.replace(tzinfo=datetime.timezone.utc)
+        age_minutes = (timezone.now() - last).total_seconds() / 60
+        if age_minutes < FETCH_COOLDOWN_MINUTES:
+            logger.info(f"[fitbit] skipping fetch for user={user} — last synced {age_minutes:.1f} min ago")
+            return 0
 
     access_token = get_valid_access_token(user)
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -101,6 +115,10 @@ def fetch_fitbit_today_for_user(user) -> int:
             except Exception:
                 val = 0
             series[series_key][dt] = val
+
+    # Stamp before first API call so any 429 still resets the cooldown window
+    token.last_fetched_at = timezone.now()
+    token.save()
 
     # Basic time series (today only)
     fetch_series("steps", "activities/steps")
