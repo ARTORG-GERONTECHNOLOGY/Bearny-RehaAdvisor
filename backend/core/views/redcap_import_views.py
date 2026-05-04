@@ -392,12 +392,9 @@ def available_redcap_patients(request):
             # blocked due to a config/REDCap naming mismatch.
             allowed_dags = allowed_dags_by_project(therapist, project)
             if allowed_dags is not None and rows:
-                all_configured_dags: Set[str] = set(
-                    config.get("therapistInfo", {}).get("clinic_dag", {}).values()
-                )
+                all_configured_dags: Set[str] = set(config.get("therapistInfo", {}).get("clinic_dag", {}).values())
                 project_uses_configured_dags = any(
-                    _norm(r.get("redcap_data_access_group")) in all_configured_dags
-                    for r in rows
+                    _norm(r.get("redcap_data_access_group")) in all_configured_dags for r in rows
                 )
                 if project_uses_configured_dags:
                     rows = [r for r in rows if _norm(r.get("redcap_data_access_group")) in allowed_dags]
