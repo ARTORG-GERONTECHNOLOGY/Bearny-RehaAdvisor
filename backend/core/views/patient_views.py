@@ -952,7 +952,15 @@ def _intervention_meta(intervention) -> dict:
         "setting": _as_list(getattr(intervention, "setting", None)),
         "keywords": _as_list(getattr(intervention, "keywords", None)),
         "duration": getattr(intervention, "duration", None),
-        "patient_types": _as_list(getattr(intervention, "patient_types", None)),
+        "patient_types": [
+            {
+                "type": pt.type,
+                "diagnosis": pt.diagnosis,
+                "frequency": pt.frequency,
+                "include_option": pt.include_option,
+            }
+            for pt in (_as_list(getattr(intervention, "patient_types", None)))
+        ],
         "is_private": bool(getattr(intervention, "is_private", False)),
         "private_patient_id": (
             str(getattr(getattr(intervention, "private_patient_id", None), "id", ""))
