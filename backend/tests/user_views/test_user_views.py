@@ -1020,29 +1020,34 @@ def test_decline_user_get_method_not_allowed():
 # ===========================================================================
 
 
-def test_change_password_with_both_fields_returns_400():
+def test_change_password_success():
     """
-    Sending ``old_password`` + ``new_password`` to the change-password
-    endpoint returns 400 with a message directing callers to the dedicated
-    password-change flow.  This is the current intentional behaviour.
+    Sending correct ``old_password`` + strong ``new_password`` to the
+    change-password endpoint returns 200 with a success message.
+    ``check_password`` and ``make_password`` are mocked for determinism.
     """
     user, _ = create_user_and_therapist()
-    resp = client.put(
-        f"/api/users/{user.id}/change-password/",
-        data=json.dumps({"old_password": "old", "new_password": "New!pass1"}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 400
-    assert (
-        "change-password" in resp.json().get("error", "").lower() or "password" in resp.json().get("error", "").lower()
-    )
+    user.pwdhash = "oldhash"
+    user.save()
+
+    with (
+        mock.patch("core.views.user_views.check_password", return_value=True),
+        mock.patch("core.views.user_views.make_password", return_value="new_hashed"),
+    ):
+        resp = client.put(
+            f"/api/users/{user.id}/change-password/",
+            data=json.dumps({"old_password": "OldPass1!", "new_password": "NewPass1!"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+    assert resp.status_code == 200
+    assert "Password changed" in resp.json().get("message", "")
 
 
 def test_change_password_missing_old_returns_400():
     """
     Sending only ``new_password`` (no ``old_password``) returns 400 with
-    'Old password required'.
+    'Missing password fields'.
     """
     user, _ = create_user_and_therapist()
     resp = client.put(
@@ -1052,7 +1057,7 @@ def test_change_password_missing_old_returns_400():
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 400
-    assert "Old password required" in resp.json().get("error", "")
+    assert "Missing password fields" in resp.json().get("error", "")
 
 
 def test_change_password_missing_both_returns_400():
