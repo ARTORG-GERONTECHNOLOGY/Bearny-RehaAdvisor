@@ -19,13 +19,13 @@ Both flows use the same REDCap API URL and project tokens. Neither flow exposes 
 
 - A REDCap project with the standard instruments (Eligibility, Wearables).
 - A REDCap API token with **Export** rights for the project (read-only is enough for patient import; **Import** rights are additionally required for wearables sync).
-- The REDCap project must have the `ic` field (informed consent) on the **Eligibility** instrument. Only participants where `ic = 1` can be imported.
+- The REDCap project must have the `ic` field (informed consent) on the Eligibility instrument. Only participants where `ic = 1` can be imported.
 
 ---
 
 ## Environment Variables
 
-Set these in the `.env` file that is loaded by your Docker Compose stack (`.env.dev` for development, `.env.prod` for production).
+Set these in the `.env` file loaded by your Docker Compose stack (`.env.dev` for development, `.env.prod` for production).
 
 ### Core REDCap connection
 
@@ -38,7 +38,7 @@ Set these in the `.env` file that is loaded by your Docker Compose stack (`.env.
 
 | Variable | Default | Example | Description |
 |---|---|---|---|
-| `ENFORCE_REDCAP_ONLY_PATIENT_CREATION` | *(unset / off)* | `1` | When set to `1`, `true`, or `yes`, the patient registration endpoint rejects any account creation request that does not come through the REDCap import flow. Useful for study deployments where no manual patient creation should be allowed. |
+| `ENFORCE_REDCAP_ONLY_PATIENT_CREATION` | *(unset / off)* | `1` | When set to `1`, `true`, or `yes`, the patient registration endpoint rejects any account creation that does not come through the REDCap import flow. Enable this for study deployments where no manual patient creation should be allowed. |
 
 ### Wearables sync event names
 
@@ -64,21 +64,25 @@ These only need to be set if the REDCap event names in your project differ from 
 
 ```jsonc
 "therapistInfo": {
-  // Full list of project names the platform knows about.
-  "projects": ["COPAIN", "COMPASS"],
-
   // Maps each clinic name to the projects it participates in.
-  // A therapist assigned to a clinic can only see that clinic's projects.
+  // A therapist assigned to a clinic can only see records for those projects.
   "clinic_projects": {
-    "Inselspital": ["COPAIN", "COMPASS"],
-    "Bern":        ["COMPASS"]
+    "Inselspital":       ["COPAIN", "COMPASS"],
+    "Berner Reha Centrum": ["COPAIN"],
+    "Bern":              ["COMPASS"],
+    "Leuven":            ["COMPASS"]
   },
 
-  // Maps each clinic name to its REDCap Data Access Group identifier.
-  // Must match the DAG slug in REDCap exactly (lowercase, underscores).
+  // Maps each clinic name to its REDCap Data Access Group (DAG) identifier.
+  // The value must match the DAG slug that REDCap returns in the
+  // `redcap_data_access_group` field of a flat export.
+  // If the REDCap project uses abbreviations (e.g. "brz" instead of
+  // "berner_reha_centrum"), use the abbreviation here.
   "clinic_dag": {
-    "Inselspital": "inselspital",
-    "Bern":        "bern"
+    "Inselspital":       "inselspital",
+    "Berner Reha Centrum": "brz",
+    "Bern":              "bern",
+    "Leuven":            "leuven"
   }
 }
 ```
@@ -114,7 +118,6 @@ r = requests.post(
         'returnFormat': 'json',
         'fields[0]': 'record_id',
         'fields[1]': 'ic',
-        'events[0]': 'your_baseline_event_arm_1',
         'rawOrLabel': 'raw',
         'exportDataAccessGroups': 'true',
     },
@@ -124,7 +127,7 @@ print(r.status_code, r.json()[:3])
 "
 ```
 
-A `200` response with a list of records confirms the token and event name are correct.
+A `200` response with a list of records confirms the token is correct. Each row should include a `redcap_data_access_group` value — compare this against the values in `clinic_dag` to confirm the mapping is right.
 
 ---
 
@@ -141,21 +144,48 @@ This means a therapist will never see or be able to import a participant who has
 
 ### DAG access control
 
-REDCap Data Access Groups restrict which records a therapist can import. A therapist can only import participants whose REDCap DAG matches one of the DAGs derived from their assigned clinics. The mapping is defined in `config.json → clinic_dag`.
+REDCap Data Access Groups restrict which records a therapist can import. The platform compares each record's `redcap_data_access_group` against the DAGs derived from the therapist's assigned clinics via `config.json → clinic_dag`.
 
-Example: a therapist assigned to `"Inselspital"` has DAG `"inselspital"`. They can only import records where `redcap_data_access_group = "inselspital"`.
+**DAG name mismatch handling**: Some REDCap projects use abbreviated DAG names (e.g. COPAIN uses `brz` and `neuro`) that don't match the strings configured in `clinic_dag`. The platform detects this automatically: if none of the records returned by a project's export carry a DAG name that appears anywhere in the `clinic_dag` config, the DAG filter is skipped for that project and all consented, not-yet-imported records are shown. When records do use configured DAG names (e.g. COMPASS with `leuven`, `bern`), the filter is applied normally. The correct fix is always to update `clinic_dag` to match whatever REDCap actually returns.
+
+**No-clinic fallback**: If a therapist has the project in their `projects` list but none of their clinics map to a DAG for that project, the DAG filter is not applied (rather than blocking all records). Project-level access is already gated by the `projects` list.
+
+### REDCap field fallback
+
+The export requests `record_id`, `pat_id`, and `ic`. If a project does not have a `pat_id` field, REDCap returns a `400` error. The platform automatically strips the invalid field and retries — both COPAIN and COMPASS lack `pat_id` in the current REDCap setup, so the retry with just `record_id` and `ic` is the normal path.
+
+### Already-imported detection
+
+To prevent duplicate imports, the platform checks two sources before adding a record to the candidate list:
+
+1. `Patient.redcap_identifier` scoped to the same `redcap_project` — used for patients imported after the `redcap_*` metadata fields were added to the model.
+2. `Patient.patient_code` scoped to the same `project` — fallback for older records. The scope prevents cross-project false positives (a COMPASS patient with `patient_code="2"` does not block a COPAIN record with `record_id="2"`).
+
+### REDCap metadata stored on import
+
+When a patient is imported the following fields are written to the `Patient` document in addition to the standard profile fields:
+
+| Patient field | Source |
+|---|---|
+| `redcap_project` | project name (e.g. `"COPAIN"`) |
+| `redcap_identifier` | `pat_id` if present, else `record_id` |
+| `redcap_record_id` | raw `record_id` from REDCap |
+| `redcap_pat_id` | raw `pat_id` from REDCap (empty string if project has none) |
+| `redcap_dag` | `redcap_data_access_group` from REDCap |
+| `project` | same as `redcap_project` (used for access control) |
+| `clinic` | resolved from `redcap_dag` via the reverse `clinic_dag` mapping |
 
 ### Import flow (step by step)
 
-1. Therapist opens the import panel in the UI and selects a project.
+1. Therapist opens the import panel and selects a project.
 2. UI calls `GET /api/redcap/available-patients/?project=COPAIN`.
-3. Backend fetches `record_id`, `pat_id`, and `ic` from REDCap for the baseline event.
-4. Rows are filtered: non-consented removed, DAG-restricted to the therapist's clinics, already-imported participants removed.
+3. Backend fetches `record_id`, `pat_id` (if the project has it), and `ic` from REDCap.
+4. Rows are filtered: non-consented removed, DAG-restricted to the therapist's clinics (unless mismatch detected), already-imported participants removed.
 5. The filtered list is returned to the UI as import candidates.
-6. Therapist selects a participant, sets a password, and clicks import.
+6. Therapist selects a participant, sets a temporary password, and clicks import.
 7. UI calls `POST /api/redcap/import-patient/` with `project`, `patient_code` (the identifier), and `password`.
-8. Backend re-fetches the participant's record from REDCap, re-checks consent and DAG, then creates a `User` and `Patient` document. The patient's `clinic` field is derived from the DAG value via `clinic_dag`.
-9. An import log entry (`action = "REDCAP_IMPORT"`) is written for audit purposes.
+8. Backend re-fetches the participant's record from REDCap, re-checks consent and DAG, then creates a `User` and `Patient` document. The patient's `clinic` is derived from the DAG value via `clinic_dag`.
+9. An audit log entry (`action = "REDCAP_IMPORT"`) is written.
 
 ---
 
@@ -163,7 +193,7 @@ Example: a therapist assigned to `"Inselspital"` has DAG `"inselspital"`. They c
 
 A Celery beat task runs periodically and writes Fitbit data back into REDCap for every patient who has a `project` field set and a completed `reha_end_date`.
 
-The task selects the best monitoring week in each period (highest wear time), averages the Fitbit metrics, and writes them to the REDCap Wearables instrument. After writing, the form status is set to `wearables_complete = 1` (Unverified) so that a researcher can review and mark it complete.
+The task selects the best monitoring week in each period (highest wear time), averages the Fitbit metrics, and writes them to the REDCap Wearables instrument. After writing, the form status is set to `wearables_complete = 1` (Unverified) so a researcher can review and mark it complete.
 
 For the full field mapping, period definitions, and per-project sleep format differences, see [`wearables_redcap_sync.md`](./wearables_redcap_sync.md).
 
@@ -173,19 +203,41 @@ For the full field mapping, period definitions, and per-project sleep format dif
 
 ### No candidates appear in the import list
 
-- Check that `REDCAP_TOKEN_<PROJECT>` is set and not empty: `docker exec django printenv | grep REDCAP_TOKEN`.
-- Verify that the clinic has the project listed under `clinic_projects` in `config.json`, and that the therapist is assigned to that clinic.
-- Confirm that participants have `ic = 1` in REDCap. Records with `ic = 0` or blank are intentionally hidden.
-- Check that the participant's DAG in REDCap matches the `clinic_dag` value for the therapist's clinic.
+Work through these checks in order:
+
+1. **Token missing or wrong**
+   ```bash
+   docker exec django printenv | grep REDCAP_TOKEN
+   ```
+   Each project needs its own variable (e.g. `REDCAP_TOKEN_COPAIN`).
+
+2. **Therapist not assigned to a clinic that participates in the project**
+   Check `clinic_projects` in `config.json` and the therapist's `clinics` field in the database.
+
+3. **No consented participants** — records with `ic = 0` or blank `ic` are intentionally hidden. Confirm participants have `ic = 1` in REDCap.
+
+4. **DAG name mismatch** — the platform logs a warning when this is detected:
+   ```
+   [redcap] project=COPAIN DAG names in export don't match config — skipping DAG filter
+   ```
+   If you see this, the values in `config.json → clinic_dag` don't match what REDCap returns in `redcap_data_access_group`. Update the config to use the actual REDCap DAG slugs. You can check what REDCap returns by running the verification command above and inspecting the `redcap_data_access_group` field in the output.
+
+5. **Enable debug logging** to trace exactly where records are dropped:
+   Set `DJANGO_LOG_LEVEL=DEBUG` and re-trigger the request. The log will show:
+   ```
+   [redcap] project=X rows_from_redcap=N
+   [redcap] project=X allowed_dags=... rows_after_dag_filter=N
+   [redcap] project=X existing_ids_count=N
+   [redcap] project=X record_id=Y skipped: no consent (ic='')
+   [redcap] project=X identifier=Z skipped: already imported
+   ```
 
 ### `403 Forbidden` on import
-
-The most common causes:
 
 | Cause | Fix |
 |---|---|
 | `ic` is not `1` in REDCap | Wait until the participant has signed the consent form |
-| Participant's DAG is not in the therapist's allowed set | Assign the therapist to the correct clinic, or correct the DAG in REDCap |
+| Participant's DAG is not in the therapist's allowed set | Assign the therapist to the correct clinic, or correct the `clinic_dag` mapping |
 | Project is not in `therapist.projects` | Add the project to the therapist's profile |
 
 ### `502` on import
@@ -194,7 +246,7 @@ The second REDCap lookup (fallback by `pat_id`) failed. Check that the REDCap AP
 
 ### Token accepted but wrong records returned
 
-Check the event name. The platform requests records for the baseline event only. If your project uses a non-standard event name, set `REDCAP_WEARABLES_EVENT_BASELINE` / `REDCAP_WEARABLES_EVENT_FOLLOWUP` to match.
+Check the event name. The platform requests records for all events in a flat export. Consent (`ic`) is expected in the baseline event. If your project uses a non-standard event name, set `REDCAP_WEARABLES_EVENT_BASELINE` / `REDCAP_WEARABLES_EVENT_FOLLOWUP` to match.
 
 ### Wearables not appearing in REDCap
 
@@ -210,4 +262,3 @@ Check the event name. The platform requests records for the baseline event only.
 - API tokens are read from environment variables at runtime and are never stored in the database or logged.
 - The platform never exposes a raw token to the browser; all REDCap calls are server-side only.
 - The `ENFORCE_REDCAP_ONLY_PATIENT_CREATION` flag prevents therapists from bypassing the REDCap import flow by calling the registration endpoint directly. Enable it for study deployments.
-- Import actions are audit-logged in the `Logs` collection with `action = "REDCAP_IMPORT"` and the therapist's ID.
