@@ -12,13 +12,8 @@ GET    /api/users/<user_id>/profile/
     Patient response: all User + Patient fields except the excluded set.
 
 PUT    /api/users/<user_id>/profile/
-    Update whitelisted profile fields.  Two modes:
-
-    1. Password change — send ``oldPassword``/``newPassword`` (camelCase) or
-       ``old_password``/``new_password`` (snake_case).  Old password is verified
-       before any change is saved.
-
-    2. Field update — send any subset of the allowed fields below.  Forbidden
+    Update whitelisted profile fields.  Password changes are not accepted here;
+    use the dedicated ``change-password`` endpoint instead.  Forbidden
        fields (``role``, ``pwdhash``, ``createdAt``, etc.) are silently stripped
        (overposting protection).  Empty string / null values are skipped so they
        never erase existing data.
@@ -43,8 +38,9 @@ DELETE /api/users/<user_id>/profile/
     hard-deleted; audit trail (rehabilitation plans, logs) is preserved.
 
 PUT    /api/users/<user_id>/change-password/
-    Intentionally returns HTTP 400 when password fields are supplied — callers
-    should use the profile PUT endpoint instead.  Rate-limited (5 per 5 min).
+    Self-service password change.  Requires ``old_password`` and ``new_password``
+    in the request body.  Rate-limited (5 attempts per 5 min).  New password must
+    be 8+ chars with upper, lower, digit, and special character.
 
 PUT    /api/patients/<patient_id>/reset-password/
     Therapist-initiated password reset for a patient.  No old password needed.
@@ -188,18 +184,6 @@ def change_password(request, therapist_id):
 
     old_password = data.get("old_password")
     new_password = data.get("new_password")
-
-    # If client attempts a password update here, block it.
-    if new_password is not None or old_password is not None:
-        if not old_password:
-            return JsonResponse({"error": "Old password required"}, status=400)
-
-        # We intentionally do NOT change passwords here.
-        # Use the dedicated endpoint for rate limiting + strength rules.
-        return JsonResponse(
-            {"error": "Password updates must use the change-password endpoint."},
-            status=400,
-        )
 
     if not old_password or not new_password:
         return JsonResponse({"error": "Missing password fields"}, status=400)
