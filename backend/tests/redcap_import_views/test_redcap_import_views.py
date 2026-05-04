@@ -118,6 +118,16 @@ def test_env_helpers_and_therapist_resolution_branches():
     assert get_allowed_redcap_projects_for_therapist(t_legacy) == ["COPAIN"]
     assert allowed_dags_by_project(th, "COPAIN") == {"inselspital"}
 
+    # Therapist whose clinic doesn't map to the requested project gets None (no DAG filter),
+    # not an empty set, so all records in the project remain visible.
+    th_leuven = SimpleNamespace(clinics=["Leuven"])
+    assert allowed_dags_by_project(th_leuven, "COPAIN") is None  # Leuven is COMPASS-only
+    assert allowed_dags_by_project(th_leuven, "COMPASS") == {"leuven"}
+
+    # Therapist with no clinics also gets None (no DAG restriction).
+    th_no_clinic = SimpleNamespace(clinics=[])
+    assert allowed_dags_by_project(th_no_clinic, "COPAIN") is None
+
 
 @patch("core.views.redcap_import_views.requests.post")
 def test_redcap_export_minimal_success_and_filters(mock_post):
@@ -220,7 +230,7 @@ def test_available_patients_returns_candidates(mock_get_th, mock_tok, mock_expor
 def test_available_patients_excludes_existing(mock_get_th, mock_tok, mock_export):
     th_user, th = create_therapist(projects=["COPAIN"])
     patient_user = User(username="p-existing", role="Patient", createdAt=datetime.now(), isActive=True).save()
-    Patient(userId=patient_user, patient_code="P17", therapist=th).save()
+    Patient(userId=patient_user, patient_code="P17", therapist=th, project="COPAIN").save()
     mock_get_th.return_value = th
 
     resp = client.get(
@@ -247,28 +257,30 @@ def test_available_patients_missing_project_token(mock_get_th, mock_tok):
     assert len(body["errors"]) == 1
 
 
-@patch("core.views.redcap_import_views.allowed_dags_by_project", return_value={"d1"})
+@patch("core.views.redcap_import_views.allowed_dags_by_project", return_value={"leuven"})
 @patch("core.views.redcap_import_views.redcap_export_minimal")
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
 @patch("core.views.redcap_import_views.get_therapist_for_user")
 def test_available_patients_dag_filter_and_dedupe(mock_get_th, mock_tok, mock_export, _):
-    _, th = create_therapist(projects=["COPAIN"])
+    _, th = create_therapist(projects=["COMPASS"])
     mock_get_th.return_value = th
+    # Use real config DAG names so the mismatch-detection logic triggers the filter.
+    # "leuven" is in allowed_dags; "bern" is configured but not allowed → filtered out.
     mock_export.return_value = [
-        {"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "d1"},
-        {"record_id": "R2", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "d1"},
-        {"record_id": "R3", "pat_id": "P99", "ic": "1", "redcap_data_access_group": "d2"},
-        {"record_id": "", "pat_id": "", "ic": "1", "redcap_data_access_group": "d1"},
-        {"record_id": "R4", "pat_id": "P20", "ic": "0", "redcap_data_access_group": "d1"},
+        {"record_id": "R1", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "leuven"},
+        {"record_id": "R2", "pat_id": "P17", "ic": "1", "redcap_data_access_group": "leuven"},
+        {"record_id": "R3", "pat_id": "P99", "ic": "1", "redcap_data_access_group": "bern"},
+        {"record_id": "", "pat_id": "", "ic": "1", "redcap_data_access_group": "leuven"},
+        {"record_id": "R4", "pat_id": "P20", "ic": "0", "redcap_data_access_group": "leuven"},
     ]
     resp = client.get(
-        "/api/redcap/available-patients/?project=COPAIN",
+        "/api/redcap/available-patients/?project=COMPASS",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["candidates"]) == 1
-    assert body["candidates"][0]["dag"] == "d1"
+    assert body["candidates"][0]["dag"] == "leuven"
 
 
 @patch(
@@ -351,7 +363,7 @@ def test_import_patient_project_not_allowed(mock_get_th):
 def test_import_patient_already_imported(mock_get_th):
     _, th = create_therapist(projects=["COPAIN"])
     p_user = User(username="existingp", role="Patient", createdAt=datetime.now(), isActive=True).save()
-    Patient(userId=p_user, patient_code="P17", therapist=th).save()
+    Patient(userId=p_user, patient_code="P17", therapist=th, project="COPAIN", redcap_identifier="P17").save()
     mock_get_th.return_value = th
 
     resp = client.post(
