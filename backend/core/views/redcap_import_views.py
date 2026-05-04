@@ -128,12 +128,15 @@ def allowed_dags_by_project(th: Therapist, project: str) -> Optional[Set[str]]:
     Return the set of REDCap DAG names the therapist may access for a given project,
     derived from their assigned clinics and the clinic_dag mapping in config.json.
 
-    Returns None only when the config has no clinic_dag mapping at all (safe fallback).
-    Returns an empty set if the therapist has clinics but none map to the project.
+    Returns None when no DAG restriction should be applied (see all records in project):
+      - No clinic_dag config at all, OR
+      - Therapist has no clinics, OR
+      - Therapist's clinics don't map to any DAG for this project
+        (project access is already gated by get_allowed_redcap_projects_for_therapist)
+    Returns a non-empty set when the therapist's clinics resolve to specific DAGs.
     """
     clinic_dag: dict = config.get("therapistInfo", {}).get("clinic_dag", {})
     if not clinic_dag:
-        # No mapping configured — cannot filter, allow all (safe degradation)
         return None
 
     clinic_projects: dict = config.get("therapistInfo", {}).get("clinic_projects", {})
@@ -148,6 +151,10 @@ def allowed_dags_by_project(th: Therapist, project: str) -> Optional[Set[str]]:
         if dag:
             allowed.add(_norm(dag))
 
+    # If no clinics map to a DAG for this project, don't restrict by DAG.
+    # Project-level access is already verified by get_allowed_redcap_projects_for_therapist.
+    if not allowed:
+        return None
     return allowed
 
 
@@ -287,15 +294,14 @@ def _get_existing_identifiers_for_project(project: str) -> Set[str]:
     except Exception:
         pass
 
-    # Fallback: compare by patient_code (common in your system)
+    # Fallback: compare by patient_code scoped to this project
     if not existing:
         try:
-            qs2 = Patient.objects.only("patient_code").scalar("patient_code")
-            if qs2:
-                for x in qs2:
-                    s = _norm(x)
-                    if s:
-                        existing.add(s)
+            qs2 = Patient.objects(project=project).only("patient_code").scalar("patient_code")
+            for x in qs2:
+                s = _norm(x)
+                if s:
+                    existing.add(s)
         except Exception:
             pass
 
@@ -377,17 +383,45 @@ def available_redcap_patients(request):
                 patient_id=patient_id_q or None,
                 record_id=record_id_q or None,
             )
+            logger.debug("[redcap] project=%s rows_from_redcap=%d", project, len(rows))
 
-            # DAG filter (specific GABs) if configured
+            # DAG filter — only applied when the project's export actually uses DAG names
+            # that appear in our config. If the REDCap project uses different DAG name
+            # conventions (e.g. COPAIN uses 'brz'/'neuro' vs our config's
+            # 'berner_reha_centrum'/'inselspital'), skip the filter so records are not
+            # blocked due to a config/REDCap naming mismatch.
             allowed_dags = allowed_dags_by_project(therapist, project)
-            if allowed_dags is not None:
-                rows = [r for r in rows if _norm(r.get("redcap_data_access_group")) in allowed_dags]
+            if allowed_dags is not None and rows:
+                all_configured_dags: Set[str] = set(config.get("therapistInfo", {}).get("clinic_dag", {}).values())
+                project_uses_configured_dags = any(
+                    _norm(r.get("redcap_data_access_group")) in all_configured_dags for r in rows
+                )
+                if project_uses_configured_dags:
+                    rows = [r for r in rows if _norm(r.get("redcap_data_access_group")) in allowed_dags]
+                else:
+                    logger.info(
+                        "[redcap] project=%s DAG names in export don't match config — skipping DAG filter",
+                        project,
+                    )
+            logger.debug(
+                "[redcap] project=%s allowed_dags=%s rows_after_dag_filter=%d",
+                project,
+                allowed_dags,
+                len(rows),
+            )
 
             existing_ids = _get_existing_identifiers_for_project(project)
+            logger.debug("[redcap] project=%s existing_ids_count=%d", project, len(existing_ids))
 
             for r in rows:
                 # Compliance gate: only consented participants are import candidates.
                 if not _has_informed_consent(r):
+                    logger.debug(
+                        "[redcap] project=%s record_id=%s skipped: no consent (ic=%r)",
+                        project,
+                        r.get("record_id"),
+                        r.get("ic"),
+                    )
                     continue
 
                 record_id = _norm(r.get("record_id"))
@@ -400,6 +434,11 @@ def available_redcap_patients(request):
 
                 # only return those not in DB:
                 if identifier in existing_ids:
+                    logger.debug(
+                        "[redcap] project=%s identifier=%s skipped: already imported",
+                        project,
+                        identifier,
+                    )
                     continue
 
                 candidates.append(
@@ -627,28 +666,11 @@ def import_patient_from_redcap(request):
             access_word=password,  # if you still use it
         )
 
-        # Optional: store REDCap metadata if your Patient model has fields
-        # (safe setattr so it won't crash if field doesn't exist)
-        try:
-            setattr(patient, "redcap_project", project)
-        except Exception:
-            pass
-        try:
-            setattr(patient, "redcap_identifier", final_identifier)
-        except Exception:
-            pass
-        try:
-            setattr(patient, "redcap_record_id", record_id)
-        except Exception:
-            pass
-        try:
-            setattr(patient, "redcap_pat_id", pat_id)
-        except Exception:
-            pass
-        try:
-            setattr(patient, "redcap_dag", dag)
-        except Exception:
-            pass
+        patient.redcap_project = project
+        patient.redcap_identifier = final_identifier
+        patient.redcap_record_id = record_id
+        patient.redcap_pat_id = pat_id
+        patient.redcap_dag = dag
 
         patient.save()
 
