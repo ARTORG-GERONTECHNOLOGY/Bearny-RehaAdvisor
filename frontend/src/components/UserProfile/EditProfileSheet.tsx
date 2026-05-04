@@ -111,6 +111,12 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     return Array.isArray(field.options) ? field.options : [];
   };
 
+  // Map config be_name values to the actual backend field keys
+  const resolveDataKey = (be_name: string): string => {
+    if (be_name === 'specialisation') return 'specializations';
+    return be_name;
+  };
+
   const validateProfile = (): boolean => {
     if (formData.email && !isValidEmail(formData.email)) {
       setError(t('Invalid email format.'));
@@ -225,12 +231,12 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                         value: opt,
                         label: t(opt),
                       }))}
-                      value={(Array.isArray(formData[field.be_name])
-                        ? formData[field.be_name]
+                      value={(Array.isArray(formData[resolveDataKey(field.be_name)])
+                        ? formData[resolveDataKey(field.be_name)]
                         : []
                       ).map((val: string) => ({ value: val, label: t(val) }))}
                       onChange={(selected) =>
-                        handleMultiSelectChange(selected as any, field.be_name)
+                        handleMultiSelectChange(selected as any, resolveDataKey(field.be_name))
                       }
                       placeholder={t('Select...')}
                     />
