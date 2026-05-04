@@ -3,6 +3,12 @@ Fitbit sync service tests
 =========================
 
 Tests core/views/fitbit_sync.py helper/service functions directly.
+
+Cooldown behaviour
+------------------
+fetch_fitbit_today_for_user skips the Fitbit API when the token's
+last_fetched_at is within FETCH_COOLDOWN_MINUTES (15 min) of now.
+Pass bypass_cooldown=True (Celery task) to ignore the window.
 """
 
 from datetime import datetime, timedelta
@@ -13,7 +19,7 @@ import pytest
 from django.utils import timezone
 
 from core.models import FitbitData, FitbitUserToken, User
-from core.views.fitbit_sync import fetch_fitbit_today_for_user, get_valid_access_token
+from core.views.fitbit_sync import FETCH_COOLDOWN_MINUTES, fetch_fitbit_today_for_user, get_valid_access_token
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -35,7 +41,7 @@ def mongo_mock():
     disconnect(alias)
 
 
-def make_user_with_token(expired=False):
+def make_user_with_token(expired=False, last_fetched_at=None):
     user = User(
         username=f"u-{datetime.now().timestamp()}",
         createdAt=datetime.now(),
@@ -48,8 +54,39 @@ def make_user_with_token(expired=False):
         refresh_token="old-refresh",
         fitbit_user_id="fu",
         expires_at=exp,
+        last_fetched_at=last_fetched_at,
     ).save()
     return user, token
+
+
+def _all_empty_side_effect(url, headers=None, timeout=None):
+    """Return empty-but-valid Fitbit API responses for every endpoint."""
+    r = Mock()
+    r.status_code = 200
+    r.text = "ok"
+    mapping = {
+        "activities/steps": {"activities-steps": []},
+        "activities/floors": {"activities-floors": []},
+        "activities/distance": {"activities-distance": []},
+        "activities/calories": {"activities-calories": []},
+        "minutesVeryActive": {"activities-minutesVeryActive": []},
+        "minutesFairlyActive": {"activities-minutesFairlyActive": []},
+        "minutesLightlyActive": {"activities-minutesLightlyActive": []},
+        "minutesSedentary": {"activities-minutesSedentary": []},
+        "active-zone-minutes": {"activities-activeZoneMinutes": []},
+        "activities/heart": {"activities-heart": []},
+        "1d/1sec": {"activities-heart-intraday": {"dataset": []}},
+        "/br/": {"br": []},
+        "/hrv/": {"hrv": []},
+        "/sleep/": {"sleep": []},
+        "activities/list.json": {"activities": []},
+    }
+    for key, payload in mapping.items():
+        if key in url:
+            r.json.return_value = payload
+            return r
+    r.json.return_value = {}
+    return r
 
 
 def test_get_valid_access_token_returns_current_when_not_expired():
@@ -501,3 +538,106 @@ def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
     assert row.sleep.sleep_duration == 28800000  # raw time in bed (ms)
     assert row.sleep.minutes_asleep == 435  # actual sleep (matches Fitbit app)
     assert row.sleep.awakenings == 3
+
+
+# ---------------------------------------------------------------------------
+# Cooldown / rate-limit guard
+# ---------------------------------------------------------------------------
+
+
+def test_cooldown_skips_fetch_when_recently_synced():
+    """Returns 0 immediately and makes no API calls when last_fetched_at is within the window."""
+    recent = timezone.now() - timedelta(minutes=FETCH_COOLDOWN_MINUTES - 5)
+    user, _ = make_user_with_token(expired=False, last_fetched_at=recent)
+
+    with patch("core.views.fitbit_sync.requests.get") as mock_get:
+        result = fetch_fitbit_today_for_user(user)
+
+    assert result == 0
+    mock_get.assert_not_called()
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_cooldown_allows_fetch_when_last_synced_is_stale(mock_get, _):
+    """Fetch proceeds when last_fetched_at is older than the cooldown window."""
+    stale = timezone.now() - timedelta(minutes=FETCH_COOLDOWN_MINUTES + 5)
+    user, _ = make_user_with_token(expired=False, last_fetched_at=stale)
+    mock_get.side_effect = _all_empty_side_effect
+
+    fetch_fitbit_today_for_user(user)
+
+    assert mock_get.called
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_cooldown_allows_fetch_when_last_fetched_at_is_none(mock_get, _):
+    """Fetch proceeds on the first sync when last_fetched_at has never been set."""
+    user, _ = make_user_with_token(expired=False, last_fetched_at=None)
+    mock_get.side_effect = _all_empty_side_effect
+
+    fetch_fitbit_today_for_user(user)
+
+    assert mock_get.called
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_bypass_cooldown_proceeds_despite_recent_sync(mock_get, _):
+    """bypass_cooldown=True ignores a recent last_fetched_at and hits the API."""
+    recent = timezone.now() - timedelta(minutes=FETCH_COOLDOWN_MINUTES - 5)
+    user, _ = make_user_with_token(expired=False, last_fetched_at=recent)
+    mock_get.side_effect = _all_empty_side_effect
+
+    fetch_fitbit_today_for_user(user, bypass_cooldown=True)
+
+    assert mock_get.called
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_last_fetched_at_stamped_on_token_before_api_calls(mock_get, _):
+    """last_fetched_at is written to FitbitUserToken before any API request fires."""
+    user, token = make_user_with_token(expired=False, last_fetched_at=None)
+    assert token.last_fetched_at is None
+
+    mock_get.side_effect = _all_empty_side_effect
+    fetch_fitbit_today_for_user(user)
+
+    token.reload()
+    assert token.last_fetched_at is not None
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_last_fetched_at_stamped_even_when_api_returns_429(mock_get, _):
+    """last_fetched_at is stamped before the first call, so 429 errors still reset the window."""
+    user, token = make_user_with_token(expired=False, last_fetched_at=None)
+
+    error_resp = Mock()
+    error_resp.status_code = 429
+    error_resp.text = '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}'
+    error_resp.json.return_value = {}
+    mock_get.return_value = error_resp
+
+    fetch_fitbit_today_for_user(user)
+
+    token.reload()
+    assert token.last_fetched_at is not None
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_cooldown_handles_naive_last_fetched_at(mock_get, _):
+    """A naive (timezone-unaware) last_fetched_at stored in MongoDB is handled correctly."""
+    from datetime import timezone as stdlib_tz
+
+    naive_recent = datetime.now(tz=stdlib_tz.utc).replace(tzinfo=None) - timedelta(minutes=5)
+    user, _ = make_user_with_token(expired=False, last_fetched_at=naive_recent)
+
+    with patch("core.views.fitbit_sync.requests.get") as mock_get_inner:
+        result = fetch_fitbit_today_for_user(user)
+
+    assert result == 0
+    mock_get_inner.assert_not_called()

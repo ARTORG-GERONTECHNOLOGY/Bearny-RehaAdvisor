@@ -71,7 +71,9 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
     if not bypass_cooldown and token.last_fetched_at:
         last = token.last_fetched_at
         if is_naive(last):
-            last = make_aware(last)
+            # MongoDB always stores UTC; replace rather than make_aware to avoid
+            # local-timezone offset turning a fresh stamp into a stale one.
+            last = last.replace(tzinfo=datetime.timezone.utc)
         age_minutes = (timezone.now() - last).total_seconds() / 60
         if age_minutes < FETCH_COOLDOWN_MINUTES:
             logger.info(f"[fitbit] skipping fetch for user={user} — last synced {age_minutes:.1f} min ago")

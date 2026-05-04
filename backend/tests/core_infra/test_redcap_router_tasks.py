@@ -72,7 +72,7 @@ def test_fetch_fitbit_data_async_calls_sync_when_user_exists():
         patch("core.tasks.fetch_fitbit_today_for_user") as mocked,
     ):
         fetch_fitbit_data_async("507f1f77bcf86cd799439011")
-    mocked.assert_called_once_with("user-doc")
+    mocked.assert_called_once_with("user-doc", bypass_cooldown=True)
 
 
 def test_fetch_fitbit_data_async_noop_when_user_missing():

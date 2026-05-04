@@ -14,6 +14,12 @@ Also covers helper functions:
 - _default_thresholds
 - _merge_thresholds
 - avg_excluding_zero
+
+Cooldown guard
+--------------
+fitbit_summary calls fetch_fitbit_today_for_user without bypass_cooldown so
+the 15-minute rate-limit guard is applied on every page load. The Celery task
+(fetch_fitbit_data_async) is the only caller that sets bypass_cooldown=True.
 """
 
 import json
@@ -470,6 +476,16 @@ def test_fitbit_summary_internal_error_branch(mock_fetch):
     resp = client.get(f"/api/fitbit/summary/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 500
     assert resp.json()["error"] == "Internal Server Error"
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_does_not_bypass_cooldown(mock_fetch):
+    """fitbit_summary must not pass bypass_cooldown=True — the cooldown guard must apply."""
+    _, _, _, patient = create_patient_graph()
+    client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    mock_fetch.assert_called_once()
+    _, kwargs = mock_fetch.call_args
+    assert kwargs.get("bypass_cooldown", False) is False
 
 
 # ---------------------------------------------------------------------------
