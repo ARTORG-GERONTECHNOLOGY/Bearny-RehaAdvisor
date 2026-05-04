@@ -79,7 +79,7 @@ def fetch_fitbit_data_async(user_id):
 
     user = User.objects(pk=user_id).first()
     if user:
-        fetch_fitbit_today_for_user(user)
+        fetch_fitbit_today_for_user(user, bypass_cooldown=True)
 
 
 @shared_task(
