@@ -45,6 +45,15 @@ Language-variant selection (?lang= query param)
   * Interventions without an ``external_id`` are served as-is; ``?lang=`` is
     silently ignored and no error is raised.
 
+Bug fix #214 — PatientType JSON serialization
+  * ``_intervention_meta`` previously returned raw ``PatientType``
+    EmbeddedDocument objects via ``_as_list``.  ``JsonResponse`` cannot
+    serialize MongoEngine documents and raised
+    ``TypeError: Object of type PatientType is not JSON serializable``.
+  * Fixed by converting each ``PatientType`` to a plain dict with keys
+    ``type``, ``diagnosis``, ``frequency``, ``include_option`` before
+    returning from ``_intervention_meta``.
+
 Background
   The frontend calls LibreTranslate to auto-translate intervention titles that
   are not in the patient's UI language.  Machine translations are sometimes
@@ -76,6 +85,7 @@ from core.models import (
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
+    PatientType,
     QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
@@ -1702,6 +1712,83 @@ def test_get_patient_plan_lang_param_ignored_for_intervention_without_external_i
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2  # both assignments returned without error
+
+
+# ---------------------------------------------------------------------------
+# Bug fix #214: PatientType EmbeddedDocument was not JSON-serializable
+# Regression: GET /api/patients/rehabilitation-plan/patient/<id>/
+#             raised TypeError: Object of type PatientType is not JSON serializable
+#             when any assigned intervention had patient_types populated.
+# ---------------------------------------------------------------------------
+
+
+def test_get_patient_plan_patient_types_serialized(mongo_mock):
+    """
+    Interventions with populated patient_types must not raise
+    TypeError when the plan is returned via JsonResponse.
+
+    Before fix: _intervention_meta passed raw PatientType EmbeddedDocument
+    objects through _as_list() → JsonResponse could not serialize them.
+    After fix: each PatientType is converted to a plain dict with keys
+    type/diagnosis/frequency/include_option.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+
+    # Create an intervention with two patient_types entries
+    pt1 = PatientType(type="Cardiology", diagnosis="Heart Failure", frequency="Daily", include_option=True)
+    pt2 = PatientType(type="Neurology", diagnosis="Stroke", frequency="Weekly", include_option=False)
+    intervention_with_types = Intervention(
+        title="Rehab Exercise",
+        description="Exercise with patient types",
+        content_type="Video",
+        external_id="INT_PT_001",
+        language="en",
+        patient_types=[pt1, pt2],
+    ).save()
+
+    rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+    rehab_plan.interventions.append(
+        InterventionAssignment(
+            interventionId=intervention_with_types,
+            frequency="Daily",
+            notes="",
+            dates=[],
+        )
+    )
+    rehab_plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.json()
+
+    data = resp.json()
+    # Find the assignment that uses intervention_with_types
+    row = next(r for r in data if r["intervention_id"] == str(intervention_with_types.id))
+    pts = row["intervention"]["patient_types"]
+
+    assert isinstance(pts, list)
+    assert len(pts) == 2
+
+    assert pts[0] == {"type": "Cardiology", "diagnosis": "Heart Failure", "frequency": "Daily", "include_option": True}
+    assert pts[1] == {"type": "Neurology", "diagnosis": "Stroke", "frequency": "Weekly", "include_option": False}
+
+
+def test_get_patient_plan_empty_patient_types_serialized(mongo_mock):
+    """
+    Interventions with no patient_types return an empty list, not null.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    row = next(r for r in data if r["intervention_id"] == str(intervention.id))
+    assert row["intervention"]["patient_types"] == []
 
 
 # ---------------------------------------------------------------------------
