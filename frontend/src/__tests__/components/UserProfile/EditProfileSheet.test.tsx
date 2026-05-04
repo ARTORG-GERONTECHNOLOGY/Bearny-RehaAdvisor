@@ -19,6 +19,7 @@ jest.mock('../../../config/config.json', () => ({
       fields: [
         { be_name: 'email', label: 'Email', type: 'email', options: [] },
         { be_name: 'phone', label: 'Phone', type: 'text', options: [] },
+        { be_name: 'specialisation', label: 'Specialization', type: 'multi-select', options: [] },
       ],
     },
   ],
@@ -255,6 +256,26 @@ describe('EditTherapistInfo', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Server error')).toBeInTheDocument();
+    });
+  });
+
+  it('calls updateProfile with specializations key (not specialisation) when specialisation field changes', async () => {
+    const userWithSpec = { ...baseUser, specializations: ['Cardiology'] };
+    setup(userWithSpec);
+
+    // The mock react-select renders a <select> with aria-label matching placeholder
+    const select = screen.getByRole('combobox', { name: 'Select...' });
+    fireEvent.change(select, { target: { value: 'Cardiology' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(mockStore.updateProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ specializations: ['Cardiology'] })
+      );
+      expect(mockStore.updateProfile).toHaveBeenCalledWith(
+        expect.not.objectContaining({ specialisation: expect.anything() })
+      );
     });
   });
 });
