@@ -60,6 +60,7 @@ class FitbitUserToken(Document):
     refresh_token = StringField(required=True, max_length=2048)
     expires_at = DateTimeField()
     fitbit_user_id = StringField(required=True)
+    last_fetched_at = DateTimeField()
 
 
 class HeartRateZone(EmbeddedDocument):
