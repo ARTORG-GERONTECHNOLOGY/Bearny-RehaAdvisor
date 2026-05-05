@@ -43,8 +43,8 @@ describe('HealthSlider (Full Sync)', () => {
   const originalAlert = window.alert;
 
   // Helper to enter patient ID (since eva2 uses form, not prompt)
-  const enterPatientId = async (patientId = 'P01') => {
-    const input = screen.getByPlaceholderText('P01');
+  const enterPatientId = async (patientId = 'P001-001T1') => {
+    const input = screen.getByPlaceholderText('P001-001T1');
     fireEvent.change(input, { target: { value: patientId } });
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     await waitFor(() => {
@@ -56,7 +56,7 @@ describe('HealthSlider (Full Sync)', () => {
     jest.restoreAllMocks();
     localStorage.clear();
 
-    window.prompt = jest.fn(() => 'P01') as any;
+    window.prompt = jest.fn(() => 'P001-001T1') as any;
     window.alert = jest.fn() as any;
 
     // Mock URL methods before spying
@@ -117,18 +117,18 @@ describe('HealthSlider (Full Sync)', () => {
     window.alert = originalAlert;
   });
 
-  it('prompts for patient id (Pxx) and stores it', async () => {
+  it('prompts for patient id (Pxxx-xxxTx) and stores it', async () => {
     render(<HealthSlider />);
     await enterPatientId();
 
     // Check patient ID is stored
-    expect(localStorage.getItem('patient_id')).toBe('P01');
+    expect(localStorage.getItem('patient_id')).toBe('P001-001T1');
 
     // Now click mic permission button
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/ID: P01/)).toBeInTheDocument();
+      expect(screen.getByText(/ID: P001-001T1/)).toBeInTheDocument();
     });
   });
 

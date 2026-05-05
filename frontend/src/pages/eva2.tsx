@@ -8,7 +8,7 @@
  * State machine (rendered screens in order)
  * -----------------------------------------
  * 1. Patient-ID input   — when no patientId in URL param or localStorage.
- *                         Validates "P\d+" format, persists to localStorage.
+ *                         Validates "P\d+-\d+T\d+" format, persists to localStorage.
  * 2. Mic permission     — requests getUserMedia; shows "Übungslauf starten" button.
  * 3. Practice mode      — one warm-up question (not uploaded to backend).
  * 4. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
@@ -375,8 +375,8 @@ export default function HealthSlider() {
 
   const submitPatientId = () => {
     const v = patientIdInput.trim();
-    if (!/^P\d+$/.test(v)) {
-      setPatientIdError('ID muss mit P beginnen, gefolgt von Ziffern (z.B. P01).');
+    if (!/^P\d+-\d+T\d+$/.test(v)) {
+      setPatientIdError('ID muss dem Format Pxxx-xxxTx entsprechen (z.B. P001-001T1).');
       return;
     }
     localStorage.setItem('patient_id', v);
@@ -809,7 +809,7 @@ export default function HealthSlider() {
         <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
         <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
           <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
-            Bitte geben Sie die Patienten-ID ein (Format: P01, P02...).
+            Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
           </p>
           <input
             type="text"
@@ -821,7 +821,7 @@ export default function HealthSlider() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') submitPatientId();
             }}
-            placeholder="P01"
+            placeholder="P001-001T1"
             autoFocus
             style={{
               width: '100%',
