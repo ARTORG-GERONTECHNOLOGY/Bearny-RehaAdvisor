@@ -186,20 +186,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   } = filters;
 
   const languageOptions = useMemo(() => {
-    const seen = new Set<string>();
-    for (const item of allItems) {
-      const langs = toLangList((item as any).available_languages);
-      const primary = String((item as any).language || '')
-        .trim()
-        .toLowerCase();
-      if (primary) langs.push(primary);
-      for (const l of langs) {
-        if (l) seen.add(l);
-      }
-    }
-    return Array.from(seen)
-      .sort()
-      .map((l) => ({ value: l, label: l.toUpperCase() }));
+    const langs = allItems.flatMap((item: any) => [
+      ...toLangList(item.available_languages),
+      ...(item.language ? [String(item.language).trim().toLowerCase()] : []),
+    ]);
+    return [...new Set(langs)].sort().map((l) => ({ value: l, label: l.toUpperCase() }));
   }, [allItems]);
 
   const {
