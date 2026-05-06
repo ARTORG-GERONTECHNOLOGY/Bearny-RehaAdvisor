@@ -165,7 +165,7 @@ describe('PatientPopup', () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(apiClient.delete).toHaveBeenCalledWith('/patients/abc123/');
+      expect(apiClient.delete).toHaveBeenCalledWith('/users/abc123/profile/');
     });
   });
 
