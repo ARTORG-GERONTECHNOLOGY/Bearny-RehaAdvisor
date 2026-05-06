@@ -1,9 +1,8 @@
 import React from 'react';
-import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { BarMetricKey, DailyMetricsDatum, ThresholdStatus } from '@/hooks/usePatientProcess';
-import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
+import type { BarMetricKey, DailyMetricsDatum } from '@/hooks/usePatientProcess';
 import Card from '@/components/Card';
 import { useTranslation } from 'react-i18next';
 
@@ -14,9 +13,7 @@ type Props = {
   data: DailyMetricsDatum[];
   yMax: number;
   threshold: number | null;
-  status: ThresholdStatus;
   chartConfig: ChartConfig;
-  accentColor: string;
   thresholdLineProps: {
     stroke: string;
     strokeWidth: number;
@@ -31,22 +28,15 @@ const MetricBarCard: React.FC<Props> = ({
   data,
   yMax,
   threshold,
-  status,
   chartConfig,
-  accentColor,
   thresholdLineProps,
 }) => {
   const { t } = useTranslation();
 
   return (
     <Card>
-      <div className="flex justify-between">
-        <div>
-          <div className="font-bold text-lg text-zinc-800">{title}</div>
-          <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
-        </div>
-        <ThresholdStatusBadge status={status} />
-      </div>
+      <div className="font-bold text-lg text-zinc-800">{title}</div>
+      <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
 
       <div className="flex items-end">
         <div className="flex-1">
@@ -69,8 +59,12 @@ const MetricBarCard: React.FC<Props> = ({
                 axisLine={false}
                 tickFormatter={(date) => date.slice(3)}
               />
-              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Bar dataKey={metricKey} fill={accentColor} radius={18} />
+              <ChartTooltip content={<ChartTooltipContent hideLabel hideIndicator />} />
+              <Bar dataKey={metricKey} radius={18}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.colors[metricKey]} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </div>

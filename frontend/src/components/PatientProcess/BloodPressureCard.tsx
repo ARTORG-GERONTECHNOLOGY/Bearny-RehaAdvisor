@@ -1,9 +1,8 @@
 import React from 'react';
-import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Dot, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { DailyMetricsDatum, ThresholdStatus } from '@/hooks/usePatientProcess';
-import ThresholdStatusBadge from '@/components/PatientProcess/ThresholdStatusBadge';
+import type { DailyMetricsDatum } from '@/hooks/usePatientProcess';
 import Card from '@/components/Card';
 import { useTranslation } from 'react-i18next';
 
@@ -11,14 +10,12 @@ type Props = {
   title: string;
   bpSys: number | null;
   bpDia: number | null;
-  status: ThresholdStatus;
   chartConfig: ChartConfig;
   data: DailyMetricsDatum[];
   yMax: number;
   bpSysThreshold: number | null;
   bpDiaThreshold: number | null;
-  accentColor: string;
-  accentLightColor: string;
+  lineColor: string;
   thresholdLineProps: {
     stroke: string;
     strokeWidth: number;
@@ -30,27 +27,20 @@ const BloodPressureCard: React.FC<Props> = ({
   title,
   bpSys,
   bpDia,
-  status,
   chartConfig,
   data,
   yMax,
   bpSysThreshold,
   bpDiaThreshold,
-  accentColor,
-  accentLightColor,
+  lineColor,
   thresholdLineProps,
 }) => {
   const { t } = useTranslation();
 
   return (
     <Card>
-      <div className="flex justify-between">
-        <div>
-          <div className="font-bold text-lg text-zinc-800">{title}</div>
-          <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
-        </div>
-        <ThresholdStatusBadge status={status} />
-      </div>
+      <div className="font-bold text-lg text-zinc-800">{title}</div>
+      <div className="font-medium text-sm text-zinc-500">{t('Average per day')}</div>
 
       <div className="flex items-end">
         <div className="flex-1">
@@ -79,22 +69,30 @@ const BloodPressureCard: React.FC<Props> = ({
                 axisLine={false}
                 tickFormatter={(date) => date.slice(3)}
               />
-              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <ChartTooltip content={<ChartTooltipContent hideLabel hideIndicator />} />
               <Line
                 type="monotone"
                 dataKey="bpSys"
-                stroke={accentColor}
+                stroke={lineColor}
                 strokeWidth={4}
-                dot={true}
                 connectNulls={true}
+                dot={(props) => {
+                  const { cx, cy, payload } = props;
+                  const fill = (payload as DailyMetricsDatum).colors.bpSys;
+                  return <Dot key={props.key} cx={cx} cy={cy} r={4} fill={fill} stroke={fill} />;
+                }}
               />
               <Line
                 type="monotone"
                 dataKey="bpDia"
-                stroke={accentLightColor}
+                stroke={lineColor}
                 strokeWidth={4}
-                dot={true}
                 connectNulls={true}
+                dot={(props) => {
+                  const { cx, cy, payload } = props;
+                  const fill = (payload as DailyMetricsDatum).colors.bpDia;
+                  return <Dot key={props.key} cx={cx} cy={cy} r={4} fill={fill} stroke={fill} />;
+                }}
               />
             </LineChart>
           </ChartContainer>
