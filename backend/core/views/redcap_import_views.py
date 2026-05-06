@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -619,6 +620,25 @@ def import_patient_from_redcap(request):
     # final identifier rule:
     final_identifier = pat_id or record_id or identifier
 
+    # patient_code is globally unique across all projects — check before creating the User
+    # so we don't leave orphaned User documents when the Patient save would fail.
+    existing_by_code = Patient.objects(patient_code=final_identifier).first()
+    if existing_by_code:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": (
+                    f"A patient with code '{final_identifier}' already exists on this platform"
+                    f" (project: {existing_by_code.project or 'unknown'})."
+                    " The same identifier cannot be imported into multiple projects."
+                ),
+                "patient_code": final_identifier,
+                "existing_project": existing_by_code.project,
+                "patientId": str(existing_by_code.id),
+            },
+            status=409,
+        )
+
     # Create platform user + patient
     now = timezone.now()
     user = None
@@ -732,6 +752,30 @@ def import_patient_from_redcap(request):
         except Exception:
             pass
         return JsonResponse({"ok": False, "error": str(e), "detail": e.detail}, status=502)
+
+    except NotUniqueError as e:
+        logger.warning("import_patient_from_redcap: duplicate patient_code=%s", final_identifier)
+        try:
+            if patient:
+                patient.delete()
+        except Exception:
+            pass
+        try:
+            if user:
+                user.delete()
+        except Exception:
+            pass
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": (
+                    f"Patient with code '{final_identifier}' already exists (duplicate key)."
+                    " The same patient_code cannot appear in two projects."
+                ),
+                "patient_code": final_identifier,
+            },
+            status=409,
+        )
 
     except Exception as e:
         logger.exception("import_patient_from_redcap failed")
