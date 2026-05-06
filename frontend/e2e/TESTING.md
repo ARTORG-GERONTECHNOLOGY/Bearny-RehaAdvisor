@@ -26,6 +26,7 @@ Current scope starts with the home/login journey.
 | `therapist-feedback-chips.spec.ts`                  | Therapist patient-list feedback chip logic: uses mocked `/api/therapists/<id>/patients` response to verify intervention-feedback-based chip level and tooltip text, and that Health chip remains hidden for ongoing patients. Requires seeded therapist login.                                                                                                                                                                            |
 | `therapist-characteristics-space-input.spec.ts`     | Therapist patient-popup characteristics regression: verifies multi-word values can be typed in comma-separated fields and that save payload preserves spaces within words (normalizing by comma). Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                                                                                                            |
 | `therapist-wearables-sync.spec.ts`                  | Therapist patient popup wearables sync regression: verifies sync success status (`ok`/`skipped`), payload detail rendering (`sent_payloads` table view), and informative backend error visibility on failed sync. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                                                                                                                            |
+| `therapist-patient-delete.spec.ts`                  | Therapist patient delete regression (bug #223): verifies the Delete button in the patient popup calls `DELETE /users/:id/profile/` (not the defunct `/patients/:id/` which returned 404), the confirmation dialog appears before the request is sent, the popup closes on success, and backend errors are surfaced to the user. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                              |
 | `patient-health-questionnaire-ui.spec.ts`           | Patient UI questionnaire flow: therapist assigns questionnaire (API setup), patient logs in, answers popup questions, and submits to `/patients/feedback/questionaire/`. Requires seeded therapist + patient credentials.                                                                                                                                                                                                                 |
 | `therapist-recommendation-content-type.spec.ts`     | Add Recommendation content type field regression: verifies dropdown exposes original taxonomy labels (`brochure`, `graphics`, etc.) rather than backend type names, and that the frontend maps each label to the correct backend value (`graphics`→`Image`, `brochure`→`PDF`, etc.) in the multipart POST payload. Requires `E2E_THERAPIST_LOGIN` / `E2E_THERAPIST_PASSWORD` / `E2E_EMAIL_DIR`.                                           |
 
@@ -127,6 +128,12 @@ Current scope starts with the home/login journey.
   - Confirms success alert shows per-period sync outcomes and the rendered payload detail table (`sent_payloads`)
   - Confirms skipped period reason is visible (for example `no_fitbit_data_in_period`)
   - Confirms sync failure shows informative backend error text to the user
+- Therapist patient delete regression (`therapist-patient-delete.spec.ts`, seeded therapist required):
+  - Opens patient popup from `/therapist`
+  - Confirms "Delete Patient" button opens a confirmation dialog before any API call is made
+  - Confirms DELETE request is sent to `DELETE /users/:id/profile/` (not the defunct `/patients/:id/` that returned 404 — bug #223)
+  - Confirms popup closes after a successful delete (200 response)
+  - Confirms backend error message is surfaced via error alert when delete fails (500 response)
 - Patient questionnaire UI submission (`patient-health-questionnaire-ui.spec.ts`, seeded therapist + patient required):
   - Setup assigns a due Healthstatus questionnaire for the patient
   - Patient login opens the questionnaire popup
@@ -320,6 +327,16 @@ E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
 E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
 E2E_EMAIL_DIR=<shared-email-dir> \
 npm run test:e2e -- e2e/therapist-recommendation-content-type.spec.ts
+```
+
+Patient delete regression — bug #223 (requires seeded therapist + OTP email directory):
+
+```bash
+E2E_API_URL=http://localhost:8001/api \
+E2E_THERAPIST_LOGIN=<seeded-therapist-email> \
+E2E_THERAPIST_PASSWORD=<seeded-therapist-password> \
+E2E_EMAIL_DIR=<shared-email-dir> \
+npm run test:e2e -- e2e/therapist-patient-delete.spec.ts
 ```
 
 ---
