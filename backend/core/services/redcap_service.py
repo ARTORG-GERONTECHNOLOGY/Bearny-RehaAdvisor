@@ -164,8 +164,21 @@ def export_record_by_pat_id(project_name: str, pat_id: str) -> List[Dict[str, An
         if rows:
             return rows
     except RedcapError as e:
-        # If REDCap errors here, bubble up (view collects errors per project).
-        raise
+        detail = e.detail if isinstance(e.detail, dict) else {}
+        status = detail.get("status", 0)
+        # 400 → pat_id not a valid field in this project (e.g. COPAIN).
+        # 408 → REDCap timed out evaluating filterLogic on a non-existent field;
+        #        this happens when _post_redcap_with_field_fallback strips pat_id
+        #        from the fields list and retries, but the filterLogic still
+        #        references [pat_id] which doesn't exist in the project schema.
+        # In both cases fall through to the record_id lookup below.
+        if status not in (400, 408):
+            raise
+        logger.info(
+            "pat_id filter returned status %s for project %s — falling back to record_id filter",
+            status,
+            project_name,
+        )
 
     # 2) Fallback: try record_id match (works for identifiers like "1" or "905-1")
     try:
