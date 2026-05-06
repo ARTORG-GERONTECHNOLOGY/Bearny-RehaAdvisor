@@ -10,10 +10,9 @@ from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
-
-from mongoengine.errors import NotUniqueError
 
 from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
 from utils.config import config
