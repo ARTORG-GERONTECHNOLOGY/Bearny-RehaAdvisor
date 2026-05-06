@@ -113,6 +113,97 @@ def test_export_record_by_pat_id_invalid_json_and_redcap_error(monkeypatch):
             export_record_by_pat_id("COMPASS", "X1")
 
 
+def test_export_record_by_pat_id_pat_id_400_falls_back_to_record_id(monkeypatch):
+    """
+    When the pat_id filterLogic returns 400 (field doesn't exist in the project),
+    export_record_by_pat_id must fall through to the record_id lookup instead of
+    propagating the error. Reproduces the COPAIN pat_id-missing scenario.
+    """
+    monkeypatch.setattr(svc, "resolve_project", lambda p: p)
+    monkeypatch.setattr(svc, "get_token_for_project", lambda p: "tok")
+    monkeypatch.setattr(
+        svc,
+        "config",
+        {"RedCap_Characteristics": ["pat_id", "record_id"]},
+        raising=False,
+    )
+
+    pat_id_error = RedcapError(
+        "REDCap API returned non-200.",
+        detail={
+            "status": 400,
+            "text": '{"error":"The following values in the parameter \\"fields\\" are not valid: \'pat_id\'"}',
+        },
+    )
+    record_id_row = json.dumps([{"record_id": "934-18"}])
+
+    # First _post_redcap call (pat_id filter, first attempt) → 400
+    # Second call (record_id filter) → success
+    with patch(
+        "core.services.redcap_service._post_redcap",
+        side_effect=[pat_id_error, record_id_row],
+    ) as mock_post:
+        rows = export_record_by_pat_id("COPAIN", "934-18")
+
+    assert rows == [{"record_id": "934-18"}]
+    assert mock_post.call_count == 2
+
+
+def test_export_record_by_pat_id_pat_id_408_falls_back_to_record_id(monkeypatch):
+    """
+    When the pat_id filterLogic causes a 408 timeout (REDCap times out evaluating
+    a filterLogic on a field that doesn't exist — happens after _post_redcap_with_field_fallback
+    strips pat_id from fields but filterLogic still references [pat_id]),
+    export_record_by_pat_id must fall through to the record_id lookup.
+    """
+    monkeypatch.setattr(svc, "resolve_project", lambda p: p)
+    monkeypatch.setattr(svc, "get_token_for_project", lambda p: "tok")
+    monkeypatch.setattr(
+        svc,
+        "config",
+        {"RedCap_Characteristics": ["pat_id", "record_id"]},
+        raising=False,
+    )
+
+    timeout_error = RedcapError(
+        "REDCap API returned non-200.",
+        detail={"status": 408, "text": "<html>408 Request Timeout</html>"},
+    )
+    record_id_row = json.dumps([{"record_id": "934-18"}])
+
+    # First call (pat_id filter, retry after field-strip) → 408
+    # Second call (record_id filter) → success
+    with patch(
+        "core.services.redcap_service._post_redcap",
+        side_effect=[timeout_error, record_id_row],
+    ) as mock_post:
+        rows = export_record_by_pat_id("COPAIN", "934-18")
+
+    assert rows == [{"record_id": "934-18"}]
+    assert mock_post.call_count == 2
+
+
+def test_export_record_by_pat_id_non_400_408_error_still_raises(monkeypatch):
+    """Non-400/408 errors from the pat_id filter must still propagate."""
+    monkeypatch.setattr(svc, "resolve_project", lambda p: p)
+    monkeypatch.setattr(svc, "get_token_for_project", lambda p: "tok")
+    monkeypatch.setattr(
+        svc,
+        "config",
+        {"RedCap_Characteristics": ["record_id"]},
+        raising=False,
+    )
+
+    server_error = RedcapError(
+        "REDCap API returned non-200.",
+        detail={"status": 500, "text": "Internal Server Error"},
+    )
+    with patch("core.services.redcap_service._post_redcap", side_effect=server_error):
+        with pytest.raises(RedcapError) as exc_info:
+            export_record_by_pat_id("COPAIN", "934-18")
+    assert exc_info.value.detail["status"] == 500
+
+
 # ---------------------------------------------------------------------------
 # REDCap connection tests
 # ---------------------------------------------------------------------------
