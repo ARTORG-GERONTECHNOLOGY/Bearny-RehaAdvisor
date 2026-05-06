@@ -7,7 +7,7 @@ Unit and integration tests for core/services/wearables_redcap_service.py
 Coverage
 --------
 Pure-function unit tests (no DB):
-  - _fmt_dmy              date formatted as DD-MM-YYYY
+  - _fmt_dmy              date formatted as YYYY-MM-DD (REDCap import format)
   - _format_sleep         COMPASS: integer hours / COPAIN: HH:MM
   - _pick_best_wear_week  picks ISO week with highest total wear_time_minutes
   - _compute_averages     per-field daily averages, correct sleep format
@@ -25,7 +25,7 @@ DB-backed tests (mongomock):
       · raises ValueError when patient has no project
       · raises ValueError when no REDCap record is found
       · writes correct payload to REDCap including record_id, event name,
-        wearables_complete="1", and date_dmy-formatted dates
+        wearables_complete="1", and YYYY-MM-DD formatted dates
       · returns "skipped" for a period with no Fitbit data
       · captures RedcapError and returns "error: ..." string
 """
@@ -126,10 +126,10 @@ def _make_fitbit_day(user, date: datetime, steps=5000, active_min=30, inactive_m
 
 def test_fmt_dmy():
     d = datetime(2024, 3, 5, tzinfo=dt_tz.utc)
-    assert _fmt_dmy(d) == "05-03-2024"
+    assert _fmt_dmy(d) == "2024-03-05"
 
     d2 = datetime(2024, 12, 31, tzinfo=dt_tz.utc)
-    assert _fmt_dmy(d2) == "31-12-2024"
+    assert _fmt_dmy(d2) == "2024-12-31"
 
 
 class TestFormatSleep:
@@ -387,12 +387,10 @@ class TestComputeWearablesSummary:
         day = reha_end + timedelta(days=2)
         _make_fitbit_day(user, day, wear_min=500)
         summary = compute_wearables_summary(patient)
-        # monitoring_start should be DD-MM-YYYY
+        # monitoring_start should be YYYY-MM-DD (REDCap import format)
         start = summary["baseline"]["monitoring_start"]
         assert len(start) == 10
-        assert start[2] == "-" and start[5] == "-"
-        # year in last 4 chars
-        assert start[-4:] == "2024"
+        assert start[:4] == "2024" and start[4] == "-" and start[7] == "-"
 
     def test_monitoring_days_matches_records_in_best_week(self):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
@@ -480,9 +478,9 @@ class TestExportWearablesToRedcap:
         assert record["wearables_complete"] == "1"  # Unverified
         assert record["redcap_event_name"] == "visit_baseline_arm_1"
 
-        # Date format: DD-MM-YYYY
+        # Date format: YYYY-MM-DD (REDCap import always requires Y-M-D)
         start = record["monitoring_start"]
-        assert start[2] == "-" and start[5] == "-" and start[-4:] == "2024"
+        assert start[:4] == "2024" and start[4] == "-" and start[7] == "-"
 
     def test_return_payloads_includes_sent_and_skipped_details(self, monkeypatch):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
@@ -580,3 +578,35 @@ class TestExportWearablesToRedcap:
 
         record = json.loads(captured[0]["data"])[0]
         assert "redcap_event_name" not in record
+
+    def test_invalid_field_stripped_and_retried(self, monkeypatch):
+        """
+        When REDCap returns 400 with an 'invalid field' message on the first
+        import attempt, the offending field is stripped and the request retried.
+        The second attempt must succeed and the period result must be "ok".
+        """
+        reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
+        _make_fitbit_day(user, reha_end + timedelta(days=2), wear_min=600, steps=4000)
+        monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
+
+        calls = []
+
+        def _fake_post(token, payload, timeout=30):
+            calls.append(json.loads(payload["data"])[0])
+            if len(calls) == 1:
+                raise RedcapError(
+                    "REDCap API returned non-200.",
+                    detail={"status": 400, "text": "The following values are not valid: 'wearables_complete'"},
+                )
+            return '{"count":1}'
+
+        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]):
+            with patch("core.services.wearables_redcap_service._post_redcap", side_effect=_fake_post):
+                results = export_wearables_to_redcap(patient)
+
+        assert results["baseline"] == "ok"
+        assert len(calls) == 2
+        assert "wearables_complete" in calls[0]
+        assert "wearables_complete" not in calls[1]
+        assert calls[1]["fitbit_steps"] == "4000"

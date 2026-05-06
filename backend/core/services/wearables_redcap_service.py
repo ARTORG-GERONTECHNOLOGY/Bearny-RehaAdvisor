@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from core.models import FitbitData, Patient
 from core.services.redcap_service import (
     RedcapError,
+    _parse_invalid_fields,
     _post_redcap,
     export_record_by_pat_id,
     get_token_for_project,
@@ -60,8 +61,8 @@ def _as_utc(dt: datetime) -> datetime:
 
 
 def _fmt_dmy(dt: datetime) -> str:
-    """Format date as DD-MM-YYYY for REDCap date_dmy fields."""
-    return dt.strftime("%d-%m-%Y")
+    """Format date as YYYY-MM-DD — REDCap import always requires Y-M-D regardless of field display format."""
+    return dt.strftime("%Y-%m-%d")
 
 
 def _pick_best_wear_week(
@@ -229,6 +230,31 @@ def _resolve_event_names(
     return ev_baseline, ev_followup
 
 
+def _import_record(token: str, payload: Dict[str, Any], record: Dict[str, Any]) -> None:
+    """
+    POST a wearables record to REDCap.  On 400 with invalid field names (the
+    same error REDCap returns for mismatched instrument field names across
+    projects), strips the offending fields and retries once — mirroring the
+    behaviour of _post_redcap_with_field_fallback used on the read side.
+    Raises RedcapError on final failure.
+    """
+    try:
+        _post_redcap(token, payload)
+        return
+    except RedcapError as e:
+        if e.args[0] != "REDCap API returned non-200.":
+            raise
+        detail_text = e.detail.get("text", "") if isinstance(e.detail, dict) else str(e.detail or "")
+        invalid = _parse_invalid_fields(detail_text)
+        if not invalid:
+            raise
+        trimmed = {k: v for k, v in record.items() if k not in invalid}
+        if not trimmed or trimmed == record:
+            raise
+        logger.info("Retrying wearables import without unsupported fields: %s", sorted(invalid))
+        _post_redcap(token, {**payload, "data": json.dumps([trimmed])})
+
+
 def export_wearables_to_redcap(
     patient: Patient,
     event_baseline: Optional[str] = None,
@@ -311,7 +337,7 @@ def export_wearables_to_redcap(
             "data": json.dumps([record]),
         }
         try:
-            _post_redcap(token, payload)
+            _import_record(token, payload, record)
             results[period] = "ok"
             payloads[period]["status"] = "sent"
             logger.info(
@@ -327,10 +353,11 @@ def export_wearables_to_redcap(
             payloads[period]["status"] = "error"
             payloads[period]["error"] = str(e)
             logger.error(
-                "Failed to export wearables [%s] for %s: %s",
+                "Failed to export wearables [%s] for %s: %s | detail=%s",
                 period,
                 patient.patient_code,
                 e,
+                getattr(e, "detail", None),
             )
 
     if return_payloads:
