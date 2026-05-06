@@ -834,8 +834,8 @@ const Therapist: React.FC = observer(() => {
               {activePatients.map((p) => {
                 const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
                 const diagnosis = Array.isArray(p.diagnosis)
-                  ? p.diagnosis.join(', ')
-                  : String(p.diagnosis || '');
+                  ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                  : String(t(p.diagnosis || ''));
                 const patientId = getPatientIdStr(p);
                 const mongoId = getPatientMongoId(p);
 
@@ -906,8 +906,8 @@ const Therapist: React.FC = observer(() => {
                   {completedPatients.map((p) => {
                     const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
                     const diagnosis = Array.isArray(p.diagnosis)
-                      ? p.diagnosis.join(', ')
-                      : String(p.diagnosis || '');
+                      ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                      : String(t(p.diagnosis || ''));
                     const extra = getPatientExtra(p);
                     const endDate = getIsoMaybe(extra.rehab_end_date);
                     const patientId = getPatientIdStr(p);
