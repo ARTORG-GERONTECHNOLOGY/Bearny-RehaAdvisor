@@ -16,9 +16,6 @@ import { usePatientProcess } from '@/hooks/usePatientProcess';
 import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
 import { colors } from '@/lib/colors';
 
-const CHART_ACCENT = colors.pink;
-const CHART_ACCENT_LIGHT = colors.pink + '80';
-const CHART_ACCENT_SOFT = colors.pink + '33';
 const THRESHOLD_LINE_PROPS: {
   stroke: string;
   strokeWidth: number;
@@ -45,7 +42,6 @@ const PatientProcess: React.FC = observer(() => {
     averageMetrics,
     chartThresholds,
     chartYMax,
-    thresholdStatus,
   } = usePatientProcess();
 
   const chartConfigs = React.useMemo(
@@ -83,7 +79,6 @@ const PatientProcess: React.FC = observer(() => {
       average: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
       threshold: chartThresholds.steps,
       yMax: chartYMax.steps,
-      status: thresholdStatus.steps,
     },
     {
       metricKey: 'activeMinutes' as const,
@@ -91,7 +86,6 @@ const PatientProcess: React.FC = observer(() => {
       average: averageMetrics.activeMinutesLabel ?? '--',
       threshold: chartThresholds.activeMinutes,
       yMax: chartYMax.activeMinutes,
-      status: thresholdStatus.activeMinutes,
     },
     {
       metricKey: 'sleepMinutes' as const,
@@ -99,7 +93,6 @@ const PatientProcess: React.FC = observer(() => {
       average: averageMetrics.sleepMinutesLabel ?? '--',
       threshold: chartThresholds.sleepMinutes,
       yMax: chartYMax.sleepMinutes,
-      status: thresholdStatus.sleepMinutes,
     },
   ];
 
@@ -169,8 +162,8 @@ const PatientProcess: React.FC = observer(() => {
                 recommendationsPct={averageMetrics.recommendationsPct}
                 adherenceTotals={adherenceTotals}
                 chartConfig={chartConfigs.recommendations}
-                accentColor={CHART_ACCENT}
-                accentSoftColor={CHART_ACCENT_SOFT}
+                doneColor={colors.ok}
+                notDoneColor={colors.chartMuted}
               />
             </div>
           </Section>
@@ -186,9 +179,7 @@ const PatientProcess: React.FC = observer(() => {
                   data={dailyMetrics}
                   yMax={card.yMax}
                   threshold={card.threshold}
-                  status={card.status}
                   chartConfig={chartConfigs[card.metricKey]}
-                  accentColor={CHART_ACCENT}
                   thresholdLineProps={THRESHOLD_LINE_PROPS}
                 />
               ))}
@@ -201,14 +192,12 @@ const PatientProcess: React.FC = observer(() => {
                 title={t('Blood pressure')}
                 bpSys={averageMetrics.bpSys}
                 bpDia={averageMetrics.bpDia}
-                status={thresholdStatus.bloodPressure}
                 chartConfig={chartConfigs.bloodPressure}
                 data={dailyMetrics}
                 yMax={chartYMax.bloodPressure}
                 bpSysThreshold={chartThresholds.bpSysMax}
                 bpDiaThreshold={chartThresholds.bpDiaMax}
-                accentColor={CHART_ACCENT}
-                accentLightColor={CHART_ACCENT_LIGHT}
+                lineColor={colors.chartMuted}
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
               />
             </div>
