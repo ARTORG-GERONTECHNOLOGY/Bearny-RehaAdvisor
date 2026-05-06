@@ -91,9 +91,7 @@ test.describe('Therapist patient delete', () => {
 
     // Intercept the DELETE request before clicking Confirm
     const deleteRequest = page.waitForRequest(
-      (req) =>
-        req.method() === 'DELETE' &&
-        /\/users\/[^/]+\/profile\//.test(req.url())
+      (req) => req.method() === 'DELETE' && /\/users\/[^/]+\/profile\//.test(req.url())
     );
 
     await confirmDialog.getByRole('button', { name: /^delete$/i }).click();
@@ -137,7 +135,9 @@ test.describe('Therapist patient delete', () => {
     await confirmDialog.getByRole('button', { name: /^delete$/i }).click();
 
     // Error from the backend must surface to the user
-    const errorAlert = page.locator('.alert').filter({ hasText: /internal server error|failed to delete/i });
+    const errorAlert = page
+      .locator('.alert')
+      .filter({ hasText: /internal server error|failed to delete/i });
     await expect(errorAlert).toBeVisible({ timeout: 8000 });
 
     // Confirm dialog must close, but main popup stays open (delete failed)
