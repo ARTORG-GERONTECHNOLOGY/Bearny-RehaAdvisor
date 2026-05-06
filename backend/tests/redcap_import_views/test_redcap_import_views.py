@@ -376,6 +376,44 @@ def test_import_patient_already_imported(mock_get_th):
     assert resp.json()["error"] == "Patient already imported."
 
 
+@patch(
+    "core.views.redcap_import_views.redcap_export_minimal",
+    return_value=[{"record_id": "934-1", "pat_id": "", "ic": "1", "redcap_data_access_group": "inselspital"}],
+)
+@patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value="tok")
+@patch("core.views.redcap_import_views.get_therapist_for_user")
+def test_import_patient_duplicate_patient_code_different_project(mock_get_th, _tok, _export):
+    """
+    Importing a patient whose record_id matches an existing patient_code from a
+    *different* project must return 409, not 500 (DuplicateKeyError).
+    No orphaned User document should be left behind.
+    """
+    _, th = create_therapist(projects=["COPAIN"])
+    mock_get_th.return_value = th
+
+    # 934-1 already exists in COMPASS
+    compass_user = User(username="934-1", role="Patient", createdAt=datetime.now(), isActive=True).save()
+    Patient(userId=compass_user, patient_code="934-1", therapist=th, project="COMPASS").save()
+
+    users_before = User.objects.count()
+
+    resp = client.post(
+        "/api/redcap/import-patient/",
+        data=json.dumps({"project": "COPAIN", "patient_code": "934-1", "password": "Strong1!"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["ok"] is False
+    assert "934-1" in body["error"]
+    assert body["existing_project"] == "COMPASS"
+
+    # No new User should have been created
+    assert User.objects.count() == users_before
+
+
 @patch("core.views.redcap_import_views.get_redcap_token_for_project", return_value=None)
 @patch("core.views.redcap_import_views.get_therapist_for_user")
 def test_import_patient_missing_token(mock_get_th, mock_token):
