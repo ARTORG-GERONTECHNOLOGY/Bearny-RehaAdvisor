@@ -1,5 +1,5 @@
 // src/components/RehaTablePage/InterventionLeftPanel.tsx
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   Card,
   Nav,
@@ -25,9 +25,9 @@ import {
 } from 'react-icons/fa';
 import { Accordion } from 'react-bootstrap';
 
-import config from '../../config/config.json';
-import { Intervention } from '../../types';
-import { getTagColor } from '../../utils/interventions';
+import config from '@/config/config.json';
+import { Intervention } from '@/types';
+import { getTagColor } from '@/utils/interventions';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap = Record<string, string>;
@@ -37,6 +37,7 @@ interface LeftPanelData {
   activeItems: Intervention[];
   pastItems: Intervention[];
   visibleItems: Intervention[];
+  allItems: Intervention[];
   titleMap: TitleMap;
   typeMap: TypeMap;
   diagnoses: string[];
@@ -53,6 +54,8 @@ interface LeftPanelFilters {
   setTagFilter: (v: string[]) => void;
   benefitForFilter: string[];
   setBenefitForFilter: (v: string[]) => void;
+  languageFilter: string[];
+  setLanguageFilter: (v: string[]) => void;
   resetAllFilters: () => void;
 }
 
@@ -164,7 +167,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   tagColors,
   t,
 }) => {
-  const { activeItems, pastItems, visibleItems, titleMap, typeMap, diagnoses } = data;
+  const { activeItems, pastItems, visibleItems, allItems, titleMap, typeMap, diagnoses } = data;
 
   const {
     searchTerm,
@@ -177,8 +180,27 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     setTagFilter,
     benefitForFilter,
     setBenefitForFilter,
+    languageFilter,
+    setLanguageFilter,
     resetAllFilters,
   } = filters;
+
+  const languageOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of allItems) {
+      const langs = toLangList((item as any).available_languages);
+      const primary = String((item as any).language || '')
+        .trim()
+        .toLowerCase();
+      if (primary) langs.push(primary);
+      for (const l of langs) {
+        if (l) seen.add(l);
+      }
+    }
+    return Array.from(seen)
+      .sort()
+      .map((l) => ({ value: l, label: l.toUpperCase() }));
+  }, [allItems]);
 
   const {
     handleExerciseClick,
@@ -512,6 +534,26 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                           setBenefitForFilter((opts || []).map((opt: any) => opt.value))
                         }
                         placeholder={t('Filter by Benefit')}
+                        styles={{
+                          container: (base) => ({ ...base, width: '100%', maxWidth: '100%' }),
+                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                        }}
+                        menuPortalTarget={document.body}
+                      />
+                    </Col>
+                  </Row>
+
+                  <Row className="mb-2">
+                    <Col>
+                      <Select
+                        classNamePrefix="select"
+                        isMulti
+                        options={languageOptions}
+                        value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
+                        onChange={(opts) =>
+                          setLanguageFilter((opts || []).map((opt: any) => opt.value))
+                        }
+                        placeholder={t('Filter by Language')}
                         styles={{
                           container: (base) => ({ ...base, width: '100%', maxWidth: '100%' }),
                           menuPortal: (base) => ({ ...base, zIndex: 9999 }),

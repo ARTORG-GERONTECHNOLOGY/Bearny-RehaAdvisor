@@ -313,6 +313,7 @@ const RehabTable: React.FC = observer(() => {
                           activeItems: store.activePatientItems,
                           pastItems: store.pastPatientItems,
                           visibleItems: store.filteredRecommendations,
+                          allItems: store.recommendations,
                           titleMap: store.titleMap,
                           typeMap: store.typeMap,
                           diagnoses: store.diagnoses,
@@ -328,6 +329,8 @@ const RehabTable: React.FC = observer(() => {
                           setTagFilter: store.setTagFilter,
                           benefitForFilter: store.benefitForFilter,
                           setBenefitForFilter: store.setBenefitForFilter,
+                          languageFilter: store.languageFilter,
+                          setLanguageFilter: store.setLanguageFilter,
                           resetAllFilters: store.resetAllFilters,
                         }}
                         actions={{
