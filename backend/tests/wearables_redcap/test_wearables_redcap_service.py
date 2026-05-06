@@ -601,7 +601,9 @@ class TestExportWearablesToRedcap:
                 )
             return '{"count":1}'
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]):
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]
+        ):
             with patch("core.services.wearables_redcap_service._post_redcap", side_effect=_fake_post):
                 results = export_wearables_to_redcap(patient)
 
