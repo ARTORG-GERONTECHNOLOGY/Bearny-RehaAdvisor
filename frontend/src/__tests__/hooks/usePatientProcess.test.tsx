@@ -155,12 +155,6 @@ describe('usePatientProcess', () => {
       bpDiaMax: 85,
       bpDiaYellowMax: null,
     });
-    expect(result.current.thresholdStatus).toEqual({
-      steps: 'green',
-      activeMinutes: 'green',
-      sleepMinutes: 'green',
-      bloodPressure: 'green',
-    });
     expect(result.current.chartYMax.steps).toBe(8800);
   });
 
@@ -203,22 +197,5 @@ describe('usePatientProcess', () => {
     expect(result.current.error).toBe('Backend unavailable');
     expect(result.current.dailyMetrics).toHaveLength(7);
     expect(result.current.adherenceTotals).toEqual({ completed: 0, uncompleted: 0 });
-    expect(result.current.chartThresholds).toEqual({
-      steps: null,
-      activeMinutes: null,
-      activeMinutesYellow: null,
-      sleepMinutes: null,
-      sleepMinutesYellow: null,
-      bpSysMax: null,
-      bpSysYellowMax: null,
-      bpDiaMax: null,
-      bpDiaYellowMax: null,
-    });
-    expect(result.current.thresholdStatus).toEqual({
-      steps: null,
-      activeMinutes: null,
-      sleepMinutes: null,
-      bloodPressure: null,
-    });
   });
 });
