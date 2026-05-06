@@ -129,6 +129,16 @@ rehabilitation plans and intervention logs.
 
 Contrast with `decline_user` (admin endpoint) which performs a **hard-delete**.
 
+The `user_id` path parameter accepts either a **User ObjectId** or a
+**Patient ObjectId** — the same resolution logic used by GET and PUT.
+The frontend `patientPopupStore` passes the Patient `_id`, so the view
+must resolve `Patient → userId` before soft-deleting.
+
+> **Bug #223 (fixed):** `patientPopupStore.deletePatient()` previously called
+> `DELETE /patients/:id/` which has no route in the backend and returned 404.
+> The fix changes the call to `DELETE /users/:id/profile/`, matching the
+> existing GET and PUT calls in the same store.
+
 #### Tests
 
 | Test | Scenario | Expected |

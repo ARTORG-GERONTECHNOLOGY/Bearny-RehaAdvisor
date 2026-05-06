@@ -729,7 +729,7 @@ export class PatientPopupStore {
     this.error = '';
     try {
       // NOTE: adjust endpoint if yours differs
-      await apiClient.delete(`/patients/${this.patientId}/`);
+      await apiClient.delete(`/users/${this.patientId}/profile/`);
       return true;
     } catch (err: any) {
       const api = err?.response?.data;
