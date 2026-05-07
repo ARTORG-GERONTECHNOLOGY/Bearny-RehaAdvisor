@@ -33,11 +33,10 @@ jest.mock('@/components/TherapistPatientPage/ImportFromRedcapModal', () => () =>
   <div>Import Modal</div>
 ));
 
-// Mock translation function
+// Mock translation function — use jest.fn() so individual tests can override it
+const mockUseTranslation = jest.fn(() => ({ t: (key: string) => key }));
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
+  useTranslation: (...args: any[]) => mockUseTranslation(...args),
 }));
 // Mock navigation
 const mockNavigate = jest.fn();
@@ -539,5 +538,94 @@ describe('Therapist traffic lights', () => {
     });
 
     expect(screen.queryByLabelText('Health unknown')).not.toBeInTheDocument();
+  });
+});
+
+describe('Diagnosis translation in patient table', () => {
+  const renderWithPatient = (patient: Record<string, unknown>) => {
+    mockStore.patients = [patient as any];
+    return render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+  };
+
+  afterEach(() => {
+    // Restore default pass-through translation after each test
+    mockUseTranslation.mockReturnValue({ t: (key: string) => key });
+  });
+
+  test('renders translated diagnosis when diagnosis is an array', async () => {
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => (key === 'Heart attack' ? 'Herzinfarkt' : key),
+    });
+
+    renderWithPatient({
+      _id: 'diagnosis-array-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'diagarray',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Array',
+      name: 'Patient',
+      diagnosis: ['Heart attack'],
+      duration: 30,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: 'Herzinfarkt' })).toBeInTheDocument();
+    });
+  });
+
+  test('renders translated diagnosis when diagnosis is a string', async () => {
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => (key === 'Stroke' ? 'Schlaganfall' : key),
+    });
+
+    renderWithPatient({
+      _id: 'diagnosis-string-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'diagstring',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'String',
+      name: 'Patient',
+      diagnosis: 'Stroke',
+      duration: 30,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: 'Schlaganfall' })).toBeInTheDocument();
+    });
+  });
+
+  test('renders multiple translated diagnoses joined by comma', async () => {
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => {
+        if (key === 'Heart attack') return 'Herzinfarkt';
+        if (key === 'Stroke') return 'Schlaganfall';
+        return key;
+      },
+    });
+
+    renderWithPatient({
+      _id: 'diagnosis-multi-patient',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'diagmulti',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Multi',
+      name: 'Patient',
+      diagnosis: ['Heart attack', 'Stroke'],
+      duration: 30,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: 'Herzinfarkt, Schlaganfall' })).toBeInTheDocument();
+    });
   });
 });
