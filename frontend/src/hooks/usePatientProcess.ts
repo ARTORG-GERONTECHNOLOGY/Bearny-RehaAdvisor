@@ -3,6 +3,7 @@ import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
 import authStore from '@/stores/authStore';
 import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
+import { colors } from '@/lib/colors';
 
 export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
@@ -62,15 +63,13 @@ export type DailyMetricsDatum = {
   sleepMinutes: number;
   bpSys: number | null;
   bpDia: number | null;
-};
-
-export type ThresholdStatus = 'green' | 'yellow' | 'red' | null;
-
-export type ThresholdStatusRecord = {
-  steps: ThresholdStatus;
-  activeMinutes: ThresholdStatus;
-  sleepMinutes: ThresholdStatus;
-  bloodPressure: ThresholdStatus;
+  colors: {
+    steps: string;
+    activeMinutes: string;
+    sleepMinutes: string;
+    bpSys: string;
+    bpDia: string;
+  };
 };
 
 type AverageMetrics = {
@@ -85,14 +84,14 @@ type AverageMetrics = {
 };
 
 type ChartThresholds = {
-  steps: number | null;
-  activeMinutes: number | null;
+  stepsGreen: number | null;
+  activeMinutesGreen: number | null;
   activeMinutesYellow: number | null;
-  sleepMinutes: number | null;
+  sleepMinutesGreen: number | null;
   sleepMinutesYellow: number | null;
-  bpSysMax: number | null;
+  bpSysGreenMax: number | null;
   bpSysYellowMax: number | null;
-  bpDiaMax: number | null;
+  bpDiaGreenMax: number | null;
   bpDiaYellowMax: number | null;
 };
 
@@ -122,6 +121,20 @@ const formatMinutesToHM = (minutes: number | null) => {
   const hours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
   return `${hours}h ${remainingMinutes}min`;
+};
+
+const minColor = (value: number | null, green: number | null, yellow: number | null): string => {
+  if (green === null || value === null) return colors.chartMuted;
+  if (value >= green) return colors.brand;
+  if (yellow !== null && value >= yellow) return colors.yellow;
+  return colors.pink;
+};
+
+const maxColor = (value: number | null, green: number | null, yellow: number | null): string => {
+  if (green === null || value === null) return colors.chartMuted;
+  if (value <= green) return colors.brand;
+  if (yellow !== null && value <= yellow) return colors.yellow;
+  return colors.pink;
 };
 
 export const getDateWindow = (filter: ProcessFilter) => {
@@ -207,8 +220,22 @@ export function usePatientProcess() {
     };
   }, [patientId, isAllowed, from, to, processFilter]);
 
+  const chartThresholds = useMemo<ChartThresholds>(() => {
+    return {
+      stepsGreen: asNumberOrNull(thresholds?.steps_goal),
+      activeMinutesGreen: asNumberOrNull(thresholds?.active_minutes_green),
+      activeMinutesYellow: asNumberOrNull(thresholds?.active_minutes_yellow),
+      sleepMinutesGreen: asNumberOrNull(thresholds?.sleep_green_min),
+      sleepMinutesYellow: asNumberOrNull(thresholds?.sleep_yellow_min),
+      bpSysGreenMax: asNumberOrNull(thresholds?.bp_sys_green_max),
+      bpSysYellowMax: asNumberOrNull(thresholds?.bp_sys_yellow_max),
+      bpDiaGreenMax: asNumberOrNull(thresholds?.bp_dia_green_max),
+      bpDiaYellowMax: asNumberOrNull(thresholds?.bp_dia_yellow_max),
+    };
+  }, [thresholds]);
+
   const dailyMetrics = useMemo<DailyMetricsDatum[]>(() => {
-    const byDay = new Map<string, Omit<DailyMetricsDatum, 'date'>>();
+    const byDay = new Map<string, Omit<DailyMetricsDatum, 'date' | 'colors'>>();
 
     if (Array.isArray(fitbitSummary?.period?.daily)) {
       fitbitSummary.period.daily.forEach((row) => {
@@ -248,12 +275,35 @@ export function usePatientProcess() {
         sleepMinutes: metrics?.sleepMinutes ?? 0,
         bpSys: metrics?.bpSys ?? null,
         bpDia: metrics?.bpDia ?? null,
+        colors: {
+          steps: minColor(metrics?.steps ?? null, chartThresholds.stepsGreen, null),
+          activeMinutes: minColor(
+            metrics?.activeMinutes ?? null,
+            chartThresholds.activeMinutesGreen,
+            chartThresholds.activeMinutesYellow
+          ),
+          sleepMinutes: minColor(
+            metrics?.sleepMinutes ?? null,
+            chartThresholds.sleepMinutesGreen,
+            chartThresholds.sleepMinutesYellow
+          ),
+          bpSys: maxColor(
+            metrics?.bpSys ?? null,
+            chartThresholds.bpSysGreenMax,
+            chartThresholds.bpSysYellowMax
+          ),
+          bpDia: maxColor(
+            metrics?.bpDia ?? null,
+            chartThresholds.bpDiaGreenMax,
+            chartThresholds.bpDiaYellowMax
+          ),
+        },
       });
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     return series;
-  }, [fitbitSummary?.period?.daily, from, to]);
+  }, [fitbitSummary?.period?.daily, from, to, chartThresholds]);
 
   const adherenceTotals = useMemo(() => {
     let completed = 0;
@@ -292,43 +342,29 @@ export function usePatientProcess() {
     };
   }, [fitbitSummary?.period?.averages, adherenceTotals]);
 
-  const chartThresholds = useMemo<ChartThresholds>(() => {
-    return {
-      steps: asNumberOrNull(thresholds?.steps_goal),
-      activeMinutes: asNumberOrNull(thresholds?.active_minutes_green),
-      activeMinutesYellow: asNumberOrNull(thresholds?.active_minutes_yellow),
-      sleepMinutes: asNumberOrNull(thresholds?.sleep_green_min),
-      sleepMinutesYellow: asNumberOrNull(thresholds?.sleep_yellow_min),
-      bpSysMax: asNumberOrNull(thresholds?.bp_sys_green_max),
-      bpSysYellowMax: asNumberOrNull(thresholds?.bp_sys_yellow_max),
-      bpDiaMax: asNumberOrNull(thresholds?.bp_dia_green_max),
-      bpDiaYellowMax: asNumberOrNull(thresholds?.bp_dia_yellow_max),
-    };
-  }, [thresholds]);
-
   const chartYMax = useMemo<ChartYMax>(() => {
     const withPadding = (value: number) => Math.max(1, Math.ceil(value * 1.1));
 
     const maxSteps = Math.max(
       ...dailyMetrics.map((entry) => entry.steps),
-      chartThresholds.steps ?? 0,
+      chartThresholds.stepsGreen ?? 0,
       0
     );
     const maxActiveMinutes = Math.max(
       ...dailyMetrics.map((entry) => entry.activeMinutes),
-      chartThresholds.activeMinutes ?? 0,
+      chartThresholds.activeMinutesGreen ?? 0,
       0
     );
     const maxSleepMinutes = Math.max(
       ...dailyMetrics.map((entry) => entry.sleepMinutes),
-      chartThresholds.sleepMinutes ?? 0,
+      chartThresholds.sleepMinutesGreen ?? 0,
       0
     );
     const maxBloodPressure = Math.max(
       ...dailyMetrics.flatMap((entry) => [entry.bpSys ?? 0, entry.bpDia ?? 0]),
-      chartThresholds.bpSysMax ?? 0,
+      chartThresholds.bpSysGreenMax ?? 0,
       chartThresholds.bpSysYellowMax ?? 0,
-      chartThresholds.bpDiaMax ?? 0,
+      chartThresholds.bpDiaGreenMax ?? 0,
       chartThresholds.bpDiaYellowMax ?? 0,
       0
     );
@@ -340,57 +376,6 @@ export function usePatientProcess() {
       bloodPressure: withPadding(maxBloodPressure),
     };
   }, [dailyMetrics, chartThresholds]);
-
-  const thresholdStatus = useMemo<ThresholdStatusRecord>(() => {
-    const minStatus = (
-      value: number | null,
-      green: number | null,
-      yellow: number | null
-    ): ThresholdStatus => {
-      if (green === null) return null;
-      if (value === null) return 'red';
-      if (value >= green) return 'green';
-      if (yellow !== null && value >= yellow) return 'yellow';
-      return 'red';
-    };
-
-    const maxStatus = (
-      value: number | null,
-      green: number | null,
-      yellow: number | null
-    ): ThresholdStatus => {
-      if (green === null) return null;
-      if (value === null) return 'red';
-      if (value <= green) return 'green';
-      if (yellow !== null && value <= yellow) return 'yellow';
-      return 'red';
-    };
-
-    const worstOf = (a: ThresholdStatus, b: ThresholdStatus): ThresholdStatus => {
-      if (a === 'red' || b === 'red') return 'red';
-      if (a === 'yellow' || b === 'yellow') return 'yellow';
-      if (a === 'green' || b === 'green') return 'green';
-      return null;
-    };
-
-    return {
-      steps: minStatus(averageMetrics.steps, chartThresholds.steps, null),
-      activeMinutes: minStatus(
-        averageMetrics.activeMinutes,
-        chartThresholds.activeMinutes,
-        chartThresholds.activeMinutesYellow
-      ),
-      sleepMinutes: minStatus(
-        averageMetrics.sleepMinutes,
-        chartThresholds.sleepMinutes,
-        chartThresholds.sleepMinutesYellow
-      ),
-      bloodPressure: worstOf(
-        maxStatus(averageMetrics.bpSys, chartThresholds.bpSysMax, chartThresholds.bpSysYellowMax),
-        maxStatus(averageMetrics.bpDia, chartThresholds.bpDiaMax, chartThresholds.bpDiaYellowMax)
-      ),
-    };
-  }, [averageMetrics, chartThresholds]);
 
   return {
     processFilter,
@@ -404,6 +389,5 @@ export function usePatientProcess() {
     averageMetrics,
     chartThresholds,
     chartYMax,
-    thresholdStatus,
   };
 }
