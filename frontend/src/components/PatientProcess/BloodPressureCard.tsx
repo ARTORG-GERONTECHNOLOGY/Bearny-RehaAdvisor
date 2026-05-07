@@ -75,6 +75,7 @@ const BloodPressureCard: React.FC<Props> = ({
                 dataKey="bpSys"
                 stroke={lineColor}
                 strokeWidth={4}
+                strokeOpacity={0.7}
                 connectNulls={true}
                 dot={(props) => {
                   const { cx, cy, payload } = props;
@@ -87,6 +88,7 @@ const BloodPressureCard: React.FC<Props> = ({
                 dataKey="bpDia"
                 stroke={lineColor}
                 strokeWidth={4}
+                strokeOpacity={0.5}
                 connectNulls={true}
                 dot={(props) => {
                   const { cx, cy, payload } = props;
