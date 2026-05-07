@@ -186,6 +186,7 @@ export class RehabTableStore {
   contentTypeFilter = '';
   tagFilter: string[] = [];
   benefitForFilter: string[] = [];
+  languageFilter: string[] = [];
 
   // Selected intervention + modals
   selectedExerciseId: string | null = null;
@@ -375,6 +376,10 @@ export class RehabTableStore {
     this.benefitForFilter = Array.isArray(v) ? v : [];
     this.applyAllFilters();
   }
+  setLanguageFilter(v: string[]) {
+    this.languageFilter = Array.isArray(v) ? v : [];
+    this.applyAllFilters();
+  }
 
   resetAllFilters() {
     this.searchTerm = '';
@@ -382,6 +387,7 @@ export class RehabTableStore {
     this.contentTypeFilter = '';
     this.tagFilter = [];
     this.benefitForFilter = [];
+    this.languageFilter = [];
     this.applyAllFilters();
   }
 
@@ -545,7 +551,7 @@ export class RehabTableStore {
   applyAllFilters() {
     const filtered = filterInterventions(this.recommendations, this.titleMap, {
       diagnosisFilter: this.patientTypeFilter ? [this.patientTypeFilter] : [],
-      languageFilter: [],
+      languageFilter: this.languageFilter.map((l) => l.toLowerCase()),
       contentTypeFilter: this.contentTypeFilter,
       tagFilter: this.tagFilter,
       benefitForFilter: this.benefitForFilter,
