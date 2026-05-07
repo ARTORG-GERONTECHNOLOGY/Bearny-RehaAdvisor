@@ -2,6 +2,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
 import apiClient from '@/api/client';
 import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
+import { colors } from '@/lib/colors';
 
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
@@ -126,6 +127,14 @@ describe('usePatientProcess', () => {
       bpSys: null,
       bpDia: null,
     });
+    // null values (no API data) → all metrics render as muted
+    expect(result.current.dailyMetrics[0].colors).toEqual({
+      steps: colors.chartMuted,
+      activeMinutes: colors.chartMuted,
+      sleepMinutes: colors.chartMuted,
+      bpSys: colors.chartMuted,
+      bpDia: colors.chartMuted,
+    });
     expect(result.current.dailyMetrics[6]).toMatchObject({
       date: todayIso.slice(5),
       steps: 8000,
@@ -133,6 +142,14 @@ describe('usePatientProcess', () => {
       sleepMinutes: 480,
       bpSys: 121,
       bpDia: 79,
+    });
+    // all values meet their green thresholds → all brand color
+    expect(result.current.dailyMetrics[6].colors).toEqual({
+      steps: colors.brand,
+      activeMinutes: colors.brand,
+      sleepMinutes: colors.brand,
+      bpSys: colors.brand,
+      bpDia: colors.brand,
     });
 
     expect(result.current.adherenceTotals).toEqual({ completed: 9, uncompleted: 4 });
@@ -181,6 +198,60 @@ describe('usePatientProcess', () => {
 
     expect(result.current.processFilter).toBe('month');
     expect(result.current.dailyMetrics).toHaveLength(30);
+  });
+
+  it('assigns yellow and pink colors for values in and below the yellow threshold range', async () => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/patients/health-combined-history/')) {
+        return Promise.resolve({ data: { adherence: [] } });
+      }
+      if (url.includes('/fitbit/summary/')) {
+        return Promise.resolve({
+          data: {
+            thresholds: {
+              steps_goal: 6000,
+              active_minutes_green: 120,
+              active_minutes_yellow: 60,
+              sleep_green_min: 420,
+              sleep_yellow_min: 300,
+              bp_sys_green_max: 125,
+              bp_sys_yellow_max: 140,
+              bp_dia_green_max: 85,
+              bp_dia_yellow_max: 100,
+            },
+            period: {
+              averages: {},
+              daily: [
+                {
+                  date: todayIso,
+                  steps: 8000, // >= 6000 green threshold → brand
+                  active_minutes: 90, // < 120 green, >= 60 yellow → yellow
+                  sleep_minutes: 200, // < 420 green, < 300 yellow → pink
+                  bp_sys: 130, // > 125 green, <= 140 yellow → yellow
+                  bp_dia: 110, // > 85 green, > 100 yellow → pink
+                },
+              ],
+            },
+          },
+        });
+      }
+      return Promise.reject(new Error('Unexpected endpoint'));
+    });
+
+    const { result } = renderHook(() => usePatientProcess());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    const today = result.current.dailyMetrics[6];
+    expect(today.colors.steps).toBe(colors.brand);
+    expect(today.colors.activeMinutes).toBe(colors.yellow);
+    expect(today.colors.sleepMinutes).toBe(colors.pink);
+    expect(today.colors.bpSys).toBe(colors.yellow);
+    expect(today.colors.bpDia).toBe(colors.pink);
   });
 
   it('surfaces backend error message on request failure', async () => {

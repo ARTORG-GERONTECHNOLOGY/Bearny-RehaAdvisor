@@ -276,14 +276,14 @@ export function usePatientProcess() {
         bpSys: metrics?.bpSys ?? null,
         bpDia: metrics?.bpDia ?? null,
         colors: {
-          steps: minColor(metrics?.steps ?? 0, chartThresholds.stepsGreen, null),
+          steps: minColor(metrics?.steps ?? null, chartThresholds.stepsGreen, null),
           activeMinutes: minColor(
-            metrics?.activeMinutes ?? 0,
+            metrics?.activeMinutes ?? null,
             chartThresholds.activeMinutesGreen,
             chartThresholds.activeMinutesYellow
           ),
           sleepMinutes: minColor(
-            metrics?.sleepMinutes ?? 0,
+            metrics?.sleepMinutes ?? null,
             chartThresholds.sleepMinutesGreen,
             chartThresholds.sleepMinutesYellow
           ),
