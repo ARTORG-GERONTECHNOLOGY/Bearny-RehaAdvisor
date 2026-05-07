@@ -145,14 +145,14 @@ describe('usePatientProcess', () => {
       recommendationsPct: 69,
     });
     expect(result.current.chartThresholds).toEqual({
-      steps: 6000,
-      activeMinutes: 120,
+      stepsGreen: 6000,
+      activeMinutesGreen: 120,
       activeMinutesYellow: null,
-      sleepMinutes: 420,
+      sleepMinutesGreen: 420,
       sleepMinutesYellow: null,
-      bpSysMax: 125,
+      bpSysGreenMax: 125,
       bpSysYellowMax: null,
-      bpDiaMax: 85,
+      bpDiaGreenMax: 85,
       bpDiaYellowMax: null,
     });
     expect(result.current.chartYMax.steps).toBe(8800);

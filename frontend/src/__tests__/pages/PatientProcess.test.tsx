@@ -56,13 +56,13 @@ const baseHookReturn = {
     bpDia: 76,
   },
   chartThresholds: {
-    steps: 10000,
-    activeMinutes: 30,
+    stepsGreen: 10000,
+    activeMinutesGreen: 30,
     activeMinutesYellow: null,
-    sleepMinutes: 420,
+    sleepMinutesGreen: 420,
     sleepMinutesYellow: null,
-    bpSysMax: 130,
-    bpDiaMax: 85,
+    bpSysGreenMax: 130,
+    bpDiaGreenMax: 85,
   },
   chartYMax: {
     steps: 15000,

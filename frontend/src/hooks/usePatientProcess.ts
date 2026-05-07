@@ -84,14 +84,14 @@ type AverageMetrics = {
 };
 
 type ChartThresholds = {
-  steps: number | null;
-  activeMinutes: number | null;
+  stepsGreen: number | null;
+  activeMinutesGreen: number | null;
   activeMinutesYellow: number | null;
-  sleepMinutes: number | null;
+  sleepMinutesGreen: number | null;
   sleepMinutesYellow: number | null;
-  bpSysMax: number | null;
+  bpSysGreenMax: number | null;
   bpSysYellowMax: number | null;
-  bpDiaMax: number | null;
+  bpDiaGreenMax: number | null;
   bpDiaYellowMax: number | null;
 };
 
@@ -125,16 +125,16 @@ const formatMinutesToHM = (minutes: number | null) => {
 
 const minColor = (value: number | null, green: number | null, yellow: number | null): string => {
   if (green === null || value === null) return colors.chartMuted;
-  if (value >= green) return colors.ok;
+  if (value >= green) return colors.brand;
   if (yellow !== null && value >= yellow) return colors.yellow;
-  return colors.nok;
+  return colors.pink;
 };
 
 const maxColor = (value: number | null, green: number | null, yellow: number | null): string => {
   if (green === null || value === null) return colors.chartMuted;
-  if (value <= green) return colors.ok;
+  if (value <= green) return colors.brand;
   if (yellow !== null && value <= yellow) return colors.yellow;
-  return colors.nok;
+  return colors.pink;
 };
 
 export const getDateWindow = (filter: ProcessFilter) => {
@@ -222,14 +222,14 @@ export function usePatientProcess() {
 
   const chartThresholds = useMemo<ChartThresholds>(() => {
     return {
-      steps: asNumberOrNull(thresholds?.steps_goal),
-      activeMinutes: asNumberOrNull(thresholds?.active_minutes_green),
+      stepsGreen: asNumberOrNull(thresholds?.steps_goal),
+      activeMinutesGreen: asNumberOrNull(thresholds?.active_minutes_green),
       activeMinutesYellow: asNumberOrNull(thresholds?.active_minutes_yellow),
-      sleepMinutes: asNumberOrNull(thresholds?.sleep_green_min),
+      sleepMinutesGreen: asNumberOrNull(thresholds?.sleep_green_min),
       sleepMinutesYellow: asNumberOrNull(thresholds?.sleep_yellow_min),
-      bpSysMax: asNumberOrNull(thresholds?.bp_sys_green_max),
+      bpSysGreenMax: asNumberOrNull(thresholds?.bp_sys_green_max),
       bpSysYellowMax: asNumberOrNull(thresholds?.bp_sys_yellow_max),
-      bpDiaMax: asNumberOrNull(thresholds?.bp_dia_green_max),
+      bpDiaGreenMax: asNumberOrNull(thresholds?.bp_dia_green_max),
       bpDiaYellowMax: asNumberOrNull(thresholds?.bp_dia_yellow_max),
     };
   }, [thresholds]);
@@ -276,25 +276,25 @@ export function usePatientProcess() {
         bpSys: metrics?.bpSys ?? null,
         bpDia: metrics?.bpDia ?? null,
         colors: {
-          steps: minColor(metrics?.steps ?? 0, chartThresholds.steps, null),
+          steps: minColor(metrics?.steps ?? 0, chartThresholds.stepsGreen, null),
           activeMinutes: minColor(
             metrics?.activeMinutes ?? 0,
-            chartThresholds.activeMinutes,
+            chartThresholds.activeMinutesGreen,
             chartThresholds.activeMinutesYellow
           ),
           sleepMinutes: minColor(
             metrics?.sleepMinutes ?? 0,
-            chartThresholds.sleepMinutes,
+            chartThresholds.sleepMinutesGreen,
             chartThresholds.sleepMinutesYellow
           ),
           bpSys: maxColor(
             metrics?.bpSys ?? null,
-            chartThresholds.bpSysMax,
+            chartThresholds.bpSysGreenMax,
             chartThresholds.bpSysYellowMax
           ),
           bpDia: maxColor(
             metrics?.bpDia ?? null,
-            chartThresholds.bpDiaMax,
+            chartThresholds.bpDiaGreenMax,
             chartThresholds.bpDiaYellowMax
           ),
         },
@@ -347,24 +347,24 @@ export function usePatientProcess() {
 
     const maxSteps = Math.max(
       ...dailyMetrics.map((entry) => entry.steps),
-      chartThresholds.steps ?? 0,
+      chartThresholds.stepsGreen ?? 0,
       0
     );
     const maxActiveMinutes = Math.max(
       ...dailyMetrics.map((entry) => entry.activeMinutes),
-      chartThresholds.activeMinutes ?? 0,
+      chartThresholds.activeMinutesGreen ?? 0,
       0
     );
     const maxSleepMinutes = Math.max(
       ...dailyMetrics.map((entry) => entry.sleepMinutes),
-      chartThresholds.sleepMinutes ?? 0,
+      chartThresholds.sleepMinutesGreen ?? 0,
       0
     );
     const maxBloodPressure = Math.max(
       ...dailyMetrics.flatMap((entry) => [entry.bpSys ?? 0, entry.bpDia ?? 0]),
-      chartThresholds.bpSysMax ?? 0,
+      chartThresholds.bpSysGreenMax ?? 0,
       chartThresholds.bpSysYellowMax ?? 0,
-      chartThresholds.bpDiaMax ?? 0,
+      chartThresholds.bpDiaGreenMax ?? 0,
       chartThresholds.bpDiaYellowMax ?? 0,
       0
     );

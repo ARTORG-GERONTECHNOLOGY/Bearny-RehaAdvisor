@@ -77,21 +77,21 @@ const PatientProcess: React.FC = observer(() => {
       metricKey: 'steps' as const,
       title: t('Steps'),
       average: averageMetrics.steps !== null ? averageMetrics.steps.toLocaleString() : '--',
-      threshold: chartThresholds.steps,
+      threshold: chartThresholds.stepsGreen,
       yMax: chartYMax.steps,
     },
     {
       metricKey: 'activeMinutes' as const,
       title: t('activeMinutes'),
       average: averageMetrics.activeMinutesLabel ?? '--',
-      threshold: chartThresholds.activeMinutes,
+      threshold: chartThresholds.activeMinutesGreen,
       yMax: chartYMax.activeMinutes,
     },
     {
       metricKey: 'sleepMinutes' as const,
       title: t('Sleep'),
       average: averageMetrics.sleepMinutesLabel ?? '--',
-      threshold: chartThresholds.sleepMinutes,
+      threshold: chartThresholds.sleepMinutesGreen,
       yMax: chartYMax.sleepMinutes,
     },
   ];
@@ -162,7 +162,7 @@ const PatientProcess: React.FC = observer(() => {
                 recommendationsPct={averageMetrics.recommendationsPct}
                 adherenceTotals={adherenceTotals}
                 chartConfig={chartConfigs.recommendations}
-                doneColor={colors.ok}
+                doneColor={colors.brand}
                 notDoneColor={colors.chartMuted}
               />
             </div>
@@ -195,8 +195,8 @@ const PatientProcess: React.FC = observer(() => {
                 chartConfig={chartConfigs.bloodPressure}
                 data={dailyMetrics}
                 yMax={chartYMax.bloodPressure}
-                bpSysThreshold={chartThresholds.bpSysMax}
-                bpDiaThreshold={chartThresholds.bpDiaMax}
+                bpSysThreshold={chartThresholds.bpSysGreenMax}
+                bpDiaThreshold={chartThresholds.bpDiaGreenMax}
                 lineColor={colors.chartMuted}
                 thresholdLineProps={THRESHOLD_LINE_PROPS}
               />
