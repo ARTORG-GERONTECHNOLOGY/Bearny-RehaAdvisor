@@ -10,8 +10,8 @@ type Props = {
   recommendationsPct: number | null;
   adherenceTotals: { completed: number; uncompleted: number };
   chartConfig: ChartConfig;
-  accentColor: string;
-  accentSoftColor: string;
+  doneColor: string;
+  notDoneColor: string;
 };
 
 const RecommendationsCard: React.FC<Props> = ({
@@ -20,8 +20,8 @@ const RecommendationsCard: React.FC<Props> = ({
   recommendationsPct,
   adherenceTotals,
   chartConfig,
-  accentColor,
-  accentSoftColor,
+  doneColor,
+  notDoneColor,
 }) => {
   return (
     <Card>
@@ -29,7 +29,7 @@ const RecommendationsCard: React.FC<Props> = ({
         <div className="font-bold text-lg text-zinc-800">{title}</div>
         <div className="font-medium text-sm text-zinc-500 flex gap-1 items-center">
           {doneLabel}
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: accentColor }} />
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: doneColor }} />
         </div>
       </div>
 
@@ -56,7 +56,7 @@ const RecommendationsCard: React.FC<Props> = ({
               <YAxis type="category" hide />
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
 
-              <Bar dataKey="completed" stackId="a" fill={accentColor} radius={18}>
+              <Bar dataKey="completed" stackId="a" fill={doneColor} radius={18}>
                 {adherenceTotals.completed > 0 && (
                   <LabelList
                     dataKey="completed"
@@ -74,7 +74,7 @@ const RecommendationsCard: React.FC<Props> = ({
                 )}
               </Bar>
 
-              <Bar dataKey="uncompleted" stackId="a" fill={accentSoftColor} radius={18}>
+              <Bar dataKey="uncompleted" stackId="a" fill={notDoneColor} radius={18}>
                 {adherenceTotals.completed > 0 && (
                   <LabelList
                     dataKey="uncompleted"
