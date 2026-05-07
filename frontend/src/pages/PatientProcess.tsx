@@ -190,8 +190,8 @@ const PatientProcess: React.FC = observer(() => {
             <div className="flex flex-col gap-2">
               <BloodPressureCard
                 title={t('Blood pressure')}
-                bpSys={averageMetrics.bpSys}
-                bpDia={averageMetrics.bpDia}
+                bpSysAverage={averageMetrics.bpSys}
+                bpDiaAverage={averageMetrics.bpDia}
                 chartConfig={chartConfigs.bloodPressure}
                 data={dailyMetrics}
                 yMax={chartYMax.bloodPressure}

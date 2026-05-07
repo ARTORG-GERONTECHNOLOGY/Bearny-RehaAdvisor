@@ -8,8 +8,8 @@ import { useTranslation } from 'react-i18next';
 
 type Props = {
   title: string;
-  bpSys: number | null;
-  bpDia: number | null;
+  bpSysAverage: number | null;
+  bpDiaAverage: number | null;
   chartConfig: ChartConfig;
   data: DailyMetricsDatum[];
   yMax: number;
@@ -25,8 +25,8 @@ type Props = {
 
 const BloodPressureCard: React.FC<Props> = ({
   title,
-  bpSys,
-  bpDia,
+  bpSysAverage,
+  bpDiaAverage,
   chartConfig,
   data,
   yMax,
@@ -45,8 +45,8 @@ const BloodPressureCard: React.FC<Props> = ({
       <div className="flex items-end">
         <div className="flex-1">
           <div className="font-bold text-[28px] text-zinc-900 leading-[110%] tracking-[-1.1%]">
-            {bpSys !== null ? bpSys : '--'}
-            <br />/{bpDia !== null ? bpDia : '--'} mmHg
+            {bpSysAverage !== null ? bpSysAverage : '--'}
+            <br />/{bpDiaAverage !== null ? bpDiaAverage : '--'} mmHg
           </div>
         </div>
 
