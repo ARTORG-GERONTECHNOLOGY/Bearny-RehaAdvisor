@@ -1,17 +1,13 @@
 // Mock dependencies BEFORE imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('@/stores/authStore', () => ({
   checkAuthentication: jest.fn(),
   isAuthenticated: true,
   userType: 'Therapist',
   id: 'therapist123',
 }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';

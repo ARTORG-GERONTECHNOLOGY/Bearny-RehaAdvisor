@@ -2,14 +2,10 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import EditUserInfo from '@/components/UserProfile/EditProfileSheet';
 
-// ── i18n ─────────────────────────────────────────────────────────────────────
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
-
 // ── api client ───────────────────────────────────────────────────────────────
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 import apiClient from '@/api/client';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // ── config ───────────────────────────────────────────────────────────────────
 jest.mock('../../../config/config.json', () => ({

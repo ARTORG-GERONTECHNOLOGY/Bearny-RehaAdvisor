@@ -146,7 +146,7 @@ const HelpCenter: React.FC<{
 
         // choose a safe initial key
         const order = allowedOrder.length ? allowedOrder : allowedKeys;
-        let initialKey =
+        const initialKey =
           defaultKey && isKeyAllowed(defaultKey) && order.includes(defaultKey)
             ? defaultKey
             : order[0];

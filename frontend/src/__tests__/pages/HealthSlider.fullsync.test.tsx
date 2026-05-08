@@ -7,7 +7,7 @@ function mockMedia() {
     getTracks: () => [{ stop: jest.fn() }],
   });
 
-  // @ts-ignore
+  // @ts-expect-error -- assigning to read-only navigator.mediaDevices in jsdom
   global.navigator.mediaDevices = { getUserMedia };
 
   // mock MediaRecorder
@@ -32,7 +32,7 @@ function mockMedia() {
       // noop
     }
   }
-  // @ts-ignore
+  // @ts-expect-error -- replacing global MediaRecorder with mock class in jsdom
   global.MediaRecorder = MockMediaRecorder;
 
   return { getUserMedia };
@@ -316,7 +316,7 @@ describe('HealthSlider (Full Sync)', () => {
       destination: {},
     }));
 
-    // @ts-ignore
+    // @ts-expect-error -- replacing global AudioContext with mock constructor in jsdom
     global.AudioContext = ACtor;
 
     render(<HealthSlider />);
@@ -539,7 +539,7 @@ describe('HealthSlider (Full Sync)', () => {
     const audioCalls: string[] = [];
     const OriginalAudio = global.Audio as any;
 
-    // @ts-ignore
+    // @ts-expect-error -- replacing global Audio with mock function in jsdom
     global.Audio = function (src?: string) {
       if (typeof src === 'string') audioCalls.push(src);
       return { preload: 'auto' } as any;
@@ -656,14 +656,12 @@ describe('HealthSlider (Full Sync)', () => {
 
   it('MediaRecorder onerror: shows upload-fail modal with partial-audio download', async () => {
     // Give the mock recorder an onerror we can trigger manually
-    let capturedOnerror: ((e: any) => void) | null = null;
     const OriginalMR = (global as any).MediaRecorder;
 
     class ErrorableRecorder extends OriginalMR {
       constructor(stream: any, opts?: any) {
         super(stream, opts);
         // stash reference so the test can fire it
-        capturedOnerror = null; // reset
       }
       start() {
         // After start, expose onerror on the instance so the test can call it

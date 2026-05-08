@@ -1,12 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import WelcomeArea from '@/components/common/WelcomeArea';
 import '@testing-library/jest-dom';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,

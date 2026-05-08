@@ -2,11 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
-
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
@@ -71,6 +67,8 @@ jest.mock('react-select', () => ({
     </select>
   ),
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import interventionsTaxonomyStore from '@/stores/interventionsTaxonomyStore';
 import mockApiClient from '@/__mocks__/api/client';

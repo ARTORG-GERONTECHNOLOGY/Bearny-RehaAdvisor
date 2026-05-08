@@ -8,18 +8,9 @@ import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import apiClient from '../../api/client';
-import config from '../../config/config.json';
 import authStore from '../../stores/authStore';
 import StandardModal from '../common/StandardModal';
 import interventionsTaxonomyStore from '../../stores/interventionsTaxonomyStore';
-
-type PatientType = {
-  type: string;
-  frequency: string;
-  includeOption: any;
-  diagnosis: string;
-  diagnosesOptions: string[];
-};
 
 const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
   brochure: 'pdf',
@@ -49,14 +40,6 @@ interface AddInterventionPopupProps {
 }
 
 type ErrorMap = Record<string, string>;
-
-const defaultPatientType: PatientType = {
-  type: '',
-  frequency: '',
-  includeOption: null,
-  diagnosis: '',
-  diagnosesOptions: [],
-};
 
 const defaultMediaItem: MediaItem = {
   kind: 'external',
@@ -112,21 +95,6 @@ const isValidUrlHttp = (raw: string) => {
     return false;
   }
 };
-
-const isPatientTypeRowComplete = (pt: PatientType) =>
-  !!cleanStr(pt.type) && !!cleanStr(pt.diagnosis) && !!cleanStr(pt.frequency);
-
-const sanitizePatientTypes = (pts: PatientType[]) =>
-  (pts || [])
-    .map((pt) => ({
-      ...pt,
-      type: cleanStr(pt.type),
-      diagnosis: cleanStr(pt.diagnosis),
-      frequency: cleanStr(pt.frequency),
-    }))
-    .filter((pt) => isPatientTypeRowComplete(pt));
-
-const patientTypeRowKey = (idx: number, field: keyof PatientType) => `patientTypes.${idx}.${field}`;
 
 const kindOptions = [
   { value: 'external', label: 'External link' },

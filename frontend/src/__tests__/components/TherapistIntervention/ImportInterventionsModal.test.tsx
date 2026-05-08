@@ -2,14 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 // Provide stable observable mocks so MobX observer() doesn't blow up
 const mockImportStore = {
@@ -46,6 +39,8 @@ jest.mock('@/config/interventions.json', () => ({
     dryRun: false,
   },
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Import AFTER mocks are set up
 import ImportInterventionsModal from '@/components/TherapistInterventionPage/ImportInterventionsModal';

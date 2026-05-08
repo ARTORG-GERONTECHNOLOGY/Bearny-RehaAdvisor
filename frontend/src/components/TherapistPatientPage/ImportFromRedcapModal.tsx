@@ -30,7 +30,6 @@ type Props = {
   // actions
   onRefresh: () => void;
   onImportOne: (c: Candidate) => void;
-  onImportAll: () => void;
 };
 
 const redcapKey = (c: Candidate) => `${c.project}::${(c.identifier || '').trim()}`;
@@ -49,7 +48,6 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
     importedKeys: importedKeysRaw,
     onRefresh,
     onImportOne,
-    onImportAll,
   } = props;
 
   // ✅ hard guards so the modal never crashes
@@ -60,12 +58,6 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
     importedKeysRaw && typeof importedKeysRaw === 'object' ? importedKeysRaw : {};
 
   const anyImporting = !!importingKey;
-
-  const rowLabel = (c: Candidate) => {
-    const hasPat = !!(c.pat_id || '').trim();
-    // If no pat_id: show ONLY record_id (as requested)
-    return hasPat ? String(c.pat_id) : `Record ${c.record_id || c.identifier || '—'}`;
-  };
 
   const canImportRow = (c: Candidate) => {
     const key = redcapKey(c);

@@ -536,7 +536,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
           /* best-effort, no noise */
         });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // keep translations in sync with effectiveItem

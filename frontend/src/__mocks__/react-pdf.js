@@ -1,7 +1,14 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-export const Document = ({ children }) => <div data-testid="mock-document">{children}</div>;
-export const Page = () => <div data-testid="mock-page">Mock PDF Page</div>;
+export function Document({ children }) {
+  return <div data-testid="mock-document">{children}</div>;
+}
+Document.propTypes = { children: PropTypes.node };
+
+export function Page() {
+  return <div data-testid="mock-page">Mock PDF Page</div>;
+}
 export const pdfjs = {
   GlobalWorkerOptions: {
     workerSrc: '',

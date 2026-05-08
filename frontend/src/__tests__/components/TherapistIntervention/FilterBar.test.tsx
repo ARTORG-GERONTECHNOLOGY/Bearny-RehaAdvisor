@@ -10,27 +10,31 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // 🛠 Mock react-select
-jest.mock('react-select', () => (props: any) => {
-  const testId = props.placeholder?.includes('Tags')
-    ? 'tag-select'
-    : props.placeholder?.includes('Diagnosis')
-      ? 'diagnosis-select'
-      : 'other-select';
+jest.mock(
+  'react-select',
+  () =>
+    function ReactSelect(props: any) {
+      const testId = props.placeholder?.includes('Tags')
+        ? 'tag-select'
+        : props.placeholder?.includes('Diagnosis')
+          ? 'diagnosis-select'
+          : 'other-select';
 
-  return (
-    <div data-testid={testId}>
-      <button
-        onClick={() => {
-          if (props.onChange) {
-            props.onChange([{ value: 'At Home', label: 'At Home' }]);
-          }
-        }}
-      >
-        Select Option
-      </button>
-    </div>
-  );
-});
+      return (
+        <div data-testid={testId}>
+          <button
+            onClick={() => {
+              if (props.onChange) {
+                props.onChange([{ value: 'At Home', label: 'At Home' }]);
+              }
+            }}
+          >
+            Select Option
+          </button>
+        </div>
+      );
+    }
+);
 
 describe('FilterBar component', () => {
   const mockSetSearchTerm = jest.fn();

@@ -1,10 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock('recharts', () => ({
   Bar: () => null,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
@@ -20,6 +16,8 @@ jest.mock('@/components/ui/chart', () => ({
   ChartTooltip: () => null,
   ChartTooltipContent: () => null,
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import type { DailyMetricsDatum } from '@/hooks/usePatientProcess';
