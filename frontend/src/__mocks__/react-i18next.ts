@@ -1,5 +1,4 @@
 // Centralized manual mock for react-i18next used by tests.
-// Keep test setup/configuration aligned with this file's usage rather than assuming automatic loading.
 // Tests that need custom translation behaviour can still override with a factory:
 //   jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }))
 
