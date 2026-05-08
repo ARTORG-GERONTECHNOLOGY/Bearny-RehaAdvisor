@@ -45,7 +45,13 @@ jest.mock('@/components/Layout', () => ({
   __esModule: true,
   default: require('@/__mocks__/components/Layout').default,
 }));
-jest.mock('@/components/common/ErrorAlert', () => ({ message }: any) => <div>{message}</div>);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert({ message }: any) {
+      return <div>{message}</div>;
+    }
+);
 
 jest.mock('@/components/PatientLibrary/PatientLibrarySearchPanel', () => ({
   __esModule: true,
