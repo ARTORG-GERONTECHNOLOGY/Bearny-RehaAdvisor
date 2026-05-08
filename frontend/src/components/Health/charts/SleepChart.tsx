@@ -177,4 +177,5 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) 
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });
 
+SleepChart.displayName = 'SleepChart';
 export default SleepChart;
