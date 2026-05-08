@@ -83,4 +83,6 @@ const QuestionnaireTotal = forwardRef<SVGSVGElement, Props>(({ data, start, end,
   return <svg ref={svgRef} style={{ width: '1000', height: 'auto' }} />;
 });
 
+QuestionnaireTotal.displayName = 'QuestionnaireTotal';
+
 export default QuestionnaireTotal;

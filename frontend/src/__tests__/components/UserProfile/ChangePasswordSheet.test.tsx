@@ -23,7 +23,7 @@ const createMockStore = () => ({
   changePassword: jest.fn(async () => {}),
 });
 
-let mockStore = createMockStore();
+const mockStore = createMockStore();
 
 jest.mock('@/stores/userProfileStore', () => ({
   __esModule: true,

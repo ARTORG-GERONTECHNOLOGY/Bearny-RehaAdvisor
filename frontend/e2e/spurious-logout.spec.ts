@@ -27,7 +27,7 @@
  *   E2E_THERAPIST_PASSWORD — therapist password
  */
 
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const API_BASE = process.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
 
@@ -49,15 +49,6 @@ function skipUnlessSeeded(t: typeof test) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function loginViaApi(request: APIRequestContext) {
-  const { login, password } = creds();
-  const res = await request.post(`${API_BASE}/auth/login/`, {
-    data: { username: login, password },
-  });
-  expect(res.ok(), `Login failed: ${await res.text()}`).toBeTruthy();
-  return res.json() as Promise<{ access_token: string; refresh_token: string }>;
-}
 
 async function loginViaUI(page: Parameters<Parameters<typeof test>[1]>[0]) {
   const { login, password } = creds();
@@ -147,7 +138,6 @@ test.describe('Refresh-token rotation race condition', () => {
 test.describe('Stale expiresAt — silent refresh on reload', () => {
   test('user stays logged in after a hard reload when expiresAt is in the past but refresh token is valid', async ({
     page,
-    request,
   }) => {
     skipUnlessSeeded(test);
     await loginViaUI(page);
