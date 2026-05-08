@@ -5,9 +5,13 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock('@/components/PatientPage/FitbitStatus', () => () => (
-  <div data-testid="fitbit-connect-button">Connect</div>
-));
+jest.mock(
+  '@/components/PatientPage/FitbitStatus',
+  () =>
+    function FitbitStatus() {
+      return <div data-testid="fitbit-connect-button">Connect</div>;
+    }
+);
 
 jest.mock('@/components/PatientPage/ProgressIndicator', () =>
   jest.fn(({ current, goal }: { current: number; goal: number }) => (

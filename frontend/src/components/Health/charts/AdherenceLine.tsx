@@ -197,4 +197,6 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });
 
+AdherenceLine.displayName = 'AdherenceLine';
+
 export default AdherenceLine;

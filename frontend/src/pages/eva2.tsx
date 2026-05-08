@@ -336,7 +336,9 @@ export default function HealthSlider() {
         try {
           el.pause();
           el.currentTime = 0;
-        } catch {}
+        } catch {
+          /* empty */
+        }
 
         el.src = blobUrl;
         el.load();

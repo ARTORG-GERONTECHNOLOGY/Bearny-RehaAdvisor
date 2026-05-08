@@ -82,15 +82,27 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 }));
 
 // Reduce popup complexity in tests
-jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => () => (
-  <div data-testid="info-popup" />
-));
-jest.mock('@/components/PatientPage/FeedbackPopup', () => () => (
-  <div data-testid="feedback-popup" />
-));
-jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => (
-  <div data-testid="initial-popup" />
-));
+jest.mock(
+  '@/components/PatientPage/PatientInterventionPopUp',
+  () =>
+    function PatientInterventionPopUp() {
+      return <div data-testid="info-popup" />;
+    }
+);
+jest.mock(
+  '@/components/PatientPage/FeedbackPopup',
+  () =>
+    function FeedbackPopup() {
+      return <div data-testid="feedback-popup" />;
+    }
+);
+jest.mock(
+  '@/components/PatientPage/PatientQuestionaire',
+  () =>
+    function PatientQuestionaire() {
+      return <div data-testid="initial-popup" />;
+    }
+);
 
 // ── Shared date helpers ───────────────────────────────────────────────────────
 

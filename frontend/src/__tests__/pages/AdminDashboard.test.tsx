@@ -65,6 +65,7 @@ jest.mock('@/stores/adminDashboardStore', () => {
         this.showDeclineConfirm = false;
         this.declineEntryId = null;
       });
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       mockStoreInstance = this;
       return this;
     }),
@@ -91,8 +92,20 @@ import { MemoryRouter } from 'react-router-dom';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
 
-jest.mock('@/components/common/ErrorAlert', () => () => <div>Mock ErrorAlert</div>);
-jest.mock('@/components/common/ConfirmModal', () => () => <div>Mock ConfirmModal</div>);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert() {
+      return <div>Mock ErrorAlert</div>;
+    }
+);
+jest.mock(
+  '@/components/common/ConfirmModal',
+  () =>
+    function ConfirmModal() {
+      return <div>Mock ConfirmModal</div>;
+    }
+);
 
 // Mock the apiClient
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));

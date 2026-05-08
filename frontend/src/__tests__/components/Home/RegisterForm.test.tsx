@@ -9,7 +9,7 @@ jest.mock('react-i18next', () => ({
 
 // Mock react-select to use standard select elements
 jest.mock('react-select', () => {
-  return ({ options, onChange, isMulti, value, id, isDisabled }: any) => {
+  return function ReactSelect({ options, onChange, isMulti, value, id, isDisabled }: any) {
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       if (isMulti) {
         const selected = Array.from(e.target.selectedOptions || []).map((opt: any) => ({

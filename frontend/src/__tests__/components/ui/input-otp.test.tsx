@@ -13,14 +13,17 @@ jest.mock('input-otp', () => {
     slots: [{ char: '', hasFakeCaret: false, isActive: false }],
   });
   return {
-    OTPInput: React.forwardRef(
-      ({ children, containerClassName, className, ...rest }: any, ref: any) => (
+    OTPInput: React.forwardRef(function OTPInput(
+      { children, containerClassName, className, ...rest }: any,
+      ref: any
+    ) {
+      return (
         <div className={containerClassName}>
           <input ref={ref} className={className} {...rest} />
           {children}
         </div>
-      )
-    ),
+      );
+    }),
     OTPInputContext,
   };
 });

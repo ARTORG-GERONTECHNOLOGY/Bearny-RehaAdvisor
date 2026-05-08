@@ -42,10 +42,18 @@ jest.mock('react-bootstrap', () => {
   const actual = jest.requireActual('react-bootstrap');
   const MockModal = ({ show, children }: any) =>
     show ? <div data-testid="modal">{children}</div> : null;
-  MockModal.Header = ({ children }: any) => <div data-testid="modal-header">{children}</div>;
-  MockModal.Title = ({ children }: any) => <h5 data-testid="modal-title">{children}</h5>;
-  MockModal.Body = ({ children }: any) => <div data-testid="modal-body">{children}</div>;
-  MockModal.Footer = ({ children }: any) => <div data-testid="modal-footer">{children}</div>;
+  MockModal.Header = function ModalHeader({ children }: any) {
+    return <div data-testid="modal-header">{children}</div>;
+  };
+  MockModal.Title = function ModalTitle({ children }: any) {
+    return <h5 data-testid="modal-title">{children}</h5>;
+  };
+  MockModal.Body = function ModalBody({ children }: any) {
+    return <div data-testid="modal-body">{children}</div>;
+  };
+  MockModal.Footer = function ModalFooter({ children }: any) {
+    return <div data-testid="modal-footer">{children}</div>;
+  };
 
   return {
     ...actual,

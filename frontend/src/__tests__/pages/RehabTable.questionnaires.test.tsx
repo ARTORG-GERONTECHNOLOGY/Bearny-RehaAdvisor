@@ -6,27 +6,83 @@ import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
 
-jest.mock('@/components/RehaTablePage/layout/RehaPageLayout', () => ({ children }: any) => (
-  <div>{children}</div>
-));
-jest.mock('@/components/RehaTablePage/layout/RehaLeftPanelShell', () => ({ children }: any) => (
-  <div>{children}</div>
-));
-jest.mock('@/components/RehaTablePage/layout/RehaCalendarPanelShell', () => ({ children }: any) => (
-  <div>{children}</div>
-));
-jest.mock('@/components/RehaTablePage/InterventionLeftPanel', () => () => (
-  <div>InterventionLeftPanel</div>
-));
-jest.mock('@/components/RehaTablePage/InterventionCalendar', () => () => (
-  <div>InterventionCalendar</div>
-));
-jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => () => null);
-jest.mock('@/components/RehaTablePage/InterventionRepeatModal', () => () => null);
-jest.mock('@/components/RehaTablePage/InterventionStatsModal', () => () => null);
-jest.mock('@/components/RehaTablePage/InterventionFeedbackModal', () => () => null);
-jest.mock('@/components/RehaTablePage/QuestionnaireScheduleModal', () => () => null);
-jest.mock('@/components/RehaTablePage/QuestionnaireBuilderModal', () => () => null);
+jest.mock(
+  '@/components/RehaTablePage/layout/RehaPageLayout',
+  () =>
+    function RehaPageLayout({ children }: any) {
+      return <div>{children}</div>;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/layout/RehaLeftPanelShell',
+  () =>
+    function RehaLeftPanelShell({ children }: any) {
+      return <div>{children}</div>;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/layout/RehaCalendarPanelShell',
+  () =>
+    function RehaCalendarPanelShell({ children }: any) {
+      return <div>{children}</div>;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/InterventionLeftPanel',
+  () =>
+    function InterventionLeftPanel() {
+      return <div>InterventionLeftPanel</div>;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/InterventionCalendar',
+  () =>
+    function InterventionCalendar() {
+      return <div>InterventionCalendar</div>;
+    }
+);
+jest.mock(
+  '@/components/PatientPage/PatientInterventionPopUp',
+  () =>
+    function PatientInterventionPopUp() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/InterventionRepeatModal',
+  () =>
+    function InterventionRepeatModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/InterventionStatsModal',
+  () =>
+    function InterventionStatsModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/InterventionFeedbackModal',
+  () =>
+    function InterventionFeedbackModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/QuestionnaireScheduleModal',
+  () =>
+    function QuestionnaireScheduleModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/RehaTablePage/QuestionnaireBuilderModal',
+  () =>
+    function QuestionnaireBuilderModal() {
+      return null;
+    }
+);
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

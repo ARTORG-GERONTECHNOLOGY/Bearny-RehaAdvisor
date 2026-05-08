@@ -7,7 +7,7 @@ function mockMedia() {
     getTracks: () => [{ stop: jest.fn() }],
   });
 
-  // @ts-ignore
+  // @ts-expect-error
   global.navigator.mediaDevices = { getUserMedia };
 
   // mock MediaRecorder
@@ -32,7 +32,7 @@ function mockMedia() {
       // noop
     }
   }
-  // @ts-ignore
+  // @ts-expect-error
   global.MediaRecorder = MockMediaRecorder;
 
   return { getUserMedia };
@@ -316,7 +316,7 @@ describe('HealthSlider (Full Sync)', () => {
       destination: {},
     }));
 
-    // @ts-ignore
+    // @ts-expect-error
     global.AudioContext = ACtor;
 
     render(<HealthSlider />);
@@ -539,7 +539,7 @@ describe('HealthSlider (Full Sync)', () => {
     const audioCalls: string[] = [];
     const OriginalAudio = global.Audio as any;
 
-    // @ts-ignore
+    // @ts-expect-error
     global.Audio = function (src?: string) {
       if (typeof src === 'string') audioCalls.push(src);
       return { preload: 'auto' } as any;

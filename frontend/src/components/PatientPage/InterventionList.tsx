@@ -97,7 +97,9 @@ const InterventionList: React.FC = observer(() => {
         console.error('[openFeedbackFor] failed:', e);
         try {
           patientQuestionnairesStore.closeFeedback();
-        } catch {}
+        } catch {
+          /* empty */
+        }
       }
     },
     [patientId, i18n.language]

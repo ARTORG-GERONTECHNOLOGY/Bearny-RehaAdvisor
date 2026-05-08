@@ -58,87 +58,157 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
 
 // Child component mocks
 jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
-jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
-jest.mock('@/components/TherapistInterventionPage/ProductPopup', () => (props) => (
-  <div>
-    Product Popup
-    <button aria-label="close" onClick={props.handleClose}>
-      Close
-    </button>
-  </div>
-));
+jest.mock(
+  '@/components/common/WelcomeArea',
+  () =>
+    function WelcomeArea() {
+      return <div>Mocked Welcome Area</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/ProductPopup',
+  () =>
+    function ProductPopup(props) {
+      return (
+        <div>
+          Product Popup
+          <button aria-label="close" onClick={props.handleClose}>
+            Close
+          </button>
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/AddIntervention/AddRecomendationPopUp', () => () => (
-  <div>Add Intervention Popup</div>
-));
+jest.mock(
+  '@/components/AddIntervention/AddRecomendationPopUp',
+  () =>
+    function AddRecomendationPopUp() {
+      return <div>Add Intervention Popup</div>;
+    }
+);
 
 // Mock new components used in refactored TherapistInterventions
-jest.mock('@/components/TherapistInterventionPage/MainTabs', () => () => <div>Main Tabs</div>);
+jest.mock(
+  '@/components/TherapistInterventionPage/MainTabs',
+  () =>
+    function MainTabs() {
+      return <div>Main Tabs</div>;
+    }
+);
 
-jest.mock('@/components/TherapistInterventionPage/LibraryFiltersCard', () => (props: any) => (
-  <div>
-    <input
-      placeholder="Search Interventions"
-      value={props.filters.searchTerm}
-      onChange={(e) => props.onChange({ ...props.filters, searchTerm: e.target.value })}
-    />
-    <button
-      onClick={() => props.onChange({ ...props.filters, diagnosisFilter: ['heart failure'] })}
-    >
-      Set Diagnosis
-    </button>
-    <button onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}>
-      Set Content Type
-    </button>
-  </div>
-));
+jest.mock(
+  '@/components/TherapistInterventionPage/LibraryFiltersCard',
+  () =>
+    function LibraryFiltersCard(props: any) {
+      return (
+        <div>
+          <input
+            placeholder="Search Interventions"
+            value={props.filters.searchTerm}
+            onChange={(e) => props.onChange({ ...props.filters, searchTerm: e.target.value })}
+          />
+          <button
+            onClick={() => props.onChange({ ...props.filters, diagnosisFilter: ['heart failure'] })}
+          >
+            Set Diagnosis
+          </button>
+          <button
+            onClick={() => props.onChange({ ...props.filters, contentTypeFilter: 'Exercise' })}
+          >
+            Set Content Type
+          </button>
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/TherapistInterventionPage/LibraryListSection', () => (props: any) => (
-  <div>
-    {props.items.map((item: any) => (
-      <div key={item._id} onClick={() => props.onClick(item)}>
-        {item.title}
-      </div>
-    ))}
-  </div>
-));
+jest.mock(
+  '@/components/TherapistInterventionPage/LibraryListSection',
+  () =>
+    function LibraryListSection(props: any) {
+      return (
+        <div>
+          {props.items.map((item: any) => (
+            <div key={item._id} onClick={() => props.onClick(item)}>
+              {item.title}
+            </div>
+          ))}
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/TherapistInterventionPage/AddInterventionRow', () => (props: any) => (
-  <div>
-    <button onClick={props.onAdd}>Add Intervention</button>
-    <button onClick={props.onImport}>Import</button>
-  </div>
-));
+jest.mock(
+  '@/components/TherapistInterventionPage/AddInterventionRow',
+  () =>
+    function AddInterventionRow(props: any) {
+      return (
+        <div>
+          <button onClick={props.onAdd}>Add Intervention</button>
+          <button onClick={props.onImport}>Import</button>
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/TherapistInterventionPage/ImportInterventionsModal', () => () => null);
-jest.mock('@/components/TherapistInterventionPage/TemplateAssignModal', () => () => null);
-jest.mock('@/components/TherapistInterventionPage/TemplatesLayout', () => () => null);
+jest.mock(
+  '@/components/TherapistInterventionPage/ImportInterventionsModal',
+  () =>
+    function ImportInterventionsModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplateAssignModal',
+  () =>
+    function TemplateAssignModal() {
+      return null;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplatesLayout',
+  () =>
+    function TemplatesLayout() {
+      return null;
+    }
+);
 
 // Old mocks - remove these
-jest.mock('@/components/TherapistInterventionPage/FilterBar', () => (props) => {
-  return (
-    <div>
-      <input
-        placeholder="Search Interventions"
-        value={props.searchTerm}
-        onChange={(e) => props.setSearchTerm(e.target.value)}
-      />
-      <button onClick={() => props.setDiagnosisFilter(['heart failure'])}>Set Diagnosis</button>
-      <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
-      <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
-    </div>
-  );
-});
+jest.mock(
+  '@/components/TherapistInterventionPage/FilterBar',
+  () =>
+    function FilterBar(props) {
+      return (
+        <div>
+          <input
+            placeholder="Search Interventions"
+            value={props.searchTerm}
+            onChange={(e) => props.setSearchTerm(e.target.value)}
+          />
+          <button onClick={() => props.setDiagnosisFilter(['heart failure'])}>Set Diagnosis</button>
+          <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
+          <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/TherapistInterventionPage/InterventionList', () => (props) => (
-  <div>
-    {props.items.map((item) => (
-      <div key={item._id} onClick={() => props.onClick(item)}>
-        {item.title}
-      </div>
-    ))}
-  </div>
-));
+jest.mock(
+  '@/components/TherapistInterventionPage/InterventionList',
+  () =>
+    function InterventionList(props) {
+      return (
+        <div>
+          {props.items.map((item) => (
+            <div key={item._id} onClick={() => props.onClick(item)}>
+              {item.title}
+            </div>
+          ))}
+        </div>
+      );
+    }
+);
 
 // Mock translations
 jest.mock('react-i18next', () => ({
