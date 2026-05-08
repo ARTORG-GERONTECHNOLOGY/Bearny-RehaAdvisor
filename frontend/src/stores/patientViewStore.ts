@@ -13,7 +13,7 @@ const readSelectedDate = () => {
 const writeSelectedDate = (d: Date) => {
   try {
     localStorage.setItem(SELECTED_DATE_KEY, d.toISOString());
-  } catch (_e) {
+  } catch {
     // ignore storage write failures (e.g., privacy mode, quota exceeded)
   }
 };

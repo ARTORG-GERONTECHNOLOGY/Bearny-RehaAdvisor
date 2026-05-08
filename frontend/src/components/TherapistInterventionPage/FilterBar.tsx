@@ -216,7 +216,7 @@ const FilterBar: React.FC<Props> = ({
         {isNarrow ? (
           <Dropdown
             show={open}
-            onToggle={(next, meta) => {
+            onToggle={(next) => {
               // ignore rootClose if click happens inside menu
               // (Dropdown already handles this well; this is extra safety)
               setOpen(next);

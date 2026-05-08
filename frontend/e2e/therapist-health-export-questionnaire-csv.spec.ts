@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { loginAsTherapist } from './helpers/auth';
 import { readFile } from 'node:fs/promises';
