@@ -19,13 +19,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
-jest.mock('react-player', () => (props: any) => <div data-testid="video-player" {...props} />);
-jest.mock('react-audio-player', () => (props: any) => (
-  <div data-testid="audio-player" {...props} />
-));
-jest.mock('@microlink/react', () => (props: any) => (
-  <div data-testid="microlink-preview" {...props} />
-));
+jest.mock(
+  'react-player',
+  () =>
+    function ReactPlayer(props: any) {
+      return <div data-testid="video-player" {...props} />;
+    }
+);
+jest.mock(
+  'react-audio-player',
+  () =>
+    function ReactAudioPlayer(props: any) {
+      return <div data-testid="audio-player" {...props} />;
+    }
+);
+jest.mock(
+  '@microlink/react',
+  () =>
+    function Microlink(props: any) {
+      return <div data-testid="microlink-preview" {...props} />;
+    }
+);
 
 jest.mock('@/utils/interventions', () => ({
   generateTagColors: () => ({}),

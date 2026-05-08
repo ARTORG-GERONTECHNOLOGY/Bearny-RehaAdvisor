@@ -143,4 +143,6 @@ const QuestionnaireLines = forwardRef<SVGSVGElement, Props>(
   }
 );
 
+QuestionnaireLines.displayName = 'QuestionnaireLines';
+
 export default QuestionnaireLines;

@@ -120,7 +120,6 @@ const AdminDashboard: React.FC = observer(() => {
   useEffect(() => {
     store.init(navigate, t);
     fetchChangeRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, navigate, t]);
 
   const getTherapistIdFromEntry = (entry: any) => {
@@ -162,7 +161,6 @@ const AdminDashboard: React.FC = observer(() => {
     const allowedSet = new Set(allowedClinicsForSelectedProjects);
     const next = selectedClinics.filter((c) => allowedSet.has(c));
     if (next.length !== selectedClinics.length) setSelectedClinics(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedClinicsForSelectedProjects]);
 
   const openAccessModal = useCallback(
