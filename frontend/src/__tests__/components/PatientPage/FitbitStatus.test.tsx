@@ -5,9 +5,7 @@ const mockFetchStatus = jest.fn();
 let mockConnected: boolean | null = false;
 let mockAuthId = 'auth-patient-id';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,

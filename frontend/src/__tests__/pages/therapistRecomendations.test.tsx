@@ -1,65 +1,109 @@
-// Mock react-i18next
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en', changeLanguage: jest.fn() },
-  }),
-}));
-
-// Mock child components
-// Mock the apiClient
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
-jest.mock('@/components/common/WelcomeArea', () => ({ user }) => <div>Welcome {user}</div>);
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
+jest.mock(
+  '@/components/common/WelcomeArea',
+  () =>
+    function WelcomeArea({ user }) {
+      return <div>Welcome {user}</div>;
+    }
+);
 jest.mock(
   '@/components/TherapistInterventionPage/LibraryFiltersCard',
   () =>
-    ({ filters, onChange }) => (
-      <div>
-        LibraryFiltersCard
-        <input
-          data-testid="search-input"
-          value={filters.searchTerm}
-          onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
-        />
-      </div>
-    )
+    function LibraryFiltersCard({ filters, onChange }) {
+      return (
+        <div>
+          LibraryFiltersCard
+          <input
+            data-testid="search-input"
+            value={filters.searchTerm}
+            onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
+          />
+        </div>
+      );
+    }
 );
-jest.mock('@/components/TherapistInterventionPage/LibraryListSection', () => ({ items }) => (
-  <div>
-    LibraryListSection
-    {items.map((i) => (
-      <div key={i._id}>{i.title}</div>
-    ))}
-  </div>
-));
-jest.mock('@/components/TherapistInterventionPage/ProductPopup', () => () => (
-  <div>ProductPopup</div>
-));
-jest.mock('@/components/AddIntervention/AddRecomendationPopUp', () => () => (
-  <div>AddInterventionPopup</div>
-));
-jest.mock('@/components/common/ErrorAlert', () => () => <div>ErrorAlert</div>);
-jest.mock('@/components/TherapistInterventionPage/ImportInterventionsModal', () => () => (
-  <div>ImportInterventionsModal</div>
-));
-jest.mock('@/components/TherapistInterventionPage/MainTabs', () => ({ mainTab }) => (
-  <div>MainTabs: {mainTab}</div>
-));
-jest.mock('@/components/TherapistInterventionPage/AddInterventionRow', () => ({ onAdd }) => (
-  <div>
-    AddInterventionRow
-    <button onClick={onAdd}>Add Intervention</button>
-  </div>
-));
-jest.mock('@/components/TherapistInterventionPage/TemplatesLayout', () => () => (
-  <div>TemplatesLayout</div>
-));
-jest.mock('@/components/TherapistInterventionPage/TemplateAssignModal', () => () => (
-  <div>TemplateAssignModal</div>
-));
-jest.mock('@/components/TherapistInterventionPage/TemplateTimeline', () => () => (
-  <div>TemplateTimeline</div>
-));
+jest.mock(
+  '@/components/TherapistInterventionPage/LibraryListSection',
+  () =>
+    function LibraryListSection({ items }) {
+      return (
+        <div>
+          LibraryListSection
+          {items.map((i) => (
+            <div key={i._id}>{i.title}</div>
+          ))}
+        </div>
+      );
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/ProductPopup',
+  () =>
+    function ProductPopup() {
+      return <div>ProductPopup</div>;
+    }
+);
+jest.mock(
+  '@/components/AddIntervention/AddRecomendationPopUp',
+  () =>
+    function AddRecomendationPopUp() {
+      return <div>AddInterventionPopup</div>;
+    }
+);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert() {
+      return <div>ErrorAlert</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/ImportInterventionsModal',
+  () =>
+    function ImportInterventionsModal() {
+      return <div>ImportInterventionsModal</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/MainTabs',
+  () =>
+    function MainTabs({ mainTab }) {
+      return <div>MainTabs: {mainTab}</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/AddInterventionRow',
+  () =>
+    function AddInterventionRow({ onAdd }) {
+      return (
+        <div>
+          AddInterventionRow
+          <button onClick={onAdd}>Add Intervention</button>
+        </div>
+      );
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplatesLayout',
+  () =>
+    function TemplatesLayout() {
+      return <div>TemplatesLayout</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplateAssignModal',
+  () =>
+    function TemplateAssignModal() {
+      return <div>TemplateAssignModal</div>;
+    }
+);
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplateTimeline',
+  () =>
+    function TemplateTimeline() {
+      return <div>TemplateTimeline</div>;
+    }
+);
 
 // Mock config
 jest.mock('@/config/config.json', () => ({

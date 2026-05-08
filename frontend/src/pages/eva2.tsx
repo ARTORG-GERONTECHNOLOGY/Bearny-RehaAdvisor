@@ -92,7 +92,7 @@ const getItemAudioSrcCandidates = (isPractice: boolean, idx: number) => {
 /** ===== Helpers ===== */
 const safeFilePart = (s: string) =>
   (s || '')
-    .replace(/[^\w\-]+/g, '_')
+    .replace(/[^\w-]+/g, '_')
     .replace(/_+/g, '_')
     .slice(0, 60);
 
@@ -130,7 +130,9 @@ const pickRecorderMime = () => {
   for (const t of candidates) {
     try {
       if (MediaRecorder.isTypeSupported(t)) return t;
-    } catch {}
+    } catch {
+      /* empty */
+    }
   }
   // isTypeSupported is unreliable on some iOS versions — fall back to audio/mp4
   // (Safari's native format) and let the browser reject it if truly unsupported
@@ -243,7 +245,9 @@ export default function HealthSlider() {
       audioGainRef.current.gain.value = 5.0;
       audioNodeRef.current.connect(audioGainRef.current);
       audioGainRef.current.connect(ctx.destination);
-    } catch {}
+    } catch {
+      /* empty */
+    }
   }, [getAudioCtx]);
 
   /** --- ding --- */
@@ -263,7 +267,9 @@ export default function HealthSlider() {
         gain.connect(ctx.destination);
         osc.start();
         osc.stop(ctx.currentTime + 0.35);
-      } catch {}
+      } catch {
+        /* empty */
+      }
     },
     [dingActive, getAudioCtx]
   );
@@ -277,7 +283,9 @@ export default function HealthSlider() {
     // Resume shared AudioContext so audio routes to current output (incl. headphones)
     try {
       await getAudioCtx().resume();
-    } catch {}
+    } catch {
+      /* empty */
+    }
 
     const itemKey = getItemAudioStem(isPracticeMode, questionIndex);
     const allCandidates = getItemAudioSrcCandidates(isPracticeMode, questionIndex);
@@ -290,7 +298,9 @@ export default function HealthSlider() {
       try {
         el.pause();
         el.currentTime = 0;
-      } catch {}
+      } catch {
+        /* empty */
+      }
 
       if (el.src !== src) {
         el.src = src;
@@ -301,7 +311,9 @@ export default function HealthSlider() {
         await el.play();
         successfulSrcRef.current[itemKey] = src;
         return;
-      } catch {}
+      } catch {
+        /* empty */
+      }
     }
 
     // Some deployments route static files through non-standard base paths or MIME headers.
@@ -324,14 +336,18 @@ export default function HealthSlider() {
         try {
           el.pause();
           el.currentTime = 0;
-        } catch {}
+        } catch {
+          /* empty */
+        }
 
         el.src = blobUrl;
         el.load();
         await el.play();
         successfulSrcRef.current[itemKey] = src;
         return;
-      } catch {}
+      } catch {
+        /* empty */
+      }
     }
 
     setAudioError(
@@ -362,7 +378,9 @@ export default function HealthSlider() {
       a1.preload = 'auto';
       const a2 = new Audio(nextSrc);
       a2.preload = 'auto';
-    } catch {}
+    } catch {
+      /* empty */
+    }
   }, [isPracticeMode, questionIndex]);
 
   /** --- sync URL-provided patient ID to in-memory state (avoid persistent cleartext storage) --- */
@@ -470,7 +488,9 @@ export default function HealthSlider() {
       });
       try {
         startItemRecorder();
-      } catch {}
+      } catch {
+        /* empty */
+      }
     };
   }, [patientId, questionIndex, isPracticeMode, startItemRecorder]);
 
@@ -480,7 +500,9 @@ export default function HealthSlider() {
       if (document.visibilityState !== 'visible') return;
       try {
         await audioCtxRef.current?.resume();
-      } catch {}
+      } catch {
+        /* empty */
+      }
       const rec = recorderRef.current;
       if (
         (!rec || rec.state === 'inactive') &&
@@ -492,7 +514,9 @@ export default function HealthSlider() {
         setRecorderWarning('Aufnahme nach Hintergrund-Modus neu gestartet.');
         try {
           startItemRecorder();
-        } catch {}
+        } catch {
+          /* empty */
+        }
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -514,7 +538,9 @@ export default function HealthSlider() {
         };
         try {
           (rec as any).requestData?.();
-        } catch {}
+        } catch {
+          /* empty */
+        }
         rec.stop();
       } catch {
         resolve(null);
@@ -530,7 +556,9 @@ export default function HealthSlider() {
   const stopAll = () => {
     try {
       recorderRef.current?.stop();
-    } catch {}
+    } catch {
+      /* empty */
+    }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     micDestRef.current?.stream.getTracks().forEach((t) => t.stop());
     recorderRef.current = null;
@@ -764,7 +792,9 @@ export default function HealthSlider() {
     isDraggingRef.current = false;
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    } catch {}
+    } catch {
+      /* empty */
+    }
   };
 
   useEffect(() => {
@@ -878,7 +908,6 @@ export default function HealthSlider() {
       <audio
         ref={audioRef}
         preload="auto"
-        playsInline
         onError={() => setAudioError('Audio-Datei nicht gefunden oder nicht unterstützt.')}
         style={{ display: 'none' }}
       />

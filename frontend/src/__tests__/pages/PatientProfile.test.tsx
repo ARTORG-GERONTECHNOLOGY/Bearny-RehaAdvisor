@@ -12,12 +12,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en', changeLanguage: jest.fn() },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
@@ -86,7 +81,7 @@ jest.mock('@/components/ui/switch', () => ({
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
 // Mock FitbitConnectButton

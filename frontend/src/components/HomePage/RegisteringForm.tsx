@@ -114,7 +114,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     const name = cleanName(nameRaw);
     if (!name) return false;
     if (name.length < 2) return false;
-    const re = /^[\p{L}\p{M}]+(?:[ '\-][\p{L}\p{M}]+)*$/u;
+    const re = /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u;
     return re.test(name);
   };
 
@@ -234,7 +234,6 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     if (next.length !== (formData.projects as string[]).length) {
       setFormData((prev) => ({ ...prev, projects: next }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedProjectsForSelectedClinics]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

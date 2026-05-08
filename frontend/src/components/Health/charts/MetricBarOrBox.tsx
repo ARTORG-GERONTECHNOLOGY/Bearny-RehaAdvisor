@@ -120,4 +120,6 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });
 
+MetricBarOrBox.displayName = 'MetricBarOrBox';
+
 export default MetricBarOrBox;

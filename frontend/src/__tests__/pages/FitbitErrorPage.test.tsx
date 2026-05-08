@@ -2,10 +2,7 @@ import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import FitbitErrorPage from '@/pages/FitbitErrorPage';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 let mockSearch = '';
 

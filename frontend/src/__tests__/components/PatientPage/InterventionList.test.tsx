@@ -6,13 +6,7 @@ import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 
 // ── Global mocks ──────────────────────────────────────────────────────────────
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/utils/translate', () => ({
   translateText: jest.fn((text: string) =>
@@ -23,7 +17,7 @@ jest.mock('@/utils/translate', () => ({
   ),
 }));
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
@@ -82,15 +76,27 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 }));
 
 // Reduce popup complexity in tests
-jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => () => (
-  <div data-testid="info-popup" />
-));
-jest.mock('@/components/PatientPage/FeedbackPopup', () => () => (
-  <div data-testid="feedback-popup" />
-));
-jest.mock('@/components/PatientPage/PatientQuestionaire', () => () => (
-  <div data-testid="initial-popup" />
-));
+jest.mock(
+  '@/components/PatientPage/PatientInterventionPopUp',
+  () =>
+    function PatientInterventionPopUp() {
+      return <div data-testid="info-popup" />;
+    }
+);
+jest.mock(
+  '@/components/PatientPage/FeedbackPopup',
+  () =>
+    function FeedbackPopup() {
+      return <div data-testid="feedback-popup" />;
+    }
+);
+jest.mock(
+  '@/components/PatientPage/PatientQuestionaire',
+  () =>
+    function PatientQuestionaire() {
+      return <div data-testid="initial-popup" />;
+    }
+);
 
 // ── Shared date helpers ───────────────────────────────────────────────────────
 

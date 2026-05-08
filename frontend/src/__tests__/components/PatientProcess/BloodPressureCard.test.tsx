@@ -1,10 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock('recharts', () => ({
   CartesianGrid: () => null,
   Dot: () => null,
@@ -20,6 +16,8 @@ jest.mock('@/components/ui/chart', () => ({
   ChartTooltip: () => null,
   ChartTooltipContent: () => null,
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
 import type { DailyMetricsDatum } from '@/hooks/usePatientProcess';

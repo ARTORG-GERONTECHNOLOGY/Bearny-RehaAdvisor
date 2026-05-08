@@ -244,8 +244,6 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
     const lang = (i18n.language || 'en').slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
 
   const sourceItems = patientInterventionsLibraryStore.visibleItemsForPatient;

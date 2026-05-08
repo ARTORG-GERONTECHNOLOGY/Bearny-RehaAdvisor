@@ -1,13 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
-jest.mock('@/components/PatientPage/FitbitStatus', () => () => (
-  <div data-testid="fitbit-connect-button">Connect</div>
-));
+jest.mock(
+  '@/components/PatientPage/FitbitStatus',
+  () =>
+    function FitbitStatus() {
+      return <div data-testid="fitbit-connect-button">Connect</div>;
+    }
+);
 
 jest.mock('@/components/PatientPage/ProgressIndicator', () =>
   jest.fn(({ current, goal }: { current: number; goal: number }) => (

@@ -42,7 +42,7 @@ export class ForgotPasswordStore {
       runInAction(() => {
         this.success = true;
       });
-    } catch (err) {
+    } catch {
       runInAction(() => {
         this.error = t('Failed to send password reset link. Please try again.');
       });

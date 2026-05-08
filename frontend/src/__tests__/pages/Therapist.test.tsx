@@ -16,9 +16,9 @@ global.ResizeObserver = class ResizeObserver {
 
 // Mock the apiClient
 // Mock the apiClient
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 // Mock child components
-jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
+jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
 jest.mock('@/components/TherapistPatientPage/PatientPopup', () => () => <div>Patient Popup</div>);
 jest.mock('../../config/config.json', () => ({

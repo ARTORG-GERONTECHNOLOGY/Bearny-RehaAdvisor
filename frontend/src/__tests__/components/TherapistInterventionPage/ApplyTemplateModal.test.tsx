@@ -3,12 +3,9 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
 import apiClient from '@/api/client';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
-}));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({ default: { id: 'therapist-1' }, id: 'therapist-1' }));
 

@@ -55,7 +55,6 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
       setOnlyWithFeedback(true);
       setSelectedIdx(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, intervention?._id]);
 
   // counts
