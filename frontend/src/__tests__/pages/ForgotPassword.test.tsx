@@ -1,11 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import ForgotPassword from '@/pages/ForgottenPassword';
-
-// i18n
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // ErrorAlert
 jest.mock('@/components/common/ErrorAlert', () => ({

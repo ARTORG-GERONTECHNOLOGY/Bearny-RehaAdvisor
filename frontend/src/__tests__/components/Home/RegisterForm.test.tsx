@@ -2,10 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FormRegister from '@/components/HomePage/RegisteringForm';
 import apiClient from '@/api/client';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Mock react-select to use standard select elements
 jest.mock('react-select', () => {

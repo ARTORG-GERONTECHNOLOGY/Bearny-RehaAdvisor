@@ -2,6 +2,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TherapistInterventions from '@/pages/TherapistInterventions';
 import '@testing-library/jest-dom';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('../../config/config.json', () => ({
   RecomendationInfo: { tags: [] },
@@ -209,14 +211,6 @@ jest.mock(
       );
     }
 );
-
-// Mock translations
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
 
 // Mock translate utility
 jest.mock('@/utils/translate', () => ({

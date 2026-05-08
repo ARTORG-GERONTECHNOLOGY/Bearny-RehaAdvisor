@@ -1,11 +1,7 @@
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import SuccessPage from '@/pages/SuccessPage';
-
-// ---- i18n mock ----
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // ---- react-router location mock (we control location.search) ----
 let mockSearch = '';

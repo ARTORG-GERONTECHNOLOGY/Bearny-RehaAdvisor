@@ -1,11 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import Home from '@/pages/Home';
 import '@testing-library/jest-dom';
-
-// --- Mock i18n: return the key as-is so text is stable in tests
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // --- Mock navigate
 const mockNavigate = jest.fn();

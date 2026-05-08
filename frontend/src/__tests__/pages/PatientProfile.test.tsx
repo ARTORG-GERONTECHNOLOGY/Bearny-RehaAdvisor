@@ -12,12 +12,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en', changeLanguage: jest.fn() },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
