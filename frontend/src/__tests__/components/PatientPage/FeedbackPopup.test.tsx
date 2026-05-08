@@ -19,7 +19,13 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
-jest.mock('@/components/common/ErrorAlert', () => (p: any) => <div role="alert">{p.message}</div>);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert(p: any) {
+      return <div role="alert">{p.message}</div>;
+    }
+);
 
 // ── Shared test data ──────────────────────────────────────────────────────────
 

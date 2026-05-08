@@ -127,14 +127,12 @@ const RehabTable: React.FC = observer(() => {
     return () => {
       store.dispose();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, store]);
 
   // language changes
   useEffect(() => {
     store.setUserLang(i18n.language || 'en');
     store.translateVisibleItems(i18n.language || 'en');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language]);
 
   // ✅ Central refresh function (used after successful submit)
