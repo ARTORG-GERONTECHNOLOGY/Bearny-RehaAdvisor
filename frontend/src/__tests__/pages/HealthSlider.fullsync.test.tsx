@@ -7,7 +7,7 @@ function mockMedia() {
     getTracks: () => [{ stop: jest.fn() }],
   });
 
-  // @ts-expect-error
+  // @ts-expect-error -- assigning to read-only navigator.mediaDevices in jsdom
   global.navigator.mediaDevices = { getUserMedia };
 
   // mock MediaRecorder
@@ -32,7 +32,7 @@ function mockMedia() {
       // noop
     }
   }
-  // @ts-expect-error
+  // @ts-expect-error -- replacing global MediaRecorder with mock class in jsdom
   global.MediaRecorder = MockMediaRecorder;
 
   return { getUserMedia };
@@ -316,7 +316,7 @@ describe('HealthSlider (Full Sync)', () => {
       destination: {},
     }));
 
-    // @ts-expect-error
+    // @ts-expect-error -- replacing global AudioContext with mock constructor in jsdom
     global.AudioContext = ACtor;
 
     render(<HealthSlider />);
@@ -539,7 +539,7 @@ describe('HealthSlider (Full Sync)', () => {
     const audioCalls: string[] = [];
     const OriginalAudio = global.Audio as any;
 
-    // @ts-expect-error
+    // @ts-expect-error -- replacing global Audio with mock function in jsdom
     global.Audio = function (src?: string) {
       if (typeof src === 'string') audioCalls.push(src);
       return { preload: 'auto' } as any;
