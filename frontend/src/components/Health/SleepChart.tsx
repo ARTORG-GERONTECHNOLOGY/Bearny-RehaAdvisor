@@ -31,11 +31,7 @@ const SleepChart: React.FC<Props> = ({ data }) => {
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const parseTime = d3.timeParse('%Y-%m-%dT%H:%M:%S.%L');
-
     const dayParser = d3.timeParse('%Y-%m-%d');
-    const startTime = d3.timeParse('%H:%M')('18:00')!;
-    const endTime = d3.timeParse('%H:%M')('12:00')!;
     const baseDate = new Date(2000, 0, 1); // arbitrary fixed date for time-only axis
 
     // Convert times

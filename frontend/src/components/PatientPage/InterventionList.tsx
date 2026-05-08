@@ -82,7 +82,6 @@ const InterventionList: React.FC = observer(() => {
     patientInterventionsStore.fetchPlan(patientId, i18n.language);
     patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
     patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId, i18n.language]);
 
   const openFeedbackFor = useCallback(

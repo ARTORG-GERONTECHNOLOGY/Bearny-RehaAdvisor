@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, ButtonGroup, Badge } from 'react-bootstrap';
+import { Button, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';

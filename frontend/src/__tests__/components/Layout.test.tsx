@@ -1,12 +1,24 @@
 import { render, screen } from '@testing-library/react';
 import Layout from '@/components/Layout';
 
-jest.mock('@/components/Navigation', () => () => <nav data-testid="navigation" />);
-jest.mock('@/components/Container', () => ({ children, className }: any) => (
-  <main data-testid="container" className={className}>
-    {children}
-  </main>
-));
+jest.mock(
+  '@/components/Navigation',
+  () =>
+    function Navigation() {
+      return <nav data-testid="navigation" />;
+    }
+);
+jest.mock(
+  '@/components/Container',
+  () =>
+    function Container({ children, className }: any) {
+      return (
+        <main data-testid="container" className={className}>
+          {children}
+        </main>
+      );
+    }
+);
 
 describe('Layout', () => {
   it('renders Navigation, Container, and children', () => {

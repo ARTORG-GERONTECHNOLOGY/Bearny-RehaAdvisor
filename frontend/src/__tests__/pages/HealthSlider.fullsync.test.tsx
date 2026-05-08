@@ -656,14 +656,12 @@ describe('HealthSlider (Full Sync)', () => {
 
   it('MediaRecorder onerror: shows upload-fail modal with partial-audio download', async () => {
     // Give the mock recorder an onerror we can trigger manually
-    let capturedOnerror: ((e: any) => void) | null = null;
     const OriginalMR = (global as any).MediaRecorder;
 
     class ErrorableRecorder extends OriginalMR {
       constructor(stream: any, opts?: any) {
         super(stream, opts);
         // stash reference so the test can fire it
-        capturedOnerror = null; // reset
       }
       start() {
         // After start, expose onerror on the instance so the test can call it

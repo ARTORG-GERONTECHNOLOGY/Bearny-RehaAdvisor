@@ -1,5 +1,5 @@
 // src/components/RehaTablePage/AllInterventionList.tsx
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card, Badge, ButtonGroup, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { TFunction } from 'i18next';
 import { FaChartBar, FaCommentDots, FaEdit, FaPlus, FaMinus, FaGlobe } from 'react-icons/fa';
