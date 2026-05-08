@@ -32,7 +32,7 @@ const ACCEPTED_MIME = 'video/mp4,audio/mpeg,audio/wav,application/pdf,image/jpeg
 const MAX_FILE_SIZE_MB = 1024; // 1 GB
 const MAX_EXCEL_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
-function getMaxSizeMB(_filename: string): number {
+function getMaxSizeMB(): number {
   return MAX_FILE_SIZE_MB;
 }
 
@@ -49,7 +49,7 @@ type ValidatedFile = {
 };
 
 function validateMediaFile(file: File): ValidatedFile {
-  const maxSizeMB = getMaxSizeMB(file.name);
+  const maxSizeMB = getMaxSizeMB();
   const tooLarge = file.size > maxSizeMB * 1024 * 1024;
   const m = FILE_NAME_RE.exec(file.name);
   if (!m) return { file, valid: false, externalId: null, tooLarge, maxSizeMB };
@@ -92,13 +92,11 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     setActiveTab('excel');
     interventionsImportStore.reset();
     interventionsMediaUploadStore.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
   // ── Excel helpers ──────────────────────────────────────────────────────────
   const canSubmit = useMemo(
     () => !!file && !excelSizeError && !interventionsImportStore.loading,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [file, excelSizeError, interventionsImportStore.loading]
   );
 

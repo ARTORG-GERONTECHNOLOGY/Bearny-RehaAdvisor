@@ -4,10 +4,7 @@ import '@testing-library/jest-dom';
 import Navigation from '@/components/Navigation';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Inline mock – no external variable so hoisting is safe.
 jest.mock('@/stores/authStore', () => ({

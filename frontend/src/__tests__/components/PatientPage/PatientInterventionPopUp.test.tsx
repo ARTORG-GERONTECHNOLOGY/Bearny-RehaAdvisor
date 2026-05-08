@@ -1,10 +1,3 @@
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key, // <-- This makes t('Open PDF') return 'Open PDF'
-    i18n: { language: 'en' },
-  }),
-}));
-
 jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
@@ -19,13 +12,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
-jest.mock('react-player', () => (props: any) => <div data-testid="video-player" {...props} />);
-jest.mock('react-audio-player', () => (props: any) => (
-  <div data-testid="audio-player" {...props} />
-));
-jest.mock('@microlink/react', () => (props: any) => (
-  <div data-testid="microlink-preview" {...props} />
-));
+jest.mock(
+  'react-player',
+  () =>
+    function ReactPlayer(props: any) {
+      return <div data-testid="video-player" {...props} />;
+    }
+);
+jest.mock(
+  'react-audio-player',
+  () =>
+    function ReactAudioPlayer(props: any) {
+      return <div data-testid="audio-player" {...props} />;
+    }
+);
+jest.mock(
+  '@microlink/react',
+  () =>
+    function Microlink(props: any) {
+      return <div data-testid="microlink-preview" {...props} />;
+    }
+);
 
 jest.mock('@/utils/interventions', () => ({
   generateTagColors: () => ({}),
@@ -35,6 +42,8 @@ jest.mock('@/utils/interventions', () => ({
   getMediaTypeLabelFromIntervention: jest.fn(() => 'Unknown'),
   getTagColor: jest.fn(() => '#6f2dbd'),
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
 

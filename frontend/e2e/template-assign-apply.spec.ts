@@ -486,8 +486,6 @@ test.describe('Template assign/apply — UI level', () => {
   }) => {
     skipUnlessPatient(test);
 
-    const { patientId } = creds();
-
     // Get a real token for direct API calls (cleanup + apply)
     const token = await getToken(request);
     const interventionId = await getFirstInterventionId(request, token);

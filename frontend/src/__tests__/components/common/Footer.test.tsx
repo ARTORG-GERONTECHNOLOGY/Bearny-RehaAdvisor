@@ -3,19 +3,10 @@ import { MemoryRouter } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 import '@testing-library/jest-dom';
 import { useIsStandalone } from '@/components/PwaInstallSheet';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en',
-      changeLanguage: jest.fn(),
-    },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/PwaInstallSheet', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ open }: { open: boolean }) =>

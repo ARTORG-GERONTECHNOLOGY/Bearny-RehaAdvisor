@@ -2,12 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import PatientLibraryDesktopFilters from '@/components/PatientLibrary/PatientLibraryDesktopFilters';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/ui/collapsible', () => ({
   Collapsible: ({ children }: any) => <div>{children}</div>,

@@ -366,9 +366,6 @@ test.describe('COPAIN MSK file import — UI level', () => {
 
     const modal = page.locator('.modal.show');
 
-    // Overwrite the sheet-name field (default is "Content", file uses "MKS_Upload_links")
-    const sheetInput = modal.locator('input').filter({ hasText: '' }).nth(1);
-    // Use a more reliable selector: the sheet name input follows the file input
     const sheetField = modal.getByLabel(/sheet name/i);
     await sheetField.fill(COPAIN_SHEET);
 

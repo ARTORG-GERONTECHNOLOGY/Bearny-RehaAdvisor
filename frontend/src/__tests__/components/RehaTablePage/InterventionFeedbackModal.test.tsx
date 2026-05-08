@@ -1,13 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
 import '@testing-library/jest-dom';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 describe('InterventionFeedbackModal', () => {
   it('renders modal with correct intervention title', () => {

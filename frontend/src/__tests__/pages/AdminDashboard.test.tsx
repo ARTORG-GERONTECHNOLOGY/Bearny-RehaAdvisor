@@ -33,7 +33,7 @@ jest.mock('@/stores/adminDashboardStore', () => {
         // Do not set this.loading — it's a plain property, not React state,
         // so changes won't trigger re-renders and will leave the component
         // stuck showing a spinner.
-        const authStore = require('@/stores/authStore').default;
+        const authStore = jest.requireMock('@/stores/authStore').default;
         await authStore.checkAuthentication();
 
         if (!authStore.isAuthenticated || authStore.userType !== 'Admin') {
@@ -41,19 +41,19 @@ jest.mock('@/stores/adminDashboardStore', () => {
           return;
         }
 
-        const adminStore = require('@/stores/adminStore').default;
+        const adminStore = jest.requireMock('@/stores/adminStore').default;
         await adminStore.fetchPendingEntries();
       });
       this.setError = jest.fn((err: string | null) => {
         this.error = err;
       });
       this.accept = jest.fn(async (id: string) => {
-        const adminStore = require('@/stores/adminStore').default;
+        const adminStore = jest.requireMock('@/stores/adminStore').default;
         await adminStore.acceptEntry(id);
       });
       this.declineConfirmed = jest.fn(async () => {
         if (!this.declineEntryId) return;
-        const adminStore = require('@/stores/adminStore').default;
+        const adminStore = jest.requireMock('@/stores/adminStore').default;
         await adminStore.declineEntry(this.declineEntryId);
         this.closeDeclineConfirm();
       });
@@ -65,6 +65,7 @@ jest.mock('@/stores/adminDashboardStore', () => {
         this.showDeclineConfirm = false;
         this.declineEntryId = null;
       });
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       mockStoreInstance = this;
       return this;
     }),
@@ -91,11 +92,23 @@ import { MemoryRouter } from 'react-router-dom';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
 
-jest.mock('@/components/common/ErrorAlert', () => () => <div>Mock ErrorAlert</div>);
-jest.mock('@/components/common/ConfirmModal', () => () => <div>Mock ConfirmModal</div>);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert() {
+      return <div>Mock ErrorAlert</div>;
+    }
+);
+jest.mock(
+  '@/components/common/ConfirmModal',
+  () =>
+    function ConfirmModal() {
+      return <div>Mock ConfirmModal</div>;
+    }
+);
 
 // Mock the apiClient
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 import apiClient from '@/api/client';
 
 // Mock MobX stores

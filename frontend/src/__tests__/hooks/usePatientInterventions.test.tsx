@@ -4,7 +4,7 @@ import { usePatientInterventions } from '@/hooks/usePatientInterventions';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 import { renderHook, act } from '@testing-library/react';
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 import type { RehabPlanResponse, Intervention } from '@/types';
 
 const MockComponent = ({ patientId }: { patientId: string }) => {

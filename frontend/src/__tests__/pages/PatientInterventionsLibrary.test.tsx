@@ -34,18 +34,17 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
-
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
-jest.mock('@/components/common/ErrorAlert', () => ({ message }: any) => <div>{message}</div>);
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert({ message }: any) {
+      return <div>{message}</div>;
+    }
+);
 
 jest.mock('@/components/PatientLibrary/PatientLibrarySearchPanel', () => ({
   __esModule: true,
@@ -103,6 +102,8 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/stores/interventionsLibraryStore', () => ({
   patientInterventionsLibraryStore: mockStore,
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import PatientInterventionsLibrary from '@/pages/PatientInterventionsLibrary';
 

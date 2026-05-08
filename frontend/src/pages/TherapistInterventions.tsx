@@ -488,7 +488,6 @@ const TherapistRecomendations: React.FC = observer(() => {
       localStorage.setItem('templateSeenMap', JSON.stringify(updated));
       return updated;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateItems, activeTemplateId]);
 
   const openAssignToTemplate = (

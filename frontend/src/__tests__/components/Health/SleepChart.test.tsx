@@ -7,10 +7,7 @@ jest.mock('d3', () => {
     const proxy: any = new Proxy(
       {},
       {
-        get:
-          (_t, _k) =>
-          (..._args: any[]) =>
-            proxy,
+        get: () => () => proxy,
       }
     );
     return proxy;

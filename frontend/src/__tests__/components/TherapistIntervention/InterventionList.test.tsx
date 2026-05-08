@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
 import '@testing-library/jest-dom';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/utils/interventions', () => ({
   getBadgeVariantFromIntervention: jest.fn(() => 'info'),

@@ -2,14 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FormRegister from '@/components/HomePage/RegisteringForm';
 import apiClient from '@/api/client';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Mock react-select to use standard select elements
 jest.mock('react-select', () => {
-  return ({ options, onChange, isMulti, value, id, isDisabled }: any) => {
+  return function ReactSelect({ options, onChange, isMulti, value, id, isDisabled }: any) {
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       if (isMulti) {
         const selected = Array.from(e.target.selectedOptions || []).map((opt: any) => ({

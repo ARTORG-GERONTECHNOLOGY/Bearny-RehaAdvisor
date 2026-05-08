@@ -1,10 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import ChangePasswordForm from '@/components/UserProfile/ChangePasswordSheet';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
@@ -23,7 +20,7 @@ const createMockStore = () => ({
   changePassword: jest.fn(async () => {}),
 });
 
-let mockStore = createMockStore();
+const mockStore = createMockStore();
 
 jest.mock('@/stores/userProfileStore', () => ({
   __esModule: true,

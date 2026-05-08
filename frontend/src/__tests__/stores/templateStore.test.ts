@@ -1,7 +1,7 @@
 import templateStore from '@/stores/templateStore';
 import apiClient from '@/api/client';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 const makeDoc = (overrides = {}) => ({
   id: 'tpl-1',

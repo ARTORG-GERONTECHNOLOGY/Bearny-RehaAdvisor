@@ -3,10 +3,7 @@ import { screen, fireEvent } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import UnauthorizedAccess from '@/pages/UnauthorizedAccess';
 import '@testing-library/jest-dom';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {

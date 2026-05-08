@@ -1,4 +1,3 @@
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockNavigate = jest.fn();
@@ -19,44 +18,55 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
-
 jest.mock('react-bootstrap', () => ({
-  OverlayTrigger: ({ children }: any) => <>{children}</>,
-  Tooltip: ({ children }: any) => <span>{children}</span>,
+  OverlayTrigger: function OverlayTrigger({ children }: any) {
+    return <>{children}</>;
+  },
+  Tooltip: function Tooltip({ children }: any) {
+    return <span>{children}</span>;
+  },
 }));
 
 jest.mock('react-icons/fa', () => ({
-  FaLock: () => <span data-testid="fa-lock" />,
+  FaLock: function FaLock() {
+    return <span data-testid="fa-lock" />;
+  },
 }));
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
-jest.mock('@/components/common/ErrorAlert', () => ({ message, onClose }: any) => (
-  <div>
-    <span>{message}</span>
-    <button onClick={onClose}>close-error</button>
-  </div>
-));
+jest.mock(
+  '@/components/common/ErrorAlert',
+  () =>
+    function ErrorAlert({ message, onClose }: any) {
+      return (
+        <div>
+          <span>{message}</span>
+          <button onClick={onClose}>close-error</button>
+        </div>
+      );
+    }
+);
 
-jest.mock('@/components/PatientPage/FeedbackPopup', () => (props: any) => (
-  <div data-testid="feedback-popup">{props.interventionId}</div>
-));
+jest.mock(
+  '@/components/PatientPage/FeedbackPopup',
+  () =>
+    function FeedbackPopup(props: any) {
+      return <div data-testid="feedback-popup">{props.interventionId}</div>;
+    }
+);
 
 jest.mock('@/components/common/PlayableMedia', () => ({
-  PlayableMedia: ({ label, m }: any) => (
-    <div data-testid="playable-media">
-      {label}:{m.media_type}
-    </div>
-  ),
+  PlayableMedia: function PlayableMedia({ label, m }: any) {
+    return (
+      <div data-testid="playable-media">
+        {label}:{m.media_type}
+      </div>
+    );
+  },
 }));
 
 jest.mock('@/utils/translate', () => ({
@@ -111,6 +121,8 @@ jest.mock('@/api/client', () => ({
     get: jest.fn().mockResolvedValue({}),
   },
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import PatientInterventionDetail from '@/pages/PatientInterventionDetail';
 import authStore from '@/stores/authStore';

@@ -50,7 +50,6 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
   useEffect(() => {
     store.reset(show, mode, defaults);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, mode, defaults]);
 
   // ✅ Close immediately after success + trigger refresh callback
@@ -69,7 +68,6 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
         store.success = false;
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.success, show]);
 
   return (
