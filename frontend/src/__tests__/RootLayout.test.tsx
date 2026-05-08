@@ -4,12 +4,20 @@ import RootLayout from '@/RootLayout';
 import '@testing-library/jest-dom';
 
 // Mock LogoutListener to avoid testing its internals here
-jest.mock('@/LogoutListener', () => () => (
-  <div data-testid="logout-listener-mock">LogoutListener Active</div>
-));
+jest.mock('@/LogoutListener', () => {
+  function LogoutListenerMock() {
+    return <div data-testid="logout-listener-mock">LogoutListener Active</div>;
+  }
+  return LogoutListenerMock;
+});
 
 // Mock PatientDataBootstrap — it is a null-render side-effect component
-jest.mock('@/components/PatientDataBootstrap', () => () => null);
+jest.mock('@/components/PatientDataBootstrap', () => {
+  function PatientDataBootstrapMock() {
+    return null;
+  }
+  return PatientDataBootstrapMock;
+});
 
 describe('RootLayout', () => {
   it('renders LogoutListener and children', () => {
