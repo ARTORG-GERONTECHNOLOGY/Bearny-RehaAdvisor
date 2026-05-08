@@ -23,7 +23,7 @@ jest.mock('@/utils/translate', () => ({
   ),
 }));
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,

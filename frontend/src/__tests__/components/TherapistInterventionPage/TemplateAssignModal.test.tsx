@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import apiClient from '@/api/client';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),

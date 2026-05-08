@@ -31,7 +31,7 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 // Get reference to the mocked store
-const mockAuthStore = require('@/stores/authStore').default;
+const mockAuthStore = jest.requireMock('@/stores/authStore').default;
 
 jest.mock('@/components/common/Footer', () => ({
   __esModule: true,

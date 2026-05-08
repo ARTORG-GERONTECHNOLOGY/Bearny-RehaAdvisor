@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddInterventionModal from '@/components/AddIntervention/AddInterventionModal';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 import {
   getBadgeVariantFromUrl,
   getMediaTypeLabelFromUrl,

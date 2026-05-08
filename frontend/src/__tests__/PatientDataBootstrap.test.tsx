@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import PatientDataBootstrap from '@/components/PatientDataBootstrap';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 const mockInitPatientData = jest.fn();
 const mockResetPatientDataInit = jest.fn();

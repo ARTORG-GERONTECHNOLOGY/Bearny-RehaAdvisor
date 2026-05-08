@@ -3,7 +3,7 @@ import OTPField from '@/components/forms/input/OTPField';
 
 // input-otp uses browser APIs not available in jsdom
 jest.mock('input-otp', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   const OTPInputContext = React.createContext({
     slots: Array.from({ length: 6 }, () => ({ char: '', hasFakeCaret: false, isActive: false })),
   });

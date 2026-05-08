@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 
-jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
+jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock(
   '@/components/Section',
   () =>

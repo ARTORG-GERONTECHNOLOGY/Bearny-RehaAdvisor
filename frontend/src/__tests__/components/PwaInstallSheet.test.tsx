@@ -7,7 +7,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('@/components/ui/sheet', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     Sheet: ({ open, children }: { open?: boolean; children: React.ReactNode }) =>
       open ? React.createElement(React.Fragment, null, children) : null,

@@ -1,6 +1,6 @@
 import { initPatientData, resetPatientDataInit } from '@/services/patientDataService';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 const mockFetchStatus = jest.fn();
 const mockFetchSummary = jest.fn();

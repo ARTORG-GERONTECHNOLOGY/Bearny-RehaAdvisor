@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import RehabTable from '@/pages/RehabTable';
 import apiClient from '@/api/client';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock(
   '@/components/RehaTablePage/layout/RehaPageLayout',

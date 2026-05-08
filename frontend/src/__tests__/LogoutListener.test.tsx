@@ -4,7 +4,7 @@ import LogoutListener from '@/LogoutListener';
 import authStore from '@/stores/authStore';
 import '@testing-library/jest-dom';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 // Mock useNavigate
 const mockNavigate = jest.fn();
