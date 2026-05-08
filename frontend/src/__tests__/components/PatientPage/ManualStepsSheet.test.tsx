@@ -1,9 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ManualStepsSheet from '@/components/PatientPage/ManualStepsSheet';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 describe('ManualStepsSheet', () => {
   const baseProps = {

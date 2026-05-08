@@ -7,11 +7,7 @@ jest.mock('@/stores/authStore', () => ({
   userType: 'Therapist',
   id: 'therapist123',
 }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';

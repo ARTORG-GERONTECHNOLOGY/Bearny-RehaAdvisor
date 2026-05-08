@@ -1,10 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import DeleteConfirmation from '@/components/UserProfile/DeleteConfirmationSheet';
 import '@testing-library/jest-dom';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 describe('DeleteConfirmation', () => {
   it('does not render when show is false', () => {

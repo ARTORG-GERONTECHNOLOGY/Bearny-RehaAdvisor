@@ -1,10 +1,3 @@
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key, // <-- This makes t('Open PDF') return 'Open PDF'
-    i18n: { language: 'en' },
-  }),
-}));
-
 jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
@@ -49,6 +42,8 @@ jest.mock('@/utils/interventions', () => ({
   getMediaTypeLabelFromIntervention: jest.fn(() => 'Unknown'),
   getTagColor: jest.fn(() => '#6f2dbd'),
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
 

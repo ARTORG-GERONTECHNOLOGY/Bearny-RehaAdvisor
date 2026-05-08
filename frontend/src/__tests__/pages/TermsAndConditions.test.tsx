@@ -1,10 +1,7 @@
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import TermsAndConditions from '@/pages/TermsAndConditions';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,

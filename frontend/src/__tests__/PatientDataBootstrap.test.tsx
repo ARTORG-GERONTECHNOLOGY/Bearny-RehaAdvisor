@@ -2,6 +2,8 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import PatientDataBootstrap from '@/components/PatientDataBootstrap';
 
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 const mockInitPatientData = jest.fn();
@@ -16,10 +18,6 @@ jest.mock('@/services/patientDataService', () => ({
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: { isAuthenticated: false, userType: '', id: '' },
-}));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ i18n: { language: 'en' } }),
 }));
 
 // mobx-react-lite observer is a passthrough in tests

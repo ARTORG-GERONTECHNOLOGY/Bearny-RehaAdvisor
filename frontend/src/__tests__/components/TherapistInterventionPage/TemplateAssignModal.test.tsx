@@ -4,11 +4,9 @@ import '@testing-library/jest-dom';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import apiClient from '@/api/client';
 
-jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
-}));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({ default: { id: 'therapist-1' }, id: 'therapist-1' }));
 

@@ -6,13 +6,7 @@ import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 
 // ── Global mocks ──────────────────────────────────────────────────────────────
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/utils/translate', () => ({
   translateText: jest.fn((text: string) =>

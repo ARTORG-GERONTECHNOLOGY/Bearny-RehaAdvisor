@@ -7,6 +7,8 @@ let mockUserType = 'Patient';
 
 const mockNavigate = jest.fn();
 
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
 jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
@@ -159,13 +161,6 @@ jest.mock('@/hooks/useInterventions', () => ({
   useInterventions: jest.fn(() => ({
     completionCount: { completed: 1, total: 3 },
   })),
-}));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
 }));
 
 jest.mock('react-router-dom', () => {

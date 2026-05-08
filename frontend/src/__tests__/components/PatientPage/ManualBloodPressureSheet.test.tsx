@@ -1,9 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ManualBloodPressureSheet from '@/components/PatientPage/ManualBloodPressureSheet';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 describe('ManualBloodPressureSheet', () => {
   const baseProps = {

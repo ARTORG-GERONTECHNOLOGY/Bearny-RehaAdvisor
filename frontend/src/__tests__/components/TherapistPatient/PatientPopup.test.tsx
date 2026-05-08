@@ -79,7 +79,7 @@ describe('PatientPopup', () => {
     const nameInput = await screen.findByDisplayValue('John Doe');
     fireEvent.change(nameInput, { target: { value: 'Jane Doe' } });
 
-    const saveButton = await screen.findByText('Save Changes');
+    const saveButton = await screen.findByText('SaveChanges');
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -108,7 +108,7 @@ describe('PatientPopup', () => {
       target: { value: 'Very active person, Morning walk group' },
     });
 
-    const saveButton = await screen.findByText('Save Changes');
+    const saveButton = await screen.findByText('SaveChanges');
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -157,10 +157,10 @@ describe('PatientPopup', () => {
     (apiClient.delete as jest.Mock).mockResolvedValue({});
     renderComponent();
 
-    const deleteButton = await screen.findByText('Delete Patient');
+    const deleteButton = await screen.findByText('DeletePatient');
     fireEvent.click(deleteButton);
 
-    expect(await screen.findByText(/Confirm Deletion/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ConfirmDeletion/i)).toBeInTheDocument();
     const confirmButton = screen.getByText(/^Delete$/i);
     fireEvent.click(confirmButton);
 
@@ -172,10 +172,10 @@ describe('PatientPopup', () => {
   it('cancels delete confirmation modal', async () => {
     renderComponent();
 
-    const deleteButton = await screen.findByText('Delete Patient');
+    const deleteButton = await screen.findByText('DeletePatient');
     fireEvent.click(deleteButton);
 
-    expect(await screen.findByText(/Confirm Deletion/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ConfirmDeletion/i)).toBeInTheDocument();
 
     const cancelButton = screen.getByText('Cancel');
     fireEvent.click(cancelButton);
@@ -221,7 +221,7 @@ describe('PatientPopup', () => {
     const editButton = await screen.findByText('Edit');
     fireEvent.click(editButton);
 
-    const saveButton = await screen.findByText('Save Changes');
+    const saveButton = await screen.findByText('SaveChanges');
     const emailInput = await screen.findByDisplayValue('john@example.com');
     const phoneInput = await screen.findByDisplayValue('+123456789');
 
@@ -249,7 +249,7 @@ describe('PatientPopup', () => {
       </I18nextProvider>
     );
 
-    const deleteButton = await screen.findByText('Delete Patient');
+    const deleteButton = await screen.findByText('DeletePatient');
     fireEvent.click(deleteButton);
 
     const confirmButton = await screen.findByText(/^Delete$/i);
@@ -271,7 +271,7 @@ describe('PatientPopup', () => {
   it('closes delete confirmation modal when cancelled', async () => {
     renderComponent();
 
-    const deleteButton = await screen.findByText('Delete Patient');
+    const deleteButton = await screen.findByText('DeletePatient');
     fireEvent.click(deleteButton);
 
     const cancelButton = await screen.findByText('Cancel');

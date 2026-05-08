@@ -34,13 +34,6 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
-
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
   default: jest.requireActual('@/__mocks__/components/Layout').default,
@@ -109,6 +102,8 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/stores/interventionsLibraryStore', () => ({
   patientInterventionsLibraryStore: mockStore,
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import PatientInterventionsLibrary from '@/pages/PatientInterventionsLibrary';
 

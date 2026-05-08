@@ -2,11 +2,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import PatientTypeSection from '@/components/AddIntervention/PatientTypeSection';
 import '@testing-library/jest-dom';
 
-// Mock react-i18next
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 describe('PatientTypeSection', () => {
   const mockOnChange = jest.fn();
   const diagnoses = ['DiagnosisA', 'DiagnosisB'];

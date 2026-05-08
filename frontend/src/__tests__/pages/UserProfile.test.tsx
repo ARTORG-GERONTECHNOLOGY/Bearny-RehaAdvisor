@@ -1,6 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import UserProfile from '@/pages/UserProfile';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 const mockNavigate = jest.fn();
 
@@ -8,10 +9,6 @@ jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
 
 jest.mock('@/components/common/StatusBanner', () => ({
   __esModule: true,

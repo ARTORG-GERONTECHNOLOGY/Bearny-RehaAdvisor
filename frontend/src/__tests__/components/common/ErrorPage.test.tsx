@@ -2,12 +2,10 @@ import { render, screen, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import ErrorPage from '@/pages/ErrorPage';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 const mockUseRouteError = jest.fn();
 const mockIsRouteErrorResponse = jest.fn();
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
