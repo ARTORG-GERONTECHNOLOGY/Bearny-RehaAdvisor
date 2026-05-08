@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

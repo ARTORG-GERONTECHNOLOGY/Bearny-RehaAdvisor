@@ -4,7 +4,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 
 // Mock API client
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 // Mock react-i18next
 jest.mock('react-i18next', () => ({

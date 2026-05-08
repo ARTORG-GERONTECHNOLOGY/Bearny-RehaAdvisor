@@ -8,7 +8,7 @@ import {
 
 // input-otp uses browser APIs (pointer events, shadow DOM) not available in jsdom
 jest.mock('input-otp', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   const OTPInputContext = React.createContext({
     slots: [{ char: '', hasFakeCaret: false, isActive: false }],
   });
@@ -78,7 +78,7 @@ describe('InputOTPSlot', () => {
     slots: { char: string; hasFakeCaret: boolean; isActive: boolean }[];
     index?: number;
   }) {
-    const { OTPInputContext } = require('input-otp');
+    const { OTPInputContext } = jest.requireMock('input-otp');
     return (
       <OTPInputContext.Provider value={{ slots }}>
         <InputOTPSlot index={index} />

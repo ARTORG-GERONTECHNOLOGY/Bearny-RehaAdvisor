@@ -26,7 +26,7 @@ jest.mock('@/stores/patientUiStore', () => ({
 
 // Mock patientInterventionsStore
 jest.mock('@/stores/patientInterventionsStore', () => {
-  const { format } = require('date-fns');
+  const { format } = jest.requireActual('date-fns');
 
   const mockInterventions = [
     {
@@ -83,7 +83,7 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({

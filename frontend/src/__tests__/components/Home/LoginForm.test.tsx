@@ -42,7 +42,7 @@ jest.mock('react-bootstrap', () => {
 
 // Mock shadcn Sheet (replaces Bootstrap Modal in LoginForm)
 jest.mock('@/components/ui/sheet', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     Sheet: ({ open, children }: any) => (open ? <div data-testid="sheet">{children}</div> : null),
@@ -55,7 +55,7 @@ jest.mock('@/components/ui/sheet', () => {
 
 // Mock the small UI components used by LoginForm (keep tests focused on logic)
 jest.mock('@/components/forms/input/InputField', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ id, label, value, onChange, placeholder, required, type }: any) => {
@@ -82,7 +82,7 @@ jest.mock('@/components/forms/input/InputField', () => {
 });
 
 jest.mock('@/components/forms/input/PasswordField', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ id, value, onChange, required }: any) => {
@@ -108,7 +108,7 @@ jest.mock('@/components/forms/input/PasswordField', () => {
 });
 
 jest.mock('@/components/forms/input/OTPField', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ id, label, value, onChange, required }: any) => {
@@ -134,7 +134,7 @@ jest.mock('@/components/forms/input/OTPField', () => {
 });
 
 jest.mock('@/components/common/ForgotPasswordLink', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ onClick, text }: any) => <button onClick={onClick}>{text}</button>,
@@ -142,7 +142,7 @@ jest.mock('@/components/common/ForgotPasswordLink', () => {
 });
 
 jest.mock('@/components/common/ErrorAlert', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ message, onClose }: any) => (

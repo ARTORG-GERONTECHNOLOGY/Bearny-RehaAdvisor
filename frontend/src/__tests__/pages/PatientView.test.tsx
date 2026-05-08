@@ -105,7 +105,7 @@ jest.mock('@/utils/dateLocale', () => ({
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
 jest.mock('@/components/PatientPage/DailyInterventionCard', () => {

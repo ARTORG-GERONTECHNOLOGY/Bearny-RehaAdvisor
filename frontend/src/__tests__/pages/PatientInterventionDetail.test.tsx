@@ -43,7 +43,7 @@ jest.mock('react-icons/fa', () => ({
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
 jest.mock(
