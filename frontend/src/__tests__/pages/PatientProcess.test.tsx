@@ -7,11 +7,6 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-// ─── i18n ─────────────────────────────────────────────────────────────────────
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 // ─── date-fns ─────────────────────────────────────────────────────────────────
 jest.mock('date-fns', () => ({
   format: () => '01.05. - 07.05.',
@@ -117,6 +112,8 @@ jest.mock('@/components/PatientProcess/BloodPressureCard', () => ({
 jest.mock('@/components/skeletons/PatientProcessSkeleton', () => ({
   PatientProcessLoadingContent: () => <div data-testid="loading-skeleton" />,
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // ─── colors ───────────────────────────────────────────────────────────────────
 jest.mock('@/lib/colors', () => ({

@@ -1,13 +1,3 @@
-// Mock react-i18next
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en', changeLanguage: jest.fn() },
-  }),
-}));
-
-// Mock child components
-// Mock the apiClient
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock(
   '@/components/common/WelcomeArea',

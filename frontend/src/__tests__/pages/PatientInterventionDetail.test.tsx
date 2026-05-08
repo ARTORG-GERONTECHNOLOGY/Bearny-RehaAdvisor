@@ -1,4 +1,3 @@
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockNavigate = jest.fn();
@@ -18,13 +17,6 @@ jest.mock('react-router-dom', () => {
     useSearchParams: () => [mockSearchParams],
   };
 });
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
 
 jest.mock('react-bootstrap', () => ({
   OverlayTrigger: function OverlayTrigger({ children }: any) {
@@ -129,6 +121,8 @@ jest.mock('@/api/client', () => ({
     get: jest.fn().mockResolvedValue({}),
   },
 }));
+
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import PatientInterventionDetail from '@/pages/PatientInterventionDetail';
 import authStore from '@/stores/authStore';

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import RehabTable from '@/pages/RehabTable';
 import apiClient from '@/api/client';
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
@@ -83,13 +84,6 @@ jest.mock(
       return null;
     }
 );
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {

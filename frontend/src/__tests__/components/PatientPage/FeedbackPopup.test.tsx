@@ -4,13 +4,7 @@ import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
 
 // ── Global mocks ──────────────────────────────────────────────────────────────
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'en' },
-  }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/api/client', () => ({
   __esModule: true,

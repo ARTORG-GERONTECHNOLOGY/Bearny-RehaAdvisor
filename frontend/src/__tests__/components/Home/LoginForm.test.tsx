@@ -3,15 +3,13 @@ import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import LoginForm from '@/components/HomePage/LoginForm';
 
 // ---------- Mocks ----------
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
 
 // Simplify Bootstrap Modal: render children only when show=true
 jest.mock('react-bootstrap', () => {

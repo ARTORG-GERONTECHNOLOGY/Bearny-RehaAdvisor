@@ -1,10 +1,7 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
 import PwaInstallSheet, { useIsStandalone } from '@/components/PwaInstallSheet';
 import '@testing-library/jest-dom';
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/ui/sheet', () => {
   const React = jest.requireActual('react');
