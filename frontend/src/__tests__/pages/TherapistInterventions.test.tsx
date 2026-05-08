@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TherapistInterventions from '@/pages/TherapistInterventions';
 import '@testing-library/jest-dom';
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('../../config/config.json', () => ({
   RecomendationInfo: { tags: [] },
   patientInfo: {
@@ -57,7 +57,7 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
 }));
 
 // Child component mocks
-jest.mock('@/components/Layout', () => require('@/__mocks__/components/Layout'));
+jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock(
   '@/components/common/WelcomeArea',
   () =>
@@ -262,7 +262,9 @@ describe('TherapistInterventions Page', () => {
     jest.clearAllMocks();
 
     // Set up the store mock with items
-    store = require('@/stores/interventionsLibraryStore').therapistInterventionsLibraryStore;
+    store = jest.requireMock(
+      '@/stores/interventionsLibraryStore'
+    ).therapistInterventionsLibraryStore;
     store.items = mockInterventions;
     store.loading = false;
     store.error = null;
@@ -398,7 +400,7 @@ describe('TherapistInterventions Page', () => {
   });
 
   test('redirects if user is not authenticated', async () => {
-    const authStore = require('@/stores/authStore').default;
+    const authStore = jest.requireMock('@/stores/authStore').default;
     authStore.isAuthenticated = false;
 
     render(

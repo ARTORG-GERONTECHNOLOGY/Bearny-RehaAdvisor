@@ -15,7 +15,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('@/components/PwaInstallSheet', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     default: ({ open }: { open: boolean }) =>

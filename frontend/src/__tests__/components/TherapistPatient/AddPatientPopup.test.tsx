@@ -1,6 +1,6 @@
 // Mock dependencies BEFORE imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('@/stores/authStore', () => ({
   checkAuthentication: jest.fn(),
   isAuthenticated: true,

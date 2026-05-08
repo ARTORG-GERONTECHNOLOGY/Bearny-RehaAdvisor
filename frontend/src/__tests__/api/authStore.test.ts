@@ -3,7 +3,7 @@ import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 
 // Mock the apiClient
-jest.mock('@/api/client', () => require('@/__mocks__/api/client'));
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('@/stores/adminStore');
 jest.mock('axios');
 

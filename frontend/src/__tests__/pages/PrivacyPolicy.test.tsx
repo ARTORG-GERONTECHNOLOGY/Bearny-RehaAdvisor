@@ -4,7 +4,7 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: require('@/__mocks__/components/Layout').default,
+  default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
 describe('PrivacyPolicy', () => {
