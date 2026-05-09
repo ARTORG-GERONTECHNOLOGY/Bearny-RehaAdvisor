@@ -77,7 +77,9 @@ const AdminDashboard: React.FC = observer(() => {
       const res = await apiClient.get('/admin/interventions/');
       setInterventions(Array.isArray(res.data?.interventions) ? res.data.interventions : []);
     } catch (e: any) {
-      setInterventionError(e?.response?.data?.error || e?.message || 'Failed to load interventions.');
+      setInterventionError(
+        e?.response?.data?.error || e?.message || 'Failed to load interventions.'
+      );
     } finally {
       setInterventionLoading(false);
     }
@@ -91,7 +93,9 @@ const AdminDashboard: React.FC = observer(() => {
       setDeleteModal({ open: false, id: '', title: '' });
       await fetchInterventions();
     } catch (e: any) {
-      setInterventionError(e?.response?.data?.error || e?.message || 'Failed to delete intervention.');
+      setInterventionError(
+        e?.response?.data?.error || e?.message || 'Failed to delete intervention.'
+      );
       setDeleteModal({ open: false, id: '', title: '' });
     } finally {
       setDeleteInProgress(false);
@@ -102,9 +106,7 @@ const AdminDashboard: React.FC = observer(() => {
     const q = interventionSearch.trim().toLowerCase();
     if (!q) return interventions;
     return interventions.filter(
-      (iv) =>
-        iv.external_id.toLowerCase().includes(q) ||
-        iv.title.toLowerCase().includes(q)
+      (iv) => iv.external_id.toLowerCase().includes(q) || iv.title.toLowerCase().includes(q)
     );
   }, [interventions, interventionSearch]);
 
@@ -533,7 +535,11 @@ const AdminDashboard: React.FC = observer(() => {
                     onChange={(e) => setInterventionSearch(e.target.value)}
                     style={{ maxWidth: 320 }}
                   />
-                  <Button variant="outline-secondary" onClick={fetchInterventions} disabled={interventionLoading}>
+                  <Button
+                    variant="outline-secondary"
+                    onClick={fetchInterventions}
+                    disabled={interventionLoading}
+                  >
                     {interventionLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
                   </Button>
                 </div>
@@ -570,7 +576,9 @@ const AdminDashboard: React.FC = observer(() => {
                           <td>{iv.content_type}</td>
                           <td>
                             {iv.is_private ? (
-                              <Badge bg="warning" text="dark">{t('Private')}</Badge>
+                              <Badge bg="warning" text="dark">
+                                {t('Private')}
+                              </Badge>
                             ) : (
                               <Badge bg="success">{t('Public')}</Badge>
                             )}
@@ -579,7 +587,9 @@ const AdminDashboard: React.FC = observer(() => {
                             <Button
                               variant="danger"
                               size="sm"
-                              onClick={() => setDeleteModal({ open: true, id: iv._id, title: iv.title })}
+                              onClick={() =>
+                                setDeleteModal({ open: true, id: iv._id, title: iv.title })
+                              }
                             >
                               {t('Delete')}
                             </Button>
@@ -769,7 +779,8 @@ const AdminDashboard: React.FC = observer(() => {
           title={t('Delete intervention')}
           body={
             <p className="mb-0">
-              {t('Are you sure you want to permanently delete')} <strong>{deleteModal.title}</strong>?{' '}
+              {t('Are you sure you want to permanently delete')}{' '}
+              <strong>{deleteModal.title}</strong>?{' '}
               {t('This will also remove all associated logs and plan assignments.')}
             </p>
           }
