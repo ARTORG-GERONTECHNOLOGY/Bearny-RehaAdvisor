@@ -121,7 +121,16 @@ def _delete_intervention(request, intervention_id):
         # 2. Remove from InterventionTemplate.recommendations
         for tmpl in InterventionTemplate.objects.all():
             recs = list(getattr(tmpl, "recommendations", None) or [])
-            new_recs = [r for r in recs if str(getattr(r, "recommendation", None) and r.recommendation.id if hasattr(getattr(r, "recommendation", None), "id") else "") != str(intervention_ref_id)]
+            new_recs = [
+                r
+                for r in recs
+                if str(
+                    getattr(r, "recommendation", None) and r.recommendation.id
+                    if hasattr(getattr(r, "recommendation", None), "id")
+                    else ""
+                )
+                != str(intervention_ref_id)
+            ]
             if len(new_recs) != len(recs):
                 tmpl.recommendations = new_recs
                 tmpl.save()
@@ -129,7 +138,16 @@ def _delete_intervention(request, intervention_id):
         # 3. Remove from Therapist.default_recommendations
         for therapist in Therapist.objects.all():
             recs = list(getattr(therapist, "default_recommendations", None) or [])
-            new_recs = [r for r in recs if str(getattr(r, "recommendation", None) and r.recommendation.id if hasattr(getattr(r, "recommendation", None), "id") else "") != str(intervention_ref_id)]
+            new_recs = [
+                r
+                for r in recs
+                if str(
+                    getattr(r, "recommendation", None) and r.recommendation.id
+                    if hasattr(getattr(r, "recommendation", None), "id")
+                    else ""
+                )
+                != str(intervention_ref_id)
+            ]
             if len(new_recs) != len(recs):
                 therapist.default_recommendations = new_recs
                 therapist.save()
