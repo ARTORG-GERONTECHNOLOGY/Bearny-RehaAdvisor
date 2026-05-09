@@ -242,9 +242,9 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       return;
     }
 
-    const lang = (i18n.language || 'en').slice(0, 2);
+    const lang = (authStore.preferredLanguage || i18n.language || 'en').slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
+  }, [authChecked, authStore.isAuthenticated, authStore.userType, authStore.preferredLanguage, navigate, i18n.language]);
 
   const sourceItems = patientInterventionsLibraryStore.visibleItemsForPatient;
   const storeError = patientInterventionsLibraryStore.error;

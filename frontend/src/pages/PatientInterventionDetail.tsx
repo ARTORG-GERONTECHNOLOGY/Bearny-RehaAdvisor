@@ -357,7 +357,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
       }
 
       if (!patientInterventionsLibraryStore.visibleItemsForPatient.length) {
-        const lang = (i18n.language || 'en').slice(0, 2);
+        const lang = (authStore.preferredLanguage || i18n.language || 'en').slice(0, 2);
         await patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
       }
 
