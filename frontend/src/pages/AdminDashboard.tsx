@@ -48,6 +48,67 @@ const AdminDashboard: React.FC = observer(() => {
   const [accessSuccess, setAccessSuccess] = useState<string | null>(null);
 
   // -------------------------
+  // Interventions tab
+  // -------------------------
+  type AdminIntervention = {
+    _id: string;
+    external_id: string;
+    language: string;
+    title: string;
+    content_type: string;
+    is_private: boolean;
+  };
+
+  const [interventions, setInterventions] = useState<AdminIntervention[]>([]);
+  const [interventionSearch, setInterventionSearch] = useState('');
+  const [interventionLoading, setInterventionLoading] = useState(false);
+  const [interventionError, setInterventionError] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    id: string;
+    title: string;
+  }>({ open: false, id: '', title: '' });
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
+
+  const fetchInterventions = useCallback(async () => {
+    setInterventionLoading(true);
+    setInterventionError(null);
+    try {
+      const res = await apiClient.get('/admin/interventions/');
+      setInterventions(Array.isArray(res.data?.interventions) ? res.data.interventions : []);
+    } catch (e: any) {
+      setInterventionError(e?.response?.data?.error || e?.message || 'Failed to load interventions.');
+    } finally {
+      setInterventionLoading(false);
+    }
+  }, []);
+
+  const confirmDelete = async () => {
+    if (!deleteModal.id) return;
+    setDeleteInProgress(true);
+    try {
+      await apiClient.delete(`/admin/interventions/${deleteModal.id}/`);
+      setDeleteModal({ open: false, id: '', title: '' });
+      await fetchInterventions();
+    } catch (e: any) {
+      setInterventionError(e?.response?.data?.error || e?.message || 'Failed to delete intervention.');
+      setDeleteModal({ open: false, id: '', title: '' });
+    } finally {
+      setDeleteInProgress(false);
+    }
+  };
+
+  const filteredInterventions = useMemo(() => {
+    const q = interventionSearch.trim().toLowerCase();
+    if (!q) return interventions;
+    return interventions.filter(
+      (iv) =>
+        iv.external_id.toLowerCase().includes(q) ||
+        iv.title.toLowerCase().includes(q)
+    );
+  }, [interventions, interventionSearch]);
+
+  // -------------------------
   // Access change requests tab
   // -------------------------
   type AccessChangeRequest = {
@@ -120,6 +181,7 @@ const AdminDashboard: React.FC = observer(() => {
   useEffect(() => {
     store.init(navigate, t);
     fetchChangeRequests();
+    fetchInterventions();
   }, [store, navigate, t]);
 
   const getTherapistIdFromEntry = (entry: any) => {
@@ -306,6 +368,9 @@ const AdminDashboard: React.FC = observer(() => {
                   )}
                 </Nav.Link>
               </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -443,6 +508,80 @@ const AdminDashboard: React.FC = observer(() => {
                               onClick={() => openRejectModal(req.id)}
                             >
                               {t('Decline')}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Tab.Pane>
+
+              {/* ── Tab 3: interventions ── */}
+              <Tab.Pane eventKey="interventions">
+                {interventionError && (
+                  <Alert variant="danger" dismissible onClose={() => setInterventionError(null)}>
+                    {interventionError}
+                  </Alert>
+                )}
+
+                <div className="d-flex gap-2 mb-3">
+                  <Form.Control
+                    type="search"
+                    placeholder={t('Search by title or ID…')}
+                    value={interventionSearch}
+                    onChange={(e) => setInterventionSearch(e.target.value)}
+                    style={{ maxWidth: 320 }}
+                  />
+                  <Button variant="outline-secondary" onClick={fetchInterventions} disabled={interventionLoading}>
+                    {interventionLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
+                  </Button>
+                </div>
+
+                {interventionLoading ? (
+                  <div className="text-center my-5">
+                    <Spinner animation="border" role="status" />
+                    <div>{t('Loading')}...</div>
+                  </div>
+                ) : filteredInterventions.length === 0 ? (
+                  <p className="text-center text-muted">{t('No interventions found')}</p>
+                ) : (
+                  <Table striped bordered hover responsive>
+                    <thead>
+                      <tr>
+                        <th>{t('ID')}</th>
+                        <th>{t('Title')}</th>
+                        <th>{t('Language')}</th>
+                        <th>{t('Type')}</th>
+                        <th>{t('Private')}</th>
+                        <th style={{ minWidth: 100 }}>{t('Actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredInterventions.map((iv) => (
+                        <tr key={iv._id}>
+                          <td>
+                            <code>{iv.external_id}</code>
+                          </td>
+                          <td>{iv.title}</td>
+                          <td>
+                            <Badge bg="secondary">{iv.language}</Badge>
+                          </td>
+                          <td>{iv.content_type}</td>
+                          <td>
+                            {iv.is_private ? (
+                              <Badge bg="warning" text="dark">{t('Private')}</Badge>
+                            ) : (
+                              <Badge bg="success">{t('Public')}</Badge>
+                            )}
+                          </td>
+                          <td>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setDeleteModal({ open: true, id: iv._id, title: iv.title })}
+                            >
+                              {t('Delete')}
                             </Button>
                           </td>
                         </tr>
@@ -622,6 +761,23 @@ const AdminDashboard: React.FC = observer(() => {
             </Button>
           </Modal.Footer>
         </Modal>
+
+        {/* Delete intervention confirm */}
+        <ConfirmModal
+          show={deleteModal.open}
+          onHide={() => setDeleteModal({ open: false, id: '', title: '' })}
+          title={t('Delete intervention')}
+          body={
+            <p className="mb-0">
+              {t('Are you sure you want to permanently delete')} <strong>{deleteModal.title}</strong>?{' '}
+              {t('This will also remove all associated logs and plan assignments.')}
+            </p>
+          }
+          cancelText={t('Cancel')}
+          confirmText={deleteInProgress ? t('Deleting...') : t('Delete')}
+          confirmVariant="danger"
+          onConfirm={confirmDelete}
+        />
       </div>
     </Layout>
   );
