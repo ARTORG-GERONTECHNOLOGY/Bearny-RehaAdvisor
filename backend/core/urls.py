@@ -33,6 +33,7 @@ from core.views.questionaires_view import (
     list_health_questionnaires,
     list_patient_questionnaires,
     remove_questionnaire,
+    reset_patient_feedback,
 )
 from core.views.redcap_import_views import (
     available_redcap_patients,
@@ -122,6 +123,7 @@ urlpatterns = [
     path("api/questionnaires/patient/<str:patient_id>/", list_patient_questionnaires),
     path("api/questionnaires/assign/", assign_questionnaire),
     path("api/questionnaires/remove/", remove_questionnaire),
+    path("api/questionnaires/reset-feedback/", reset_patient_feedback),
     path(
         "api/questionnaires/dynamic/",
         list_dynamic_questionnaires,
