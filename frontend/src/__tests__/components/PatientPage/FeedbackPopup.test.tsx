@@ -16,7 +16,7 @@ jest.mock('@/api/client', () => ({
 jest.mock(
   '@/components/common/ErrorAlert',
   () =>
-    function ErrorAlert(p: any) {
+    function ErrorAlert(p: { message?: string }) {
       return <div role="alert">{p.message}</div>;
     }
 );
@@ -61,7 +61,7 @@ const textFirstProps = {
 const dropdownAndTextQuestions = [
   {
     questionKey: 'q1',
-    answerType: 'dropdown',
+    answerType: 'dropdown' as const,
     translations: [{ language: 'en', text: 'Q1' }],
     possibleAnswers: [
       { key: 'a', translations: [{ language: 'en', text: 'A' }] },
@@ -70,7 +70,7 @@ const dropdownAndTextQuestions = [
   },
   {
     questionKey: 'q2',
-    answerType: 'text',
+    answerType: 'text' as const,
     translations: [{ language: 'en', text: 'Q2' }],
   },
 ];
@@ -92,7 +92,7 @@ describe('FeedbackPopup Component', () => {
     });
 
     class MockMediaRecorder {
-      public ondataavailable: ((event: any) => void) | null = null;
+      public ondataavailable: ((event: { data: Blob }) => void) | null = null;
       public onstop: (() => void) | null = null;
       public onstart: (() => void) | null = null;
 
@@ -114,7 +114,7 @@ describe('FeedbackPopup Component', () => {
       static isTypeSupported = jest.fn(() => true);
     }
 
-    global.MediaRecorder = MockMediaRecorder as any;
+    global.MediaRecorder = MockMediaRecorder as unknown as typeof MediaRecorder;
 
     Object.defineProperty(global.navigator, 'permissions', {
       writable: true,
@@ -445,9 +445,13 @@ describe('FeedbackPopup - ErrorAlert rendering', () => {
       <FeedbackPopup
         show={true}
         interventionId="intervention1"
-        questions={
-          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
-        }
+        questions={[
+          {
+            questionKey: 'q1',
+            answerType: 'text' as const,
+            translations: [{ language: 'en', text: 'How do you feel?' }],
+          },
+        ]}
         onClose={jest.fn()}
       />
     );
@@ -456,9 +460,13 @@ describe('FeedbackPopup - ErrorAlert rendering', () => {
       <FeedbackPopup
         show={true}
         interventionId="intervention1"
-        questions={
-          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
-        }
+        questions={[
+          {
+            questionKey: 'q1',
+            answerType: 'text' as const,
+            translations: [{ language: 'en', text: 'How do you feel?' }],
+          },
+        ]}
         onClose={jest.fn()}
       />
     );
@@ -490,7 +498,7 @@ describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
       <FeedbackPopup
         show
         interventionId="int1"
-        questions={dropdownAndTextQuestions as any}
+        questions={dropdownAndTextQuestions}
         onClose={jest.fn()}
         date="2026-02-15"
       />
@@ -514,7 +522,7 @@ describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
       <FeedbackPopup
         show
         interventionId="int1"
-        questions={dropdownAndTextQuestions as any}
+        questions={dropdownAndTextQuestions}
         onClose={onClose}
         date="2026-02-15"
       />
@@ -542,7 +550,7 @@ describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
       <FeedbackPopup
         show
         interventionId="int1"
-        questions={dropdownAndTextQuestions as any}
+        questions={dropdownAndTextQuestions}
         onClose={onClose}
         date="2026-02-15"
       />

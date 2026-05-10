@@ -13,7 +13,10 @@ global.ResizeObserver = class ResizeObserver {
 jest.mock(
   'react-select',
   () =>
-    function ReactSelect(props: any) {
+    function ReactSelect(props: {
+      placeholder?: string;
+      onChange?: (value: { value: string; label: string }[]) => void;
+    }) {
       const testId = props.placeholder?.includes('Tags')
         ? 'tag-select'
         : props.placeholder?.includes('Diagnosis')

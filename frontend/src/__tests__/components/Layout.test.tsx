@@ -11,7 +11,13 @@ jest.mock(
 jest.mock(
   '@/components/Container',
   () =>
-    function Container({ children, className }: any) {
+    function Container({
+      children,
+      className,
+    }: {
+      children?: React.ReactNode;
+      className?: string;
+    }) {
       return (
         <main data-testid="container" className={className}>
           {children}

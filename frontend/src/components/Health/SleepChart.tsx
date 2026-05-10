@@ -90,7 +90,7 @@ const SleepChart: React.FC<Props> = ({ data }) => {
 
     // Duration line
     const line = d3
-      .line<any>()
+      .line<SleepEntry>()
       .x((d) => x(d.date))
       .y((d) => y2(d.duration))
       .curve(d3.curveMonotoneX);

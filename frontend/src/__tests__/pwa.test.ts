@@ -172,7 +172,10 @@ describe('PWA Configuration', () => {
 
 describe('PWA Package Dependencies', () => {
   const packageJsonPath = path.resolve(__dirname, '../../package.json');
-  let packageJson: any;
+  let packageJson: {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
 
   beforeAll(() => {
     const packageContent = fs.readFileSync(packageJsonPath, 'utf-8');

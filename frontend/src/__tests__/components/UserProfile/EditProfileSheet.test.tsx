@@ -1,6 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import EditUserInfo from '@/components/UserProfile/EditProfileSheet';
+import type { UserType } from '@/types';
 
 // ── api client ───────────────────────────────────────────────────────────────
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
@@ -45,16 +46,26 @@ jest.mock('@/stores/userProfileStore', () => ({
 // ── react-select ──────────────────────────────────────────────────────────────
 jest.mock('react-select', () => ({
   __esModule: true,
-  default: ({ options, onChange, placeholder, isDisabled }: any) => (
+  default: ({
+    options,
+    onChange,
+    placeholder,
+    isDisabled,
+  }: {
+    options?: { value: string; label: string }[];
+    onChange: (value: { value: string; label: string }[]) => void;
+    placeholder?: string;
+    isDisabled?: boolean;
+  }) => (
     <select
       disabled={isDisabled}
       aria-label={placeholder || 'select'}
       onChange={(e) => {
-        const opt = options.find((o: any) => o.value === e.target.value);
+        const opt = options?.find((o) => o.value === e.target.value);
         if (opt) onChange([opt]);
       }}
     >
-      {options?.map((o: any) => (
+      {options?.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
@@ -66,7 +77,7 @@ jest.mock('react-select', () => ({
 // ── ErrorAlert ────────────────────────────────────────────────────────────────
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
-  default: ({ message, onClose }: any) => (
+  default: ({ message, onClose }: { message?: string; onClose?: () => void }) => (
     <div role="alert">
       <span>{message}</span>
       <button onClick={onClose}>close</button>
@@ -78,12 +89,12 @@ jest.mock('@/components/common/ErrorAlert', () => ({
 // Helpers
 // ═════════════════════════════════════════════════════════════════════════════
 
-const baseUser = {
+const baseUser: UserType = {
   email: 'a@b.com',
   phone: '1234567',
   clinics: ['Inselspital'],
   projects: ['COPAIN'],
-} as any;
+};
 
 function setup(userData = baseUser, onCancel = jest.fn()) {
   return renderWithRouter(<EditUserInfo show userData={userData} onCancel={onCancel} />);

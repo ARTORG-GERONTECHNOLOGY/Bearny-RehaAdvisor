@@ -102,8 +102,8 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
         const isTranslated =
           !!originalLang && title.trim().toLowerCase() !== (rec.title || '').trim().toLowerCase();
 
-        const badgeVariant = getBadgeVariantFromIntervention(rec as any);
-        const mediaLabel = getMediaTypeLabelFromIntervention(rec as any);
+        const badgeVariant = getBadgeVariantFromIntervention(rec);
+        const mediaLabel = getMediaTypeLabelFromIntervention(rec);
 
         const aims = Array.isArray(rec.aims) ? rec.aims.filter(Boolean) : [];
         const tags = Array.isArray(rec.tags) ? rec.tags.filter(Boolean) : [];
@@ -215,7 +215,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
                 </>
               ) : null}
 
-              <Badge bg={badgeVariant as any} aria-label={t('Media type')}>
+              <Badge bg={badgeVariant} aria-label={t('Media type')}>
                 {t(mediaLabel)}
               </Badge>
             </div>

@@ -5,7 +5,7 @@ let mockInterventionId = 'int-1';
 let mockSearchParams = new URLSearchParams('date=2026-03-16');
 
 jest.mock('mobx-react-lite', () => ({
-  observer: (component: any) => component,
+  observer: (component: React.ComponentType) => component,
 }));
 
 jest.mock('react-router-dom', () => {
@@ -19,10 +19,10 @@ jest.mock('react-router-dom', () => {
 });
 
 jest.mock('react-bootstrap', () => ({
-  OverlayTrigger: function OverlayTrigger({ children }: any) {
+  OverlayTrigger: function OverlayTrigger({ children }: { children?: React.ReactNode }) {
     return <>{children}</>;
   },
-  Tooltip: function Tooltip({ children }: any) {
+  Tooltip: function Tooltip({ children }: { children?: React.ReactNode }) {
     return <span>{children}</span>;
   },
 }));
@@ -41,7 +41,7 @@ jest.mock('@/components/Layout', () => ({
 jest.mock(
   '@/components/common/ErrorAlert',
   () =>
-    function ErrorAlert({ message, onClose }: any) {
+    function ErrorAlert({ message, onClose }: { message?: string; onClose?: () => void }) {
       return (
         <div>
           <span>{message}</span>
@@ -54,13 +54,19 @@ jest.mock(
 jest.mock(
   '@/components/PatientPage/FeedbackPopup',
   () =>
-    function FeedbackPopup(props: any) {
+    function FeedbackPopup(props: { interventionId?: string }) {
       return <div data-testid="feedback-popup">{props.interventionId}</div>;
     }
 );
 
 jest.mock('@/components/common/PlayableMedia', () => ({
-  PlayableMedia: function PlayableMedia({ label, m }: any) {
+  PlayableMedia: function PlayableMedia({
+    label,
+    m,
+  }: {
+    label?: string;
+    m: { media_type: string };
+  }) {
     return (
       <div data-testid="playable-media">
         {label}:{m.media_type}
@@ -130,7 +136,7 @@ import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
-const buildRec = (overrides: any = {}) => ({
+const buildRec = (overrides: Record<string, unknown> = {}) => ({
   intervention_id: 'int-1',
   intervention_title: 'Morning Stretch',
   description: 'Daily movement routine',
@@ -174,22 +180,23 @@ describe('PatientInterventionDetail', () => {
     mockInterventionId = 'int-1';
     mockSearchParams = new URLSearchParams('date=2026-03-16');
 
-    (authStore as any).isAuthenticated = true;
-    (authStore as any).userType = 'Patient';
+    Object.assign(authStore, { isAuthenticated: true, userType: 'Patient' });
 
-    (patientInterventionsStore as any).items = [buildRec()];
-    (patientInterventionsStore as any).isCompletedOn.mockReturnValue(false);
+    Object.assign(patientInterventionsStore, { items: [buildRec()] });
+    (patientInterventionsStore.isCompletedOn as jest.Mock).mockReturnValue(false);
 
-    (patientQuestionnairesStore as any).showFeedbackPopup = false;
-    (patientQuestionnairesStore as any).feedbackInterventionId = '';
-    (patientQuestionnairesStore as any).feedbackDateKey = '';
-    (patientQuestionnairesStore as any).feedbackQuestions = [];
+    Object.assign(patientQuestionnairesStore, {
+      showFeedbackPopup: false,
+      feedbackInterventionId: '',
+      feedbackDateKey: '',
+      feedbackQuestions: [],
+    });
 
-    (patientInterventionsLibraryStore as any).visibleItemsForPatient = [];
+    Object.assign(patientInterventionsLibraryStore, { visibleItemsForPatient: [] });
   });
 
   it('redirects to root when user is not authenticated as a patient', async () => {
-    (authStore as any).isAuthenticated = false;
+    Object.assign(authStore, { isAuthenticated: false });
 
     render(<PatientInterventionDetail />);
 
@@ -199,8 +206,8 @@ describe('PatientInterventionDetail', () => {
   });
 
   it('shows not-found state when no matching intervention exists', async () => {
-    (patientInterventionsStore as any).items = [];
-    (patientInterventionsLibraryStore as any).visibleItemsForPatient = [];
+    Object.assign(patientInterventionsStore, { items: [] });
+    Object.assign(patientInterventionsLibraryStore, { visibleItemsForPatient: [] });
 
     render(<PatientInterventionDetail />);
 
@@ -225,7 +232,7 @@ describe('PatientInterventionDetail', () => {
   });
 
   it('toggles completion and opens intervention feedback when marked done', async () => {
-    (patientInterventionsStore as any).toggleCompleted.mockResolvedValue({
+    (patientInterventionsStore.toggleCompleted as jest.Mock).mockResolvedValue({
       completed: true,
       dateKey: '2026-03-16',
     });
@@ -236,16 +243,16 @@ describe('PatientInterventionDetail', () => {
     fireEvent.click(markDoneButton);
 
     await waitFor(() => {
-      expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalled();
+      expect(patientInterventionsStore.toggleCompleted as jest.Mock).toHaveBeenCalled();
     });
 
-    expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalledWith(
+    expect(patientInterventionsStore.toggleCompleted).toHaveBeenCalledWith(
       'patient-1',
       expect.objectContaining({ intervention_id: 'int-1' }),
       expect.any(Date)
     );
 
-    expect((patientQuestionnairesStore as any).openInterventionFeedback).toHaveBeenCalledWith(
+    expect(patientQuestionnairesStore.openInterventionFeedback).toHaveBeenCalledWith(
       'patient-1',
       'int-1',
       '2026-03-16',
@@ -254,7 +261,7 @@ describe('PatientInterventionDetail', () => {
   });
 
   it('posts intervention view duration to backend on unmount', async () => {
-    (patientInterventionsStore as any).items = [buildRec()];
+    Object.assign(patientInterventionsStore, { items: [buildRec()] });
 
     const { unmount } = render(<PatientInterventionDetail />);
     await screen.findByText('Morning Stretch');

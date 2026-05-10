@@ -5,21 +5,29 @@ import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibrar
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/ui/sheet', () => ({
-  Sheet: ({ children }: any) => <div>{children}</div>,
-  SheetContent: ({ children }: any) => <div>{children}</div>,
-  SheetDescription: ({ children }: any) => <p>{children}</p>,
-  SheetFooter: ({ children }: any) => <div>{children}</div>,
-  SheetHeader: ({ children }: any) => <div>{children}</div>,
-  SheetTitle: ({ children }: any) => <h2>{children}</h2>,
+  Sheet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetDescription: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+  SheetFooter: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetTitle: ({ children }: { children?: React.ReactNode }) => <h2>{children}</h2>,
 }));
 
 jest.mock('@/components/ui/slider', () => ({
-  Slider: ({ 'data-testid': testId }: any) => <div data-testid={testId ?? 'slider'} />,
+  Slider: ({ 'data-testid': testId }: { 'data-testid'?: string }) => (
+    <div data-testid={testId ?? 'slider'} />
+  ),
 }));
 
 jest.mock('@/components/ui/switch', () => ({
-  Switch: ({ checked, onCheckedChange }: any) => (
-    <button type="button" aria-pressed={checked} onClick={() => onCheckedChange(!checked)}>
+  Switch: ({
+    checked,
+    onCheckedChange,
+  }: {
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
+    <button type="button" aria-pressed={checked} onClick={() => onCheckedChange?.(!checked)}>
       switch
     </button>
   ),

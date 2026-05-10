@@ -4,12 +4,14 @@ jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/component
 jest.mock(
   '@/components/Section',
   () =>
-    function Section({ children }: any) {
+    function Section({ children }: { children?: React.ReactNode }) {
       return <div data-testid="section">{children}</div>;
     }
 );
 jest.mock('@/components/ui/skeleton', () => ({
-  Skeleton: ({ className }: any) => <div data-testid="skeleton" className={className} />,
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={className} />
+  ),
 }));
 
 import HomeSkeleton from '@/components/skeletons/HomeSkeleton';

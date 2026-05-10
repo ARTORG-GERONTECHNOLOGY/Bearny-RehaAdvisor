@@ -8,8 +8,11 @@ jest.mock('i18next', () => ({
 }));
 
 describe('useNotifications', () => {
-  let mockNotification: any;
-  let mockServiceWorker: any;
+  let mockNotification: { permission: NotificationPermission; requestPermission: jest.Mock };
+  let mockServiceWorker: {
+    ready: Promise<{ periodicSync: { register: jest.Mock; unregister: jest.Mock } }>;
+    controller: { postMessage: jest.Mock };
+  };
   let mockLocalStorage: { [key: string]: string };
 
   beforeEach(() => {
@@ -26,7 +29,8 @@ describe('useNotifications', () => {
       permission: 'default' as NotificationPermission,
       requestPermission: jest.fn(),
     };
-    (global as any).Notification = mockNotification;
+    (global as unknown as { Notification: typeof mockNotification }).Notification =
+      mockNotification;
 
     // Mock ServiceWorker API
     mockServiceWorker = {
@@ -47,7 +51,9 @@ describe('useNotifications', () => {
     });
 
     // Mock ServiceWorkerRegistration
-    (global as any).ServiceWorkerRegistration = {
+    (
+      global as unknown as { ServiceWorkerRegistration: { prototype: { periodicSync?: object } } }
+    ).ServiceWorkerRegistration = {
       prototype: {
         periodicSync: {},
       },
@@ -85,7 +91,9 @@ describe('useNotifications', () => {
   });
 
   it('detects when periodic sync is not supported', () => {
-    delete (global as any).ServiceWorkerRegistration.prototype.periodicSync;
+    delete (
+      global as unknown as { ServiceWorkerRegistration: { prototype: Record<string, unknown> } }
+    ).ServiceWorkerRegistration.prototype.periodicSync;
 
     const { result } = renderHook(() => useNotifications());
 

@@ -14,8 +14,18 @@ jest.mock('input-otp', () => {
   });
   return {
     OTPInput: React.forwardRef(function OTPInput(
-      { children, containerClassName, className, ...rest }: any,
-      ref: any
+      {
+        children,
+        containerClassName,
+        className,
+        ...rest
+      }: {
+        children?: React.ReactNode;
+        containerClassName?: string;
+        className?: string;
+        [key: string]: unknown;
+      },
+      ref: React.Ref<HTMLInputElement>
     ) {
       return (
         <div className={containerClassName}>

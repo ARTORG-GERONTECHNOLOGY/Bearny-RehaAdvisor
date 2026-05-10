@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import HealthSlider from '@/pages/eva';
 
 describe('HealthSlider', () => {
-  const originalPrompt = window.prompt;
   const originalAlert = window.alert;
   const originalCreateElement = document.createElement.bind(document);
 
@@ -14,8 +13,8 @@ describe('HealthSlider', () => {
     jest.restoreAllMocks();
     window.localStorage.clear();
 
-    window.prompt = jest.fn(() => 'PAT_123') as any;
-    window.alert = jest.fn() as any;
+    window.prompt = jest.fn(() => 'PAT_123') as unknown as typeof window.prompt;
+    window.alert = jest.fn() as unknown as typeof window.alert;
 
     jest.spyOn(window.location, 'reload').mockImplementation(() => {});
 
@@ -40,7 +39,7 @@ describe('HealthSlider', () => {
         return a;
       }
       return originalCreateElement(tagName);
-    }) as any);
+    }) as unknown as typeof document.createElement);
 
     // stable bounding box for slider math
     jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -53,11 +52,10 @@ describe('HealthSlider', () => {
       x: 0,
       y: 0,
       toJSON: () => {},
-    } as any);
+    } as DOMRect);
   });
 
-  afterAll(() => {
-    window.prompt = originalPrompt;
+  afterEach(() => {
     window.alert = originalAlert;
   });
 
@@ -179,7 +177,10 @@ describe('HealthSlider', () => {
     fireEvent.touchStart(slider, { touches: [{ clientY: 50 }] });
 
     const preventDefault = jest.fn();
-    const touchEvent = new Event('touchmove', { bubbles: true, cancelable: true }) as any;
+    const touchEvent = new Event('touchmove', { bubbles: true, cancelable: true }) as Event & {
+      touches: { clientY: number }[];
+      preventDefault: jest.Mock;
+    };
     touchEvent.touches = [{ clientY: 50 }];
     touchEvent.preventDefault = preventDefault;
 
@@ -301,7 +302,7 @@ describe('HealthSlider', () => {
       .find((v) => v && typeof v === 'object' && 'download' in v);
     expect(lastAnchor).toBeTruthy();
 
-    const filename = (lastAnchor as any).download as string;
+    const filename = (lastAnchor as HTMLAnchorElement).download;
 
     const expectedVersionPart = 'Version_8_1_Auto_Save_23_01_2026';
     const expectedDatePart = '2026-01-23';
