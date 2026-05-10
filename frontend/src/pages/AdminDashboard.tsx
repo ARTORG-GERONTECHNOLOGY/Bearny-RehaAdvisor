@@ -117,9 +117,73 @@ const AdminDashboard: React.FC = observer(() => {
     }
   };
 
+  // -------------------------
+  // Export tab
+  // -------------------------
+  const [exportClinics, setExportClinics] = useState<string[]>([]);
+  const [exportClinicsLoading, setExportClinicsLoading] = useState(false);
+  const [exportClinicsError, setExportClinicsError] = useState<string | null>(null);
+  const [selectedExportClinics, setSelectedExportClinics] = useState<string[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const fetchExportClinics = useCallback(async () => {
+    setExportClinicsLoading(true);
+    setExportClinicsError(null);
+    try {
+      const res = await apiClient.get('/admin/export/clinics/');
+      const clinics = Array.isArray(res.data?.clinics) ? res.data.clinics : [];
+      setExportClinics(clinics);
+      setSelectedExportClinics(clinics);
+    } catch (e: any) {
+      setExportClinicsError(e?.response?.data?.error || e?.message || 'Failed to load clinics.');
+    } finally {
+      setExportClinicsLoading(false);
+    }
+  }, []);
+
+  const toggleExportClinic = (clinic: string) => {
+    setSelectedExportClinics((prev) =>
+      prev.includes(clinic) ? prev.filter((c) => c !== clinic) : [...prev, clinic]
+    );
+  };
+
+  const selectAllExportClinics = () => setSelectedExportClinics([...exportClinics]);
+  const deselectAllExportClinics = () => setSelectedExportClinics([]);
+
+  const downloadExport = async (clinicFilter: 'all' | 'selected') => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const params =
+        clinicFilter === 'all'
+          ? 'clinics=all'
+          : `clinics=${encodeURIComponent(selectedExportClinics.join(','))}`;
+
+      const res = await apiClient.get(`/admin/export/patients/?${params}`, {
+        responseType: 'blob',
+      });
+
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `export_${today}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setExportError(e?.response?.data?.error || e?.message || 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     store.init(navigate, t);
     fetchChangeRequests();
+    fetchExportClinics();
   }, [store, navigate, t]);
 
   const getTherapistIdFromEntry = (entry: any) => {
@@ -306,6 +370,9 @@ const AdminDashboard: React.FC = observer(() => {
                   )}
                 </Nav.Link>
               </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="export">{t('Export')}</Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -449,6 +516,109 @@ const AdminDashboard: React.FC = observer(() => {
                       ))}
                     </tbody>
                   </Table>
+                )}
+              </Tab.Pane>
+
+              {/* ── Tab 3: export ── */}
+              <Tab.Pane eventKey="export">
+                {exportClinicsError && (
+                  <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
+                    {exportClinicsError}
+                  </Alert>
+                )}
+                {exportError && (
+                  <Alert variant="danger" dismissible onClose={() => setExportError(null)}>
+                    {exportError}
+                  </Alert>
+                )}
+
+                {exportClinicsLoading ? (
+                  <div className="text-center my-5">
+                    <Spinner animation="border" role="status" />
+                    <div>{t('Loading')}...</div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-muted mb-1">
+                      {t('Select clinics to include in the export:')}
+                    </p>
+
+                    {exportClinics.length === 0 ? (
+                      <Alert variant="info">{t('No clinics found in the database.')}</Alert>
+                    ) : (
+                      <>
+                        <div className="d-flex gap-2 mb-2">
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={selectAllExportClinics}
+                            disabled={selectedExportClinics.length === exportClinics.length}
+                          >
+                            {t('Select all')}
+                          </Button>
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={deselectAllExportClinics}
+                            disabled={selectedExportClinics.length === 0}
+                          >
+                            {t('Deselect all')}
+                          </Button>
+                        </div>
+
+                        <Form className="mb-4">
+                          <div className="d-flex flex-wrap gap-3">
+                            {exportClinics.map((clinic) => (
+                              <Form.Check
+                                key={clinic}
+                                type="checkbox"
+                                id={`export_clinic_${clinic}`}
+                                label={clinic}
+                                checked={selectedExportClinics.includes(clinic)}
+                                onChange={() => toggleExportClinic(clinic)}
+                              />
+                            ))}
+                          </div>
+                        </Form>
+                      </>
+                    )}
+
+                    <p className="text-muted small mb-2">
+                      {t('The export is a ZIP archive containing:')}{' '}
+                      {t(
+                        'patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.'
+                      )}
+                    </p>
+
+                    <div className="d-flex gap-2 flex-wrap">
+                      <Button
+                        variant="primary"
+                        onClick={() => downloadExport('all')}
+                        disabled={exporting}
+                      >
+                        {exporting ? (
+                          <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            {t('Exporting...')}
+                          </>
+                        ) : (
+                          t('Export all patients (ZIP)')
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline-primary"
+                        onClick={() => downloadExport('selected')}
+                        disabled={exporting || selectedExportClinics.length === 0}
+                        title={
+                          selectedExportClinics.length === 0
+                            ? t('Select at least one clinic')
+                            : undefined
+                        }
+                      >
+                        {t('Export selected clinics')} ({selectedExportClinics.length})
+                      </Button>
+                    </div>
+                  </>
                 )}
               </Tab.Pane>
             </Tab.Content>
