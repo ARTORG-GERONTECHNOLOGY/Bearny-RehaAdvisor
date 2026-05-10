@@ -52,8 +52,8 @@ Each download is a ZIP archive containing one CSV per data type:
 | Endpoint                                      | Purpose                                                       |
 | --------------------------------------------- | ------------------------------------------------------------- |
 | `GET /api/admin/export/clinics/`              | Returns `{ clinics: string[] }` — distinct clinic names in DB |
-| `GET /api/admin/export/patients/?clinics=all` | Full export ZIP |
-| `GET /api/admin/export/patients/?clinics=A,B` | Partial export ZIP |
+| `GET /api/admin/export/patients/?clinics=all` | Full export ZIP                                               |
+| `GET /api/admin/export/patients/?clinics=A,B` | Partial export ZIP                                            |
 
 ---
 
