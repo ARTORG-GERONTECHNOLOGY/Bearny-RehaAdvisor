@@ -15,6 +15,7 @@ from core.views.access_change_views import (
     admin_access_change_requests,
     submit_access_change_request,
 )
+from core.views.admin_export_views import admin_export_clinics, admin_export_patients
 from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_audio,
@@ -50,6 +51,9 @@ urlpatterns = [
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),
+    # Admin data export
+    path("api/admin/export/patients/", admin_export_patients),
+    path("api/admin/export/clinics/", admin_export_clinics),
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),
