@@ -149,10 +149,7 @@ def admin_export_clinics(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        clinics = sorted(
-            {(getattr(p, "clinic", "") or "").strip() for p in Patient.objects.only("clinic")}
-            - {""}
-        )
+        clinics = sorted({(getattr(p, "clinic", "") or "").strip() for p in Patient.objects.only("clinic")} - {""})
         return JsonResponse({"clinics": clinics}, status=200)
     except Exception:
         logger.exception("admin_export_clinics failed")
