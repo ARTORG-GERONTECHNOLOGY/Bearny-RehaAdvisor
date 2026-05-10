@@ -28,6 +28,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.sync_wearables_to_redcap_all",
         "schedule": crontab(hour=2, minute=30),
     },
+    # Renew Let's Encrypt certificates daily at 03:00 UTC.
+    # No-op unless CERTBOT_ENABLED=true is set in the environment.
+    "renew_certificates": {
+        "task": "core.tasks.renew_certificates",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 

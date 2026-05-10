@@ -144,6 +144,14 @@ curl -s -o /dev/null -w "%{http_code}\n" https://reha-advisor.ch/health
 
 # 4) Backend migration command sanity check
 docker exec django-prod conda run --no-capture-output -n teleRehabApp python manage.py showmigrations --plan | head -n 30
+
+# 5) TLS certificate validity
+openssl s_client -connect reha-advisor.ch:443 -servername reha-advisor.ch </dev/null 2>&1 | grep -E "notAfter|Verify return code"
+# Expected: Verify return code: 0 (ok)
+
+# 6) Cert renewal task registered in celery-beat
+docker exec celery-beat-prod python -m celery -A api.celery:app inspect registered | grep renew_certificates
+# Expected: core.tasks.renew_certificates
 ```
 
 Frontend smoke-check:
