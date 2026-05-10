@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _fmt_date(dt):
     if dt is None:
         return ""
@@ -125,41 +126,62 @@ def _intervention_info(ref):
 # CSV sheet builders
 # ---------------------------------------------------------------------------
 
+
 def _csv_patients(patients):
     headers = [
-        "clinic", "project", "patient_code", "first_name", "last_name",
-        "age", "sex", "diagnosis", "function", "therapist",
-        "reha_end_date", "study_end_date", "duration_days",
-        "preferred_language", "created_at",
+        "clinic",
+        "project",
+        "patient_code",
+        "first_name",
+        "last_name",
+        "age",
+        "sex",
+        "diagnosis",
+        "function",
+        "therapist",
+        "reha_end_date",
+        "study_end_date",
+        "duration_days",
+        "preferred_language",
+        "created_at",
     ]
     rows = []
     for pt in patients:
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "project": getattr(pt, "project", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "first_name": getattr(pt, "first_name", "") or "",
-            "last_name": getattr(pt, "name", "") or "",
-            "age": getattr(pt, "age", "") or "",
-            "sex": getattr(pt, "sex", "") or "",
-            "diagnosis": _join(getattr(pt, "diagnosis", None)),
-            "function": _join(getattr(pt, "function", None)),
-            "therapist": _therapist_name(pt),
-            "reha_end_date": _fmt_date(getattr(pt, "reha_end_date", None)),
-            "study_end_date": _fmt_date(getattr(pt, "study_end_date", None)),
-            "duration_days": str(getattr(pt, "duration", "") or ""),
-            "preferred_language": getattr(pt, "preferred_language", "") or "",
-            "created_at": _fmt_date(getattr(pt, "createdAt", None)),
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "project": getattr(pt, "project", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "first_name": getattr(pt, "first_name", "") or "",
+                "last_name": getattr(pt, "name", "") or "",
+                "age": getattr(pt, "age", "") or "",
+                "sex": getattr(pt, "sex", "") or "",
+                "diagnosis": _join(getattr(pt, "diagnosis", None)),
+                "function": _join(getattr(pt, "function", None)),
+                "therapist": _therapist_name(pt),
+                "reha_end_date": _fmt_date(getattr(pt, "reha_end_date", None)),
+                "study_end_date": _fmt_date(getattr(pt, "study_end_date", None)),
+                "duration_days": str(getattr(pt, "duration", "") or ""),
+                "preferred_language": getattr(pt, "preferred_language", "") or "",
+                "created_at": _fmt_date(getattr(pt, "createdAt", None)),
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_rehab_calendar(patients, patient_map):
     """One row per scheduled date per intervention assignment per plan."""
     headers = [
-        "clinic", "patient_code", "plan_status", "plan_start", "plan_end",
-        "intervention_external_id", "intervention_title",
-        "scheduled_date", "frequency", "notes",
+        "clinic",
+        "patient_code",
+        "plan_status",
+        "plan_start",
+        "plan_end",
+        "intervention_external_id",
+        "intervention_title",
+        "scheduled_date",
+        "frequency",
+        "notes",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -174,33 +196,55 @@ def _csv_rehab_calendar(patients, patient_map):
         plan_start = _fmt_date(getattr(plan, "startDate", None))
         plan_end = _fmt_date(getattr(plan, "endDate", None))
         plan_status = getattr(plan, "status", "") or ""
-        for assignment in (getattr(plan, "interventions", None) or []):
+        for assignment in getattr(plan, "interventions", None) or []:
             ext_id, title = _intervention_info(getattr(assignment, "interventionId", None))
             frequency = getattr(assignment, "frequency", "") or ""
             notes = getattr(assignment, "notes", "") or ""
             dates = getattr(assignment, "dates", None) or []
             if dates:
                 for d in dates:
-                    rows.append({
-                        "clinic": clinic, "patient_code": code,
-                        "plan_status": plan_status, "plan_start": plan_start, "plan_end": plan_end,
-                        "intervention_external_id": ext_id, "intervention_title": title,
-                        "scheduled_date": _fmt_date(d), "frequency": frequency, "notes": notes,
-                    })
+                    rows.append(
+                        {
+                            "clinic": clinic,
+                            "patient_code": code,
+                            "plan_status": plan_status,
+                            "plan_start": plan_start,
+                            "plan_end": plan_end,
+                            "intervention_external_id": ext_id,
+                            "intervention_title": title,
+                            "scheduled_date": _fmt_date(d),
+                            "frequency": frequency,
+                            "notes": notes,
+                        }
+                    )
             else:
-                rows.append({
-                    "clinic": clinic, "patient_code": code,
-                    "plan_status": plan_status, "plan_start": plan_start, "plan_end": plan_end,
-                    "intervention_external_id": ext_id, "intervention_title": title,
-                    "scheduled_date": "", "frequency": frequency, "notes": notes,
-                })
+                rows.append(
+                    {
+                        "clinic": clinic,
+                        "patient_code": code,
+                        "plan_status": plan_status,
+                        "plan_start": plan_start,
+                        "plan_end": plan_end,
+                        "intervention_external_id": ext_id,
+                        "intervention_title": title,
+                        "scheduled_date": "",
+                        "frequency": frequency,
+                        "notes": notes,
+                    }
+                )
     return _make_csv(headers, rows)
 
 
 def _csv_intervention_logs(patient_map):
     headers = [
-        "clinic", "patient_code", "intervention_external_id", "intervention_title",
-        "date", "status", "comments", "created_at",
+        "clinic",
+        "patient_code",
+        "intervention_external_id",
+        "intervention_title",
+        "date",
+        "status",
+        "comments",
+        "created_at",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -214,24 +258,32 @@ def _csv_intervention_logs(patient_map):
         if not pt:
             continue
         ext_id, title = _intervention_info(getattr(log, "interventionId", None))
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "intervention_external_id": ext_id,
-            "intervention_title": title,
-            "date": _fmt_date(getattr(log, "date", None)),
-            "status": _join(getattr(log, "status", None)),
-            "comments": getattr(log, "comments", "") or "",
-            "created_at": _fmt_datetime(getattr(log, "createdAt", None)),
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "intervention_external_id": ext_id,
+                "intervention_title": title,
+                "date": _fmt_date(getattr(log, "date", None)),
+                "status": _join(getattr(log, "status", None)),
+                "comments": getattr(log, "comments", "") or "",
+                "created_at": _fmt_datetime(getattr(log, "createdAt", None)),
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_intervention_feedback(patient_map):
     """FeedbackEntry items embedded inside PatientInterventionLogs."""
     headers = [
-        "clinic", "patient_code", "intervention_external_id",
-        "log_date", "feedback_date", "question_key", "answer_keys", "comment",
+        "clinic",
+        "patient_code",
+        "intervention_external_id",
+        "log_date",
+        "feedback_date",
+        "question_key",
+        "answer_keys",
+        "comment",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -245,24 +297,32 @@ def _csv_intervention_feedback(patient_map):
         if not pt:
             continue
         ext_id, _ = _intervention_info(getattr(log, "interventionId", None))
-        for entry in (getattr(log, "feedback", None) or []):
-            rows.append({
-                "clinic": getattr(pt, "clinic", "") or "",
-                "patient_code": getattr(pt, "patient_code", "") or "",
-                "intervention_external_id": ext_id,
-                "log_date": _fmt_date(getattr(log, "date", None)),
-                "feedback_date": _fmt_date(getattr(entry, "date", None)),
-                "question_key": _question_key(entry),
-                "answer_keys": _answer_keys(entry),
-                "comment": getattr(entry, "comment", "") or "",
-            })
+        for entry in getattr(log, "feedback", None) or []:
+            rows.append(
+                {
+                    "clinic": getattr(pt, "clinic", "") or "",
+                    "patient_code": getattr(pt, "patient_code", "") or "",
+                    "intervention_external_id": ext_id,
+                    "log_date": _fmt_date(getattr(log, "date", None)),
+                    "feedback_date": _fmt_date(getattr(entry, "date", None)),
+                    "question_key": _question_key(entry),
+                    "answer_keys": _answer_keys(entry),
+                    "comment": getattr(entry, "comment", "") or "",
+                }
+            )
     return _make_csv(headers, rows)
 
 
 def _csv_health_vitals(patient_map):
     headers = [
-        "clinic", "patient_code", "date",
-        "weight_kg", "bp_sys", "bp_dia", "source", "note",
+        "clinic",
+        "patient_code",
+        "date",
+        "weight_kg",
+        "bp_sys",
+        "bp_dia",
+        "source",
+        "note",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -275,27 +335,37 @@ def _csv_health_vitals(patient_map):
         pt = patient_map.get(pt_id)
         if not pt:
             continue
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "date": _fmt_date(getattr(v, "date", None)),
-            "weight_kg": str(getattr(v, "weight_kg", "") or ""),
-            "bp_sys": str(getattr(v, "bp_sys", "") or ""),
-            "bp_dia": str(getattr(v, "bp_dia", "") or ""),
-            "source": getattr(v, "source", "") or "",
-            "note": getattr(v, "note", "") or "",
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "date": _fmt_date(getattr(v, "date", None)),
+                "weight_kg": str(getattr(v, "weight_kg", "") or ""),
+                "bp_sys": str(getattr(v, "bp_sys", "") or ""),
+                "bp_dia": str(getattr(v, "bp_dia", "") or ""),
+                "source": getattr(v, "source", "") or "",
+                "note": getattr(v, "note", "") or "",
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_health_fitbit(patients, user_map):
     """user_map: user_id string → Patient doc."""
     headers = [
-        "clinic", "patient_code", "date",
-        "steps", "active_minutes", "sleep_duration_min",
-        "resting_heart_rate", "max_heart_rate",
-        "calories", "distance_km",
-        "weight_kg", "bp_sys", "bp_dia",
+        "clinic",
+        "patient_code",
+        "date",
+        "steps",
+        "active_minutes",
+        "sleep_duration_min",
+        "resting_heart_rate",
+        "max_heart_rate",
+        "calories",
+        "distance_km",
+        "weight_kg",
+        "bp_sys",
+        "bp_dia",
     ]
     rows = []
     user_ids = list(user_map.keys())
@@ -312,29 +382,36 @@ def _csv_health_fitbit(patients, user_map):
         sleep_min = ""
         if sleep:
             sleep_min = str(getattr(sleep, "sleep_duration", "") or getattr(sleep, "minutes_asleep", "") or "")
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "date": _fmt_date(getattr(fb, "date", None)),
-            "steps": str(getattr(fb, "steps", "") or ""),
-            "active_minutes": str(getattr(fb, "active_minutes", "") or ""),
-            "sleep_duration_min": sleep_min,
-            "resting_heart_rate": str(getattr(fb, "resting_heart_rate", "") or ""),
-            "max_heart_rate": str(getattr(fb, "max_heart_rate", "") or ""),
-            "calories": str(getattr(fb, "calories", "") or ""),
-            "distance_km": str(getattr(fb, "distance", "") or ""),
-            "weight_kg": str(getattr(fb, "weight_kg", "") or ""),
-            "bp_sys": str(getattr(fb, "bp_sys", "") or ""),
-            "bp_dia": str(getattr(fb, "bp_dia", "") or ""),
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "date": _fmt_date(getattr(fb, "date", None)),
+                "steps": str(getattr(fb, "steps", "") or ""),
+                "active_minutes": str(getattr(fb, "active_minutes", "") or ""),
+                "sleep_duration_min": sleep_min,
+                "resting_heart_rate": str(getattr(fb, "resting_heart_rate", "") or ""),
+                "max_heart_rate": str(getattr(fb, "max_heart_rate", "") or ""),
+                "calories": str(getattr(fb, "calories", "") or ""),
+                "distance_km": str(getattr(fb, "distance", "") or ""),
+                "weight_kg": str(getattr(fb, "weight_kg", "") or ""),
+                "bp_sys": str(getattr(fb, "bp_sys", "") or ""),
+                "bp_dia": str(getattr(fb, "bp_dia", "") or ""),
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_questionnaire_answers(patient_map):
     """PatientICFRating — health-status questionnaire responses."""
     headers = [
-        "clinic", "patient_code", "date", "icf_code",
-        "question_key", "rating", "comment",
+        "clinic",
+        "patient_code",
+        "date",
+        "icf_code",
+        "question_key",
+        "rating",
+        "comment",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -358,85 +435,108 @@ def _csv_questionnaire_answers(patient_map):
             for fe in (getattr(r, "feedback_entries", None) or [])
             if (getattr(fe, "comment", "") or "").strip()
         )
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "date": _fmt_date(getattr(r, "date", None)),
-            "icf_code": getattr(r, "icfCode", "") or "",
-            "question_key": q_key,
-            "rating": str(getattr(r, "rating", "") or ""),
-            "comment": comments,
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "date": _fmt_date(getattr(r, "date", None)),
+                "icf_code": getattr(r, "icfCode", "") or "",
+                "question_key": q_key,
+                "rating": str(getattr(r, "rating", "") or ""),
+                "comment": comments,
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_thresholds(patients):
     headers = [
-        "clinic", "patient_code",
+        "clinic",
+        "patient_code",
         "steps_goal",
-        "active_minutes_green", "active_minutes_yellow",
-        "sleep_green_min", "sleep_yellow_min",
-        "bp_sys_green_max", "bp_sys_yellow_max",
-        "bp_dia_green_max", "bp_dia_yellow_max",
+        "active_minutes_green",
+        "active_minutes_yellow",
+        "sleep_green_min",
+        "sleep_yellow_min",
+        "bp_sys_green_max",
+        "bp_sys_yellow_max",
+        "bp_dia_green_max",
+        "bp_dia_yellow_max",
     ]
     rows = []
     for pt in patients:
         th = getattr(pt, "thresholds", None)
         if th is None:
             continue
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") or "",
-            "patient_code": getattr(pt, "patient_code", "") or "",
-            "steps_goal": str(getattr(th, "steps_goal", "") or ""),
-            "active_minutes_green": str(getattr(th, "active_minutes_green", "") or ""),
-            "active_minutes_yellow": str(getattr(th, "active_minutes_yellow", "") or ""),
-            "sleep_green_min": str(getattr(th, "sleep_green_min", "") or ""),
-            "sleep_yellow_min": str(getattr(th, "sleep_yellow_min", "") or ""),
-            "bp_sys_green_max": str(getattr(th, "bp_sys_green_max", "") or ""),
-            "bp_sys_yellow_max": str(getattr(th, "bp_sys_yellow_max", "") or ""),
-            "bp_dia_green_max": str(getattr(th, "bp_dia_green_max", "") or ""),
-            "bp_dia_yellow_max": str(getattr(th, "bp_dia_yellow_max", "") or ""),
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") or "",
+                "patient_code": getattr(pt, "patient_code", "") or "",
+                "steps_goal": str(getattr(th, "steps_goal", "") or ""),
+                "active_minutes_green": str(getattr(th, "active_minutes_green", "") or ""),
+                "active_minutes_yellow": str(getattr(th, "active_minutes_yellow", "") or ""),
+                "sleep_green_min": str(getattr(th, "sleep_green_min", "") or ""),
+                "sleep_yellow_min": str(getattr(th, "sleep_yellow_min", "") or ""),
+                "bp_sys_green_max": str(getattr(th, "bp_sys_green_max", "") or ""),
+                "bp_sys_yellow_max": str(getattr(th, "bp_sys_yellow_max", "") or ""),
+                "bp_dia_green_max": str(getattr(th, "bp_dia_green_max", "") or ""),
+                "bp_dia_yellow_max": str(getattr(th, "bp_dia_yellow_max", "") or ""),
+            }
+        )
     return _make_csv(headers, rows)
 
 
 def _csv_threshold_history(patients):
     headers = [
-        "clinic", "patient_code", "effective_from", "changed_by", "reason",
+        "clinic",
+        "patient_code",
+        "effective_from",
+        "changed_by",
+        "reason",
         "steps_goal",
-        "active_minutes_green", "active_minutes_yellow",
-        "sleep_green_min", "sleep_yellow_min",
-        "bp_sys_green_max", "bp_sys_yellow_max",
-        "bp_dia_green_max", "bp_dia_yellow_max",
+        "active_minutes_green",
+        "active_minutes_yellow",
+        "sleep_green_min",
+        "sleep_yellow_min",
+        "bp_sys_green_max",
+        "bp_sys_yellow_max",
+        "bp_dia_green_max",
+        "bp_dia_yellow_max",
     ]
     rows = []
     for pt in patients:
-        for snap in (getattr(pt, "thresholds_history", None) or []):
+        for snap in getattr(pt, "thresholds_history", None) or []:
             th = getattr(snap, "thresholds", None)
-            rows.append({
-                "clinic": getattr(pt, "clinic", "") or "",
-                "patient_code": getattr(pt, "patient_code", "") or "",
-                "effective_from": _fmt_datetime(getattr(snap, "effective_from", None)),
-                "changed_by": getattr(snap, "changed_by", "") or "",
-                "reason": getattr(snap, "reason", "") or "",
-                "steps_goal": str(getattr(th, "steps_goal", "") or "") if th else "",
-                "active_minutes_green": str(getattr(th, "active_minutes_green", "") or "") if th else "",
-                "active_minutes_yellow": str(getattr(th, "active_minutes_yellow", "") or "") if th else "",
-                "sleep_green_min": str(getattr(th, "sleep_green_min", "") or "") if th else "",
-                "sleep_yellow_min": str(getattr(th, "sleep_yellow_min", "") or "") if th else "",
-                "bp_sys_green_max": str(getattr(th, "bp_sys_green_max", "") or "") if th else "",
-                "bp_sys_yellow_max": str(getattr(th, "bp_sys_yellow_max", "") or "") if th else "",
-                "bp_dia_green_max": str(getattr(th, "bp_dia_green_max", "") or "") if th else "",
-                "bp_dia_yellow_max": str(getattr(th, "bp_dia_yellow_max", "") or "") if th else "",
-            })
+            rows.append(
+                {
+                    "clinic": getattr(pt, "clinic", "") or "",
+                    "patient_code": getattr(pt, "patient_code", "") or "",
+                    "effective_from": _fmt_datetime(getattr(snap, "effective_from", None)),
+                    "changed_by": getattr(snap, "changed_by", "") or "",
+                    "reason": getattr(snap, "reason", "") or "",
+                    "steps_goal": str(getattr(th, "steps_goal", "") or "") if th else "",
+                    "active_minutes_green": str(getattr(th, "active_minutes_green", "") or "") if th else "",
+                    "active_minutes_yellow": str(getattr(th, "active_minutes_yellow", "") or "") if th else "",
+                    "sleep_green_min": str(getattr(th, "sleep_green_min", "") or "") if th else "",
+                    "sleep_yellow_min": str(getattr(th, "sleep_yellow_min", "") or "") if th else "",
+                    "bp_sys_green_max": str(getattr(th, "bp_sys_green_max", "") or "") if th else "",
+                    "bp_sys_yellow_max": str(getattr(th, "bp_sys_yellow_max", "") or "") if th else "",
+                    "bp_dia_green_max": str(getattr(th, "bp_dia_green_max", "") or "") if th else "",
+                    "bp_dia_yellow_max": str(getattr(th, "bp_dia_yellow_max", "") or "") if th else "",
+                }
+            )
     return _make_csv(headers, rows)
 
 
 def _csv_activity_logs(patient_map):
     """Logs documents where the patient field matches a patient in the export scope."""
     headers = [
-        "clinic", "patient_code", "action",
-        "timestamp", "actor_role", "details",
+        "clinic",
+        "patient_code",
+        "action",
+        "timestamp",
+        "actor_role",
+        "details",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
@@ -448,20 +548,23 @@ def _csv_activity_logs(patient_map):
         except Exception:
             pt_id = None
         pt = patient_map.get(pt_id) if pt_id else None
-        rows.append({
-            "clinic": getattr(pt, "clinic", "") if pt else "",
-            "patient_code": getattr(pt, "patient_code", "") if pt else "",
-            "action": getattr(log, "action", "") or "",
-            "timestamp": _fmt_datetime(getattr(log, "timestamp", None)),
-            "actor_role": getattr(log, "actor_role", "") or "",
-            "details": getattr(log, "details", "") or "",
-        })
+        rows.append(
+            {
+                "clinic": getattr(pt, "clinic", "") if pt else "",
+                "patient_code": getattr(pt, "patient_code", "") if pt else "",
+                "action": getattr(log, "action", "") or "",
+                "timestamp": _fmt_datetime(getattr(log, "timestamp", None)),
+                "actor_role": getattr(log, "actor_role", "") or "",
+                "details": getattr(log, "details", "") or "",
+            }
+        )
     return _make_csv(headers, rows)
 
 
 # ---------------------------------------------------------------------------
 # View functions
 # ---------------------------------------------------------------------------
+
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
@@ -501,16 +604,16 @@ def admin_export_patients(request):
                 pass
 
         sheets = [
-            ("patients.csv",               _csv_patients(patients)),
-            ("rehab_calendar.csv",          _csv_rehab_calendar(patients, patient_map)),
-            ("intervention_logs.csv",       _csv_intervention_logs(patient_map)),
-            ("intervention_feedback.csv",   _csv_intervention_feedback(patient_map)),
-            ("health_vitals.csv",           _csv_health_vitals(patient_map)),
-            ("health_fitbit.csv",           _csv_health_fitbit(patients, user_map)),
-            ("questionnaire_answers.csv",   _csv_questionnaire_answers(patient_map)),
-            ("thresholds.csv",              _csv_thresholds(patients)),
-            ("threshold_history.csv",       _csv_threshold_history(patients)),
-            ("activity_logs.csv",           _csv_activity_logs(patient_map)),
+            ("patients.csv", _csv_patients(patients)),
+            ("rehab_calendar.csv", _csv_rehab_calendar(patients, patient_map)),
+            ("intervention_logs.csv", _csv_intervention_logs(patient_map)),
+            ("intervention_feedback.csv", _csv_intervention_feedback(patient_map)),
+            ("health_vitals.csv", _csv_health_vitals(patient_map)),
+            ("health_fitbit.csv", _csv_health_fitbit(patients, user_map)),
+            ("questionnaire_answers.csv", _csv_questionnaire_answers(patient_map)),
+            ("thresholds.csv", _csv_thresholds(patients)),
+            ("threshold_history.csv", _csv_threshold_history(patients)),
+            ("activity_logs.csv", _csv_activity_logs(patient_map)),
         ]
 
         zip_buf = io.BytesIO()
@@ -542,9 +645,7 @@ def admin_export_clinics(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        clinics = sorted(
-            {(getattr(p, "clinic", "") or "").strip() for p in Patient.objects.only("clinic")} - {""}
-        )
+        clinics = sorted({(getattr(p, "clinic", "") or "").strip() for p in Patient.objects.only("clinic")} - {""})
         return JsonResponse({"clinics": clinics}, status=200)
     except Exception:
         logger.exception("admin_export_clinics failed")
