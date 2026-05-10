@@ -41,6 +41,7 @@ from core.views.redcap_import_views import (
 from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
+from core.views.admin_export_views import admin_export_clinics, admin_export_patients
 from core.views.therapist_projects import therapist_projects
 from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
 
@@ -49,6 +50,9 @@ urlpatterns = [
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),
+    # Admin data export
+    path("api/admin/export/patients/", admin_export_patients),
+    path("api/admin/export/clinics/", admin_export_clinics),
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),
