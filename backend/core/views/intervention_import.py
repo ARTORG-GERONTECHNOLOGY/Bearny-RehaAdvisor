@@ -236,6 +236,7 @@ def import_interventions(request):
         if "not found" in msg and "Sheet" in msg and "Sheets:" in msg:
             try:
                 import ast as _ast
+
                 sheets_part = msg.split("Sheets: ", 1)[1].strip()
                 available = _ast.literal_eval(sheets_part)
                 if not isinstance(available, list):
