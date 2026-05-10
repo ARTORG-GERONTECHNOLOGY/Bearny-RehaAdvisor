@@ -12,9 +12,10 @@ const PatientDataBootstrap: React.FC = observer(() => {
     if (!isAuthenticated) {
       resetPatientDataInit();
     } else if (userType === 'Patient' && id) {
-      initPatientData(id, i18n.language);
+      const lang = authStore.preferredLanguage || i18n.language;
+      initPatientData(id, lang);
     }
-  }, [isAuthenticated, userType, id, i18n.language]);
+  }, [isAuthenticated, userType, id, authStore.preferredLanguage, i18n.language]);
 
   return null;
 });
