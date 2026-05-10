@@ -205,7 +205,22 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
           <>
             {interventionsImportStore.error && (
               <Alert variant="danger" role="alert">
-                {interventionsImportStore.error}
+                {interventionsImportStore.errorCode === 'sheet_not_found' ? (
+                  <>
+                    {t('Sheet not found in the Excel file.')}
+                    {interventionsImportStore.availableSheets.length > 0 && (
+                      <span>
+                        {' '}
+                        {t('Available sheets:')}{' '}
+                        <strong>{interventionsImportStore.availableSheets.join(', ')}</strong>
+                      </span>
+                    )}
+                  </>
+                ) : interventionsImportStore.errorCode === 'missing_column' ? (
+                  t('Required column missing in the Excel file.')
+                ) : (
+                  interventionsImportStore.error
+                )}
               </Alert>
             )}
 
