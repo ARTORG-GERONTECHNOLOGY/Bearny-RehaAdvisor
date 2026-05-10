@@ -533,6 +533,41 @@ validate_required_env_vars()
 
 ---
 
+## Certificate Renewal
+
+Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` to activate.
+
+### Variables (add to `.env.dev` and `.env.prod`)
+
+| Variable | Required | Description |
+|---|---|---|
+| `CERTBOT_ENABLED` | Yes (to activate) | Set to `true` to enable automatic renewal. Task silently skips if absent or false. |
+| `CERTBOT_CONF_PATH` | Yes | **Host-absolute** path to `nginx/certbot/conf` — e.g. `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf`. Must be the host path, not the container path, because certbot is launched via `docker run`. |
+| `CERTBOT_WWW_PATH` | Yes | **Host-absolute** path to `nginx/certbot/www` — the webroot used by certbot for ACME challenges. |
+| `CERTBOT_NGINX_CONTAINER` | No | Name of the gateway nginx container to reload after renewal. Defaults to `gateway`. |
+
+### Dev example (`.env.dev`)
+
+```env
+CERTBOT_ENABLED=true
+CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/conf
+CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/www
+CERTBOT_NGINX_CONTAINER=gateway
+```
+
+### Prod example (`.env.prod`)
+
+```env
+CERTBOT_ENABLED=true
+CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf
+CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www
+CERTBOT_NGINX_CONTAINER=gateway
+```
+
+See [Deployment Guide — SSL/TLS Certificate Management](./06-DEPLOYMENT_GUIDE.md#ssltls-certificate-management) for the full operational guide.
+
+---
+
 ## LibreTranslate Service
 
 RehaAdvisor bundles a self-hosted [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) container for machine translation of intervention content. It is **not optional** — the backend calls it whenever a therapist requests translation of an intervention.
