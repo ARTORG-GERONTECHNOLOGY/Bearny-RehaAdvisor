@@ -1,6 +1,7 @@
 # core/tasks.py
 import logging
 import os
+import subprocess
 import time
 
 from celery import shared_task
@@ -132,3 +133,93 @@ def sync_wearables_to_redcap_all():
 
     logger.info("[sync_wearables_all] Done: %d synced, %d errors/skipped", synced, errors)
     return {"synced": synced, "errors": errors}
+
+
+@shared_task(
+    name="core.tasks.renew_certificates",
+    autoretry_for=(Exception,),
+    retry_backoff=300,
+    max_retries=3,
+)
+def renew_certificates():
+    """
+    Renew Let's Encrypt certificates via certbot and reload the nginx gateway.
+
+    Requires the following environment variables:
+      CERTBOT_ENABLED=true           — set to enable; skipped if absent/false
+      CERTBOT_CONF_PATH              — host path to ./nginx/certbot/conf (default: /etc/letsencrypt inside container)
+      CERTBOT_WWW_PATH               — host path to ./nginx/certbot/www
+      CERTBOT_NGINX_CONTAINER        — name of the container running gateway nginx (default: gateway)
+
+    The task runs certbot via `docker run certbot/certbot renew` using the
+    Docker socket mounted at /var/run/docker.sock. This avoids installing
+    certbot inside the backend image and lets the dedicated certbot image
+    handle OS-level certificate operations.
+
+    Add the following to celery services in docker-compose:
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./nginx/certbot/conf:/etc/letsencrypt
+        - ./nginx/certbot/www:/var/www/certbot
+      environment:
+        - CERTBOT_ENABLED=true
+        - CERTBOT_CONF_PATH=<host-absolute-path>/nginx/certbot/conf
+        - CERTBOT_WWW_PATH=<host-absolute-path>/nginx/certbot/www
+        - CERTBOT_NGINX_CONTAINER=gateway
+    """
+    enabled = os.environ.get("CERTBOT_ENABLED", "").strip().lower()
+    if enabled not in ("true", "1", "yes"):
+        logger.info("[renew_certificates] skipped (CERTBOT_ENABLED not set)")
+        return "skipped"
+
+    conf_path = os.environ.get("CERTBOT_CONF_PATH", "").strip()
+    www_path = os.environ.get("CERTBOT_WWW_PATH", "").strip()
+    nginx_container = os.environ.get("CERTBOT_NGINX_CONTAINER", "gateway").strip()
+
+    if not conf_path or not www_path:
+        logger.error(
+            "[renew_certificates] CERTBOT_CONF_PATH and CERTBOT_WWW_PATH must be set"
+        )
+        raise ValueError("CERTBOT_CONF_PATH and CERTBOT_WWW_PATH are required")
+
+    logger.info("[renew_certificates] starting renewal (conf=%s, nginx=%s)", conf_path, nginx_container)
+    t0 = time.time()
+
+    cmd = [
+        "docker", "run", "--rm",
+        "-v", f"{conf_path}:/etc/letsencrypt",
+        "-v", f"{www_path}:/var/www/certbot",
+        "certbot/certbot", "renew", "--non-interactive", "--quiet",
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    elapsed = time.time() - t0
+
+    if result.stdout:
+        logger.info("[renew_certificates] certbot stdout:\n%s", result.stdout.strip())
+    if result.stderr:
+        logger.warning("[renew_certificates] certbot stderr:\n%s", result.stderr.strip())
+
+    if result.returncode != 0:
+        logger.error(
+            "[renew_certificates] certbot exited with code %d after %.1fs",
+            result.returncode, elapsed,
+        )
+        raise RuntimeError(f"certbot renew failed (exit {result.returncode})")
+
+    logger.info("[renew_certificates] certbot finished in %.1fs — reloading %s", elapsed, nginx_container)
+
+    reload = subprocess.run(
+        ["docker", "exec", nginx_container, "nginx", "-s", "reload"],
+        capture_output=True, text=True, timeout=30,
+    )
+
+    if reload.returncode != 0:
+        logger.error(
+            "[renew_certificates] nginx reload failed: %s",
+            reload.stderr.strip() or reload.stdout.strip(),
+        )
+        raise RuntimeError(f"nginx reload failed (exit {reload.returncode})")
+
+    logger.info("[renew_certificates] ✅ certificates renewed and nginx reloaded")
+    return "renewed"
