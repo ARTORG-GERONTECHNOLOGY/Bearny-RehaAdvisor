@@ -33,12 +33,14 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
   const [is2FARequired, setIs2FARequired] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const reset = () => {
     authStore.reset();
     setIs2FARequired(false);
     setVerificationCode('');
     setError(null);
+    setIsLoading(false);
   };
 
   const onClose = () => {
@@ -48,7 +50,9 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
 
   const submitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError('');
+    setIsLoading(true);
 
     try {
       // This should set id, userType, tokens, and loginErrorMessage on the store
@@ -79,6 +83,8 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
     } catch (err: any) {
       handleApiError(err, authStore);
       setError(err?.message || t('Login failed. Please try again.'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -138,7 +144,9 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
                   placeholder={t('Enter your password')}
                   required
                 />
-                <Button type="submit">{t('Login')}</Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? t('Loading...') : t('Login')}
+                </Button>
               </FieldGroup>
 
               <ForgotPasswordLink

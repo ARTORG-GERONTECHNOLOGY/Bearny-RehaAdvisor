@@ -555,4 +555,46 @@ describe('LoginForm', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Verification failed. Please try again.');
     });
   });
+
+  it('double-clicking Login only sends verification code once (bug #235)', async () => {
+    // Simulate a slow login so the button can be clicked a second time before
+    // the first request resolves.  Without the isLoading guard the second click
+    // would call send-verification-code a second time.
+    let resolveLogin: () => void;
+    authStore.loginWithHttp.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          authStore.userType = 'Therapist';
+          authStore.loginErrorMessage = '';
+          authStore.id = 'ther1';
+          resolveLogin = resolve;
+        })
+    );
+
+    apiPost.mockResolvedValue({ status: 200, data: {} }); // send-verification-code
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+
+    const loginButton = screen.getByRole('button', { name: /Login|Loading/i });
+
+    // First click
+    fireEvent.click(loginButton);
+
+    // Button should be disabled immediately after first click
+    expect(loginButton).toBeDisabled();
+
+    // Second click while loading — must be a no-op
+    fireEvent.click(loginButton);
+
+    // Resolve the pending login
+    resolveLogin!();
+
+    await waitFor(() => {
+      // send-verification-code called exactly once despite two clicks
+      expect(apiPost).toHaveBeenCalledTimes(1);
+      expect(apiPost).toHaveBeenCalledWith('/auth/send-verification-code/', { userId: 'ther1' });
+    });
+  });
 });

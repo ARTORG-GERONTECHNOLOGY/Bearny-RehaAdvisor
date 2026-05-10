@@ -15,6 +15,7 @@ from core.views.access_change_views import (
     admin_access_change_requests,
     submit_access_change_request,
 )
+from core.views.admin_export_views import admin_export_clinics, admin_export_patients
 from core.views.admin_intervention_views import admin_interventions
 from core.views.eva_view import (
     delete_healthslider_session,
@@ -34,6 +35,7 @@ from core.views.questionaires_view import (
     list_health_questionnaires,
     list_patient_questionnaires,
     remove_questionnaire,
+    reset_patient_feedback,
 )
 from core.views.redcap_import_views import (
     available_redcap_patients,
@@ -53,6 +55,9 @@ urlpatterns = [
     # Admin intervention management
     path("api/admin/interventions/", admin_interventions),
     path("api/admin/interventions/<str:intervention_id>/", admin_interventions),
+    # Admin data export
+    path("api/admin/export/patients/", admin_export_patients),
+    path("api/admin/export/clinics/", admin_export_clinics),
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),
@@ -126,6 +131,7 @@ urlpatterns = [
     path("api/questionnaires/patient/<str:patient_id>/", list_patient_questionnaires),
     path("api/questionnaires/assign/", assign_questionnaire),
     path("api/questionnaires/remove/", remove_questionnaire),
+    path("api/questionnaires/reset-feedback/", reset_patient_feedback),
     path(
         "api/questionnaires/dynamic/",
         list_dynamic_questionnaires,

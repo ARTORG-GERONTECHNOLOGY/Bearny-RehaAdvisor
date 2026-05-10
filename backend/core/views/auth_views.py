@@ -332,13 +332,7 @@ def login_view(request):
                 },
                 status=400,
             )
-        users = User.objects()  # all docs
-        print("count:", users.count())
-
         user = User.objects(Q(email=identifier) | Q(username=identifier)).first()
-
-        print(f"Found user: {user}")
-        print(User.objects(Q(email=identifier) | Q(username=identifier)).first())
 
         # IMPORTANT: never touch user fields before checking user exists
         if not user:
@@ -930,7 +924,9 @@ def send_verification_code(request):
         code = generate_code()
         expires_at = timezone.now() + timedelta(minutes=5)
 
-        # Save to MongoDB
+        # Delete any previous codes for this user so only the latest is valid
+        # and so that a double-submit cannot cause two active codes to coexist.
+        SMSVerification.objects(userId=user_id).delete()
         SMSVerification(userId=user_id, code=code, expires_at=expires_at).save()
 
         # Localized subjects
@@ -1054,6 +1050,7 @@ def get_user_info(request, user_id):
         last_name = ""
         specialisation = ""
         function = ""
+        preferred_language = "en"
 
         if user.role == "Therapist":
             therapist = Therapist.objects.filter(userId=user).first()
@@ -1068,6 +1065,7 @@ def get_user_info(request, user_id):
                 first_name = patient.first_name
                 last_name = patient.name
                 function = patient.function
+                preferred_language = getattr(patient, "preferred_language", None) or "en"
 
         else:  # Admin fallback
             first_name = user.username
@@ -1079,6 +1077,7 @@ def get_user_info(request, user_id):
                 "specialisation": specialisation,
                 "function": function,
                 "role": user.role,
+                "preferred_language": preferred_language,
             },
             status=200,
         )
