@@ -20,8 +20,8 @@ import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton'
  * fresh HTML/chunk paths. Uses sessionStorage to avoid reload loops.
  */
 function lazyWithRetry(
-  fn: () => Promise<{ default: ComponentType<any> }>
-): LazyExoticComponent<ComponentType<any>> {
+  fn: () => Promise<{ default: ComponentType<object> }>
+): LazyExoticComponent<ComponentType<object>> {
   return lazy(() =>
     fn().catch((error: unknown) => {
       const key = 'chunk-load-reloaded';

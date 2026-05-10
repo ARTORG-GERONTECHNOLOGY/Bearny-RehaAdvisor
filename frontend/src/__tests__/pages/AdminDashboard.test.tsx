@@ -20,16 +20,16 @@ jest.mock('mobx-react-lite', () => ({
 }));
 
 // Mock AdminDashboardStore
-let mockStoreInstance: any = null;
+let mockStoreInstance: Record<string, unknown> | null = null;
 
 jest.mock('@/stores/adminDashboardStore', () => {
   return {
-    AdminDashboardStore: jest.fn().mockImplementation(function (this: any) {
+    AdminDashboardStore: jest.fn().mockImplementation(function (this: Record<string, unknown>) {
       this.loading = false;
       this.error = null;
       this.showDeclineConfirm = false;
       this.declineEntryId = null;
-      this.init = jest.fn(async (navigate: any) => {
+      this.init = jest.fn(async (navigate: (path: string) => void) => {
         // Do not set this.loading — it's a plain property, not React state,
         // so changes won't trigger re-renders and will leave the component
         // stuck showing a spinner.
@@ -113,7 +113,7 @@ import apiClient from '@/api/client';
 
 // Mock MobX stores
 const mockAdminStore = {
-  pendingEntries: [] as any[],
+  pendingEntries: [] as { id: string; [key: string]: unknown }[],
   error: '',
   fetchPendingEntries: jest.fn().mockResolvedValue(undefined),
   acceptEntry: jest.fn().mockResolvedValue(undefined),

@@ -140,11 +140,11 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
 
   useEffect(() => {
     if (!show) return;
-    window.addEventListener('keydown', (e: any) => {
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Escape') onEscapeKeyDown(e);
     });
     return () => {
-      window.removeEventListener('keydown', (e: any) => {
+      window.removeEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Escape') onEscapeKeyDown(e);
       });
     };

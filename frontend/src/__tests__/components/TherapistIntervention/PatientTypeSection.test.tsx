@@ -6,7 +6,7 @@ describe('PatientTypeSection', () => {
   const mockOnChange = jest.fn();
   const diagnoses = ['DiagnosisA', 'DiagnosisB'];
 
-  const renderComponent = (types: any[]) =>
+  const renderComponent = (types: { type: string; frequency: string; includeOption: boolean }[]) =>
     render(<PatientTypeSection types={types} diagnoses={diagnoses} onChange={mockOnChange} />);
 
   beforeEach(() => {

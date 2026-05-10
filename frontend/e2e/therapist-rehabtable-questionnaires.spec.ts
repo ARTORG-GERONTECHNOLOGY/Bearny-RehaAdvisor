@@ -165,7 +165,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     const patientPayload = await patientResponse.json().catch(() => null);
     if (
       !Array.isArray(patientPayload) ||
-      !patientPayload.some((row: any) => row?.title === 'Mood Check')
+      !patientPayload.some((row) => (row as { title?: string }).title === 'Mood Check')
     ) {
       test.skip(true, 'Mocked questionnaire payload was not applied for this run.');
     }
@@ -239,7 +239,7 @@ test.describe('Therapist rehab table questionnaires', () => {
     const patientPayload2 = await patientResponse2.json().catch(() => null);
     if (
       !Array.isArray(patientPayload2) ||
-      !patientPayload2.some((row: any) => row?.title === 'Profile (16)')
+      !patientPayload2.some((row) => (row as { title?: string }).title === 'Profile (16)')
     ) {
       test.skip(true, 'Mocked assigned questionnaire payload was not applied for this run.');
     }

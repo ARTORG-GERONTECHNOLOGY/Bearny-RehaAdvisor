@@ -31,9 +31,9 @@ async function mockAudioAPIs(page: Page) {
         return mime.includes('webm') || mime.includes('mp4');
       }
       mimeType: string;
-      ondataavailable: ((ev: any) => void) | null = null;
+      ondataavailable: ((ev: { data: Blob; size: number }) => void) | null = null;
       onstop: (() => void) | null = null;
-      constructor(_stream: any, opts?: any) {
+      constructor(_stream: unknown, opts?: { mimeType?: string }) {
         super();
         this.mimeType = opts?.mimeType ?? 'audio/webm';
       }
@@ -46,7 +46,7 @@ async function mockAudioAPIs(page: Page) {
       }
       requestData() {}
     }
-    (window as any).MediaRecorder = FakeMediaRecorder;
+    (window as Window & { MediaRecorder: unknown }).MediaRecorder = FakeMediaRecorder;
   });
 }
 
@@ -264,7 +264,7 @@ test.describe('ICF Monitor — MediaRecorder not available', () => {
         value: { getUserMedia: () => Promise.resolve(fakeStream) },
       });
       // Explicitly delete MediaRecorder (simulate old Safari / WebView)
-      delete (window as any).MediaRecorder;
+      Reflect.deleteProperty(window, 'MediaRecorder');
     });
 
     await gotoWithPatientId(page);
@@ -314,13 +314,15 @@ test.describe('ICF Monitor — item audio playback', () => {
     page,
   }) => {
     await page.addInitScript(() => {
-      (window as any).__playAttempts = [];
+      type PlaybackWindow = Window & { __playAttempts: string[]; __origPlay: unknown };
+      const win = window as unknown as PlaybackWindow;
+      win.__playAttempts = [];
       const origPlay = HTMLMediaElement.prototype.play;
       let attempts = 0;
 
       HTMLMediaElement.prototype.play = function () {
         const src = (this as HTMLMediaElement).currentSrc || (this as HTMLMediaElement).src || '';
-        (window as any).__playAttempts.push(src);
+        win.__playAttempts.push(src);
         attempts += 1;
 
         if (attempts === 1) return Promise.reject(new Error('simulated first-source failure'));
@@ -328,7 +330,7 @@ test.describe('ICF Monitor — item audio playback', () => {
       };
 
       // keep a reference in case future tests need it
-      (window as any).__origPlay = origPlay;
+      win.__origPlay = origPlay;
     });
 
     await mockAudioAPIs(page);
@@ -342,7 +344,10 @@ test.describe('ICF Monitor — item audio playback', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => ((window as any).__playAttempts || []).length);
+        return page.evaluate(() => {
+          type PlaybackWindow = Window & { __playAttempts?: unknown[] };
+          return ((window as PlaybackWindow).__playAttempts || []).length;
+        });
       })
       .toBeGreaterThanOrEqual(2);
 

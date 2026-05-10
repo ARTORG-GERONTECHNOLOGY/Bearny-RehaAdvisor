@@ -6,7 +6,7 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 // ErrorAlert
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
-  default: ({ message, onClose }: any) => (
+  default: ({ message, onClose }: { message?: string; onClose?: () => void }) => (
     <div role="alert">
       <span>{message}</span>
       <button onClick={onClose}>close</button>
@@ -17,19 +17,27 @@ jest.mock('@/components/common/ErrorAlert', () => ({
 // Container
 jest.mock('@/components/Container', () => ({
   __esModule: true,
-  default: ({ children }: any) => <div>{children}</div>,
+  default: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
-
-// PageHeader
 jest.mock('@/components/PageHeader', () => ({
   __esModule: true,
-  default: ({ title }: any) => <h1 data-testid="page-header">{title}</h1>,
+  default: ({ title }: { title?: string }) => <h1 data-testid="page-header">{title}</h1>,
 }));
 
 // UI Button (back button + submit button)
 jest.mock('@/components/ui/button', () => ({
   __esModule: true,
-  Button: ({ children, disabled, onClick, type }: any) => (
+  Button: ({
+    children,
+    disabled,
+    onClick,
+    type,
+  }: {
+    children?: React.ReactNode;
+    disabled?: boolean;
+    onClick?: () => void;
+    type?: string;
+  }) => (
     <button
       disabled={disabled}
       onClick={onClick}
@@ -44,19 +52,33 @@ jest.mock('@/components/ui/button', () => ({
 // Card
 jest.mock('@/components/Card', () => ({
   __esModule: true,
-  default: ({ children }: any) => <div>{children}</div>,
+  default: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 // FieldGroup
 jest.mock('@/components/ui/field', () => ({
   __esModule: true,
-  FieldGroup: ({ children }: any) => <div>{children}</div>,
+  FieldGroup: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 // InputField
 jest.mock('@/components/forms/input/InputField', () => ({
   __esModule: true,
-  default: ({ label, value, onChange, disabled, type, placeholder }: any) => (
+  default: ({
+    label,
+    value,
+    onChange,
+    disabled,
+    type,
+    placeholder,
+  }: {
+    label?: string;
+    value?: string;
+    onChange?: React.ChangeEventHandler<HTMLInputElement>;
+    disabled?: boolean;
+    type?: string;
+    placeholder?: string;
+  }) => (
     <input
       aria-label={label}
       type={type || 'text'}
@@ -70,11 +92,13 @@ jest.mock('@/components/forms/input/InputField', () => ({
 
 // Bootstrap mocks
 jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Alert: ({ children }: any) => <div role="alert">{children}</div>,
-  Spinner: ({ role }: any) => <div role={role || 'status'}>spinner</div>,
+  Container: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="container">{children}</div>
+  ),
+  Row: ({ children }: { children?: React.ReactNode }) => <div data-testid="row">{children}</div>,
+  Col: ({ children }: { children?: React.ReactNode }) => <div data-testid="col">{children}</div>,
+  Alert: ({ children }: { children?: React.ReactNode }) => <div role="alert">{children}</div>,
+  Spinner: ({ role }: { role?: string }) => <div role={role || 'status'}>spinner</div>,
 }));
 
 /**

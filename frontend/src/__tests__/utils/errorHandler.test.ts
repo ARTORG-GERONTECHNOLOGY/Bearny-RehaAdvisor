@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import handleApiError from '@/utils/errorHandler';
 
 const makeStore = () => ({ setLoginError: jest.fn() });
@@ -11,7 +11,7 @@ const makeAxiosError = (responseData?: object): AxiosError => {
       status: 400,
       statusText: 'Bad Request',
       headers: {},
-      config: {} as any,
+      config: {} as InternalAxiosRequestConfig,
     };
   }
   return error;

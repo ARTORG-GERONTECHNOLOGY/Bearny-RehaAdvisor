@@ -5,32 +5,46 @@ import PatientLibraryDesktopFilters from '@/components/PatientLibrary/PatientLib
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/components/ui/collapsible', () => ({
-  Collapsible: ({ children }: any) => <div>{children}</div>,
-  CollapsibleContent: ({ children }: any) => <div>{children}</div>,
-  CollapsibleTrigger: ({ children }: any) => <div>{children}</div>,
+  Collapsible: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleTrigger: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/ui/field', () => ({
-  Field: ({ children }: any) => <div>{children}</div>,
+  Field: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/ui/input-group', () => ({
-  InputGroup: ({ children }: any) => <div>{children}</div>,
-  InputGroupAddon: ({ children }: any) => <div>{children}</div>,
-  InputGroupInput: ({ ...props }: any) => <input {...props} />,
+  InputGroup: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  InputGroupAddon: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  InputGroupInput: ({ ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input {...props} />
+  ),
 }));
 
 jest.mock('@/components/ui/slider', () => ({
-  Slider: ({ onValueChange, 'data-testid': testId }: any) => (
-    <button type="button" data-testid={testId} onClick={() => onValueChange([1, 3])}>
+  Slider: ({
+    onValueChange,
+    'data-testid': testId,
+  }: {
+    onValueChange?: (value: number[]) => void;
+    'data-testid'?: string;
+  }) => (
+    <button type="button" data-testid={testId} onClick={() => onValueChange?.([1, 3])}>
       slider
     </button>
   ),
 }));
 
 jest.mock('@/components/ui/switch', () => ({
-  Switch: ({ checked, onCheckedChange }: any) => (
-    <button type="button" aria-pressed={checked} onClick={() => onCheckedChange(!checked)}>
+  Switch: ({
+    checked,
+    onCheckedChange,
+  }: {
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
+    <button type="button" aria-pressed={checked} onClick={() => onCheckedChange?.(!checked)}>
       switch
     </button>
   ),

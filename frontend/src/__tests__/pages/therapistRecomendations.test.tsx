@@ -117,7 +117,11 @@ jest.mock('@/config/config.json', () => ({
 
 // Mock utility functions
 jest.mock('@/utils/filterUtils', () => ({
-  filterInterventions: (items: any[], translatedTitles: any, filters: any) => {
+  filterInterventions: (
+    items: { title: string }[],
+    _translatedTitles: unknown,
+    filters: { searchTerm?: string }
+  ) => {
     if (filters.searchTerm) {
       return items.filter((item) =>
         item.title.toLowerCase().includes(filters.searchTerm.toLowerCase())

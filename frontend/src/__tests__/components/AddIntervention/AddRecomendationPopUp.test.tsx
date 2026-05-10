@@ -47,19 +47,32 @@ jest.mock('@/config/config.json', () => ({
 // Render StandardModal body inline to expose form fields
 jest.mock('@/components/common/StandardModal', () => ({
   __esModule: true,
-  default: ({ children, show }: any) => (show ? <div>{children}</div> : null),
+  default: ({ children, show }: { children?: React.ReactNode; show?: boolean }) =>
+    show ? <div>{children}</div> : null,
 }));
+
+type SelectOption = { value: string; label: string };
 
 // react-select is complex — stub to a plain native select
 jest.mock('react-select', () => ({
   __esModule: true,
-  default: ({ options, value, onChange, inputId }: any) => (
+  default: ({
+    options,
+    value,
+    onChange,
+    inputId,
+  }: {
+    options?: SelectOption[];
+    value?: SelectOption;
+    onChange: (opt: SelectOption | undefined) => void;
+    inputId?: string;
+  }) => (
     <select
       id={inputId}
       value={value?.value ?? ''}
-      onChange={(e) => onChange(options.find((o: any) => o.value === e.target.value))}
+      onChange={(e) => onChange(options?.find((o) => o.value === e.target.value))}
     >
-      {(options || []).map((o: any) => (
+      {(options || []).map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
@@ -137,11 +150,12 @@ describe('AddRecomendationPopUp', () => {
 
   describe('Content type dropdown', () => {
     beforeEach(() => {
-      (interventionsTaxonomyStore as any).contentTypes = ORIGINAL_CONTENT_TYPES;
+      (interventionsTaxonomyStore as { contentTypes: string[] }).contentTypes =
+        ORIGINAL_CONTENT_TYPES;
     });
 
     afterEach(() => {
-      (interventionsTaxonomyStore as any).contentTypes = [
+      (interventionsTaxonomyStore as { contentTypes: string[] }).contentTypes = [
         'Video',
         'Audio',
         'Website',
@@ -181,13 +195,14 @@ describe('AddRecomendationPopUp', () => {
     ];
 
     beforeEach(() => {
-      (interventionsTaxonomyStore as any).contentTypes = ORIGINAL_CONTENT_TYPES;
+      (interventionsTaxonomyStore as { contentTypes: string[] }).contentTypes =
+        ORIGINAL_CONTENT_TYPES;
       (mockApiClient.post as jest.Mock).mockResolvedValue({ data: {} });
     });
 
     afterEach(() => {
       jest.clearAllMocks();
-      (interventionsTaxonomyStore as any).contentTypes = [
+      (interventionsTaxonomyStore as { contentTypes: string[] }).contentTypes = [
         'Video',
         'Audio',
         'Website',

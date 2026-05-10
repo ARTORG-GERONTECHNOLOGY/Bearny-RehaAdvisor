@@ -27,7 +27,7 @@ const mockPayload = [
     color: colors.brand,
     payload: { fill: colors.brand },
   },
-] as any;
+];
 
 // ─── ChartContainer ──────────────────────────────────────────────────────────
 
@@ -202,7 +202,7 @@ describe('ChartTooltipContent', () => {
   it('filters out payload items with type=none', () => {
     const nonePayload = [
       { value: 50, name: 'hidden', dataKey: 'hidden', color: '#000', type: 'none', payload: {} },
-    ] as any;
+    ];
     const { container } = render(
       <ChartContainer config={baseConfig}>
         <ChartTooltipContent active payload={nonePayload} />
@@ -224,9 +224,7 @@ describe('ChartTooltipContent', () => {
 // ─── ChartLegendContent ──────────────────────────────────────────────────────
 
 describe('ChartLegendContent', () => {
-  const legendPayload = [
-    { value: 'sales', dataKey: 'sales', type: 'circle', color: colors.brand },
-  ] as any;
+  const legendPayload = [{ value: 'sales', dataKey: 'sales', type: 'circle', color: colors.brand }];
 
   it('returns null when payload is empty', () => {
     const { container } = render(
@@ -288,9 +286,7 @@ describe('ChartLegendContent', () => {
   });
 
   it('filters out items with type=none', () => {
-    const nonePayload = [
-      { value: 'hidden', dataKey: 'hidden', type: 'none', color: '#000' },
-    ] as any;
+    const nonePayload = [{ value: 'hidden', dataKey: 'hidden', type: 'none', color: '#000' }];
     const { container } = render(
       <ChartContainer config={baseConfig}>
         <ChartLegendContent payload={nonePayload} />

@@ -5,7 +5,7 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 
 jest.mock('@/components/common/ErrorAlert', () => ({
   __esModule: true,
-  default: ({ message, onClose }: any) => (
+  default: ({ message, onClose }: { message?: string; onClose?: () => void }) => (
     <div role="alert">
       <span>{message}</span>
       <button onClick={onClose}>close</button>

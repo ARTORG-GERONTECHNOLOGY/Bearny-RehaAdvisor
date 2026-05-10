@@ -1,3 +1,4 @@
+import React from 'react';
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import SuccessPage from '@/pages/SuccessPage';
@@ -16,10 +17,12 @@ jest.mock('react-router-dom', () => {
 
 // ---- lightweight bootstrap mocks ----
 jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Alert: ({ children }: any) => <div role="alert">{children}</div>,
+  Container: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="container">{children}</div>
+  ),
+  Row: ({ children }: { children?: React.ReactNode }) => <div data-testid="row">{children}</div>,
+  Col: ({ children }: { children?: React.ReactNode }) => <div data-testid="col">{children}</div>,
+  Alert: ({ children }: { children?: React.ReactNode }) => <div role="alert">{children}</div>,
 }));
 
 describe('SuccessPage', () => {
