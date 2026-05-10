@@ -539,7 +539,9 @@ const AdminDashboard: React.FC = observer(() => {
                   </div>
                 ) : (
                   <>
-                    <p className="text-muted mb-1">{t('Select clinics to include in the export:')}</p>
+                    <p className="text-muted mb-1">
+                      {t('Select clinics to include in the export:')}
+                    </p>
 
                     {exportClinics.length === 0 ? (
                       <Alert variant="info">{t('No clinics found in the database.')}</Alert>
