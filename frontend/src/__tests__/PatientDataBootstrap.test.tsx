@@ -17,7 +17,7 @@ jest.mock('@/services/patientDataService', () => ({
 // Auth store mock: object defined inside factory, mutated via jest.requireMock
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: { isAuthenticated: false, userType: '', id: '' },
+  default: { isAuthenticated: false, userType: '', id: '', preferredLanguage: '' },
 }));
 
 // mobx-react-lite observer is a passthrough in tests
@@ -31,6 +31,7 @@ const getAuthState = () =>
     isAuthenticated: boolean;
     userType: string;
     id: string;
+    preferredLanguage: string;
   };
 
 beforeEach(() => {
@@ -39,6 +40,7 @@ beforeEach(() => {
   s.isAuthenticated = false;
   s.userType = '';
   s.id = '';
+  s.preferredLanguage = '';
 });
 
 describe('PatientDataBootstrap', () => {
@@ -94,5 +96,32 @@ describe('PatientDataBootstrap', () => {
     const { container } = render(<PatientDataBootstrap />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('uses preferredLanguage from store instead of UI language (bug #236)', () => {
+    // Patient has German as preferred language but the UI is in English.
+    // Interventions must be fetched in German.
+    const s = getAuthState();
+    s.isAuthenticated = true;
+    s.userType = 'Patient';
+    s.id = 'patient-de';
+    s.preferredLanguage = 'de';
+
+    render(<PatientDataBootstrap />);
+
+    expect(mockInitPatientData).toHaveBeenCalledWith('patient-de', 'de');
+  });
+
+  it('falls back to i18n language when preferredLanguage is not set (bug #236)', () => {
+    // No preferred_language stored — should use the browser/UI language ('en' in tests).
+    const s = getAuthState();
+    s.isAuthenticated = true;
+    s.userType = 'Patient';
+    s.id = 'patient-en';
+    s.preferredLanguage = '';
+
+    render(<PatientDataBootstrap />);
+
+    expect(mockInitPatientData).toHaveBeenCalledWith('patient-en', 'en');
   });
 });
