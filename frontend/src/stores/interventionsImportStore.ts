@@ -28,6 +28,8 @@ export type ImportOptions = {
 export class InterventionsImportStore {
   loading = false;
   error = '';
+  errorCode = '';
+  availableSheets: string[] = [];
   result: ImportResult | null = null;
 
   constructor() {
@@ -37,11 +39,15 @@ export class InterventionsImportStore {
   reset() {
     this.loading = false;
     this.error = '';
+    this.errorCode = '';
+    this.availableSheets = [];
     this.result = null;
   }
 
   clearError() {
     this.error = '';
+    this.errorCode = '';
+    this.availableSheets = [];
   }
 
   /**
@@ -86,6 +92,8 @@ export class InterventionsImportStore {
 
       runInAction(() => {
         this.error = String(backend);
+        this.errorCode = e?.response?.data?.error_code || '';
+        this.availableSheets = e?.response?.data?.available_sheets || [];
         this.result = e?.response?.data?.result ?? null;
       });
     } finally {
