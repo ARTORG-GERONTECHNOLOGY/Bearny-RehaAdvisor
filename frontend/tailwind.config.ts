@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 import { colors } from './src/lib/colors';
 
 export default {
@@ -62,5 +63,5 @@ export default {
     // Disable Tailwind's base reset to avoid conflicts with Bootstrap
     preflight: false,
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
