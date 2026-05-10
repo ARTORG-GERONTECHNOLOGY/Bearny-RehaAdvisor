@@ -177,19 +177,24 @@ def renew_certificates():
     nginx_container = os.environ.get("CERTBOT_NGINX_CONTAINER", "gateway").strip()
 
     if not conf_path or not www_path:
-        logger.error(
-            "[renew_certificates] CERTBOT_CONF_PATH and CERTBOT_WWW_PATH must be set"
-        )
+        logger.error("[renew_certificates] CERTBOT_CONF_PATH and CERTBOT_WWW_PATH must be set")
         raise ValueError("CERTBOT_CONF_PATH and CERTBOT_WWW_PATH are required")
 
     logger.info("[renew_certificates] starting renewal (conf=%s, nginx=%s)", conf_path, nginx_container)
     t0 = time.time()
 
     cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{conf_path}:/etc/letsencrypt",
-        "-v", f"{www_path}:/var/www/certbot",
-        "certbot/certbot", "renew", "--non-interactive", "--quiet",
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{conf_path}:/etc/letsencrypt",
+        "-v",
+        f"{www_path}:/var/www/certbot",
+        "certbot/certbot",
+        "renew",
+        "--non-interactive",
+        "--quiet",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -203,7 +208,8 @@ def renew_certificates():
     if result.returncode != 0:
         logger.error(
             "[renew_certificates] certbot exited with code %d after %.1fs",
-            result.returncode, elapsed,
+            result.returncode,
+            elapsed,
         )
         raise RuntimeError(f"certbot renew failed (exit {result.returncode})")
 
@@ -211,7 +217,9 @@ def renew_certificates():
 
     reload = subprocess.run(
         ["docker", "exec", nginx_container, "nginx", "-s", "reload"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
     if reload.returncode != 0:
