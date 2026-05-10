@@ -13,7 +13,7 @@ Role-based response content
   * Therapist with a linked ``Therapist`` document → 200 with
     ``first_name``, ``last_name``, ``specialisation``, and ``role``.
   * Patient with a linked ``Patient`` document → 200 with
-    ``first_name``, ``last_name``, ``function``, and ``role``.
+    ``first_name``, ``last_name``, ``function``, ``preferred_language``, and ``role``.
   * User with no linked profile document → 200 but ``first_name`` / ``last_name``
     are empty strings (graceful degradation).
 
@@ -22,7 +22,14 @@ Resource not found (404)
 
 Response structure
   * The response always contains the keys ``first_name``, ``last_name``,
-    ``specialisation``, ``function``, and ``role``.
+    ``specialisation``, ``function``, ``role``, and ``preferred_language``.
+
+Bug #236 — preferred_language
+  * The Patient response now includes ``preferred_language`` (e.g. ``"de"``).
+    The frontend stores this in ``authStore.preferredLanguage`` and passes it
+    as the ``lang`` query parameter when fetching interventions, so patients
+    receive interventions in their stored preferred language instead of the
+    browser UI language.
 
 Authentication enforcement note
 --------------------------------
@@ -206,8 +213,89 @@ def test_get_user_info_response_shape_is_consistent(mongo_mock):
     resp = client.get(INFO_URL.format(user_id=str(user.id)))
     data = resp.json()
 
-    for key in ("first_name", "last_name", "specialisation", "function", "role"):
+    for key in ("first_name", "last_name", "specialisation", "function", "role", "preferred_language"):
         assert key in data, f"Expected key '{key}' missing from response"
+
+
+def test_get_user_info_patient_returns_preferred_language(mongo_mock):
+    """
+    Bug #236 — the get-user-info response for a Patient must include
+    ``preferred_language`` so the frontend can fetch interventions in the
+    patient's stored language rather than the browser UI language.
+    """
+    therapist_user = User(
+        username="langtherapist",
+        role="Therapist",
+        email="langtherapist@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(userId=therapist_user, name="Lang", first_name="Dr", specializations=[]).save()
+
+    patient_user = User(
+        username="langpatient",
+        role="Patient",
+        email="langpatient@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    Patient(
+        userId=patient_user,
+        patient_code="PAT-LANG",
+        therapist=therapist,
+        name="Patient",
+        first_name="German",
+        reha_end_date=datetime(2030, 1, 1),
+        duration=365,
+        preferred_language="de",
+    ).save()
+
+    resp = client.get(INFO_URL.format(user_id=str(patient_user.id)))
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["preferred_language"] == "de"
+
+
+def test_get_user_info_patient_preferred_language_defaults_to_en(mongo_mock):
+    """
+    When a Patient has no ``preferred_language`` set (or the document is missing),
+    the response must default to ``"en"`` so the frontend always has a usable value.
+    """
+    therapist_user = User(
+        username="defaultlangth",
+        role="Therapist",
+        email="defaultlangth@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(userId=therapist_user, name="Default", first_name="Dr", specializations=[]).save()
+
+    patient_user = User(
+        username="defaultlangpt",
+        role="Patient",
+        email="defaultlangpt@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    # Patient saved without preferred_language — model default applies
+    Patient(
+        userId=patient_user,
+        patient_code="PAT-DEFAULT",
+        therapist=therapist,
+        name="Default",
+        first_name="No",
+        reha_end_date=datetime(2030, 1, 1),
+        duration=365,
+    ).save()
+
+    resp = client.get(INFO_URL.format(user_id=str(patient_user.id)))
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["preferred_language"] == "en"
 
 
 # ===========================================================================
