@@ -429,31 +429,79 @@ EOF
 
 ## SSL/TLS Certificate Management
 
-### Using Let's Encrypt with Auto-Renewal
+Certificates for `dev.reha-advisor.ch` and `reha-advisor.ch` are issued by Let's Encrypt and expire every 90 days. Renewal is handled automatically by a **Celery beat task** (`core.tasks.renew_certificates`) that runs daily at 03:00 UTC.
 
-```bash
-# Install Certbot
-sudo apt-get install certbot -y
+### How it works
 
-# Obtain certificate
-sudo certbot certonly --standalone \
-  -d yourdomain.com \
-  -d www.yourdomain.com
+The task runs inside the `celery` / `celery-prod` container and calls certbot via the Docker socket — no certbot installation is required in the backend image:
 
-# Auto-renew
-sudo certbot renew --dry-run
-sudo systemctl enable certbot.timer
-```
+1. `docker run certbot/certbot renew --non-interactive --quiet` — attempts renewal for all configured domains; certbot skips certs that still have more than 30 days left.
+2. `docker exec gateway nginx -s reload` — reloads the gateway nginx to serve the new certificate.
+3. On failure the task retries up to 3 times with a 5-minute backoff, then raises so Celery logs a failure and Sentry captures it.
 
-### Certificate Mounting in Docker
+### Required environment variables
+
+Add these to `.env.dev` and `.env.prod`:
+
+| Variable | Dev value | Prod value |
+|---|---|---|
+| `CERTBOT_ENABLED` | `true` | `true` |
+| `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf` |
+| `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www` |
+| `CERTBOT_NGINX_CONTAINER` | `gateway` | `gateway` |
+
+> **Important:** `CERTBOT_CONF_PATH` and `CERTBOT_WWW_PATH` must be **host-absolute paths**, not container paths. When the Celery task calls `docker run -v <path>:...`, Docker resolves the paths on the host, not inside the Celery container.
+
+### Required compose volumes
+
+The celery services in both `docker-compose.dev.yml` and `docker-compose.prod.reha-advisor.yml` already declare:
 
 ```yaml
-# docker-compose.prod.yml
-services:
-  nginx:
-    volumes:
-      - /etc/letsencrypt/live/yourdomain.com:/etc/nginx/ssl:ro
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock   # allows calling docker run / exec
+  - ./nginx/certbot/conf:/etc/letsencrypt        # certbot reads/writes cert storage
+  - ./nginx/certbot/www:/var/www/certbot         # certbot writes ACME challenges
 ```
+
+### Triggering renewal manually
+
+```bash
+# Dev
+docker exec celery python -m celery -A api.celery:app call core.tasks.renew_certificates
+
+# Prod
+docker exec celery-prod python -m celery -A api.celery:app call core.tasks.renew_certificates
+```
+
+### Verifying the certificate
+
+```bash
+openssl s_client -connect dev.reha-advisor.ch:443 -servername dev.reha-advisor.ch </dev/null 2>&1 \
+  | grep -E "notAfter|Verify return code"
+# Expected: Verify return code: 0 (ok)
+```
+
+### Emergency manual renewal (if Celery is down)
+
+```bash
+docker run --rm \
+  -v /home/ubuntu/repos/telerehabapp/nginx/certbot/conf:/etc/letsencrypt \
+  -v /home/ubuntu/repos/telerehabapp/nginx/certbot/www:/var/www/certbot \
+  certbot/certbot renew --non-interactive
+docker exec gateway nginx -s reload
+```
+
+### Gateway nginx and the ACME challenge
+
+The gateway nginx serves `/.well-known/acme-challenge/` on HTTP port 80 for all domains — this is what certbot uses to prove domain ownership during webroot validation. The relevant block in `nginx/gateway.nginx.conf`:
+
+```nginx
+location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+}
+```
+
+This block must remain in the HTTP server blocks for all domains. Do not add an HTTPS redirect that catches ACME challenge paths.
 
 ## Monitoring and Logging
 
