@@ -164,11 +164,11 @@ const AdminDashboard: React.FC = observer(() => {
         responseType: 'blob',
       });
 
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
       const a = document.createElement('a');
       const today = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `patients_export_${today}.csv`;
+      a.download = `export_${today}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -583,6 +583,12 @@ const AdminDashboard: React.FC = observer(() => {
                       </>
                     )}
 
+                    <p className="text-muted small mb-2">
+                      {t('The export is a ZIP archive containing:')}
+                      {' '}
+                      {t('patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.')}
+                    </p>
+
                     <div className="d-flex gap-2 flex-wrap">
                       <Button
                         variant="primary"
@@ -595,7 +601,7 @@ const AdminDashboard: React.FC = observer(() => {
                             {t('Exporting...')}
                           </>
                         ) : (
-                          t('Export all patients')
+                          t('Export all patients (ZIP)')
                         )}
                       </Button>
                       <Button

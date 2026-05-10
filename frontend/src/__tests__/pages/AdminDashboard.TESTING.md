@@ -40,13 +40,20 @@ clinic.
 Both buttons use `apiClient.get` with `responseType: 'blob'` and trigger a
 browser download via a temporary `<a>` element.
 
+### ZIP contents
+
+Each download is a ZIP archive containing one CSV per data type:
+`patients`, `rehab_calendar`, `intervention_logs`, `intervention_feedback`,
+`health_vitals`, `health_fitbit`, `questionnaire_answers`, `thresholds`,
+`threshold_history`, `activity_logs`.
+
 ### Backend endpoints used
 
 | Endpoint                                      | Purpose                                                       |
 | --------------------------------------------- | ------------------------------------------------------------- |
 | `GET /api/admin/export/clinics/`              | Returns `{ clinics: string[] }` — distinct clinic names in DB |
-| `GET /api/admin/export/patients/?clinics=all` | Full export CSV                                               |
-| `GET /api/admin/export/patients/?clinics=A,B` | Partial export CSV                                            |
+| `GET /api/admin/export/patients/?clinics=all` | Full export ZIP |
+| `GET /api/admin/export/patients/?clinics=A,B` | Partial export ZIP |
 
 ---
 
