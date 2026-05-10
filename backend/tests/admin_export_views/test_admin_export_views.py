@@ -49,6 +49,8 @@ from core.models import (
     FeedbackEntry,
     FeedbackQuestion,
     FitbitData,
+    Intervention,
+    InterventionAssignment,
     Logs,
     Patient,
     PatientICFRating,
@@ -59,8 +61,6 @@ from core.models import (
     RehabilitationPlan,
     Therapist,
     User,
-    Intervention,
-    InterventionAssignment,
 )
 
 # ---------------------------------------------------------------------------
@@ -288,17 +288,30 @@ def test_patients_csv_has_expected_headers(mongo_mock):
     with _open_zip(resp) as zf:
         with zf.open("patients.csv") as f:
             header = f.read().decode("utf-8").splitlines()[0]
-    for col in ("clinic", "project", "patient_code", "first_name", "last_name",
-                "therapist", "reha_end_date", "preferred_language"):
+    for col in (
+        "clinic",
+        "project",
+        "patient_code",
+        "first_name",
+        "last_name",
+        "therapist",
+        "reha_end_date",
+        "preferred_language",
+    ):
         assert col in header
 
 
 def test_patients_csv_correct_field_values(mongo_mock):
     therapist = _make_therapist("x")
     _make_patient(
-        therapist, patient_code="PAT999", clinic="Inselspital", project="RehaStudy",
-        first_name="Zara", last_name="Doe",
-        diagnosis=["Stroke"], function=["mobility", "strength"],
+        therapist,
+        patient_code="PAT999",
+        clinic="Inselspital",
+        project="RehaStudy",
+        first_name="Zara",
+        last_name="Doe",
+        diagnosis=["Stroke"],
+        function=["mobility", "strength"],
     )
 
     with _open_zip(client.get(EXPORT_URL)) as zf:
@@ -386,8 +399,10 @@ def test_intervention_logs_csv_contains_log_rows(mongo_mock):
     patient = _make_patient(therapist, "P001", clinic="Inselspital")
     intervention = _make_intervention()
     plan = RehabilitationPlan(
-        patientId=patient, therapistId=therapist,
-        startDate=datetime(2025, 1, 1), endDate=datetime(2025, 3, 31),
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
         status="active",
     ).save()
 
@@ -421,8 +436,10 @@ def test_intervention_feedback_csv_contains_feedback_entries(mongo_mock):
     patient = _make_patient(therapist, "P001", clinic="Inselspital")
     intervention = _make_intervention()
     plan = RehabilitationPlan(
-        patientId=patient, therapistId=therapist,
-        startDate=datetime(2025, 1, 1), endDate=datetime(2025, 3, 31),
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
         status="active",
     ).save()
 

@@ -584,9 +584,10 @@ const AdminDashboard: React.FC = observer(() => {
                     )}
 
                     <p className="text-muted small mb-2">
-                      {t('The export is a ZIP archive containing:')}
-                      {' '}
-                      {t('patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.')}
+                      {t('The export is a ZIP archive containing:')}{' '}
+                      {t(
+                        'patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.'
+                      )}
                     </p>
 
                     <div className="d-flex gap-2 flex-wrap">
