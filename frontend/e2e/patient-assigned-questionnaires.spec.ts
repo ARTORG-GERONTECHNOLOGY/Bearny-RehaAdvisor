@@ -175,6 +175,12 @@ test.describe('Patient assigned questionnaires — API e2e', () => {
           },
         });
       }
+      // Remove any PatientICFRating feedback submitted during this run so the
+      // test is idempotent across repeated executions within 7 days.
+      await request.post(`${API_BASE}/questionnaires/reset-feedback/`, {
+        headers: { Authorization: `Bearer ${therapist.token}` },
+        data: { patientId: patientIdForAssign, date: isoDateOffset(0) },
+      });
     }
   });
 });

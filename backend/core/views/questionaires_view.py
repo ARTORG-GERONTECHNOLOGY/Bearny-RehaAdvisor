@@ -826,3 +826,38 @@ def remove_questionnaire(request):
     except Exception as e:
         logger.exception("remove_questionnaire failed")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def reset_patient_feedback(request):
+    """POST /api/questionnaires/reset-feedback/
+
+    Delete PatientICFRating records for a patient on/after a given date so
+    questionnaires become re-servable.  Requires therapist auth.
+
+    Body: { "patientId": "<id>", "date": "YYYY-MM-DD" }   (date defaults to today)
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body or "{}")
+        patient_id = payload.get("patientId")
+        if not patient_id:
+            return JsonResponse({"error": "Missing patientId"}, status=400)
+
+        try:
+            patient = _get_patient_by_any_id(patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({"error": "Patient not found"}, status=404)
+
+        date_str = payload.get("date") or str(timezone.localdate(timezone.now()))
+        from_dt = _parse_yyyy_mm_dd(date_str)
+
+        deleted = PatientICFRating.objects(patientId=patient, date__gte=from_dt).delete()
+        return JsonResponse({"deleted": deleted}, status=200)
+
+    except Exception as e:
+        logger.exception("reset_patient_feedback failed")
+        return JsonResponse({"error": str(e)}, status=500)
