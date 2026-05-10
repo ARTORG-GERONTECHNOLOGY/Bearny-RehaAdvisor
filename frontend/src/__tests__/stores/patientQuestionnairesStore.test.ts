@@ -29,12 +29,14 @@ jest.mock('@sentry/react', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (patientQuestionnairesStore as any).showFeedbackPopup = false;
-  (patientQuestionnairesStore as any).feedbackQuestions = [];
-  (patientQuestionnairesStore as any).feedbackError = '';
-  (patientQuestionnairesStore as any).healthQuestions = [];
-  (patientQuestionnairesStore as any).showHealthPopup = false;
-  (patientQuestionnairesStore as any).showInitialPopup = false;
+  Object.assign(patientQuestionnairesStore, {
+    showFeedbackPopup: false,
+    feedbackQuestions: [],
+    feedbackError: '',
+    healthQuestions: [],
+    showHealthPopup: false,
+    showInitialPopup: false,
+  });
 });
 
 // ---- tests -----------------------------------------------------------------

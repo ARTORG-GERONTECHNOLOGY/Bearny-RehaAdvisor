@@ -54,7 +54,7 @@ jest.mock('@/stores/patientInterventionsStore', () => {
       items: mockInterventions,
       fetchPlan: jest.fn(),
       toggleCompleted: jest.fn(),
-      isCompletedOn: jest.fn((rec: any, date: Date) => {
+      isCompletedOn: jest.fn((rec: { completed_dates?: string[] }, date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
         return rec.completed_dates?.includes(dateKey) || false;
       }),
@@ -88,7 +88,7 @@ jest.mock('@/components/Layout', () => ({
 
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({
   __esModule: true,
-  default: ({ show, onClose }: any) =>
+  default: ({ show, onClose }: { show?: boolean; onClose?: () => void }) =>
     show ? (
       <div data-testid="feedback-popup">
         <button onClick={onClose}>Close Feedback</button>
@@ -98,7 +98,7 @@ jest.mock('@/components/PatientPage/FeedbackPopup', () => ({
 
 jest.mock('@/components/PatientPage/PatientQuestionaire', () => ({
   __esModule: true,
-  default: ({ show, handleClose }: any) =>
+  default: ({ show, handleClose }: { show?: boolean; handleClose?: () => void }) =>
     show ? (
       <div data-testid="initial-questionnaire">
         <button onClick={handleClose}>Close Questionnaire</button>
@@ -109,12 +109,12 @@ jest.mock('@/components/PatientPage/PatientQuestionaire', () => ({
 // Mock SVG icons
 jest.mock('@/assets/icons/circle-dashed-fill.svg?react', () => ({
   __esModule: true,
-  default: (props: any) => <svg {...props} data-testid="circle-dashed" />,
+  default: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} data-testid="circle-dashed" />,
 }));
 
 jest.mock('@/assets/icons/circle-check-fill.svg?react', () => ({
   __esModule: true,
-  default: (props: any) => <svg {...props} data-testid="circle-check" />,
+  default: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} data-testid="circle-check" />,
 }));
 
 // Mock react-router-dom
@@ -127,7 +127,7 @@ jest.mock('react-router-dom', () => ({
 // Mock react-i18next
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: any) => {
+    t: (key: string, options?: Record<string, unknown>) => {
       if (key === 'Show {{day}}' && options?.day) {
         return `Show ${options.day}`;
       }
@@ -146,9 +146,11 @@ describe('PatientPlan', () => {
       completed: true,
       dateKey: '2026-03-03',
     });
-    (patientQuestionnairesStore as any).showFeedbackPopup = false;
-    (patientQuestionnairesStore as any).showHealthPopup = false;
-    (patientQuestionnairesStore as any).showInitialPopup = false;
+    Object.assign(patientQuestionnairesStore, {
+      showFeedbackPopup: false,
+      showHealthPopup: false,
+      showInitialPopup: false,
+    });
   });
 
   afterEach(() => {
@@ -394,7 +396,7 @@ describe('PatientPlan', () => {
     });
 
     it('shows feedback popup when store indicates', () => {
-      (patientQuestionnairesStore as any).showFeedbackPopup = true;
+      Object.assign(patientQuestionnairesStore, { showFeedbackPopup: true });
 
       render(<PatientPlan />);
 
@@ -403,7 +405,7 @@ describe('PatientPlan', () => {
 
     it('closes feedback popup and clears busyKey', async () => {
       const user = userEvent.setup();
-      (patientQuestionnairesStore as any).showFeedbackPopup = true;
+      Object.assign(patientQuestionnairesStore, { showFeedbackPopup: true });
 
       render(<PatientPlan />);
 
@@ -415,7 +417,7 @@ describe('PatientPlan', () => {
 
     it('does not force-close feedback when opening intervention detail', async () => {
       const user = userEvent.setup();
-      (patientQuestionnairesStore as any).showFeedbackPopup = true;
+      Object.assign(patientQuestionnairesStore, { showFeedbackPopup: true });
 
       render(<PatientPlan />);
 
@@ -429,7 +431,7 @@ describe('PatientPlan', () => {
 
   describe('Authentication', () => {
     it('redirects to home when not authenticated', async () => {
-      (authStore as any).isAuthenticated = false;
+      Object.assign(authStore, { isAuthenticated: false });
 
       render(<PatientPlan />);
 
@@ -439,8 +441,7 @@ describe('PatientPlan', () => {
     });
 
     it('redirects to home when user is not a Patient', async () => {
-      (authStore as any).isAuthenticated = true;
-      (authStore as any).userType = 'Therapist';
+      Object.assign(authStore, { isAuthenticated: true, userType: 'Therapist' });
 
       render(<PatientPlan />);
 
@@ -450,8 +451,7 @@ describe('PatientPlan', () => {
     });
 
     it('does not redirect when authenticated as Patient', async () => {
-      (authStore as any).isAuthenticated = true;
-      (authStore as any).userType = 'Patient';
+      Object.assign(authStore, { isAuthenticated: true, userType: 'Patient' });
 
       render(<PatientPlan />);
 

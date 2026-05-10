@@ -6,10 +6,26 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 
 // Mock react-select to use standard select elements
 jest.mock('react-select', () => {
-  return function ReactSelect({ options, onChange, isMulti, value, id, isDisabled }: any) {
+  return function ReactSelect({
+    options,
+    onChange,
+    isMulti,
+    value,
+    id,
+    isDisabled,
+  }: {
+    options?: { value: string; label: string }[];
+    onChange: (
+      selected: { value: string; label: string } | { value: string; label: string }[]
+    ) => void;
+    isMulti?: boolean;
+    value?: { value: string } | { value: string }[];
+    id?: string;
+    isDisabled?: boolean;
+  }) {
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       if (isMulti) {
-        const selected = Array.from(e.target.selectedOptions || []).map((opt: any) => ({
+        const selected = Array.from(e.target.selectedOptions || []).map((opt) => ({
           value: opt.value,
           label: opt.text || opt.value,
         }));
@@ -20,7 +36,9 @@ jest.mock('react-select', () => {
       }
     };
 
-    const currentValues = isMulti ? (value || []).map((v: any) => v.value) : value?.value || '';
+    const currentValues = isMulti
+      ? (Array.isArray(value) ? value : []).map((v) => v.value)
+      : (value as { value: string } | undefined)?.value || '';
 
     return (
       <select
@@ -31,7 +49,7 @@ jest.mock('react-select', () => {
         value={currentValues}
         disabled={isDisabled}
       >
-        {options?.map((opt: any) => (
+        {options?.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>

@@ -12,7 +12,15 @@ jest.mock('react-router-dom', () => {
 
 jest.mock('@/components/common/StatusBanner', () => ({
   __esModule: true,
-  default: ({ type, message, onClose }: any) =>
+  default: ({
+    type,
+    message,
+    onClose,
+  }: {
+    type?: string;
+    message?: string;
+    onClose?: () => void;
+  }) =>
     message ? (
       <div data-testid={`banner-${type}`}>
         <span>{message}</span>
@@ -24,7 +32,15 @@ jest.mock('@/components/common/StatusBanner', () => ({
 // child components: keep minimal but interactive
 jest.mock('@/components/UserProfile/EditProfileSheet', () => ({
   __esModule: true,
-  default: ({ show, onCancel, userData }: any) =>
+  default: ({
+    show,
+    onCancel,
+    userData,
+  }: {
+    show?: boolean;
+    onCancel?: () => void;
+    userData?: { email?: string };
+  }) =>
     show ? (
       <div data-testid="edit-form">
         <div>{userData?.email}</div>
@@ -35,7 +51,7 @@ jest.mock('@/components/UserProfile/EditProfileSheet', () => ({
 
 jest.mock('@/components/UserProfile/ChangePasswordSheet', () => ({
   __esModule: true,
-  default: ({ show, onCancel }: any) =>
+  default: ({ show, onCancel }: { show?: boolean; onCancel?: () => void }) =>
     show ? (
       <div data-testid="change-password-form">
         <button onClick={onCancel}>cancel-pwd</button>
@@ -50,7 +66,17 @@ jest.mock('@/components/UserProfile/LanguageSelectorCard', () => ({
 
 jest.mock('@/components/UserProfile/DeleteConfirmationSheet', () => ({
   __esModule: true,
-  default: ({ show, handleClose, handleConfirm, isLoading }: any) =>
+  default: ({
+    show,
+    handleClose,
+    handleConfirm,
+    isLoading,
+  }: {
+    show?: boolean;
+    handleClose?: () => void;
+    handleConfirm?: () => void;
+    isLoading?: boolean;
+  }) =>
     show ? (
       <div data-testid="delete-modal">
         <div>loading:{String(isLoading)}</div>
@@ -71,7 +97,7 @@ const userProfileStoreMock = {
   showEditProfile: false,
   showChangePassword: false,
   showDeletePopup: false,
-  userData: { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' } as any,
+  userData: { first_name: 'A', name: 'B', email: 'a@b.com', phone: '1' },
   loading: false,
   saving: false,
   deleting: false,

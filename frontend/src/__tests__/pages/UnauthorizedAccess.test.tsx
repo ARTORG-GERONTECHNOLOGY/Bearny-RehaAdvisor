@@ -1,4 +1,5 @@
 // src/__tests__/pages/UnauthorizedAccess.test.tsx
+import React from 'react';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithRouter } from '@/test-utils/renderWithRouter';
 import UnauthorizedAccess from '@/pages/UnauthorizedAccess';
@@ -13,12 +14,14 @@ jest.mock('react-router-dom', () => {
 
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
-  default: ({ children }: any) => <div data-testid="layout">{children}</div>,
+  default: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="layout">{children}</div>
+  ),
 }));
 
 jest.mock('@/components/Card', () => ({
   __esModule: true,
-  default: ({ children, className }: any) => (
+  default: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
     <div data-testid="card" className={className}>
       {children}
     </div>
@@ -26,7 +29,15 @@ jest.mock('@/components/Card', () => ({
 }));
 
 jest.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, ...props }: any) => (
+  Button: ({
+    children,
+    onClick,
+    ...props
+  }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    [key: string]: unknown;
+  }) => (
     <button onClick={onClick} {...props}>
       {children}
     </button>

@@ -200,8 +200,10 @@ describe('InterventionList', () => {
     jest.clearAllMocks();
 
     // Reset patientUiStore state that may have been mutated by the previous describe
-    (patientUiStore as any).viewMode = 'day';
-    (patientUiStore as any).selectedDate = new Date('2026-02-16T00:00:00Z');
+    Object.assign(patientUiStore, {
+      viewMode: 'day',
+      selectedDate: new Date('2026-02-16T00:00:00Z'),
+    });
 
     // Clear the localStorage override from the previous describe so authStore.id ('p1') is used
     Object.defineProperty(window, 'localStorage', {

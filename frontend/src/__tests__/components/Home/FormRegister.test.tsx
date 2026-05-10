@@ -40,25 +40,29 @@ jest.mock('react-icons/fa', () => ({
 // (type="submit") would cause Next/Back clicks to also submit the <form>.
 jest.mock('react-bootstrap', () => {
   const actual = jest.requireActual('react-bootstrap');
-  const MockModal = ({ show, children }: any) =>
+  const MockModal = ({ show, children }: { show?: boolean; children?: React.ReactNode }) =>
     show ? <div data-testid="modal">{children}</div> : null;
-  MockModal.Header = function ModalHeader({ children }: any) {
+  MockModal.Header = function ModalHeader({ children }: { children?: React.ReactNode }) {
     return <div data-testid="modal-header">{children}</div>;
   };
-  MockModal.Title = function ModalTitle({ children }: any) {
+  MockModal.Title = function ModalTitle({ children }: { children?: React.ReactNode }) {
     return <h5 data-testid="modal-title">{children}</h5>;
   };
-  MockModal.Body = function ModalBody({ children }: any) {
+  MockModal.Body = function ModalBody({ children }: { children?: React.ReactNode }) {
     return <div data-testid="modal-body">{children}</div>;
   };
-  MockModal.Footer = function ModalFooter({ children }: any) {
+  MockModal.Footer = function ModalFooter({ children }: { children?: React.ReactNode }) {
     return <div data-testid="modal-footer">{children}</div>;
   };
 
   return {
     ...actual,
     Modal: MockModal,
-    Button: ({ children, type, ...props }: any) => (
+    Button: ({
+      children,
+      type,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
       <button type={type ?? 'button'} {...props}>
         {children}
       </button>
@@ -107,9 +111,24 @@ jest.mock('../../../config/config.json', () => ({
 // Exposes data-testid attributes for disabled/placeholder/selected state so
 // tests can assert react-select behaviour without fighting its internals.
 jest.mock('react-select', () => {
-  return function ReactSelectMock(props: any) {
-    const { id, options = [], value = [], isDisabled, placeholder, onChange } = props;
-    const selectedValues = Array.isArray(value) ? value.map((v: any) => v.value) : [];
+  type SelectOption = { value: string; label: string };
+  type SelectProps = {
+    id?: string;
+    options?: SelectOption[];
+    value?: SelectOption | SelectOption[];
+    isDisabled?: boolean;
+    placeholder?: string;
+    onChange: (value: SelectOption[] | null) => void;
+  };
+  return function ReactSelectMock({
+    id,
+    options = [],
+    value = [],
+    isDisabled,
+    placeholder,
+    onChange,
+  }: SelectProps) {
+    const selectedValues = Array.isArray(value) ? value.map((v) => v.value) : [];
 
     return (
       <div>
@@ -117,7 +136,7 @@ jest.mock('react-select', () => {
         <div data-testid={`select-${id}-placeholder`}>{placeholder || ''}</div>
         <div data-testid={`select-${id}-selected`}>{selectedValues.join(',')}</div>
         {!isDisabled &&
-          options.map((opt: any) => (
+          options.map((opt) => (
             <button
               key={opt.value}
               type="button"

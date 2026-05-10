@@ -25,7 +25,7 @@ const baseProps = {
   onOpenFilter: jest.fn(),
   onOpenDetails: jest.fn(),
   renderHighlightedTitle: (title: string) => <span>{title}</span>,
-  getDisplayTitle: (item: any) => String(item.title || ''),
+  getDisplayTitle: (item: { title?: string }) => String(item.title || ''),
   getResultIcon: () => MockResultIcon,
 };
 

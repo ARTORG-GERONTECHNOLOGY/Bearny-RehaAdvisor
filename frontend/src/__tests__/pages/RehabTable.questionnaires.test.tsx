@@ -10,21 +10,21 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock(
   '@/components/RehaTablePage/layout/RehaPageLayout',
   () =>
-    function RehaPageLayout({ children }: any) {
+    function RehaPageLayout({ children }: { children?: React.ReactNode }) {
       return <div>{children}</div>;
     }
 );
 jest.mock(
   '@/components/RehaTablePage/layout/RehaLeftPanelShell',
   () =>
-    function RehaLeftPanelShell({ children }: any) {
+    function RehaLeftPanelShell({ children }: { children?: React.ReactNode }) {
       return <div>{children}</div>;
     }
 );
 jest.mock(
   '@/components/RehaTablePage/layout/RehaCalendarPanelShell',
   () =>
-    function RehaCalendarPanelShell({ children }: any) {
+    function RehaCalendarPanelShell({ children }: { children?: React.ReactNode }) {
       return <div>{children}</div>;
     }
 );
@@ -156,7 +156,7 @@ const makeStore = (topTab: 'interventions' | 'questionnaires' = 'interventions')
   fetchAll: jest.fn(),
   fetchInts: jest.fn(),
   setError: jest.fn(),
-  setTopTab: jest.fn(function (this: any, v: 'interventions' | 'questionnaires') {
+  setTopTab: jest.fn(function (this: { topTab: string }, v: 'interventions' | 'questionnaires') {
     this.topTab = v;
   }),
 });

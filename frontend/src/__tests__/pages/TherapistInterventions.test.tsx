@@ -102,7 +102,10 @@ jest.mock(
 jest.mock(
   '@/components/TherapistInterventionPage/LibraryFiltersCard',
   () =>
-    function LibraryFiltersCard(props: any) {
+    function LibraryFiltersCard(props: {
+      filters: { searchTerm: string; diagnosisFilter: string[]; contentTypeFilter: string };
+      onChange: (f: Record<string, unknown>) => void;
+    }) {
       return (
         <div>
           <input
@@ -128,10 +131,13 @@ jest.mock(
 jest.mock(
   '@/components/TherapistInterventionPage/LibraryListSection',
   () =>
-    function LibraryListSection(props: any) {
+    function LibraryListSection(props: {
+      items: { _id: string; title: string }[];
+      onClick: (item: { _id: string; title: string }) => void;
+    }) {
       return (
         <div>
-          {props.items.map((item: any) => (
+          {props.items.map((item: { _id: string; title: string }) => (
             <div key={item._id} onClick={() => props.onClick(item)}>
               {item.title}
             </div>
@@ -144,7 +150,7 @@ jest.mock(
 jest.mock(
   '@/components/TherapistInterventionPage/AddInterventionRow',
   () =>
-    function AddInterventionRow(props: any) {
+    function AddInterventionRow(props: { onAdd: () => void; onImport: () => void }) {
       return (
         <div>
           <button onClick={props.onAdd}>Add Intervention</button>
@@ -250,7 +256,7 @@ const mockInterventions = [
 ];
 
 describe('TherapistInterventions Page', () => {
-  let store: any;
+  let store: ReturnType<typeof jest.requireMock>;
 
   beforeEach(() => {
     jest.clearAllMocks();

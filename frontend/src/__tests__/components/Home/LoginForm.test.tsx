@@ -17,15 +17,27 @@ jest.mock('react-bootstrap', () => {
   return {
     ...actual,
     Modal: Object.assign(
-      ({ show, children }: any) => (show ? <div data-testid="modal">{children}</div> : null),
+      ({ show, children }: { show?: boolean; children?: React.ReactNode }) =>
+        show ? <div data-testid="modal">{children}</div> : null,
       {
-        Header: ({ children }: any) => <div>{children}</div>,
-        Title: ({ children }: any) => <h5>{children}</h5>,
-        Body: ({ children }: any) => <div>{children}</div>,
+        Header: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+        Title: ({ children }: { children?: React.ReactNode }) => <h5>{children}</h5>,
+        Body: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
       }
     ),
-    Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
-    Form: ({ children, onSubmit }: any) => (
+    Button: ({
+      children,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
+      <button {...props}>{children}</button>
+    ),
+    Form: ({
+      children,
+      onSubmit,
+    }: {
+      children?: React.ReactNode;
+      onSubmit?: React.FormEventHandler<HTMLFormElement>;
+    }) => (
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -43,11 +55,12 @@ jest.mock('@/components/ui/sheet', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    Sheet: ({ open, children }: any) => (open ? <div data-testid="sheet">{children}</div> : null),
-    SheetContent: ({ children }: any) => <div>{children}</div>,
-    SheetHeader: ({ children }: any) => <div>{children}</div>,
-    SheetTitle: ({ children }: any) => <h5>{children}</h5>,
-    SheetDescription: ({ children }: any) => <p>{children}</p>,
+    Sheet: ({ open, children }: { open?: boolean; children?: React.ReactNode }) =>
+      open ? <div data-testid="sheet">{children}</div> : null,
+    SheetContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    SheetHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    SheetTitle: ({ children }: { children?: React.ReactNode }) => <h5>{children}</h5>,
+    SheetDescription: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
   };
 });
 
@@ -56,7 +69,23 @@ jest.mock('@/components/forms/input/InputField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, label, value, onChange, placeholder, required, type }: any) => {
+    default: ({
+      id,
+      label,
+      value,
+      onChange,
+      placeholder,
+      required,
+      type,
+    }: {
+      id?: string;
+      label?: React.ReactNode;
+      value?: string;
+      onChange?: React.ChangeEventHandler<HTMLInputElement>;
+      placeholder?: string;
+      required?: boolean;
+      type?: string;
+    }) => {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>
@@ -83,7 +112,17 @@ jest.mock('@/components/forms/input/PasswordField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, value, onChange, required }: any) => {
+    default: ({
+      id,
+      value,
+      onChange,
+      required,
+    }: {
+      id?: string;
+      value?: string;
+      onChange?: React.ChangeEventHandler<HTMLInputElement>;
+      required?: boolean;
+    }) => {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>
@@ -109,7 +148,19 @@ jest.mock('@/components/forms/input/OTPField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, label, value, onChange, required }: any) => {
+    default: ({
+      id,
+      label,
+      value,
+      onChange,
+      required,
+    }: {
+      id?: string;
+      label?: React.ReactNode;
+      value?: string;
+      onChange?: (value: string) => void;
+      required?: boolean;
+    }) => {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>
@@ -135,7 +186,9 @@ jest.mock('@/components/common/ForgotPasswordLink', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ onClick, text }: any) => <button onClick={onClick}>{text}</button>,
+    default: ({ onClick, text }: { onClick?: () => void; text?: string }) => (
+      <button onClick={onClick}>{text}</button>
+    ),
   };
 });
 
@@ -143,7 +196,7 @@ jest.mock('@/components/common/ErrorAlert', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ message, onClose }: any) => (
+    default: ({ message, onClose }: { message?: string; onClose?: () => void }) => (
       <div role="alert">
         <span>{message}</span>
         <button onClick={onClose}>close-alert</button>
@@ -164,7 +217,7 @@ const apiPost = jest.fn();
 jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
-    post: (...args: any[]) => apiPost(...args),
+    post: jest.fn((...args) => apiPost(...args)),
     get: jest.fn(),
   },
 }));
@@ -173,7 +226,7 @@ jest.mock('@/api/client', () => ({
 const handleApiError = jest.fn();
 jest.mock('@/utils/errorHandler', () => ({
   __esModule: true,
-  default: (...args: any[]) => handleApiError(...args),
+  default: jest.fn((...args) => handleApiError(...args)),
 }));
 
 // Mock authStore singleton (must be defined before jest.mock due to hoisting)
@@ -183,7 +236,7 @@ const mockAuthStore = {
   isAuthenticated: false,
   loginErrorMessage: '',
   loginError: '',
-  userType: '' as any,
+  userType: '' as 'Admin' | 'Therapist' | 'Researcher' | 'Patient' | '',
   id: 'u1',
 
   setEmail: jest.fn((v: string) => {

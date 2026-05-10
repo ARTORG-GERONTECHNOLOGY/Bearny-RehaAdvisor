@@ -6,7 +6,9 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 jest.mock('@/utils/interventions', () => ({
   getBadgeVariantFromIntervention: jest.fn(() => 'info'),
   getMediaTypeLabelFromIntervention: jest.fn(() => 'Video'),
-  getTagColor: jest.fn((tagColors: any, tag: string) => tagColors[tag] || '#6c757d'),
+  getTagColor: jest.fn(
+    (tagColors: Record<string, string>, tag: string) => tagColors[tag] || '#6c757d'
+  ),
 }));
 
 jest.mock('@/utils/translate', () => ({

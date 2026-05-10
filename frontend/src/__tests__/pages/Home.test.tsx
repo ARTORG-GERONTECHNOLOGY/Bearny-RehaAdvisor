@@ -36,7 +36,9 @@ jest.mock('@/components/common/Footer', () => ({
 
 jest.mock('@/assets/home_illustration.svg?react', () => ({
   __esModule: true,
-  default: (props: any) => <svg data-testid="home-illustration" {...props} />,
+  default: (props: Record<string, unknown>) => (
+    <svg data-testid="home-illustration" {...(props as React.SVGProps<SVGSVGElement>)} />
+  ),
 }));
 
 const LoginFormMock = jest.fn(
@@ -50,7 +52,7 @@ const LoginFormMock = jest.fn(
 
 jest.mock('@/components/HomePage/LoginForm', () => ({
   __esModule: true,
-  default: (props: any) => LoginFormMock(props),
+  default: (props: { show: boolean; handleClose: () => void }) => LoginFormMock(props),
 }));
 
 const RegisterFormMock = jest.fn(
@@ -64,7 +66,7 @@ const RegisterFormMock = jest.fn(
 
 jest.mock('@/components/HomePage/RegisteringForm', () => ({
   __esModule: true,
-  default: (props: any) => RegisterFormMock(props),
+  default: (props: { show: boolean; handleRegShow: () => void }) => RegisterFormMock(props),
 }));
 
 describe('Home page', () => {

@@ -58,7 +58,9 @@ const InterventionHeader: React.FC<InterventionHeaderProps> = ({
           <Nav
             variant="tabs"
             activeKey={topTab}
-            onSelect={(k) => setTopTab((k as any) || 'interventions')}
+            onSelect={(k) =>
+              setTopTab((k as 'interventions' | 'questionnaires') || 'interventions')
+            }
           >
             <Nav.Item>
               <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>

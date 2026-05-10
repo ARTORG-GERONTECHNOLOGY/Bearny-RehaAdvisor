@@ -15,7 +15,7 @@ const mockTranslateText = jest.fn(async (text: string) => {
 });
 
 const mockStore = {
-  visibleItemsForPatient: [] as any[],
+  visibleItemsForPatient: [] as { id: string; [key: string]: unknown }[],
   error: '',
   loading: false,
   fetchAll: jest.fn(async () => {}),
@@ -23,7 +23,7 @@ const mockStore = {
 };
 
 jest.mock('mobx-react-lite', () => ({
-  observer: (component: any) => component,
+  observer: (component: React.ComponentType) => component,
 }));
 
 jest.mock('react-router-dom', () => {
@@ -41,14 +41,14 @@ jest.mock('@/components/Layout', () => ({
 jest.mock(
   '@/components/common/ErrorAlert',
   () =>
-    function ErrorAlert({ message }: any) {
+    function ErrorAlert({ message }: { message?: string }) {
       return <div>{message}</div>;
     }
 );
 
 jest.mock('@/components/PatientLibrary/PatientLibrarySearchPanel', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: Record<string, unknown>) => {
     mockSearchPanel(props);
     return <div data-testid="search-panel" />;
   },
@@ -56,7 +56,7 @@ jest.mock('@/components/PatientLibrary/PatientLibrarySearchPanel', () => ({
 
 jest.mock('@/components/PatientLibrary/PatientLibraryFilterSheet', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: Record<string, unknown>) => {
     mockFilterSheet(props);
     return <div data-testid="filter-sheet" />;
   },
@@ -64,7 +64,7 @@ jest.mock('@/components/PatientLibrary/PatientLibraryFilterSheet', () => ({
 
 jest.mock('@/components/PatientLibrary/PatientLibraryDesktopFilters', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: Record<string, unknown>) => {
     mockDesktopFilters(props);
     return <div data-testid="desktop-filters" />;
   },
@@ -72,22 +72,22 @@ jest.mock('@/components/PatientLibrary/PatientLibraryDesktopFilters', () => ({
 
 jest.mock('@/components/PatientLibrary/PatientLibraryInterventionCard', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: Record<string, unknown>) => {
     mockInterventionCard(props);
     return <div data-testid="intervention-card" />;
   },
 }));
 
 jest.mock('@/components/ui/sheet', () => ({
-  Sheet: ({ children }: any) => <div>{children}</div>,
-  SheetContent: ({ children }: any) => <div>{children}</div>,
-  SheetHeader: ({ children }: any) => <div>{children}</div>,
-  SheetTitle: ({ children }: any) => <div>{children}</div>,
-  SheetDescription: ({ children }: any) => <div>{children}</div>,
+  Sheet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetTitle: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SheetDescription: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock('@/utils/translate', () => ({
-  translateText: (...args: any[]) => mockTranslateText(...args),
+  translateText: (...args: Parameters<typeof mockTranslateText>) => mockTranslateText(...args),
 }));
 
 jest.mock('@/stores/authStore', () => ({

@@ -30,10 +30,7 @@ jest.mock('@sentry/react', () => ({
 // ---- helpers ---------------------------------------------------------------
 
 function resetStore() {
-  (patientVitalsStore as any).exists = false;
-  (patientVitalsStore as any).error = '';
-  (patientVitalsStore as any).successMsg = '';
-  (patientVitalsStore as any).posting = false;
+  Object.assign(patientVitalsStore, { exists: false, error: '', successMsg: '', posting: false });
 }
 
 // ---- tests -----------------------------------------------------------------

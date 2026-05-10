@@ -4,23 +4,19 @@ import { render } from '@testing-library/react';
 // D3 is ESM-only; mock the entire module so Jest can parse it
 jest.mock('d3', () => {
   const chain = () => {
-    const proxy: any = new Proxy(
-      {},
-      {
-        get: () => () => proxy,
-      }
-    );
+    const proxy: unknown = new Proxy({}, { get: () => () => proxy });
     return proxy;
   };
   const scale = () => {
-    const fn: any = (v: any) => v;
-    fn.domain = () => fn;
-    fn.range = () => fn;
-    fn.nice = () => fn;
-    fn.padding = () => fn;
-    fn.bandwidth = () => 20;
-    fn.ticks = () => [];
-    fn.tickFormat = () => fn;
+    const fn = Object.assign((v: unknown) => v, {
+      domain: () => fn,
+      range: () => fn,
+      nice: () => fn,
+      padding: () => fn,
+      bandwidth: () => 20,
+      ticks: () => [] as unknown[],
+      tickFormat: () => fn,
+    });
     return fn;
   };
   return {
@@ -33,9 +29,10 @@ jest.mock('d3', () => {
     axisRight: () => chain(),
     axisBottom: () => chain(),
     line: () => {
-      const l: any = () => '';
-      l.x = () => l;
-      l.y = () => l;
+      const l = Object.assign(() => '' as string, {
+        x: () => l,
+        y: () => l,
+      });
       return l;
     },
     max: () => 10,
@@ -56,8 +53,10 @@ import type { FitbitEntry } from '@/types/health';
 
 // D3 manipulates SVG directly; stub SVGSVGElement methods not present in jsdom
 beforeAll(() => {
-  (SVGSVGElement.prototype as any).getComputedTextLength = () => 0;
-  (SVGSVGElement.prototype as any).getBBox = () => ({ x: 0, y: 0, width: 100, height: 20 });
+  Object.assign(SVGSVGElement.prototype, {
+    getComputedTextLength: () => 0,
+    getBBox: () => ({ x: 0, y: 0, width: 100, height: 20 }),
+  });
 });
 
 const makeSleepEntry = (

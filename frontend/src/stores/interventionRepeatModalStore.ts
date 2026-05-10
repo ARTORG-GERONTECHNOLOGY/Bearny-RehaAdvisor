@@ -50,7 +50,7 @@ export class InterventionRepeatModalStore {
     this.mode = mode;
 
     this.interval = defaults?.interval ?? 1;
-    this.unit = (defaults?.unit as any) ?? 'week';
+    this.unit = (defaults?.unit as 'day' | 'week' | 'month') ?? 'week';
     this.selectedDays = defaults?.selectedDays ?? [];
 
     this.endOption = defaults?.end?.type ?? 'never';

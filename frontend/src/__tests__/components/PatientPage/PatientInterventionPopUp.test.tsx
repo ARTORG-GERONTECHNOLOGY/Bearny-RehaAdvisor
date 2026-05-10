@@ -15,22 +15,22 @@ import '@testing-library/jest-dom';
 jest.mock(
   'react-player',
   () =>
-    function ReactPlayer(props: any) {
-      return <div data-testid="video-player" {...props} />;
+    function ReactPlayer() {
+      return <div data-testid="video-player" />;
     }
 );
 jest.mock(
   'react-audio-player',
   () =>
-    function ReactAudioPlayer(props: any) {
-      return <div data-testid="audio-player" {...props} />;
+    function ReactAudioPlayer() {
+      return <div data-testid="audio-player" />;
     }
 );
 jest.mock(
   '@microlink/react',
   () =>
-    function Microlink(props: any) {
-      return <div data-testid="microlink-preview" {...props} />;
+    function Microlink() {
+      return <div data-testid="microlink-preview" />;
     }
 );
 
