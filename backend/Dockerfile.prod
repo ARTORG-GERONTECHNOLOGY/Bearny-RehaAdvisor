@@ -3,6 +3,9 @@ WORKDIR /app
 
 ENV PATH=/opt/conda/bin:$PATH
 
+# Install Docker CLI so the Celery cert-renewal task can call certbot via the Docker socket
+RUN apt-get update && apt-get install -y --no-install-recommends docker.io && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 
 COPY ./environment.yml .
 

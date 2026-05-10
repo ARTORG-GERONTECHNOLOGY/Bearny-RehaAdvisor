@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Install necessary system packages
 RUN apt-get update && \
-    apt-get -y install build-essential wget curl bzip2 libpq-dev gcc && \
+    apt-get -y install build-essential wget curl bzip2 libpq-dev gcc docker.io && \
     apt-get clean
 
 # Download and install Miniconda
