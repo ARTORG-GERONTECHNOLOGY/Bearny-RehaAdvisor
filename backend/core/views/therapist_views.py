@@ -697,7 +697,11 @@ def get_patients_by_therapist(request, therapist_id):
 @permission_classes([IsAuthenticated])
 def create_log(request):
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    try:
         user = data.get("user")
 
         # Parse datetime safely
@@ -722,6 +726,9 @@ def create_log(request):
         logger.info(f"[i13n] Log saved for user {user.id} with action {log.action}")
         return JsonResponse({"status": "ok", "log_id": str(log.id)}, status=201)
 
+    except (User.DoesNotExist, Patient.DoesNotExist) as e:
+        logger.warning("[i13n] Failed to save log — referenced entity not found: %s", e)
+        return JsonResponse({"error": "Referenced user or patient not found"}, status=404)
     except Exception as e:
         logger.error(f"[i13n] Failed to save log: {e}", exc_info=True)
         return JsonResponse({"error": "Failed to create log"}, status=500)
