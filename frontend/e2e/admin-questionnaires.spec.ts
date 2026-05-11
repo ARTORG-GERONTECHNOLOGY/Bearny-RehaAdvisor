@@ -179,7 +179,10 @@ test.describe('Admin Dashboard — Questionnaires tab', () => {
 
     const confirmDialog = page.locator('[role="dialog"]');
     await expect(confirmDialog).toBeVisible();
-    await confirmDialog.getByRole('button', { name: /delete/i }).last().click();
+    await confirmDialog
+      .getByRole('button', { name: /delete/i })
+      .last()
+      .click();
 
     // After deletion, the row should disappear
     await expect(row).not.toBeVisible({ timeout: 8_000 });

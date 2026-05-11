@@ -41,6 +41,7 @@ def mongo_mock():
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_questionnaire(key="q-001", title="Test Q", tags=None, description=""):
     return HealthQuestionnaire(
         key=key,
@@ -54,9 +55,7 @@ def _make_questionnaire(key="q-001", title="Test Q", tags=None, description=""):
 def _make_plan_with_questionnaire(questionnaire):
     user = User(username=f"u-{datetime.now().timestamp()}", createdAt=datetime.now(), isActive=True).save()
     therapist = Therapist(userId=user, clinics=[], projects=[]).save()
-    patient_user = User(
-        username=f"p-{datetime.now().timestamp()}", createdAt=datetime.now(), isActive=True
-    ).save()
+    patient_user = User(username=f"p-{datetime.now().timestamp()}", createdAt=datetime.now(), isActive=True).save()
     patient = Patient(
         userId=patient_user,
         patient_code=f"pc-{datetime.now().timestamp()}",
@@ -64,20 +63,20 @@ def _make_plan_with_questionnaire(questionnaire):
     ).save()
 
     from core.models import QuestionnaireAssignment
+
     plan = RehabilitationPlan(
         patientId=patient,
         therapistId=therapist,
         startDate=datetime.now(),
         endDate=datetime.now(),
         status="active",
-        questionnaires=[
-            QuestionnaireAssignment(questionnaireId=questionnaire, frequency="Daily")
-        ],
+        questionnaires=[QuestionnaireAssignment(questionnaireId=questionnaire, frequency="Daily")],
     ).save()
     return plan
 
 
 # ── LIST ──────────────────────────────────────────────────────────────────────
+
 
 def test_list_returns_empty_when_no_questionnaires():
     resp = client.get(LIST_URL)
@@ -131,6 +130,7 @@ def test_list_method_not_allowed():
 
 # ── DELETE ────────────────────────────────────────────────────────────────────
 
+
 def test_delete_removes_questionnaire():
     q = _make_questionnaire(key="del-me")
     resp = client.delete(DETAIL_URL.format(str(q.pk)))
@@ -171,6 +171,7 @@ def test_delete_method_not_allowed_on_list():
 
 
 # ── UPDATE ────────────────────────────────────────────────────────────────────
+
 
 def test_update_title():
     q = _make_questionnaire(key="upd-title", title="Old Title")
