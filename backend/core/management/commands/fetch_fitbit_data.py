@@ -125,7 +125,9 @@ class Command(BaseCommand):
                     if dataset:
                         max_hr_map[d] = max(x.get("value", 0) for x in dataset)
                         # Wear time: count distinct minute slots with HR > 0
-                        worn_minutes = {entry.get("time", "")[:5] for entry in dataset if entry.get("value", 0) > 0}  # "HH:MM"
+                        worn_minutes = {
+                            entry.get("time", "")[:5] for entry in dataset if entry.get("value", 0) > 0
+                        }  # "HH:MM"
                         wear_time_map[d] = len(worn_minutes)
                         intraday_ok += 1
                     else:
