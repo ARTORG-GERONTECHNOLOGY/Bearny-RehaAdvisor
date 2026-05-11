@@ -278,6 +278,12 @@ class InterventionMedia(EmbeddedDocument):
 
     thumbnail = StringField(required=False, null=True)
 
+    # Optional slot number (2, 3, …) for multi-media interventions.
+    # Slot None / absent = primary media. Duplicate slots for the same
+    # intervention are not enforced at the DB level but are avoided by
+    # the import and upload logic.
+    media_slot = IntField(required=False, null=True)
+
 
 class Intervention(Document):
     meta = {

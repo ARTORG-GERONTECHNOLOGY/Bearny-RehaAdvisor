@@ -348,24 +348,35 @@ def _map_content_type(x: str) -> str:
 
 def _parse_external_id_and_language(
     intervention_id: str,
-) -> Tuple[str, Optional[str], Optional[str]]:
+) -> Tuple[str, Optional[str], Optional[str], Optional[int]]:
     """
-    Parse an intervention ID into (external_id, language, format_code).
+    Parse an intervention ID into (external_id, language, format_code, media_slot).
 
     New 3-part format (preferred):
-      '3500_web_de'  → external_id='3500_web', language='de', format_code='web'
-      '30500_vid_pt' → external_id='30500_vid', language='pt', format_code='vid'
+      '3500_web_de'   → external_id='3500_web', language='de', format_code='web', slot=None
+      '3500_web_de_2' → external_id='3500_web', language='de', format_code='web', slot=2
+      '30500_vid_pt'  → external_id='30500_vid', language='pt', format_code='vid', slot=None
 
       - 4-digit numeric prefix = original content
       - 5-digit numeric prefix = self-made content
+      - Optional trailing _[N] (N≥2) identifies additional media slots for the same intervention
 
     Legacy 2-part format (still accepted for backward compatibility):
-      '4001_de'      → external_id='4001', language='de', format_code=None
+      '4001_de'       → external_id='4001', language='de', format_code=None, slot=None
+      '4001_de_2'     → external_id='4001', language='de', format_code=None, slot=2
 
-    Returns (external_id, language_or_None, format_code_or_None).
+    Returns (external_id, language_or_None, format_code_or_None, media_slot_or_None).
     """
     s = _norm(intervention_id).lower()
     parts = s.split("_")
+
+    # Detect optional trailing slot number (integer ≥ 2)
+    media_slot: Optional[int] = None
+    if parts and re.match(r"^\d+$", parts[-1]) and len(parts) > 1:
+        slot_candidate = int(parts[-1])
+        if slot_candidate >= 2:
+            media_slot = slot_candidate
+            parts = parts[:-1]
 
     # Try new 3-part format: {num}_{fmt}_{lang}
     if len(parts) >= 3:
@@ -374,14 +385,15 @@ def _parse_external_id_and_language(
         if lang_candidate in VALID_LANGS:
             external_id = "_".join(parts[:-1])
             fmt = fmt_candidate if fmt_candidate in VALID_FORMAT_CODES else None
-            return external_id, lang_candidate, fmt
+            return external_id, lang_candidate, fmt, media_slot
 
     # Fall back to legacy 2-part format: {anything}_{lang}
-    m = re.match(r"^(.+?)_([a-z]{2})$", s)
+    rebuilt = "_".join(parts)
+    m = re.match(r"^(.+?)_([a-z]{2})$", rebuilt)
     if m:
-        return m.group(1), m.group(2), None
+        return m.group(1), m.group(2), None, media_slot
 
-    return s, None, None
+    return rebuilt, None, None, media_slot
 
 
 def _validate_id_format(intervention_id: str) -> List[str]:
@@ -733,7 +745,7 @@ def import_interventions_from_excel(
             continue
 
         try:
-            external_id, lang_from_id, format_code = _parse_external_id_and_language(intervention_id_raw)
+            external_id, lang_from_id, format_code, media_slot = _parse_external_id_and_language(intervention_id_raw)
 
             # Collect non-fatal format warnings (still import the row)
             id_warnings = _validate_id_format(intervention_id_raw)
@@ -904,19 +916,18 @@ def import_interventions_from_excel(
                 _set_if_exists(doc, "duration_bucket", duration_raw)
 
             # ---- media from link ----
-            media_items: List[InterventionMedia] = []
+            new_media: Optional[InterventionMedia] = None
 
             if link_val:
                 if _is_raw_file_name(link_val):
-                    media_items.append(
-                        InterventionMedia(
-                            kind="file",
-                            media_type=_guess_file_media_type(link_val, mapped_ct.lower() if mapped_ct else "text"),
-                            provider=None,
-                            title=title or None,
-                            file_path=link_val,
-                            mime=None,
-                        )
+                    new_media = InterventionMedia(
+                        kind="file",
+                        media_type=_guess_file_media_type(link_val, mapped_ct.lower() if mapped_ct else "text"),
+                        provider=None,
+                        title=title or None,
+                        file_path=link_val,
+                        mime=None,
+                        media_slot=media_slot,
                     )
                 elif _is_http_url(link_val):
                     prov = _guess_provider(link_val)
@@ -925,17 +936,16 @@ def import_interventions_from_excel(
                         if prov == "spotify"
                         else (_youtube_embed(link_val) if prov == "youtube" else None)
                     )
-                    media_items.append(
-                        InterventionMedia(
-                            kind="external",
-                            media_type=_guess_media_type_for_url(
-                                link_val, mapped_ct.lower() if mapped_ct else "website"
-                            ),
-                            provider=prov,
-                            title=title or None,
-                            url=link_val,  # <-- correct: keep URL in url
-                            embed_url=embed,
-                        )
+                    new_media = InterventionMedia(
+                        kind="external",
+                        media_type=_guess_media_type_for_url(
+                            link_val, mapped_ct.lower() if mapped_ct else "website"
+                        ),
+                        provider=prov,
+                        title=title or None,
+                        url=link_val,
+                        embed_url=embed,
+                        media_slot=media_slot,
                     )
                 else:
                     row_warnings.append(f'link: "{link_val}" is not a valid http(s) URL; media was skipped.')
@@ -948,30 +958,34 @@ def import_interventions_from_excel(
                     f"{_norm(getattr(m, 'file_path', ''))}"
                 )
 
-            merged: List[InterventionMedia] = []
-            seen_keys = set()
+            existing_media: List[InterventionMedia] = list(getattr(doc, "media", None) or [])
 
-            for m in getattr(doc, "media", None) or []:
-                existing_kind = _norm(getattr(m, "kind", ""))
-                if existing_kind == "external":
-                    existing_url = _norm(getattr(m, "url", ""))
-                    if existing_url and not _is_http_url(existing_url):
-                        # Cleanup old broken entries created from non-URL display text.
-                        continue
-                k = _media_key(m)
-                if k not in seen_keys:
-                    merged.append(m)
-                    seen_keys.add(k)
+            if new_media is not None:
+                if media_slot is not None:
+                    # Slot-level upsert: replace any existing entry with the same slot,
+                    # keep all other slots untouched.
+                    merged = [m for m in existing_media if getattr(m, "media_slot", None) != media_slot]
+                    merged.append(new_media)
+                else:
+                    # No explicit slot — replace the primary entry (slot=None) with the
+                    # new one and preserve any numbered slots.
+                    seen_keys: set = set()
+                    merged = []
+                    # Keep numbered-slot media intact
+                    for m in existing_media:
+                        existing_kind = _norm(getattr(m, "kind", ""))
+                        if existing_kind == "external":
+                            existing_url = _norm(getattr(m, "url", ""))
+                            if existing_url and not _is_http_url(existing_url):
+                                continue  # drop old broken entries
+                        if getattr(m, "media_slot", None) is not None:
+                            k = _media_key(m)
+                            if k not in seen_keys:
+                                merged.append(m)
+                                seen_keys.add(k)
+                    merged.append(new_media)
 
-            for m in media_items:
-                k = _media_key(m)
-                if k not in seen_keys:
-                    merged.append(m)
-                    seen_keys.add(k)
-
-            # Only overwrite media if link exists; otherwise keep previous media.
-            if link_val:
-                _set_if_exists(doc, "media", merged)  # <-- should now fill media for Vimeo/YouTube/etc.
+                _set_if_exists(doc, "media", merged)
 
             if not dry_run:
                 doc.save()
