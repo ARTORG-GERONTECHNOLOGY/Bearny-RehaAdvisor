@@ -17,6 +17,7 @@ from core.views.access_change_views import (
 )
 from core.views.admin_export_views import admin_export_clinics, admin_export_patients
 from core.views.admin_intervention_views import admin_interventions
+from core.views.admin_questionnaire_views import admin_questionnaires
 from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_audio,
@@ -55,6 +56,9 @@ urlpatterns = [
     # Admin intervention management
     path("api/admin/interventions/", admin_interventions),
     path("api/admin/interventions/<str:intervention_id>/", admin_interventions),
+    # Admin questionnaire management
+    path("api/admin/questionnaires/", admin_questionnaires),
+    path("api/admin/questionnaires/<str:questionnaire_id>/", admin_questionnaires),
     # Admin data export
     path("api/admin/export/patients/", admin_export_patients),
     path("api/admin/export/clinics/", admin_export_clinics),

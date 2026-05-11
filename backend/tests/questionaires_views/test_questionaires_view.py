@@ -446,3 +446,94 @@ def test_list_patient_questionnaires_includes_answered_entries_for_assigned_ques
     assert answered["questionKey"] == q1.questionKey
     assert answered["answers"][0]["key"] == "2"
     assert answered["comment"] == "Felt better."
+
+
+# ── VERSIONING / SNAPSHOT TESTS ───────────────────────────────────────────────
+
+
+def _assign_questionnaire(patient, therapist, q_doc):
+    """Create a RehabilitationPlan with a QuestionnaireAssignment that stores snapshots."""
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if not plan:
+        plan = RehabilitationPlan(
+            patientId=patient,
+            therapistId=therapist,
+            startDate=datetime.now(),
+            endDate=datetime.now(),
+            status="active",
+            interventions=[],
+            questionnaires=[],
+        ).save()
+    plan.questionnaires.append(
+        QuestionnaireAssignment(
+            questionnaireId=q_doc,
+            frequency="Weekly",
+            title_snapshot=q_doc.title,
+            description_snapshot=q_doc.description or "",
+        )
+    )
+    plan.save()
+    return plan
+
+
+def test_assignment_stores_title_snapshot():
+    """QuestionnaireAssignment records the title at assignment time."""
+    th, p = make_patient_graph()
+    fq = make_feedback_question(f"snap_{ObjectId()}")
+    q = HealthQuestionnaire(key=f"snap-{ObjectId()}", title="Original Title", questions=[fq]).save()
+
+    plan = _assign_questionnaire(p, th, q)
+
+    assignment = plan.reload().questionnaires[0]
+    assert assignment.title_snapshot == "Original Title"
+    assert assignment.description_snapshot == ""
+
+
+def test_patient_sees_snapshot_title_after_questionnaire_renamed():
+    """
+    After an admin renames the questionnaire, the patient-facing endpoint
+    still returns the original title (from the snapshot stored at assignment time).
+    New assignments would get the new title.
+    """
+    th, p = make_patient_graph()
+    fq = make_feedback_question(f"ren_{ObjectId()}")
+    q = HealthQuestionnaire(key=f"ren-{ObjectId()}", title="PHQ-9", questions=[fq]).save()
+
+    plan = _assign_questionnaire(p, th, q)
+    assignment = plan.reload().questionnaires[0]
+    assert assignment.title_snapshot == "PHQ-9"
+
+    # Admin renames the questionnaire
+    q.title = "PHQ-9 (Renamed)"
+    q.version = 2
+    q.save()
+
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    out = r.json()
+    assert len(out) == 1
+    # Patient still sees the snapshot title, not the renamed one
+    assert out[0]["title"] == "PHQ-9"
+
+
+def test_patient_sees_new_title_when_no_snapshot():
+    """
+    Legacy assignments without a snapshot fall back to the live questionnaire title.
+    """
+    th, p = make_patient_graph()
+    fq = make_feedback_question(f"nosn_{ObjectId()}")
+    q = HealthQuestionnaire(key=f"nosn-{ObjectId()}", title="Live Title", questions=[fq]).save()
+
+    # Create assignment WITHOUT setting snapshots (simulates old data)
+    plan = RehabilitationPlan(
+        patientId=p,
+        therapistId=th,
+        startDate=datetime.now(),
+        endDate=datetime.now(),
+        status="active",
+        questionnaires=[QuestionnaireAssignment(questionnaireId=q, frequency="Weekly")],
+    ).save()
+
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    assert r.json()[0]["title"] == "Live Title"

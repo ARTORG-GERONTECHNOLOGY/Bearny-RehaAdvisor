@@ -111,6 +111,119 @@ const AdminDashboard: React.FC = observer(() => {
   }, [interventions, interventionSearch]);
 
   // -------------------------
+  // Questionnaires tab
+  // -------------------------
+  type AdminQuestionnaire = {
+    _id: string;
+    key: string;
+    title: string;
+    description: string;
+    tags: string[];
+    question_count: number;
+    usage_count: number;
+    created_by_name: string | null;
+    version: number;
+    updatedAt: string | null;
+  };
+
+  const [questionnaires, setQuestionnaires] = useState<AdminQuestionnaire[]>([]);
+  const [questionnaireSearch, setQuestionnaireSearch] = useState('');
+  const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
+  const [questionnaireError, setQuestionnaireError] = useState<string | null>(null);
+  const [qDeleteModal, setQDeleteModal] = useState<{
+    open: boolean;
+    id: string;
+    title: string;
+    usageCount: number;
+  }>({ open: false, id: '', title: '', usageCount: 0 });
+  const [qDeleteInProgress, setQDeleteInProgress] = useState(false);
+  const [qEditModal, setQEditModal] = useState<{
+    open: boolean;
+    id: string;
+    title: string;
+    description: string;
+    tags: string;
+  }>({ open: false, id: '', title: '', description: '', tags: '' });
+  const [qEditSaving, setQEditSaving] = useState(false);
+  const [qEditError, setQEditError] = useState<string | null>(null);
+
+  const fetchQuestionnaires = useCallback(async () => {
+    setQuestionnaireLoading(true);
+    setQuestionnaireError(null);
+    try {
+      const res = await apiClient.get('/admin/questionnaires/');
+      setQuestionnaires(Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []);
+    } catch (e: any) {
+      setQuestionnaireError(
+        e?.response?.data?.error || e?.message || 'Failed to load questionnaires.'
+      );
+    } finally {
+      setQuestionnaireLoading(false);
+    }
+  }, []);
+
+  const confirmDeleteQuestionnaire = async () => {
+    if (!qDeleteModal.id) return;
+    setQDeleteInProgress(true);
+    try {
+      await apiClient.delete(`/admin/questionnaires/${qDeleteModal.id}/`);
+      setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 });
+      await fetchQuestionnaires();
+    } catch (e: any) {
+      setQuestionnaireError(
+        e?.response?.data?.error || e?.message || 'Failed to delete questionnaire.'
+      );
+      setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 });
+    } finally {
+      setQDeleteInProgress(false);
+    }
+  };
+
+  const openQEditModal = (q: AdminQuestionnaire) => {
+    setQEditError(null);
+    setQEditModal({
+      open: true,
+      id: q._id,
+      title: q.title,
+      description: q.description || '',
+      tags: (q.tags || []).join(', '),
+    });
+  };
+
+  const saveQEdit = async () => {
+    setQEditSaving(true);
+    setQEditError(null);
+    try {
+      const tags = qEditModal.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await apiClient.put(`/admin/questionnaires/${qEditModal.id}/`, {
+        title: qEditModal.title,
+        description: qEditModal.description,
+        tags,
+      });
+      setQEditModal({ open: false, id: '', title: '', description: '', tags: '' });
+      await fetchQuestionnaires();
+    } catch (e: any) {
+      setQEditError(e?.response?.data?.error || e?.message || 'Failed to save.');
+    } finally {
+      setQEditSaving(false);
+    }
+  };
+
+  const filteredQuestionnaires = useMemo(() => {
+    const q = questionnaireSearch.trim().toLowerCase();
+    if (!q) return questionnaires;
+    return questionnaires.filter(
+      (qn) =>
+        qn.title.toLowerCase().includes(q) ||
+        qn.key.toLowerCase().includes(q) ||
+        (qn.tags || []).some((tag) => tag.toLowerCase().includes(q))
+    );
+  }, [questionnaires, questionnaireSearch]);
+
+  // -------------------------
   // Access change requests tab
   // -------------------------
   type AccessChangeRequest = {
@@ -247,6 +360,7 @@ const AdminDashboard: React.FC = observer(() => {
     store.init(navigate, t);
     fetchChangeRequests();
     fetchInterventions();
+    fetchQuestionnaires();
     fetchExportClinics();
   }, [store, navigate, t]);
 
@@ -436,6 +550,9 @@ const AdminDashboard: React.FC = observer(() => {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="questionnaires">{t('Questionnaires')}</Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="export">{t('Export')}</Nav.Link>
@@ -668,7 +785,132 @@ const AdminDashboard: React.FC = observer(() => {
                 )}
               </Tab.Pane>
 
-              {/* ── Tab 4: export ── */}
+              {/* ── Tab 4: questionnaires ── */}
+              <Tab.Pane eventKey="questionnaires">
+                {questionnaireError && (
+                  <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
+                    {questionnaireError}
+                  </Alert>
+                )}
+
+                <div className="d-flex gap-2 mb-3">
+                  <Form.Control
+                    type="search"
+                    placeholder={t('Search by title, key or tag…')}
+                    value={questionnaireSearch}
+                    onChange={(e) => setQuestionnaireSearch(e.target.value)}
+                    style={{ maxWidth: 320 }}
+                  />
+                  <Button
+                    variant="outline-secondary"
+                    onClick={fetchQuestionnaires}
+                    disabled={questionnaireLoading}
+                  >
+                    {questionnaireLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
+                  </Button>
+                </div>
+
+                {questionnaireLoading ? (
+                  <div className="text-center my-5">
+                    <Spinner animation="border" role="status" />
+                    <div>{t('Loading')}...</div>
+                  </div>
+                ) : filteredQuestionnaires.length === 0 ? (
+                  <p className="text-center text-muted">{t('No questionnaires found')}</p>
+                ) : (
+                  <Table striped bordered hover responsive>
+                    <thead>
+                      <tr>
+                        <th>{t('Key')}</th>
+                        <th>{t('Title')}</th>
+                        <th>{t('Tags')}</th>
+                        <th>{t('Questions')}</th>
+                        <th>{t('Used in plans')}</th>
+                        <th
+                          title={t(
+                            'Increments each time an admin edits title, description or tags'
+                          )}
+                        >
+                          {t('Version')}
+                        </th>
+                        <th>{t('Created by')}</th>
+                        <th style={{ minWidth: 140 }}>{t('Actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredQuestionnaires.map((qn) => (
+                        <tr key={qn._id}>
+                          <td>
+                            <code>{qn.key}</code>
+                          </td>
+                          <td>{qn.title}</td>
+                          <td>
+                            {qn.tags?.length ? (
+                              <div className="d-flex flex-wrap gap-1">
+                                {qn.tags.map((tag) => (
+                                  <Badge key={tag} bg="secondary">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="text-center">{qn.question_count}</td>
+                          <td className="text-center">
+                            {qn.usage_count > 0 ? (
+                              <Badge bg="warning" text="dark">
+                                {qn.usage_count}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted">0</span>
+                            )}
+                          </td>
+                          <td
+                            className="text-center"
+                            title={
+                              qn.updatedAt
+                                ? `${t('Last edited')}: ${new Date(qn.updatedAt).toLocaleString()}`
+                                : t('Never edited')
+                            }
+                          >
+                            <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
+                              v{qn.version ?? 1}
+                            </Badge>
+                          </td>
+                          <td>{qn.created_by_name || <span className="text-muted">—</span>}</td>
+                          <td className="d-flex gap-1">
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => openQEditModal(qn)}
+                            >
+                              {t('Edit')}
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() =>
+                                setQDeleteModal({
+                                  open: true,
+                                  id: qn._id,
+                                  title: qn.title,
+                                  usageCount: qn.usage_count,
+                                })
+                              }
+                            >
+                              {t('Delete')}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Tab.Pane>
+
+              {/* ── Tab 5: export ── */}
               <Tab.Pane eventKey="export">
                 {exportClinicsError && (
                   <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
@@ -959,6 +1201,114 @@ const AdminDashboard: React.FC = observer(() => {
           confirmVariant="danger"
           onConfirm={confirmDelete}
         />
+
+        {/* Delete questionnaire confirm */}
+        <ConfirmModal
+          show={qDeleteModal.open}
+          onHide={() => setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 })}
+          title={t('Delete questionnaire')}
+          body={
+            <div>
+              <p className="mb-2">
+                {t('Are you sure you want to permanently delete')}{' '}
+                <strong>{qDeleteModal.title}</strong>?
+              </p>
+              {qDeleteModal.usageCount > 0 && (
+                <Alert variant="warning" className="mb-2 py-2">
+                  {t('This questionnaire is currently assigned to')}{' '}
+                  <strong>{qDeleteModal.usageCount}</strong>{' '}
+                  {t(
+                    "rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients' future schedules and cannot be assigned to new patients."
+                  )}
+                </Alert>
+              )}
+              <Alert variant="info" className="mb-0 py-2">
+                <strong>{t('Answers are preserved.')}</strong>{' '}
+                {t(
+                  'Any responses already submitted by patients for this questionnaire are not deleted and remain accessible to therapists in patient records.'
+                )}
+              </Alert>
+            </div>
+          }
+          cancelText={t('Cancel')}
+          confirmText={qDeleteInProgress ? t('Deleting...') : t('Delete')}
+          confirmVariant="danger"
+          onConfirm={confirmDeleteQuestionnaire}
+        />
+
+        {/* Edit questionnaire modal */}
+        <Modal
+          show={qEditModal.open}
+          onHide={() =>
+            setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+          }
+          centered
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>{t('Edit questionnaire')}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {qEditError && (
+              <Alert variant="danger" dismissible onClose={() => setQEditError(null)}>
+                {qEditError}
+              </Alert>
+            )}
+            <Alert variant="info" className="py-2 mb-3 small">
+              <strong>{t('What changes here.')}</strong>{' '}
+              {t(
+                'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'
+              )}
+            </Alert>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>{t('Title')}</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={qEditModal.title}
+                  onChange={(e) => setQEditModal((s) => ({ ...s, title: e.target.value }))}
+                />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>{t('Description')}</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  value={qEditModal.description}
+                  onChange={(e) => setQEditModal((s) => ({ ...s, description: e.target.value }))}
+                />
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>
+                  {t('Tags')} <small className="text-muted">({t('comma-separated')})</small>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  value={qEditModal.tags}
+                  onChange={(e) => setQEditModal((s) => ({ ...s, tags: e.target.value }))}
+                  placeholder="dynamic, custom, shared"
+                />
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+              }
+              disabled={qEditSaving}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={saveQEdit}
+              disabled={qEditSaving || !qEditModal.title.trim()}
+            >
+              {qEditSaving ? t('Saving...') : t('Save')}
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </div>
     </Layout>
   );
