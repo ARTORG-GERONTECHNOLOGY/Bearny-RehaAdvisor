@@ -124,10 +124,51 @@ def test_get_valid_access_token_refresh_failure_raises(mock_post):
     resp = Mock()
     resp.status_code = 401
     resp.text = "unauthorized"
+    resp.json.return_value = {}
     mock_post.return_value = resp
 
     with pytest.raises(Exception):
         get_valid_access_token(user)
+
+
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_invalid_grant_deletes_token(mock_post):
+    """invalid_grant means Fitbit permanently revoked the refresh token — delete the record."""
+    user, _ = make_user_with_token(expired=True)
+
+    resp = Mock()
+    resp.status_code = 400
+    resp.text = '{"errors":[{"errorType":"invalid_grant","message":"Refresh token invalid"}],"success":false}'
+    resp.json.return_value = {
+        "errors": [{"errorType": "invalid_grant", "message": "Refresh token invalid"}],
+        "success": False,
+    }
+    mock_post.return_value = resp
+
+    with pytest.raises(Exception, match="Failed to refresh Fitbit token"):
+        get_valid_access_token(user)
+
+    assert FitbitUserToken.objects(user=user).count() == 0
+
+
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_non_invalid_grant_400_keeps_token(mock_post):
+    """Other 400 errors (e.g. expired_token) should NOT delete the token."""
+    user, _ = make_user_with_token(expired=True)
+
+    resp = Mock()
+    resp.status_code = 400
+    resp.text = '{"errors":[{"errorType":"expired_token","message":"Access token expired"}],"success":false}'
+    resp.json.return_value = {
+        "errors": [{"errorType": "expired_token", "message": "Access token expired"}],
+        "success": False,
+    }
+    mock_post.return_value = resp
+
+    with pytest.raises(Exception, match="Failed to refresh Fitbit token"):
+        get_valid_access_token(user)
+
+    assert FitbitUserToken.objects(user=user).count() == 1
 
 
 def test_fetch_fitbit_today_for_user_no_token_returns_zero():
