@@ -264,9 +264,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     <code>de, fr, it, pt, nl, en</code>
                   </span>
                 </div>
-                <div className="text-muted small mt-1">
-                  {t('multiMediaExcelInfo')}
-                </div>
+                <div className="text-muted small mt-1">{t('multiMediaExcelInfo')}</div>
               </Form.Group>
 
               <div className="border rounded p-3 mb-3">
