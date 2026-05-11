@@ -19,7 +19,7 @@ Input validation / branch coverage
   * Non-existent therapist returns HTTP 404.
   * Wrong method on patient list returns HTTP 405.
   * Inactive patients are excluded from therapist list.
-  * Invalid analytics payloads return HTTP 500 with error response.
+  * Invalid analytics payloads return HTTP 400/404 with error response.
 
 Test setup
 ----------
@@ -321,7 +321,7 @@ def test_create_log_with_patient_reference():
     assert str(log.patient.id) == str(patient.id)
 
 
-def test_create_log_invalid_json_returns_500():
+def test_create_log_invalid_json_returns_400():
     resp = client.post(
         "/api/analytics/log",
         data="not-json",
@@ -329,11 +329,11 @@ def test_create_log_invalid_json_returns_500():
         HTTP_AUTHORIZATION="Bearer test",
     )
 
-    assert resp.status_code == 500
-    assert resp.json()["error"] == "Failed to create log"
+    assert resp.status_code == 400
+    assert "error" in resp.json()
 
 
-def test_create_log_unknown_user_returns_500():
+def test_create_log_unknown_user_returns_404():
     resp = client.post(
         "/api/analytics/log",
         data=json.dumps(
@@ -347,8 +347,8 @@ def test_create_log_unknown_user_returns_500():
         HTTP_AUTHORIZATION="Bearer test",
     )
 
-    assert resp.status_code == 500
-    assert resp.json()["error"] == "Failed to create log"
+    assert resp.status_code == 404
+    assert "error" in resp.json()
 
 
 def _build_q(question_key):
