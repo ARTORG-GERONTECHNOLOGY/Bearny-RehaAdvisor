@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -9,10 +9,11 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Intervention, InterventionMedia
 from utils.interventions import _save_file
 
-# Matches: {4-5 digits}_{format}_{lang}.{ext}
-# Format code is required. Supported extensions cover video, audio, PDF, and images.
+# Matches: {4-5 digits}_{format}_{lang}[_{slot}].{ext}
+# The optional trailing _{slot} (integer ≥ 2) identifies additional media slots
+# for the same intervention (e.g. 3500_web_de_2.mp4 is slot 2 of 3500_web_de).
 _FILENAME_RE = re.compile(
-    r"^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2})\.(mp4|mp3|wav|pdf|jpg|jpeg|png)$",
+    r"^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2}(?:_\d+)?)\.(mp4|mp3|wav|pdf|jpg|jpeg|png)$",
     re.IGNORECASE,
 )
 
@@ -29,18 +30,28 @@ _EXT_INFO: Dict[str, Tuple[str, str, str]] = {
 }
 
 
-def _parse_external_id_and_lang(stem: str) -> Tuple[str, str]:
+def _parse_external_id_and_lang(stem: str) -> Tuple[str, str, Optional[int]]:
     """
-    Derive (external_id, lang_code) from the filename stem.
+    Derive (external_id, lang_code, media_slot) from the filename stem.
 
-    '3500_web_de'  -> ('3500_web', 'de')
-    '3500_pdf_fr'  -> ('3500_pdf', 'fr')
+    '3500_web_de'   -> ('3500_web', 'de', None)
+    '3500_web_de_2' -> ('3500_web', 'de', 2)
+    '3500_pdf_fr'   -> ('3500_pdf', 'fr', None)
     """
     parts = stem.lower().split("_")
+
+    # Detect optional trailing slot number (integer ≥ 2)
+    media_slot: Optional[int] = None
+    if parts and re.match(r"^\d+$", parts[-1]) and len(parts) > 1:
+        slot_candidate = int(parts[-1])
+        if slot_candidate >= 2:
+            media_slot = slot_candidate
+            parts = parts[:-1]
+
     # Trailing 2-char alpha = language suffix
     if len(parts) >= 2 and len(parts[-1]) == 2 and parts[-1].isalpha():
-        return "_".join(parts[:-1]), parts[-1]
-    return stem.lower(), ""
+        return "_".join(parts[:-1]), parts[-1], media_slot
+    return "_".join(parts), "", media_slot
 
 
 def _process_single_file(file_obj) -> Dict[str, Any]:
@@ -56,8 +67,9 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
             "interventions_updated": [],
             "error": (
                 "Filename does not match naming convention. "
-                "Expected: {4-5 digits}_{format}_{lang}.{ext}  "
-                "e.g. 3500_web_de.mp4, 3500_aud_de.mp3, 3500_pdf_de.pdf, 3500_img_de.jpg. "
+                "Expected: {4-5 digits}_{format}_{lang}[_{slot}].{ext}  "
+                "e.g. 3500_web_de.mp4, 3500_web_de_2.mp4 (slot 2), "
+                "3500_aud_de.mp3, 3500_pdf_de.pdf, 3500_img_de.jpg. "
                 "Valid formats: vid, img, pdf, web, aud, app, br, gfx. "
                 "Valid languages: de, fr, it, pt, nl, en. "
                 "Valid extensions: mp4, mp3, wav, pdf, jpg, jpeg, png."
@@ -66,7 +78,7 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
 
     stem = m.group(1)
     ext = m.group(2).lower()
-    external_id, lang_code = _parse_external_id_and_lang(stem)
+    external_id, lang_code, media_slot = _parse_external_id_and_lang(stem)
     media_type, mime, folder = _EXT_INFO[ext]
 
     # 2. Look up the intervention for the specific language from the filename
@@ -92,27 +104,40 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
     # 3. Save file to media/{folder}/
     saved_path = _save_file(file_obj, folder, external_id)
 
-    # 4. Append media to the intervention (dedup by file_path)
-    existing_paths = {getattr(med, "file_path", "") or "" for med in (getattr(intervention, "media", None) or [])}
-    if saved_path not in existing_paths:
-        title = getattr(intervention, "title", None) or external_id
-        media_item = InterventionMedia(
-            kind="file",
-            media_type=media_type,
-            file_path=saved_path,
-            mime=mime,
-            title=title,
-        )
-        if intervention.media is None:
-            intervention.media = []
-        intervention.media.append(media_item)
-        intervention.save()
+    # 4. Slot-level upsert: replace media with the same slot, keep all other slots.
+    title = getattr(intervention, "title", None) or external_id
+    new_item = InterventionMedia(
+        kind="file",
+        media_type=media_type,
+        file_path=saved_path,
+        mime=mime,
+        title=title,
+        media_slot=media_slot,
+    )
+    if intervention.media is None:
+        intervention.media = []
+
+    if media_slot is not None:
+        # Replace any existing entry with the same slot number
+        intervention.media = [
+            med for med in intervention.media if getattr(med, "media_slot", None) != media_slot
+        ]
+        intervention.media.append(new_item)
+    else:
+        # Primary slot (None): replace primary, keep numbered slots
+        intervention.media = [
+            med for med in intervention.media if getattr(med, "media_slot", None) is not None
+        ]
+        intervention.media.append(new_item)
+
+    intervention.save()
 
     return {
         "filename": filename,
         "status": "ok",
         "external_id": external_id,
         "language": lang_code,
+        "media_slot": media_slot,
         "interventions_updated": [str(intervention.pk)],
     }
 

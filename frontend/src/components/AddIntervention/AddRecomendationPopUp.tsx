@@ -880,6 +880,10 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 </Button>
               </div>
 
+              <Alert variant="info" className="py-2 px-3 mb-3" style={{ fontSize: '0.875rem' }}>
+                {t('multiMediaManualUploadInfo')}
+              </Alert>
+
               {(formData.media || []).length === 0 && (
                 <div className="text-muted mb-3">
                   {t('No media added yet. You can add links or upload files.')}

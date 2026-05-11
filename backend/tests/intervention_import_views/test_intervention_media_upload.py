@@ -73,29 +73,54 @@ def _make_intervention(external_id: str, language: str, title: str = "Test") -> 
 
 class TestParseExternalIdAndLang:
     def test_new_format_strips_lang_suffix(self):
-        ext_id, lang = _parse_external_id_and_lang("3500_web_de")
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_web_de")
         assert ext_id == "3500_web"
         assert lang == "de"
+        assert slot is None
 
     def test_new_format_vid(self):
-        ext_id, lang = _parse_external_id_and_lang("30500_vid_pt")
+        ext_id, lang, slot = _parse_external_id_and_lang("30500_vid_pt")
         assert ext_id == "30500_vid"
         assert lang == "pt"
+        assert slot is None
 
     def test_audio_format(self):
-        ext_id, lang = _parse_external_id_and_lang("3500_aud_fr")
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_aud_fr")
         assert ext_id == "3500_aud"
         assert lang == "fr"
+        assert slot is None
 
     def test_pdf_format(self):
-        ext_id, lang = _parse_external_id_and_lang("3500_pdf_nl")
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_pdf_nl")
         assert ext_id == "3500_pdf"
         assert lang == "nl"
+        assert slot is None
 
     def test_all_lowercase(self):
-        ext_id, lang = _parse_external_id_and_lang("3500_WEB_DE")
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_WEB_DE")
         assert ext_id == "3500_web"
         assert lang == "de"
+        assert slot is None
+
+    def test_slot_2_suffix(self):
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_web_de_2")
+        assert ext_id == "3500_web"
+        assert lang == "de"
+        assert slot == 2
+
+    def test_slot_3_suffix(self):
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_aud_fr_3")
+        assert ext_id == "3500_aud"
+        assert lang == "fr"
+        assert slot == 3
+
+    def test_slot_1_not_treated_as_slot(self):
+        # Slot numbers start at 2; _1 suffix stays in the stem and is not a valid lang
+        # so the whole stem parses without a recognized lang code
+        ext_id, lang, slot = _parse_external_id_and_lang("3500_web_de_1")
+        assert slot is None
+        # The _1 stays in the ID; lang parsing sees '1' (not 2-char alpha) so falls through
+        assert lang == ""
 
 
 class TestFilenameRegex:
@@ -135,6 +160,15 @@ class TestFilenameRegex:
 
     def test_three_digit_prefix_rejected(self):
         assert not _FILENAME_RE.match("350_web_de.mp4")
+
+    def test_slot_suffix_accepted(self):
+        assert _FILENAME_RE.match("3500_web_de_2.mp4")
+        assert _FILENAME_RE.match("3500_aud_fr_3.mp3")
+        assert _FILENAME_RE.match("30500_vid_pt_2.mp4")
+
+    def test_slot_suffix_with_pdf_and_image_accepted(self):
+        assert _FILENAME_RE.match("3500_pdf_de_2.pdf")
+        assert _FILENAME_RE.match("3500_img_de_2.jpg")
 
     def test_six_digit_prefix_rejected(self):
         assert not _FILENAME_RE.match("350000_web_de.mp4")
@@ -396,3 +430,77 @@ def test_unexpected_error_is_caught_per_file(mock_save):
     result = r.json()["results"][0]
     assert result["status"] == "error"
     assert "disk full" in result["error"]
+
+
+# ── Multi-media slot uploads ──────────────────────────────────────────────────
+
+
+@patch(
+    "core.views.intervention_media_upload._save_file",
+    side_effect=["videos/3500_web.mp4", "videos/3500_web_2.mp4"],
+)
+def test_slot2_upload_adds_second_media_keeps_primary(mock_save):
+    """Uploading slot-2 file adds to the intervention without replacing slot-None primary."""
+    doc = _make_intervention("3500_web", "de", "Slot Test")
+    # Upload primary first
+    client.post(URL, data={"files[]": _mp4("3500_web_de.mp4")}, **AUTH)
+    doc.reload()
+    assert len(doc.media) == 1
+    assert doc.media[0].media_slot is None
+
+    # Upload slot 2
+    r = client.post(URL, data={"files[]": _mp4("3500_web_de_2.mp4")}, **AUTH)
+    result = r.json()["results"][0]
+    assert result["status"] == "ok"
+    assert result["media_slot"] == 2
+
+    doc.reload()
+    assert len(doc.media) == 2
+    slots = sorted(m.media_slot or 1 for m in doc.media)
+    assert slots == [1, 2]
+
+
+@patch(
+    "core.views.intervention_media_upload._save_file",
+    side_effect=["videos/slot2_v1.mp4", "videos/slot2_v2.mp4"],
+)
+def test_slot2_upload_replaces_existing_slot2(mock_save):
+    """Re-uploading slot-2 replaces the old slot-2 entry, not appending."""
+    doc = _make_intervention("6000_web", "en", "Replace Slot Test")
+
+    client.post(URL, data={"files[]": _mp4("6000_web_en_2.mp4")}, **AUTH)
+    doc.reload()
+    assert len(doc.media) == 1
+    assert doc.media[0].media_slot == 2
+    assert doc.media[0].file_path == "videos/slot2_v1.mp4"
+
+    client.post(URL, data={"files[]": _mp4("6000_web_en_2.mp4")}, **AUTH)
+    doc.reload()
+    assert len(doc.media) == 1  # still 1 — replaced, not appended
+    assert doc.media[0].file_path == "videos/slot2_v2.mp4"
+
+
+@patch(
+    "core.views.intervention_media_upload._save_file",
+    side_effect=["videos/primary_v2.mp4"],
+)
+def test_primary_upload_replaces_primary_keeps_numbered_slots(mock_save):
+    """Re-uploading the primary (no slot) replaces only the primary, not slot-2."""
+    doc = _make_intervention("7000_web", "de", "Keep Slots Test")
+    # Pre-populate with a primary and a slot-2 entry directly
+    doc.media = [
+        InterventionMedia(kind="file", media_type="video", file_path="old_primary.mp4", media_slot=None),
+        InterventionMedia(kind="file", media_type="video", file_path="slot2.mp4", media_slot=2),
+    ]
+    doc.save()
+
+    client.post(URL, data={"files[]": _mp4("7000_web_de.mp4")}, **AUTH)
+    doc.reload()
+    assert len(doc.media) == 2
+
+    slot_none = [m for m in doc.media if m.media_slot is None]
+    slot_two = [m for m in doc.media if m.media_slot == 2]
+    assert len(slot_none) == 1
+    assert slot_none[0].file_path == "videos/primary_v2.mp4"
+    assert len(slot_two) == 1
+    assert slot_two[0].file_path == "slot2.mp4"
