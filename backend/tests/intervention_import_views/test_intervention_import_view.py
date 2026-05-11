@@ -391,8 +391,12 @@ def test_import_slot2_row_adds_second_media_to_same_intervention():
         ws = wb.active
         ws.title = "Content"
         ws.append(["intervention_id", "title", "description", "content_type", "link"])
-        ws.append(["3500_web_de", "German Video", "Desc", "Website", "https://example.com/primary.mp4"])
-        ws.append(["3500_web_de_2", "German Video", "Desc", "Website", "https://example.com/slot2.mp4"])
+        ws.append(
+            ["3500_web_de", "German Video", "Desc", "Website", "https://example.com/primary.mp4"]
+        )
+        ws.append(
+            ["3500_web_de_2", "German Video", "Desc", "Website", "https://example.com/slot2.mp4"]
+        )
         wb.save(p)
 
         result = import_interventions_from_excel(str(p), dry_run=False)
@@ -417,7 +421,9 @@ def test_import_slot2_replaces_existing_slot2():
         ws = wb.active
         ws.title = "Content"
         ws.append(["intervention_id", "title", "description", "content_type", "link"])
-        ws.append(["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/old_slot2.mp4"])
+        ws.append(
+            ["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/old_slot2.mp4"]
+        )
         wb.save(p1)
         import_interventions_from_excel(str(p1), dry_run=False)
 
@@ -426,7 +432,9 @@ def test_import_slot2_replaces_existing_slot2():
         ws2 = wb2.active
         ws2.title = "Content"
         ws2.append(["intervention_id", "title", "description", "content_type", "link"])
-        ws2.append(["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/new_slot2.mp4"])
+        ws2.append(
+            ["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/new_slot2.mp4"]
+        )
         wb2.save(p2)
         import_interventions_from_excel(str(p2), dry_run=False)
 
