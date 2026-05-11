@@ -608,6 +608,36 @@ docker compose -f docker-compose.dev.yml restart libretranslate
 
 ---
 
+## Admin Dashboard Features
+
+The Admin Dashboard (`/admin`) provides several management tabs. Access requires a user account with the `Admin` role.
+
+### Health Questionnaires tab
+
+Allows admins to browse, search, edit, and delete `HealthQuestionnaire` documents stored in MongoDB.
+
+| Action | API endpoint | Notes |
+|---|---|---|
+| List / search | `GET /api/admin/questionnaires/?q=<search>` | Returns all questionnaires with `usage_count` (# plans referencing each) |
+| Update metadata | `PUT /api/admin/questionnaires/<id>/` | Editable fields: `title`, `description`, `tags` |
+| Delete | `DELETE /api/admin/questionnaires/<id>/` | Cascades: removes the questionnaire from all `RehabilitationPlan.questionnaires` entries |
+
+**Cascade delete behaviour**: when a questionnaire is deleted, all `QuestionnaireAssignment` embedded documents referencing it are stripped from every `RehabilitationPlan`. If `usage_count > 0` the delete confirmation modal shows a warning.
+
+### E2E test credentials
+
+The questionnaire admin E2E tests (`frontend/e2e/admin-questionnaires.spec.ts`) require:
+
+```env
+E2E_ADMIN_LOGIN=admin@example.com
+E2E_ADMIN_PASSWORD=...
+E2E_EMAIL_DIR=/path/to/django/email/output   # same as therapist tests
+```
+
+All tests skip gracefully when these variables are absent.
+
+---
+
 ## Three-Environment Setup
 
 The project runs three distinct Docker Compose stacks on the same server host:
