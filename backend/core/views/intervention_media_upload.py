@@ -119,11 +119,15 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
 
     if media_slot is not None:
         # Replace any existing entry with the same slot number
-        intervention.media = [med for med in intervention.media if getattr(med, "media_slot", None) != media_slot]
+        intervention.media = [
+            med for med in intervention.media if getattr(med, "media_slot", None) != media_slot
+        ]
         intervention.media.append(new_item)
     else:
         # Primary slot (None): replace primary, keep numbered slots
-        intervention.media = [med for med in intervention.media if getattr(med, "media_slot", None) is not None]
+        intervention.media = [
+            med for med in intervention.media if getattr(med, "media_slot", None) is not None
+        ]
         intervention.media.append(new_item)
 
     intervention.save()
