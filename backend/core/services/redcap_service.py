@@ -154,7 +154,7 @@ def export_record_by_pat_id(project_name: str, pat_id: str) -> List[Dict[str, An
                 raise ValueError("JSON is not a list")
             return data
         except Exception as e:
-            logger.exception("Failed parsing REDCap JSON")
+            logger.warning("Failed parsing REDCap JSON: %s — raw: %.200s", e, text)
             raise RedcapError("REDCap returned invalid JSON.", detail=text[:500]) from e
 
     # 1) Try filter by pat_id

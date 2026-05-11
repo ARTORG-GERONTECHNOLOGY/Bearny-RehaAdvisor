@@ -352,7 +352,7 @@ def export_wearables_to_redcap(
             results[period] = f"error: {e}"
             payloads[period]["status"] = "error"
             payloads[period]["error"] = str(e)
-            logger.error(
+            logger.warning(
                 "Failed to export wearables [%s] for %s: %s | detail=%s",
                 period,
                 patient.patient_code,

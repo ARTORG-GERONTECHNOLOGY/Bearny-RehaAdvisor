@@ -532,24 +532,24 @@ def test_create_log_returns_log_id_in_response(mongo_mock):
     assert body["log_id"] == str(Logs.objects.first().id)
 
 
-def test_create_log_unknown_user_returns_500(mongo_mock):
-    """A non-existent user ObjectId must return 500 (existing documented behaviour)."""
+def test_create_log_unknown_user_returns_404(mongo_mock):
+    """A non-existent user ObjectId must return 404."""
     resp = client.post(
         "/api/analytics/log",
         data=json.dumps({"user": str(ObjectId()), "action": "REHATABLE"}),
         content_type="application/json",
     )
-    assert resp.status_code == 500
+    assert resp.status_code == 404
 
 
-def test_create_log_invalid_json_returns_500(mongo_mock):
-    """Malformed JSON body must return 500."""
+def test_create_log_invalid_json_returns_400(mongo_mock):
+    """Malformed JSON body must return 400."""
     resp = client.post(
         "/api/analytics/log",
         data="not-json",
         content_type="application/json",
     )
-    assert resp.status_code == 500
+    assert resp.status_code == 400
 
 
 # ---------------------------------------------------------------------------
