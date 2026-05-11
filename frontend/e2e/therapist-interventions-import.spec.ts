@@ -439,4 +439,28 @@ test.describe('COPAIN MSK file import — UI level', () => {
         .first()
     ).toBeVisible({ timeout: 5_000 });
   });
+
+  test('Upload Media tab shows multi-media slot info', async ({ page }) => {
+    skipUnlessSeeded();
+    await loginAsTherapist(page);
+    await openImportModal(page);
+
+    const modal = page.locator('.modal.show');
+    await modal.getByRole('link', { name: /Upload Media/i }).click();
+
+    // The naming convention box should mention slot numbers
+    await expect(modal.getByText(/Multiple media per intervention/i)).toBeVisible();
+    await expect(modal.getByText(/_2/)).toBeVisible();
+  });
+
+  test('Excel tab shows multi-media slot info', async ({ page }) => {
+    skipUnlessSeeded();
+    await loginAsTherapist(page);
+    await openImportModal(page);
+
+    const modal = page.locator('.modal.show');
+
+    // The Excel tab help text should mention slot suffixes
+    await expect(modal.getByText(/3500_web_de_2/)).toBeVisible();
+  });
 });

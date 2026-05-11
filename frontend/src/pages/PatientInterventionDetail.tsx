@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Nav, OverlayTrigger, Tab, Tooltip } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,7 @@ type InterventionMedia = {
   file_url?: string | null;
   mime?: string | null;
   thumbnail?: string | null;
+  media_slot?: number | null;
 };
 
 type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
@@ -115,6 +116,9 @@ const getAllMedia = (item: any): InterventionMedia[] => {
       .map((m): NormalizedMedia => {
         const rawMediaType = asStr(m.media_type) || asStr(m.mediaType) || 'website';
 
+        const slotRaw = m.media_slot;
+        const mediaSlot = typeof slotRaw === 'number' ? slotRaw : null;
+
         return {
           kind: asStr(m.kind),
           media_type: rawMediaType as InterventionMedia['media_type'],
@@ -126,11 +130,13 @@ const getAllMedia = (item: any): InterventionMedia[] => {
           file_url: asStr(m.file_url) || asStr(m.fileUrl) || null,
           mime: asStr(m.mime) || null,
           thumbnail: asStr(m.thumbnail) || null,
+          media_slot: mediaSlot,
         };
       })
       .filter(
         (media): media is InterventionMedia => media.kind === 'external' || media.kind === 'file'
-      );
+      )
+      .sort((a, b) => (a.media_slot ?? 1) - (b.media_slot ?? 1));
   }
 
   // legacy fallback
@@ -301,17 +307,36 @@ const MetaTags: React.FC<{ item: any }> = ({ item }) => {
 };
 
 const MediaContent: React.FC<{ mediaList: InterventionMedia[] }> = ({ mediaList }) => {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState('media-0');
+
   const renderableMedia = mediaList.filter((m) =>
     ['video', 'audio', 'streaming', 'pdf', 'image'].includes(m.media_type)
   );
 
   if (!renderableMedia.length) return null;
+
+  if (renderableMedia.length === 1) {
+    return <OneMedia m={renderableMedia[0]} idx={0} />;
+  }
+
   return (
-    <div>
-      {renderableMedia.map((m, idx) => (
-        <OneMedia key={`${idx}-${m.title ?? idx}`} m={m} idx={idx} />
-      ))}
-    </div>
+    <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k ?? 'media-0')}>
+      <Nav variant="tabs" className="mb-3 flex-wrap">
+        {renderableMedia.map((m, idx) => (
+          <Nav.Item key={idx}>
+            <Nav.Link eventKey={`media-${idx}`}>{m.title || `${t('Media')} ${idx + 1}`}</Nav.Link>
+          </Nav.Item>
+        ))}
+      </Nav>
+      <Tab.Content>
+        {renderableMedia.map((m, idx) => (
+          <Tab.Pane key={idx} eventKey={`media-${idx}`}>
+            <OneMedia m={m} idx={idx} />
+          </Tab.Pane>
+        ))}
+      </Tab.Content>
+    </Tab.Container>
   );
 };
 
