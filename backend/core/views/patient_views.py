@@ -765,6 +765,7 @@ def _serialize_media_list(intervention) -> list:
                 mime = getattr(m, "mime", None) if not isinstance(m, dict) else m.get("mime")
                 thumbnail = getattr(m, "thumbnail", None) if not isinstance(m, dict) else m.get("thumbnail")
 
+                fp_str = file_path if isinstance(file_path, str) or file_path is None else str(file_path)
                 row = {
                     "kind": _as_str(kind, ""),
                     "media_type": _as_str(media_type, ""),
@@ -772,7 +773,8 @@ def _serialize_media_list(intervention) -> list:
                     "title": (title if isinstance(title, str) or title is None else str(title)),
                     "url": (_abs_media_url(url) if isinstance(url, str) else (url or None)),
                     "embed_url": (embed_url if isinstance(embed_url, str) or embed_url is None else str(embed_url)),
-                    "file_path": (file_path if isinstance(file_path, str) or file_path is None else str(file_path)),
+                    "file_path": fp_str,
+                    "file_url": (_abs_media_url(fp_str) if kind == "file" and fp_str else None),
                     "mime": (mime if isinstance(mime, str) or mime is None else str(mime)),
                     "thumbnail": (_abs_media_url(thumbnail) if isinstance(thumbnail, str) else (thumbnail or None)),
                 }
@@ -799,6 +801,7 @@ def _serialize_media_list(intervention) -> list:
                     "url": link,
                     "embed_url": None,
                     "file_path": None,
+                    "file_url": None,
                     "mime": None,
                     "thumbnail": None,
                 }
@@ -813,6 +816,7 @@ def _serialize_media_list(intervention) -> list:
                     "url": _abs_media_url(media_url),
                     "embed_url": None,
                     "file_path": None,
+                    "file_url": None,
                     "mime": None,
                     "thumbnail": None,
                 }
@@ -827,6 +831,7 @@ def _serialize_media_list(intervention) -> list:
                     "url": _abs_media_url(media_file),
                     "embed_url": None,
                     "file_path": media_file,
+                    "file_url": _abs_media_url(media_file),
                     "mime": None,
                     "thumbnail": None,
                 }

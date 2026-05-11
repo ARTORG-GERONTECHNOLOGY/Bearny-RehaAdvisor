@@ -6,7 +6,9 @@ import {
   Badge,
   Button,
   Container,
+  Nav,
   OverlayTrigger,
+  Tab,
   Tooltip,
   ButtonGroup,
 } from 'react-bootstrap';
@@ -44,6 +46,7 @@ export type InterventionMedia = {
   file_url?: string | null;
   mime?: string | null;
   thumbnail?: string | null;
+  media_slot?: number | null;
 };
 
 type LangOpt = { language: string; title?: string | null };
@@ -115,8 +118,12 @@ const getAllMedia = (item: any): InterventionMedia[] => {
         file_url: m.file_url ?? m.fileUrl ?? null,
         mime: m.mime ?? null,
         thumbnail: m.thumbnail ?? null,
+        media_slot: typeof m.media_slot === 'number' ? m.media_slot : null,
       }))
-      .filter((m: InterventionMedia) => m.kind === 'external' || m.kind === 'file');
+      .filter((m: InterventionMedia) => m.kind === 'external' || m.kind === 'file')
+      .sort(
+        (a: InterventionMedia, b: InterventionMedia) => (a.media_slot ?? 1) - (b.media_slot ?? 1)
+      );
   }
 
   // legacy fallback
@@ -240,6 +247,8 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const [langOptions, setLangOptions] = useState<LangOpt[]>([]);
   const [variantsByLang, setVariantsByLang] = useState<Record<string, any>>({});
   const [loadingLangs, setLoadingLangs] = useState(false);
+
+  const [activeMediaTab, setActiveMediaTab] = useState<string>('media-0');
 
   // tag color map (same source as therapist list; fallback ok)
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
@@ -434,18 +443,23 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     [effectiveMediaList]
   );
 
+  // Reset to first tab whenever the media list changes (e.g. item/language switch)
+  useEffect(() => {
+    setActiveMediaTab('media-0');
+  }, [effectiveItem]);
+
   // media badge color same logic as therapist list
   const interventionForBadges = (effectiveItem?.intervention ?? effectiveItem) as any;
   const mediaVariant = getBadgeVariantFromIntervention(interventionForBadges);
   const mediaLabel = getMediaTypeLabelFromIntervention(interventionForBadges);
 
-  const renderOneMedia = (m: InterventionMedia, idx: number) => {
+  const renderOneMedia = (m: InterventionMedia, idx: number, hideLabel = false) => {
     const label = m.title || `${t('Media')} ${idx + 1}`;
     const playable = getPlayableUrl(m);
 
     return (
       <div key={`${idx}-${label}`} className="mb-3">
-        <div className="fw-semibold mb-1">{label}</div>
+        {!hideLabel && <div className="fw-semibold mb-1">{label}</div>}
 
         {m.media_type === 'pdf' ? (
           <>
@@ -522,7 +536,33 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const renderMediaContent = () => {
     if (!effectiveMediaList.length)
       return <div className="text-muted">{t('No media available.')}</div>;
-    return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
+
+    if (effectiveMediaList.length === 1) {
+      return <div>{renderOneMedia(effectiveMediaList[0], 0)}</div>;
+    }
+
+    // 2+ media items — show as tabs for a clean UX on both mobile and desktop
+    return (
+      <Tab.Container activeKey={activeMediaTab} onSelect={(k) => setActiveMediaTab(k ?? 'media-0')}>
+        <Nav variant="tabs" className="mb-3 flex-wrap">
+          {effectiveMediaList.map((m, idx) => {
+            const label = m.title || `${t('Media')} ${idx + 1}`;
+            return (
+              <Nav.Item key={idx}>
+                <Nav.Link eventKey={`media-${idx}`}>{label}</Nav.Link>
+              </Nav.Item>
+            );
+          })}
+        </Nav>
+        <Tab.Content>
+          {effectiveMediaList.map((m, idx) => (
+            <Tab.Pane key={idx} eventKey={`media-${idx}`}>
+              {renderOneMedia(m, idx, true)}
+            </Tab.Pane>
+          ))}
+        </Tab.Content>
+      </Tab.Container>
+    );
   };
 
   const effectiveIsPrivate = Boolean(effectiveItem?.is_private);
