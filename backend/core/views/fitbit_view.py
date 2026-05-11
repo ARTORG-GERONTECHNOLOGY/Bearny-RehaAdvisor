@@ -683,8 +683,8 @@ def health_combined_history(request, patient_id):
         to_str = request.GET.get("to")
 
         if from_str and to_str:
-            from_date = datetime.strptime(from_str, "%Y-%m-%d").date()
-            to_date = datetime.strptime(to_str, "%Y-%m-%d").date()
+            from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date()
+            to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date()
         else:
             to_date = timezone.now().date()
             from_date = to_date - timedelta(days=30)
@@ -728,7 +728,7 @@ def health_combined_history(request, patient_id):
                 # If no FitbitData for that day, create a minimal entry
                 fd = FitbitData(
                     user=patient.userId,
-                    date=datetime.combine(v.date, datetime.min.time()),
+                    date=datetime.datetime.combine(v.date, datetime.time()),
                     weight_kg=v.weight_kg,
                     bp_sys=v.bp_sys,
                     bp_dia=v.bp_dia,
