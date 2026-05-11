@@ -919,9 +919,7 @@ def import_interventions_from_excel(
                     )
                     new_media = InterventionMedia(
                         kind="external",
-                        media_type=_guess_media_type_for_url(
-                            link_val, mapped_ct.lower() if mapped_ct else "website"
-                        ),
+                        media_type=_guess_media_type_for_url(link_val, mapped_ct.lower() if mapped_ct else "website"),
                         provider=prov,
                         title=title or None,
                         url=link_val,
