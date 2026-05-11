@@ -1267,4 +1267,9 @@
   "Failed to delete questionnaire.": "Falha ao eliminar questionário.",
   "Failed to save.": "Falha ao guardar.",
   "Search by title, key or tag…": "Pesquisar por título, chave ou etiqueta…"
+  "multiMediaExcelInfo": "Para adicionar vários ficheiros de media a uma intervenção, adicione um número de slot ao ID: ex. 3500_web_de para o ficheiro principal, 3500_web_de_2 para um segundo, 3500_web_de_3 para um terceiro. Cada linha no ficheiro Excel é um slot separado. Os slots existentes são substituídos individualmente; os outros permanecem inalterados.",
+  "multiMediaFileUploadInfo": "Para adicionar vários ficheiros de media a uma intervenção, adicione um número de slot ao nome do ficheiro: ex. 3500_web_de.mp4 (principal), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Cada ficheiro carregado substitui apenas o seu próprio slot; os outros permanecem inalterados.",
+  "multiMediaManualUploadInfo": "Pode adicionar vários itens de media a uma intervenção. Use o botão 'Adicionar media' para cada ficheiro ou link adicional. O primeiro item é o media principal; os itens adicionais são apresentados como separadores na vista do paciente.",
+  "Multiple media per intervention": "Vários media por intervenção",
+  "No media available.": "Nenhum media disponível."
 }

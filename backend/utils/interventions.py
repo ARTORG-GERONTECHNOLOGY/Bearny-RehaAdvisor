@@ -203,6 +203,7 @@ def _serialize_media(m):
         "file_url": None,
         "mime": getattr(m, "mime", None),
         "thumbnail": getattr(m, "thumbnail", None),
+        "media_slot": getattr(m, "media_slot", None),
     }
     if out["kind"] == "file" and out.get("file_path"):
         out["file_url"] = _abs_media_url(out["file_path"])
