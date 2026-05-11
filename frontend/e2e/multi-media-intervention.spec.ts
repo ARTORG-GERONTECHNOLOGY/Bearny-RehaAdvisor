@@ -93,7 +93,9 @@ test.describe('Multi-media per intervention', () => {
     const modal = page.locator('.modal.show');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
-    await expect(modal.getByText(/Multiple media per intervention/i)).toBeVisible({ timeout: 5_000 });
+    await expect(modal.getByText(/Multiple media per intervention/i)).toBeVisible({
+      timeout: 5_000,
+    });
     // The example slot-2 filename should appear
     await expect(modal.locator('code', { hasText: /_2/ }).first()).toBeVisible({ timeout: 5_000 });
   });

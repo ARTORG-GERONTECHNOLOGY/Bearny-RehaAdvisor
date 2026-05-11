@@ -121,7 +121,9 @@ const getAllMedia = (item: any): InterventionMedia[] => {
         media_slot: typeof m.media_slot === 'number' ? m.media_slot : null,
       }))
       .filter((m: InterventionMedia) => m.kind === 'external' || m.kind === 'file')
-      .sort((a: InterventionMedia, b: InterventionMedia) => (a.media_slot ?? 1) - (b.media_slot ?? 1));
+      .sort(
+        (a: InterventionMedia, b: InterventionMedia) => (a.media_slot ?? 1) - (b.media_slot ?? 1)
+      );
   }
 
   // legacy fallback
