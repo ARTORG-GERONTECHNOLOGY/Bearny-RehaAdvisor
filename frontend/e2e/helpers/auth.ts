@@ -81,6 +81,69 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
   await page.reload({ waitUntil: 'networkidle' });
 }
 
+/**
+ * Log in as the seeded E2E admin account. Uses E2E_ADMIN_LOGIN / E2E_ADMIN_PASSWORD.
+ * Lands on /admin after successful authentication.
+ */
+export async function loginAsAdmin(page: PlaywrightPage): Promise<void> {
+  const login = process.env.E2E_ADMIN_LOGIN as string;
+  const password = process.env.E2E_ADMIN_PASSWORD as string;
+  const emailDir = process.env.E2E_EMAIL_DIR;
+
+  if (!emailDir) {
+    throw new Error('E2E_EMAIL_DIR must be set for admin login');
+  }
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /login/i }).first().click();
+
+  const modal = page.locator('[role="dialog"][data-state="open"]');
+  await expect(modal).toBeVisible();
+
+  await modal.locator('#email').fill(login);
+  await modal.locator('#password').fill(password);
+
+  const existingFiles = new Set(readEmailFiles(emailDir));
+
+  const loginResponsePromise = page.waitForResponse(
+    (res) => res.url().includes('/auth/login/') && res.request().method() === 'POST'
+  );
+  const codeSentPromise = page.waitForResponse(
+    (res) =>
+      res.url().includes('/auth/send-verification-code/') && res.request().method() === 'POST',
+    { timeout: 15_000 }
+  );
+
+  await modal.getByRole('button', { name: /login/i }).click();
+
+  const loginResponse = await loginResponsePromise;
+  expect(loginResponse.status()).toBe(200);
+
+  const loginBody = (await loginResponse.json()) as { require_2fa?: boolean };
+
+  if (!loginBody.require_2fa) {
+    await expect(page).toHaveURL(/\/admin/);
+    return;
+  }
+
+  await codeSentPromise;
+  const code = await waitForVerificationCode(emailDir, existingFiles);
+
+  const verifyDonePromise = page.waitForResponse(
+    (res) => res.url().includes('/auth/verify-code/') && res.request().method() === 'POST'
+  );
+
+  await modal.locator('#verificationCode').click();
+  await page.keyboard.type(code);
+  await modal.getByRole('button', { name: /submit code/i }).click();
+
+  const verifyResponse = await verifyDonePromise;
+  expect(verifyResponse.status()).toBe(200);
+
+  await page.waitForURL(/\/admin/, { timeout: 30_000 });
+  await page.reload({ waitUntil: 'networkidle' });
+}
+
 function readEmailFiles(dir: string): string[] {
   try {
     return fs.readdirSync(dir).filter((f) => f.endsWith('.log'));
