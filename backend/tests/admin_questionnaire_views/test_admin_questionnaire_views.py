@@ -103,6 +103,15 @@ def test_list_includes_usage_count():
     assert item["usage_count"] == 1
 
 
+def test_list_includes_version_field():
+    _make_questionnaire(key="q-ver", title="Version Q")
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    item = next(i for i in resp.json()["questionnaires"] if i["key"] == "q-ver")
+    assert item["version"] == 1
+    assert item["updatedAt"] is None
+
+
 def test_list_search_filters_by_title():
     _make_questionnaire(key="phq9", title="PHQ-9 Depression")
     _make_questionnaire(key="gad7", title="GAD-7 Anxiety")
@@ -243,3 +252,77 @@ def test_update_invalid_id_returns_400():
         data=json.dumps({"title": "X"}),
     )
     assert resp.status_code == 400
+
+
+# ── VERSIONING ────────────────────────────────────────────────────────────────
+
+
+def test_update_increments_version():
+    q = _make_questionnaire(key="ver-inc", title="Original")
+    assert q.version == 1
+
+    resp = client.put(
+        DETAIL_URL.format(str(q.pk)),
+        content_type="application/json",
+        data=json.dumps({"title": "First Edit"}),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["questionnaire"]["version"] == 2
+
+    resp2 = client.put(
+        DETAIL_URL.format(str(q.pk)),
+        content_type="application/json",
+        data=json.dumps({"title": "Second Edit"}),
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["questionnaire"]["version"] == 3
+
+
+def test_update_sets_updated_at():
+    q = _make_questionnaire(key="ver-uat", title="Orig")
+    assert q.updatedAt is None  # not set on create
+
+    resp = client.put(
+        DETAIL_URL.format(str(q.pk)),
+        content_type="application/json",
+        data=json.dumps({"title": "Edited"}),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["questionnaire"]["updatedAt"] is not None
+
+
+def test_delete_removes_questionnaire_from_plan_but_past_answers_survive():
+    """
+    Cascade delete strips the QuestionnaireAssignment from the plan.
+    PatientICFRating records (past answers) are unaffected — they reference
+    FeedbackQuestion directly, not via HealthQuestionnaire.
+    """
+    from core.models import FeedbackQuestion, FeedbackEntry, PatientICFRating, Translation
+
+    q = _make_questionnaire(key="cascade-ans")
+    plan = _make_plan_with_questionnaire(q)
+    patient = plan.patientId
+
+    # Simulate a submitted answer referencing a FeedbackQuestion
+    fq = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="cascade-ans_q1",
+        answer_type="text",
+        translations=[Translation(language="en", text="How are you?")],
+        possibleAnswers=[],
+    ).save()
+    rating = PatientICFRating(
+        patientId=patient,
+        questionId=fq,
+        icfCode="b1",
+        feedback_entries=[FeedbackEntry(questionId=fq, comment="Fine", answerKey=[])],
+    ).save()
+
+    resp = client.delete(DETAIL_URL.format(str(q.pk)))
+    assert resp.status_code == 200
+
+    # Plan no longer has the assignment
+    assert len(plan.reload().questionnaires) == 0
+
+    # Past answer record is untouched
+    assert PatientICFRating.objects(id=rating.pk).count() == 1

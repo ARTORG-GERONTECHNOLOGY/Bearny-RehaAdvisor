@@ -604,6 +604,11 @@ class HealthQuestionnaire(Document):
     tags = ListField(StringField())
     created_by = ReferenceField("Therapist", required=False, null=True)
     createdAt = DateTimeField(default=timezone.now)
+    # Incremented each time an admin edits title/description/tags.
+    # Assignments snapshot the version they were created against so patients
+    # always see the metadata that was current when they were assigned.
+    version = IntField(default=1)
+    updatedAt = DateTimeField(null=True)
 
 
 class QuestionnaireAssignment(EmbeddedDocument):
@@ -611,6 +616,11 @@ class QuestionnaireAssignment(EmbeddedDocument):
     frequency = StringField()  # e.g., "Daily", "2 times / week", etc.
     dates = ListField(DateTimeField())  # next scheduled dates (optional bootstrap)
     notes = StringField()
+    # Snapshots of questionnaire metadata captured at assignment time.
+    # Preserved so that renaming/redescribing a questionnaire does not
+    # silently change what a patient already sees in their schedule.
+    title_snapshot = StringField()
+    description_snapshot = StringField()
 
 
 class RehabilitationPlan(Document):
