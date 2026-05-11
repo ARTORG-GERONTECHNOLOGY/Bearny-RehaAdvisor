@@ -1235,5 +1235,10 @@
   "Diagnosis auto-apply mode": "Diagnose automatische toewijzingsmodus",
   "Start assigning from date": "Begin toewijzen vanaf datum",
   "Defaults to today. Existing patients receive sessions from this date onward.": "Standaard op vandaag. Bestaande patiënten krijgen sessies vanaf deze datum.",
-  "New matching patients means future registrations with this diagnosis.": "Nieuwe overeenkomende patiënten betekent toekomstige registraties met deze diagnose."
+  "New matching patients means future registrations with this diagnosis.": "Nieuwe overeenkomende patiënten betekent toekomstige registraties met deze diagnose.",
+  "multiMediaExcelInfo": "Om meerdere media aan één interventie toe te voegen, voegt u een slotnummer toe aan het ID: bijv. 3500_web_de voor het primaire bestand, 3500_web_de_2 voor een tweede bestand, 3500_web_de_3 voor een derde. Elke rij in het Excel-bestand is een afzonderlijk slot. Bestaande slots worden afzonderlijk vervangen; andere slots blijven ongewijzigd.",
+  "multiMediaFileUploadInfo": "Om meerdere mediabestanden aan één interventie toe te voegen, voegt u een slotnummer toe aan de bestandsnaam: bijv. 3500_web_de.mp4 (primair), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Elk geüpload bestand vervangt alleen zijn eigen slot; andere slots blijven ongewijzigd.",
+  "multiMediaManualUploadInfo": "U kunt meerdere media-items aan één interventie toevoegen. Gebruik de knop 'Media toevoegen' voor elk extra bestand of elke link. Het eerste item is het primaire medium; extra items worden als tabbladen weergegeven in de patiëntweergave.",
+  "Multiple media per intervention": "Meerdere media per interventie",
+  "No media available.": "Geen media beschikbaar."
 }

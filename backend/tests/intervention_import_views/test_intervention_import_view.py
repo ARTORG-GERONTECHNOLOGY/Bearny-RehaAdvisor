@@ -52,13 +52,18 @@ def mongo_mock():
 
 def test_helper_parsers():
     # Legacy 2-part format
-    assert _parse_external_id_and_language("4001_de") == ("4001", "de", None)
+    assert _parse_external_id_and_language("4001_de") == ("4001", "de", None, None)
     # New 3-part format: {number}_{format}_{lang}
-    assert _parse_external_id_and_language("3500_web_de") == ("3500_web", "de", "web")
-    assert _parse_external_id_and_language("30500_vid_pt") == ("30500_vid", "pt", "vid")
-    assert _parse_external_id_and_language("3500_br_it") == ("3500_br", "it", "br")
+    assert _parse_external_id_and_language("3500_web_de") == ("3500_web", "de", "web", None)
+    assert _parse_external_id_and_language("30500_vid_pt") == ("30500_vid", "pt", "vid", None)
+    assert _parse_external_id_and_language("3500_br_it") == ("3500_br", "it", "br", None)
     # Unknown format code → format_code is None, but external_id still correct
-    assert _parse_external_id_and_language("3500_xyz_de") == ("3500_xyz", "de", None)
+    assert _parse_external_id_and_language("3500_xyz_de") == ("3500_xyz", "de", None, None)
+    # Multi-media slot suffix
+    assert _parse_external_id_and_language("3500_web_de_2") == ("3500_web", "de", "web", 2)
+    assert _parse_external_id_and_language("4001_de_3") == ("4001", "de", None, 3)
+    # Slot 1 is not treated as a slot (slots start at 2); _1 stays in the ID unparsed
+    assert _parse_external_id_and_language("3500_web_de_1") == ("3500_web_de_1", None, None, None)
     assert _map_content_type("video") == "Video"
     assert _map_content_type("vid") == "Video"
     assert _map_content_type("br") == "Brochure"
@@ -375,3 +380,58 @@ def test_import_primary_diagnosis_is_stored_as_list_field():
         assert doc is not None
         assert isinstance(doc.primary_diagnosis, list)
         assert "heart failure" in [x.lower() for x in (doc.primary_diagnosis or [])]
+
+
+def test_import_slot2_row_adds_second_media_to_same_intervention():
+    """Two rows with IDs 3500_web_de and 3500_web_de_2 should produce one
+    intervention with two media entries — primary (slot=None) and slot 2."""
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "x.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["3500_web_de", "German Video", "Desc", "Website", "https://example.com/primary.mp4"])
+        ws.append(["3500_web_de_2", "German Video", "Desc", "Website", "https://example.com/slot2.mp4"])
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+        # Second row is an update (same external_id + language) not a new doc
+        assert result["created"] == 1
+        assert result["updated"] == 1
+
+        doc = Intervention.objects(external_id="3500_web", language="de").first()
+        assert doc is not None
+        assert len(doc.media) == 2
+
+        slots = {m.media_slot for m in doc.media}
+        assert None in slots
+        assert 2 in slots
+
+
+def test_import_slot2_replaces_existing_slot2():
+    """Re-importing a slot-2 row replaces the old slot-2 media."""
+    with tempfile.TemporaryDirectory() as td:
+        p1 = Path(td) / "first.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/old_slot2.mp4"])
+        wb.save(p1)
+        import_interventions_from_excel(str(p1), dry_run=False)
+
+        p2 = Path(td) / "second.xlsx"
+        wb2 = openpyxl.Workbook()
+        ws2 = wb2.active
+        ws2.title = "Content"
+        ws2.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws2.append(["3600_web_de_2", "Test", "Desc", "Website", "https://example.com/new_slot2.mp4"])
+        wb2.save(p2)
+        import_interventions_from_excel(str(p2), dry_run=False)
+
+        doc = Intervention.objects(external_id="3600_web", language="de").first()
+        assert doc is not None
+        assert len(doc.media) == 1
+        assert doc.media[0].media_slot == 2
+        assert "new_slot2" in doc.media[0].url
