@@ -312,12 +312,10 @@ def test_user_profile_view_therapist_profile_not_found():
 
 def test_user_profile_view_user_not_found():
     """
-    GET with an ObjectId that matches no User document returns an error
-    response.  The view catches both User.DoesNotExist and Patient.DoesNotExist
-    and returns HTTP 500.
+    GET with an ObjectId that matches no User or Patient document returns 404.
     """
     resp = client.get(f"/api/users/{ObjectId()}/profile/", HTTP_AUTHORIZATION="Bearer test")
-    assert resp.status_code == 500
+    assert resp.status_code == 404
     assert "error" in resp.json()
 
 
