@@ -48,6 +48,18 @@ def get_valid_access_token(user):
                 logger.error(
                     f"[get_valid_access_token] Failed to refresh token. Status: {response.status_code}, Body: {response.text}"
                 )
+                try:
+                    body = response.json()
+                except Exception:
+                    body = {}
+                errors = body.get("errors", [])
+                if any(e.get("errorType") == "invalid_grant" for e in errors):
+                    logger.warning(
+                        "[get_valid_access_token] Refresh token permanently revoked (invalid_grant) "
+                        "for user %s — deleting FitbitUserToken so future syncs skip this user",
+                        user.id,
+                    )
+                    token.delete()
                 raise Exception("Failed to refresh Fitbit token")
         except Exception as e:
             logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")
