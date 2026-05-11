@@ -896,11 +896,10 @@ def apply_named_template(request, template_id):
                 patients_affected += 1
         except MongoValidationError as e:
             reason = _describe_validation_error(e)
-            logger.error(
-                "apply_named_template: error applying to patient %s: %s",
+            logger.warning(
+                "apply_named_template: validation error for patient %s: %s",
                 patient_code,
-                str(e),
-                exc_info=True,
+                reason,
             )
             patient_errors.append({"patient": patient_code, "reason": reason})
         except Exception as e:
