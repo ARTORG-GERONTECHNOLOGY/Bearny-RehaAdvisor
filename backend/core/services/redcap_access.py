@@ -4,7 +4,7 @@ from typing import List
 
 from django.utils import timezone
 
-from core.models import Therapist
+from core.models import Therapist, User
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,13 @@ def get_therapist_for_user(django_user) -> Therapist | None:
     except Exception:
         logger.exception("Failed therapist lookup by request.user.id")
 
-    # ✅ Fallback if you identify by email
+    # Fallback: look up MongoEngine User by email, then find Therapist
     try:
         email = getattr(django_user, "email", None)
         if email:
-            return Therapist.objects(userId__email=email).first()
+            mongo_user = User.objects(email=email).first()
+            if mongo_user:
+                return Therapist.objects(userId=mongo_user).first()
     except Exception:
         logger.exception("Failed therapist lookup by request.user.email")
 
