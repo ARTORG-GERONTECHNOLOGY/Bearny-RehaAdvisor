@@ -44,13 +44,13 @@ def _make_therapist(email="th@example.com"):
     return user, therapist
 
 
-def test_get_therapist_for_user_by_id_and_email_fallback_none():
+def test_get_therapist_for_user_by_id_and_email_fallback():
     user, therapist = _make_therapist()
     dj_by_id = SimpleNamespace(id=user.id, email=None)
     dj_by_email = SimpleNamespace(id=None, email=user.email)
     assert get_therapist_for_user(dj_by_id).id == therapist.id
-    # current implementation uses userId__email join, which returns None in this DB setup
-    assert get_therapist_for_user(dj_by_email) is None
+    # email fallback performs a two-step lookup (User by email → Therapist by userId)
+    assert get_therapist_for_user(dj_by_email).id == therapist.id
 
 
 def test_get_therapist_for_user_returns_none_when_no_match():
