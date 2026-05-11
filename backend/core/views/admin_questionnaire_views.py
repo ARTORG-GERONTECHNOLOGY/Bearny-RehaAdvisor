@@ -12,6 +12,7 @@ import logging
 
 from bson import ObjectId
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -57,6 +58,8 @@ def _serialize(doc):
         "usage_count": _usage_count(doc.pk),
         "created_by_name": created_by_name,
         "createdAt": doc.createdAt.isoformat() if doc.createdAt else None,
+        "version": doc.version if doc.version is not None else 1,
+        "updatedAt": doc.updatedAt.isoformat() if doc.updatedAt else None,
     }
 
 
@@ -153,6 +156,8 @@ def _update(request, questionnaire_id):
                 return JsonResponse({"error": "tags must be a list"}, status=400)
             doc.tags = [str(t).strip() for t in tags if str(t).strip()]
 
+        doc.version = (doc.version or 1) + 1
+        doc.updatedAt = timezone.now()
         doc.save()
         logger.info("Admin updated questionnaire key=%s id=%s", doc.key, questionnaire_id)
         return JsonResponse({"questionnaire": _serialize(doc)}, status=200)

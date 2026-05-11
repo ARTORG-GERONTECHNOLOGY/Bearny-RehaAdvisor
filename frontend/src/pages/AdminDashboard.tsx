@@ -122,6 +122,8 @@ const AdminDashboard: React.FC = observer(() => {
     question_count: number;
     usage_count: number;
     created_by_name: string | null;
+    version: number;
+    updatedAt: string | null;
   };
 
   const [questionnaires, setQuestionnaires] = useState<AdminQuestionnaire[]>([]);
@@ -824,6 +826,9 @@ const AdminDashboard: React.FC = observer(() => {
                         <th>{t('Tags')}</th>
                         <th>{t('Questions')}</th>
                         <th>{t('Used in plans')}</th>
+                        <th title={t('Increments each time an admin edits title, description or tags')}>
+                          {t('Version')}
+                        </th>
                         <th>{t('Created by')}</th>
                         <th style={{ minWidth: 140 }}>{t('Actions')}</th>
                       </tr>
@@ -857,6 +862,18 @@ const AdminDashboard: React.FC = observer(() => {
                             ) : (
                               <span className="text-muted">0</span>
                             )}
+                          </td>
+                          <td
+                            className="text-center"
+                            title={
+                              qn.updatedAt
+                                ? `${t('Last edited')}: ${new Date(qn.updatedAt).toLocaleString()}`
+                                : t('Never edited')
+                            }
+                          >
+                            <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
+                              v{qn.version ?? 1}
+                            </Badge>
                           </td>
                           <td>{qn.created_by_name || <span className="text-muted">—</span>}</td>
                           <td className="d-flex gap-1">
@@ -1188,17 +1205,25 @@ const AdminDashboard: React.FC = observer(() => {
           title={t('Delete questionnaire')}
           body={
             <div>
-              <p className="mb-1">
+              <p className="mb-2">
                 {t('Are you sure you want to permanently delete')}{' '}
                 <strong>{qDeleteModal.title}</strong>?
               </p>
               {qDeleteModal.usageCount > 0 && (
-                <Alert variant="warning" className="mb-0 mt-2 py-2">
-                  {t('This questionnaire is assigned to')}{' '}
+                <Alert variant="warning" className="mb-2 py-2">
+                  {t('This questionnaire is currently assigned to')}{' '}
                   <strong>{qDeleteModal.usageCount}</strong>{' '}
-                  {t('rehabilitation plan(s). Those assignments will be removed.')}
+                  {t(
+                    'rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients\' future schedules and cannot be assigned to new patients.'
+                  )}
                 </Alert>
               )}
+              <Alert variant="info" className="mb-0 py-2">
+                <strong>{t('Answers are preserved.')}</strong>{' '}
+                {t(
+                  'Any responses already submitted by patients for this questionnaire are not deleted and remain accessible to therapists in patient records.'
+                )}
+              </Alert>
             </div>
           }
           cancelText={t('Cancel')}
@@ -1224,6 +1249,12 @@ const AdminDashboard: React.FC = observer(() => {
                 {qEditError}
               </Alert>
             )}
+            <Alert variant="info" className="py-2 mb-3 small">
+              <strong>{t('What changes here.')}</strong>{' '}
+              {t(
+                'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'
+              )}
+            </Alert>
             <Form>
               <Form.Group className="mb-3">
                 <Form.Label>{t('Title')}</Form.Label>

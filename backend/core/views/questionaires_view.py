@@ -622,11 +622,18 @@ def list_patient_questionnaires(request, patient_id):
                         }
                     )
 
+            title_snapshot = getattr(a, "title_snapshot", None)
+            description_snapshot = getattr(a, "description_snapshot", None)
             out.append(
                 {
                     "_id": str(qdoc.id),
-                    "title": qdoc.title,
-                    "description": qdoc.description or "",
+                    # Use snapshot captured at assignment time so patients see the
+                    # title/description that was current when they were assigned,
+                    # even if an admin later renames the questionnaire.
+                    "title": title_snapshot if title_snapshot else qdoc.title,
+                    "description": description_snapshot
+                    if description_snapshot is not None
+                    else (qdoc.description or ""),
                     "frequency": freq,
                     "dates": [d.isoformat() for d in (a.dates or [])],
                     "question_count": len(questions),
@@ -771,6 +778,8 @@ def assign_questionnaire(request):
                     frequency=(freq_str or "").strip(),
                     dates=dates,
                     notes=notes,
+                    title_snapshot=q_doc.title or "",
+                    description_snapshot=q_doc.description or "",
                 )
             )
 

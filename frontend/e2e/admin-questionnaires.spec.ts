@@ -86,6 +86,37 @@ test.describe('Admin Dashboard — Questionnaires tab', () => {
     await expect(tableOrEmpty.first()).toBeVisible({ timeout: 10_000 });
   });
 
+  test('table has a Version column', async ({ page, request }) => {
+    skipUnlessSeeded();
+
+    const token = await getAdminToken(request);
+    if (!token) return;
+
+    const uniqueKey = `e2e-ver-${Date.now()}`;
+    const uniqueTitle = `E2E Version ${Date.now()}`;
+    const createRes = await createQuestionnaire(request, token, uniqueKey, uniqueTitle);
+    const created = await createRes.json();
+    const qId = created?._id ?? created?.questionnaire?._id;
+
+    try {
+      await loginAsAdmin(page);
+      await page.goto('/admin');
+      await page.getByRole('tab', { name: /questionnaires/i }).click();
+      await page.waitForSelector('table', { timeout: 10_000 });
+
+      // Version column header exists
+      await expect(page.locator('table thead th', { hasText: /version/i })).toBeVisible();
+
+      // The seeded questionnaire shows v1
+      await page.getByPlaceholder(/search by title, key or tag/i).fill(uniqueTitle);
+      const row = page.locator('tr', { hasText: uniqueTitle });
+      await expect(row).toBeVisible({ timeout: 5_000 });
+      await expect(row.locator('text=v1')).toBeVisible();
+    } finally {
+      if (qId) await deleteQuestionnaire(request, token, qId);
+    }
+  });
+
   test('can search questionnaires by title', async ({ page, request }) => {
     skipUnlessSeeded();
 
@@ -146,9 +177,87 @@ test.describe('Admin Dashboard — Questionnaires tab', () => {
       await expect(modal).toBeVisible();
       await expect(modal.locator('input[type="text"]').first()).toHaveValue(uniqueTitle);
 
+      // Edit modal must contain the explanatory info text about versioning
+      await expect(modal.locator('text=/editing updates title/i')).toBeVisible();
+
       // Cancel closes the modal
       await modal.getByRole('button', { name: /cancel/i }).click();
       await expect(modal).not.toBeVisible({ timeout: 3_000 });
+    } finally {
+      if (qId) await deleteQuestionnaire(request, token, qId);
+    }
+  });
+
+  test('edit saves and increments version to v2', async ({ page, request }) => {
+    skipUnlessSeeded();
+
+    const token = await getAdminToken(request);
+    if (!token) return;
+
+    const uniqueKey = `e2e-v2-${Date.now()}`;
+    const uniqueTitle = `E2E V2 ${Date.now()}`;
+    const createRes = await createQuestionnaire(request, token, uniqueKey, uniqueTitle);
+    const created = await createRes.json();
+    const qId = created?._id ?? created?.questionnaire?._id;
+
+    try {
+      await loginAsAdmin(page);
+      await page.goto('/admin');
+      await page.getByRole('tab', { name: /questionnaires/i }).click();
+
+      await page.waitForSelector('table', { timeout: 10_000 });
+      await page.getByPlaceholder(/search by title, key or tag/i).fill(uniqueTitle);
+
+      const row = page.locator('tr', { hasText: uniqueTitle });
+      await expect(row.locator('text=v1')).toBeVisible({ timeout: 5_000 });
+
+      // Open edit modal and save with a new description
+      await row.getByRole('button', { name: /edit/i }).click();
+      const modal = page.locator('[role="dialog"]');
+      await expect(modal).toBeVisible();
+      await modal.locator('textarea').fill('Updated description');
+      await modal.getByRole('button', { name: /save/i }).click();
+      await expect(modal).not.toBeVisible({ timeout: 5_000 });
+
+      // Version should now be v2
+      await expect(row.locator('text=v2')).toBeVisible({ timeout: 5_000 });
+    } finally {
+      if (qId) await deleteQuestionnaire(request, token, qId);
+    }
+  });
+
+  test('delete modal explains that past answers are preserved', async ({ page, request }) => {
+    skipUnlessSeeded();
+
+    const token = await getAdminToken(request);
+    if (!token) return;
+
+    const uniqueKey = `e2e-del-info-${Date.now()}`;
+    const uniqueTitle = `E2E Del Info ${Date.now()}`;
+    const createRes = await createQuestionnaire(request, token, uniqueKey, uniqueTitle);
+    const created = await createRes.json();
+    const qId = created?._id ?? created?.questionnaire?._id;
+
+    try {
+      await loginAsAdmin(page);
+      await page.goto('/admin');
+      await page.getByRole('tab', { name: /questionnaires/i }).click();
+
+      await page.waitForSelector('table', { timeout: 10_000 });
+      await page.getByPlaceholder(/search by title, key or tag/i).fill(uniqueTitle);
+
+      const row = page.locator('tr', { hasText: uniqueTitle });
+      await row.getByRole('button', { name: /delete/i }).click();
+
+      const confirmDialog = page.locator('[role="dialog"]');
+      await expect(confirmDialog).toBeVisible();
+
+      // Info text about preserved answers must be visible
+      await expect(confirmDialog.locator('text=/answers are preserved/i')).toBeVisible();
+
+      // Dismiss without deleting
+      await confirmDialog.getByRole('button', { name: /cancel/i }).click();
+      await expect(confirmDialog).not.toBeVisible({ timeout: 3_000 });
     } finally {
       if (qId) await deleteQuestionnaire(request, token, qId);
     }
