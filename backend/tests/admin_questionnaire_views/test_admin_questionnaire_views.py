@@ -297,7 +297,7 @@ def test_delete_removes_questionnaire_from_plan_but_past_answers_survive():
     PatientICFRating records (past answers) are unaffected — they reference
     FeedbackQuestion directly, not via HealthQuestionnaire.
     """
-    from core.models import FeedbackQuestion, FeedbackEntry, PatientICFRating, Translation
+    from core.models import FeedbackEntry, FeedbackQuestion, PatientICFRating, Translation
 
     q = _make_questionnaire(key="cascade-ans")
     plan = _make_plan_with_questionnaire(q)
