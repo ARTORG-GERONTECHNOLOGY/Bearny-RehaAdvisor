@@ -631,9 +631,9 @@ def list_patient_questionnaires(request, patient_id):
                     # title/description that was current when they were assigned,
                     # even if an admin later renames the questionnaire.
                     "title": title_snapshot if title_snapshot else qdoc.title,
-                    "description": description_snapshot
-                    if description_snapshot is not None
-                    else (qdoc.description or ""),
+                    "description": (
+                        description_snapshot if description_snapshot is not None else (qdoc.description or "")
+                    ),
                     "frequency": freq,
                     "dates": [d.isoformat() for d in (a.dates or [])],
                     "question_count": len(questions),

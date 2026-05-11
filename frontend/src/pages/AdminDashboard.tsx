@@ -826,7 +826,11 @@ const AdminDashboard: React.FC = observer(() => {
                         <th>{t('Tags')}</th>
                         <th>{t('Questions')}</th>
                         <th>{t('Used in plans')}</th>
-                        <th title={t('Increments each time an admin edits title, description or tags')}>
+                        <th
+                          title={t(
+                            'Increments each time an admin edits title, description or tags'
+                          )}
+                        >
                           {t('Version')}
                         </th>
                         <th>{t('Created by')}</th>
@@ -1214,7 +1218,7 @@ const AdminDashboard: React.FC = observer(() => {
                   {t('This questionnaire is currently assigned to')}{' '}
                   <strong>{qDeleteModal.usageCount}</strong>{' '}
                   {t(
-                    'rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients\' future schedules and cannot be assigned to new patients.'
+                    "rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients' future schedules and cannot be assigned to new patients."
                   )}
                 </Alert>
               )}
