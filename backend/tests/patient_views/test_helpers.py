@@ -102,6 +102,10 @@ def test_patient_helpers_media_feedback_logs_and_parsers(monkeypatch):
     rows = _serialize_media_list(intervention)
     assert len(rows) == 2
     assert rows[0]["url"] == "https://example.com"
+    assert rows[0].get("file_url") is None  # external kind — no file_url
+    # file-kind row must expose file_url so PlayableMedia can render it
+    assert rows[1]["file_url"] is not None
+    assert rows[1]["file_url"].startswith("https://cdn.example.com/")
 
     q = SimpleNamespace(
         id=ObjectId(),

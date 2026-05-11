@@ -1237,5 +1237,10 @@
   "Diagnosis auto-apply mode": "Mode d’attribution automatique par diagnostic",
   "Start assigning from date": "Commencer l’attribution à partir de la date",
   "Defaults to today. Existing patients receive sessions from this date onward.": "Par défaut aujourd’hui. Les patients existants reçoivent des séances à partir de cette date.",
-  "New matching patients means future registrations with this diagnosis.": "Nouveaux patients correspondants signifie inscriptions futures avec ce diagnostic."
+  "New matching patients means future registrations with this diagnosis.": "Nouveaux patients correspondants signifie inscriptions futures avec ce diagnostic.",
+  "multiMediaExcelInfo": "Pour ajouter plusieurs médias à une intervention, ajoutez un numéro de slot à l'ID : ex. 3500_web_de pour le fichier principal, 3500_web_de_2 pour un deuxième fichier, 3500_web_de_3 pour un troisième. Chaque ligne dans le fichier Excel est un slot distinct. Les slots existants sont remplacés individuellement ; les autres restent inchangés.",
+  "multiMediaFileUploadInfo": "Pour ajouter plusieurs fichiers médias à une intervention, ajoutez un numéro de slot au nom du fichier : ex. 3500_web_de.mp4 (principal), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Chaque fichier téléchargé remplace uniquement son propre slot ; les autres restent inchangés.",
+  "multiMediaManualUploadInfo": "Vous pouvez ajouter plusieurs éléments médias à une intervention. Utilisez le bouton 'Ajouter un média' pour chaque fichier ou lien supplémentaire. Le premier élément est le média principal ; les éléments supplémentaires sont affichés sous forme d'onglets dans la vue patient.",
+  "Multiple media per intervention": "Plusieurs médias par intervention",
+  "No media available.": "Aucun média disponible."
 }

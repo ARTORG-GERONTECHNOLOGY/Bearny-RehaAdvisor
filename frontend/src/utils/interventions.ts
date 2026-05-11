@@ -25,6 +25,9 @@ export type InterventionMedia = {
   mime?: string | null;
 
   thumbnail?: string | null;
+
+  // Multi-media slot: null/absent = primary, 2,3,… = additional slots
+  media_slot?: number | null;
 };
 
 /** ---------------- tiny type helpers ---------------- */
@@ -120,6 +123,9 @@ export function getAllMedia(item?: unknown): InterventionMedia[] {
             ? guessMediaTypeFromUrl(fileUrl) || guessMediaTypeFromFilePath(filePath)
             : guessMediaTypeFromUrl(embed || url));
 
+        const slotRaw = get(m, 'media_slot');
+        const mediaSlot = typeof slotRaw === 'number' ? slotRaw : null;
+
         return {
           kind,
           media_type: (derivedType || 'website') as InterventionMedia['media_type'],
@@ -131,10 +137,16 @@ export function getAllMedia(item?: unknown): InterventionMedia[] {
           file_url: (get(m, 'file_url') as string) ?? (get(m, 'fileUrl') as string) ?? null,
           mime: (get(m, 'mime') as string) ?? null,
           thumbnail: (get(m, 'thumbnail') as string) ?? null,
+          media_slot: mediaSlot,
         };
       })
       .filter((x): x is InterventionMedia => Boolean(x))
-      .filter((m) => m.kind === 'external' || m.kind === 'file');
+      .filter((m) => m.kind === 'external' || m.kind === 'file')
+      .sort((a, b) => {
+        const sa = a.media_slot ?? 1;
+        const sb = b.media_slot ?? 1;
+        return sa - sb;
+      });
   }
 
   // Legacy fallback

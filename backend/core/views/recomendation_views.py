@@ -806,12 +806,18 @@ def add_new_intervention(request):
         if preview_img:
             preview_path = _save_file(preview_img, "images", title)
 
-        # de-dup media items
+        # de-dup media items and assign slot numbers (first=None, rest=2,3,…)
         merged: List[InterventionMedia] = []
         seen = set()
-        for m in media_items:
+        slot_counter = 2
+        for idx, m in enumerate(media_items):
             k = _media_key(m)
             if k not in seen:
+                if idx == 0:
+                    m.media_slot = None
+                else:
+                    m.media_slot = slot_counter
+                    slot_counter += 1
                 merged.append(m)
                 seen.add(k)
 

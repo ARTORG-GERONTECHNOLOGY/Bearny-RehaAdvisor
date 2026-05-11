@@ -1235,5 +1235,10 @@
   "Diagnosis auto-apply mode": "Diagnosis auto-apply mode",
   "Start assigning from date": "Start assigning from date",
   "Defaults to today. Existing patients receive sessions from this date onward.": "Defaults to today. Existing patients receive sessions from this date onward.",
-  "New matching patients means future registrations with this diagnosis.": "New matching patients means future registrations with this diagnosis."
+  "New matching patients means future registrations with this diagnosis.": "New matching patients means future registrations with this diagnosis.",
+  "multiMediaExcelInfo": "To add multiple media to one intervention, append a slot number to the ID: e.g. 3500_web_de for the primary file, 3500_web_de_2 for a second file, 3500_web_de_3 for a third. Each row in the Excel sheet is a separate slot. Existing slots are replaced individually; other slots are kept.",
+  "multiMediaFileUploadInfo": "To add multiple media files to one intervention, append a slot number to the filename: e.g. 3500_web_de.mp4 (primary), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Each uploaded file replaces only its own slot; other slots are kept.",
+  "multiMediaManualUploadInfo": "You can add multiple media items to one intervention. Use the 'Add media' button for each additional file or link. The first item is the primary media; additional items are shown as tabs in the patient view.",
+  "Multiple media per intervention": "Multiple media per intervention",
+  "No media available.": "No media available."
 }
