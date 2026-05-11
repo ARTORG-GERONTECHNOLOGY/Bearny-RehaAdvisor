@@ -254,8 +254,7 @@ def user_profile_view(request, user_id):
             patient = Patient.objects.get(pk=ObjectId(user_id))
             user = patient.userId
         except Patient.DoesNotExist:
-            logger.exception("Error fetching profile")
-            return JsonResponse({"error": "Error fetching profile"}, status=500)
+            return JsonResponse({"error": "User not found"}, status=404)
 
     target_role = getattr(user, "role", "Patient")
 
