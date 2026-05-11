@@ -150,9 +150,7 @@ const AdminDashboard: React.FC = observer(() => {
     setQuestionnaireError(null);
     try {
       const res = await apiClient.get('/admin/questionnaires/');
-      setQuestionnaires(
-        Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []
-      );
+      setQuestionnaires(Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []);
     } catch (e: any) {
       setQuestionnaireError(
         e?.response?.data?.error || e?.message || 'Failed to load questionnaires.'
@@ -788,11 +786,7 @@ const AdminDashboard: React.FC = observer(() => {
               {/* ── Tab 4: questionnaires ── */}
               <Tab.Pane eventKey="questionnaires">
                 {questionnaireError && (
-                  <Alert
-                    variant="danger"
-                    dismissible
-                    onClose={() => setQuestionnaireError(null)}
-                  >
+                  <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
                     {questionnaireError}
                   </Alert>
                 )}
@@ -810,11 +804,7 @@ const AdminDashboard: React.FC = observer(() => {
                     onClick={fetchQuestionnaires}
                     disabled={questionnaireLoading}
                   >
-                    {questionnaireLoading ? (
-                      <Spinner animation="border" size="sm" />
-                    ) : (
-                      t('Refresh')
-                    )}
+                    {questionnaireLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
                   </Button>
                 </div>
 
@@ -1220,7 +1210,9 @@ const AdminDashboard: React.FC = observer(() => {
         {/* Edit questionnaire modal */}
         <Modal
           show={qEditModal.open}
-          onHide={() => setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })}
+          onHide={() =>
+            setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+          }
           centered
         >
           <Modal.Header closeButton>
@@ -1251,7 +1243,9 @@ const AdminDashboard: React.FC = observer(() => {
                 />
               </Form.Group>
               <Form.Group>
-                <Form.Label>{t('Tags')} <small className="text-muted">({t('comma-separated')})</small></Form.Label>
+                <Form.Label>
+                  {t('Tags')} <small className="text-muted">({t('comma-separated')})</small>
+                </Form.Label>
                 <Form.Control
                   type="text"
                   value={qEditModal.tags}
