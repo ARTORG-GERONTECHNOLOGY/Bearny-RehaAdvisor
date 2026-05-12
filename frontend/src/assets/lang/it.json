@@ -1268,7 +1268,7 @@
   "Failed to save.": "Salvataggio non riuscito.",
   "Search by title, key or tag…": "Cerca per titolo, chiave o tag…",
   "multiMediaExcelInfo": "Per aggiungere più media a un intervento, aggiungere un numero di slot all'ID: es. 3500_web_de per il file principale, 3500_web_de_2 per un secondo file, 3500_web_de_3 per un terzo. Ogni riga nel file Excel è uno slot separato. Gli slot esistenti vengono sostituiti singolarmente; gli altri restano invariati.",
-  "multiMediaFileUploadInfo": "Per aggiungere più file multimediali a un intervento, aggiungere un numero di slot al nome del file: es. 3500_web_de.mp4 (principale), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Ogni file caricato sostituisce solo il proprio slot; gli altri rimangono invariati.",
+  "multiMediaFileUploadInfo": "Per aggiungere più file multimediali a un intervento, aggiungere un numero di slot al nome del file: es. 3500_web_de.mp4 (principale), 3500_web_de_2.mp4 (slot 2), 3500_web_de_3.mp4 (slot 3). Formati audio accettati: mp3, m4a, wav. Ogni file caricato sostituisce solo il proprio slot; gli altri rimangono invariati.",
   "multiMediaManualUploadInfo": "È possibile aggiungere più elementi multimediali a un intervento. Usare il pulsante 'Aggiungi media' per ogni file o link aggiuntivo. Il primo elemento è il media principale; gli elementi aggiuntivi vengono mostrati come schede nella vista paziente.",
   "Multiple media per intervention": "Più media per intervento",
   "No media available.": "Nessun media disponibile."
