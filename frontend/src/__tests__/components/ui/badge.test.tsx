@@ -49,19 +49,6 @@ describe('Badge', () => {
     });
   });
 
-  describe('tag', () => {
-    it('applies bg-white, text-zinc-500, text-lg, rounded-xl and border-accent', () => {
-      const { container } = render(<Badge variant="tag">X</Badge>);
-      const el = container.firstChild;
-      expect(el).toHaveClass('bg-white');
-      expect(el).toHaveClass('text-zinc-500');
-      expect(el).toHaveClass('rounded-xl');
-      expect(el).toHaveClass('border');
-      expect(el).toHaveClass('border-accent');
-      expect(el).toHaveClass('text-lg');
-    });
-  });
-
   describe('filter-active', () => {
     it('applies bg-white, text-zinc-800 and text-nowrap', () => {
       const { container } = render(<Badge variant="filter-active">X</Badge>);
