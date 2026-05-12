@@ -10,7 +10,6 @@ const badgeVariants = cva(
       variant: {
         section: 'bg-zinc-50 text-zinc-500',
         card: 'bg-white text-brand rounded-xl pl-[10px] pr-3 border border-accent',
-        tag: 'bg-white text-zinc-500 rounded-xl border border-accent text-lg',
         'filter-active': 'bg-white text-zinc-800 text-nowrap',
         'filter-inactive': 'bg-zinc-50 text-zinc-400 text-nowrap',
       },
