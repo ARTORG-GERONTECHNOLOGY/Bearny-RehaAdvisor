@@ -27,7 +27,8 @@ const FILE_NAME_RE =
   /^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2})\.(mp4|mp3|m4a|wav|pdf|jpg|jpeg|png)$/i;
 
 const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.m4a,.wav,.pdf,.jpg,.jpeg,.png';
-const ACCEPTED_MIME = 'video/mp4,audio/mpeg,audio/mp4,audio/wav,application/pdf,image/jpeg,image/png';
+const ACCEPTED_MIME =
+  'video/mp4,audio/mpeg,audio/mp4,audio/wav,application/pdf,image/jpeg,image/png';
 
 const MAX_FILE_SIZE_MB = 1024; // 1 GB
 const MAX_EXCEL_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
