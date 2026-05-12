@@ -19,12 +19,13 @@ type Props = {
 };
 
 // Client-side filename validation — mirrors backend _FILENAME_RE exactly.
-// Matches: {4-5 digits}_{format}_{lang}.{ext}
-// e.g. 3500_web_de.mp4  → external_id = 3500_web
-//      3500_aud_de.mp3  → external_id = 3500_aud
-//      3500_pdf_de.pdf  → external_id = 3500_pdf
+// Matches: {4-5 digits}_{format}_{lang}[_{slot}].{ext}
+// e.g. 3500_web_de.mp4    → external_id = 3500_web
+//      3500_web_de_2.mp4  → external_id = 3500_web  (slot 2)
+//      3500_aud_de.mp3    → external_id = 3500_aud
+//      3500_pdf_de.pdf    → external_id = 3500_pdf
 const FILE_NAME_RE =
-  /^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2})\.(mp4|mp3|m4a|wav|pdf|jpg|jpeg|png)$/i;
+  /^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2}(?:_\d+)?)\.(mp4|mp3|m4a|wav|pdf|jpg|jpeg|png)$/i;
 
 const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.m4a,.wav,.pdf,.jpg,.jpeg,.png';
 const ACCEPTED_MIME =
@@ -54,11 +55,12 @@ function validateMediaFile(file: File): ValidatedFile {
   const tooLarge = file.size > maxSizeMB * 1024 * 1024;
   const m = FILE_NAME_RE.exec(file.name);
   if (!m) return { file, valid: false, externalId: null, tooLarge, maxSizeMB };
-  // Derive external_id: strip trailing _XX language suffix
-  const stem = m[1];
-  const parts = stem.split('_');
-  const externalId = parts.length >= 2 ? parts.slice(0, -1).join('_') : stem;
-  return { file, valid: true, externalId: externalId.toLowerCase(), tooLarge, maxSizeMB };
+  // Derive external_id: strip optional trailing slot number then language suffix
+  // e.g. 40500_vid_de_2 → strip '2' → 40500_vid_de → strip 'de' → 40500_vid
+  const parts = m[1].toLowerCase().split('_');
+  const withoutSlot = /^\d+$/.test(parts[parts.length - 1]) ? parts.slice(0, -1) : parts;
+  const externalId = withoutSlot.length >= 2 ? withoutSlot.slice(0, -1).join('_') : withoutSlot.join('_');
+  return { file, valid: true, externalId, tooLarge, maxSizeMB };
 }
 
 const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSuccess }) => {
