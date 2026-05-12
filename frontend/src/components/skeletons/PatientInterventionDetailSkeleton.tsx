@@ -14,8 +14,6 @@ export default function PatientInterventionDetailSkeleton() {
         <Skeleton className="h-56 w-full rounded-[40px]" />
         {/* Content */}
         <Skeleton className="h-56 w-full rounded-[40px]" />
-        {/* Tags */}
-        <Skeleton className="h-56 w-full rounded-[40px]" />
       </div>
     </Layout>
   );

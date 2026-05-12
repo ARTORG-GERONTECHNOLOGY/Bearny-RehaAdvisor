@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body {
+  @apply bg-back;
+}
+
 /* Better “safe” wrapping for long localized strings (older browsers fallback gracefully) */
 .lead {
   overflow-wrap: anywhere;
