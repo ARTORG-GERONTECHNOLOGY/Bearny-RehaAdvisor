@@ -13,7 +13,7 @@ from utils.interventions import _save_file
 # The optional trailing _{slot} (integer ≥ 2) identifies additional media slots
 # for the same intervention (e.g. 3500_web_de_2.mp4 is slot 2 of 3500_web_de).
 _FILENAME_RE = re.compile(
-    r"^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2}(?:_\d+)?)\.(mp4|mp3|wav|pdf|jpg|jpeg|png)$",
+    r"^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2}(?:_\d+)?)\.(mp4|mp3|m4a|wav|pdf|jpg|jpeg|png)$",
     re.IGNORECASE,
 )
 
@@ -22,6 +22,7 @@ _FILENAME_RE = re.compile(
 _EXT_INFO: Dict[str, Tuple[str, str, str]] = {
     "mp4": ("video", "video/mp4", "videos"),
     "mp3": ("audio", "audio/mpeg", "audio"),
+    "m4a": ("audio", "audio/mp4", "audio"),
     "wav": ("audio", "audio/wav", "audio"),
     "pdf": ("pdf", "application/pdf", "documents"),
     "jpg": ("image", "image/jpeg", "images"),
@@ -69,10 +70,10 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
                 "Filename does not match naming convention. "
                 "Expected: {4-5 digits}_{format}_{lang}[_{slot}].{ext}  "
                 "e.g. 3500_web_de.mp4, 3500_web_de_2.mp4 (slot 2), "
-                "3500_aud_de.mp3, 3500_pdf_de.pdf, 3500_img_de.jpg. "
+                "3500_aud_de.mp3, 3500_aud_de.m4a, 3500_pdf_de.pdf, 3500_img_de.jpg. "
                 "Valid formats: vid, img, pdf, web, aud, app, br, gfx. "
                 "Valid languages: de, fr, it, pt, nl, en. "
-                "Valid extensions: mp4, mp3, wav, pdf, jpg, jpeg, png."
+                "Valid extensions: mp4, mp3, m4a, wav, pdf, jpg, jpeg, png."
             ),
         }
 
@@ -147,7 +148,7 @@ def upload_intervention_media(request):
 
     Each file must:
       - have a filename matching {4-5 digits}_{format}_{lang}.{ext}
-        e.g. 3500_web_de.mp4, 3500_aud_de.mp3, 3500_pdf_de.pdf, 3500_img_de.jpg
+        e.g. 3500_web_de.mp4, 3500_aud_de.mp3, 3500_aud_de.m4a, 3500_pdf_de.pdf, 3500_img_de.jpg
       - correspond to an existing Intervention with the matching external_id AND language
 
     The language suffix (e.g. _de) determines which language variant receives the file.
