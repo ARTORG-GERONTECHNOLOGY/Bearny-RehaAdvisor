@@ -79,7 +79,7 @@ def redcap_patient(request):
             if rows:
                 matches.append({"project": proj, "count": len(rows), "rows": rows})
         except RedcapError as e:
-            logger.exception("REDCap error in redcap_patient (project=%s)", proj)
+            logger.warning("REDCap error in redcap_patient (project=%s): %s", proj, e)
             errors.append({"project": proj, "error": str(e), "detail": getattr(e, "detail", None)})
         except Exception as e:
             logger.exception("Unexpected error in redcap_patient (project=%s)", proj)

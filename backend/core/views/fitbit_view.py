@@ -683,8 +683,14 @@ def health_combined_history(request, patient_id):
         to_str = request.GET.get("to")
 
         if from_str and to_str:
-            from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date()
-            to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date()
+            try:
+                from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date()
+                to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date()
+            except ValueError:
+                return JsonResponse(
+                    {"error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=400,
+                )
         else:
             to_date = timezone.now().date()
             from_date = to_date - timedelta(days=30)
