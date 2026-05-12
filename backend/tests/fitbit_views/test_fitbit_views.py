@@ -458,11 +458,11 @@ def test_health_combined_history_success_merges_fitbit_vitals_and_lists(
     assert len(body["adherence"]) == 1
 
 
-def test_health_combined_history_invalid_date_query_returns_500():
+def test_health_combined_history_invalid_date_query_returns_400():
     _, _, _, patient = create_patient_graph()
     req = rf.get(f"/api/patients/health-combined-history/{patient.id}/?from=bad&to=bad")
     resp = health_combined_history(req, str(patient.id))
-    assert resp.status_code == 500
+    assert resp.status_code == 400
     assert "error" in json.loads(resp.content)
 
 
