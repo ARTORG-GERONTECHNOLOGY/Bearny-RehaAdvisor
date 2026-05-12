@@ -24,10 +24,11 @@ type Props = {
 //      3500_aud_de.mp3  → external_id = 3500_aud
 //      3500_pdf_de.pdf  → external_id = 3500_pdf
 const FILE_NAME_RE =
-  /^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2})\.(mp4|mp3|wav|pdf|jpg|jpeg|png)$/i;
+  /^(\d{4,5}_(?:vid|img|pdf|web|aud|app|br|gfx)_[a-z]{2})\.(mp4|mp3|m4a|wav|pdf|jpg|jpeg|png)$/i;
 
-const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.wav,.pdf,.jpg,.jpeg,.png';
-const ACCEPTED_MIME = 'video/mp4,audio/mpeg,audio/wav,application/pdf,image/jpeg,image/png';
+const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.m4a,.wav,.pdf,.jpg,.jpeg,.png';
+const ACCEPTED_MIME =
+  'video/mp4,audio/mpeg,audio/mp4,audio/wav,application/pdf,image/jpeg,image/png';
 
 const MAX_FILE_SIZE_MB = 1024; // 1 GB
 const MAX_EXCEL_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -145,7 +146,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
     e.target.value = '';
   };
 
-  const ACCEPTED_EXTS_SET = new Set(['mp4', 'mp3', 'wav', 'pdf', 'jpg', 'jpeg', 'png']);
+  const ACCEPTED_EXTS_SET = new Set(['mp4', 'mp3', 'm4a', 'wav', 'pdf', 'jpg', 'jpeg', 'png']);
 
   const handleMediaDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -431,7 +432,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 {'  ·  '}
                 {t('Valid languages')}: <code>de, fr, it, pt, nl, en</code>
                 {'  ·  '}
-                {t('Valid extensions')}: <code>mp4, mp3, wav, pdf, jpg, jpeg, png</code>
+                {t('Valid extensions')}: <code>mp4, mp3, m4a, wav, pdf, jpg, jpeg, png</code>
               </div>
               <div className="mt-1 text-muted">
                 {t(
@@ -456,7 +457,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             >
               <div className="text-muted">{t('Drag & drop files here, or click to browse')}</div>
               <div className="text-muted" style={{ fontSize: '0.8em' }}>
-                mp4 · mp3 · wav · pdf · jpg · png
+                mp4 · mp3 · m4a · wav · pdf · jpg · png
               </div>
               <Form.Control
                 id="media-file-input"

@@ -136,6 +136,15 @@ class TestFilenameRegex:
     def test_wav_accepted(self):
         assert _FILENAME_RE.match("3500_aud_it.wav")
 
+    def test_m4a_accepted(self):
+        assert _FILENAME_RE.match("3500_aud_de.m4a")
+        assert _FILENAME_RE.match("30500_aud_fr.m4a")
+        assert _FILENAME_RE.match("3500_aud_en.M4A")  # case-insensitive
+
+    def test_m4a_slot_suffix_accepted(self):
+        assert _FILENAME_RE.match("3500_aud_de_2.m4a")
+        assert _FILENAME_RE.match("3500_aud_fr_3.m4a")
+
     def test_pdf_accepted(self):
         assert _FILENAME_RE.match("3500_pdf_de.pdf")
         assert _FILENAME_RE.match("30500_pdf_en.pdf")
@@ -290,6 +299,48 @@ def test_mp3_upload_sets_audio_media_type(mock_save):
     assert len(doc.media) == 1
     assert doc.media[0].media_type == "audio"
     assert doc.media[0].mime == "audio/mpeg"
+
+
+@patch("core.views.intervention_media_upload._save_file", return_value="audio/3500_aud.m4a")
+def test_m4a_upload_sets_audio_media_type(mock_save):
+    _make_intervention("3500_aud", "de", "German M4A Audio")
+
+    f = _file("3500_aud_de.m4a", b"fake-m4a-audio", "audio/mp4")
+    r = client.post(URL, data={"files[]": f}, **AUTH)
+    assert r.status_code == 200
+    result = r.json()["results"][0]
+    assert result["status"] == "ok"
+    assert result["language"] == "de"
+
+    doc = Intervention.objects(external_id="3500_aud", language="de").first()
+    assert len(doc.media) == 1
+    assert doc.media[0].media_type == "audio"
+    assert doc.media[0].mime == "audio/mp4"
+
+
+@patch("core.views.intervention_media_upload._save_file", return_value="audio/saved.m4a")
+def test_m4a_uses_audio_folder(mock_save):
+    _make_intervention("1234_aud", "en", "M4A Folder Test")
+    f = _file("1234_aud_en.m4a", b"data", "audio/mp4")
+    client.post(URL, data={"files[]": f}, **AUTH)
+    assert mock_save.call_args[0][1] == "audio"
+
+
+@patch("core.views.intervention_media_upload._save_file", return_value="audio/3500_aud_slot2.m4a")
+def test_m4a_slot_upload(mock_save):
+    _make_intervention("3500_aud", "de", "German M4A Audio")
+
+    f = _file("3500_aud_de_2.m4a", b"fake-m4a-audio", "audio/mp4")
+    r = client.post(URL, data={"files[]": f}, **AUTH)
+    assert r.status_code == 200
+    result = r.json()["results"][0]
+    assert result["status"] == "ok"
+    assert result["media_slot"] == 2
+
+    doc = Intervention.objects(external_id="3500_aud", language="de").first()
+    assert len(doc.media) == 1
+    assert doc.media[0].media_slot == 2
+    assert doc.media[0].media_type == "audio"
 
 
 @patch("core.views.intervention_media_upload._save_file", return_value="documents/3500_pdf.pdf")
