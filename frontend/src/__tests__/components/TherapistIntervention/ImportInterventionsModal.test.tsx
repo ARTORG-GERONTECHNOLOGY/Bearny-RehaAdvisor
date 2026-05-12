@@ -202,6 +202,41 @@ describe('Media file validation', () => {
     expect(screen.getByText('30500_vid')).toBeInTheDocument();
   });
 
+  it('shows ✓ badge and correct external_id for slot-2 mp4 (e.g. 40500_vid_de_2.mp4)', () => {
+    openMediaTab();
+    addFile(new File(['data'], '40500_vid_de_2.mp4', { type: 'video/mp4' }));
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('40500_vid')).toBeInTheDocument();
+  });
+
+  it('shows ✓ badge for slot-9 file (40500_vid_de_9.mp4)', () => {
+    openMediaTab();
+    addFile(new File(['data'], '40500_vid_de_9.mp4', { type: 'video/mp4' }));
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('40500_vid')).toBeInTheDocument();
+  });
+
+  it('shows ✓ badge for 5-digit ID with slot suffix (30500_web_fr_3.mp4)', () => {
+    openMediaTab();
+    addFile(new File(['data'], '30500_web_fr_3.mp4', { type: 'video/mp4' }));
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('30500_web')).toBeInTheDocument();
+  });
+
+  it('shows ✓ badge for slot audio file (3500_aud_de_2.mp3)', () => {
+    openMediaTab();
+    addFile(new File(['data'], '3500_aud_de_2.mp3', { type: 'audio/mpeg' }));
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('3500_aud')).toBeInTheDocument();
+  });
+
+  it('shows ✓ badge for slot m4a file (3500_aud_de_2.m4a)', () => {
+    openMediaTab();
+    addFile(new File(['data'], '3500_aud_de_2.m4a', { type: 'audio/mp4' }));
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('3500_aud')).toBeInTheDocument();
+  });
+
   it('Upload button becomes enabled after a valid file is added', () => {
     openMediaTab();
     expect(screen.getByRole('button', { name: /^Upload$/i })).toBeDisabled();
