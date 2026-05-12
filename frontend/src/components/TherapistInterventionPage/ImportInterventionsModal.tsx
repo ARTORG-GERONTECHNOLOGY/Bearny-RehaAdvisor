@@ -59,7 +59,8 @@ function validateMediaFile(file: File): ValidatedFile {
   // e.g. 40500_vid_de_2 → strip '2' → 40500_vid_de → strip 'de' → 40500_vid
   const parts = m[1].toLowerCase().split('_');
   const withoutSlot = /^\d+$/.test(parts[parts.length - 1]) ? parts.slice(0, -1) : parts;
-  const externalId = withoutSlot.length >= 2 ? withoutSlot.slice(0, -1).join('_') : withoutSlot.join('_');
+  const externalId =
+    withoutSlot.length >= 2 ? withoutSlot.slice(0, -1).join('_') : withoutSlot.join('_');
   return { file, valid: true, externalId, tooLarge, maxSizeMB };
 }
 
