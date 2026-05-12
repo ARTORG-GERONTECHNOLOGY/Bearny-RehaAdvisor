@@ -1260,7 +1260,7 @@
   "Failed to save.": "Speichern fehlgeschlagen.",
   "Search by title, key or tag…": "Nach Titel, Schlüssel oder Tag suchen…",
   "multiMediaExcelInfo": "Um mehrere Medien zu einer Intervention hinzuzufügen, hängen Sie eine Slot-Nummer an die ID an: z.B. 3500_web_de für die Hauptdatei, 3500_web_de_2 für eine zweite Datei, 3500_web_de_3 für eine dritte. Jede Zeile in der Excel-Tabelle ist ein eigener Slot. Vorhandene Slots werden einzeln ersetzt; andere Slots bleiben erhalten.",
-  "multiMediaFileUploadInfo": "Um mehrere Mediendateien zu einer Intervention hinzuzufügen, hängen Sie eine Slot-Nummer an den Dateinamen an: z.B. 3500_web_de.mp4 (Hauptmedium), 3500_web_de_2.mp4 (Slot 2), 3500_web_de_3.mp4 (Slot 3). Jede hochgeladene Datei ersetzt nur ihren eigenen Slot; andere Slots bleiben erhalten.",
+  "multiMediaFileUploadInfo": "Um mehrere Mediendateien zu einer Intervention hinzuzufügen, hängen Sie eine Slot-Nummer an den Dateinamen an: z.B. 3500_web_de.mp4 (Hauptmedium), 3500_web_de_2.mp4 (Slot 2), 3500_web_de_3.mp4 (Slot 3). Unterstützte Audioformate: mp3, m4a, wav. Jede hochgeladene Datei ersetzt nur ihren eigenen Slot; andere Slots bleiben erhalten.",
   "multiMediaManualUploadInfo": "Sie können mehrere Medienelemente zu einer Intervention hinzufügen. Verwenden Sie die Schaltfläche 'Medien hinzufügen' für jede weitere Datei oder jeden Link. Das erste Element ist das Hauptmedium; weitere Elemente werden in der Patientenansicht als Tabs angezeigt.",
   "Multiple media per intervention": "Mehrere Medien pro Intervention",
   "No media available.": "Keine Medien verfügbar."
