@@ -462,8 +462,7 @@ const Therapist: React.FC = observer(() => {
       return { level: 'unknown', tip: String(t('No feedback ever submitted')) };
     }
 
-    const daysStr =
-      daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : '';
+    const daysStr = daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : '';
 
     let level: Traffic;
 
