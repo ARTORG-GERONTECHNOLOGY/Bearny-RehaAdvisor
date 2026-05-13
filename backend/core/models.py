@@ -128,6 +128,9 @@ class FitbitData(Document):
     distance = FloatField()  # km
     calories = FloatField()
     active_minutes = IntField()
+    # Sub-zone breakdown from AZM endpoint: {"fat_burn": N, "cardio": N, "peak": N, "total": N}
+    # Null when device does not support AZM or when value was a plain integer (no sub-zones).
+    active_zone_minutes = DictField(null=True)
 
     # Sleep
     sleep = EmbeddedDocumentField(SleepData)

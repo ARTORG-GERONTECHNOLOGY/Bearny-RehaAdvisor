@@ -110,6 +110,7 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
         "heart_rate_zones": {},
     }
     breathing_data, hrv_data, sleep_data, exercise_data = {}, {}, {}, {}
+    azm_breakdown: dict[datetime.date, dict] = {}  # sub-zones: fat_burn/cardio/peak/total
 
     def fetch_series(series_key: str, url_suffix: str):
         url = f"{FITBIT_API_URL}/{url_suffix}/date/{date_range}.json"
@@ -165,6 +166,12 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             val = item.get("value")
             if isinstance(val, dict):
                 total = val.get("totalMinutes")
+                azm_breakdown[dt] = {
+                    "fat_burn": val.get("fatBurnActiveZoneMinutes"),
+                    "cardio": val.get("cardioActiveZoneMinutes"),
+                    "peak": val.get("peakActiveZoneMinutes"),
+                    "total": total,
+                }
             elif isinstance(val, (int, float)):
                 total = int(val)
             else:
@@ -281,6 +288,7 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             set__distance=series["distance"].get(dt),
             set__calories=series["calories"].get(dt),
             set__active_minutes=active_minutes,
+            set__active_zone_minutes=azm_breakdown.get(dt),
             set__max_heart_rate=max_hr,
             set__heart_rate_zones=series["heart_rate_zones"].get(dt),
             set__sleep=sleep_data.get(dt),

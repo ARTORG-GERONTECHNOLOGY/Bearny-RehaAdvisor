@@ -145,6 +145,7 @@ const PatientView: React.FC = observer(() => {
           stepsHistoryData={stepsHistoryData}
           activeMinutes={patientFitbitStore.summary?.today?.active_minutes}
           activeMinutesGoal={patientFitbitStore.summary?.thresholds?.active_minutes_green}
+          activeZoneMinutes={patientFitbitStore.summary?.today?.active_zone_minutes}
           sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}
           sleepMinutesGoal={patientFitbitStore.summary?.thresholds?.sleep_green_min}
           onOpenManualStepsEntry={() => setShowManualStepsEntry(true)}
