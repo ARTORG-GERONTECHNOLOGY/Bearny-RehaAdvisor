@@ -6,9 +6,7 @@ import {
   Badge,
   Button,
   Container,
-  Nav,
   OverlayTrigger,
-  Tab,
   Tooltip,
   ButtonGroup,
 } from 'react-bootstrap';
@@ -26,6 +24,8 @@ import {
   getMediaTypeLabelFromIntervention,
   getTagColor,
 } from '@/utils/interventions';
+import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
+import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 
 // ---------- types ----------
 type Props = {
@@ -248,7 +248,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const [variantsByLang, setVariantsByLang] = useState<Record<string, any>>({});
   const [loadingLangs, setLoadingLangs] = useState(false);
 
-  const [activeMediaTab, setActiveMediaTab] = useState<string>('media-0');
+  const [activeMediaIndex, setActiveMediaIndex] = useState<number>(0);
 
   // tag color map (same source as therapist list; fallback ok)
   const tagColors = useMemo(() => generateTagColors(getTaxonomyTags()), []);
@@ -443,9 +443,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     [effectiveMediaList]
   );
 
-  // Reset to first tab whenever the media list changes (e.g. item/language switch)
+  // Reset to first item whenever the media list changes (e.g. item/language switch)
   useEffect(() => {
-    setActiveMediaTab('media-0');
+    setActiveMediaIndex(0);
   }, [effectiveItem]);
 
   // media badge color same logic as therapist list
@@ -454,7 +454,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const mediaLabel = getMediaTypeLabelFromIntervention(interventionForBadges);
 
   const renderOneMedia = (m: InterventionMedia, idx: number, hideLabel = false) => {
-    const label = `${t('Media')} ${idx + 1}`;
+    const label = m.title || `${t('Media')} ${idx + 1}`;
     const playable = getPlayableUrl(m);
 
     return (
@@ -541,27 +541,60 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       return <div>{renderOneMedia(effectiveMediaList[0], 0)}</div>;
     }
 
-    // 2+ media items — show as tabs for a clean UX on both mobile and desktop
+    // 2+ media items — carousel: one item at a time with prev/next and dot indicators
+    const total = effectiveMediaList.length;
+    const clampedIndex = Math.min(activeMediaIndex, total - 1);
+
     return (
-      <Tab.Container activeKey={activeMediaTab} onSelect={(k) => setActiveMediaTab(k ?? 'media-0')}>
-        <Nav variant="tabs" className="mb-3 flex-wrap">
-          {effectiveMediaList.map((m, idx) => {
-            const label = `${t('Media')} ${idx + 1}`;
-            return (
-              <Nav.Item key={idx}>
-                <Nav.Link eventKey={`media-${idx}`}>{label}</Nav.Link>
-              </Nav.Item>
-            );
-          })}
-        </Nav>
-        <Tab.Content>
-          {effectiveMediaList.map((m, idx) => (
-            <Tab.Pane key={idx} eventKey={`media-${idx}`}>
-              {renderOneMedia(m, idx, true)}
-            </Tab.Pane>
-          ))}
-        </Tab.Content>
-      </Tab.Container>
+      <div data-testid="media-carousel">
+        {/* Current media */}
+        <div>{renderOneMedia(effectiveMediaList[clampedIndex], clampedIndex, false)}</div>
+
+        {/* Navigation bar */}
+        <div className="media-carousel__nav">
+          <button
+            className="btn btn-sm btn-outline-secondary media-carousel__arrow"
+            onClick={() => setActiveMediaIndex((i: number) => Math.max(0, i - 1))}
+            disabled={clampedIndex === 0}
+            aria-label={t('Previous media')}
+            data-testid="media-prev"
+          >
+            <ArrowLeftIcon aria-hidden="true" />
+          </button>
+
+          <div className="media-carousel__center">
+            {/* Dot indicators — only when ≤7 items to keep UI clean */}
+            {total <= 7 && (
+              <div className="media-carousel__dots" role="tablist" aria-label={t('Media items')}>
+                {effectiveMediaList.map((m, i) => (
+                  <button
+                    key={i}
+                    role="tab"
+                    aria-selected={i === clampedIndex}
+                    aria-label={m.title || `${t('Media')} ${i + 1}`}
+                    className={`media-dot${i === clampedIndex ? ' active' : ''}`}
+                    onClick={() => setActiveMediaIndex(i)}
+                    data-testid={`media-dot-${i}`}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="media-carousel__counter" aria-live="polite">
+              {clampedIndex + 1} / {total}
+            </div>
+          </div>
+
+          <button
+            className="btn btn-sm btn-outline-secondary media-carousel__arrow"
+            onClick={() => setActiveMediaIndex((i: number) => Math.min(total - 1, i + 1))}
+            disabled={clampedIndex === total - 1}
+            aria-label={t('Next media')}
+            data-testid="media-next"
+          >
+            <ArrowRightIcon aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     );
   };
 
@@ -690,18 +723,17 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
         </Container>
 
         <style>{`
-          /* Pills row */
-          .meta-tag-row{
-            display:flex;
-            flex-wrap:wrap;
+          .meta-tag-row {
+            display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-top: 8px;
             position: relative;
-            z-index: 3; /* ensure above muted text backgrounds */
+            z-index: 3;
           }
-          .meta-pill{
-            display:inline-flex;
-            align-items:center;
+          .meta-pill {
+            display: inline-flex;
+            align-items: center;
             padding: 8px 12px;
             border-radius: 10px;
             font-weight: 800;
@@ -711,6 +743,62 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+          }
+          /* ── Media carousel ─────────────────────────────── */
+          .media-carousel__nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            gap: 8px;
+          }
+          .media-carousel__arrow {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .media-carousel__arrow svg {
+            width: 16px;
+            height: 16px;
+          }
+          .media-carousel__center {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 0;
+          }
+          .media-carousel__dots {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+          .media-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            background-color: #dee2e6;
+            transition: background-color 0.2s, width 0.15s, height 0.15s;
+          }
+          .media-dot.active {
+            background-color: #0d6efd;
+            width: 10px;
+            height: 10px;
+          }
+          .media-carousel__counter {
+            font-size: 0.78rem;
+            color: #6c757d;
+            user-select: none;
           }
         `}</style>
       </Modal.Body>

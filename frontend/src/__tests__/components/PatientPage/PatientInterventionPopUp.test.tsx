@@ -8,6 +8,20 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
+// SVG icon stubs
+jest.mock('@/assets/icons/arrow-left-fill.svg?react', () => ({
+  __esModule: true,
+  default: function ArrowLeft(props: any) {
+    return <svg data-testid="arrow-left" {...props} />;
+  },
+}));
+jest.mock('@/assets/icons/arrow-right-fill.svg?react', () => ({
+  __esModule: true,
+  default: function ArrowRight(props: any) {
+    return <svg data-testid="arrow-right" {...props} />;
+  },
+}));
+
 import { render, screen, fireEvent } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
@@ -58,6 +72,12 @@ const defaultItem = {
   benefitFor: ['Flexibility'],
 };
 
+// Helper: build an item with an explicit media array (the structured format)
+const itemWithMedia = (...mediaEntries: Array<{ media_type: string; url: string; title: string }>) => ({
+  ...defaultItem,
+  media: mediaEntries.map((m) => ({ kind: 'external', ...m })),
+});
+
 describe('PatientInterventionPopUp Component', () => {
   it('renders title, description, and tags correctly', () => {
     render(<PatientInterventionPopUp show={true} item={defaultItem} handleClose={jest.fn()} />);
@@ -101,7 +121,6 @@ describe('PatientInterventionPopUp Component', () => {
       content_type: 'Audio',
     };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
-    // Audio files are also rendered using ReactPlayer (video-player testid)
     expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
@@ -129,7 +148,6 @@ describe('PatientInterventionPopUp Component', () => {
     (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Link');
     const item = { ...defaultItem, link: 'https://example.com', content_type: 'Link' };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
-    // Link URLs are rendered using ReactPlayer (video-player), not Microlink
     expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
@@ -144,25 +162,132 @@ describe('PatientInterventionPopUp Component', () => {
     const images = screen.getAllByRole('img');
     expect(images.length).toBeGreaterThan(0);
   });
-  const fallbackItem = {
-    title: 'Test Intervention',
-    content_type: 'Other',
-    description: 'This is a test intervention.',
-    media_url: 'https://example.com/unknown.xyz',
-    link: '',
-    tags: ['mobility'],
-    benefitFor: ['Flexibility'],
-  };
 
   it('renders fallback link button for unknown media types', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Unknown'); // mock to trigger fallback
-
+    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Unknown');
+    const fallbackItem = {
+      ...defaultItem,
+      media_url: 'https://example.com/unknown.xyz',
+    };
     render(<PatientInterventionPopUp show={true} item={fallbackItem} handleClose={jest.fn()} />);
 
     const fallbackLink = screen.getByText(/Open link/i).closest('a');
-
     expect(fallbackLink).toBeInTheDocument();
     expect(fallbackLink).toHaveAttribute('href', 'https://example.com/unknown.xyz');
     expect(fallbackLink).toHaveClass('no-underline');
+  });
+
+  // ── Media carousel ────────────────────────────────────────────────────────
+
+  describe('media carousel', () => {
+    it('does not show carousel controls when there is only one media item', () => {
+      const item = itemWithMedia({ media_type: 'video', url: 'https://example.com/a.mp4', title: 'Only' });
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.queryByTestId('media-carousel')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('media-prev')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('media-next')).not.toBeInTheDocument();
+    });
+
+    it('shows carousel with prev/next buttons and counter for multiple media items', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.getByTestId('media-carousel')).toBeInTheDocument();
+      expect(screen.getByTestId('media-prev')).toBeInTheDocument();
+      expect(screen.getByTestId('media-next')).toBeInTheDocument();
+      // Counter shows "1 / 3" on first item
+      expect(screen.getByText('1 / 3')).toBeInTheDocument();
+    });
+
+    it('prev button is disabled on the first item and enabled on subsequent items', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'B' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.getByTestId('media-prev')).toBeDisabled();
+      expect(screen.getByTestId('media-next')).not.toBeDisabled();
+    });
+
+    it('clicking next advances to the next media item', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      expect(screen.getByText('Video A')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('media-next'));
+
+      expect(screen.getByText('2 / 2')).toBeInTheDocument();
+      expect(screen.getByText('Video B')).toBeInTheDocument();
+      // next is now disabled, prev is enabled
+      expect(screen.getByTestId('media-next')).toBeDisabled();
+      expect(screen.getByTestId('media-prev')).not.toBeDisabled();
+    });
+
+    it('clicking prev goes back to the previous media item', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByTestId('media-next'));
+      expect(screen.getByText('2 / 2')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('media-prev'));
+      expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      expect(screen.getByText('Video A')).toBeInTheDocument();
+    });
+
+    it('renders dot indicators for 7 or fewer media items', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'B' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'C' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.getByTestId('media-dot-0')).toBeInTheDocument();
+      expect(screen.getByTestId('media-dot-1')).toBeInTheDocument();
+      expect(screen.getByTestId('media-dot-2')).toBeInTheDocument();
+    });
+
+    it('clicking a dot jumps directly to that media item', () => {
+      const item = itemWithMedia(
+        { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' },
+      );
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByTestId('media-dot-2'));
+
+      expect(screen.getByText('3 / 3')).toBeInTheDocument();
+      expect(screen.getByText('Video C')).toBeInTheDocument();
+    });
+
+    it('does not render dots when there are more than 7 media items', () => {
+      const entries = Array.from({ length: 8 }, (_, i) => ({
+        media_type: 'video',
+        url: `https://example.com/${i}.mp4`,
+        title: `Video ${i + 1}`,
+      }));
+      const item = itemWithMedia(...entries);
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+
+      expect(screen.queryByTestId('media-dot-0')).not.toBeInTheDocument();
+      // Counter still visible
+      expect(screen.getByText('1 / 8')).toBeInTheDocument();
+    });
   });
 });
