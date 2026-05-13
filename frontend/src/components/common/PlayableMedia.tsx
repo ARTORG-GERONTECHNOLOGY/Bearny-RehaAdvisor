@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import ReactPlayer from 'react-player';
 import ReactAudioPlayer from 'react-audio-player';
+import { useTranslation } from 'react-i18next';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
 import { isHttpUrl } from '@/utils/urlUtils';
 import { Button } from '@/components/ui/button';
@@ -33,16 +34,20 @@ const isDirectVideo = (u: string) => ['mp4', 'webm', 'mov', 'm4v', 'mkv'].includ
 const OpenLinkButton: React.FC<{ href: string; text?: string }> = ({
   href,
   text = 'Open link',
-}) => (
-  <div className="mt-2">
-    <a href={href} target="_blank" rel="noreferrer" className="no-underline">
-      <Button className="w-full">
-        {text}
-        <OpenExternalIcon aria-hidden="true" />
-      </Button>
-    </a>
-  </div>
-);
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <div className="mt-2">
+      <a href={href} target="_blank" rel="noreferrer" className="no-underline">
+        <Button className="w-full">
+          {t(text)}
+          <OpenExternalIcon aria-hidden="true" />
+        </Button>
+      </a>
+    </div>
+  );
+};
 
 export const PlayableMedia: React.FC<{
   m: Media;

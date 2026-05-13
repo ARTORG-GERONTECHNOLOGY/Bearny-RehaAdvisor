@@ -208,7 +208,7 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
       </Accordion.Item>
 
       <Accordion.Item eventKey="11">
-        <Accordion.Header>{t('Weight')}</Accordion.Header>
+        <Accordion.Header>{t('WeightLabel')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
             <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
@@ -217,7 +217,7 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
       </Accordion.Item>
 
       <Accordion.Item eventKey="12">
-        <Accordion.Header>{t('Blood Pressure')}</Accordion.Header>
+        <Accordion.Header>{t('Blood pressure')}</Accordion.Header>
         <Accordion.Body className="p-2 p-md-3">
           <div className="d-flex justify-content-center">
             <BloodPressureChart
