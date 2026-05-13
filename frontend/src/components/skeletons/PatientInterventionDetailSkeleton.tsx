@@ -5,11 +5,8 @@ export default function PatientInterventionDetailSkeleton() {
   return (
     <Layout>
       <div className="flex flex-col gap-3">
-        {/* Header */}
-        <div className="flex justify-between">
-          <Skeleton className="h-14 w-14 rounded-full" />
-          <Skeleton className="h-14 w-36 rounded-full" />
-        </div>
+        {/* Back Button */}
+        <Skeleton className="h-14 w-14 rounded-full" />
         {/* Title */}
         <Skeleton className="h-56 w-full rounded-[40px]" />
         {/* Content */}
