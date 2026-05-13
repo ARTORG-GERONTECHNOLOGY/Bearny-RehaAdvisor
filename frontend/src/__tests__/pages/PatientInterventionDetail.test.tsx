@@ -260,9 +260,24 @@ describe('PatientInterventionDetail', () => {
           _id: 'int-1',
           aim: 'Exercise',
           media: [
-            { kind: 'external', media_type: 'video', url: 'https://example.com/vid.mp4', title: 'Vid' },
-            { kind: 'external', media_type: 'audio', url: 'https://example.com/aud.mp3', title: 'Aud' },
-            { kind: 'external', media_type: 'streaming', url: 'https://spotify.com/track/1', title: 'Stream' },
+            {
+              kind: 'external',
+              media_type: 'video',
+              url: 'https://example.com/vid.mp4',
+              title: 'Vid',
+            },
+            {
+              kind: 'external',
+              media_type: 'audio',
+              url: 'https://example.com/aud.mp3',
+              title: 'Aud',
+            },
+            {
+              kind: 'external',
+              media_type: 'streaming',
+              url: 'https://spotify.com/track/1',
+              title: 'Stream',
+            },
           ],
         },
       }),

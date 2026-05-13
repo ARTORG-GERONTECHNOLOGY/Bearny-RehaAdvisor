@@ -139,7 +139,9 @@ test.describe('Import Interventions modal — default language', () => {
     const modal = page.locator('.modal.show');
     // The language select/input inside the Excel Import tab should show "de"
     const langField = modal
-      .locator('select[name="defaultLang"], input[name="defaultLang"], [data-testid="default-lang"]')
+      .locator(
+        'select[name="defaultLang"], input[name="defaultLang"], [data-testid="default-lang"]'
+      )
       .first();
 
     await expect(langField).toBeVisible({ timeout: 3_000 });
@@ -161,7 +163,9 @@ test.describe('Import Interventions modal — default language', () => {
 
     const modal = page.locator('.modal.show');
     const langField = modal
-      .locator('select[name="defaultLang"], input[name="defaultLang"], [data-testid="default-lang"]')
+      .locator(
+        'select[name="defaultLang"], input[name="defaultLang"], [data-testid="default-lang"]'
+      )
       .first();
 
     await expect(langField).toBeVisible({ timeout: 3_000 });
@@ -184,10 +188,9 @@ test.describe('Patient daily plan — no duplicate interventions', () => {
     await expect(page).toHaveURL(/\/patient(?:\/)?$/);
 
     // Wait for the plan to load (at least one intervention card or the empty state)
-    await page.waitForSelector(
-      '[data-testid="intervention-card"], [data-testid="empty-plan"]',
-      { timeout: 10_000 }
-    );
+    await page.waitForSelector('[data-testid="intervention-card"], [data-testid="empty-plan"]', {
+      timeout: 10_000,
+    });
 
     const cards = page.locator('[data-testid="intervention-card"]');
     const count = await cards.count();
