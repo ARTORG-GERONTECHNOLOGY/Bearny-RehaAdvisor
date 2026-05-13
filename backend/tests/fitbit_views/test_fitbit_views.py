@@ -104,12 +104,23 @@ def test_helper_avg_excluding_zero():
 
 def test_helper_sleep_minutes_and_date():
     _, _, patient_user, _ = create_patient_graph()
-    row = FitbitData(
+
+    # minutes_asleep takes priority and matches Fitbit app display (wake phases excluded)
+    row_with_asleep = FitbitData(
+        user=patient_user,
+        date=datetime.now(),
+        sleep=SleepData(sleep_duration=8 * 60 * 60 * 1000, minutes_asleep=435),
+    )
+    assert _sleep_minutes(row_with_asleep) == 435  # 480 min in bed, 435 actually asleep
+
+    # Legacy fallback: only sleep_duration present (no minutes_asleep)
+    row_duration_only = FitbitData(
         user=patient_user,
         date=datetime.now(),
         sleep=SleepData(sleep_duration=90 * 60 * 1000),
     )
-    assert _sleep_minutes(row) == 90
+    assert _sleep_minutes(row_duration_only) == 90
+
     assert _sleep_minutes(SimpleNamespace(sleep="bad")) == 0
     assert _date(datetime(2026, 1, 1, 10, 30)) == "2026-01-01"
 
