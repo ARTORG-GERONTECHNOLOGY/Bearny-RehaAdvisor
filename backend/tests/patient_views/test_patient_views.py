@@ -1929,3 +1929,158 @@ def test_get_intervention_feedback_questions_unknown_content_type_gets_fallback_
     assert any(
         k.startswith("rating_stars_") for k in keys
     ), "Expected a star rating question for unknown type but got: " + str(keys)
+
+
+# ---------------------------------------------------------------------------
+# Bug fix #262 — duplicate intervention in patient plan
+# When the same intervention content (same external_id) is assigned twice,
+# only the first assignment should appear in the patient's plan.
+# ---------------------------------------------------------------------------
+
+
+def _make_plan_with_two_assignments(same_external_id: bool):
+    """
+    Helper: creates a patient whose rehab plan contains two assignments.
+    When same_external_id=True both interventions share the same external_id
+    (the duplicate scenario).  When False they have distinct external_ids.
+    Returns (patient, int_a, int_b).
+    """
+    patient, therapist, int_en, _ = setup_patient_with_plan()
+    RehabilitationPlan.objects(patientId=patient).delete()
+
+    int_a = Intervention(
+        title="Blood Pressure Basics",
+        description="EN description",
+        content_type="Video",
+        external_id="BLUTDRUCK_001",
+        language="en",
+    ).save()
+
+    ext_id_b = "BLUTDRUCK_001" if same_external_id else "BLUTDRUCK_002"
+    int_b = Intervention(
+        title="Der Blutdruck - Die Grundlagen",
+        description="DE description",
+        content_type="Video",
+        external_id=ext_id_b,
+        language="de",
+    ).save()
+
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now(),
+        endDate=datetime.now() + timedelta(days=30),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=int_a,
+                frequency="Daily",
+                notes="",
+                dates=[datetime.now()],
+            ),
+            InterventionAssignment(
+                interventionId=int_b,
+                frequency="Daily",
+                notes="",
+                dates=[datetime.now()],
+            ),
+        ],
+    ).save()
+
+    return patient, int_a, int_b
+
+
+def test_get_patient_plan_deduplicates_same_external_id(mongo_mock):
+    """
+    Two InterventionAssignment entries whose interventions share the same
+    external_id should collapse to a single entry in the plan response.
+    This prevents the same intervention appearing twice in the patient's
+    daily recommendation list.
+    """
+    patient, int_a, int_b = _make_plan_with_two_assignments(same_external_id=True)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Duplicate collapsed — only one entry returned
+    assert len(data) == 1
+    # The first-seen assignment's intervention_id is kept
+    assert data[0]["intervention_id"] == str(int_a.id)
+
+
+def test_get_patient_plan_keeps_distinct_external_ids(mongo_mock):
+    """
+    Two assignments with DIFFERENT external_ids are both legitimate and must
+    both appear in the plan response.
+    """
+    patient, int_a, int_b = _make_plan_with_two_assignments(same_external_id=False)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert len(data) == 2
+    returned_ids = {r["intervention_id"] for r in data}
+    assert str(int_a.id) in returned_ids
+    assert str(int_b.id) in returned_ids
+
+
+def test_get_patient_plan_same_document_assigned_twice_deduplicates(mongo_mock):
+    """
+    When the exact same Intervention document (same _id, same external_id) is
+    referenced by two different InterventionAssignment entries, only one entry
+    must appear in the plan response — assigning the same thing twice is always
+    a mistake.
+    """
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
+
+    # Add a second assignment pointing to the exact same intervention document
+    rehab_plan.interventions.append(
+        InterventionAssignment(
+            interventionId=intervention,
+            frequency="Weekly",
+            notes="duplicate",
+            dates=[datetime.now()],
+        )
+    )
+    rehab_plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert len(data) == 1
+    assert data[0]["intervention_id"] == str(intervention.id)
+
+
+def test_get_patient_plan_dedup_lang_prefers_requested_language(mongo_mock):
+    """
+    When ?lang=de is requested and the first-seen assignment points to the EN
+    variant of a duplicated external_id, the response still shows the DE
+    display title (via _best_variant) even though the EN assignment is kept.
+    """
+    patient, int_a, int_b = _make_plan_with_two_assignments(same_external_id=True)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/?lang=de",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert len(data) == 1
+    # Display title is the DE variant
+    assert data[0]["intervention_title"] == "Der Blutdruck - Die Grundlagen"
+    # intervention_id is still the originally assigned (EN) document
+    assert data[0]["intervention_id"] == str(int_a.id)
