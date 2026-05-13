@@ -25,6 +25,35 @@ jest.mock('react-bootstrap', () => ({
   Tooltip: function Tooltip({ children }: any) {
     return <span>{children}</span>;
   },
+  Tab: Object.assign(
+    function Tab({ children }: any) {
+      return <>{children}</>;
+    },
+    {
+      Container: function TabContainer({ children }: any) {
+        return <>{children}</>;
+      },
+      Content: function TabContent({ children }: any) {
+        return <>{children}</>;
+      },
+      Pane: function TabPane({ children }: any) {
+        return <>{children}</>;
+      },
+    }
+  ),
+  Nav: Object.assign(
+    function Nav({ children }: any) {
+      return <>{children}</>;
+    },
+    {
+      Item: function NavItem({ children }: any) {
+        return <>{children}</>;
+      },
+      Link: function NavLink({ children, onClick }: any) {
+        return <button onClick={onClick}>{children}</button>;
+      },
+    }
+  ),
 }));
 
 jest.mock('react-icons/fa', () => ({
@@ -217,11 +246,32 @@ describe('PatientInterventionDetail', () => {
     // Only renderable media types are shown inline (video, audio, streaming, pdf, image).
     expect(screen.getAllByTestId('playable-media')).toHaveLength(1);
 
-    // Open links include video + website, with duplicate website URL removed.
+    // Video is excluded from Open link buttons (already shown by embedded player).
+    // The duplicate website URL is also removed — only one link remains.
     const openLinks = screen.getAllByRole('link', { name: /Open link:/i });
-    expect(openLinks).toHaveLength(2);
-    expect(openLinks[0]).toHaveAttribute('href', 'https://example.com/video.mp4');
-    expect(openLinks[1]).toHaveAttribute('href', 'https://example.com/page');
+    expect(openLinks).toHaveLength(1);
+    expect(openLinks[0]).toHaveAttribute('href', 'https://example.com/page');
+  });
+
+  it('video and audio media types do not get Open link buttons', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Exercise',
+          media: [
+            { kind: 'external', media_type: 'video', url: 'https://example.com/vid.mp4', title: 'Vid' },
+            { kind: 'external', media_type: 'audio', url: 'https://example.com/aud.mp3', title: 'Aud' },
+            { kind: 'external', media_type: 'streaming', url: 'https://spotify.com/track/1', title: 'Stream' },
+          ],
+        },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.queryAllByRole('link', { name: /Open link:/i })).toHaveLength(0);
   });
 
   it('toggles completion and opens intervention feedback when marked done', async () => {
