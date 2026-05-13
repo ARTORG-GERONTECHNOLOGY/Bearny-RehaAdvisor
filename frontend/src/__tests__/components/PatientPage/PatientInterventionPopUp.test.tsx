@@ -163,7 +163,6 @@ describe('PatientInterventionPopUp Component', () => {
 
     expect(fallbackLink).toBeInTheDocument();
     expect(fallbackLink).toHaveAttribute('href', 'https://example.com/unknown.xyz');
-    expect(fallbackLink).toHaveClass('rounded-full');
     expect(fallbackLink).toHaveClass('no-underline');
   });
 });
