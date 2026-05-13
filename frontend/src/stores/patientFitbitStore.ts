@@ -14,10 +14,18 @@ export type Thresholds = {
   bp_dia_yellow_max: number;
 };
 
+export type AzmBreakdown = {
+  fat_burn?: number | null;
+  cardio?: number | null;
+  peak?: number | null;
+  total?: number | null;
+};
+
 export type DailyRow = {
   date: string;
   steps: number;
   active_minutes?: number;
+  active_zone_minutes?: AzmBreakdown | null;
   sleep_minutes?: number;
   weight_kg?: number | null;
   bp_sys?: number | null;
@@ -31,6 +39,7 @@ export type FitbitSummary = {
   today?: {
     steps?: number;
     active_minutes?: number;
+    active_zone_minutes?: AzmBreakdown | null;
     sleep_minutes?: number;
     resting_heart_rate?: number | null;
     weight_kg?: number | null;
