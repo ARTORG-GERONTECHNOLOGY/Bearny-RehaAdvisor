@@ -22,12 +22,21 @@ export const useInterventions = (date: Date) => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
-  // Get interventions for the specified date
+  // Get interventions for the specified date, deduplicated by external_id
   const interventions = useMemo(() => {
     const dateKey = normalizeDayKey(date);
-    return patientInterventionsStore.items.filter((rec) =>
+    const items = patientInterventionsStore.items.filter((rec) =>
       (rec.dates || []).some((d) => normalizeDayKey(d) === dateKey)
     );
+    const seenExtIds = new Set<string>();
+    return items.filter((rec) => {
+      const extId = rec.intervention?.external_id;
+      if (extId) {
+        if (seenExtIds.has(extId)) return false;
+        seenExtIds.add(extId);
+      }
+      return true;
+    });
   }, [date, patientInterventionsStore.items]);
 
   // Sort interventions: incomplete first, then completed, alphabetically within each group

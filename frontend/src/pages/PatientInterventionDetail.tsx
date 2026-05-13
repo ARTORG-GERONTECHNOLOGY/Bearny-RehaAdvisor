@@ -612,6 +612,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const mediaLinks = useMemo(
     () =>
       effectiveMediaList
+        // Exclude media types that are already shown as embedded players in MediaContent
+        // (video, audio, streaming) to prevent showing a redundant "Open link" button
+        // alongside an already-working player.
+        .filter((m) => !['video', 'audio', 'streaming'].includes(m.media_type))
         .map((m, idx) => {
           const label = m.title || `${t('Media')} ${idx + 1}`;
           const href = getOpenLinkUrl(m);

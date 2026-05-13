@@ -1038,11 +1038,21 @@ def get_patient_plan(request, patient_id):
 
         today = timezone.localdate()
         out = []
+        seen_ext_ids: set = set()
 
         for assignment in getattr(rehab_plan, "interventions", None) or []:
             assigned_intervention = getattr(assignment, "interventionId", None)
             if not assigned_intervention:
                 continue
+
+            # Deduplicate by external_id: the same intervention content (same external_id)
+            # should not appear twice in the patient plan even if assigned twice.
+            ext_id = getattr(assigned_intervention, "external_id", None)
+            if ext_id:
+                if ext_id in seen_ext_ids:
+                    logger.warning("[get_patient_plan] Skipping duplicate assignment for external_id=%s", ext_id)
+                    continue
+                seen_ext_ids.add(ext_id)
 
             # Use the language-preferred variant for title/metadata display, but
             # always look up logs against the originally assigned document so that
