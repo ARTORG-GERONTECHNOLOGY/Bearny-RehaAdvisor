@@ -21,8 +21,20 @@ from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
 
 def _sleep_minutes(entry: FitbitData) -> int:
+    """Return sleep in minutes, matching what the Fitbit app shows.
+
+    Fitbit app displays *minutes_asleep* (actual sleep, wake phases removed).
+    Legacy records that only have sleep_duration (ms, total time in bed) fall
+    back to duration / 60 000 so existing data is never lost.
+    """
     try:
-        dur_ms = (entry.sleep.sleep_duration or 0) if entry.sleep else 0
+        sleep = entry.sleep if entry else None
+        if not sleep:
+            return 0
+        if sleep.minutes_asleep is not None:
+            return int(sleep.minutes_asleep)
+        # Fallback for records stored before minutes_asleep was populated
+        dur_ms = sleep.sleep_duration or 0
         return int(round(dur_ms / 60000))
     except Exception:
         return 0
@@ -230,6 +242,7 @@ def fitbit_summary(request, patient_id=None):
                 "date": d.date.isoformat(),
                 "steps": st,
                 "active_minutes": am,
+                "active_zone_minutes": getattr(d, "active_zone_minutes", None),
                 "sleep_minutes": sm,
                 "bp_sys": bp_sys,
                 "bp_dia": bp_dia,
@@ -298,6 +311,7 @@ def fitbit_summary(request, patient_id=None):
             today_payload = {
                 "steps": int(today.steps or 0),
                 "active_minutes": am,
+                "active_zone_minutes": getattr(today, "active_zone_minutes", None),
                 "sleep_minutes": sm,
                 "resting_heart_rate": (int(today.resting_heart_rate) if today.resting_heart_rate is not None else None),
                 "bp_sys": bp_sys_today,
@@ -566,6 +580,7 @@ def get_fitbit_health_data(request, patient_id):
                     "distance": entry.distance,
                     "calories": entry.calories,
                     "active_minutes": entry.active_minutes,
+                    "active_zone_minutes": getattr(entry, "active_zone_minutes", None),
                     "breathing_rate": entry.breathing_rate,
                     "hrv": entry.hrv,
                     "sleep": sleep,
@@ -756,6 +771,7 @@ def health_combined_history(request, patient_id):
                     "distance": f.distance,
                     "calories": f.calories,
                     "active_minutes": f.active_minutes,
+                    "active_zone_minutes": getattr(f, "active_zone_minutes", None),
                     "sleep": {
                         "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
                         "minutes_asleep": f.sleep.minutes_asleep if f.sleep else None,

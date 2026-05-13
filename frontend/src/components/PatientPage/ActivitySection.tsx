@@ -17,6 +17,13 @@ interface StepsHistoryItem {
   steps: number;
 }
 
+interface AzmBreakdown {
+  fat_burn?: number | null;
+  cardio?: number | null;
+  peak?: number | null;
+  total?: number | null;
+}
+
 interface ActivitySectionProps {
   loading: boolean;
   connected: boolean;
@@ -25,6 +32,7 @@ interface ActivitySectionProps {
   stepsHistoryData: StepsHistoryItem[];
   activeMinutes?: number | null;
   activeMinutesGoal?: number | null;
+  activeZoneMinutes?: AzmBreakdown | null;
   sleepMinutes?: number | null;
   sleepMinutesGoal?: number | null;
   onOpenManualStepsEntry: () => void;
@@ -38,6 +46,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
   stepsHistoryData,
   activeMinutes,
   activeMinutesGoal,
+  activeZoneMinutes,
   sleepMinutes,
   sleepMinutesGoal,
   onOpenManualStepsEntry,
@@ -140,7 +149,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
           <div className="flex gap-2 flex-wrap">
             <Card className="flex-1 flex flex-col gap-4 justify-between">
               <div className="flex justify-between">
-                <div className="font-bold text-lg text-zinc-800">{t('activeMinutes')}</div>
+                <div className="font-bold text-lg text-zinc-800">{t('activeZoneMinutes')}</div>
                 <div className="w-8 h-8 shrink-0">
                   <ProgressIndicator current={activeMinutes ?? 0} goal={activeMinutesGoal ?? 0} />
                 </div>
@@ -152,6 +161,28 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
                 <div className="font-medium text-sm text-zinc-500">
                   {t('Goal')}: {formatMinutesToHM(activeMinutesGoal)}
                 </div>
+                {activeZoneMinutes &&
+                  (activeZoneMinutes.fat_burn != null ||
+                    activeZoneMinutes.cardio != null ||
+                    activeZoneMinutes.peak != null) && (
+                    <div className="font-medium text-xs text-zinc-400 mt-1 flex gap-2 flex-wrap">
+                      {activeZoneMinutes.fat_burn != null && (
+                        <span>
+                          {t('fatBurnZone')}: {activeZoneMinutes.fat_burn}
+                        </span>
+                      )}
+                      {activeZoneMinutes.cardio != null && (
+                        <span>
+                          {t('cardioZone')}: {activeZoneMinutes.cardio}
+                        </span>
+                      )}
+                      {activeZoneMinutes.peak != null && (
+                        <span>
+                          {t('peakZone')}: {activeZoneMinutes.peak}
+                        </span>
+                      )}
+                    </div>
+                  )}
               </div>
             </Card>
 

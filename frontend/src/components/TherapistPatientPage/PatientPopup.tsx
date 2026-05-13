@@ -34,7 +34,7 @@ function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) 
   if (th.steps_goal != null) parts.push(`${t('Steps goal')}: ${th.steps_goal}`);
   if (th.active_minutes_green != null)
     parts.push(
-      `${t('Active minutes (green)')}/${t('Active minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`
+      `${t('Active zone minutes (green)')}/${t('Active zone minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`
     );
   if (th.sleep_green_min != null)
     parts.push(
@@ -897,11 +897,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                         </Form.Group>
                       </Col>
 
-                      {/* Active minutes */}
+                      {/* Active zone minutes */}
                       <Col xs={12} md={6}>
                         <Form.Group controlId="active_minutes_green">
                           <Form.Label className="fw-semibold">
-                            {t('Active minutes (green)')}
+                            {t('Active zone minutes (green)')}
                           </Form.Label>
                           <Form.Control
                             type="number"
@@ -926,7 +926,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                       <Col xs={12} md={6}>
                         <Form.Group controlId="active_minutes_yellow">
                           <Form.Label className="fw-semibold">
-                            {t('Active minutes (yellow)')}
+                            {t('Active zone minutes (yellow)')}
                           </Form.Label>
                           <Form.Control
                             type="number"

@@ -59,6 +59,7 @@ class Command(BaseCommand):
                 exercise_data = {}
                 max_hr_map = {}
                 wear_time_map = {}  # date -> minutes worn (from intraday HR)
+                azm_breakdown = {}  # date -> {"fat_burn": N, "cardio": N, "peak": N, "total": N}
 
                 # ---------------------------
                 # GENERIC FETCH FUNCTION
@@ -144,14 +145,37 @@ class Command(BaseCommand):
                 # ---------------------------
                 # ACTIVE ZONE MINUTES
                 # ---------------------------
+                # Fitbit returns value as {"totalMinutes": N, ...} for most devices,
+                # but some older accounts return a plain integer.  Handle both.
                 azm_url = f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_range}.json"
                 azm_resp = requests.get(azm_url, headers=headers)
                 if azm_resp.status_code == 200:
-                    for item in azm_resp.json().get("activities-activeZoneMinutes", []):
+                    azm_items = azm_resp.json().get("activities-activeZoneMinutes", [])
+                    for item in azm_items:
                         dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
-                        total = (item.get("value") or {}).get("totalMinutes")
+                        val = item.get("value")
+                        if isinstance(val, dict):
+                            total = val.get("totalMinutes")
+                            azm_breakdown[dt] = {
+                                "fat_burn": val.get("fatBurnActiveZoneMinutes"),
+                                "cardio": val.get("cardioActiveZoneMinutes"),
+                                "peak": val.get("peakActiveZoneMinutes"),
+                                "total": total,
+                            }
+                        elif isinstance(val, (int, float)):
+                            total = int(val)
+                        else:
+                            total = None
                         if total is not None:
                             series["activeZoneMinutes"][dt] = int(total)
+                    if not azm_items:
+                        logger.info(
+                            "[Fitbit Sync] AZM endpoint returned no items for %s — "
+                            "active_minutes will fall back to very+fairly active",
+                            user_token.user,
+                        )
+                else:
+                    logger.warning("[Fitbit Sync] AZM fetch HTTP %s for %s", azm_resp.status_code, user_token.user)
 
                 # ---------------------------
                 # BREATHING RATE
@@ -254,6 +278,19 @@ class Command(BaseCommand):
                     | set(wear_time_map.keys())
                 )
 
+                # Log any days in the 30-day window where the steps endpoint
+                # returned zero rows — these will be missing from the display.
+                expected_dates = {start_date + datetime.timedelta(days=i) for i in range(31)}
+                step_dates = set(series["steps"].keys())
+                missing_step_dates = sorted(expected_dates - step_dates - {today})
+                if missing_step_dates:
+                    logger.warning(
+                        "[Fitbit Sync] Steps missing for %s on %d day(s): %s",
+                        user_token.user,
+                        len(missing_step_dates),
+                        ", ".join(str(d) for d in missing_step_dates),
+                    )
+
                 def sleep_minutes(dt):
                     sd = sleep_data.get(dt)
                     if not sd:
@@ -282,6 +319,7 @@ class Command(BaseCommand):
                         set__calories=series["calories"].get(dt),
                         set__resting_heart_rate=series["resting_heart_rate"].get(dt),
                         set__active_minutes=active_minutes,
+                        set__active_zone_minutes=azm_breakdown.get(dt),
                         set__inactivity_minutes=inactivity,
                         set__heart_rate_zones=series["heart_rate_zones"].get(dt),
                         set__max_heart_rate=max_hr_map.get(dt),
