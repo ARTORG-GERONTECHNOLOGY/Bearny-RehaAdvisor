@@ -21,8 +21,20 @@ from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
 
 def _sleep_minutes(entry: FitbitData) -> int:
+    """Return sleep in minutes, matching what the Fitbit app shows.
+
+    Fitbit app displays *minutes_asleep* (actual sleep, wake phases removed).
+    Legacy records that only have sleep_duration (ms, total time in bed) fall
+    back to duration / 60 000 so existing data is never lost.
+    """
     try:
-        dur_ms = (entry.sleep.sleep_duration or 0) if entry.sleep else 0
+        sleep = entry.sleep if entry else None
+        if not sleep:
+            return 0
+        if sleep.minutes_asleep is not None:
+            return int(sleep.minutes_asleep)
+        # Fallback for records stored before minutes_asleep was populated
+        dur_ms = sleep.sleep_duration or 0
         return int(round(dur_ms / 60000))
     except Exception:
         return 0
