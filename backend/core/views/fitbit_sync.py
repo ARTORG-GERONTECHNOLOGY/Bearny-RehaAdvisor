@@ -172,7 +172,11 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             if total is not None:
                 series["activeZoneMinutes"][dt] = int(total)
         if not azm_items:
-            logger.info("[fitbit] AZM endpoint returned no items for user=%s date=%s — falling back to very+fairly active minutes", user, date_str)
+            logger.info(
+                "[fitbit] AZM endpoint returned no items for user=%s date=%s — falling back to very+fairly active minutes",
+                user,
+                date_str,
+            )
 
     # Breathing rate
     br_url = f"{FITBIT_API_URL}/br/date/{date_str}/{date_str}.json"
