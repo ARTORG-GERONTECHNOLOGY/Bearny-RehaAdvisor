@@ -73,7 +73,9 @@ const defaultItem = {
 };
 
 // Helper: build an item with an explicit media array (the structured format)
-const itemWithMedia = (...mediaEntries: Array<{ media_type: string; url: string; title: string }>) => ({
+const itemWithMedia = (
+  ...mediaEntries: Array<{ media_type: string; url: string; title: string }>
+) => ({
   ...defaultItem,
   media: mediaEntries.map((m) => ({ kind: 'external', ...m })),
 });
@@ -182,7 +184,11 @@ describe('PatientInterventionPopUp Component', () => {
 
   describe('media carousel', () => {
     it('does not show carousel controls when there is only one media item', () => {
-      const item = itemWithMedia({ media_type: 'video', url: 'https://example.com/a.mp4', title: 'Only' });
+      const item = itemWithMedia({
+        media_type: 'video',
+        url: 'https://example.com/a.mp4',
+        title: 'Only',
+      });
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
       expect(screen.queryByTestId('media-carousel')).not.toBeInTheDocument();
@@ -194,7 +200,7 @@ describe('PatientInterventionPopUp Component', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
         { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
-        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
@@ -208,7 +214,7 @@ describe('PatientInterventionPopUp Component', () => {
     it('prev button is disabled on the first item and enabled on subsequent items', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'A' },
-        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'B' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'B' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
@@ -219,7 +225,7 @@ describe('PatientInterventionPopUp Component', () => {
     it('clicking next advances to the next media item', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
-        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
@@ -238,7 +244,7 @@ describe('PatientInterventionPopUp Component', () => {
     it('clicking prev goes back to the previous media item', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
-        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
+        { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
@@ -254,7 +260,7 @@ describe('PatientInterventionPopUp Component', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'A' },
         { media_type: 'video', url: 'https://example.com/b.mp4', title: 'B' },
-        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'C' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'C' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
@@ -267,7 +273,7 @@ describe('PatientInterventionPopUp Component', () => {
       const item = itemWithMedia(
         { media_type: 'video', url: 'https://example.com/a.mp4', title: 'Video A' },
         { media_type: 'video', url: 'https://example.com/b.mp4', title: 'Video B' },
-        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' },
+        { media_type: 'video', url: 'https://example.com/c.mp4', title: 'Video C' }
       );
       render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
 
