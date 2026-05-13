@@ -1264,6 +1264,46 @@ Optional columns: `provider`, `link` / `url`, `language`, `aim`, `topic`, `where
 
 ---
 
+#### `POST /api/interventions/import/media/`
+
+JWT required. Uploads media files for existing interventions.
+
+**Content-Type:** `multipart/form-data`
+
+**Fields:**
+
+- `files[]`: one or more media files. Each filename must follow `{4-5 digits}_{format}_{lang}[_{slot}].{ext}`, e.g. `3500_web_de.mp4` or `3500_web_de_2.mp4`.
+
+**Limits and batching:**
+
+- The backend validates each individual file against a 1 GB media-file limit.
+- The production proxy also enforces a 1 GB total request-body limit. The frontend therefore uploads large selections in sequential batches below that request limit.
+- If a proxy still returns HTTP 413, the frontend shows a friendly size-limit message instead of the raw transport error.
+
+**Response 200:**
+
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "filename": "3500_web_de.mp4",
+      "status": "ok",
+      "external_id": "3500_web",
+      "language": "de",
+      "media_slot": null,
+      "interventions_updated": ["..."]
+    }
+  ]
+}
+```
+
+Per-file validation errors are returned in `results[]` with `status: "error"` and an `error` message. A single invalid file does not abort the whole accepted request.
+
+**Errors:** 400 no files provided · 405 wrong method · proxy/server 413 request too large.
+
+---
+
 ### Patient Health Data
 
 #### `GET /api/patients/healthstatus-history/<patient_id>/`
