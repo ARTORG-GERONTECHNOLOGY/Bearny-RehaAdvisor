@@ -422,83 +422,159 @@ describe('Therapist traffic lights', () => {
     expect(screen.queryByLabelText(/Health/i)).not.toBeInTheDocument();
   });
 
-  test('uses last_feedback_at when questionnaires list is empty', async () => {
-    const recentIso = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  // ── Feedback chip: new cut-off logic (as of 2026-05-12) ──────────────────
+  // Grey  — no star rating ever submitted (answered_days_total === 0)
+  // Red   — no rating for >30 days  OR  ≥7 low ratings (≤2★) in last 14 days
+  // Yellow— no rating for 15–30 days OR  ≥3 low ratings in last 14 days
+  // Green — rating within last 14 days AND <3 low ratings
+
+  test('feedback chip is grey when no star rating has ever been submitted', async () => {
     renderWithPatient({
-      _id: 'feedback-test-patient',
+      _id: 'fb-grey',
       therapist: 'T',
       created_at: '2026-01-01T00:00:00',
-      username: 'feedbackuser',
+      username: 'fbgrey',
       age: '1990-01-01',
       sex: 'Male',
-      first_name: 'Feedback',
+      first_name: 'Grey',
       name: 'Patient',
       diagnosis: ['Stroke'],
       duration: 30,
+      // no intervention_feedback / answered_days_total = 0
       questionnaires: [],
-      last_feedback_at: recentIso,
+      last_feedback_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       biomarker: {},
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Feedback good')).toBeInTheDocument();
+      expect(screen.getByLabelText('Feedback unknown')).toBeInTheDocument();
     });
   });
 
-  test('uses intervention feedback recency + average score for feedback chip', async () => {
+  test('feedback chip is green for recent rating with no low scores', async () => {
     renderWithPatient({
-      _id: 'feedback-intervention-good',
+      _id: 'fb-green',
       therapist: 'T',
       created_at: '2026-01-01T00:00:00',
-      username: 'feedbackgood',
+      username: 'fbgreen',
       age: '1990-01-01',
       sex: 'Male',
-      first_name: 'Feedback',
-      name: 'Threshold',
+      first_name: 'Green',
+      name: 'Patient',
       diagnosis: ['Stroke'],
       duration: 30,
       intervention_feedback: {
-        last_answered_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        days_since_last: 1,
-        answered_days_total: 4,
-        recent_days_count: 3,
-        recent_avg_score: 4.0,
-        previous_avg_score: 3.5,
-        trend_delta: 0.5,
-        trend_lower: false,
+        last_answered_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 3,
+        answered_days_total: 5,
+        low_ratings_14d: 0,
       },
       biomarker: {},
     });
 
-    const feedbackChip = await screen.findByLabelText('Feedback good');
-    fireEvent.mouseOver(feedbackChip);
+    const chip = await screen.findByLabelText('Feedback good');
+    fireEvent.mouseOver(chip);
 
     await waitFor(() => {
-      expect(screen.getByText(/Avg score \(last 3 answered days\): 4\.00/i)).toBeInTheDocument();
+      expect(screen.getByText(/Low ratings.*in last 14 days.*0/i)).toBeInTheDocument();
     });
   });
 
-  test('marks feedback as bad when intervention trend is lower', async () => {
+  test('feedback chip is yellow when no rating for 15–30 days', async () => {
     renderWithPatient({
-      _id: 'feedback-intervention-trend-down',
+      _id: 'fb-yellow-recency',
       therapist: 'T',
       created_at: '2026-01-01T00:00:00',
-      username: 'feedbacktrend',
+      username: 'fbyellowrecency',
       age: '1990-01-01',
       sex: 'Male',
-      first_name: 'Feedback',
-      name: 'Trend',
+      first_name: 'Yellow',
+      name: 'Recency',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      intervention_feedback: {
+        last_answered_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 20,
+        answered_days_total: 3,
+        low_ratings_14d: 0,
+      },
+      biomarker: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feedback warn')).toBeInTheDocument();
+    });
+  });
+
+  test('feedback chip is yellow when 3–6 low ratings in last 14 days', async () => {
+    renderWithPatient({
+      _id: 'fb-yellow-lowcount',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'fbyellowlow',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Yellow',
+      name: 'LowCount',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      intervention_feedback: {
+        last_answered_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 5,
+        answered_days_total: 8,
+        low_ratings_14d: 4,
+      },
+      biomarker: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feedback warn')).toBeInTheDocument();
+    });
+  });
+
+  test('feedback chip is red when no rating for >30 days', async () => {
+    renderWithPatient({
+      _id: 'fb-red-recency',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'fbredrecency',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Red',
+      name: 'Recency',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      intervention_feedback: {
+        last_answered_at: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString(),
+        days_since_last: 35,
+        answered_days_total: 3,
+        low_ratings_14d: 0,
+      },
+      biomarker: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feedback bad')).toBeInTheDocument();
+    });
+  });
+
+  test('feedback chip is red when ≥7 low ratings in last 14 days', async () => {
+    renderWithPatient({
+      _id: 'fb-red-lowcount',
+      therapist: 'T',
+      created_at: '2026-01-01T00:00:00',
+      username: 'fbredlow',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Red',
+      name: 'LowCount',
       diagnosis: ['Stroke'],
       duration: 30,
       intervention_feedback: {
         last_answered_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         days_since_last: 2,
-        answered_days_total: 6,
-        recent_days_count: 3,
-        recent_avg_score: 2.5,
-        previous_avg_score: 4.0,
-        trend_delta: -1.5,
-        trend_lower: true,
+        answered_days_total: 10,
+        low_ratings_14d: 7,
       },
       biomarker: {},
     });
