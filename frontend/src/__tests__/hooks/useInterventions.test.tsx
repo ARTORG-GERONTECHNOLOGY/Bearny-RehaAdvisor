@@ -29,19 +29,22 @@ import { useInterventions } from '@/hooks/useInterventions';
 
 const DATE = new Date('2026-03-16T00:00:00');
 
-const makeRec = (overrides: Partial<{
-  intervention_id: string;
-  intervention_title: string;
-  dates: string[];
-  external_id: string | null;
-}> = {}) => ({
+const makeRec = (
+  overrides: Partial<{
+    intervention_id: string;
+    intervention_title: string;
+    dates: string[];
+    external_id: string | null;
+  }> = {}
+) => ({
   intervention_id: overrides.intervention_id ?? 'int-1',
   intervention_title: overrides.intervention_title ?? 'Stretch',
   description: '',
   dates: overrides.dates ?? ['2026-03-16'],
-  intervention: overrides.external_id !== undefined
-    ? { _id: overrides.intervention_id ?? 'int-1', external_id: overrides.external_id }
-    : { _id: overrides.intervention_id ?? 'int-1' },
+  intervention:
+    overrides.external_id !== undefined
+      ? { _id: overrides.intervention_id ?? 'int-1', external_id: overrides.external_id }
+      : { _id: overrides.intervention_id ?? 'int-1' },
 });
 
 describe('useInterventions — external_id deduplication', () => {
