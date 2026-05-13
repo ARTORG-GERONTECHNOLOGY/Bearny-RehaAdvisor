@@ -52,7 +52,6 @@ type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
 };
 
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
-const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: unknown) => norm(v).toLowerCase();
 
@@ -65,13 +64,6 @@ const asArray = <T,>(v: unknown): T[] => {
   if (typeof v === 'object') return [v as T];
   return [];
 };
-
-const capitalizeWords = (value: string) =>
-  value
-    .trim()
-    .split(/\s+/)
-    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
-    .join(' ');
 
 const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
 const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
@@ -229,18 +221,6 @@ const getMediaBadge = (media: InterventionMedia[]) => {
   }
 };
 
-const getMetaTags = (item: any): string[] => {
-  const out: string[] = [];
-  const src = asRecord(item?.intervention ?? item ?? {});
-
-  out.push(...asArray<string>(src.topic).map(asStr));
-  out.push(...asArray<string>(src.where).map(asStr));
-  out.push(...asArray<string>(src.setting).map(asStr));
-  out.push(...asArray<string>(src.keywords).map(asStr));
-
-  return uniq(out.map((x) => x.trim()).filter(Boolean));
-};
-
 const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) => {
   const { t } = useTranslation();
   const label = m.title || `${t('Media')} ${idx + 1}`;
@@ -283,25 +263,6 @@ const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) =
           showOpenLink={false}
         />
       )}
-    </div>
-  );
-};
-
-const MetaTags: React.FC<{ item: any }> = ({ item }) => {
-  const { t } = useTranslation();
-  const tags = getMetaTags(item);
-
-  if (!tags.length) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2" aria-label={t('Tags')}>
-      {tags.map((x, idx) => {
-        return (
-          <Badge key={`${x}-${idx}`} variant="tag" title={x}>
-            {capitalizeWords(t(x, { defaultValue: x }))}
-          </Badge>
-        );
-      })}
     </div>
   );
 };
@@ -357,6 +318,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
   const viewOpenedAt = useRef<number>(Date.now());
+  const mediaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -674,101 +636,121 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
         {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
 
-        <Section>
-          <Card className="flex flex-col items-start gap-3">
-            <Badge variant="card">
-              {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
-                <ExerciseIcon className="flex-none w-8 h-8" />
-              ) : (
-                <EducationIcon className="flex-none w-8 h-8" />
-              )}
-              <span
-                className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-pink' : 'text-yellow'}`}
-              >
-                {t(effectiveItem.intervention.aim)}
-              </span>
-            </Badge>
-            {effectiveIsPrivate && (
-              <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                <span className="text-zinc-800 -mb-4">
-                  <FaLock />
-                </span>
-              </OverlayTrigger>
-            )}
-            <div className="font-bold text-2xl leading-7 text-zinc-800">
-              {titleLang ? (
-                <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
-                  <span>{translatedTitle}</span>
-                </OverlayTrigger>
-              ) : (
-                titleRaw
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {effectiveItem.intervention.duration && (
-                <Badge variant="card">
-                  <ClockIcon className="w-6 h-6" />
-                  <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
-                </Badge>
-              )}
-              <Badge variant="card">
-                {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
-                {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
-                <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
-              </Badge>
-            </div>
-          </Card>
-        </Section>
-
-        <Section>
-          <MediaContent mediaList={effectiveMediaList} />
-
-          <Card className="text-lg text-zinc-500">
-            {detectedLang ? (
-              <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
-                <span>{translatedText}</span>
-              </OverlayTrigger>
-            ) : (
-              effectiveItem?.description || ''
-            )}
-          </Card>
-
-          {effectiveItem?.notes && (
-            <Card className="text-lg text-zinc-500">
-              {t('Notes')}: {effectiveItem.notes}
-            </Card>
-          )}
-        </Section>
-
-        {getMetaTags(effectiveItem).length > 0 && (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:items-start">
           <Section>
-            <div className="p-4 flex flex-col gap-2">
-              <div className="font-medium text-lg text-zinc-500">Tags</div>
-              <MetaTags item={effectiveItem} />
-            </div>
+            <Card className="flex flex-col items-start gap-3">
+              <Badge variant="card">
+                {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
+                  <ExerciseIcon className="flex-none w-8 h-8" />
+                ) : (
+                  <EducationIcon className="flex-none w-8 h-8" />
+                )}
+                <span
+                  className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-pink' : 'text-yellow'}`}
+                >
+                  {t(effectiveItem.intervention.aim)}
+                </span>
+              </Badge>
+              {effectiveIsPrivate && (
+                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+                  <span className="text-zinc-800 -mb-4">
+                    <FaLock />
+                  </span>
+                </OverlayTrigger>
+              )}
+              <div className="font-bold text-2xl leading-7 text-zinc-800">
+                {titleLang ? (
+                  <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
+                    <span>{translatedTitle}</span>
+                  </OverlayTrigger>
+                ) : (
+                  titleRaw
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {effectiveItem.intervention.duration && (
+                  <Badge variant="card">
+                    <ClockIcon className="w-6 h-6" />
+                    <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
+                  </Badge>
+                )}
+                <Badge
+                  variant="card"
+                  role={effectiveMediaList.length > 0 ? 'button' : undefined}
+                  tabIndex={effectiveMediaList.length > 0 ? 0 : undefined}
+                  onClick={
+                    effectiveMediaList.length > 0
+                      ? () => mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
+                      : undefined
+                  }
+                  onKeyDown={
+                    effectiveMediaList.length > 0
+                      ? (e) =>
+                          e.key === 'Enter' &&
+                          mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
+                      : undefined
+                  }
+                  className={
+                    effectiveMediaList.length > 0
+                      ? 'cursor-pointer lg:cursor-default lg:pointer-events-none'
+                      : ''
+                  }
+                >
+                  {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
+                  {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
+                  <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
+                </Badge>
+              </div>
+            </Card>
           </Section>
-        )}
 
-        {!!mediaLinks.length && (
-          <div className="p-4 flex flex-col gap-2">
-            {mediaLinks.map((link, idx) => (
-              <a
-                key={`${link.href}-${idx}`}
-                href={link.href}
-                className="rounded-full p-4 pl-5 bg-brand flex gap-2 items-center justify-center text-zinc-50 font-medium text-lg no-underline"
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`${link.text}: ${link.label}`}
-              >
-                {link.text}
-                <OpenExternalIcon className="w-6 h-6" aria-hidden="true" />
-              </a>
-            ))}
-            {effectiveItem?.provider && (
-              <span className="text-zinc-500 text-center">{String(effectiveItem.provider)}</span>
-            )}
+          <div ref={mediaRef}>
+            <Section>
+              <MediaContent mediaList={effectiveMediaList} />
+
+              {!!mediaLinks.length && (
+                <div className="py-2 flex flex-col gap-2">
+                  {mediaLinks.map((link, idx) => (
+                    <a
+                      key={`${link.href}-${idx}`}
+                      href={link.href}
+                      className="no-underline"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`${link.text}: ${link.label}`}
+                    >
+                      <Button className="w-full">
+                        {link.text}
+                        <OpenExternalIcon aria-hidden="true" />
+                      </Button>
+                    </a>
+                  ))}
+                  {effectiveItem?.provider && (
+                    <span className="text-zinc-500 text-center">
+                      {String(effectiveItem.provider)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <Card className="text-lg text-zinc-500">
+                {detectedLang ? (
+                  <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
+                    <span>{translatedText}</span>
+                  </OverlayTrigger>
+                ) : (
+                  effectiveItem?.description || ''
+                )}
+              </Card>
+
+              {effectiveItem?.notes && (
+                <Card className="text-lg text-zinc-500">
+                  {t('Notes')}: {effectiveItem.notes}
+                </Card>
+              )}
+            </Section>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Intervention Feedback Popup */}

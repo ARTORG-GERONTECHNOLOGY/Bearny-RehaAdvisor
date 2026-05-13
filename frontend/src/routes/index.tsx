@@ -13,6 +13,7 @@ import PatientProfileSkeleton from '@/components/skeletons/PatientProfileSkeleto
 import UserProfileSkeleton from '@/components/skeletons/UserProfileSkeleton';
 import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndConditionsSkeleton';
 import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
+import FallbackSkeleton from '@/components/skeletons/FallbackSkeleton';
 
 /**
  * React.lazy wrapper for stale deploy chunks.
@@ -65,13 +66,8 @@ const PatientProcess = lazyWithRetry(() => import('@/pages/PatientProcess'));
 const PatientInterventionDetail = lazyWithRetry(() => import('@/pages/PatientInterventionDetail'));
 const PatientProfile = lazyWithRetry(() => import('@/pages/PatientProfile'));
 
-// -------------------- Loading Fallback --------------------
-function LoadingFallback() {
-  return createElement('div', null, 'Loading...');
-}
-
-// helper to wrap lazy pages consistently (optionally pass a custom fallback)
-const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(LoadingFallback)) =>
+// Helper to wrap lazy pages consistently (optionally pass a custom fallback)
+const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(FallbackSkeleton)) =>
   createElement(Suspense, { fallback }, el);
 
 // -------------------- Router Definition --------------------
