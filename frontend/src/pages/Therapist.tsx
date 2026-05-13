@@ -64,6 +64,7 @@ type InterventionFeedbackLike = {
   previous_avg_score?: unknown;
   trend_delta?: unknown;
   trend_lower?: unknown;
+  low_ratings_14d?: unknown;
 };
 
 type PatientExtra = {
@@ -454,67 +455,36 @@ const Therapist: React.FC = observer(() => {
     const lastIso = getIsoMaybe(summary.last_answered_at);
     const daysSinceLast = toNum(summary.days_since_last);
     const answeredDaysTotal = toNum(summary.answered_days_total) ?? 0;
-    const recentDaysCount = toNum(summary.recent_days_count) ?? 0;
-    const recentAvg = toNum(summary.recent_avg_score);
-    const prevAvg = toNum(summary.previous_avg_score);
-    const trendDelta = toNum(summary.trend_delta);
-    const trendLower = summary.trend_lower === true;
+    const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
 
-    if (answeredDaysTotal > 0 && lastIso) {
-      let level: Traffic = 'good';
-
-      if (daysSinceLast != null) {
-        if (daysSinceLast > 7) level = 'bad';
-        else if (daysSinceLast > 3) level = 'warn';
-      }
-
-      if (recentAvg != null) {
-        if (recentAvg <= 2) level = 'bad';
-        else if (recentAvg < 3 && level !== 'bad') level = 'warn';
-      }
-
-      if (trendLower) {
-        if (level === 'good') level = 'warn';
-        else if (level === 'warn') level = 'bad';
-      }
-
-      const trendText =
-        trendDelta == null
-          ? String(t('n/a'))
-          : trendDelta < 0
-            ? `${t('lower')} (${trendDelta.toFixed(2)})`
-            : trendDelta > 0
-              ? `${t('higher')} (+${trendDelta.toFixed(2)})`
-              : String(t('stable'));
-
-      const parts: string[] = [
-        `${t('Last intervention feedback')}: ${fmtDateTime(lastIso)}${daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : ''}`,
-      ];
-      if (recentAvg != null) {
-        parts.push(
-          `${t('Avg score')} (${t('last')} ${recentDaysCount} ${t('answered days')}): ${recentAvg.toFixed(2)}`
-        );
-      }
-      if (prevAvg != null) parts.push(`${t('Previous avg score')}: ${prevAvg.toFixed(2)}`);
-      parts.push(`${t('Trend')}: ${trendText}`);
-
-      return { level, tip: parts.join(' • ') };
+    // Grey: no star rating ever submitted
+    if (answeredDaysTotal === 0 || !lastIso) {
+      return { level: 'unknown', tip: String(t('No feedback ever submitted')) };
     }
 
-    // Fallback when intervention feedback has no numeric scored entries yet
-    const last = getIsoMaybe(extra.last_feedback_at);
-    const d = daysSince(last || undefined);
-    let level: Traffic = 'unknown';
-    if (!last || d === Number.POSITIVE_INFINITY) level = 'warn';
-    else if (d <= 14) level = 'good';
-    else if (d <= 30) level = 'warn';
-    else level = 'bad';
-    return {
-      level,
-      tip: last
-        ? `${t('Last feedback')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
-        : String(t('No recent feedback')),
-    };
+    const daysStr = daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : '';
+
+    let level: Traffic;
+
+    // Red: no rating for >30 days OR ≥7 low ratings (≤2★) in last 14 days
+    if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) {
+      level = 'bad';
+    }
+    // Yellow: no rating for 15–30 days OR ≥3 low ratings in last 14 days
+    else if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) {
+      level = 'warn';
+    }
+    // Green: rating within last 14 days and <3 low ratings
+    else {
+      level = 'good';
+    }
+
+    const tip = [
+      `${t('Last star rating')}: ${fmtDateTime(lastIso)}${daysStr}`,
+      `${t('Low ratings (≤2 stars) in last 14 days')}: ${lowRatings14d}`,
+    ].join(' • ');
+
+    return { level, tip };
   };
 
   const shouldHideHealthChip = (p: PatientType): boolean => !store.isCompletedPatient(p);
