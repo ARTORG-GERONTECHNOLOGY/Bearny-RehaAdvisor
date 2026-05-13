@@ -1297,7 +1297,7 @@
   "Available questionnaires": "Verfügbare Fragebögen",
   "Create": "Erstellen",
   "Show only dates with feedback": "Nur Daten mit Feedback anzeigen",
-  "answeredFeedbackSummary": "Feedback beantwortet für {{answered}} von {{total}} geplante Ereignisse",
+  "answeredFeedbackSummary": "{{answered}} von {{total}} geplanten Ereignissen beantwortet",
   "Export": "Exportieren",
   "Filter by Primary Diagnosis": "Nach Hauptdiagnose filtern",
   "Add/modify in template by diagnosis": "In Vorlage nach Diagnose hinzufügen/ändern",
