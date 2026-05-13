@@ -59,6 +59,7 @@ class Command(BaseCommand):
                 exercise_data = {}
                 max_hr_map = {}
                 wear_time_map = {}  # date -> minutes worn (from intraday HR)
+                azm_breakdown = {}  # date -> {"fat_burn": N, "cardio": N, "peak": N, "total": N}
 
                 # ---------------------------
                 # GENERIC FETCH FUNCTION
@@ -155,6 +156,12 @@ class Command(BaseCommand):
                         val = item.get("value")
                         if isinstance(val, dict):
                             total = val.get("totalMinutes")
+                            azm_breakdown[dt] = {
+                                "fat_burn": val.get("fatBurnActiveZoneMinutes"),
+                                "cardio": val.get("cardioActiveZoneMinutes"),
+                                "peak": val.get("peakActiveZoneMinutes"),
+                                "total": total,
+                            }
                         elif isinstance(val, (int, float)):
                             total = int(val)
                         else:
@@ -312,6 +319,7 @@ class Command(BaseCommand):
                         set__calories=series["calories"].get(dt),
                         set__resting_heart_rate=series["resting_heart_rate"].get(dt),
                         set__active_minutes=active_minutes,
+                        set__active_zone_minutes=azm_breakdown.get(dt),
                         set__inactivity_minutes=inactivity,
                         set__heart_rate_zones=series["heart_rate_zones"].get(dt),
                         set__max_heart_rate=max_hr_map.get(dt),
