@@ -76,7 +76,7 @@ const HealthViewControls: React.FC<Props> = observer(
             <Col xs={12} lg={1} className="text-lg-end">
               <Button variant="primary" className="w-100 w-lg-auto" onClick={onExportClick}>
                 <i className="bi bi-box-arrow-up-right me-1" />
-                {t('Export…')}
+                {t('Export')}
               </Button>
             </Col>
           </Row>

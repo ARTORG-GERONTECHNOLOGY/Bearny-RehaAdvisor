@@ -46,7 +46,6 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
 
   const allDates = useMemo(() => asArray(intervention?.dates), [intervention]);
 
-  // ✅ filter toggle
   const [onlyWithFeedback, setOnlyWithFeedback] = useState(true);
 
   // reset UI when opening a different intervention/modal
@@ -69,7 +68,6 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
     }, 0);
   }, [allDates]);
 
-  // ✅ filtered list for left column
   const visibleDates = useMemo(() => {
     if (!onlyWithFeedback) return allDates;
     return allDates.filter((d: any) => {
@@ -97,7 +95,6 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
       onHide={onHide}
       centered
       size="lg"
-      // ✅ limit popup size
       dialogClassName="reha-feedback-modal"
       contentClassName="reha-feedback-modal__content"
     >
@@ -114,14 +111,9 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
           </Alert>
         ) : (
           <>
-            {/* ✅ summary + filter toggle */}
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
               <div className="text-muted">
-                {safeT(t, 'Answered feedback for')}{' '}
-                <strong>
-                  {answeredCount} {safeT(t, 'out of')} {totalScheduled}
-                </strong>{' '}
-                {safeT(t, 'scheduled events')}.
+                {t('answeredFeedbackSummary', { answered: answeredCount, total: totalScheduled })}.
               </div>
 
               <Form.Check

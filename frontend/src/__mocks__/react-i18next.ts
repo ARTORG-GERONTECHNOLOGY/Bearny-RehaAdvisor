@@ -2,8 +2,20 @@
 // Tests that need custom translation behaviour can still override with a factory:
 //   jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }))
 
+import en from '@/assets/lang/en.json';
+const translations = en as unknown as Record<string, string>;
+
 export const useTranslation = () => ({
-  t: (key: string) => key,
+  t: (key: string, options?: Record<string, unknown>) => {
+    // Without options, return the raw key
+    // With options, look up the real English template so interpolation is meaningful.
+    if (!options) return key;
+    const template = translations[key] ?? key;
+    return Object.entries(options).reduce(
+      (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+      template
+    );
+  },
   i18n: {
     language: 'en',
     changeLanguage: jest.fn(),
