@@ -249,11 +249,13 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     Summarize intervention feedback for therapist traffic-light logic.
 
     Uses only numeric answer keys from PatientInterventionLogs.feedback.
-    Returns recency, recent average score (last N answered days), and trend
-    versus the previous N answered days.
+    Returns recency, recent average score (last N answered days), trend versus
+    the previous N answered days, and the count of low-rated entries (mean ≤ 2)
+    within the last 14 days.
     """
 
     now = timezone.now()
+    cutoff_14d = now - timedelta(days=14)
 
     def _aware(dt):
         if not isinstance(dt, datetime):
@@ -267,6 +269,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
 
     day_to_values = {}
     latest_dt = None
+    low_ratings_14d = 0
 
     logs = (
         PatientInterventionLogs.objects(userId=patient, feedback__exists=True, feedback__ne=[])
@@ -298,6 +301,9 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
         dkey = dt.date()
         day_to_values.setdefault(dkey, []).extend(numeric_values)
 
+        if dt >= cutoff_14d and mean(numeric_values) <= 2:
+            low_ratings_14d += 1
+
     day_scores = sorted(
         [(d, mean(vals)) for d, vals in day_to_values.items() if vals],
         key=lambda x: x[0],
@@ -323,6 +329,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
         "previous_avg_score": prev_avg,
         "trend_delta": trend_delta,
         "trend_lower": trend_lower,
+        "low_ratings_14d": low_ratings_14d,
     }
 
 
@@ -587,6 +594,7 @@ def list_therapist_patients(request, therapist_id):
                     "previous_avg_score": None,
                     "trend_delta": None,
                     "trend_lower": False,
+                    "low_ratings_14d": 0,
                 }
 
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
