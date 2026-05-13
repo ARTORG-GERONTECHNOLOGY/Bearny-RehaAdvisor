@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '../../stores/interventionsImportStore';
 import {
+  MAX_MEDIA_UPLOAD_BATCH_MB,
   interventionsMediaUploadStore,
   MediaUploadFileResult,
 } from '../../stores/interventionsMediaUploadStore';
@@ -31,7 +32,7 @@ const ACCEPTED_EXTENSIONS = '.mp4,.mp3,.m4a,.wav,.pdf,.jpg,.jpeg,.png';
 const ACCEPTED_MIME =
   'video/mp4,audio/mpeg,audio/mp4,audio/wav,application/pdf,image/jpeg,image/png';
 
-const MAX_FILE_SIZE_MB = 1024; // 1 GB
+const MAX_FILE_SIZE_MB = MAX_MEDIA_UPLOAD_BATCH_MB;
 const MAX_EXCEL_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 function getMaxSizeMB(): number {
@@ -137,7 +138,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
   // ── Video tab helpers ──────────────────────────────────────────────────────
   const validatedMediaFiles: ValidatedFile[] = mediaFiles.map(validateMediaFile);
-  const hasValidMediaFiles = validatedMediaFiles.some((vf) => vf.valid && !vf.tooLarge);
+  const uploadableMediaFiles = validatedMediaFiles.filter((vf) => vf.valid && !vf.tooLarge);
+  const hasValidMediaFiles = uploadableMediaFiles.length > 0;
+  const uploadableTotalBytes = uploadableMediaFiles.reduce((sum, vf) => sum + vf.file.size, 0);
 
   const handleMediaFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
@@ -168,9 +171,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   };
 
   const submitMedia = async () => {
-    const filesToUpload = validatedMediaFiles
-      .filter((vf) => vf.valid && !vf.tooLarge)
-      .map((vf) => vf.file);
+    const filesToUpload = uploadableMediaFiles.map((vf) => vf.file);
     if (filesToUpload.length === 0) return;
     await interventionsMediaUploadStore.uploadMedia(filesToUpload);
   };
@@ -529,6 +530,20 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {validatedMediaFiles.length > 0 && (
+              <div className="text-muted small mb-3" data-testid="media-upload-summary">
+                {hasValidMediaFiles
+                  ? t(
+                      'Ready to upload {{count}} file(s), {{size}} MB total. Large selections are uploaded in smaller batches automatically.',
+                      {
+                        count: uploadableMediaFiles.length,
+                        size: formatMB(uploadableTotalBytes),
+                      }
+                    )
+                  : t('No valid files are ready to upload.')}
               </div>
             )}
 
