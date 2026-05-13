@@ -153,15 +153,30 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             series["heart_rate_zones"][dt] = val.get("heartRateZones")
 
     # Active Zone Minutes
+    # Fitbit returns value as {"totalMinutes": N, ...} for most devices, but some
+    # older accounts return a plain integer.  Handle both to avoid silent fallback
+    # to minutesVeryActive+minutesFairlyActive (a different, usually larger metric).
     azm_url = f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_str}/{date_str}.json"
     azm_resp = requests.get(azm_url, headers=headers, timeout=15)
     if azm_resp.status_code == 200:
-        for item in azm_resp.json().get("activities-activeZoneMinutes", []):
+        azm_items = azm_resp.json().get("activities-activeZoneMinutes", [])
+        for item in azm_items:
             dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
-            val = item.get("value") or {}
-            total = val.get("totalMinutes")
+            val = item.get("value")
+            if isinstance(val, dict):
+                total = val.get("totalMinutes")
+            elif isinstance(val, (int, float)):
+                total = int(val)
+            else:
+                total = None
             if total is not None:
                 series["activeZoneMinutes"][dt] = int(total)
+        if not azm_items:
+            logger.info(
+                "[fitbit] AZM endpoint returned no items for user=%s date=%s — falling back to very+fairly active minutes",
+                user,
+                date_str,
+            )
 
     # Breathing rate
     br_url = f"{FITBIT_API_URL}/br/date/{date_str}/{date_str}.json"
