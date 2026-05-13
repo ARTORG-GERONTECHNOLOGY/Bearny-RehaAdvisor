@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
@@ -28,6 +28,7 @@ jest.mock('@/stores/interventionsImportStore', () => ({
 }));
 
 jest.mock('@/stores/interventionsMediaUploadStore', () => ({
+  MAX_MEDIA_UPLOAD_BATCH_MB: 1000,
   interventionsMediaUploadStore: mockVideoStore,
 }));
 
@@ -273,14 +274,14 @@ describe('Media file validation', () => {
     expect(screen.queryAllByTestId('video-file-row')).toHaveLength(0);
   });
 
-  it('shows ⚠ badge and size info for a valid-name file that exceeds the 1 GB limit', () => {
+  it('shows ⚠ badge and size info for a valid-name file that exceeds the upload limit', () => {
     openMediaTab();
     const bigFile = new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' });
     Object.defineProperty(bigFile, 'size', { value: 1100 * 1024 * 1024 }); // 1.1 GB
     addFile(bigFile);
     expect(screen.getByText('⚠')).toBeInTheDocument();
     expect(screen.getByText(/File too large/i)).toBeInTheDocument();
-    expect(screen.getByText(/1024/)).toBeInTheDocument(); // shows max MB
+    expect(screen.getByText(/1000/)).toBeInTheDocument(); // leaves room under the 1g request limit
   });
 
   it('Upload button stays disabled when only too-large files are present', () => {
@@ -304,6 +305,28 @@ describe('Media file validation', () => {
     expect(screen.getByText('⚠')).toBeInTheDocument();
     expect(screen.getByText('✓')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Upload$/i })).not.toBeDisabled();
+  });
+
+  it('shows a selected upload summary explaining automatic smaller batches', () => {
+    openMediaTab();
+    addFile(new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' }));
+    expect(screen.getByTestId('media-upload-summary')).toHaveTextContent(
+      /Large selections are uploaded in smaller batches automatically/i
+    );
+  });
+
+  it('uploads only valid files that are under the safe request limit', async () => {
+    openMediaTab();
+    const input = document.getElementById('media-file-input') as HTMLInputElement;
+    const okFile = new File(['data'], '3500_web_de.mp4', { type: 'video/mp4' });
+    const invalidFile = new File(['data'], 'bad.mp4', { type: 'video/mp4' });
+    const tooLargeFile = new File(['data'], '3500_pdf_de.pdf', { type: 'application/pdf' });
+    Object.defineProperty(tooLargeFile, 'size', { value: 1001 * 1024 * 1024 });
+
+    fireEvent.change(input, { target: { files: [okFile, invalidFile, tooLargeFile] } });
+    fireEvent.click(screen.getByRole('button', { name: /^Upload$/i }));
+
+    await waitFor(() => expect(mockVideoStore.uploadMedia).toHaveBeenCalledWith([okFile]));
   });
 });
 
