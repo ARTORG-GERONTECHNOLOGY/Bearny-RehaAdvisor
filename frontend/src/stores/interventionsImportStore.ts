@@ -1,6 +1,8 @@
 // src/stores/interventionsImportStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
+import { t as i18nT } from 'i18next';
 import apiClient from '../api/client';
+import { getFriendlyApiErrorMessage } from '../utils/apiErrorMessages';
 
 export type ImportResult = {
   created?: number;
@@ -87,11 +89,24 @@ export class InterventionsImportStore {
         this.result = (res.data?.result ?? res.data ?? null) as ImportResult;
       });
     } catch (e: any) {
-      const backend =
-        e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Import failed.';
+      const message = getFriendlyApiErrorMessage(e, {
+        fallback: i18nT('Import failed. Please try again.'),
+        payloadTooLarge: i18nT(
+          'The Excel upload is too large for the server to accept. Please choose a file under 50 MB.'
+        ),
+        network: i18nT(
+          'The Excel import could not reach the server. Please check your connection and try again.'
+        ),
+        timeout: i18nT('The Excel import timed out. Please try again, or import a smaller file.'),
+        server: i18nT(
+          'The server could not finish the Excel import. Please try again, and contact support if it keeps happening.'
+        ),
+        unauthorized: i18nT('Your session expired. Please sign in again and retry the import.'),
+        forbidden: i18nT('You do not have permission to import interventions.'),
+      });
 
       runInAction(() => {
-        this.error = String(backend);
+        this.error = message;
         this.errorCode = e?.response?.data?.error_code || '';
         this.availableSheets = e?.response?.data?.available_sheets || [];
         this.result = e?.response?.data?.result ?? null;

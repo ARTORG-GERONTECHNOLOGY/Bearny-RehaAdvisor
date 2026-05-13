@@ -171,6 +171,40 @@ test.describe('Import Interventions modal', () => {
     await expect(modal.getByRole('button', { name: /^Upload$/i })).not.toBeDisabled();
   });
 
+  test('media upload shows batching summary and friendly 413 error', async ({ page }) => {
+    skipUnlessSeeded();
+    await loginAsTherapist(page);
+    await openImportModal(page);
+
+    const modal = page.locator('.modal.show');
+    await modal.getByRole('link', { name: /Upload Media/i }).click();
+
+    await page.route('**/api/interventions/import/media/', async (route) => {
+      await route.fulfill({
+        status: 413,
+        contentType: 'text/html',
+        body: '<html><body>Request Entity Too Large</body></html>',
+      });
+    });
+
+    await page.locator('#media-file-input').setInputFiles({
+      name: '3500_web_de.mp4',
+      mimeType: 'video/mp4',
+      buffer: Buffer.from('fake-mp4-data'),
+    });
+
+    await expect(modal.getByTestId('media-upload-summary')).toContainText(/smaller batches/i);
+
+    const uploadRequest = page.waitForRequest(
+      (req) => req.url().includes('/interventions/import/media/') && req.method() === 'POST'
+    );
+    await modal.getByRole('button', { name: /^Upload$/i }).click();
+    await uploadRequest;
+
+    await expect(modal.getByRole('alert')).toContainText(/too large for the server/i);
+    await expect(modal.getByRole('alert')).toContainText(/smaller batches/i);
+  });
+
   test('invalid filename shows ✗ badge and Upload button stays disabled', async ({ page }) => {
     skipUnlessSeeded();
     await loginAsTherapist(page);
