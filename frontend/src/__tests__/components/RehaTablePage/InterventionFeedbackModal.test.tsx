@@ -144,8 +144,10 @@ describe('InterventionFeedbackModal', () => {
       <InterventionFeedbackModal show={true} onHide={jest.fn()} intervention={intervention} />
     );
 
-    // Check for the feedback count summary text
-    expect(screen.getByText(/answeredFeedbackSummary/)).toBeInTheDocument();
+    // answered=1 (first date has feedback), total=2
+    expect(
+      screen.getByText(/Answered feedback for 1 out of 2 scheduled events/)
+    ).toBeInTheDocument();
   });
 
   it('shows video feedback when available', () => {
@@ -168,7 +170,9 @@ describe('InterventionFeedbackModal', () => {
       <InterventionFeedbackModal show={true} onHide={jest.fn()} intervention={intervention} />
     );
 
-    // Video feedback should count as answered - check the summary text exists
-    expect(screen.getByText(/answeredFeedbackSummary/)).toBeInTheDocument();
+    // answered=1 (video counts), total=1
+    expect(
+      screen.getByText(/Answered feedback for 1 out of 1 scheduled events/)
+    ).toBeInTheDocument();
   });
 });
