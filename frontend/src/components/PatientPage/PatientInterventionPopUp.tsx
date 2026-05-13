@@ -454,7 +454,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const mediaLabel = getMediaTypeLabelFromIntervention(interventionForBadges);
 
   const renderOneMedia = (m: InterventionMedia, idx: number, hideLabel = false) => {
-    const label = m.title || `${t('Media')} ${idx + 1}`;
+    const label = `${t('Media')} ${idx + 1}`;
     const playable = getPlayableUrl(m);
 
     return (
@@ -546,7 +546,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       <Tab.Container activeKey={activeMediaTab} onSelect={(k) => setActiveMediaTab(k ?? 'media-0')}>
         <Nav variant="tabs" className="mb-3 flex-wrap">
           {effectiveMediaList.map((m, idx) => {
-            const label = m.title || `${t('Media')} ${idx + 1}`;
+            const label = `${t('Media')} ${idx + 1}`;
             return (
               <Nav.Item key={idx}>
                 <Nav.Link eventKey={`media-${idx}`}>{label}</Nav.Link>
