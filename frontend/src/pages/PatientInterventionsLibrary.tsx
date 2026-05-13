@@ -79,9 +79,9 @@ const getContentTypeIcon = (value: string) => {
   const normalized = value.trim().toLocaleLowerCase();
 
   if (normalized.includes('audio')) return AudioIcon;
-  if (normalized.includes('text')) return TextIcon;
+  if (normalized.includes('brochure')) return TextIcon;
   if (normalized.includes('video')) return VideoIcon;
-  if (normalized.includes('image')) return VideoIcon;
+  if (normalized.includes('graphics')) return VideoIcon;
   if (normalized.includes('website')) return WebsiteIcon;
   if (normalized.includes('app')) return WebsiteIcon;
 
