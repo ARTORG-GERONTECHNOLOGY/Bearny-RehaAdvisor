@@ -93,7 +93,7 @@ const TemplatesLayout: React.FC<Props> = ({
               onSelect={(k) => onTemplateLeftTab((k as TemplateLeftTab) || 'my')}
             >
               <Nav.Item>
-                <Nav.Link eventKey="my">{t('My Template')}</Nav.Link>
+                <Nav.Link eventKey="my">{t('My Templates')}</Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="all">{t('Browse All')}</Nav.Link>

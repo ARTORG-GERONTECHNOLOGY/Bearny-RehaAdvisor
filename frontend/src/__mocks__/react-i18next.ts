@@ -3,7 +3,13 @@
 //   jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }))
 
 export const useTranslation = () => ({
-  t: (key: string) => key,
+  t: (key: string, options?: Record<string, unknown>) => {
+    if (!options) return key;
+    return Object.entries(options).reduce(
+      (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+      key
+    );
+  },
   i18n: {
     language: 'en',
     changeLanguage: jest.fn(),

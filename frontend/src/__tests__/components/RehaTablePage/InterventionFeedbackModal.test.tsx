@@ -145,9 +145,7 @@ describe('InterventionFeedbackModal', () => {
     );
 
     // Check for the feedback count summary text
-    expect(screen.getByText(/Answered feedback for/)).toBeInTheDocument();
-    expect(screen.getByText(/out of/)).toBeInTheDocument();
-    expect(screen.getByText(/scheduled events/)).toBeInTheDocument();
+    expect(screen.getByText(/answeredFeedbackSummary/)).toBeInTheDocument();
   });
 
   it('shows video feedback when available', () => {
@@ -171,7 +169,6 @@ describe('InterventionFeedbackModal', () => {
     );
 
     // Video feedback should count as answered - check the summary text exists
-    expect(screen.getByText(/Answered feedback for/)).toBeInTheDocument();
-    expect(screen.getByText(/out of/)).toBeInTheDocument();
+    expect(screen.getByText(/answeredFeedbackSummary/)).toBeInTheDocument();
   });
 });
