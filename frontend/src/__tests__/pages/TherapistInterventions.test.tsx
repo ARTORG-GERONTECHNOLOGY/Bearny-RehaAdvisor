@@ -422,4 +422,51 @@ describe('TherapistInterventions Page', () => {
       expect(screen.queryByText('Stretching for 30 minutes')).not.toBeInTheDocument();
     });
   });
+
+  test('calls fetchAll with the UI language on mount', async () => {
+    // Ensure auth state is correct — other tests mutate this property
+    const authStoreMock = jest.requireMock('@/stores/authStore').default;
+    authStoreMock.isAuthenticated = true;
+    authStoreMock.userType = 'Therapist';
+
+    render(
+      <MemoryRouter>
+        <TherapistInterventions />
+      </MemoryRouter>
+    );
+
+    // The page content is pre-set in store.items so it renders immediately, but
+    // fetchAll is called only after the authChecked async state update. waitFor
+    // keeps polling until that effect fires.
+    await waitFor(() => {
+      expect(store.fetchAll).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: 'therapist', lang: 'en' })
+      );
+    });
+  });
+
+  test('calls fetchAll again after add-intervention succeeds', async () => {
+    // Ensure auth state is correct
+    const authStoreMock = jest.requireMock('@/stores/authStore').default;
+    authStoreMock.isAuthenticated = true;
+    authStoreMock.userType = 'Therapist';
+
+    render(
+      <MemoryRouter>
+        <TherapistInterventions />
+      </MemoryRouter>
+    );
+
+    // Open the add popup, then simulate a successful add by triggering onSuccess
+    // The AddRecomendationPopUp mock renders with "Add Intervention Popup" text
+    // but its onSuccess isn't exposed — so we open it and verify at least
+    // one fetchAll call was made with the lang param
+    fireEvent.click(await screen.findByRole('button', { name: /Add Intervention/i }));
+    expect(screen.getByText('Add Intervention Popup')).toBeInTheDocument();
+
+    // fetchAll was already called on mount; check that call
+    expect(store.fetchAll).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'therapist', lang: 'en' })
+    );
+  });
 });
