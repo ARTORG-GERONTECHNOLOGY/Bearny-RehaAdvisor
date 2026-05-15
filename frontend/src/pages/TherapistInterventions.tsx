@@ -286,8 +286,11 @@ const TherapistRecomendations: React.FC = observer(() => {
       return;
     }
 
-    therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' });
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate]);
+    therapistInterventionsLibraryStore.fetchAll({
+      mode: 'therapist',
+      lang: i18n.language.slice(0, 2),
+    });
+  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
 
   // surface store errors in existing ErrorAlert
   useEffect(() => {
@@ -1193,13 +1196,23 @@ const TherapistRecomendations: React.FC = observer(() => {
       <AddInterventionPopup
         show={showPopupAdd}
         handleClose={handleCloseAdd}
-        onSuccess={() => therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' })}
+        onSuccess={() =>
+          therapistInterventionsLibraryStore.fetchAll({
+            mode: 'therapist',
+            lang: i18n.language.slice(0, 2),
+          })
+        }
       />
 
       <ImportInterventionsModal
         show={showPopupImport}
         onHide={handleCloseImport}
-        onSuccess={() => therapistInterventionsLibraryStore.fetchAll({ mode: 'therapist' })}
+        onSuccess={() =>
+          therapistInterventionsLibraryStore.fetchAll({
+            mode: 'therapist',
+            lang: i18n.language.slice(0, 2),
+          })
+        }
       />
 
       {assignOpen && (

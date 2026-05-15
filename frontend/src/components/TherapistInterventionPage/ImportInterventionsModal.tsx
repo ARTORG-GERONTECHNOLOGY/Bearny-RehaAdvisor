@@ -66,7 +66,7 @@ function validateMediaFile(file: File): ValidatedFile {
 }
 
 const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSuccess }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'excel' | 'media'>('excel');
@@ -76,7 +76,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   const [excelSizeError, setExcelSizeError] = useState<string | null>(null);
 
   const defaultSheet = (interventionsConfig as any)?.importDefaults?.sheetName || 'Content';
-  const defaultLangFromCfg = (interventionsConfig as any)?.importDefaults?.defaultLang || 'en';
+  const defaultLangFromCfg =
+    (interventionsConfig as any)?.importDefaults?.defaultLang ||
+    i18n.language.slice(0, 2).toLowerCase() ||
+    'en';
 
   const [sheetName, setSheetName] = useState(defaultSheet);
   const [defaultLang, setDefaultLang] = useState(defaultLangFromCfg);
