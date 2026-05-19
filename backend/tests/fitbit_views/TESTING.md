@@ -15,9 +15,9 @@ This document describes tests in
 | `/api/fitbit/manual_steps/<patient_id>/` | POST/GET | 5 |
 | `/api/fitbit/summary/(<patient_id>/)` | GET | 3 |
 | `health_combined_history(<patient_id>)` | GET (direct view test) | 6 |
-| Helper functions | N/A | 5 |
+| Helper functions | N/A | 7 |
 
-**Total: 33 tests**
+**Total: 35 tests**
 
 ---
 
@@ -51,6 +51,8 @@ This document describes tests in
 - Health-data endpoint:
   - **`minutes_asleep` returned in `sleep` object (actual sleep vs time-in-bed)**
 - Helpers: threshold defaults/merge, averaging utility, patient resolver, sleep-minute conversion, and `_date`.
+- **Regression — `_sleep_minutes` prefers `minutes_asleep`**: when both `minutes_asleep` and `sleep_duration` are present, `_sleep_minutes` returns `minutes_asleep` (actual sleep, matches Fitbit app), not `sleep_duration ÷ 60 000` (time in bed).
+- **Regression — `_sleep_minutes` fallback**: when `minutes_asleep` is absent (legacy records), falls back to `sleep_duration ÷ 60 000`.
 
 ---
 

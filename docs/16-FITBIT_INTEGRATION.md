@@ -100,7 +100,7 @@ Unique on `(user, date)`. All numeric fields are `None` when not yet received.
 | `floors` | int | `activities/floors` |
 | `distance` | float (km) | `activities/distance` |
 | `calories` | float | `activities/calories` |
-| `active_minutes` | int | AZM if available, else `minutesVeryActive + minutesFairlyActive` |
+| `active_minutes` | int | `activities-active-zone-minutes` → `value.activeZoneMinutes`; falls back to `minutesVeryActive + minutesFairlyActive` when the endpoint returns no data |
 | `inactivity_minutes` | int | `1440 − (active_minutes + sleep_minutes)` |
 | `resting_heart_rate` | int | `activities/heart` summary |
 | `max_heart_rate` | int | Derived from intraday 1-sec HR dataset |
@@ -193,14 +193,22 @@ fetch_fitbit_today_for_user(user, bypass_cooldown=True)
 
 ---
 
-### 2. Scheduled backfill (Celery)
+### 2. Scheduled sync (Celery)
 
 **Entry points:**
 
-| Task name | What it does |
-|---|---|
-| `core.tasks.run_fetch_fitbit_data` | Runs the `fetch_fitbit_data` management command for all connected users; scheduled via Celery Beat |
-| `core.tasks.fetch_fitbit_data_async` | Fetches today for a single user; called ad-hoc (e.g. from auth flow) |
+| Task name | Schedule | What it does |
+|---|---|---|
+| `core.tasks.run_fetch_fitbit_data_today_all` | Every 4 hours | Calls `fetch_fitbit_today_for_user` for every connected user; keeps data current even when patients do not open the app |
+| `core.tasks.run_fetch_fitbit_data` | Nightly at 01:00 | Runs the `fetch_fitbit_data` management command — full 30-day backfill for all users |
+| `core.tasks.fetch_fitbit_data_async` | Ad-hoc (after login) | Fetches today for a single user; always bypasses the 15-minute cooldown |
+
+> **Why two scheduled tasks?** The 4-hour task keeps same-day data current without the expense of a 30-day backfill on every run. The nightly task self-corrects any gaps (e.g. a day where the device had not yet synced to Fitbit's servers when the 4-hour job ran).
+
+Register both schedules with:
+```bash
+docker exec django python manage.py seed_periodic_tasks
+```
 
 **Management command:** `python manage.py fetch_fitbit_data`
 **Source:** [core/management/commands/fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py)
@@ -340,7 +348,7 @@ Detailed day-by-day export including sleep, HR zones, and exercise sessions. No 
 ```
 
 Dates are returned in European format (`DD.MM.YYYY`).  
-`sleep_minutes` reflects time **in bed** (from `sleep_duration`); `minutes_asleep` reflects actual sleep time (matches the Fitbit app).
+`minutes_asleep` is the actual sleep time (matches the Fitbit app display). `sleep_minutes` in this endpoint is derived from `sleep_duration` (total time in bed, ms ÷ 60 000) for historical compatibility; prefer `minutes_asleep` for patient-facing display.
 
 ---
 
@@ -388,9 +396,31 @@ Returns Fitbit data, questionnaire responses, and intervention adherence in a si
 
 Fitbit enforces **150 API calls per user per hour** (as of the Personal tier).
 
-Each call to `fetch_fitbit_today_for_user` makes ~13–15 API calls. The 15-minute cooldown limits on-demand fetches to at most **4 per hour (~60 calls)**, well within the quota. The scheduled backfill command runs outside the cooldown and is invoked at most once per hour by Celery Beat.
+Each call to `fetch_fitbit_today_for_user` makes ~13–15 API calls. The 15-minute cooldown limits on-demand fetches to at most **4 per hour (~60 calls)**. The every-4-hour scheduled task also respects the cooldown guard, so the two paths combined remain well within the quota. The nightly 30-day backfill command runs outside the cooldown.
 
 If a user's quota is exhausted (HTTP 429), all subsequent fetches within the cooldown window are blocked automatically. The next permitted fetch attempt is ~15 minutes after the 429-triggering run.
+
+---
+
+## Bug History
+
+### 2026-05-19 — Active Zone Minutes always wrong; sleep displayed as time-in-bed
+
+**Symptoms reported (from clinical team):**
+
+- `active_minutes` in Bearny did not match "Active Zone Minutes" in the Fitbit app for most days.
+- `sleep_minutes` was consistently higher than what the Fitbit app showed (included wake phases).
+- Patients who did not open the Bearny app had no wearable data in Bearny even though the Fitbit recorded data.
+
+**Root causes:**
+
+1. **Wrong AZM JSON keys** (`fetch_fitbit_data.py` and `fitbit_sync.py`): The Fitbit API returns the Active Zone Minutes envelope as `activities-active-zone-minutes` and the total field as `value.activeZoneMinutes`. Both files used the wrong key names (`activities-activeZoneMinutes` / `totalMinutes`), so the AZM dict was always empty and the code silently fell back to `minutesVeryActive + minutesFairlyActive` — unweighted raw minutes, systematically different from AZM.
+
+2. **`_sleep_minutes` used time-in-bed** (`fitbit_view.py`): The helper computed `sleep_duration (ms) ÷ 60 000` (total time in bed). The Fitbit app displays `minutesAsleep` (actual sleep, wake phases removed). Fixed to prefer `minutes_asleep`; falls back to `sleep_duration` for legacy records without `minutes_asleep`.
+
+3. **No intra-day sync** (`seed_periodic_tasks.py`, `tasks.py`): Wearable data was only synced at 01:00 (nightly backfill) or when a therapist or patient opened a Bearny page. Patients who did not log in had no data until the next midnight. Fixed by adding a `run_fetch_fitbit_data_today_all` task that runs every 4 hours.
+
+**Fix branch:** `fix/fitbit-data-sync-issues`
 
 ---
 
