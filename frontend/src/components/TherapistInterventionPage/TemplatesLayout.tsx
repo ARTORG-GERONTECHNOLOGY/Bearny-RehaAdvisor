@@ -12,11 +12,11 @@ import {
   Badge,
 } from 'react-bootstrap';
 import { FaPlus, FaMinus, FaEdit } from 'react-icons/fa';
-import { getTagColor } from '../../utils/interventions';
-import FilterBar from './FilterBar';
+import { getTagColor } from '@/utils/interventions';
+import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 
-import type { TemplateItem } from '../../types/templates';
-import type { InterventionTypeTh } from '../../types';
+import type { TemplateItem } from '@/types/templates';
+import type { InterventionTypeTh } from '@/types';
 
 export type TemplatesFiltersState = {
   tSearchTerm: string;
@@ -50,6 +50,7 @@ type Props = {
   browseAllItems: InterventionTypeTh[];
   findTemplateFor: (intId: string) => TemplateItem | undefined;
   onOpenAssign: (id: string, title?: string, mode?: 'create' | 'modify') => void;
+  onBrowseItemClick: (intervention: InterventionTypeTh) => void;
 
   filters: TemplatesFiltersState;
   onFilters: (next: TemplatesFiltersState) => void;
@@ -74,6 +75,7 @@ const TemplatesLayout: React.FC<Props> = ({
   browseAllItems,
   findTemplateFor,
   onOpenAssign,
+  onBrowseItemClick,
   filters,
   onFilters,
   onResetFilters,
@@ -193,9 +195,7 @@ const TemplatesLayout: React.FC<Props> = ({
                       className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
                       style={{ cursor: 'pointer' }}
                       title={t('Click to view details')}
-                      onClick={() => {
-                        // optional: if you want clicking to open details, wire handler from parent
-                      }}
+                      onClick={() => onBrowseItemClick(intervention)}
                     >
                       <div className="me-2">
                         <div className="fw-semibold">{displayTitle}</div>
