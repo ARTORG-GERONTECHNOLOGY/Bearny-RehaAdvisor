@@ -1527,3 +1527,52 @@ def test_patient_profile_get_created_by_null_when_not_set():
     data = resp.json()
     assert "created_by" in data
     assert data["created_by"] is None
+
+
+# ---------------------------------------------------------------------------
+# preferred_language tests
+# ---------------------------------------------------------------------------
+
+
+def test_patient_profile_get_returns_preferred_language():
+    """GET /api/users/<id>/profile/ returns ``preferred_language`` from the Patient document."""
+    user, patient = create_patient()
+    patient.preferred_language = "de"
+    patient.save()
+
+    resp = client.get(
+        f"/api/users/{str(user.id)}/profile/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert resp.json().get("preferred_language") == "de"
+
+
+def test_patient_profile_put_updates_preferred_language():
+    """PUT /api/users/<id>/profile/ with a valid language code persists the value."""
+    user, patient = create_patient()
+
+    resp = client.put(
+        f"/api/users/{str(user.id)}/profile/",
+        data=json.dumps({"preferred_language": "fr"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "preferred_language" in resp.json().get("updated", {})
+    patient.reload()
+    assert patient.preferred_language == "fr"
+
+
+def test_patient_profile_put_rejects_invalid_preferred_language():
+    """PUT /api/users/<id>/profile/ with an unknown language code returns 400."""
+    user, patient = create_patient()
+
+    resp = client.put(
+        f"/api/users/{str(user.id)}/profile/",
+        data=json.dumps({"preferred_language": "xx"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "preferred_language" in resp.json().get("error", "").lower() or "invalid" in resp.json().get("error", "").lower()
