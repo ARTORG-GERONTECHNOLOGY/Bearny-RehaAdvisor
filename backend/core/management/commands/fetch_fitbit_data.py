@@ -150,22 +150,18 @@ class Command(BaseCommand):
                 azm_url = f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_range}.json"
                 azm_resp = requests.get(azm_url, headers=headers)
                 if azm_resp.status_code == 200:
-                    azm_items = azm_resp.json().get("activities-activeZoneMinutes", [])
+                    azm_items = azm_resp.json().get("activities-active-zone-minutes", [])
                     for item in azm_items:
                         dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
-                        val = item.get("value")
-                        if isinstance(val, dict):
-                            total = val.get("totalMinutes")
+                        val = item.get("value") or {}
+                        total = val.get("activeZoneMinutes")
+                        if val:
                             azm_breakdown[dt] = {
                                 "fat_burn": val.get("fatBurnActiveZoneMinutes"),
                                 "cardio": val.get("cardioActiveZoneMinutes"),
                                 "peak": val.get("peakActiveZoneMinutes"),
                                 "total": total,
                             }
-                        elif isinstance(val, (int, float)):
-                            total = int(val)
-                        else:
-                            total = None
                         if total is not None:
                             series["activeZoneMinutes"][dt] = int(total)
                     if not azm_items:
@@ -295,7 +291,10 @@ class Command(BaseCommand):
                     sd = sleep_data.get(dt)
                     if not sd:
                         return 0
-                    return int((sd.sleep_duration or 0) / 60000)
+                    # Prefer minutes_asleep (actual sleep, matches Fitbit app) over sleep_duration (time in bed)
+                    if sd.minutes_asleep is not None:
+                        return max(0, int(sd.minutes_asleep))
+                    return max(0, int((sd.sleep_duration or 0) / 60000))
 
                 # ---------------------------
                 # UPSERT DAY-BY-DAY

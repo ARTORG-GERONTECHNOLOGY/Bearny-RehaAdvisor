@@ -75,6 +75,35 @@ def run_fetch_fitbit_data():
         raise
 
 
+@shared_task(
+    name="core.tasks.run_fetch_fitbit_data_today_all",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=2,
+)
+def run_fetch_fitbit_data_today_all():
+    """Fetch today's Fitbit data for every connected user (runs every 4 h).
+
+    This keeps wearable data current even for patients who haven't opened the
+    app, without the expense of a full 30-day back-fill on every run.
+    """
+    from core.models import FitbitUserToken
+
+    tokens = FitbitUserToken.objects.all()
+    synced = 0
+    errors = 0
+    for token in tokens:
+        try:
+            result = fetch_fitbit_today_for_user(token.user, bypass_cooldown=False)
+            synced += result
+        except Exception:
+            logger.exception("[fetch_fitbit_today_all] failed for user=%s", token.user)
+            errors += 1
+
+    logger.info("[fetch_fitbit_today_all] synced=%d errors=%d", synced, errors)
+    return {"synced": synced, "errors": errors}
+
+
 @shared_task(name="core.tasks.fetch_fitbit_data_async")
 def fetch_fitbit_data_async(user_id):
 

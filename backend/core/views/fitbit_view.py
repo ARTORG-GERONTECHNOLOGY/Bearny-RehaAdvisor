@@ -28,13 +28,12 @@ def _sleep_minutes(entry: FitbitData) -> int:
     back to duration / 60 000 so existing data is never lost.
     """
     try:
-        sleep = entry.sleep if entry else None
-        if not sleep:
+        if not entry.sleep:
             return 0
-        if sleep.minutes_asleep is not None:
-            return int(sleep.minutes_asleep)
-        # Fallback for records stored before minutes_asleep was populated
-        dur_ms = sleep.sleep_duration or 0
+        # Prefer minutes_asleep (actual sleep, matches Fitbit app) over sleep_duration (time in bed)
+        if entry.sleep.minutes_asleep is not None:
+            return max(0, int(entry.sleep.minutes_asleep))
+        dur_ms = entry.sleep.sleep_duration or 0
         return int(round(dur_ms / 60000))
     except Exception:
         return 0
