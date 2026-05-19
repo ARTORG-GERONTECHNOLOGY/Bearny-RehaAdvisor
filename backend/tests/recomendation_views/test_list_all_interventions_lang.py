@@ -155,9 +155,9 @@ def test_list_all_uses_patient_preferred_language_when_patient_id_given(mongo_mo
     assert resp.status_code == 200
     data = resp.json()
     titles = [item["title"] for item in data]
-    assert any("German title" in t for t in titles), (
-        f"Expected German title (patient preferred_language='de') but got: {titles}"
-    )
+    assert any(
+        "German title" in t for t in titles
+    ), f"Expected German title (patient preferred_language='de') but got: {titles}"
 
 
 def test_list_all_falls_back_to_lang_param_when_patient_has_no_preferred_language(mongo_mock):
