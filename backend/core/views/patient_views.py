@@ -1000,9 +1000,10 @@ def get_patient_plan(request, patient_id):
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    ui_lang = (request.GET.get("lang") or "").strip().lower()[:5]
-    # After resolving the patient we will override ui_lang with their profile language if set.
-    # The override is applied below after _resolve_patient_flexible().
+    explicit_lang = (request.GET.get("lang") or "").strip().lower()[:5]
+    # When ?lang is absent the patient's preferred_language acts as the default.
+    # An explicit ?lang param (e.g. therapist switching language) always wins.
+    # ui_lang is resolved after the patient is loaded below.
 
     def _lang_chain(lang: str):
         chain, seen = [], set()
@@ -1031,10 +1032,13 @@ def get_patient_plan(request, patient_id):
             logger.warning("[get_patient_plan] Patient not found")
             return JsonResponse({"error": "Patient not found"}, status=404)
 
-        # Patient's profile language takes priority over the UI lang param.
-        patient_lang = (getattr(patient, "preferred_language", None) or "").strip().lower()
-        if patient_lang:
-            ui_lang = patient_lang
+        # Use the patient's profile language when no explicit ?lang was given.
+        # An explicit ?lang param takes priority so therapists can still request
+        # a specific variant (e.g. ?lang=de) without changing the patient profile.
+        if explicit_lang:
+            ui_lang = explicit_lang
+        else:
+            ui_lang = (getattr(patient, "preferred_language", None) or "").strip().lower()
 
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
