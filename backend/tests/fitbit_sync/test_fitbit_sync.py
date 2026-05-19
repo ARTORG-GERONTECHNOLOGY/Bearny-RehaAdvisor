@@ -339,7 +339,9 @@ def test_fetch_fitbit_today_for_user_covers_branches_and_parsing(mock_objects, m
                 }
             )
         if "active-zone-minutes" in url:
-            return mk_resp(payload={"activities-active-zone-minutes": [{"dateTime": day, "value": {"activeZoneMinutes": 25}}]})
+            return mk_resp(
+                payload={"activities-active-zone-minutes": [{"dateTime": day, "value": {"activeZoneMinutes": 25}}]}
+            )
         if "/br/date/" in url:
             return mk_resp(payload={"br": [{"dateTime": day, "value": {"breathingRate": 14}}]})
         if "/hrv/date/" in url:
@@ -711,9 +713,7 @@ def test_active_minutes_uses_azm_not_fallback(mock_get, _):
     def side_effect(url, headers=None, timeout=None):
         if "active-zone-minutes" in url:
             # Correct Fitbit API response format
-            return mk_resp({"activities-active-zone-minutes": [
-                {"dateTime": day, "value": {"activeZoneMinutes": 42}}
-            ]})
+            return mk_resp({"activities-active-zone-minutes": [{"dateTime": day, "value": {"activeZoneMinutes": 42}}]})
         if "minutesVeryActive" in url:
             # If fallback were used: 10 + 5 = 15 (≠ 42, so we can detect the bug)
             return mk_resp({"activities-minutesVeryActive": [{"dateTime": day, "value": "10"}]})
