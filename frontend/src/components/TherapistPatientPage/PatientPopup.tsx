@@ -577,6 +577,42 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     </Col>
 
                     <Col xs={12} md={6}>
+                      <Form.Group controlId="preferred_language">
+                        <Form.Label>{t('Intervention language')}</Form.Label>
+                        {store.isEditing ? (
+                          <Form.Select
+                            id="preferred_language"
+                            value={store.formData.preferred_language || 'en'}
+                            onChange={(e) => store.setField('preferred_language', e.target.value)}
+                          >
+                            {[
+                              { code: 'en', label: 'English' },
+                              { code: 'de', label: 'Deutsch' },
+                              { code: 'fr', label: 'Français' },
+                              { code: 'it', label: 'Italiano' },
+                              { code: 'nl', label: 'Nederlands' },
+                              { code: 'es', label: 'Español' },
+                              { code: 'sv', label: 'Svenska' },
+                              { code: 'zh', label: '中文' },
+                              { code: 'ja', label: '日本語' },
+                              { code: 'ko', label: '한국어' },
+                            ].map(({ code, label }) => (
+                              <option key={code} value={code}>
+                                {label}
+                              </option>
+                            ))}
+                          </Form.Select>
+                        ) : (
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={store.getDisplayValue('preferred_language') || 'en'}
+                          />
+                        )}
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
                       <Form.Group controlId="reha_end_date">
                         <Form.Label>
                           {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />

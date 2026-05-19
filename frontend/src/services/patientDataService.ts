@@ -18,7 +18,9 @@ export function initPatientData(patientId: string, lang: string): void {
   patientFitbitStore.fetchSummary(patientId, 7);
   patientFitbitStore.fetchSummary(patientId, 30);
   patientInterventionsStore.fetchPlan(patientId, lang);
-  patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang: language });
+  // Pass patientId so the backend uses the patient's profile preferred_language
+  // instead of the therapist's UI language.
+  patientInterventionsLibraryStore.fetchAll({ mode: 'patient', patientId, lang: language });
   healthPageStore.fetchCombinedHistoryForPatient(patientId, wFrom, wTo);
   healthPageStore.fetchCombinedHistoryForPatient(patientId, mFrom, mTo);
 }
