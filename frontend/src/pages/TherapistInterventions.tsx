@@ -1102,6 +1102,7 @@ const TherapistRecomendations: React.FC = observer(() => {
               browseAllItems={templateFilteredAll}
               findTemplateFor={findTemplateFor}
               onOpenAssign={openAssignToTemplate}
+              onBrowseItemClick={handleItemClick}
               // browse filters
               filters={templatesFilters}
               onFilters={setTemplatesFilters}
