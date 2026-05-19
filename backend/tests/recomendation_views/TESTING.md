@@ -6,6 +6,7 @@
 |---|---|
 | [`test_recomendation_views_extra.py`](test_recomendation_views_extra.py) | Validation branches for template apply/preview, intervention creation, diagnosis listing |
 | [`test_list_all_interventions_ratings.py`](test_list_all_interventions_ratings.py) | `avg_rating` / `rating_count` aggregation on `GET /api/interventions/all/` |
+| [`test_list_all_interventions_lang.py`](test_list_all_interventions_lang.py) | `preferred_language` variant selection on `GET /api/interventions/all/<patient_id>/` |
 
 ---
 
@@ -29,6 +30,23 @@ The results are merged back into the serialized items as:
 | `test_list_all_interventions_non_rating_feedback_excluded_from_average` | Only `difficulty_scale` answer submitted | `avg_rating: null`, `rating_count: 0` |
 | `test_list_all_interventions_independent_avg_per_intervention` | Two interventions, only one rated | Rated: `avg_rating: 5.0`; Unrated: `avg_rating: null` |
 | `test_list_all_interventions_avg_rating_rounded_to_one_decimal` | Three ratings: 1, 2, 4 (mean = 2.333…) | `avg_rating: 2.3`, `rating_count: 3` |
+
+---
+
+## `list_all_interventions` — patient `preferred_language`
+
+`GET /api/interventions/all/<patient_id>/`
+
+When a `patient_id` is supplied, the endpoint resolves the patient document and uses `Patient.preferred_language` as the primary variant-selection language instead of the `?lang` query param (the therapist's UI language). The `?lang` param remains the fallback when no patient language is set. If no variant exists for the patient language, the standard `en → de → any` chain applies.
+
+### Tests (`test_list_all_interventions_lang.py`)
+
+| Test | Scenario | Expected |
+|---|---|---|
+| `test_list_all_uses_lang_param_when_no_patient_id` | No patient_id in URL, `?lang=de` | German variant returned |
+| `test_list_all_uses_patient_preferred_language_when_patient_id_given` | `patient.preferred_language='de'`, `?lang=en` | German variant returned (patient overrides UI lang) |
+| `test_list_all_falls_back_to_lang_param_when_patient_has_no_preferred_language` | `patient.preferred_language='en'`, `?lang=en` | English variant returned |
+| `test_list_all_falls_back_when_preferred_language_has_no_variant` | `patient.preferred_language='fr'`, only en/de exist | English or German variant returned (not null) |
 
 ---
 
