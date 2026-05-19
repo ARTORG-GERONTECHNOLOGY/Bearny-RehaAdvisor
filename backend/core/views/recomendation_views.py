@@ -956,9 +956,24 @@ def list_all_interventions(request, patient_id=None):
     GET /api/interventions/all/(<patient_id>/)?lang=de
     - Private interventions: returned as-is
     - Public interventions: grouped by external_id and only best language variant returned
+    When patient_id is provided, the patient's preferred_language takes priority over
+    the ?lang query param so the patient sees content in their profile language.
     """
     try:
-        preferred_lang = (request.GET.get("lang") or "en").lower().strip()
+        request_lang = (request.GET.get("lang") or "").lower().strip()
+
+        # When a patient_id is given, use that patient's preferred_language as the
+        # primary language preference. The ?lang param (UI language) is the fallback
+        # so that the therapist can still override manually when needed.
+        preferred_lang = request_lang or "en"
+        if patient_id:
+            try:
+                patient_obj = Patient.objects.get(id=ObjectId(patient_id))
+                patient_lang = (getattr(patient_obj, "preferred_language", None) or "").lower().strip()
+                if patient_lang:
+                    preferred_lang = patient_lang
+            except Exception:
+                pass  # unknown patient_id — fall through to request_lang default
 
         q_external_id = (request.GET.get("external_id") or "").strip()
         q_lang = (request.GET.get("lang") or "").lower().strip()

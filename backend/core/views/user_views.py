@@ -321,7 +321,10 @@ def user_profile_view(request, user_id):
         "personal_goals": list,
         "social_support": list,
         "initial_questionnaire_enabled": bool,
+        "preferred_language": str,
     }
+
+    PATIENT_PREFERRED_LANGUAGE_CHOICES = {"en", "es", "fr", "de", "it", "nl", "sv", "zh", "ja", "ko"}
 
     TH_ALLOWED_USER = {"username": str, "email": str, "phone": str}
     TH_ALLOWED_TH = {
@@ -548,6 +551,18 @@ def user_profile_view(request, user_id):
 
                     raw_val = raw[field]
                     if not valid_update_value(raw_val):
+                        continue
+
+                    if field == "preferred_language":
+                        lang_val = str(raw_val).lower().strip()
+                        if lang_val not in PATIENT_PREFERRED_LANGUAGE_CHOICES:
+                            return JsonResponse(
+                                {"error": f"Invalid preferred_language '{lang_val}'"},
+                                status=400,
+                            )
+                        old[field] = getattr(patient, field)
+                        patient.preferred_language = lang_val
+                        updated[field] = lang_val
                         continue
 
                     if expected_type == "date":

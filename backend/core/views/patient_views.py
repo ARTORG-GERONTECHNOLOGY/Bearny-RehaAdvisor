@@ -1001,6 +1001,8 @@ def get_patient_plan(request, patient_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     ui_lang = (request.GET.get("lang") or "").strip().lower()[:5]
+    # After resolving the patient we will override ui_lang with their profile language if set.
+    # The override is applied below after _resolve_patient_flexible().
 
     def _lang_chain(lang: str):
         chain, seen = [], set()
@@ -1028,6 +1030,12 @@ def get_patient_plan(request, patient_id):
         if not patient:
             logger.warning("[get_patient_plan] Patient not found")
             return JsonResponse({"error": "Patient not found"}, status=404)
+
+        # Patient's profile language takes priority over the UI lang param.
+        patient_lang = (getattr(patient, "preferred_language", None) or "").strip().lower()
+        if patient_lang:
+            ui_lang = patient_lang
+
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:
