@@ -1575,4 +1575,7 @@ def test_patient_profile_put_rejects_invalid_preferred_language():
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 400
-    assert "preferred_language" in resp.json().get("error", "").lower() or "invalid" in resp.json().get("error", "").lower()
+    assert (
+        "preferred_language" in resp.json().get("error", "").lower()
+        or "invalid" in resp.json().get("error", "").lower()
+    )
