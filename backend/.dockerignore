@@ -6,5 +6,13 @@ env
 # Django 
 db.sqlite3
 
-# Docker 
+# Docker
 Dockerfile
+
+# Celery runtime files (must not be baked into the image)
+celery_worker.state
+celery_worker.state-wal
+celery_worker.state-shm
+celerybeat-schedule
+celerybeat-schedule-wal
+celerybeat-schedule-shm
