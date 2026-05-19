@@ -116,7 +116,9 @@ def test_fetch_fitbit_command_single_user_happy_path_with_mocks():
             return FakeResp(payload={"activities-heart-intraday": {"dataset": [{"value": 120}, {"value": 140}]}})
         if "activities/active-zone-minutes" in url:
             return FakeResp(
-                payload={"activities-active-zone-minutes": [{"dateTime": "2026-01-01", "value": {"activeZoneMinutes": 25}}]}
+                payload={
+                    "activities-active-zone-minutes": [{"dateTime": "2026-01-01", "value": {"activeZoneMinutes": 25}}]
+                }
             )
         if "/br/date/" in url:
             return FakeResp(payload={"br": [{"dateTime": "2026-01-01", "value": {"breathingRate": 14}}]})

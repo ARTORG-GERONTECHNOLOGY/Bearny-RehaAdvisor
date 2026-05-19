@@ -711,7 +711,7 @@ def test_sleep_minutes_prefers_minutes_asleep_when_both_present():
         date=datetime.now(),
         sleep=SleepData(
             sleep_duration=28800000,  # 8 hours in bed (ms)
-            minutes_asleep=435,       # 7h15m actually asleep (what Fitbit app shows)
+            minutes_asleep=435,  # 7h15m actually asleep (what Fitbit app shows)
         ),
     )
     # Must return 435 (minutes_asleep), NOT 480 (sleep_duration / 60000)
