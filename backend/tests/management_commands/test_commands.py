@@ -18,13 +18,14 @@ def test_seed_periodic_tasks_creates_or_updates_tasks():
             side_effect=[
                 (SimpleNamespace(name="Run Delete Expired Videos"), True),
                 (SimpleNamespace(name="Run Fetch Fitbit Data"), False),
+                (SimpleNamespace(name="Run Fetch Fitbit Data Today (4h)"), True),
             ],
         ) as upsert,
     ):
         cmd.handle()
 
-    get_sched.assert_called_once()
-    assert upsert.call_count == 2
+    assert get_sched.call_count == 2  # midnight + every-4h schedules
+    assert upsert.call_count == 3
 
 
 def test_set_celerybeat_every_minute_updates_expected_tasks():
@@ -115,7 +116,7 @@ def test_fetch_fitbit_command_single_user_happy_path_with_mocks():
             return FakeResp(payload={"activities-heart-intraday": {"dataset": [{"value": 120}, {"value": 140}]}})
         if "activities/active-zone-minutes" in url:
             return FakeResp(
-                payload={"activities-activeZoneMinutes": [{"dateTime": "2026-01-01", "value": {"totalMinutes": 25}}]}
+                payload={"activities-active-zone-minutes": [{"dateTime": "2026-01-01", "value": {"activeZoneMinutes": 25}}]}
             )
         if "/br/date/" in url:
             return FakeResp(payload={"br": [{"dateTime": "2026-01-01", "value": {"breathingRate": 14}}]})
@@ -226,7 +227,7 @@ def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
         if "activities/heart/date/" in url:
             return FakeResp({"activities-heart": []})
         if "active-zone-minutes" in url:
-            return FakeResp({"activities-activeZoneMinutes": []})
+            return FakeResp({"activities-active-zone-minutes": []})
         # generic time-series (steps, floors, distance, calories, minutesVeryActive, …)
         if "/activities/" in url:
             key = url.split("/activities/")[1].split("/date/")[0]
