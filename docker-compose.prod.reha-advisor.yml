@@ -97,7 +97,10 @@ services:
     image: ${GHCR_IMAGE}-backend:${IMAGE_TAG:-latest}
     container_name: celery-prod
     restart: always
-    command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state -c 4
+    command: >
+      sh -c "rm -f /app/celery_worker.state /app/celery_worker.state-wal /app/celery_worker.state-shm &&
+      conda run --no-capture-output -n teleRehabApp
+      python -m celery -A api.celery:app worker --loglevel=info -c 4"
     volumes:
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -132,6 +135,7 @@ services:
     restart: always
     working_dir: /app
     command: >
+      conda run --no-capture-output -n teleRehabApp
       python -m celery -A api.celery:app beat -l info
       --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
