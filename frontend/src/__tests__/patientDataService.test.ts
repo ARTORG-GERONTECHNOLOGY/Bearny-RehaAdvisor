@@ -54,7 +54,7 @@ describe('initPatientData', () => {
     expect(mockFetchSummary).toHaveBeenCalledWith('patient-1', 7);
     expect(mockFetchSummary).toHaveBeenCalledWith('patient-1', 30);
     expect(mockFetchPlan).toHaveBeenCalledWith('patient-1', 'de');
-    expect(mockFetchAll).toHaveBeenCalledWith({ mode: 'patient', lang: 'de' });
+    expect(mockFetchAll).toHaveBeenCalledWith({ mode: 'patient', lang: 'de', patientId: 'patient-1' });
     expect(mockFetchCombinedHistoryForPatient).toHaveBeenCalledWith(
       'patient-1',
       '2026-04-05',
@@ -70,7 +70,7 @@ describe('initPatientData', () => {
   it('slices lang to 2 chars for fetchAll', () => {
     initPatientData('patient-1', 'de-CH');
 
-    expect(mockFetchAll).toHaveBeenCalledWith({ mode: 'patient', lang: 'de' });
+    expect(mockFetchAll).toHaveBeenCalledWith({ mode: 'patient', lang: 'de', patientId: 'patient-1' });
     // fetchPlan and loadHealthQuestionnaire receive the full lang string
     expect(mockFetchPlan).toHaveBeenCalledWith('patient-1', 'de-CH');
   });
