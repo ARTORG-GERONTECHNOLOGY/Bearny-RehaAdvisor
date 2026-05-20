@@ -571,7 +571,7 @@ def list_therapist_patients(request, therapist_id):
             if not user or not getattr(user, "isActive", True):
                 continue
 
-            last_online_log = Logs.objects(userId=user, action="LOGIN").order_by("-timestamp").first()
+            last_online_log = Logs.objects(userId=user, actor_role="Patient").order_by("-timestamp").first()
             last_online_dt = last_online_log.timestamp if last_online_log else None
 
             try:

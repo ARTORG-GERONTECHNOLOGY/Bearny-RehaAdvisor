@@ -239,10 +239,10 @@ def test_list_therapist_patients_excludes_inactive_users():
     assert all(row["_id"] != str(patient.id) for row in data)
 
 
-def test_list_therapist_patients_includes_login_and_biomarker_fields():
+def test_list_therapist_patients_includes_last_online_and_biomarker_fields():
     therapist, patient = create_therapist_with_patient()
 
-    Logs(userId=patient.userId, action="LOGIN", actor_role="pytest").save()
+    Logs(userId=patient.userId, action="LOGIN", actor_role="Patient").save()
     FitbitData(
         user=patient.userId,
         date=datetime.now() - timedelta(days=1),
@@ -262,6 +262,35 @@ def test_list_therapist_patients_includes_login_and_biomarker_fields():
     assert "biomarker" in patient_row
     assert patient_row["biomarker"]["steps_avg"] == 1000.0
     assert patient_row["biomarker"]["activity_min"] == 20.0
+
+
+def test_last_online_uses_most_recent_patient_activity_not_just_login():
+    therapist, patient = create_therapist_with_patient()
+
+    # Older LOGIN log
+    Logs(
+        userId=patient.userId,
+        action="LOGIN",
+        actor_role="Patient",
+        timestamp=datetime(2026, 1, 1),
+    ).save()
+    # More recent non-login activity
+    Logs(
+        userId=patient.userId,
+        action="INTERVENTION_VIEW",
+        actor_role="Patient",
+        timestamp=datetime(2026, 3, 15),
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    patient_row = next(row for row in payload if row["_id"] == str(patient.id))
+    assert patient_row["last_online"].startswith("2026-03-15")
 
 
 def test_create_log_success_for_existing_user():

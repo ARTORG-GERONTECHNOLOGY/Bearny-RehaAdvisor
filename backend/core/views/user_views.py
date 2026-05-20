@@ -381,9 +381,9 @@ def user_profile_view(request, user_id):
                     if isinstance(obj.get(dkey), datetime):
                         obj[dkey] = obj[dkey].date().isoformat()
 
-                last_login = Logs.objects(userId=user, action="LOGIN").order_by("-timestamp").first()
-                if last_login:
-                    obj["last_online"] = last_login.timestamp.date().isoformat()
+                last_activity = Logs.objects(userId=user, actor_role="Patient").order_by("-timestamp").first()
+                if last_activity:
+                    obj["last_online"] = last_activity.timestamp.date().isoformat()
 
                 # Resolve creator therapist name
                 obj["created_by"] = None
