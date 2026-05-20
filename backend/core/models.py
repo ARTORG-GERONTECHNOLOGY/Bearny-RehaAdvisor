@@ -166,8 +166,10 @@ class Logs(Document):
     meta = {
         "collection": "logs",
         "indexes": [
-            # Fast lookup by user + action ordered by time (used by last-login queries)
+            # Fast lookup by user + action ordered by time
             {"fields": ["userId", "action", "-timestamp"]},
+            # Fast lookup by user + role ordered by time (used by last-activity queries)
+            {"fields": ["userId", "actor_role", "-timestamp"]},
             # General time-range queries
             {"fields": ["-timestamp"]},
         ],
