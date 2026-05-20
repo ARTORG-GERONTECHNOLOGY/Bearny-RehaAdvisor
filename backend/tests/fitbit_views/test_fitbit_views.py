@@ -693,3 +693,37 @@ def test_health_combined_history_questionnaire_rows_include_comment_and_media_fi
     assert row["comment"] == "Patient noted mild fatigue in afternoon."
     assert row["audio_url"] == "https://files.example/audio1.m4a"
     assert row["media_urls"] == ["https://files.example/audio1.m4a"]
+
+
+# ---------------------------------------------------------------------------
+# Fix regression: _sleep_minutes prefers minutes_asleep over sleep_duration
+# ---------------------------------------------------------------------------
+
+
+def test_sleep_minutes_prefers_minutes_asleep_when_both_present():
+    """
+    Fix regression: _sleep_minutes must return minutes_asleep (actual sleep,
+    matches Fitbit app) not sleep_duration / 60000 (time in bed).
+    """
+    _, _, patient_user, _ = create_patient_graph()
+    row = FitbitData(
+        user=patient_user,
+        date=datetime.now(),
+        sleep=SleepData(
+            sleep_duration=28800000,  # 8 hours in bed (ms)
+            minutes_asleep=435,  # 7h15m actually asleep (what Fitbit app shows)
+        ),
+    )
+    # Must return 435 (minutes_asleep), NOT 480 (sleep_duration / 60000)
+    assert _sleep_minutes(row) == 435
+
+
+def test_sleep_minutes_falls_back_to_duration_when_minutes_asleep_absent():
+    """When minutes_asleep is missing, fall back to sleep_duration (legacy data)."""
+    _, _, patient_user, _ = create_patient_graph()
+    row = FitbitData(
+        user=patient_user,
+        date=datetime.now(),
+        sleep=SleepData(sleep_duration=90 * 60 * 1000),  # 90 min in bed, no minutes_asleep
+    )
+    assert _sleep_minutes(row) == 90

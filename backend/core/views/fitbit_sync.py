@@ -160,22 +160,18 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
     azm_url = f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_str}/{date_str}.json"
     azm_resp = requests.get(azm_url, headers=headers, timeout=15)
     if azm_resp.status_code == 200:
-        azm_items = azm_resp.json().get("activities-activeZoneMinutes", [])
+        azm_items = azm_resp.json().get("activities-active-zone-minutes", [])
         for item in azm_items:
             dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
-            val = item.get("value")
-            if isinstance(val, dict):
-                total = val.get("totalMinutes")
+            val = item.get("value") or {}
+            total = val.get("activeZoneMinutes")
+            if val:
                 azm_breakdown[dt] = {
                     "fat_burn": val.get("fatBurnActiveZoneMinutes"),
                     "cardio": val.get("cardioActiveZoneMinutes"),
                     "peak": val.get("peakActiveZoneMinutes"),
                     "total": total,
                 }
-            elif isinstance(val, (int, float)):
-                total = int(val)
-            else:
-                total = None
             if total is not None:
                 series["activeZoneMinutes"][dt] = int(total)
         if not azm_items:
@@ -241,7 +237,15 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
 
     # Upsert just today if we have any data
     def sleep_minutes_for(dt: datetime.date) -> int:
-        dur_ms = (sleep_data.get(dt) or {}).get("sleep_duration") or 0
+        sd = sleep_data.get(dt) or {}
+        # Prefer minutes_asleep (actual sleep, matches Fitbit app) over sleep_duration (time in bed)
+        val = sd.get("minutes_asleep")
+        if val is not None:
+            try:
+                return max(0, int(val))
+            except Exception:
+                return 0
+        dur_ms = sd.get("sleep_duration") or 0
         try:
             return max(0, int(round((dur_ms or 0) / 60000)))
         except Exception:

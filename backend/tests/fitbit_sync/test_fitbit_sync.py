@@ -73,7 +73,7 @@ def _all_empty_side_effect(url, headers=None, timeout=None):
         "minutesFairlyActive": {"activities-minutesFairlyActive": []},
         "minutesLightlyActive": {"activities-minutesLightlyActive": []},
         "minutesSedentary": {"activities-minutesSedentary": []},
-        "active-zone-minutes": {"activities-activeZoneMinutes": []},
+        "active-zone-minutes": {"activities-active-zone-minutes": []},
         "activities/heart": {"activities-heart": []},
         "1d/1sec": {"activities-heart-intraday": {"dataset": []}},
         "/br/": {"br": []},
@@ -222,7 +222,7 @@ def test_fetch_fitbit_today_for_user_upserts_today(mock_get, mock_get_token):
         if "activities/heart" in url:
             return mk_resp({"activities-heart": []})
         if "active-zone-minutes" in url:
-            return mk_resp({"activities-activeZoneMinutes": []})
+            return mk_resp({"activities-active-zone-minutes": []})
         if "/br/" in url:
             return mk_resp({"br": []})
         if "/hrv/" in url:
@@ -274,7 +274,7 @@ def test_fetch_fitbit_today_for_user_does_not_write_empty_row(mock_get, _):
         if "activities/heart/date/" in url and "1d/1sec" not in url:
             return mk_resp(payload={"activities-heart": []})
         if "active-zone-minutes" in url:
-            return mk_resp(payload={"activities-activeZoneMinutes": []})
+            return mk_resp(payload={"activities-active-zone-minutes": []})
         if "/br/date/" in url:
             return mk_resp(payload={"br": []})
         if "/hrv/date/" in url:
@@ -339,7 +339,9 @@ def test_fetch_fitbit_today_for_user_covers_branches_and_parsing(mock_objects, m
                 }
             )
         if "active-zone-minutes" in url:
-            return mk_resp(payload={"activities-activeZoneMinutes": [{"dateTime": day, "value": {"totalMinutes": 25}}]})
+            return mk_resp(
+                payload={"activities-active-zone-minutes": [{"dateTime": day, "value": {"activeZoneMinutes": 25}}]}
+            )
         if "/br/date/" in url:
             return mk_resp(payload={"br": [{"dateTime": day, "value": {"breathingRate": 14}}]})
         if "/hrv/date/" in url:
@@ -431,7 +433,7 @@ def test_wear_time_stored_from_intraday_hr(mock_get, _):
         if "minutesSedentary" in url:
             return mk_resp({"activities-minutesSedentary": []})
         if "active-zone-minutes" in url:
-            return mk_resp({"activities-activeZoneMinutes": []})
+            return mk_resp({"activities-active-zone-minutes": []})
         if "/br/" in url:
             return mk_resp({"br": []})
         if "/hrv/" in url:
@@ -490,7 +492,7 @@ def test_wear_time_none_when_no_intraday_data(mock_get, _):
         if "minutesSedentary" in url:
             return mk_empty({"activities-minutesSedentary": []})
         if "active-zone-minutes" in url:
-            return mk_empty({"activities-activeZoneMinutes": []})
+            return mk_empty({"activities-active-zone-minutes": []})
         if "/br/" in url:
             return mk_empty({"br": []})
         if "/hrv/" in url:
@@ -561,7 +563,7 @@ def test_minutes_asleep_stored_separately_from_duration(mock_get, _):
         if "minutesSedentary" in url:
             return mk_resp({"activities-minutesSedentary": []})
         if "active-zone-minutes" in url:
-            return mk_resp({"activities-activeZoneMinutes": []})
+            return mk_resp({"activities-active-zone-minutes": []})
         if "/br/" in url:
             return mk_resp({"br": []})
         if "/hrv/" in url:
@@ -682,3 +684,127 @@ def test_cooldown_handles_naive_last_fetched_at(mock_get, _):
 
     assert result == 0
     mock_get_inner.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Fix regression: active_minutes comes from AZM endpoint, not fallback
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_active_minutes_uses_azm_not_fallback(mock_get, _):
+    """
+    Fix regression: when the Fitbit AZM endpoint returns data, active_minutes
+    must be set to the AZM value.  Previously the code looked for the wrong
+    JSON key ('activities-activeZoneMinutes') so it always silently fell back
+    to minutesVeryActive + minutesFairlyActive.
+    """
+    user, _ = make_user_with_token(expired=False)
+    day = datetime.now().strftime("%Y-%m-%d")
+
+    def mk_resp(payload):
+        r = Mock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "active-zone-minutes" in url:
+            # Correct Fitbit API response format
+            return mk_resp({"activities-active-zone-minutes": [{"dateTime": day, "value": {"activeZoneMinutes": 42}}]})
+        if "minutesVeryActive" in url:
+            # If fallback were used: 10 + 5 = 15 (≠ 42, so we can detect the bug)
+            return mk_resp({"activities-minutesVeryActive": [{"dateTime": day, "value": "10"}]})
+        if "minutesFairlyActive" in url:
+            return mk_resp({"activities-minutesFairlyActive": [{"dateTime": day, "value": "5"}]})
+        if "minutesLightlyActive" in url:
+            return mk_resp({"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_resp({"activities-minutesSedentary": []})
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day, "value": "1000"}]})
+        if "activities/floors" in url:
+            return mk_resp({"activities-floors": []})
+        if "activities/distance" in url:
+            return mk_resp({"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_resp({"activities-calories": []})
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": []}})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+    fetch_fitbit_today_for_user(user)
+
+    row = FitbitData.objects(user=user).first()
+    # Must be 42 (from AZM), NOT 15 (minutesVeryActive + minutesFairlyActive fallback)
+    assert row.active_minutes == 42, (
+        f"active_minutes={row.active_minutes}: AZM not used — "
+        "check 'activities-active-zone-minutes' key and 'activeZoneMinutes' value field"
+    )
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
+@patch("core.views.fitbit_sync.requests.get")
+def test_active_minutes_falls_back_when_azm_absent(mock_get, _):
+    """When AZM endpoint returns no data, fall back to minutesVeryActive + minutesFairlyActive."""
+    user, _ = make_user_with_token(expired=False)
+    day = datetime.now().strftime("%Y-%m-%d")
+
+    def mk_resp(payload):
+        r = Mock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.text = "ok"
+        return r
+
+    def side_effect(url, headers=None, timeout=None):
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-active-zone-minutes": []})  # empty → trigger fallback
+        if "minutesVeryActive" in url:
+            return mk_resp({"activities-minutesVeryActive": [{"dateTime": day, "value": "10"}]})
+        if "minutesFairlyActive" in url:
+            return mk_resp({"activities-minutesFairlyActive": [{"dateTime": day, "value": "5"}]})
+        if "minutesLightlyActive" in url:
+            return mk_resp({"activities-minutesLightlyActive": []})
+        if "minutesSedentary" in url:
+            return mk_resp({"activities-minutesSedentary": []})
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day, "value": "1000"}]})
+        if "activities/floors" in url:
+            return mk_resp({"activities-floors": []})
+        if "activities/distance" in url:
+            return mk_resp({"activities-distance": []})
+        if "activities/calories" in url:
+            return mk_resp({"activities-calories": []})
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": []}})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+    fetch_fitbit_today_for_user(user)
+
+    row = FitbitData.objects(user=user).first()
+    assert row.active_minutes == 15  # 10 + 5
