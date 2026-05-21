@@ -212,13 +212,6 @@ const saveFilters = (filters: FilterState) => {
   }
 };
 
-const clearFilters = () => {
-  try {
-    sessionStorage.removeItem(FILTER_SESSION_KEY);
-  } catch {
-    // ignore
-  }
-};
 
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
@@ -283,13 +276,13 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   ]);
 
   const resetAllFilters = useCallback(() => {
-    setSearchTerm('');
-    setContentTypeFilter([]);
-    setAimsFilter([]);
-    setLanguageFilter([]);
-    setDurationFilterIndices([0, 4]);
-    setRatingFilterIndices([0, 4]);
-    clearFilters();
+    setSearchTerm(DEFAULT_FILTERS.searchTerm);
+    setContentTypeFilter(DEFAULT_FILTERS.contentTypeFilter);
+    setAimsFilter(DEFAULT_FILTERS.aimsFilter);
+    setLanguageFilter(DEFAULT_FILTERS.languageFilter);
+    setDurationFilterIndices(DEFAULT_FILTERS.durationFilterIndices);
+    setRatingFilterIndices(DEFAULT_FILTERS.ratingFilterIndices);
+    saveFilters(DEFAULT_FILTERS);
   }, []);
 
   useEffect(() => {
