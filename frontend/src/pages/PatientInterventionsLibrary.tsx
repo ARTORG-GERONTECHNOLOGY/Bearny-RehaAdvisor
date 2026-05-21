@@ -1,5 +1,5 @@
 // src/pages/PatientInterventionsLibrary.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -212,7 +212,6 @@ const saveFilters = (filters: FilterState) => {
   }
 };
 
-
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -246,15 +245,16 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, []);
 
   // ─────────────────────────── filters ───────────────────────────
-  const [searchTerm, setSearchTerm] = useState(() => loadFilters().searchTerm);
-  const [contentTypeFilter, setContentTypeFilter] = useState(() => loadFilters().contentTypeFilter);
-  const [aimsFilter, setAimsFilter] = useState(() => loadFilters().aimsFilter);
-  const [languageFilter, setLanguageFilter] = useState(() => loadFilters().languageFilter);
+  const initialFilters = useMemo(() => loadFilters(), []);
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+  const [contentTypeFilter, setContentTypeFilter] = useState(initialFilters.contentTypeFilter);
+  const [aimsFilter, setAimsFilter] = useState(initialFilters.aimsFilter);
+  const [languageFilter, setLanguageFilter] = useState(initialFilters.languageFilter);
   const [durationFilterIndices, setDurationFilterIndices] = useState(
-    () => loadFilters().durationFilterIndices
+    initialFilters.durationFilterIndices
   );
   const [ratingFilterIndices, setRatingFilterIndices] = useState(
-    () => loadFilters().ratingFilterIndices
+    initialFilters.ratingFilterIndices
   );
 
   useEffect(() => {
