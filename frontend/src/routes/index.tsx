@@ -1,6 +1,12 @@
-import { createElement, lazy, Suspense } from 'react';
+import { createElement, Fragment, lazy, Suspense } from 'react';
 import type { ComponentType, LazyExoticComponent, ReactElement } from 'react';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+  ScrollRestoration,
+  Outlet,
+} from 'react-router-dom';
 
 import RootLayout from '@/RootLayout';
 import HomeSkeleton from '@/components/skeletons/HomeSkeleton';
@@ -73,8 +79,8 @@ const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(F
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
   {
-    // Root catch-all: errorElement here covers every child route
     path: '/',
+    element: createElement(Fragment, null, createElement(ScrollRestoration), createElement(Outlet)),
     errorElement: withSuspense(createElement(ErrorPage)),
     children: [
       {
