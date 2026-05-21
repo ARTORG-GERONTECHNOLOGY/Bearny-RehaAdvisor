@@ -173,6 +173,53 @@ const getTranslatedTitle = (item: InterventionCardItem, translatedTitles: TitleM
   return getRawTitle(item) || '-';
 };
 
+// ─────────────────────────── filter session persistence ───────────────────────────
+const FILTER_SESSION_KEY = 'patientLibraryFilters';
+
+type FilterState = {
+  searchTerm: string;
+  contentTypeFilter: string[];
+  aimsFilter: string[];
+  languageFilter: string[];
+  durationFilterIndices: [number, number];
+  ratingFilterIndices: [number, number];
+};
+
+const DEFAULT_FILTERS: FilterState = {
+  searchTerm: '',
+  contentTypeFilter: [],
+  aimsFilter: [],
+  languageFilter: [],
+  durationFilterIndices: [0, 4],
+  ratingFilterIndices: [0, 4],
+};
+
+const loadFilters = (): FilterState => {
+  try {
+    const raw = sessionStorage.getItem(FILTER_SESSION_KEY);
+    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch {
+    // ignore
+  }
+  return DEFAULT_FILTERS;
+};
+
+const saveFilters = (filters: FilterState) => {
+  try {
+    sessionStorage.setItem(FILTER_SESSION_KEY, JSON.stringify(filters));
+  } catch {
+    // ignore
+  }
+};
+
+const clearFilters = () => {
+  try {
+    sessionStorage.removeItem(FILTER_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -206,12 +253,34 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, []);
 
   // ─────────────────────────── filters ───────────────────────────
-  const [searchTerm, setSearchTerm] = useState('');
-  const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
-  const [aimsFilter, setAimsFilter] = useState<string[]>([]);
-  const [languageFilter, setLanguageFilter] = useState<string[]>([]);
-  const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
-  const [ratingFilterIndices, setRatingFilterIndices] = useState<[number, number]>([0, 4]);
+  const [searchTerm, setSearchTerm] = useState(() => loadFilters().searchTerm);
+  const [contentTypeFilter, setContentTypeFilter] = useState(() => loadFilters().contentTypeFilter);
+  const [aimsFilter, setAimsFilter] = useState(() => loadFilters().aimsFilter);
+  const [languageFilter, setLanguageFilter] = useState(() => loadFilters().languageFilter);
+  const [durationFilterIndices, setDurationFilterIndices] = useState(
+    () => loadFilters().durationFilterIndices
+  );
+  const [ratingFilterIndices, setRatingFilterIndices] = useState(
+    () => loadFilters().ratingFilterIndices
+  );
+
+  useEffect(() => {
+    saveFilters({
+      searchTerm,
+      contentTypeFilter,
+      aimsFilter,
+      languageFilter,
+      durationFilterIndices,
+      ratingFilterIndices,
+    });
+  }, [
+    searchTerm,
+    contentTypeFilter,
+    aimsFilter,
+    languageFilter,
+    durationFilterIndices,
+    ratingFilterIndices,
+  ]);
 
   const resetAllFilters = useCallback(() => {
     setSearchTerm('');
@@ -220,6 +289,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     setLanguageFilter([]);
     setDurationFilterIndices([0, 4]);
     setRatingFilterIndices([0, 4]);
+    clearFilters();
   }, []);
 
   useEffect(() => {
