@@ -17,7 +17,7 @@ import apiClient from '@/api/client';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
-import { PlayableMedia } from '../common/PlayableMedia';
+import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import {
   getBadgeVariantFromIntervention,
@@ -245,7 +245,6 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const [titleLang, setTitleLang] = useState('');
 
   const [langOptions, setLangOptions] = useState<LangOpt[]>([]);
-  const [variantsByLang, setVariantsByLang] = useState<Record<string, any>>({});
   const [loadingLangs, setLoadingLangs] = useState(false);
 
   const [activeMediaIndex, setActiveMediaIndex] = useState<number>(0);
@@ -257,15 +256,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     if (!show) {
       setLocalOverride(null);
       setLangOptions([]);
-      setVariantsByLang({});
       setError('');
     }
   }, [show]);
-
-  const toLangList = (x: any): string[] => {
-    if (Array.isArray(x)) return x.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
-    return [];
-  };
 
   const preferredLang = useMemo(() => {
     const l = (i18n?.language || '').slice(0, 2).toLowerCase();
@@ -280,70 +273,36 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     [effectiveItem?.language]
   );
 
-  // ✅ fetch variants by external_id (if available)
-  const fetchVariants = useCallback(async () => {
-    if (!show) return;
-
-    const externalId = norm(effectiveItem?.external_id);
-    const seeded = toLangList(effectiveItem?.available_languages);
-
-    const seedOpts: LangOpt[] = seeded.map((l) => ({ language: l, title: null }));
-    if (currentLang && !seeded.includes(currentLang))
-      seedOpts.unshift({ language: currentLang, title: null });
-    if (seedOpts.length) setLangOptions(seedOpts);
-
-    try {
-      setLoadingLangs(true);
-
-      if (externalId) {
-        // if your apiClient already prefixes /api, remove "/api" here
-        const res = await apiClient.get('/api/interventions/all/', {
-          params: { external_id: externalId },
-        });
-        const arr = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-            ? res.data.data
-            : [];
-
-        const map: Record<string, any> = {};
-        const opts: LangOpt[] = [];
-
-        for (const v of arr) {
-          const l = String(v?.language || '')
-            .trim()
-            .toLowerCase();
-          if (!l) continue;
-          map[l] = v;
-          opts.push({ language: l, title: v?.title ?? null });
-        }
-
-        if (currentLang && !map[currentLang]) {
-          map[currentLang] = effectiveItem;
-          opts.push({ language: currentLang, title: effectiveItem?.title ?? null });
-        }
-
-        const uniqOpts = opts.reduce((acc: LangOpt[], cur) => {
-          const key = (cur.language || '').toLowerCase();
-          if (!key) return acc;
-          if (!acc.find((x) => (x.language || '').toLowerCase() === key)) acc.push(cur);
-          return acc;
-        }, []);
-
-        setVariantsByLang(map);
-        setLangOptions(uniqOpts.length ? uniqOpts : seedOpts);
-      }
-    } catch {
-      // keep seeded options
-    } finally {
-      setLoadingLangs(false);
-    }
-  }, [show, effectiveItem, currentLang]);
-
+  // populate language options from item.available_languages
   useEffect(() => {
     if (!show) return;
-    fetchVariants();
-  }, [show, fetchVariants]);
+    if (!effectiveItem) {
+      setLangOptions([]);
+      return;
+    }
+
+    const current = String(effectiveItem?.language || '')
+      .trim()
+      .toLowerCase();
+    const raw: string[] = Array.isArray(effectiveItem?.available_languages)
+      ? (effectiveItem.available_languages as unknown[])
+          .map((v) => String(v).trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+    const opts: LangOpt[] = raw.map((l) => ({ language: l, title: null }));
+
+    const merged = [
+      ...(current ? [{ language: current, title: effectiveItem?.title ?? null }] : []),
+      ...opts,
+    ].reduce((acc: LangOpt[], cur) => {
+      const key = (cur.language || '').toLowerCase();
+      if (!key) return acc;
+      if (!acc.find((a) => (a.language || '').toLowerCase() === key)) acc.push(cur);
+      return acc;
+    }, []);
+
+    setLangOptions(merged);
+  }, [show, effectiveItem]);
 
   const sortedLangOptions = useMemo(() => {
     const score = (l: string) => {
@@ -368,17 +327,12 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
         .trim();
       if (!nextLang || nextLang === currentLang) return;
 
-      if (variantsByLang[nextLang]) {
-        setLocalOverride(variantsByLang[nextLang]);
-        return;
-      }
-
       const externalId = norm(effectiveItem?.external_id);
       if (!externalId) return;
 
       try {
         setLoadingLangs(true);
-        const res = await apiClient.get('/api/interventions/all/', {
+        const res = await apiClient.get('interventions/all/', {
           params: { external_id: externalId, lang: nextLang },
         });
 
@@ -395,7 +349,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
         setLoadingLangs(false);
       }
     },
-    [currentLang, variantsByLang, effectiveItem?.external_id, effectiveItem]
+    [currentLang, effectiveItem?.external_id]
   );
 
   // keep translations in sync with effectiveItem
@@ -603,7 +557,6 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const confirmClose = useCallback(() => {
     setError('');
     setLangOptions([]);
-    setVariantsByLang({});
     setLocalOverride(null);
     handleClose();
   }, [handleClose]);
@@ -666,7 +619,6 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                         aria-pressed={active}
                       >
                         {optLang.toUpperCase()}
-                        {!active && optLang === preferredLang ? ' ★' : ''}
                       </Button>
                     );
                   })}
