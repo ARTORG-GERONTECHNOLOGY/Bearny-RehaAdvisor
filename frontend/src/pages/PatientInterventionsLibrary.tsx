@@ -1,5 +1,5 @@
 // src/pages/PatientInterventionsLibrary.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -173,6 +173,45 @@ const getTranslatedTitle = (item: InterventionCardItem, translatedTitles: TitleM
   return getRawTitle(item) || '-';
 };
 
+// ─────────────────────────── filter session persistence ───────────────────────────
+const FILTER_SESSION_KEY = 'patientLibraryFilters';
+
+type FilterState = {
+  searchTerm: string;
+  contentTypeFilter: string[];
+  aimsFilter: string[];
+  languageFilter: string[];
+  durationFilterIndices: [number, number];
+  ratingFilterIndices: [number, number];
+};
+
+const DEFAULT_FILTERS: FilterState = {
+  searchTerm: '',
+  contentTypeFilter: [],
+  aimsFilter: [],
+  languageFilter: [],
+  durationFilterIndices: [0, 4],
+  ratingFilterIndices: [0, 4],
+};
+
+const loadFilters = (): FilterState => {
+  try {
+    const raw = sessionStorage.getItem(FILTER_SESSION_KEY);
+    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch {
+    // ignore
+  }
+  return DEFAULT_FILTERS;
+};
+
+const saveFilters = (filters: FilterState) => {
+  try {
+    sessionStorage.setItem(FILTER_SESSION_KEY, JSON.stringify(filters));
+  } catch {
+    // ignore
+  }
+};
+
 const PatientInterventionsLibrary: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -206,20 +245,44 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, []);
 
   // ─────────────────────────── filters ───────────────────────────
-  const [searchTerm, setSearchTerm] = useState('');
-  const [contentTypeFilter, setContentTypeFilter] = useState<string[]>([]);
-  const [aimsFilter, setAimsFilter] = useState<string[]>([]);
-  const [languageFilter, setLanguageFilter] = useState<string[]>([]);
-  const [durationFilterIndices, setDurationFilterIndices] = useState<[number, number]>([0, 4]);
-  const [ratingFilterIndices, setRatingFilterIndices] = useState<[number, number]>([0, 4]);
+  const initialFilters = useMemo(() => loadFilters(), []);
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+  const [contentTypeFilter, setContentTypeFilter] = useState(initialFilters.contentTypeFilter);
+  const [aimsFilter, setAimsFilter] = useState(initialFilters.aimsFilter);
+  const [languageFilter, setLanguageFilter] = useState(initialFilters.languageFilter);
+  const [durationFilterIndices, setDurationFilterIndices] = useState(
+    initialFilters.durationFilterIndices
+  );
+  const [ratingFilterIndices, setRatingFilterIndices] = useState(
+    initialFilters.ratingFilterIndices
+  );
+
+  useEffect(() => {
+    saveFilters({
+      searchTerm,
+      contentTypeFilter,
+      aimsFilter,
+      languageFilter,
+      durationFilterIndices,
+      ratingFilterIndices,
+    });
+  }, [
+    searchTerm,
+    contentTypeFilter,
+    aimsFilter,
+    languageFilter,
+    durationFilterIndices,
+    ratingFilterIndices,
+  ]);
 
   const resetAllFilters = useCallback(() => {
-    setSearchTerm('');
-    setContentTypeFilter([]);
-    setAimsFilter([]);
-    setLanguageFilter([]);
-    setDurationFilterIndices([0, 4]);
-    setRatingFilterIndices([0, 4]);
+    setSearchTerm(DEFAULT_FILTERS.searchTerm);
+    setContentTypeFilter(DEFAULT_FILTERS.contentTypeFilter);
+    setAimsFilter(DEFAULT_FILTERS.aimsFilter);
+    setLanguageFilter(DEFAULT_FILTERS.languageFilter);
+    setDurationFilterIndices(DEFAULT_FILTERS.durationFilterIndices);
+    setRatingFilterIndices(DEFAULT_FILTERS.ratingFilterIndices);
+    saveFilters(DEFAULT_FILTERS);
   }, []);
 
   useEffect(() => {
