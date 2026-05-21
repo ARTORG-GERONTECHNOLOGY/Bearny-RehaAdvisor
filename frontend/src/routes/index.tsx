@@ -79,7 +79,6 @@ const withSuspense = (el: ReactElement, fallback: ReactElement = createElement(F
 // -------------------- Router Definition --------------------
 export const router = createBrowserRouter([
   {
-    // Root catch-all: errorElement here covers every child route
     path: '/',
     element: createElement(Fragment, null, createElement(ScrollRestoration), createElement(Outlet)),
     errorElement: withSuspense(createElement(ErrorPage)),
