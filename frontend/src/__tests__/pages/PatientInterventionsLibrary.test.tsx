@@ -117,9 +117,15 @@ const getLatestFilterSheetProps = () => {
   return calls[calls.length - 1][0];
 };
 
+const getLatestDesktopFiltersProps = () => {
+  const calls = mockDesktopFilters.mock.calls;
+  return calls[calls.length - 1][0];
+};
+
 describe('PatientInterventionsLibrary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
 
     mockStore.visibleItemsForPatient = [
       {
@@ -167,6 +173,92 @@ describe('PatientInterventionsLibrary', () => {
 
     await waitFor(() => {
       expect(getLatestFilterSheetProps().open).toBe(true);
+    });
+  });
+
+  describe('filter session persistence', () => {
+    const FILTER_KEY = 'patientLibraryFilters';
+
+    it('restores saved filters from sessionStorage on mount', async () => {
+      sessionStorage.setItem(
+        FILTER_KEY,
+        JSON.stringify({
+          searchTerm: 'yoga',
+          contentTypeFilter: ['video'],
+          aimsFilter: ['exercise'],
+          languageFilter: ['en'],
+          durationFilterIndices: [1, 3],
+          ratingFilterIndices: [2, 4],
+        })
+      );
+
+      render(<PatientInterventionsLibrary />);
+
+      await waitFor(() => {
+        expect(mockStore.fetchAll).toHaveBeenCalled();
+      });
+
+      const props = getLatestDesktopFiltersProps();
+      expect(props.searchTerm).toBe('yoga');
+      expect(props.contentTypeFilter).toEqual(['video']);
+      expect(props.aimsFilter).toEqual(['exercise']);
+      expect(props.languageFilter).toEqual(['en']);
+      expect(props.durationFilterIndices).toEqual([1, 3]);
+      expect(props.ratingFilterIndices).toEqual([2, 4]);
+    });
+
+    it('saves updated filters to sessionStorage when a filter changes', async () => {
+      render(<PatientInterventionsLibrary />);
+
+      await waitFor(() => {
+        expect(mockStore.fetchAll).toHaveBeenCalled();
+      });
+
+      await act(async () => {
+        getLatestDesktopFiltersProps().setAimsFilter(['exercise']);
+      });
+
+      await waitFor(() => {
+        const saved = JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? '{}');
+        expect(saved.aimsFilter).toEqual(['exercise']);
+      });
+    });
+
+    it('resets filters to defaults in sessionStorage after resetAllFilters', async () => {
+      sessionStorage.setItem(
+        FILTER_KEY,
+        JSON.stringify({
+          searchTerm: 'yoga',
+          contentTypeFilter: ['video'],
+          aimsFilter: ['exercise'],
+          languageFilter: ['en'],
+          durationFilterIndices: [1, 3],
+          ratingFilterIndices: [2, 4],
+        })
+      );
+
+      render(<PatientInterventionsLibrary />);
+
+      await waitFor(() => {
+        expect(mockStore.fetchAll).toHaveBeenCalled();
+      });
+
+      // Verify saved values were loaded
+      expect(getLatestDesktopFiltersProps().searchTerm).toBe('yoga');
+
+      await act(async () => {
+        getLatestFilterSheetProps().onResetFilters();
+      });
+
+      await waitFor(() => {
+        expect(getLatestDesktopFiltersProps().searchTerm).toBe('');
+        expect(getLatestDesktopFiltersProps().aimsFilter).toEqual([]);
+        expect(getLatestDesktopFiltersProps().contentTypeFilter).toEqual([]);
+      });
+
+      const saved = JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? '{}');
+      expect(saved.searchTerm).toBe('');
+      expect(saved.aimsFilter).toEqual([]);
     });
   });
 });

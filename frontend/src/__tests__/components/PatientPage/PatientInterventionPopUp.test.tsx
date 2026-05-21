@@ -22,7 +22,7 @@ jest.mock('@/assets/icons/arrow-right-fill.svg?react', () => ({
   },
 }));
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
@@ -60,6 +60,7 @@ jest.mock('@/utils/interventions', () => ({
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
+import apiClient from '@/api/client';
 
 const defaultItem = {
   title: 'Test Intervention',
@@ -294,6 +295,84 @@ describe('PatientInterventionPopUp Component', () => {
       expect(screen.queryByTestId('media-dot-0')).not.toBeInTheDocument();
       // Counter still visible
       expect(screen.getByText('1 / 8')).toBeInTheDocument();
+    });
+  });
+
+  // ── Language options ──────────────────────────────────────────────────────
+
+  describe('language options', () => {
+    const langItem = {
+      ...defaultItem,
+      language: 'de',
+      external_id: 'ext-123',
+      available_languages: ['de', 'en', 'fr'],
+    };
+
+    beforeEach(() => {
+      (apiClient.get as jest.Mock).mockReset();
+    });
+
+    it('renders a language button for each entry in available_languages', () => {
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+      expect(screen.getByRole('button', { name: 'DE' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'EN' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'FR' })).toBeInTheDocument();
+    });
+
+    it('does not duplicate the current language when it also appears in available_languages', () => {
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+      expect(screen.getAllByRole('button', { name: 'DE' })).toHaveLength(1);
+    });
+
+    it('marks the current language button as active via aria-pressed', () => {
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+      expect(screen.getByRole('button', { name: 'DE' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('sorts preferred language (en in test env) first, then de, then remaining alphabetically', () => {
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+      const allButtons = screen.getAllByRole('button');
+      const langBtns = allButtons.filter((b) => /^[A-Z]{2}$/.test((b.textContent ?? '').trim()));
+      expect(langBtns[0]).toHaveTextContent('EN');
+      expect(langBtns[1]).toHaveTextContent('DE');
+      expect(langBtns[2]).toHaveTextContent('FR');
+    });
+
+    it('does not render language buttons when the item has only one language', () => {
+      const singleLangItem = { ...defaultItem, language: 'de' };
+      render(
+        <PatientInterventionPopUp show={true} item={singleLangItem} handleClose={jest.fn()} />
+      );
+      expect(screen.queryByRole('button', { name: 'DE' })).not.toBeInTheDocument();
+    });
+
+    it('calls apiClient.get with the correct path and params when switching language', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: [{ ...langItem, language: 'en', title: 'Test EN' }],
+      });
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith('interventions/all/', {
+          params: { external_id: 'ext-123', lang: 'en' },
+        });
+      });
+    });
+
+    it('updates the displayed title after a successful language switch', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: [{ ...langItem, language: 'en', title: 'English Title' }],
+      });
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('English Title')).toBeInTheDocument();
+      });
     });
   });
 });
