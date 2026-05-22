@@ -522,7 +522,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
                     aria-pressed={inputMode === 'text'}
                     aria-label={t('Text mode')}
                   >
-                    {t('Type')} <FaKeyboard />
+                    {t('Text')} <FaKeyboard />
                   </Badge>
                   <Badge
                     onClick={() => setInputMode('audio')}

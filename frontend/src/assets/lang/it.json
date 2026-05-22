@@ -428,7 +428,7 @@
   "Current Feedback Answered": "Feedback corrente Risponde",
   "No statistics available": "Nessuna statistica disponibile",
   "No feedback available": "Nessun feedback disponibile",
-  "Feedback": "Feedback",
+  "Feedback": "Riscontro",
   "Statistics": "Statistiche",
   "Calendar": {
     "today": "Oggi",
@@ -1329,5 +1329,17 @@
   "One choice": "Scelta singola",
   "Multiple choice": "Scelta multipla",
   "Add question": "Aggiungi domanda",
-  "Search diagnoses": "Cerca diagnosi"
+  "Search diagnoses": "Cerca diagnosi",
+  "Patient not found.": "Paziente non trovato.",
+  "Intervention not found.": "Intervento non trovato.",
+  "Mark as done": "Segna come completato",
+  "No feedback questions available.": "Nessuna domanda di riscontro disponibile.",
+  "Video too large (max 50MB)": "Video troppo grande (max 50 MB)",
+  "Are you sure you want to close? Unsaved data will be lost.": "Sei sicuro di voler chiudere? I dati non salvati andranno persi.",
+  "Close this window?": "Chiudere questa finestra?",
+  "Error submitting feedback. Please try again.": "Errore nell'invio del riscontro. Riprova.",
+  "Star rating": "Valutazione a stelle",
+  "Answer options": "Opzioni di risposta",
+  "Microphone access denied.": "Accesso al microfono negato.",
+  "Text Feedback": "Riscontro testuale"
 }

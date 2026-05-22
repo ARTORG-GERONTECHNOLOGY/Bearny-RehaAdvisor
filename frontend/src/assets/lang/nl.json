@@ -423,7 +423,7 @@
   "Current Feedback Answered": "Huidige feedback beantwoord",
   "No statistics available": "Geen statistieken beschikbaar",
   "No feedback available": "Geen feedback beschikbaar",
-  "Feedback": "Feedback",
+  "Feedback": "Terugkoppeling",
   "Statistics": "Statistieken",
   "Calendar": {
     "today": "Vandaag",
@@ -1329,5 +1329,17 @@
   "One choice": "Eén keuze",
   "Multiple choice": "Meerdere keuzes",
   "Add question": "Vraag toevoegen",
-  "Search diagnoses": "Diagnoses zoeken"
+  "Search diagnoses": "Diagnoses zoeken",
+  "Patient not found.": "Patiënt niet gevonden.",
+  "Intervention not found.": "Interventie niet gevonden.",
+  "Mark as done": "Markeren als klaar",
+  "No feedback questions available.": "Geen feedbackvragen beschikbaar.",
+  "Video too large (max 50MB)": "Video te groot (max. 50 MB)",
+  "Are you sure you want to close? Unsaved data will be lost.": "Weet u zeker dat u wilt sluiten? Niet-opgeslagen gegevens gaan verloren.",
+  "Close this window?": "Dit venster sluiten?",
+  "Error submitting feedback. Please try again.": "Fout bij het verzenden van feedback. Probeer het opnieuw.",
+  "Star rating": "Sterrenbeoordeling",
+  "Answer options": "Antwoordopties",
+  "Microphone access denied.": "Toegang tot microfoon geweigerd.",
+  "Text Feedback": "Tekstfeedback"
 }
