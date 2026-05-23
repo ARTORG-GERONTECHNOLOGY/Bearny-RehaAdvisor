@@ -31,7 +31,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
+import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
 
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
@@ -884,12 +886,90 @@ export default function HealthSlider() {
   if (testMode) {
     return (
       <main style={styles.app}>
-        <h1 style={styles.title}>Willkommen</h1>
-        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
-          <p style={{ fontSize: 18, color: '#444' }}>Bitte erlauben Sie den Mikrofon-Zugriff.</p>
+        <img
+          src={logoImage}
+          alt="Logo"
+          style={{ width: 577, height: 'auto', marginBottom: 24 }}
+          className="w-80 md:w-xl max-w-full"
+        />
+        <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Willkommen</h1>
+
+        <div className="mt-6 max-w-2xl">
+          <p style={{ marginBottom: 14 }}>
+            Gleich beginnt das Assessment mit dem{' '}
+            <strong>
+              <i>FunktionsBarometer</i>
+            </strong>
+            , dem interaktiven Instrument zur Erhebung Ihrer Funktionsfähigkeit.
+          </p>
+
+          <p style={{ marginBottom: 14 }}>
+            Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
+            <strong style={{ color: '#f77218' }}>
+              <i>
+                {
+                  '“Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen … ”'
+                }
+              </i>
+            </strong>{' '}
+            <strong>
+              <i>bewerten</i>
+            </strong>{' '}
+            dürfen.
+            <br />
+            Erklären Sie uns Ihre Bewertung, indem Sie einfach{' '}
+            <strong>
+              <i>frei erzählen</i>
+            </strong>
+            .
+          </p>
+
+          <div style={{ marginBottom: 14 }}>
+            Bevor wir starten,
+            <ul>
+              <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort,</li>
+              <li>erlauben Sie Zugriff auf das Mikrofon,</li>
+              <li>sprechen Sie klar und deutlich,</li>
+              <li>und antworten Sie auf alles so, wie es für Sie stimmt.</li>
+            </ul>
+          </div>
+
+          <p style={{ marginBottom: 14 }}>
+            Ihre Daten werden{' '}
+            <strong>
+              <i>verschlüsselt übermittelt</i>
+            </strong>
+            , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
+          </p>
+
+          <p style={{ marginBottom: 14 }}>
+            Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
+            befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
+            Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
+          </p>
+
+          <p style={{ marginBottom: 14 }}>
+            Die Informationen von dieser Seite können jederzeit über den{' '}
+            <strong>
+              <i>hellgrünen Infobutton</i>
+            </strong>{' '}
+            aufgerufen werden.
+          </p>
+
+          <p style={{ marginBottom: 24 }}>
+            Wenn Sie alles verstanden haben und bereit sind, drücken Sie auf{' '}
+            <i>{'“Übungslauf starten”'}</i>, um mit einem Übungsbeispiel zu beginnen, danach startet
+            das FunktionsBarometer.
+          </p>
+
           {!!micError && <p style={{ color: '#b00020' }}>{micError}</p>}
 
-          <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={startMic}>
+          <button
+            type="button"
+            style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto' }}
+            className="mx-auto"
+            onClick={startMic}
+          >
             Übungslauf starten
           </button>
         </div>
@@ -901,7 +981,7 @@ export default function HealthSlider() {
     <main
       style={{
         ...styles.app,
-        backgroundColor: showFlash ? '#858585' : '#f6f4f0',
+        backgroundColor: showFlash ? '#858585' : '#EFECE7',
         transition: 'background 0.2s',
       }}
     >
@@ -1266,7 +1346,7 @@ const styles: Record<string, React.CSSProperties> = {
   app: {
     width: '100%',
     minHeight: '100dvh',
-    background: '#f6f4f0',
+    background: '#EFECE7',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -1274,21 +1354,21 @@ const styles: Record<string, React.CSSProperties> = {
     overflowX: 'hidden',
     padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
     fontFamily: 'sans-serif',
-    color: '#1f1f1f',
+    color: '#000000',
   },
 
   infoOverlay: {
     position: 'fixed',
     inset: 0,
     zIndex: 100,
-    background: '#f6f4f0',
+    background: '#EFECE7',
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
     textAlign: 'left',
     fontFamily: 'sans-serif',
-    color: '#1f1f1f',
+    color: '#000000',
     padding: 'env(safe-area-inset-top, 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))',
     boxSizing: 'border-box',
   },
@@ -1503,7 +1583,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '8px 12px',
   },
   btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
-  btnPrimary: { background: '#9d8d71', color: '#fff' },
+  btnPrimary: { background: '#9D8D71', color: '#fff' },
 
   footer: {
     width: '100%',
