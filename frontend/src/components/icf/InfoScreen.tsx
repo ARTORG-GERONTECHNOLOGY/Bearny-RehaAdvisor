@@ -1,4 +1,5 @@
 import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
+import { FlowerButtonRow, FlowerSides } from './FlowerDecoration';
 import './icf.css';
 
 interface Props {
@@ -9,6 +10,8 @@ interface Props {
 export default function InfoScreen({ isRecording, onClose }: Props) {
   return (
     <div className="icf-overlay">
+      <FlowerSides />
+
       <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
       <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Information</h1>
 
@@ -94,13 +97,15 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           </div>
         )}
 
-        <button
-          type="button"
-          className="icf-btn icf-btn--primary icf-btn--auto mx-auto"
-          onClick={onClose}
-        >
-          zurück
-        </button>
+        <FlowerButtonRow>
+          <button
+            type="button"
+            className="icf-btn icf-btn--primary icf-btn--auto"
+            onClick={onClose}
+          >
+            zurück
+          </button>
+        </FlowerButtonRow>
       </div>
     </div>
   );

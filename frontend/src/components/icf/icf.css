@@ -76,3 +76,51 @@
     opacity: 0.25;
   }
 }
+
+/* === Flower decorations === */
+
+/* Individual side flowers — each positioned via inline styles */
+.icf-flower-side {
+  display: none;
+  position: fixed;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  height: auto;
+  z-index: 101;
+}
+
+/* Bottom row — flanks button on mobile */
+.icf-btn-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+}
+
+.icf-flower-bottom-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icf-flower-bottom {
+  mix-blend-mode: multiply;
+  height: auto;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .icf-flower-side {
+    display: block;
+  }
+
+  .icf-btn-row .icf-btn {
+    flex: none;
+    width: auto;
+  }
+
+  .icf-flower-bottom-group {
+    display: none;
+  }
+}

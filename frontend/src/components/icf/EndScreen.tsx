@@ -1,4 +1,5 @@
 import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
+import { FlowerButtonRow, FlowerSides } from './FlowerDecoration';
 import './icf.css';
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
 export default function EndScreen({ onEnd }: Props) {
   return (
     <div className="icf-overlay text-center">
+      <FlowerSides />
+
       <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
       <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">
         Vielen Dank
@@ -17,14 +20,11 @@ export default function EndScreen({ onEnd }: Props) {
       <p className="mt-6 font-bold text-xl md:text-2xl text-[#FF9A57]">
         Sie haben Alles geschafft!
       </p>
-      <button
-        type="button"
-        className="icf-btn icf-btn--primary icf-btn--auto"
-        style={{ marginTop: 24 }}
-        onClick={onEnd}
-      >
-        Beenden
-      </button>
+      <FlowerButtonRow style={{ marginTop: 24 }}>
+        <button type="button" className="icf-btn icf-btn--primary icf-btn--auto" onClick={onEnd}>
+          Beenden
+        </button>
+      </FlowerButtonRow>
     </div>
   );
 }
