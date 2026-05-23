@@ -12,11 +12,11 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
     <div className="icf-overlay">
       <FlowerSides />
 
-      <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
-      <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Information</h1>
+      <img src={logoImage} alt="Logo" className="icf-logo" />
+      <h1 className="icf-heading">Information</h1>
 
       <div className="mt-6 max-w-2xl">
-        <p style={{ marginBottom: 14 }}>
+        <p className="mb-3.5">
           Der{' '}
           <strong>
             <i>FunktionsBarometer</i>
@@ -24,9 +24,9 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           ist ein interaktives Instrument zur Erhebung Ihrer Funktionsfähigkeit.
         </p>
 
-        <p style={{ marginBottom: 14 }}>
+        <p className="mb-3.5">
           Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
-          <strong style={{ color: '#f77218' }}>
+          <strong className="icf-accent">
             <i>
               {
                 '"Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen …"'
@@ -45,7 +45,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           .
         </p>
 
-        <div style={{ marginBottom: 14 }}>
+        <div className="mb-3.5">
           Wichtig:
           <ul>
             <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort,</li>
@@ -55,7 +55,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           </ul>
         </div>
 
-        <p style={{ marginBottom: 14 }}>
+        <p className="mb-3.5">
           Ihre Daten werden{' '}
           <strong>
             <i>verschlüsselt übermittelt</i>
@@ -63,13 +63,13 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
         </p>
 
-        <p style={{ marginBottom: 14 }}>
+        <p className="mb-3.5">
           Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
           befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
           Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
         </p>
 
-        <p style={{ marginBottom: 14 }}>
+        <p className="mb-3.5">
           Die Informationen von dieser Seite können jederzeit über den{' '}
           <strong>
             <i>hellgrünen Infobutton</i>
@@ -77,7 +77,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           aufgerufen werden.
         </p>
 
-        <p style={{ marginBottom: 24 }}>
+        <p className="mb-6">
           Wenn Sie alles verstanden haben und bereit sind, drücken Sie auf <i>{'"zurück"'}</i>, um
           mit dem FunktionsBarometer fortzufahren.
         </p>
@@ -89,7 +89,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
               title="Aufnahme läuft"
               className="icf-rec-dot animate-pulse"
             />
-            <span style={{ fontSize: 13, color: '#e53e3e' }}>Aufnahme läuft</span>
+            <span className="icf-rec-text">Aufnahme läuft</span>
           </div>
         )}
 
