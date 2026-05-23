@@ -11,9 +11,9 @@ export default function EndScreen({ onEnd }: Props) {
     <div className="icf-overlay text-center">
       <FlowerSides />
 
-      <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
+      <img src={logoImage} alt="Logo" className="icf-logo" />
 
-      <h1 className="font-bold text-4xl md:text-5xl text-[#89D792] mt-12">
+      <h1 className="icf-heading mt-12">
         Vielen Dank
         <br />
         für Ihre Teilnahme!

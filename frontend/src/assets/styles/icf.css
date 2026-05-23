@@ -38,8 +38,22 @@
 /* === Logo === */
 
 .icf-logo {
+  width: 20rem;
+  max-width: 100%;
   height: auto;
   margin-bottom: 24px;
+}
+
+.icf-heading {
+  font-weight: bold;
+  font-size: 2.25rem;
+  color: #89d792;
+}
+
+@media (min-width: 768px) {
+  .icf-heading {
+    font-size: 3rem;
+  }
 }
 
 /* === Buttons === */
@@ -74,6 +88,11 @@
   width: auto;
 }
 
+/* === Action button colour variants === */
+
+.icf-action-btn--info { background: #89d791; color: #fff; }
+.icf-action-btn--play { background: #9cc3ec; color: #fff; }
+
 .icf-action-btn {
   border: none;
   border-radius: 50%;
@@ -96,6 +115,11 @@
   flex-shrink: 0;
 }
 
+.icf-rec-text {
+  font-size: 13px;
+  color: #e53e3e;
+}
+
 /* === Practice banner === */
 
 .icf-practice-banner {
@@ -107,6 +131,29 @@
   margin-bottom: 6px;
   font-size: 13px;
   width: fit-content;
+}
+
+/* === Text accent (orange) === */
+
+.icf-accent {
+  color: #f77218;
+}
+
+/* === Form input === */
+
+.icf-input {
+  width: 100%;
+  font-size: 1.25rem;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid #ccc;
+  margin-bottom: 10px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.icf-input--error {
+  border-color: #b00020;
 }
 
 /* === Recorder warning banner === */
@@ -216,6 +263,26 @@
   max-width: 520px;
   width: 100%;
   text-align: center;
+}
+
+/* === Modal button row === */
+
+.icf-modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* === Dismiss button (recorder warning ×) === */
+
+.icf-dismiss-btn {
+  margin-left: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
 }
 
 /* === Survey answer buttons row === */

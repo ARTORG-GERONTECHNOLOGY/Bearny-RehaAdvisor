@@ -900,8 +900,7 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={() => setShowInfo(true)}
-            className="icf-action-btn"
-            style={{ background: '#89d791', color: '#fff' }}
+            className="icf-action-btn icf-action-btn--info"
             aria-label="Information"
             title="Information"
           >
@@ -929,8 +928,7 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={playItemAudio}
-            className="icf-action-btn"
-            style={{ background: '#9cc3ec', color: '#fff' }}
+            className="icf-action-btn icf-action-btn--play"
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
@@ -980,13 +978,12 @@ export default function HealthSlider() {
           {showSliderAlert && (
             <div className="icf-modal-overlay">
               <div className="icf-modal">
-                <p style={{ fontSize: 18, marginBottom: 20 }}>
+                <p className="text-lg mb-5">
                   Möchten Sie den Schieber in der Mitte belassen oder eine andere Position wählen?
                 </p>
                 <button
                   type="button"
-                  className="icf-btn icf-btn--primary"
-                  style={{ marginBottom: 10 }}
+                  className="icf-btn icf-btn--primary mb-2.5"
                   onClick={() => executeNextSafe(sliderPosition)}
                 >
                   Belassen und weiter
@@ -1005,16 +1002,13 @@ export default function HealthSlider() {
           {uploadFail.open && (
             <div className="icf-modal-overlay">
               <div className="icf-modal">
-                <h3 style={{ marginTop: 0 }}>Upload fehlgeschlagen</h3>
-                <p style={{ whiteSpace: 'pre-wrap', marginBottom: 16 }}>{uploadFail.message}</p>
+                <h3 className="mt-0">Upload fehlgeschlagen</h3>
+                <p className="whitespace-pre-wrap mb-4">{uploadFail.message}</p>
 
-                <div
-                  style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}
-                >
+                <div className="icf-modal-actions">
                   <button
                     type="button"
-                    className="icf-btn icf-btn--neutral"
-                    style={{ minWidth: 180 }}
+                    className="icf-btn icf-btn--neutral min-w-[180px]"
                     onClick={() =>
                       setUploadFail({ open: false, message: '', audio: null, meta: null })
                     }
@@ -1024,8 +1018,7 @@ export default function HealthSlider() {
 
                   <button
                     type="button"
-                    className="icf-btn icf-btn--primary"
-                    style={{ minWidth: 220 }}
+                    className="icf-btn icf-btn--primary min-w-[220px]"
                     onClick={() => {
                       const meta = uploadFail.meta;
                       const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1055,14 +1048,7 @@ export default function HealthSlider() {
               <button
                 type="button"
                 onClick={() => setRecorderWarning('')}
-                style={{
-                  marginLeft: 12,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: 16,
-                }}
+                className="icf-dismiss-btn"
                 aria-label="Meldung schließen"
               >
                 ×

@@ -14,11 +14,11 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
     <main className="icf-page">
       <FlowerSides />
 
-      <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
-      <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Patienten-ID</h1>
+      <img src={logoImage} alt="Logo" className="icf-logo" />
+      <h1 className="icf-heading">Patienten-ID</h1>
 
       <div className="mt-6 max-w-2xl w-full">
-        <p className="text-center" style={{ marginBottom: 14 }}>
+        <p className="text-center mb-3.5">
           Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
         </p>
 
@@ -31,17 +31,7 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
           }}
           placeholder="P001-001T1"
           autoFocus
-          style={{
-            width: '100%',
-            fontSize: 20,
-            padding: '12px 14px',
-            borderRadius: 12,
-            border: `2px solid ${error ? '#b00020' : '#ccc'}`,
-            marginBottom: 10,
-            textAlign: 'center',
-            boxSizing: 'border-box',
-          }}
-          className="max-w-sm mx-auto block"
+          className={`icf-input max-w-sm mx-auto block${error ? ' icf-input--error' : ''}`}
         />
 
         {error && <p className="text-center text-red-600 mb-2">{error}</p>}
