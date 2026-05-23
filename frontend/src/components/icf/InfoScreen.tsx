@@ -83,16 +83,12 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
         </p>
 
         {isRecording && (
-          <div
-            style={{
-              alignSelf: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 16,
-            }}
-          >
-            <div aria-label="Aufnahme läuft" title="Aufnahme läuft" className="icf-rec-dot" />
+          <div className="flex items-center gap-1 mb-4">
+            <div
+              aria-label="Aufnahme läuft"
+              title="Aufnahme läuft"
+              className="icf-rec-dot animate-pulse"
+            />
             <span style={{ fontSize: 13, color: '#e53e3e' }}>Aufnahme läuft</span>
           </div>
         )}

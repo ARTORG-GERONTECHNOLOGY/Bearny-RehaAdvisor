@@ -895,7 +895,6 @@ export default function HealthSlider() {
         transition: 'background 0.2s',
       }}
     >
-      <style>{`@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.25}}`}</style>
       <audio
         ref={audioRef}
         preload="auto"
@@ -905,7 +904,7 @@ export default function HealthSlider() {
 
       {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
 
-      <div className="flex gap-3 md:gap-6 mt-6 mb-10">
+      <div className="flex gap-3 md:gap-6 mt-6 mb-10 max-w-5xl">
         {!isPracticeMode && (
           <div>
             <div className="font-bold text-4xl md:text-5xl !leading-none">{questionIndex + 1}</div>
@@ -914,7 +913,12 @@ export default function HealthSlider() {
                 / {total}
               </div>
               {isRecording && (
-                <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
+                <div
+                  aria-label="Aufnahme läuft"
+                  title="Aufnahme läuft"
+                  style={styles.recDot}
+                  className="animate-pulse"
+                />
               )}
             </div>
           </div>
@@ -924,11 +928,11 @@ export default function HealthSlider() {
           {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
         </h1>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+        <div className="flex flex-col gap-2 flex-shrink-0 lg:flex-row">
           <button
             type="button"
             onClick={() => setShowInfo(true)}
-            style={{ ...styles.audioBtn, background: '#89d791', color: '#fff' }}
+            style={{ ...styles.actionBtn, background: '#89d791', color: '#fff' }}
             aria-label="Information"
             title="Information"
           >
@@ -939,7 +943,7 @@ export default function HealthSlider() {
             type="button"
             onClick={() => setDingActive((v) => !v)}
             style={{
-              ...styles.audioBtn,
+              ...styles.actionBtn,
               background: dingActive ? '#d7c6a7' : '#fff',
               color: dingActive ? '#fff' : '#000',
             }}
@@ -956,7 +960,7 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={playItemAudio}
-            style={{ ...styles.audioBtn, background: '#9cc3ec', color: '#fff' }}
+            style={{ ...styles.actionBtn, background: '#9cc3ec', color: '#fff' }}
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
@@ -967,8 +971,8 @@ export default function HealthSlider() {
 
       {!showSummary && (
         <>
-          <section style={styles.centerArea}>
-            <div style={styles.endLabelTop}>Sehr gut</div>
+          <div className="flex flex-col gap-2 text-center mb-24 items-center">
+            <div className="font-bold text-xl md:text-2xl text-[#58D8B0]">sehr gut</div>
 
             <div style={styles.sliderWrap}>
               <div
@@ -997,10 +1001,10 @@ export default function HealthSlider() {
               </div>
             </div>
 
-            {audioError && <div style={styles.audioError}>{audioError}</div>}
+            <div className="font-bold text-xl md:text-2xl text-[#C1839D]">sehr schlecht</div>
+          </div>
 
-            <div style={styles.endLabelBottom}>Sehr schlecht</div>
-          </section>
+          {audioError && <div style={styles.audioError}>{audioError}</div>}
 
           {showSliderAlert && (
             <div style={styles.modalOverlay}>
@@ -1092,7 +1096,7 @@ export default function HealthSlider() {
             </div>
           )}
 
-          <div style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow}>
+          <div style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow} className="max-w-5xl">
             {isPracticeMode ? (
               <button
                 type="button"
@@ -1105,19 +1109,19 @@ export default function HealthSlider() {
               <>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
-                  disabled={saving || isLocked}
-                  onClick={() => handleNext(sliderPosition)}
-                >
-                  Weiter
-                </button>
-                <button
-                  type="button"
                   style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
                   disabled={saving || isLocked}
                   onClick={() => handleNext('NA')}
                 >
                   Kann ich nicht beantworten
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
+                  disabled={saving || isLocked}
+                  onClick={() => handleNext(sliderPosition)}
+                >
+                  Weiter
                 </button>
               </>
             )}
@@ -1174,7 +1178,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     background: '#e53e3e',
     flexShrink: 0,
-    animation: 'rec-pulse 1.2s ease-in-out infinite',
   },
 
   recorderWarningBanner: {
@@ -1200,32 +1203,6 @@ const styles: Record<string, React.CSSProperties> = {
     wordBreak: 'break-word',
     hyphens: 'auto',
   },
-
-  audioBtn: {
-    border: 'none',
-    borderRadius: '50%',
-    width: 'clamp(72px, 16vw, 92px)',
-    height: 'clamp(72px, 16vw, 92px)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    display: 'grid',
-    placeItems: 'center',
-    flexShrink: 0,
-  },
-
-  centerArea: {
-    flex: 1,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-
-  endLabelTop: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
-  endLabelBottom: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
 
   sliderWrap: {
     position: 'relative',
@@ -1275,9 +1252,8 @@ const styles: Record<string, React.CSSProperties> = {
     transform: 'translate(-50%, 50%)',
     width: '135%',
     height: 28,
-    background: '#1f1f1f',
+    background: '#65563DA6',
     borderRadius: 16,
-    boxShadow: '0 2px 8px rgba(0,0,0,.25)',
   },
 
   audioError: { marginTop: 6, color: '#b00020', fontSize: 13, textAlign: 'center' },
@@ -1318,9 +1294,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   btn: {
     width: '100%',
-    minHeight: 72,
     fontSize: 'clamp(14px, 3.8vw, 18px)',
-    borderRadius: 14,
+    borderRadius: 40,
     border: 'none',
     cursor: 'pointer',
     fontWeight: 'bold',
@@ -1329,10 +1304,22 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     textAlign: 'center',
     lineHeight: 1.2,
-    padding: '8px 12px',
+    padding: '12px 16px',
   },
-  btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
+  btnNeutral: { background: '#9D8D7126', color: '#9D8D71', border: '3px solid #9D8D71' },
   btnPrimary: { background: '#9D8D71', color: '#fff' },
+
+  actionBtn: {
+    border: 'none',
+    borderRadius: '50%',
+    width: 'clamp(72px, 16vw, 60px)',
+    height: 'clamp(72px, 16vw, 60px)',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'grid',
+    placeItems: 'center',
+    flexShrink: 0,
+  },
 
   footer: {
     width: '100%',
