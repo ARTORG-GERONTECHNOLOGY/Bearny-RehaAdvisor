@@ -19,7 +19,7 @@ export default function EndScreen({ onEnd }: Props) {
         für Ihre Teilnahme!
       </h1>
       <p className="mt-6 font-bold text-xl md:text-2xl text-[#FF9A57]">
-        Sie haben Alles geschafft!
+        Sie haben alles geschafft!
       </p>
 
       <FlowerButtonRow style={{ marginTop: 24 }}>

@@ -18,11 +18,12 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
       <h1 className="icf-heading">Patienten-ID</h1>
 
       <div className="mt-6 max-w-2xl w-full">
-        <p className="text-center mb-3.5">
+        <label htmlFor="patient-id-input" className="text-center mb-3.5 block">
           Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
-        </p>
+        </label>
 
         <input
+          id="patient-id-input"
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}

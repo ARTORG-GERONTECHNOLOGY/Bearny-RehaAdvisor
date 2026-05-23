@@ -9,11 +9,18 @@ interface Props {
 
 export default function InfoScreen({ isRecording, onClose }: Props) {
   return (
-    <div className="icf-overlay">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="info-dialog-title"
+      className="icf-overlay"
+    >
       <FlowerSides />
 
       <img src={logoImage} alt="Logo" className="icf-logo" />
-      <h1 className="icf-heading">Information</h1>
+      <h1 id="info-dialog-title" className="icf-heading">
+        Information
+      </h1>
 
       <div className="mt-6 max-w-2xl">
         <p className="mb-3.5">
