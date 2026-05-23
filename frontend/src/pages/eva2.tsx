@@ -890,10 +890,12 @@ export default function HealthSlider() {
             </div>
           )}
 
-          <h1 className="font-bold text-xl md:text-2xl break-words !leading-none min-w-0">
+          <div className="min-w-0">
             {isPracticeMode && <div className="icf-practice-banner">ÜBUNGSMODUS</div>}
-            {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
-          </h1>
+            <h1 className="font-bold text-xl md:text-2xl break-words !leading-none">
+              {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
+            </h1>
+          </div>
         </div>
 
         <div className="absolute top-0 right-0 flex flex-col lg:flex-row gap-2">

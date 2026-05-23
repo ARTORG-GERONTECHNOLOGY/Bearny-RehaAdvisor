@@ -12,7 +12,7 @@ describe('EndScreen', () => {
 
   it('renders the congratulatory text', () => {
     render(<EndScreen onEnd={noop} />);
-    expect(screen.getByText('Sie haben Alles geschafft!')).toBeInTheDocument();
+    expect(screen.getByText('Sie haben alles geschafft!')).toBeInTheDocument();
   });
 
   it('renders the logo', () => {
