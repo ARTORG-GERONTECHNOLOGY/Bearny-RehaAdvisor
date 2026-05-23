@@ -33,7 +33,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
-import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
+import EndScreen from '@/components/icf/EndScreen';
+import InfoScreen from '@/components/icf/InfoScreen';
+import StartScreen from '@/components/icf/StartScreen';
 
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
@@ -882,97 +884,7 @@ export default function HealthSlider() {
   }
 
   if (testMode) {
-    return (
-      <main style={styles.app}>
-        <img
-          src={logoImage}
-          alt="Logo"
-          style={{ width: 577, height: 'auto', marginBottom: 24 }}
-          className="w-80 md:w-xl max-w-full"
-        />
-        <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Willkommen</h1>
-
-        <div className="mt-6 max-w-2xl">
-          <p style={{ marginBottom: 14 }}>
-            Gleich beginnt das Assessment mit dem{' '}
-            <strong>
-              <i>FunktionsBarometer</i>
-            </strong>
-            , dem interaktiven Instrument zur Erhebung Ihrer Funktionsfähigkeit.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
-            <strong style={{ color: '#f77218' }}>
-              <i>
-                {
-                  '“Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen … ”'
-                }
-              </i>
-            </strong>{' '}
-            <strong>
-              <i>bewerten</i>
-            </strong>{' '}
-            dürfen.
-            <br />
-            Erklären Sie uns Ihre Bewertung, indem Sie einfach{' '}
-            <strong>
-              <i>frei erzählen</i>
-            </strong>
-            .
-          </p>
-
-          <div style={{ marginBottom: 14 }}>
-            Bevor wir starten,
-            <ul>
-              <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort,</li>
-              <li>erlauben Sie Zugriff auf das Mikrofon,</li>
-              <li>sprechen Sie klar und deutlich,</li>
-              <li>und antworten Sie auf alles so, wie es für Sie stimmt.</li>
-            </ul>
-          </div>
-
-          <p style={{ marginBottom: 14 }}>
-            Ihre Daten werden{' '}
-            <strong>
-              <i>verschlüsselt übermittelt</i>
-            </strong>
-            , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
-            befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
-            Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Die Informationen von dieser Seite können jederzeit über den{' '}
-            <strong>
-              <i>hellgrünen Infobutton</i>
-            </strong>{' '}
-            aufgerufen werden.
-          </p>
-
-          <p style={{ marginBottom: 24 }}>
-            Wenn Sie alles verstanden haben und bereit sind, drücken Sie auf{' '}
-            <i>{'“Übungslauf starten”'}</i>, um mit einem Übungsbeispiel zu beginnen, danach startet
-            das FunktionsBarometer.
-          </p>
-
-          {!!micError && <p style={{ color: '#b00020' }}>{micError}</p>}
-
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto' }}
-            className="mx-auto"
-            onClick={startMic}
-          >
-            Übungslauf starten
-          </button>
-        </div>
-      </main>
-    );
+    return <StartScreen micError={micError} onStart={startMic} />;
   }
 
   return (
@@ -1214,139 +1126,15 @@ export default function HealthSlider() {
       )}
 
       {showSummary && (
-        <div style={styles.appOverlay} className="text-center">
-          <img
-            src={logoImage}
-            alt="Logo"
-            style={{ width: 577, height: 'auto', marginBottom: 24 }}
-            className="w-80 md:w-xl max-w-full"
-          />
-
-          <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">
-            Vielen Dank
-            <br />
-            für Ihre Teilnahme!
-          </h1>
-          <p className="mt-6 font-bold text-xl md:text-2xl text-[#FF9A57]">
-            Sie haben Alles geschafft!
-          </p>
-
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto', marginTop: 24 }}
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-          >
-            Beenden
-          </button>
-        </div>
+        <EndScreen
+          onEnd={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+        />
       )}
 
-      {showInfo && (
-        <div style={styles.appOverlay}>
-          <img
-            src={logoImage}
-            alt="Logo"
-            style={{ width: 577, height: 'auto', marginBottom: 24 }}
-            className="w-80 md:w-xl max-w-full"
-          />
-          <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Information</h1>
-
-          <div className="mt-6 max-w-2xl">
-            <p style={{ marginBottom: 14 }}>
-              Der{' '}
-              <strong>
-                <i>FunktionsBarometer</i>
-              </strong>{' '}
-              ist ein interaktives Instrument zur Erhebung Ihrer Funktionsfähigkeit.
-            </p>
-
-            <p style={{ marginBottom: 14 }}>
-              Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
-              <strong style={{ color: '#f77218' }}>
-                <i>
-                  {
-                    '“Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen … ”'
-                  }
-                </i>
-              </strong>{' '}
-              <strong>
-                <i>bewerten</i>
-              </strong>{' '}
-              dürfen.
-              <br />
-              Erklären Sie uns Ihre Bewertung, indem Sie einfach{' '}
-              <strong>
-                <i>frei erzählen</i>
-              </strong>
-              .
-            </p>
-
-            <div style={{ marginBottom: 14 }}>
-              Wichtig:
-              <ul>
-                <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort,</li>
-                <li>erlauben Sie Zugriff auf das Mikrofon,</li>
-                <li>sprechen Sie klar und deutlich,</li>
-                <li>und antworten Sie auf alles so, wie es für Sie stimmt.</li>
-              </ul>
-            </div>
-
-            <p style={{ marginBottom: 14 }}>
-              Ihre Daten werden{' '}
-              <strong>
-                <i>verschlüsselt übermittelt</i>
-              </strong>
-              , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
-            </p>
-
-            <p style={{ marginBottom: 14 }}>
-              Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
-              befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
-              Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
-            </p>
-
-            <p style={{ marginBottom: 14 }}>
-              Die Informationen von dieser Seite können jederzeit über den{' '}
-              <strong>
-                <i>hellgrünen Infobutton</i>
-              </strong>{' '}
-              aufgerufen werden.
-            </p>
-
-            <p style={{ marginBottom: 24 }}>
-              Wenn Sie alles verstanden haben und bereit sind, drücken Sie auf <i>{'“zurück”'}</i>,
-              um mit dem FunktionsBarometer fortzufahren.
-            </p>
-
-            {isRecording && (
-              <div
-                style={{
-                  alignSelf: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 16,
-                }}
-              >
-                <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
-                <span style={{ fontSize: 13, color: '#e53e3e' }}>Aufnahme läuft</span>
-              </div>
-            )}
-
-            <button
-              type="button"
-              style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto' }}
-              className="mx-auto"
-              onClick={() => setShowInfo(false)}
-            >
-              zurück
-            </button>
-          </div>
-        </div>
-      )}
+      {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}
 
       <footer style={styles.footer}>
         <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
@@ -1369,22 +1157,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
     fontFamily: 'sans-serif',
     color: '#000000',
-  },
-
-  appOverlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 100,
-    background: '#EFECE7',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'left',
-    fontFamily: 'sans-serif',
-    color: '#000000',
-    padding: 'env(safe-area-inset-top, 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))',
-    boxSizing: 'border-box',
   },
 
   practiceBanner: {
