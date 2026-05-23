@@ -78,8 +78,8 @@ test.describe('ICF Monitor — patient ID entry', () => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await expect(page.getByText('Patienten-ID eingeben')).toBeVisible();
-    await expect(page.getByPlaceholder('P01')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Patienten-ID' })).toBeVisible();
+    await expect(page.getByPlaceholder('P001-001T1')).toBeVisible();
   });
 
   test('accepts /icf/:patientId URL and skips the ID form', async ({ page }) => {
@@ -95,17 +95,17 @@ test.describe('ICF Monitor — patient ID entry', () => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await page.getByPlaceholder('P01').fill('BADID');
+    await page.getByPlaceholder('P001-001T1').fill('BADID');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    await expect(page.getByText(/ID muss mit P beginnen/)).toBeVisible();
+    await expect(page.getByText(/ID muss dem Format/)).toBeVisible();
   });
 
   test('accepts a valid ID and advances to the mic screen', async ({ page }) => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await page.getByPlaceholder('P01').fill('P42');
+    await page.getByPlaceholder('P001-001T1').fill('P001-001T1');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
@@ -133,9 +133,10 @@ test.describe('ICF Monitor — practice mode UI', () => {
     ).not.toBeVisible();
   });
 
-  test('practice mode does not show the bell or play audio buttons', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /Ton an|Ton aus/i })).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Frage abspielen' })).not.toBeVisible();
+  test('practice mode shows the info, bell and play audio buttons', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Information' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ton an|Ton aus/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Frage abspielen' })).toBeVisible();
   });
 
   test('practice question text is visible and the slider is present', async ({ page }) => {
@@ -153,7 +154,7 @@ test.describe('ICF Monitor — real survey mode', () => {
     // Advance from practice mode into the real survey
     await page.getByRole('button', { name: 'Start' }).click();
     // Wait for progress bar / real question
-    await expect(page.getByText('Frage 1 von')).toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
   });
 
   test('real mode shows Weiter and "Kann ich nicht beantworten" buttons', async ({ page }) => {
@@ -161,7 +162,8 @@ test.describe('ICF Monitor — real survey mode', () => {
     await expect(page.getByRole('button', { name: 'Kann ich nicht beantworten' })).toBeVisible();
   });
 
-  test('real mode shows bell and play audio buttons', async ({ page }) => {
+  test('real mode shows info, bell and play audio buttons', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Information' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Ton an|Ton aus/i })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Frage abspielen' })).toBeVisible();
   });
@@ -252,6 +254,25 @@ test.describe('ICF Monitor — real survey mode', () => {
   test('footer shows the patient ID', async ({ page }) => {
     await expect(page.getByText('ID: P01')).toBeVisible();
   });
+
+  test('Info button opens the overlay and zurück closes it', async ({ page }) => {
+    await page.getByRole('button', { name: 'Information' }).click();
+
+    // Overlay is visible with heading and close button
+    await expect(page.getByRole('heading', { name: 'Information' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'zurück' })).toBeVisible();
+
+    // Survey content is still in the DOM behind the overlay
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // Close the overlay
+    await page.getByRole('button', { name: 'zurück' }).click();
+    await expect(page.getByRole('heading', { name: 'Information' })).not.toBeVisible();
+
+    // Survey is intact
+    await expect(page.getByText('/ 29')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Weiter' })).toBeVisible();
+  });
 });
 
 test.describe('ICF Monitor — MediaRecorder not available', () => {
@@ -290,7 +311,7 @@ test.describe('ICF Monitor — upload failure recovery', () => {
 
     // Move through practice
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Frage 1 von')).toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
 
     // Wait for lock to lift, then submit
     await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled({ timeout: 5000 });
@@ -336,7 +357,7 @@ test.describe('ICF Monitor — item audio playback', () => {
     await gotoWithPatientId(page);
     await startMicAndPractice(page);
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Frage 1 von')).toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
 
     await page.getByRole('button', { name: 'Frage abspielen' }).click();
 
