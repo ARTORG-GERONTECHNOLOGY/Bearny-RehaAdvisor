@@ -766,4 +766,84 @@ describe('HealthSlider (Full Sync)', () => {
     expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
   });
+
+  // ─── Info overlay ─────────────────────────────────────────────────────────
+
+  it('Info button opens the info overlay', async () => {
+    render(<HealthSlider />);
+    await enterPatientId();
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Information' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Information' })).toBeInTheDocument()
+    );
+    expect(screen.getByRole('button', { name: 'zurück' })).toBeInTheDocument();
+    // Survey content remains in the DOM behind the overlay
+    expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
+  });
+
+  it('"zurück" button closes the info overlay and leaves the survey intact', async () => {
+    render(<HealthSlider />);
+    await enterPatientId();
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Information' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'zurück' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'zurück' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Information' })).not.toBeInTheDocument()
+    );
+    // Survey is still present
+    expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
+  });
+
+  it('info overlay shows the recording indicator when a recording is active', async () => {
+    render(<HealthSlider />);
+    await enterPatientId();
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+
+    // Enter real mode so the progress-row REC dot is rendered
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Information' }));
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Information' })).toBeInTheDocument()
+    );
+
+    // The overlay's own recording indicator is rendered alongside the progress-row dot
+    expect(screen.getAllByLabelText('Aufnahme läuft')).toHaveLength(2);
+    expect(screen.getByText('Aufnahme läuft')).toBeInTheDocument();
+  });
+
+  it('closing the info overlay does not interrupt recording', async () => {
+    render(<HealthSlider />);
+    await enterPatientId();
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
+
+    // Open then close the info overlay
+    fireEvent.click(screen.getByRole('button', { name: 'Information' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'zurück' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'zurück' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'zurück' })).not.toBeInTheDocument()
+    );
+
+    // The progress-row REC dot must still be present — recording was not stopped
+    expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument();
+  });
 });
