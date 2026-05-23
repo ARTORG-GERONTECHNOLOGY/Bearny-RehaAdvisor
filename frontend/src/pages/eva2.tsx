@@ -35,6 +35,7 @@ import { useParams } from 'react-router-dom';
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
 import EndScreen from '@/components/icf/EndScreen';
 import InfoScreen from '@/components/icf/InfoScreen';
+import PatientIdScreen from '@/components/icf/PatientIdScreen';
 import StartScreen from '@/components/icf/StartScreen';
 
 /** ====== DATA ====== */
@@ -838,48 +839,15 @@ export default function HealthSlider() {
 
   if (!patientId) {
     return (
-      <main style={styles.app}>
-        <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
-        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
-          <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
-            Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
-          </p>
-          <input
-            type="text"
-            value={patientIdInput}
-            onChange={(e) => {
-              setPatientIdInput(e.target.value);
-              setPatientIdError('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitPatientId();
-            }}
-            placeholder="P001-001T1"
-            autoFocus
-            style={{
-              width: '100%',
-              fontSize: 20,
-              padding: '12px 14px',
-              borderRadius: 12,
-              border: '2px solid #ccc',
-              marginBottom: 10,
-              textAlign: 'center',
-              boxSizing: 'border-box',
-            }}
-          />
-          {patientIdError && <p style={{ color: '#b00020', marginBottom: 10 }}>{patientIdError}</p>}
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary }}
-            onClick={submitPatientId}
-          >
-            Weiter
-          </button>
-        </div>
-        <footer style={{ ...styles.footer, marginTop: 'auto' }}>
-          <div style={styles.footerText}>{VERSION}</div>
-        </footer>
-      </main>
+      <PatientIdScreen
+        value={patientIdInput}
+        error={patientIdError}
+        onChange={(v) => {
+          setPatientIdInput(v);
+          setPatientIdError('');
+        }}
+        onSubmit={submitPatientId}
+      />
     );
   }
 
@@ -971,7 +939,7 @@ export default function HealthSlider() {
 
       {!showSummary && (
         <>
-          <div className="flex flex-col gap-2 text-center mb-24 items-center">
+          <div className="flex flex-col gap-2 text-center mb-12 items-center">
             <div className="font-bold text-xl md:text-2xl text-[#58D8B0]">sehr gut</div>
 
             <div style={styles.sliderWrap}>
@@ -1096,7 +1064,10 @@ export default function HealthSlider() {
             </div>
           )}
 
-          <div style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow} className="max-w-5xl">
+          <div
+            style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow}
+            className="max-w-5xl"
+          >
             {isPracticeMode ? (
               <button
                 type="button"
