@@ -234,8 +234,6 @@ export default function HealthSlider() {
   }, []);
 
   const total = REAL_QUESTIONS.length;
-  const progressPercent = isPracticeMode ? 0 : ((questionIndex + 1) / total) * 100;
-  const progressText = isPracticeMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
 
   /** --- wire <audio> into the shared AudioContext with 2× gain boost + headphone routing --- */
   useEffect(() => {
@@ -995,22 +993,22 @@ export default function HealthSlider() {
 
       {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
 
-      {!isPracticeMode && (
-        <div style={styles.progressRow}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div style={styles.progressText}>{progressText}</div>
-            {isRecording && (
-              <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
-            )}
+      <div className="flex gap-3 md:gap-6 mt-6 mb-10">
+        {!isPracticeMode && (
+          <div>
+            <div className="font-bold text-4xl md:text-5xl !leading-none">{questionIndex + 1}</div>
+            <div className="flex gap-1">
+              <div className="font-bold text-xl md:text-2xl text-[#727272] !leading-none whitespace-nowrap">
+                / {total}
+              </div>
+              {isRecording && (
+                <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
+              )}
+            </div>
           </div>
-          <div style={styles.progressTrack}>
-            <div style={{ ...styles.progressFill, width: `${progressPercent}%` }} />
-          </div>
-        </div>
-      )}
+        )}
 
-      <div style={styles.questionHeader}>
-        <h1 style={styles.title}>
+        <h1 className="font-bold text-xl md:text-2xl break-words !leading-none">
           {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
         </h1>
 
@@ -1383,8 +1381,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   recDot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: '50%',
     background: '#e53e3e',
     flexShrink: 0,
@@ -1405,33 +1403,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 8,
   },
 
-  progressRow: { width: '100%', marginTop: 8 },
-  progressText: { fontSize: 13, color: '#4a4a4a', marginBottom: 6 },
-  progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
-  progressFill: {
-    height: '100%',
-    background: '#2fb463',
-    borderRadius: 8,
-    transition: 'width .2s ease',
-  },
-
-  questionHeader: {
-    width: '100%',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto',
-    gap: 10,
-    alignItems: 'start',
-    marginTop: 6,
-  },
-
-  questionHeaderCentered: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-
   title: {
     minWidth: 0,
     margin: '10px 0 6px',
@@ -1440,16 +1411,6 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'left',
     wordBreak: 'break-word',
     hyphens: 'auto',
-  },
-
-  titleCentered: {
-    margin: '10px 0 6px',
-    fontSize: 'clamp(18px, 4.8vw, 32px)',
-    lineHeight: 1.25,
-    textAlign: 'center',
-    wordBreak: 'break-word',
-    hyphens: 'auto',
-    width: '100%',
   },
 
   audioBtn: {
