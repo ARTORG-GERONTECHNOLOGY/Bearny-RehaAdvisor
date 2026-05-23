@@ -1,6 +1,6 @@
 import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
 import { FlowerButtonRow, FlowerSides } from './FlowerDecoration';
-import './icf.css';
+import '@/assets/styles/icf.css';
 
 interface Props {
   value: string;
@@ -18,7 +18,7 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
       <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Patienten-ID</h1>
 
       <div className="mt-6 max-w-2xl w-full">
-        <p style={{ marginBottom: 16 }}>
+        <p className="text-center" style={{ marginBottom: 14 }}>
           Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
         </p>
 
@@ -41,9 +41,10 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
             textAlign: 'center',
             boxSizing: 'border-box',
           }}
+          className="max-w-sm mx-auto block"
         />
 
-        {error && <p style={{ color: '#b00020', marginBottom: 10 }}>{error}</p>}
+        {error && <p className="text-center text-red-600 mb-2">{error}</p>}
 
         <FlowerButtonRow style={{ marginTop: 32 }}>
           <button

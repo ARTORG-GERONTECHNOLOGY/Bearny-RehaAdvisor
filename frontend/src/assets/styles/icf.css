@@ -1,0 +1,306 @@
+/* =====================================================================
+   ICF Monitor — shared styles
+   Used by: PatientIdScreen, StartScreen, InfoScreen, EndScreen, eva2
+   ===================================================================== */
+
+/* === Page layouts === */
+
+.icf-page {
+  width: 100%;
+  min-height: 100dvh;
+  background: #efece7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  padding: env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom));
+  font-family: sans-serif;
+  color: #000;
+}
+
+.icf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #efece7;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: left;
+  font-family: sans-serif;
+  color: #000;
+  padding: env(safe-area-inset-top, 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+/* === Logo === */
+
+.icf-logo {
+  height: auto;
+  margin-bottom: 24px;
+}
+
+/* === Buttons === */
+
+.icf-btn {
+  width: 100%;
+  font-size: clamp(14px, 3.8vw, 18px);
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2;
+  padding: 12px 16px;
+}
+
+.icf-btn--primary {
+  background: #9d8d71;
+  color: #fff;
+}
+
+.icf-btn--neutral {
+  background: #9d8d7126;
+  color: #9d8d71;
+  border: 3px solid #9d8d71;
+}
+
+.icf-btn--auto {
+  width: auto;
+}
+
+.icf-action-btn {
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+/* === Recording indicator === */
+
+.icf-rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e53e3e;
+  flex-shrink: 0;
+}
+
+/* === Practice banner === */
+
+.icf-practice-banner {
+  background: #f77218;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  font-size: 13px;
+  width: fit-content;
+}
+
+/* === Recorder warning banner === */
+
+.icf-recorder-warning {
+  width: 100%;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #664d03;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* === Slider === */
+
+.icf-slider-wrap {
+  position: relative;
+  width: min(180px, 56vw, calc((100dvh - 360px) * 0.2647));
+  aspect-ratio: 180 / 680;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.icf-track-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.icf-gradient-bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%);
+  border-radius: 18px;
+}
+
+.icf-cap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 145%;
+  height: 18px;
+  border-radius: 8px;
+}
+
+.icf-cap--top {
+  top: -5px;
+  background: #67d7be;
+}
+
+.icf-cap--bottom {
+  bottom: -5px;
+  background: #c47993;
+}
+
+.icf-knob {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  width: 135%;
+  height: 28px;
+  background: #65563da6;
+  border-radius: 16px;
+}
+
+/* === Audio error === */
+
+.icf-audio-error {
+  margin-top: 6px;
+  color: #b00020;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* === Modals === */
+
+.icf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 12px;
+}
+
+.icf-modal {
+  background: #fff;
+  padding: 18px;
+  border-radius: 16px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+}
+
+/* === Survey answer buttons row === */
+
+.icf-buttons-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.icf-buttons-row--centered {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* === Footer === */
+
+.icf-survey-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 10px 0 0;
+  font-size: 13px;
+  color: #707070;
+  text-align: center;
+}
+
+.icf-footer-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* === Flower decorations === */
+
+/* Individual side flowers — each positioned via inline styles */
+.icf-flower-side {
+  display: none;
+  position: fixed;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  height: auto;
+  z-index: 101;
+}
+
+/* Bottom row — flanks button on mobile */
+.icf-btn-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+}
+
+.icf-flower-bottom-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icf-flower-bottom {
+  mix-blend-mode: multiply;
+  height: auto;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .icf-flower-side {
+    display: block;
+  }
+
+  .icf-btn-row .icf-btn {
+    flex: none;
+    width: auto;
+  }
+
+  .icf-flower-bottom-group {
+    display: none;
+  }
+}

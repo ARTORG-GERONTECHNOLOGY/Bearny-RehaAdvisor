@@ -1,6 +1,6 @@
 import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
 import { FlowerButtonRow, FlowerSides } from './FlowerDecoration';
-import './icf.css';
+import '@/assets/styles/icf.css';
 
 interface Props {
   micError: string;
