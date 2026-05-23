@@ -37,6 +37,7 @@ import EndScreen from '@/components/icf/EndScreen';
 import InfoScreen from '@/components/icf/InfoScreen';
 import PatientIdScreen from '@/components/icf/PatientIdScreen';
 import StartScreen from '@/components/icf/StartScreen';
+import '@/assets/styles/icf.css';
 
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
@@ -857,11 +858,8 @@ export default function HealthSlider() {
 
   return (
     <main
-      style={{
-        ...styles.app,
-        backgroundColor: showFlash ? '#858585' : '#EFECE7',
-        transition: 'background 0.2s',
-      }}
+      className="icf-page"
+      style={{ backgroundColor: showFlash ? '#858585' : '#EFECE7', transition: 'background 0.2s' }}
     >
       <audio
         ref={audioRef}
@@ -874,7 +872,9 @@ export default function HealthSlider() {
         <div className="flex gap-3 md:gap-6 pr-20 lg:pr-60">
           {!isPracticeMode && (
             <div className="flex-shrink-0">
-              <div className="font-bold text-4xl md:text-5xl !leading-none">{questionIndex + 1}</div>
+              <div className="font-bold text-4xl md:text-5xl !leading-none">
+                {questionIndex + 1}
+              </div>
               <div className="flex gap-1">
                 <div className="font-bold text-xl md:text-2xl text-[#727272] !leading-none whitespace-nowrap">
                   / {total}
@@ -883,8 +883,7 @@ export default function HealthSlider() {
                   <div
                     aria-label="Aufnahme läuft"
                     title="Aufnahme läuft"
-                    style={styles.recDot}
-                    className="animate-pulse"
+                    className="icf-rec-dot animate-pulse"
                   />
                 )}
               </div>
@@ -892,7 +891,7 @@ export default function HealthSlider() {
           )}
 
           <h1 className="font-bold text-xl md:text-2xl break-words !leading-none min-w-0">
-            {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
+            {isPracticeMode && <div className="icf-practice-banner">ÜBUNGSMODUS</div>}
             {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
           </h1>
         </div>
@@ -901,7 +900,8 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={() => setShowInfo(true)}
-            style={{ ...styles.actionBtn, background: '#89d791', color: '#fff' }}
+            className="icf-action-btn"
+            style={{ background: '#89d791', color: '#fff' }}
             aria-label="Information"
             title="Information"
           >
@@ -911,8 +911,8 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={() => setDingActive((v) => !v)}
+            className="icf-action-btn"
             style={{
-              ...styles.actionBtn,
               background: dingActive ? '#d7c6a7' : '#fff',
               color: dingActive ? '#fff' : '#000',
             }}
@@ -929,7 +929,8 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={playItemAudio}
-            style={{ ...styles.actionBtn, background: '#9cc3ec', color: '#fff' }}
+            className="icf-action-btn"
+            style={{ background: '#9cc3ec', color: '#fff' }}
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
@@ -943,12 +944,12 @@ export default function HealthSlider() {
           <div className="flex flex-col gap-2 text-center mb-8 items-center">
             <div className="font-bold text-xl md:text-2xl text-[#58D8B0]">sehr gut</div>
 
-            <div style={styles.sliderWrap}>
+            <div className="icf-slider-wrap">
               <div
                 ref={spectrumRef}
                 role="group"
                 aria-label="Schieberegler vertikal"
-                style={styles.trackBox}
+                className="icf-track-box"
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
@@ -957,15 +958,16 @@ export default function HealthSlider() {
                   if (!saving) handleSliderMove(e.clientY);
                 }}
               >
-                <div style={styles.gradientBar} />
-                <div style={{ ...styles.cap, ...styles.capTop }} />
-                <div style={{ ...styles.cap, ...styles.capBottom }} />
+                <div className="icf-gradient-bar" />
+                <div className="icf-cap icf-cap--top" />
+                <div className="icf-cap icf-cap--bottom" />
                 <div
                   role="slider"
                   aria-valuenow={sliderPosition}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  style={{ ...styles.knob, bottom: `${sliderPosition}%` }}
+                  className="icf-knob"
+                  style={{ bottom: `${sliderPosition}%` }}
                 />
               </div>
             </div>
@@ -973,24 +975,25 @@ export default function HealthSlider() {
             <div className="font-bold text-xl md:text-2xl text-[#C1839D]">sehr schlecht</div>
           </div>
 
-          {audioError && <div style={styles.audioError}>{audioError}</div>}
+          {audioError && <div className="icf-audio-error">{audioError}</div>}
 
           {showSliderAlert && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modal}>
+            <div className="icf-modal-overlay">
+              <div className="icf-modal">
                 <p style={{ fontSize: 18, marginBottom: 20 }}>
                   Möchten Sie den Schieber in der Mitte belassen oder eine andere Position wählen?
                 </p>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnPrimary, marginBottom: 10 }}
+                  className="icf-btn icf-btn--primary"
+                  style={{ marginBottom: 10 }}
                   onClick={() => executeNextSafe(sliderPosition)}
                 >
                   Belassen und weiter
                 </button>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnNeutral }}
+                  className="icf-btn icf-btn--neutral"
                   onClick={() => setShowSliderAlert(false)}
                 >
                   Schieber anpassen
@@ -1000,8 +1003,8 @@ export default function HealthSlider() {
           )}
 
           {uploadFail.open && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modal}>
+            <div className="icf-modal-overlay">
+              <div className="icf-modal">
                 <h3 style={{ marginTop: 0 }}>Upload fehlgeschlagen</h3>
                 <p style={{ whiteSpace: 'pre-wrap', marginBottom: 16 }}>{uploadFail.message}</p>
 
@@ -1010,7 +1013,8 @@ export default function HealthSlider() {
                 >
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnNeutral, minWidth: 180 }}
+                    className="icf-btn icf-btn--neutral"
+                    style={{ minWidth: 180 }}
                     onClick={() =>
                       setUploadFail({ open: false, message: '', audio: null, meta: null })
                     }
@@ -1020,7 +1024,8 @@ export default function HealthSlider() {
 
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnPrimary, minWidth: 220 }}
+                    className="icf-btn icf-btn--primary"
+                    style={{ minWidth: 220 }}
                     onClick={() => {
                       const meta = uploadFail.meta;
                       const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1045,7 +1050,7 @@ export default function HealthSlider() {
           )}
 
           {recorderWarning && (
-            <div role="alert" style={styles.recorderWarningBanner}>
+            <div role="alert" className="icf-recorder-warning">
               <span>{recorderWarning}</span>
               <button
                 type="button"
@@ -1066,14 +1071,12 @@ export default function HealthSlider() {
           )}
 
           <div
-            style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow}
-            className="max-w-5xl"
+            className={`${isPracticeMode ? 'icf-buttons-row--centered' : 'icf-buttons-row'} max-w-5xl`}
           >
             {isPracticeMode ? (
               <button
                 type="button"
-                style={{ ...styles.btn, ...styles.btnPrimary }}
-                className="max-w-xs"
+                className="icf-btn icf-btn--primary max-w-xs"
                 onClick={() => executeNextSafe(50)}
               >
                 Start
@@ -1082,8 +1085,8 @@ export default function HealthSlider() {
               <>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
-                  className="ml-auto max-w-xs"
+                  className="icf-btn icf-btn--neutral ml-auto max-w-xs"
+                  style={{ opacity: isLocked ? 0.5 : 1 }}
                   disabled={saving || isLocked}
                   onClick={() => handleNext('NA')}
                 >
@@ -1091,8 +1094,8 @@ export default function HealthSlider() {
                 </button>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
-                  className="max-w-xs"
+                  className="icf-btn icf-btn--primary max-w-xs"
+                  style={{ opacity: isLocked ? 0.5 : 1 }}
                   disabled={saving || isLocked}
                   onClick={() => handleNext(sliderPosition)}
                 >
@@ -1115,202 +1118,10 @@ export default function HealthSlider() {
 
       {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}
 
-      <footer style={styles.footer}>
-        <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
-        <div style={styles.footerText}>{VERSION}</div>
+      <footer className="icf-survey-footer">
+        <div className="icf-footer-text">{patientId ? `ID: ${patientId}` : 'No ID'}</div>
+        <div className="icf-footer-text">{VERSION}</div>
       </footer>
     </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  app: {
-    width: '100%',
-    minHeight: '100dvh',
-    background: '#EFECE7',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    overflowX: 'hidden',
-    padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
-    fontFamily: 'sans-serif',
-    color: '#000000',
-  },
-
-  practiceBanner: {
-    background: '#f77218',
-    color: '#fff',
-    padding: '6px 14px',
-    borderRadius: 999,
-    fontWeight: 'bold',
-    marginBottom: 6,
-    fontSize: 13,
-    width: 'fit-content',
-  },
-
-  recDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    background: '#e53e3e',
-    flexShrink: 0,
-  },
-
-  recorderWarningBanner: {
-    width: '100%',
-    background: '#fff3cd',
-    border: '1px solid #ffc107',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 14,
-    color: '#664d03',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-
-  title: {
-    minWidth: 0,
-    margin: '10px 0 6px',
-    fontSize: 'clamp(18px, 4.8vw, 32px)',
-    lineHeight: 1.25,
-    textAlign: 'left',
-    wordBreak: 'break-word',
-    hyphens: 'auto',
-  },
-
-  sliderWrap: {
-    position: 'relative',
-    width: 'min(180px, 56vw, calc((100dvh - 360px) * 0.2647))',
-    aspectRatio: '180 / 680',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-
-  trackBox: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    touchAction: 'none',
-    overscrollBehavior: 'contain',
-  },
-
-  gradientBar: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: 0,
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)',
-    borderRadius: 18,
-  },
-
-  cap: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '145%',
-    height: 18,
-    borderRadius: 8,
-  },
-  capTop: { top: -5, background: '#67d7be' },
-  capBottom: { bottom: -5, background: '#c47993' },
-
-  knob: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translate(-50%, 50%)',
-    width: '135%',
-    height: 28,
-    background: '#65563DA6',
-    borderRadius: 16,
-  },
-
-  audioError: { marginTop: 6, color: '#b00020', fontSize: 13, textAlign: 'center' },
-
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.6)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 999,
-    padding: 12,
-  },
-  modal: {
-    background: '#fff',
-    padding: 18,
-    borderRadius: 16,
-    maxWidth: 520,
-    width: '100%',
-    textAlign: 'center',
-  },
-
-  buttonsRow: {
-    width: '100%',
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12,
-    marginTop: 8,
-  },
-
-  buttonsRowCentered: {
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-
-  btn: {
-    width: '100%',
-    fontSize: 'clamp(14px, 3.8vw, 18px)',
-    borderRadius: 40,
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center',
-    lineHeight: 1.2,
-    padding: '12px 16px',
-  },
-  btnNeutral: { background: '#9D8D7126', color: '#9D8D71', border: '3px solid #9D8D71' },
-  btnPrimary: { background: '#9D8D71', color: '#fff' },
-
-  actionBtn: {
-    border: 'none',
-    borderRadius: '50%',
-    width: 'clamp(72px, 16vw, 60px)',
-    height: 'clamp(72px, 16vw, 60px)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    display: 'grid',
-    placeItems: 'center',
-    flexShrink: 0,
-  },
-
-  footer: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '4px 16px',
-    padding: '10px 0 0',
-    fontSize: 13,
-    color: '#707070',
-    textAlign: 'center',
-  },
-
-  footerText: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-};

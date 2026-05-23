@@ -15,15 +15,15 @@ const SIDE_FLOWERS: {
   rotate?: number;
 }[] = [
   // ── Left column ──────────────────────────────────────────────
-  { src: flowerVioletImage, side: 'left', top: '3%', outset: 75, width: 84, rotate: -10 },
-  { src: flowerGreenImage, side: 'left', top: '16%', outset: 60, width: 74, rotate: 6 },
-  { src: flowerVioletImage, side: 'left', top: '30%', outset: 24, width: 84, rotate: -16 },
-  { src: flowerYellowImage, side: 'left', top: '43%', outset: 96, width: 90, rotate: 10 },
-  { src: flowerGreenImage, side: 'left', top: '50%', outset: 24, width: 74, rotate: 16 },
+  { src: flowerVioletImage, side: 'left', top: '37.5px', outset: 75, width: 84, rotate: -10 },
+  { src: flowerGreenImage, side: 'left', top: '200px', outset: 60, width: 74, rotate: 6 },
+  { src: flowerVioletImage, side: 'left', top: '375px', outset: 24, width: 84, rotate: -16 },
+  { src: flowerYellowImage, side: 'left', top: '537.5px', outset: 96, width: 90, rotate: 10 },
+  { src: flowerGreenImage, side: 'left', top: '625px', outset: 24, width: 74, rotate: 16 },
   // ── Right column ─────────────────────────────────────────────
-  { src: flowerVioletImage, side: 'right', top: '32%', outset: 96, width: 84, rotate: -8 },
-  { src: flowerGreenImage, side: 'right', top: '41%', outset: 24, width: 74, rotate: 12 },
-  { src: flowerYellowImage, side: 'right', top: '54%', outset: 50, width: 90, rotate: 12 },
+  { src: flowerVioletImage, side: 'right', top: '400px', outset: 96, width: 84, rotate: -8 },
+  { src: flowerGreenImage, side: 'right', top: '512.5px', outset: 24, width: 74, rotate: 12 },
+  { src: flowerYellowImage, side: 'right', top: '675px', outset: 50, width: 90, rotate: 12 },
 ];
 
 export function FlowerSides() {
@@ -66,10 +66,10 @@ const BOTTOM_FLOWERS: {
 }[] = [
   // ── Left group ───────────────────────────────────────────────
   { src: flowerGreenImage, side: 'left', width: 37, rotate: 0, offsetY: 0 },
-  { src: flowerYellowImage, side: 'left', width: 50, rotate: 10, offsetY: -32 },
+  { src: flowerYellowImage, side: 'left', width: 50, rotate: 10, offsetY: -16 },
   // ── Right group ──────────────────────────────────────────────
   { src: flowerYellowImage, side: 'right', width: 50, rotate: 32, offsetY: 16 },
-  { src: flowerVioletImage, side: 'right', width: 42, rotate: -6, offsetY: -28 },
+  { src: flowerVioletImage, side: 'right', width: 42, rotate: -6, offsetY: -24 },
 ];
 
 interface FlowerButtonRowProps {
