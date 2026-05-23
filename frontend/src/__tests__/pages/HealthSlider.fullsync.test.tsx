@@ -581,7 +581,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
 
     const playMock = jest
       .spyOn(window.HTMLMediaElement.prototype, 'play')
@@ -611,7 +611,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Advance to real mode so the progress row (with the dot) is rendered
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
 
     // The REC dot is present while the recorder is active
     await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
@@ -623,7 +623,7 @@ describe('HealthSlider (Full Sync)', () => {
     await enterPatientId();
 
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
-    await waitFor(() => expect(screen.getByText(/Frage 29 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
 
     // REC dot should be visible while recorder is running
     await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
@@ -677,7 +677,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
 
     // Retrieve the recorder instance created for question 1 and fire onerror
     const rec = (global as any).__lastRecorder as any;
@@ -704,7 +704,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
 
     // Wait for the 3s lock to lift
     await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
@@ -812,7 +812,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Enter real mode so the progress-row REC dot is rendered
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Information' }));
@@ -832,7 +832,7 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    await waitFor(() => expect(screen.getByText(/Frage 1 von/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
 
     // Open then close the info overlay

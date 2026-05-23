@@ -90,8 +90,14 @@
 
 /* === Action button colour variants === */
 
-.icf-action-btn--info { background: #89d791; color: #fff; }
-.icf-action-btn--play { background: #9cc3ec; color: #fff; }
+.icf-action-btn--info {
+  background: #89d791;
+  color: #fff;
+}
+.icf-action-btn--play {
+  background: #9cc3ec;
+  color: #fff;
+}
 
 .icf-action-btn {
   border: none;
