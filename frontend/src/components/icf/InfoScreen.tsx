@@ -29,7 +29,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           <strong style={{ color: '#f77218' }}>
             <i>
               {
-                '"Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen … "'
+                '"Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen …"'
               }
             </i>
           </strong>{' '}

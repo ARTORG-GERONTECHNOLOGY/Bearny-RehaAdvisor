@@ -870,33 +870,34 @@ export default function HealthSlider() {
         style={{ display: 'none' }}
       />
 
-      {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
-
-      <div className="flex gap-3 md:gap-6 mt-6 mb-10 max-w-5xl">
-        {!isPracticeMode && (
-          <div>
-            <div className="font-bold text-4xl md:text-5xl !leading-none">{questionIndex + 1}</div>
-            <div className="flex gap-1">
-              <div className="font-bold text-xl md:text-2xl text-[#727272] !leading-none whitespace-nowrap">
-                / {total}
+      <div className="relative max-w-5xl w-full mt-6 mb-10">
+        <div className="flex gap-3 md:gap-6 pr-20 lg:pr-60">
+          {!isPracticeMode && (
+            <div className="flex-shrink-0">
+              <div className="font-bold text-4xl md:text-5xl !leading-none">{questionIndex + 1}</div>
+              <div className="flex gap-1">
+                <div className="font-bold text-xl md:text-2xl text-[#727272] !leading-none whitespace-nowrap">
+                  / {total}
+                </div>
+                {isRecording && (
+                  <div
+                    aria-label="Aufnahme läuft"
+                    title="Aufnahme läuft"
+                    style={styles.recDot}
+                    className="animate-pulse"
+                  />
+                )}
               </div>
-              {isRecording && (
-                <div
-                  aria-label="Aufnahme läuft"
-                  title="Aufnahme läuft"
-                  style={styles.recDot}
-                  className="animate-pulse"
-                />
-              )}
             </div>
-          </div>
-        )}
+          )}
 
-        <h1 className="font-bold text-xl md:text-2xl break-words !leading-none">
-          {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
-        </h1>
+          <h1 className="font-bold text-xl md:text-2xl break-words !leading-none min-w-0">
+            {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
+            {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
+          </h1>
+        </div>
 
-        <div className="flex flex-col gap-2 flex-shrink-0 lg:flex-row">
+        <div className="absolute top-0 right-0 flex flex-col lg:flex-row gap-2">
           <button
             type="button"
             onClick={() => setShowInfo(true)}
@@ -939,7 +940,7 @@ export default function HealthSlider() {
 
       {!showSummary && (
         <>
-          <div className="flex flex-col gap-2 text-center mb-12 items-center">
+          <div className="flex flex-col gap-2 text-center mb-8 items-center">
             <div className="font-bold text-xl md:text-2xl text-[#58D8B0]">sehr gut</div>
 
             <div style={styles.sliderWrap}>
@@ -1072,6 +1073,7 @@ export default function HealthSlider() {
               <button
                 type="button"
                 style={{ ...styles.btn, ...styles.btnPrimary }}
+                className="max-w-xs"
                 onClick={() => executeNextSafe(50)}
               >
                 Start
@@ -1081,6 +1083,7 @@ export default function HealthSlider() {
                 <button
                   type="button"
                   style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
+                  className="ml-auto max-w-xs"
                   disabled={saving || isLocked}
                   onClick={() => handleNext('NA')}
                 >
@@ -1089,6 +1092,7 @@ export default function HealthSlider() {
                 <button
                   type="button"
                   style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
+                  className="max-w-xs"
                   disabled={saving || isLocked}
                   onClick={() => handleNext(sliderPosition)}
                 >
@@ -1135,12 +1139,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   practiceBanner: {
-    background: '#ffcc00',
+    background: '#f77218',
+    color: '#fff',
     padding: '6px 14px',
     borderRadius: 999,
     fontWeight: 'bold',
-    marginTop: 8,
+    marginBottom: 6,
     fontSize: 13,
+    width: 'fit-content',
   },
 
   recDot: {
