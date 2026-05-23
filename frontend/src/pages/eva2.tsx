@@ -1053,7 +1053,7 @@ export default function HealthSlider() {
         </div>
       </div>
 
-      {!showSummary ? (
+      {!showSummary && (
         <>
           <section style={styles.centerArea}>
             <div style={styles.endLabelTop}>Sehr gut</div>
@@ -1211,11 +1211,29 @@ export default function HealthSlider() {
             )}
           </div>
         </>
-      ) : (
-        <div style={styles.buttonsRow}>
+      )}
+
+      {showSummary && (
+        <div style={styles.appOverlay} className="text-center">
+          <img
+            src={logoImage}
+            alt="Logo"
+            style={{ width: 577, height: 'auto', marginBottom: 24 }}
+            className="w-80 md:w-xl max-w-full"
+          />
+
+          <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">
+            Vielen Dank
+            <br />
+            für Ihre Teilnahme!
+          </h1>
+          <p className="mt-6 font-bold text-xl md:text-2xl text-[#FF9A57]">
+            Sie haben Alles geschafft!
+          </p>
+
           <button
             type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary }}
+            style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto', marginTop: 24 }}
             onClick={() => {
               localStorage.clear();
               window.location.reload();
@@ -1227,7 +1245,7 @@ export default function HealthSlider() {
       )}
 
       {showInfo && (
-        <div style={styles.infoOverlay}>
+        <div style={styles.appOverlay}>
           <img
             src={logoImage}
             alt="Logo"
@@ -1353,7 +1371,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#000000',
   },
 
-  infoOverlay: {
+  appOverlay: {
     position: 'fixed',
     inset: 0,
     zIndex: 100,
