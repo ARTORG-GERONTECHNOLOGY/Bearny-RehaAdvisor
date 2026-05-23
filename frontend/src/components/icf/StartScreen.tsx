@@ -1,4 +1,5 @@
 import logoImage from '@/assets/icf/logo_funktionsbarometer.png';
+import { FlowerButtonRow, FlowerSides } from './FlowerDecoration';
 import './icf.css';
 
 interface Props {
@@ -9,6 +10,8 @@ interface Props {
 export default function StartScreen({ micError, onStart }: Props) {
   return (
     <main className="icf-page">
+      <FlowerSides />
+
       <img src={logoImage} alt="Logo" className="icf-logo w-80 md:w-xl max-w-full" />
       <h1 className="font-bold text-4xl md:text-5xl text-[#89D792]">Willkommen</h1>
 
@@ -82,13 +85,15 @@ export default function StartScreen({ micError, onStart }: Props) {
 
         {!!micError && <p style={{ color: '#b00020' }}>{micError}</p>}
 
-        <button
-          type="button"
-          className="icf-btn icf-btn--primary icf-btn--auto mx-auto"
-          onClick={onStart}
-        >
-          Übungslauf starten
-        </button>
+        <FlowerButtonRow>
+          <button
+            type="button"
+            className="icf-btn icf-btn--primary icf-btn--auto"
+            onClick={onStart}
+          >
+            Übungslauf starten
+          </button>
+        </FlowerButtonRow>
       </div>
     </main>
   );
