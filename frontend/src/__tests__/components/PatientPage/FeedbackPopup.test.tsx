@@ -560,3 +560,135 @@ describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
     confirmSpy.mockRestore();
   });
 });
+
+// ── FeedbackPopup - description intro screen ──────────────────────────────────
+
+describe('FeedbackPopup - description intro screen', () => {
+  const singleQuestion = [
+    {
+      questionKey: 'q1',
+      answerType: 'text' as const,
+      translations: [{ language: 'en', text: 'How do you feel?' }],
+    },
+  ];
+
+  it('shows intro screen with description text when description prop is provided', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="Please read the instructions carefully before answering."
+      />
+    );
+
+    expect(
+      screen.getByText('Please read the instructions carefully before answering.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue/i })).toBeInTheDocument();
+    expect(screen.queryByText('How do you feel?')).not.toBeInTheDocument();
+  });
+
+  it('clicking Continue dismisses intro and shows first question', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="Read me first."
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+    expect(screen.queryByText('Read me first.')).not.toBeInTheDocument();
+  });
+
+  it('does not show intro screen when description is empty string', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description=""
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Continue/i })).not.toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+  });
+
+  it('does not show intro screen when description is whitespace only', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="   "
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Continue/i })).not.toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+  });
+
+  it('does not show intro screen when description prop is omitted', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Continue/i })).not.toBeInTheDocument();
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+  });
+
+  it('intro screen resets when popup is closed and reopened', () => {
+    const { rerender } = render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="Read me."
+      />
+    );
+
+    // Dismiss intro
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+
+    // Close popup
+    rerender(
+      <FeedbackPopup
+        show={false}
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="Read me."
+      />
+    );
+
+    // Reopen — intro should be shown again
+    rerender(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={singleQuestion}
+        onClose={jest.fn()}
+        description="Read me."
+      />
+    );
+
+    expect(screen.getByText('Read me.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue/i })).toBeInTheDocument();
+  });
+});

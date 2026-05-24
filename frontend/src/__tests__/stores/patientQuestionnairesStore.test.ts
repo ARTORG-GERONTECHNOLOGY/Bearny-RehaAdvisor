@@ -33,6 +33,7 @@ beforeEach(() => {
   (patientQuestionnairesStore as any).feedbackQuestions = [];
   (patientQuestionnairesStore as any).feedbackError = '';
   (patientQuestionnairesStore as any).healthQuestions = [];
+  (patientQuestionnairesStore as any).healthDescription = '';
   (patientQuestionnairesStore as any).showHealthPopup = false;
   (patientQuestionnairesStore as any).showInitialPopup = false;
 });
@@ -92,6 +93,54 @@ describe('patientQuestionnairesStore — Sentry capture', () => {
 
       expect(patientQuestionnairesStore.healthQuestions).toHaveLength(1);
       expect(patientQuestionnairesStore.showHealthPopup).toBe(true);
+    });
+
+    it('stores healthDescription when response includes description', async () => {
+      mockGet.mockResolvedValueOnce({
+        data: {
+          questions: [
+            { questionKey: 'hq_1', answerType: 'text', translations: [], possibleAnswers: [] },
+          ],
+          description: 'Please read before answering.',
+        },
+      });
+
+      await patientQuestionnairesStore.loadHealthQuestionnaire('p2', 'de');
+
+      expect(patientQuestionnairesStore.healthDescription).toBe('Please read before answering.');
+    });
+
+    it('stores empty string when response has no description field', async () => {
+      mockGet.mockResolvedValueOnce({
+        data: {
+          questions: [
+            { questionKey: 'hq_1', answerType: 'text', translations: [], possibleAnswers: [] },
+          ],
+        },
+      });
+
+      await patientQuestionnairesStore.loadHealthQuestionnaire('p2', 'de');
+
+      expect(patientQuestionnairesStore.healthDescription).toBe('');
+    });
+
+    it('resets healthDescription on closeHealth', async () => {
+      mockGet.mockResolvedValueOnce({
+        data: {
+          questions: [
+            { questionKey: 'hq_1', answerType: 'text', translations: [], possibleAnswers: [] },
+          ],
+          description: 'Some description',
+        },
+      });
+
+      await patientQuestionnairesStore.loadHealthQuestionnaire('p2', 'de');
+      expect(patientQuestionnairesStore.healthDescription).toBe('Some description');
+
+      patientQuestionnairesStore.closeHealth();
+
+      expect(patientQuestionnairesStore.healthDescription).toBe('');
+      expect(patientQuestionnairesStore.showHealthPopup).toBe(false);
     });
 
     it('captures exception with patientId context on failure', async () => {
