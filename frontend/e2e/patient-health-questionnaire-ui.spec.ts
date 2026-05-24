@@ -71,6 +71,85 @@ async function loginPatientUi(page: Page, username: string, password: string) {
 }
 
 test.describe('Patient health questionnaire — UI e2e', () => {
+  test('description intro screen is shown and dismissed before questions', async ({
+    page,
+    request,
+  }) => {
+    skipUnlessSeeded(test);
+
+    const { therapistLogin, therapistPassword, patientLogin, patientPassword, patientIdHint } =
+      envs();
+
+    const therapist = await loginApi(
+      request,
+      therapistLogin as string,
+      therapistPassword as string
+    );
+    test.skip(!therapist.token, 'Therapist login failed or requires 2FA.');
+
+    const patient = await loginApi(request, patientLogin as string, patientPassword as string);
+    test.skip(!patient.token || !patient.id, 'Patient login failed.');
+
+    const patientIdForAssign = patientIdHint || patient.id;
+
+    // Create a custom questionnaire with a description via the builder API.
+    const createRes = await request.post(`${API_BASE}/questionnaires/health/`, {
+      headers: { Authorization: `Bearer ${therapist.token}` },
+      data: {
+        title: 'E2E Description Test',
+        description: 'COPAIN intro: please read before answering.',
+        therapistId: therapist.id,
+        questions: [
+          { text: 'How are you today?', type: 'open-answer', options: [] },
+        ],
+      },
+    });
+    test.skip(!createRes.ok(), `Could not create custom questionnaire: ${await createRes.text()}`);
+    const created = (await createRes.json()) as { _id?: string; key?: string };
+    const questionnaireId = created._id;
+    test.skip(!questionnaireId, 'Created questionnaire has no _id.');
+
+    const assignRes = await request.post(`${API_BASE}/questionnaires/assign/`, {
+      headers: { Authorization: `Bearer ${therapist.token}` },
+      data: {
+        patientId: patientIdForAssign,
+        questionnaireId,
+        effectiveFrom: isoDateOffset(-1),
+        schedule: { unit: 'month', interval: 1, startTime: '00:00', end: { type: 'count', count: 1 } },
+      },
+    });
+    test.skip(!assignRes.ok(), `Assign failed: ${await assignRes.text()}`);
+    const assignBody = (await assignRes.json()) as { questionnaireId?: string };
+    const assignedId = assignBody.questionnaireId;
+
+    try {
+      await loginPatientUi(page, patientLogin as string, patientPassword as string);
+
+      // Wait for the health questionnaire popup to open.
+      const continueBtn = page.getByRole('button', { name: /continue/i });
+      await expect(continueBtn).toBeVisible({ timeout: 10_000 });
+
+      // The description text should be visible on the intro screen.
+      await expect(
+        page.getByText('COPAIN intro: please read before answering.')
+      ).toBeVisible();
+
+      // Questions must NOT be visible yet.
+      await expect(page.getByText('How are you today?')).not.toBeVisible();
+
+      // Clicking Continue dismisses the intro and reveals the question.
+      await continueBtn.click();
+      await expect(page.getByText('How are you today?')).toBeVisible();
+    } finally {
+      if (assignedId) {
+        await request.post(`${API_BASE}/questionnaires/remove/`, {
+          headers: { Authorization: `Bearer ${therapist.token}` },
+          data: { patientId: patientIdForAssign, questionnaireId: assignedId },
+        });
+      }
+    }
+  });
+
   test('patient answers assigned health questionnaire through popup and submits', async ({
     page,
     request,
@@ -158,6 +237,13 @@ test.describe('Patient health questionnaire — UI e2e', () => {
           true,
           'Assigned questionnaire resolved to empty question list in this seeded environment.'
         );
+      }
+
+      // If the questionnaire has a description, an intro screen with a Continue
+      // button is shown first. Dismiss it before trying to answer questions.
+      const continueBtn = page.getByRole('button', { name: /continue/i });
+      if ((await continueBtn.count()) > 0 && (await continueBtn.first().isVisible())) {
+        await continueBtn.first().click();
       }
 
       // Answer first visible question in popup: prefer option button, fallback to text area.
