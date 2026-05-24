@@ -1241,6 +1241,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # according to schedule, then fall back to legacy cadence logic below.
         plan = RehabilitationPlan.objects(patientId=patient).first()
         assigned_serialized = []
+        assigned_description = ""
 
         if plan and getattr(plan, "questionnaires", None):
             seen_keys = set()
@@ -1292,6 +1293,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                     if already_answered:
                         continue
 
+                contributed = 0
                 for q in questions:
                     if q.questionKey in seen_keys:
                         continue
@@ -1312,9 +1314,14 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
                         }
                     )
                     seen_keys.add(q.questionKey)
+                    contributed += 1
+
+                if contributed > 0 and not assigned_description:
+                    desc_snapshot = getattr(qa, "description_snapshot", None)
+                    assigned_description = desc_snapshot if desc_snapshot is not None else (qdoc.description or "")
 
             if assigned_serialized:
-                return JsonResponse({"questions": assigned_serialized})
+                return JsonResponse({"questions": assigned_serialized, "description": assigned_description})
 
         # 1) Skip if there was any Healthstatus feedback in last 7 days
         seven_days_ago = now - timedelta(days=7)

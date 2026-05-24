@@ -467,6 +467,121 @@ def test_fetch_healthstatus_questions_hides_due_assignment_after_answered(mongo_
     assert "98_assigned_q1" not in keys
 
 
+def test_fetch_healthstatus_response_includes_description(mongo_mock):
+    """
+    When the assigned HealthQuestionnaire has a description, the endpoint
+    should include it in the response under the 'description' key.
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="96_desc_q1",
+        translations=[Translation(language="en", text="Q1?")],
+        answer_type="text",
+    ).save()
+    hq = HealthQuestionnaire(
+        key="96_desc",
+        title="Desc Test",
+        description="Please read this before answering.",
+        questions=[q1],
+    ).save()
+
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[datetime.now() - timedelta(days=1)],
+            description_snapshot="Please read this before answering.",
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("description") == "Please read this before answering."
+
+
+def test_fetch_healthstatus_response_uses_description_snapshot_over_live(mongo_mock):
+    """
+    description_snapshot on the assignment takes priority over the live
+    questionnaire description, preserving the text as it was at assignment time.
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="95_snap_q1",
+        translations=[Translation(language="en", text="Q?")],
+        answer_type="text",
+    ).save()
+    hq = HealthQuestionnaire(
+        key="95_snap",
+        title="Snap Test",
+        description="Updated live description",
+        questions=[q1],
+    ).save()
+
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[datetime.now() - timedelta(days=1)],
+            description_snapshot="Original description at assignment time",
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("description") == "Original description at assignment time"
+
+
+def test_fetch_healthstatus_response_description_empty_when_none(mongo_mock):
+    """
+    When the questionnaire has no description and no snapshot, 'description'
+    in the response should be an empty string (not None or missing).
+    """
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="94_nodesc_q1",
+        translations=[Translation(language="en", text="Q?")],
+        answer_type="text",
+    ).save()
+    hq = HealthQuestionnaire(
+        key="94_nodesc",
+        title="No Desc",
+        questions=[q1],
+    ).save()
+
+    plan.questionnaires = [
+        QuestionnaireAssignment(
+            questionnaireId=hq,
+            frequency="Monthly",
+            dates=[datetime.now() - timedelta(days=1)],
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("description") == ""
+
+
 def test_fetch_feedback_questions_with_intervention_id_in_url(mongo_mock):
     """
     GET with the optional ``intervention_id`` path segment returns 200.
