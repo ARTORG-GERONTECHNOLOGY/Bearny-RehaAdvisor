@@ -31,7 +31,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
+import EndScreen from '@/components/icf/EndScreen';
+import InfoScreen from '@/components/icf/InfoScreen';
+import PatientIdScreen from '@/components/icf/PatientIdScreen';
+import StartScreen from '@/components/icf/StartScreen';
+import '@/assets/styles/icf.css';
 
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
@@ -232,8 +238,6 @@ export default function HealthSlider() {
   }, []);
 
   const total = REAL_QUESTIONS.length;
-  const progressPercent = isPracticeMode ? 0 : ((questionIndex + 1) / total) * 100;
-  const progressText = isPracticeMode ? '' : `Frage ${questionIndex + 1} von ${total}`;
 
   /** --- wire <audio> into the shared AudioContext with 2× gain boost + headphone routing --- */
   useEffect(() => {
@@ -836,76 +840,27 @@ export default function HealthSlider() {
 
   if (!patientId) {
     return (
-      <main style={styles.app}>
-        <h1 style={{ ...styles.title, marginTop: 24 }}>Patienten-ID eingeben</h1>
-        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 400, width: '100%' }}>
-          <p style={{ fontSize: 16, color: '#444', marginBottom: 16 }}>
-            Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
-          </p>
-          <input
-            type="text"
-            value={patientIdInput}
-            onChange={(e) => {
-              setPatientIdInput(e.target.value);
-              setPatientIdError('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitPatientId();
-            }}
-            placeholder="P001-001T1"
-            autoFocus
-            style={{
-              width: '100%',
-              fontSize: 20,
-              padding: '12px 14px',
-              borderRadius: 12,
-              border: '2px solid #ccc',
-              marginBottom: 10,
-              textAlign: 'center',
-              boxSizing: 'border-box',
-            }}
-          />
-          {patientIdError && <p style={{ color: '#b00020', marginBottom: 10 }}>{patientIdError}</p>}
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary }}
-            onClick={submitPatientId}
-          >
-            Weiter
-          </button>
-        </div>
-        <footer style={{ ...styles.footer, marginTop: 'auto' }}>
-          <div style={styles.footerText}>{VERSION}</div>
-        </footer>
-      </main>
+      <PatientIdScreen
+        value={patientIdInput}
+        error={patientIdError}
+        onChange={(v) => {
+          setPatientIdInput(v);
+          setPatientIdError('');
+        }}
+        onSubmit={submitPatientId}
+      />
     );
   }
 
   if (testMode) {
-    return (
-      <main style={styles.app}>
-        <h1 style={styles.title}>Willkommen</h1>
-        <div style={{ marginTop: 24, textAlign: 'center', maxWidth: 600 }}>
-          <p style={{ fontSize: 18, color: '#444' }}>Bitte erlauben Sie den Mikrofon-Zugriff.</p>
-          {!!micError && <p style={{ color: '#b00020' }}>{micError}</p>}
-
-          <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={startMic}>
-            Übungslauf starten
-          </button>
-        </div>
-      </main>
-    );
+    return <StartScreen micError={micError} onStart={startMic} />;
   }
 
   return (
     <main
-      style={{
-        ...styles.app,
-        backgroundColor: showFlash ? '#858585' : '#f6f4f0',
-        transition: 'background 0.2s',
-      }}
+      className="icf-page"
+      style={{ backgroundColor: showFlash ? '#858585' : '#EFECE7', transition: 'background 0.2s' }}
     >
-      <style>{`@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.25}}`}</style>
       <audio
         ref={audioRef}
         preload="auto"
@@ -913,32 +868,41 @@ export default function HealthSlider() {
         style={{ display: 'none' }}
       />
 
-      {isPracticeMode && <div style={styles.practiceBanner}>ÜBUNGSMODUS</div>}
+      <div className="relative max-w-5xl w-full mt-6 mb-10">
+        <div className="flex gap-3 md:gap-6 pr-20 lg:pr-60">
+          {!isPracticeMode && (
+            <div className="flex-shrink-0">
+              <div className="font-bold text-4xl md:text-5xl !leading-none">
+                {questionIndex + 1}
+              </div>
+              <div className="flex gap-1">
+                <div className="font-bold text-xl md:text-2xl text-[#727272] !leading-none whitespace-nowrap">
+                  / {total}
+                </div>
+                {isRecording && (
+                  <div
+                    aria-label="Aufnahme läuft"
+                    title="Aufnahme läuft"
+                    className="icf-rec-dot animate-pulse"
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
-      {!isPracticeMode && (
-        <div style={styles.progressRow}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div style={styles.progressText}>{progressText}</div>
-            {isRecording && (
-              <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
-            )}
-          </div>
-          <div style={styles.progressTrack}>
-            <div style={{ ...styles.progressFill, width: `${progressPercent}%` }} />
+          <div className="min-w-0">
+            {isPracticeMode && <div className="icf-practice-banner">ÜBUNGSMODUS</div>}
+            <h1 className="font-bold text-xl md:text-2xl break-words !leading-none">
+              {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
+            </h1>
           </div>
         </div>
-      )}
 
-      <div style={styles.questionHeader}>
-        <h1 style={styles.title}>
-          {isPracticeMode ? PRACTICE_QUESTION : REAL_QUESTIONS[questionIndex]}
-        </h1>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+        <div className="absolute top-0 right-0 flex flex-col lg:flex-row gap-2">
           <button
             type="button"
             onClick={() => setShowInfo(true)}
-            style={{ ...styles.audioBtn, background: '#89d791', color: '#fff' }}
+            className="icf-action-btn icf-action-btn--info"
             aria-label="Information"
             title="Information"
           >
@@ -948,8 +912,8 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={() => setDingActive((v) => !v)}
+            className="icf-action-btn"
             style={{
-              ...styles.audioBtn,
               background: dingActive ? '#d7c6a7' : '#fff',
               color: dingActive ? '#fff' : '#000',
             }}
@@ -966,7 +930,7 @@ export default function HealthSlider() {
           <button
             type="button"
             onClick={playItemAudio}
-            style={{ ...styles.audioBtn, background: '#9cc3ec', color: '#fff' }}
+            className="icf-action-btn icf-action-btn--play"
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
@@ -975,17 +939,17 @@ export default function HealthSlider() {
         </div>
       </div>
 
-      {!showSummary ? (
+      {!showSummary && (
         <>
-          <section style={styles.centerArea}>
-            <div style={styles.endLabelTop}>Sehr gut</div>
+          <div className="flex flex-col gap-2 text-center mb-8 items-center">
+            <div className="font-bold text-xl md:text-2xl text-[#58D8B0]">sehr gut</div>
 
-            <div style={styles.sliderWrap}>
+            <div className="icf-slider-wrap">
               <div
                 ref={spectrumRef}
                 role="group"
                 aria-label="Schieberegler vertikal"
-                style={styles.trackBox}
+                className="icf-track-box"
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
@@ -994,40 +958,41 @@ export default function HealthSlider() {
                   if (!saving) handleSliderMove(e.clientY);
                 }}
               >
-                <div style={styles.gradientBar} />
-                <div style={{ ...styles.cap, ...styles.capTop }} />
-                <div style={{ ...styles.cap, ...styles.capBottom }} />
+                <div className="icf-gradient-bar" />
+                <div className="icf-cap icf-cap--top" />
+                <div className="icf-cap icf-cap--bottom" />
                 <div
                   role="slider"
                   aria-valuenow={sliderPosition}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  style={{ ...styles.knob, bottom: `${sliderPosition}%` }}
+                  className="icf-knob"
+                  style={{ bottom: `${sliderPosition}%` }}
                 />
               </div>
             </div>
 
-            {audioError && <div style={styles.audioError}>{audioError}</div>}
+            <div className="font-bold text-xl md:text-2xl text-[#C1839D]">sehr schlecht</div>
+          </div>
 
-            <div style={styles.endLabelBottom}>Sehr schlecht</div>
-          </section>
+          {audioError && <div className="icf-audio-error">{audioError}</div>}
 
           {showSliderAlert && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modal}>
-                <p style={{ fontSize: 18, marginBottom: 20 }}>
+            <div className="icf-modal-overlay">
+              <div className="icf-modal">
+                <p className="text-lg mb-5">
                   Möchten Sie den Schieber in der Mitte belassen oder eine andere Position wählen?
                 </p>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnPrimary, marginBottom: 10 }}
+                  className="icf-btn icf-btn--primary mb-2.5"
                   onClick={() => executeNextSafe(sliderPosition)}
                 >
                   Belassen und weiter
                 </button>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnNeutral }}
+                  className="icf-btn icf-btn--neutral"
                   onClick={() => setShowSliderAlert(false)}
                 >
                   Schieber anpassen
@@ -1037,17 +1002,15 @@ export default function HealthSlider() {
           )}
 
           {uploadFail.open && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modal}>
-                <h3 style={{ marginTop: 0 }}>Upload fehlgeschlagen</h3>
-                <p style={{ whiteSpace: 'pre-wrap', marginBottom: 16 }}>{uploadFail.message}</p>
+            <div className="icf-modal-overlay">
+              <div className="icf-modal">
+                <h3 className="mt-0">Upload fehlgeschlagen</h3>
+                <p className="whitespace-pre-wrap mb-4">{uploadFail.message}</p>
 
-                <div
-                  style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}
-                >
+                <div className="icf-modal-actions">
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnNeutral, minWidth: 180 }}
+                    className="icf-btn icf-btn--neutral min-w-[180px]"
                     onClick={() =>
                       setUploadFail({ open: false, message: '', audio: null, meta: null })
                     }
@@ -1057,7 +1020,7 @@ export default function HealthSlider() {
 
                   <button
                     type="button"
-                    style={{ ...styles.btn, ...styles.btnPrimary, minWidth: 220 }}
+                    className="icf-btn icf-btn--primary min-w-[220px]"
                     onClick={() => {
                       const meta = uploadFail.meta;
                       const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1082,19 +1045,12 @@ export default function HealthSlider() {
           )}
 
           {recorderWarning && (
-            <div role="alert" style={styles.recorderWarningBanner}>
+            <div role="alert" className="icf-recorder-warning">
               <span>{recorderWarning}</span>
               <button
                 type="button"
                 onClick={() => setRecorderWarning('')}
-                style={{
-                  marginLeft: 12,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: 16,
-                }}
+                className="icf-dismiss-btn"
                 aria-label="Meldung schließen"
               >
                 ×
@@ -1102,11 +1058,13 @@ export default function HealthSlider() {
             </div>
           )}
 
-          <div style={isPracticeMode ? styles.buttonsRowCentered : styles.buttonsRow}>
+          <div
+            className={`${isPracticeMode ? 'icf-buttons-row--centered' : 'icf-buttons-row'} max-w-5xl`}
+          >
             {isPracticeMode ? (
               <button
                 type="button"
-                style={{ ...styles.btn, ...styles.btnPrimary }}
+                className="icf-btn icf-btn--primary max-w-xs"
                 onClick={() => executeNextSafe(50)}
               >
                 Start
@@ -1115,409 +1073,43 @@ export default function HealthSlider() {
               <>
                 <button
                   type="button"
-                  style={{ ...styles.btn, ...styles.btnPrimary, opacity: isLocked ? 0.5 : 1 }}
-                  disabled={saving || isLocked}
-                  onClick={() => handleNext(sliderPosition)}
-                >
-                  Weiter
-                </button>
-                <button
-                  type="button"
-                  style={{ ...styles.btn, ...styles.btnNeutral, opacity: isLocked ? 0.5 : 1 }}
+                  className="icf-btn icf-btn--neutral ml-auto max-w-xs"
+                  style={{ opacity: isLocked ? 0.5 : 1 }}
                   disabled={saving || isLocked}
                   onClick={() => handleNext('NA')}
                 >
                   Kann ich nicht beantworten
                 </button>
+                <button
+                  type="button"
+                  className="icf-btn icf-btn--primary max-w-xs"
+                  style={{ opacity: isLocked ? 0.5 : 1 }}
+                  disabled={saving || isLocked}
+                  onClick={() => handleNext(sliderPosition)}
+                >
+                  Weiter
+                </button>
               </>
             )}
           </div>
         </>
-      ) : (
-        <div style={styles.buttonsRow}>
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary }}
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-          >
-            Beenden
-          </button>
-        </div>
       )}
 
-      {showInfo && (
-        <div style={styles.infoOverlay}>
-          <h1
-            style={{
-              ...styles.title,
-              marginTop: 24,
-              marginBottom: 14,
-              color: '#89d791',
-              alignSelf: 'center',
-              textAlign: 'center',
-            }}
-          >
-            Information
-          </h1>
-
-          <p style={{ marginBottom: 14 }}>
-            Der{' '}
-            <strong>
-              <i>FunktionsBarometer</i>
-            </strong>{' '}
-            ist ein interaktives Instrument zur Erhebung Ihrer Funktionsfähigkeit.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
-            <strong style={{ color: '#f77218' }}>
-              <i>
-                {
-                  '“Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen … ”'
-                }
-              </i>
-            </strong>{' '}
-            <strong>
-              <i>bewerten</i>
-            </strong>{' '}
-            dürfen.
-            <br />
-            Erklären Sie uns Ihre Bewertung, indem Sie einfach{' '}
-            <strong>
-              <i>frei erzählen</i>
-            </strong>
-            .
-          </p>
-
-          <div style={{ marginBottom: 14 }}>
-            Wichtig:
-            <ul>
-              <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort,</li>
-              <li>erlauben Sie Zugriff auf das Mikrofon,</li>
-              <li>sprechen Sie klar und deutlich,</li>
-              <li>und antworten Sie auf alles so, wie es für Sie stimmt.</li>
-            </ul>
-          </div>
-
-          <p style={{ marginBottom: 14 }}>
-            Ihre Daten werden{' '}
-            <strong>
-              <i>verschlüsselt übermittelt</i>
-            </strong>
-            , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
-            befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
-            Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
-          </p>
-
-          <p style={{ marginBottom: 14 }}>
-            Die Informationen von dieser Seite können jederzeit über den{' '}
-            <strong>
-              <i>hellgrünen Infobutton</i>
-            </strong>{' '}
-            aufgerufen werden.
-          </p>
-
-          <p style={{ marginBottom: 24 }}>
-            Wenn Sie alles verstanden haben und bereit sind, drücken Sie auf <i>{'“zurück”'}</i>, um
-            mit dem FunktionsBarometer fortzufahren.
-          </p>
-
-          {isRecording && (
-            <div
-              style={{
-                alignSelf: 'center',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 16,
-              }}
-            >
-              <div aria-label="Aufnahme läuft" title="Aufnahme läuft" style={styles.recDot} />
-              <span style={{ fontSize: 13, color: '#e53e3e' }}>Aufnahme läuft</span>
-            </div>
-          )}
-
-          <button
-            type="button"
-            style={{ ...styles.btn, ...styles.btnPrimary, width: 'auto', alignSelf: 'center' }}
-            onClick={() => setShowInfo(false)}
-          >
-            zurück
-          </button>
-        </div>
+      {showSummary && (
+        <EndScreen
+          onEnd={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+        />
       )}
 
-      <footer style={styles.footer}>
-        <div style={styles.footerText}>{patientId ? `ID: ${patientId}` : 'No ID'}</div>
-        <div style={styles.footerText}>{VERSION}</div>
+      {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}
+
+      <footer className="icf-survey-footer">
+        <div className="icf-footer-text">{patientId ? `ID: ${patientId}` : 'No ID'}</div>
+        <div className="icf-footer-text">{VERSION}</div>
       </footer>
     </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  app: {
-    width: '100%',
-    minHeight: '100dvh',
-    background: '#f6f4f0',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    overflowX: 'hidden',
-    padding: 'env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))',
-    fontFamily: 'sans-serif',
-    color: '#1f1f1f',
-  },
-
-  infoOverlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 100,
-    background: '#f6f4f0',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    textAlign: 'left',
-    fontFamily: 'sans-serif',
-    color: '#1f1f1f',
-    padding: 'env(safe-area-inset-top, 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))',
-    boxSizing: 'border-box',
-  },
-
-  practiceBanner: {
-    background: '#ffcc00',
-    padding: '6px 14px',
-    borderRadius: 999,
-    fontWeight: 'bold',
-    marginTop: 8,
-    fontSize: 13,
-  },
-
-  recDot: {
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    background: '#e53e3e',
-    flexShrink: 0,
-    animation: 'rec-pulse 1.2s ease-in-out infinite',
-  },
-
-  recorderWarningBanner: {
-    width: '100%',
-    background: '#fff3cd',
-    border: '1px solid #ffc107',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 14,
-    color: '#664d03',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-
-  progressRow: { width: '100%', marginTop: 8 },
-  progressText: { fontSize: 13, color: '#4a4a4a', marginBottom: 6 },
-  progressTrack: { width: '100%', height: 8, background: '#e2e2e2', borderRadius: 8 },
-  progressFill: {
-    height: '100%',
-    background: '#2fb463',
-    borderRadius: 8,
-    transition: 'width .2s ease',
-  },
-
-  questionHeader: {
-    width: '100%',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto',
-    gap: 10,
-    alignItems: 'start',
-    marginTop: 6,
-  },
-
-  questionHeaderCentered: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-
-  title: {
-    minWidth: 0,
-    margin: '10px 0 6px',
-    fontSize: 'clamp(18px, 4.8vw, 32px)',
-    lineHeight: 1.25,
-    textAlign: 'left',
-    wordBreak: 'break-word',
-    hyphens: 'auto',
-  },
-
-  titleCentered: {
-    margin: '10px 0 6px',
-    fontSize: 'clamp(18px, 4.8vw, 32px)',
-    lineHeight: 1.25,
-    textAlign: 'center',
-    wordBreak: 'break-word',
-    hyphens: 'auto',
-    width: '100%',
-  },
-
-  audioBtn: {
-    border: 'none',
-    borderRadius: '50%',
-    width: 'clamp(72px, 16vw, 92px)',
-    height: 'clamp(72px, 16vw, 92px)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    display: 'grid',
-    placeItems: 'center',
-    flexShrink: 0,
-  },
-
-  centerArea: {
-    flex: 1,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-
-  endLabelTop: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
-  endLabelBottom: { fontSize: 'clamp(16px, 4vw, 20px)', color: '#222' },
-
-  sliderWrap: {
-    position: 'relative',
-    width: 'min(180px, 56vw, calc((100dvh - 360px) * 0.2647))',
-    aspectRatio: '180 / 680',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-
-  trackBox: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    touchAction: 'none',
-    overscrollBehavior: 'contain',
-  },
-
-  gradientBar: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: 0,
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(180deg, #71dfc6 0%, #eef0ec 50%, #c47993 100%)',
-    borderRadius: 18,
-  },
-
-  cap: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '145%',
-    height: 18,
-    borderRadius: 8,
-  },
-  capTop: { top: -5, background: '#67d7be' },
-  capBottom: { bottom: -5, background: '#c47993' },
-
-  knob: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translate(-50%, 50%)',
-    width: '135%',
-    height: 28,
-    background: '#1f1f1f',
-    borderRadius: 16,
-    boxShadow: '0 2px 8px rgba(0,0,0,.25)',
-  },
-
-  audioError: { marginTop: 6, color: '#b00020', fontSize: 13, textAlign: 'center' },
-
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.6)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 999,
-    padding: 12,
-  },
-  modal: {
-    background: '#fff',
-    padding: 18,
-    borderRadius: 16,
-    maxWidth: 520,
-    width: '100%',
-    textAlign: 'center',
-  },
-
-  buttonsRow: {
-    width: '100%',
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12,
-    marginTop: 8,
-  },
-
-  buttonsRowCentered: {
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-
-  btn: {
-    width: '100%',
-    minHeight: 72,
-    fontSize: 'clamp(14px, 3.8vw, 18px)',
-    borderRadius: 14,
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center',
-    lineHeight: 1.2,
-    padding: '8px 12px',
-  },
-  btnNeutral: { background: '#e7e2da', color: '#1f1f1f' },
-  btnPrimary: { background: '#9d8d71', color: '#fff' },
-
-  footer: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '4px 16px',
-    padding: '10px 0 0',
-    fontSize: 13,
-    color: '#707070',
-    textAlign: 'center',
-  },
-
-  footerText: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-};
