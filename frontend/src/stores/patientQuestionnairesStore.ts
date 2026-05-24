@@ -76,6 +76,7 @@ export class PatientQuestionnairesStore {
   // ---- Health questionnaire modal ----
   showHealthPopup = false;
   healthQuestions: NormalizedQuestion[] = [];
+  healthDescription = '';
 
   // ---- Initial questionnaire modal ----
   showInitialPopup = false;
@@ -100,6 +101,7 @@ export class PatientQuestionnairesStore {
   closeHealth() {
     this.showHealthPopup = false;
     this.healthQuestions = [];
+    this.healthDescription = '';
   }
 
   closeInitial() {
@@ -176,8 +178,11 @@ export class PatientQuestionnairesStore {
         .map(normalizeQuestion)
         .filter((q) => q.questionKey);
 
+      const description = typeof (data as any)?.description === 'string' ? (data as any).description : '';
+
       runInAction(() => {
         this.healthQuestions = normalized;
+        this.healthDescription = description;
         this.showHealthPopup = normalized.length > 0;
       });
     } catch (e: any) {

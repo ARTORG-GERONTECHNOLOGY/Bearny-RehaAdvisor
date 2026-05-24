@@ -225,6 +225,7 @@ const PatientView: React.FC = observer(() => {
           show
           interventionId=""
           questions={safeHealthQuestions}
+          description={patientQuestionnairesStore.healthDescription}
           date={format(patientUiStore.selectedDate, 'yyyy-MM-dd')}
           onClose={() => patientQuestionnairesStore.closeHealth()}
         />
