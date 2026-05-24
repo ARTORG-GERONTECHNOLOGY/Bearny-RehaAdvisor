@@ -122,4 +122,33 @@ def test_create_custom_questionnaire_rejects_invalid_choice_options():
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 400
-    assert "at least two non-empty options" in resp.json().get("error", "")
+    assert "two non-empty options" in resp.json().get("error", "")
+
+
+def test_create_custom_questionnaire_allows_single_option_multi_select():
+    """multi-select with one option is valid — used to show a single 'OK' acknowledgement."""
+    user, _ = make_therapist_with_user("ther_single_opt")
+    payload = {
+        "title": "Intro Questionnaire",
+        "therapistId": str(user.id),
+        "questions": [
+            {
+                "text": "Please read the instructions and confirm.",
+                "type": "multiple-choice",
+                "options": ["OK"],
+            }
+        ],
+    }
+
+    resp = client.post(
+        "/api/questionnaires/health/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    q = body["questions"][0]
+    assert q["answerType"] == "multi-select"
+    assert len(q["possibleAnswers"]) == 1
+    assert q["possibleAnswers"][0]["key"] == "ok"
