@@ -638,14 +638,7 @@ describe('FeedbackPopup - description intro screen', () => {
   });
 
   it('does not show intro screen when description prop is omitted', () => {
-    render(
-      <FeedbackPopup
-        show
-        interventionId=""
-        questions={singleQuestion}
-        onClose={jest.fn()}
-      />
-    );
+    render(<FeedbackPopup show interventionId="" questions={singleQuestion} onClose={jest.fn()} />);
 
     expect(screen.queryByRole('button', { name: /Continue/i })).not.toBeInTheDocument();
     expect(screen.getByText('How do you feel?')).toBeInTheDocument();
