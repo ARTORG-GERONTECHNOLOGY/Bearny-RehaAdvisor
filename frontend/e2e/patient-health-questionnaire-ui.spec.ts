@@ -99,9 +99,7 @@ test.describe('Patient health questionnaire — UI e2e', () => {
         title: 'E2E Description Test',
         description: 'COPAIN intro: please read before answering.',
         therapistId: therapist.id,
-        questions: [
-          { text: 'How are you today?', type: 'open-answer', options: [] },
-        ],
+        questions: [{ text: 'How are you today?', type: 'open-answer', options: [] }],
       },
     });
     test.skip(!createRes.ok(), `Could not create custom questionnaire: ${await createRes.text()}`);
@@ -115,7 +113,12 @@ test.describe('Patient health questionnaire — UI e2e', () => {
         patientId: patientIdForAssign,
         questionnaireId,
         effectiveFrom: isoDateOffset(-1),
-        schedule: { unit: 'month', interval: 1, startTime: '00:00', end: { type: 'count', count: 1 } },
+        schedule: {
+          unit: 'month',
+          interval: 1,
+          startTime: '00:00',
+          end: { type: 'count', count: 1 },
+        },
       },
     });
     test.skip(!assignRes.ok(), `Assign failed: ${await assignRes.text()}`);
@@ -130,9 +133,7 @@ test.describe('Patient health questionnaire — UI e2e', () => {
       await expect(continueBtn).toBeVisible({ timeout: 10_000 });
 
       // The description text should be visible on the intro screen.
-      await expect(
-        page.getByText('COPAIN intro: please read before answering.')
-      ).toBeVisible();
+      await expect(page.getByText('COPAIN intro: please read before answering.')).toBeVisible();
 
       // Questions must NOT be visible yet.
       await expect(page.getByText('How are you today?')).not.toBeVisible();

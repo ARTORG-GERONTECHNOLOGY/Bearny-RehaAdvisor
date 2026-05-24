@@ -178,7 +178,8 @@ export class PatientQuestionnairesStore {
         .map(normalizeQuestion)
         .filter((q) => q.questionKey);
 
-      const description = typeof (data as any)?.description === 'string' ? (data as any).description : '';
+      const description =
+        typeof (data as any)?.description === 'string' ? (data as any).description : '';
 
       runInAction(() => {
         this.healthQuestions = normalized;
