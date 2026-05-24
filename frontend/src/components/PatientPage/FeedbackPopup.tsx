@@ -71,9 +71,10 @@ type Props = {
   questions: Array<RawQuestion | NormalizedQuestion>;
   onClose: () => void;
   date?: string; // YYYY-MM-DD
+  description?: string;
 };
 
-const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date }) => {
+const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date, description }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
 
@@ -114,6 +115,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     );
   }
 
+  const [showingIntro, setShowingIntro] = useState(() => Boolean(description?.trim()));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [inputMode, setInputMode] = useState<'text' | 'audio'>('text');
@@ -168,6 +170,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   };
 
   const resetAll = () => {
+    setShowingIntro(Boolean(description?.trim()));
     setCurrentQuestionIndex(0);
     setAnswers({});
     setAudioURL(null);
@@ -499,6 +502,21 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       }}
     >
       <SheetContent side="bottom" className="min-h-[55vh] flex flex-col">
+        {showingIntro ? (
+          <>
+            <SheetHeader>
+              <SheetDescription>{t('Feedback')}</SheetDescription>
+              <SheetTitle>{t('Information')}</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              <p className="text-sm text-zinc-700 whitespace-pre-wrap">{description}</p>
+            </div>
+            <SheetFooter>
+              <Button onClick={() => setShowingIntro(false)}>{t('Continue')}</Button>
+            </SheetFooter>
+          </>
+        ) : (
+        <>
         <SheetHeader>
           <SheetDescription>{t('Feedback')}</SheetDescription>
           <SheetTitle>{currentQuestion.label}</SheetTitle>
@@ -648,6 +666,8 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
             </Button>
           )}
         </SheetFooter>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   );

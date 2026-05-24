@@ -457,10 +457,8 @@ def list_health_questionnaires(request):
 
             option_docs: List[AnswerOption] = []
             if q_type in {"select", "multi-select"}:
-                min_options = 1 if q_type == "multi-select" else 2
-                if not isinstance(options, list) or len([o for o in options if str(o).strip()]) < min_options:
-                    min_label = "one non-empty option" if min_options == 1 else "at least two non-empty options"
-                    raise ValueError(f"Question #{idx}: {min_label} is required")
+                if not isinstance(options, list) or len([o for o in options if str(o).strip()]) < 2:
+                    raise ValueError(f"Question #{idx}: at least two non-empty options are required")
 
                 key_counts: Counter[str] = Counter()
                 for opt in options:
