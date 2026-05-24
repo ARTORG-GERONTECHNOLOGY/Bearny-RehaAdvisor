@@ -71,9 +71,17 @@ type Props = {
   questions: Array<RawQuestion | NormalizedQuestion>;
   onClose: () => void;
   date?: string; // YYYY-MM-DD
+  description?: string;
 };
 
-const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClose, date }) => {
+const FeedbackPopup: React.FC<Props> = ({
+  show,
+  interventionId,
+  questions,
+  onClose,
+  date,
+  description,
+}) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
 
@@ -114,6 +122,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
     );
   }
 
+  const [showingIntro, setShowingIntro] = useState(() => Boolean(description?.trim()));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [inputMode, setInputMode] = useState<'text' | 'audio'>('text');
@@ -168,6 +177,7 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
   };
 
   const resetAll = () => {
+    setShowingIntro(Boolean(description?.trim()));
     setCurrentQuestionIndex(0);
     setAnswers({});
     setAudioURL(null);
@@ -499,155 +509,176 @@ const FeedbackPopup: React.FC<Props> = ({ show, interventionId, questions, onClo
       }}
     >
       <SheetContent side="bottom" className="min-h-[55vh] flex flex-col">
-        <SheetHeader>
-          <SheetDescription>{t('Feedback')}</SheetDescription>
-          <SheetTitle>{currentQuestion.label}</SheetTitle>
-        </SheetHeader>
+        {showingIntro ? (
+          <>
+            <SheetHeader>
+              <SheetDescription>{t('Feedback')}</SheetDescription>
+              <SheetTitle>{t('Information')}</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              <p className="text-sm text-zinc-700 whitespace-pre-wrap">{description}</p>
+            </div>
+            <SheetFooter>
+              <Button onClick={() => setShowingIntro(false)}>{t('Continue')}</Button>
+            </SheetFooter>
+          </>
+        ) : (
+          <>
+            <SheetHeader>
+              <SheetDescription>{t('Feedback')}</SheetDescription>
+              <SheetTitle>{currentQuestion.label}</SheetTitle>
+            </SheetHeader>
 
-        <div className="flex flex-col gap-2 flex-1">
-          {micPermissionDenied && <Alert variant="danger">{t('Microphone access denied.')}</Alert>}
-          {error && <ErrorAlert message={error} onClose={() => setError(null)} className="m-0" />}
+            <div className="flex flex-col gap-2 flex-1">
+              {micPermissionDenied && (
+                <Alert variant="danger">{t('Microphone access denied.')}</Alert>
+              )}
+              {error && (
+                <ErrorAlert message={error} onClose={() => setError(null)} className="m-0" />
+              )}
 
-          <div className="flex flex-col gap-2 flex-1">
-            {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
-              renderOptions(currentQuestion.type === 'multi-select')}
+              <div className="flex flex-col gap-2 flex-1">
+                {['dropdown', 'multi-select'].includes(currentQuestion.type) &&
+                  renderOptions(currentQuestion.type === 'multi-select')}
 
-            {currentQuestion.type === 'text' && (
-              <>
-                <div className="flex justify-center gap-2">
-                  <Badge
-                    onClick={() => setInputMode('text')}
-                    variant={inputMode === 'text' ? 'filter-active' : 'filter-inactive'}
-                    role="button"
-                    aria-pressed={inputMode === 'text'}
-                    aria-label={t('Text mode')}
-                  >
-                    {t('Text')} <FaKeyboard />
-                  </Badge>
-                  <Badge
-                    onClick={() => setInputMode('audio')}
-                    variant={inputMode === 'audio' ? 'filter-active' : 'filter-inactive'}
-                    role="button"
-                    aria-pressed={inputMode === 'audio'}
-                    aria-label={t('Audio mode')}
-                  >
-                    {t('Record')} <FaMicrophone />
-                  </Badge>
-                </div>
-
-                {inputMode === 'text' ? (
-                  <Textarea
-                    aria-label={t('Text Feedback')}
-                    value={answers[currentQuestion.questionKey] || ''}
-                    onChange={handleChangeText}
-                    className="p-4 flex-1 resize-none rounded-3xl border border-zinc-200 font-medium text-zinc-800 shadow-none"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center my-3 gap-2">
-                    {recording ? (
-                      <Button onClick={stopRecording} className="bg-yellow hover:bg-yellow/90">
-                        {t('Stop')} ({recordingTime}s) <FaStop />
-                      </Button>
-                    ) : (
-                      <Button onClick={startRecording} className="bg-yellow hover:bg-yellow/90">
-                        {t('Start Recording')} <FaMicrophone />
-                      </Button>
-                    )}
-
-                    {audioURL && (
-                      <div className="flex justify-center items-center flex-wrap gap-2">
-                        <audio controls src={audioURL} />
-                        <Button onClick={deleteAudio} className="bg-pink hover:bg-pink/90">
-                          {t('Delete')} <FaTrash />
-                        </Button>
-                      </div>
-                    )}
-
-                    <p className="text-sm text-center text-zinc-500">
-                      {t('privacy_note_recordings')}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
-            {currentQuestion.type === 'video' && (
-              <div className="flex flex-col items-center my-3 gap-2">
-                {videoURL ? (
+                {currentQuestion.type === 'text' && (
                   <>
-                    <ReactPlayer url={videoURL} controls width="100%" height="100%" />
-                    <Button onClick={deleteVideo} className="bg-pink hover:bg-pink/90">
-                      {t('Delete')} <FaTrash />
-                    </Button>
-                    <p className="text-sm text-center text-zinc-500">
-                      {t('privacy_note_recordings')}
-                    </p>
-                  </>
-                ) : (
-                  <div className="flex justify-center items-center flex-wrap gap-2">
-                    <video
-                      ref={previewRef}
-                      autoPlay
-                      muted
-                      style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
-                    />
-                    {countdown !== null ? (
-                      <div className="text-center text-lg font-medium text-zinc-800">
-                        {t('Starting in')} {countdown}s...
-                      </div>
+                    <div className="flex justify-center gap-2">
+                      <Badge
+                        onClick={() => setInputMode('text')}
+                        variant={inputMode === 'text' ? 'filter-active' : 'filter-inactive'}
+                        role="button"
+                        aria-pressed={inputMode === 'text'}
+                        aria-label={t('Text mode')}
+                      >
+                        {t('Text')} <FaKeyboard />
+                      </Badge>
+                      <Badge
+                        onClick={() => setInputMode('audio')}
+                        variant={inputMode === 'audio' ? 'filter-active' : 'filter-inactive'}
+                        role="button"
+                        aria-pressed={inputMode === 'audio'}
+                        aria-label={t('Audio mode')}
+                      >
+                        {t('Record')} <FaMicrophone />
+                      </Badge>
+                    </div>
+
+                    {inputMode === 'text' ? (
+                      <Textarea
+                        aria-label={t('Text Feedback')}
+                        value={answers[currentQuestion.questionKey] || ''}
+                        onChange={handleChangeText}
+                        className="p-4 flex-1 resize-none rounded-3xl border border-zinc-200 font-medium text-zinc-800 shadow-none"
+                      />
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-center my-3 gap-2">
                         {recording ? (
-                          <Button
-                            onClick={stopVideoRecording}
-                            className="bg-yellow hover:bg-yellow"
-                          >
-                            {t('Stop')} <FaStop />
+                          <Button onClick={stopRecording} className="bg-yellow hover:bg-yellow/90">
+                            {t('Stop')} ({recordingTime}s) <FaStop />
                           </Button>
                         ) : (
-                          <Button
-                            onClick={startVideoRecording}
-                            className="bg-yellow hover:bg-yellow"
-                          >
-                            {t('Record Video')}
+                          <Button onClick={startRecording} className="bg-yellow hover:bg-yellow/90">
+                            {t('Start Recording')} <FaMicrophone />
                           </Button>
                         )}
-                        <div>{t('or')}</div>
-                        <Form.Label className="btn btn-outline-secondary mb-0 !rounded-full">
-                          <FaUpload /> {t('Upload')}
-                          <Form.Control
-                            type="file"
-                            accept="video/*"
-                            hidden
-                            onChange={handleUpload}
-                          />
-                        </Form.Label>
+
+                        {audioURL && (
+                          <div className="flex justify-center items-center flex-wrap gap-2">
+                            <audio controls src={audioURL} />
+                            <Button onClick={deleteAudio} className="bg-pink hover:bg-pink/90">
+                              {t('Delete')} <FaTrash />
+                            </Button>
+                          </div>
+                        )}
+
+                        <p className="text-sm text-center text-zinc-500">
+                          {t('privacy_note_recordings')}
+                        </p>
                       </div>
                     )}
-                    <p className="text-sm text-center text-zinc-500">
-                      {t('privacy_note_recordings')}
-                    </p>
+                  </>
+                )}
+
+                {currentQuestion.type === 'video' && (
+                  <div className="flex flex-col items-center my-3 gap-2">
+                    {videoURL ? (
+                      <>
+                        <ReactPlayer url={videoURL} controls width="100%" height="100%" />
+                        <Button onClick={deleteVideo} className="bg-pink hover:bg-pink/90">
+                          {t('Delete')} <FaTrash />
+                        </Button>
+                        <p className="text-sm text-center text-zinc-500">
+                          {t('privacy_note_recordings')}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex justify-center items-center flex-wrap gap-2">
+                        <video
+                          ref={previewRef}
+                          autoPlay
+                          muted
+                          style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                        />
+                        {countdown !== null ? (
+                          <div className="text-center text-lg font-medium text-zinc-800">
+                            {t('Starting in')} {countdown}s...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {recording ? (
+                              <Button
+                                onClick={stopVideoRecording}
+                                className="bg-yellow hover:bg-yellow"
+                              >
+                                {t('Stop')} <FaStop />
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={startVideoRecording}
+                                className="bg-yellow hover:bg-yellow"
+                              >
+                                {t('Record Video')}
+                              </Button>
+                            )}
+                            <div>{t('or')}</div>
+                            <Form.Label className="btn btn-outline-secondary mb-0 !rounded-full">
+                              <FaUpload /> {t('Upload')}
+                              <Form.Control
+                                type="file"
+                                accept="video/*"
+                                hidden
+                                onChange={handleUpload}
+                              />
+                            </Form.Label>
+                          </div>
+                        )}
+                        <p className="text-sm text-center text-zinc-500">
+                          {t('privacy_note_recordings')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        <SheetFooter className="flex gap-2">
-          {currentQuestionIndex > 0 && (
-            <Button variant="secondary" onClick={() => setCurrentQuestionIndex((i) => i - 1)}>
-              {t('Back')}
-            </Button>
-          )}
-          {currentQuestionIndex + 1 < normalizedQuestions.length ? (
-            <Button onClick={() => setCurrentQuestionIndex((i) => i + 1)}>{t('Next')}</Button>
-          ) : (
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? t('Submitting...') : t('Submit')}
-            </Button>
-          )}
-        </SheetFooter>
+            <SheetFooter className="flex gap-2">
+              {currentQuestionIndex > 0 && (
+                <Button variant="secondary" onClick={() => setCurrentQuestionIndex((i) => i - 1)}>
+                  {t('Back')}
+                </Button>
+              )}
+              {currentQuestionIndex + 1 < normalizedQuestions.length ? (
+                <Button onClick={() => setCurrentQuestionIndex((i) => i + 1)}>{t('Next')}</Button>
+              ) : (
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? t('Submitting...') : t('Submit')}
+                </Button>
+              )}
+            </SheetFooter>
+          </>
+        )}
       </SheetContent>
     </Sheet>
   );
