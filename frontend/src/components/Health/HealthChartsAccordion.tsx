@@ -40,6 +40,16 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
   const start = store.startDate;
   const end = store.endDate;
 
+  // Show device-capability hints only when Fitbit records exist but a specific
+  // field is null across all of them (device doesn't support it / not worn).
+  const hasAnyFitbit = store.fitbitData.length > 0;
+  const restingHREmpty =
+    hasAnyFitbit && store.fitbitData.every((d) => d.resting_heart_rate == null);
+  const wearTimeEmpty = hasAnyFitbit && store.fitbitData.every((d) => d.wear_time_minutes == null);
+  const breathingEmpty =
+    hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
+  const hrvEmpty = hasAnyFitbit && store.fitbitData.every((d) => d.hrv?.dailyRmssd == null);
+
   return (
     <Accordion defaultActiveKey={['0']} alwaysOpen className="shadow-sm">
       <Accordion.Item eventKey="0">
@@ -84,6 +94,9 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               end={end}
             />
           </div>
+          {restingHREmpty && (
+            <p className="text-muted small text-center mt-1">{t('hint_resting_hr_empty')}</p>
+          )}
         </Accordion.Body>
       </Accordion.Item>
 
@@ -104,12 +117,15 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               ref={svgRefs.wearTime}
               titleKey="Wear Time (min)"
               data={store.fitbitData}
-              accessor={(d) => (d as any).wear_time_minutes}
+              accessor={(d) => d.wear_time_minutes}
               res={store.chartRes}
               start={start}
               end={end}
             />
           </div>
+          {wearTimeEmpty && (
+            <p className="text-muted small text-center mt-1">{t('hint_wear_time_empty')}</p>
+          )}
         </Accordion.Body>
       </Accordion.Item>
 
@@ -181,12 +197,15 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               ref={svgRefs.breathing}
               titleKey="Breathing Rate (breaths/min)"
               data={store.fitbitData}
-              accessor={(d) => (d as any).breathing_rate?.breathingRate}
+              accessor={(d) => d.breathing_rate?.breathingRate}
               res={store.chartRes}
               start={start}
               end={end}
             />
           </div>
+          {breathingEmpty && (
+            <p className="text-muted small text-center mt-1">{t('hint_breathing_rate_empty')}</p>
+          )}
         </Accordion.Body>
       </Accordion.Item>
 
@@ -198,12 +217,13 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               ref={svgRefs.hrv}
               titleKey="Heart Rate Variability (dailyRmssd in ms)"
               data={store.fitbitData}
-              accessor={(d) => (d as any).hrv?.dailyRmssd}
+              accessor={(d) => d.hrv?.dailyRmssd}
               res={store.chartRes}
               start={start}
               end={end}
             />
           </div>
+          {hrvEmpty && <p className="text-muted small text-center mt-1">{t('hint_hrv_empty')}</p>}
         </Accordion.Body>
       </Accordion.Item>
 
