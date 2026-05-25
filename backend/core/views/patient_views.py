@@ -2656,9 +2656,7 @@ def get_patient_plan_for_therapist(request, patient_id):
 
                 # Use the actual completion timestamp when available so the
                 # therapist sees when the patient submitted, not the scheduled time.
-                display_dt = (
-                    log.createdAt if log and getattr(log, "createdAt", None) else date
-                )
+                display_dt = log.createdAt if log and getattr(log, "createdAt", None) else date
                 intervention_dates.append(
                     {
                         "datetime": display_dt.isoformat(),
