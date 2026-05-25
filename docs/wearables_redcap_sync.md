@@ -17,9 +17,15 @@ For each patient the pipeline:
 
 ## Period definitions
 
+The baseline window direction depends on the project's `baseline_anchor` setting:
+
+| Project | Baseline start | Baseline end | Rationale |
+|---|---|---|---|
+| **COMPASS** | `reha_end_date` | `reha_end_date + 4 weeks` | Outpatient rehab — data collected after discharge |
+| **COPAIN** | `reha_end_date − 4 weeks` | `reha_end_date` | In-hospital stay — data collected before discharge |
+
 | Period | Start | End |
 |---|---|---|
-| **Baseline** | `reha_end_date` | `reha_end_date + 4 weeks` |
 | **Follow-up** | `study_end_date − 4 weeks` | `study_end_date` |
 
 If `study_end_date` is not set, the system defaults to `reha_end_date + 26 weeks` (≈ 6 months).
@@ -239,9 +245,13 @@ sync_wearables_to_redcap_patient.delay("<patient_mongo_id>")
        "baseline": "baseline_event_arm_1",
        "followup":  "followup_event_arm_1",
        "sleep_duration_format": "hours_int",  # or "hhmm"
+       "baseline_anchor": "after_reha_end",   # or "before_reha_end"
    },
    ```
-2. Verify the `sleep_duration` field type in the REDCap data dictionary:
+2. Choose `baseline_anchor`:
+   - `"after_reha_end"` — monitoring starts at discharge (outpatient / home rehab)
+   - `"before_reha_end"` — monitoring is during the hospital stay (in-patient)
+3. Verify the `sleep_duration` field type in the REDCap data dictionary:
    - `text (integer, Max: 24)` → use `"hours_int"`
    - `text (time, Max: 23:59)` → use `"hhmm"`
-3. Add `REDCAP_TOKEN_NEWPROJECT=<token>` to the environment
+4. Add `REDCAP_TOKEN_NEWPROJECT=<token>` to the environment
