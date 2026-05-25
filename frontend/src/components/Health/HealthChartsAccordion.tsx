@@ -43,7 +43,8 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
   // Show device-capability hints only when Fitbit records exist but a specific
   // field is null across all of them (device doesn't support it / not worn).
   const hasAnyFitbit = store.fitbitData.length > 0;
-  const restingHREmpty = hasAnyFitbit && store.fitbitData.every((d) => d.resting_heart_rate == null);
+  const restingHREmpty =
+    hasAnyFitbit && store.fitbitData.every((d) => d.resting_heart_rate == null);
   const wearTimeEmpty = hasAnyFitbit && store.fitbitData.every((d) => d.wear_time_minutes == null);
   const breathingEmpty =
     hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
@@ -222,9 +223,7 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               end={end}
             />
           </div>
-          {hrvEmpty && (
-            <p className="text-muted small text-center mt-1">{t('hint_hrv_empty')}</p>
-          )}
+          {hrvEmpty && <p className="text-muted small text-center mt-1">{t('hint_hrv_empty')}</p>}
         </Accordion.Body>
       </Accordion.Item>
 
