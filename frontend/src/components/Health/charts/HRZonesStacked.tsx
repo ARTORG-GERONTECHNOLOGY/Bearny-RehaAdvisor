@@ -47,8 +47,8 @@ const HRZonesStacked = ({ data, start, end }: Props, ref: React.Ref<SVGSVGElemen
     const zoneDisplayKey: Record<string, string> = {
       'Out of Range': 'hr_zone_out_of_range',
       'Fat Burn': 'hr_zone_fat_burn',
-      'Cardio': 'hr_zone_cardio',
-      'Peak': 'hr_zone_peak',
+      Cardio: 'hr_zone_cardio',
+      Peak: 'hr_zone_peak',
     };
 
     const colors = d3
