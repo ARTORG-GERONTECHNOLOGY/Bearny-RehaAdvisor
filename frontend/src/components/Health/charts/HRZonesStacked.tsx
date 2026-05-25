@@ -43,6 +43,14 @@ const HRZonesStacked = ({ data, start, end }: Props, ref: React.Ref<SVGSVGElemen
 
     const keys = ['Out of Range', 'Fat Burn', 'Cardio', 'Peak'] as const;
 
+    // Clinical display labels — separate from the Fitbit internal names used for data lookup
+    const zoneDisplayKey: Record<string, string> = {
+      'Out of Range': 'hr_zone_out_of_range',
+      'Fat Burn': 'hr_zone_fat_burn',
+      'Cardio': 'hr_zone_cardio',
+      'Peak': 'hr_zone_peak',
+    };
+
     const colors = d3
       .scaleOrdinal<string>()
       .domain(keys as unknown as string[])
@@ -78,7 +86,7 @@ const HRZonesStacked = ({ data, start, end }: Props, ref: React.Ref<SVGSVGElemen
     renderLegend(
       svg as any,
       keys.map((k) => ({
-        label: `${t(k)} (${zoneRanges[k] ?? '—'})`,
+        label: `${t(zoneDisplayKey[k])} (${zoneRanges[k] ?? '—'})`,
         color: colors(k)!,
       })),
       46,
@@ -170,7 +178,7 @@ const HRZonesStacked = ({ data, start, end }: Props, ref: React.Ref<SVGSVGElemen
             return `
               <div>
                 <span style="color:${colors(k)}">■</span>
-                ${t(k)} (${zoneRanges[k] ?? '—'}): ${formatHM(min)}
+                ${t(zoneDisplayKey[k])} (${zoneRanges[k] ?? '—'}): ${formatHM(min)}
               </div>`;
           })
           .filter(Boolean)
