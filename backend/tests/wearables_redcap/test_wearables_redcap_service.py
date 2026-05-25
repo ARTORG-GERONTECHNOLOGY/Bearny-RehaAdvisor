@@ -382,6 +382,29 @@ class TestComputeWearablesSummary:
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "07:30"
 
+    def test_compass_baseline_window_is_after_reha_end(self):
+        """COMPASS baseline looks at the 4 weeks AFTER discharge, not before."""
+        reha_end = datetime(2024, 6, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
+
+        # Data 10 days after discharge — inside the after-discharge window.
+        _make_fitbit_day(user, reha_end + timedelta(days=10), steps=7777, wear_min=500)
+
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is not None
+        assert summary["baseline"]["fitbit_steps"] == 7777
+
+    def test_compass_data_before_reha_end_not_in_baseline(self):
+        """Data collected before discharge must not appear in COMPASS baseline."""
+        reha_end = datetime(2024, 6, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COMPASS", reha_end_date=reha_end)
+
+        # Data 2 days BEFORE discharge — outside the after-discharge window.
+        _make_fitbit_day(user, reha_end - timedelta(days=2), steps=9999, wear_min=600)
+
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is None
+
     def test_copain_baseline_window_is_before_reha_end(self):
         """COPAIN baseline looks at the 4 weeks BEFORE discharge, not after."""
         reha_end = datetime(2024, 6, 1, tzinfo=dt_tz.utc)
