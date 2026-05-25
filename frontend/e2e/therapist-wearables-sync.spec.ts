@@ -150,6 +150,68 @@ test.describe('Therapist patient popup wearables sync', () => {
     await expect(successAlert.getByText('wearables_complete')).toBeVisible();
   });
 
+  test('shows COPAIN baseline period result when sync succeeds', async ({ page }) => {
+    skipUnlessSeeded(test);
+
+    await page.route('**/users/*/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          _id: '680000000000000000000002',
+          first_name: 'E2E',
+          name: 'Copain',
+          patient_code: 'P-E2E-002',
+          redcap_project: 'COPAIN',
+          redcap_identifier: 'P-E2E-002',
+        }),
+      });
+    });
+
+    await page.route('**/wearables/sync-to-redcap/*/', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          results: {
+            baseline: 'ok',
+            followup: 'skipped',
+          },
+          sent_payloads: {
+            baseline: {
+              status: 'sent',
+              record: {
+                record_id: '42',
+                monitoring_start: '15-05-2024',
+                monitoring_end: '21-05-2024',
+                monitoring_days: '7',
+                fitbit_steps: '4200',
+                sleep_duration: '07:30',
+                redcap_event_name: 't0_at_disch_arm_1',
+                wearables_complete: '1',
+              },
+            },
+            followup: {
+              status: 'skipped',
+              reason: 'no_fitbit_data_in_period',
+            },
+          },
+        }),
+      });
+    });
+
+    await openPatientPopup(page);
+    await page.getByRole('button', { name: /sync wearables/i }).click();
+
+    const successAlert = page
+      .locator('.alert-success')
+      .filter({ hasText: /wearables synced to redcap/i });
+    await expect(successAlert).toBeVisible({ timeout: 10000 });
+    await expect(successAlert.getByText('t0_at_disch_arm_1')).toBeVisible();
+    await expect(successAlert.getByText('07:30')).toBeVisible();
+  });
+
   test('shows backend error reason when sync fails', async ({ page }) => {
     skipUnlessSeeded(test);
 
