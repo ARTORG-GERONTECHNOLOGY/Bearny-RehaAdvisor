@@ -52,6 +52,7 @@ from core.models import (
     InterventionAssignment,
     Patient,
     PatientICFRating,
+    PatientInterventionLogs,
     QuestionnaireAssignment,
     RehabilitationPlan,
     Therapist,
@@ -275,6 +276,72 @@ def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
+
+
+def test_therapist_plan_completed_date_uses_log_created_at(mongo_mock):
+    """
+    For a completed session the ``datetime`` in the response must be the log's
+    ``createdAt`` (the actual submission time), not the scheduled date.
+
+    Bug #306: the endpoint always returned the scheduled time (e.g. 06:00 AM)
+    so the therapist could never see when the patient actually completed the
+    intervention.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+
+    scheduled_dt = datetime(2026, 5, 13, 6, 0, 0)  # 06:00 — scheduled time
+    plan.interventions[0].dates = [scheduled_dt]
+    plan.save()
+
+    # Simulate patient completing the session at a later time.
+    actual_completion_time = datetime(2026, 5, 13, 10, 6, 36)
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=scheduled_dt,
+        status=["completed"],
+        feedback=[],
+        comments="",
+    )
+    log.createdAt = actual_completion_time
+    log.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    dates = body["interventions"][0]["dates"]
+    assert len(dates) == 1
+    assert dates[0]["status"] == "completed"
+    # datetime must reflect actual completion time, not scheduled 06:00
+    assert "10:06" in dates[0]["datetime"] or "10-06" in dates[0]["datetime"]
+
+
+def test_therapist_plan_upcoming_date_uses_scheduled_time(mongo_mock):
+    """
+    For sessions without a completion log the ``datetime`` stays as the
+    scheduled time from the assignment.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+
+    future_dt = datetime.now() + timedelta(days=5)
+    future_dt = future_dt.replace(hour=8, minute=0, second=0, microsecond=0)
+    plan.interventions[0].dates = [future_dt]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    dates = body["interventions"][0]["dates"]
+    assert len(dates) == 1
+    assert dates[0]["status"] == "upcoming"
+    assert "08:00" in dates[0]["datetime"]
 
 
 # ===========================================================================
