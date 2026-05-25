@@ -42,11 +42,17 @@ _PROJECT_CONFIG: Dict[str, Dict[str, str]] = {
         "baseline": "visit_baseline_arm_1",
         "followup": "visit_6m_arm_1",
         "sleep_duration_format": "hours_int",
+        # Baseline data collected after discharge (outpatient rehab).
+        "baseline_anchor": "after_reha_end",
     },
     "COPAIN": {
         "baseline": "t0_at_disch_arm_1",
         "followup": "t2_six_months_afte_arm_1",
         "sleep_duration_format": "hhmm",
+        # Baseline data collected during the last weeks of the hospital stay,
+        # i.e. BEFORE discharge (reha_end_date). The window is
+        # [reha_end - BASELINE_WEEKS, reha_end).
+        "baseline_anchor": "before_reha_end",
     },
 }
 
@@ -183,14 +189,24 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
         )
 
     project_name = (patient.project or "").strip().upper()
-    sleep_fmt = _PROJECT_CONFIG.get(project_name, {}).get("sleep_duration_format", "hours_int")
+    proj_cfg = _PROJECT_CONFIG.get(project_name, {})
+    sleep_fmt = proj_cfg.get("sleep_duration_format", "hours_int")
 
     reha_end = _as_utc(patient.reha_end_date)
     study_end_raw = patient.study_end_date
     study_end = _as_utc(study_end_raw) if study_end_raw else reha_end + timedelta(weeks=26)
 
-    baseline_start = reha_end
-    baseline_end = reha_end + timedelta(weeks=BASELINE_WEEKS)
+    # baseline_anchor controls which side of reha_end_date to scan.
+    # "before_reha_end" — data collected before discharge (e.g. COPAIN in-hospital).
+    # "after_reha_end"  — data collected after discharge (default, e.g. COMPASS outpatient).
+    baseline_anchor = proj_cfg.get("baseline_anchor", "after_reha_end")
+    if baseline_anchor == "before_reha_end":
+        baseline_start = reha_end - timedelta(weeks=BASELINE_WEEKS)
+        baseline_end = reha_end
+    else:
+        baseline_start = reha_end
+        baseline_end = reha_end + timedelta(weeks=BASELINE_WEEKS)
+
     followup_start = study_end - timedelta(weeks=FOLLOWUP_WEEKS)
     followup_end = study_end
 

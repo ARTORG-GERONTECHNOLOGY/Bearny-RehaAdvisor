@@ -8,6 +8,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Fixed
+- **COPAIN wearables sync always skipped**: the baseline monitoring window was `[reha_end, reha_end+4w]` for all projects. COPAIN collects Fitbit data during the in-hospital stay (before discharge), so every COPAIN patient got `no_fitbit_data_in_period` and REDCap remained empty. Fixed by introducing a per-project `baseline_anchor` config key: COPAIN now scans `[reha_end−4w, reha_end)`, COMPASS keeps `[reha_end, reha_end+4w)`.
 - **Fitbit Active Zone Minutes always wrong**: both the on-demand sync (`fitbit_sync.py`) and the nightly batch command (`fetch_fitbit_data.py`) looked for `activities-activeZoneMinutes` / `value.totalMinutes` in the Fitbit API response. The correct keys are `activities-active-zone-minutes` / `value.activeZoneMinutes`. As a result, AZM was silently dropped on every sync and `active_minutes` was always computed from the fallback (`minutesVeryActive + minutesFairlyActive`), producing values that did not match the Fitbit app.
 - **Sleep displayed as time-in-bed instead of actual sleep**: `_sleep_minutes()` in `fitbit_view.py` — and the inactivity calculation helpers in both sync files — used `sleep_duration` (total time in bed, ms) instead of `minutes_asleep` (actual sleep, matches Fitbit app). All three helpers now prefer `minutes_asleep`; fall back to `sleep_duration` for legacy records that lack `minutes_asleep`.
 
