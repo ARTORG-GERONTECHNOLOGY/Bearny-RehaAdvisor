@@ -290,8 +290,7 @@ def submit_patient_feedback(request):
 
                 entry_kwargs = {
                     "questionId": qobj,
-                    # ✅ ensure FeedbackEntry.date matches the completed day
-                    "date": day_start,
+                    "date": timezone.now(),
                 }
 
                 opts = []
@@ -365,8 +364,7 @@ def submit_patient_feedback(request):
                     questionId=qobj,
                     answerKey=[AnswerOption(key=text_ans, translations=translations)],
                     comment=notes,
-                    # ✅ align FeedbackEntry.date to selected day
-                    date=day_start,
+                    date=timezone.now(),
                 )
 
                 rating = PatientICFRating(
@@ -2656,9 +2654,12 @@ def get_patient_plan_for_therapist(request, patient_id):
                         "comment": getattr(log, "comments", "") or "",
                     }
 
+                # Use the actual completion timestamp when available so the
+                # therapist sees when the patient submitted, not the scheduled time.
+                display_dt = log.createdAt if log and getattr(log, "createdAt", None) else date
                 intervention_dates.append(
                     {
-                        "datetime": date.isoformat(),
+                        "datetime": display_dt.isoformat(),
                         "status": status,
                         "feedback": feedback_entries,
                         **({"video": video_feedback} if video_feedback else {}),
