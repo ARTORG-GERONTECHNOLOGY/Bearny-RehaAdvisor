@@ -372,14 +372,38 @@ class TestComputeWearablesSummary:
     def test_copain_sleep_in_hhmm(self):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
+        # COPAIN baseline is BEFORE discharge: put data 2 days before reha_end.
         _make_fitbit_day(
             user,
-            reha_end + timedelta(days=2),
+            reha_end - timedelta(days=2),
             sleep_ms=int(7.5 * 3_600_000),
             wear_min=500,  # 7h30m
         )
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "07:30"
+
+    def test_copain_baseline_window_is_before_reha_end(self):
+        """COPAIN baseline looks at the 4 weeks BEFORE discharge, not after."""
+        reha_end = datetime(2024, 6, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
+
+        # Data 10 days before discharge — inside the before-discharge window.
+        _make_fitbit_day(user, reha_end - timedelta(days=10), steps=5555, wear_min=500)
+
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is not None
+        assert summary["baseline"]["fitbit_steps"] == 5555
+
+    def test_copain_data_after_reha_end_not_in_baseline(self):
+        """Data collected after discharge must not appear in COPAIN baseline."""
+        reha_end = datetime(2024, 6, 1, tzinfo=dt_tz.utc)
+        user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
+
+        # Data 2 days AFTER discharge — outside the before-discharge window.
+        _make_fitbit_day(user, reha_end + timedelta(days=2), steps=9999, wear_min=600)
+
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is None
 
     def test_dates_formatted_as_dmy(self):
         reha_end = datetime(2024, 3, 1, tzinfo=dt_tz.utc)
@@ -511,7 +535,7 @@ class TestExportWearablesToRedcap:
     def test_copain_sleep_format_in_payload(self, monkeypatch):
         reha_end = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
         user, patient = _make_patient(project="COPAIN", reha_end_date=reha_end)
-        _make_fitbit_day(user, reha_end + timedelta(days=2), wear_min=600, sleep_ms=int(7.5 * 3_600_000))
+        _make_fitbit_day(user, reha_end - timedelta(days=2), wear_min=600, sleep_ms=int(7.5 * 3_600_000))
 
         monkeypatch.setenv("REDCAP_TOKEN_COPAIN", "tok")
         captured = []
