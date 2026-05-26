@@ -106,16 +106,7 @@ describe('HealthChartsAccordion – accordion headers', () => {
 describe('HealthChartsAccordion – device-hint messages', () => {
   const fitbitBase: FitbitEntry = {
     date: '2024-01-10',
-    resting_heart_rate: null,
-    wear_time_minutes: null,
     steps: 5000,
-    breathing_rate: null,
-    hr_zones: null,
-    sleep: null,
-    weight: null,
-    systolic_bp: null,
-    diastolic_bp: null,
-    exercise_sessions: [],
   };
 
   it('shows resting-HR hint when all Fitbit entries lack resting_heart_rate', () => {
