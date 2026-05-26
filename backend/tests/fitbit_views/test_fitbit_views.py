@@ -727,3 +727,48 @@ def test_sleep_minutes_falls_back_to_duration_when_minutes_asleep_absent():
         sleep=SleepData(sleep_duration=90 * 60 * 1000),  # 90 min in bed, no minutes_asleep
     )
     assert _sleep_minutes(row) == 90
+
+
+# ---------------------------------------------------------------------------
+# Backfill missing historical days on fitbit_summary
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+@patch("core.views.fitbit_view.fetch_fitbit_date_range_for_user")
+def test_fitbit_summary_triggers_backfill_for_missing_days(mock_backfill, mock_today_fetch):
+    """When historical days are absent from the DB, fitbit_summary triggers a range backfill."""
+    _, _, patient_user, patient = create_patient_graph()
+
+    # Only today has data — yesterday and earlier are missing
+    today_dt = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    FitbitData(user=patient_user, date=today_dt, steps=5000).save()
+
+    mock_backfill.return_value = 2
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    # Backfill must have been invoked for the gap (yesterday and earlier)
+    mock_backfill.assert_called_once()
+    call_args = mock_backfill.call_args[0]  # positional: (user, start_date, end_date)
+    assert len(call_args) == 3
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+@patch("core.views.fitbit_view.fetch_fitbit_date_range_for_user")
+def test_fitbit_summary_skips_backfill_when_no_gaps(mock_backfill, mock_today_fetch):
+    """When all days in the window have data, the range backfill is not triggered."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = datetime.now()
+
+    # Insert FitbitData for all 7 days
+    for offset in range(7):
+        day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        from datetime import timedelta as _td
+
+        day = day - _td(days=offset)
+        FitbitData(user=patient_user, date=day, steps=1000 + offset).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    mock_backfill.assert_not_called()
