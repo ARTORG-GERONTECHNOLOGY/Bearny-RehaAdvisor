@@ -43,6 +43,7 @@ const ExportModal: React.FC<Props> = ({
   }, [show, initialFrom, initialTo, selections]);
 
   const ids = [
+    'adherence',
     'totalScore',
     'questionnaire',
     'restingHR',
@@ -50,6 +51,9 @@ const ExportModal: React.FC<Props> = ({
     'hrZones',
     'steps',
     'breathing',
+    'weight',
+    'bloodPressure',
+    'exercise',
   ];
 
   const allSelected = Object.values(chosen).every(Boolean);
