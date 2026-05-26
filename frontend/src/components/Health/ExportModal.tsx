@@ -48,11 +48,8 @@ const ExportModal: React.FC<Props> = ({
     'restingHR',
     'sleep',
     'hrZones',
-    'floors',
     'steps',
-    'distance',
     'breathing',
-    'hrv',
   ];
 
   const allSelected = Object.values(chosen).every(Boolean);

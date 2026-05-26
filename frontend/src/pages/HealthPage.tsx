@@ -49,11 +49,8 @@ const HealthPage: React.FC = observer(() => {
     sleep: useRef<SVGSVGElement>(null),
     wearTime: useRef<SVGSVGElement>(null),
     hrZones: useRef<SVGSVGElement>(null),
-    floors: useRef<SVGSVGElement>(null),
     steps: useRef<SVGSVGElement>(null),
-    distance: useRef<SVGSVGElement>(null),
     breathing: useRef<SVGSVGElement>(null),
-    hrv: useRef<SVGSVGElement>(null),
     weight: useRef<SVGSVGElement>(null),
     bloodPressure: useRef<SVGSVGElement>(null),
     exercise: useRef<SVGSVGElement>(null),
@@ -67,11 +64,8 @@ const HealthPage: React.FC = observer(() => {
     restingHR: true,
     sleep: true,
     hrZones: true,
-    floors: true,
     steps: true,
-    distance: true,
     breathing: true,
-    hrv: true,
     weight: true,
     bloodPressure: true,
     exercise: true,
@@ -278,25 +272,10 @@ const HealthPage: React.FC = observer(() => {
         'Steps',
         fitIn.map((d) => ({ date: d.date, val: (d as any).steps }))
       );
-    if (selections.distance)
-      csv += emitScalar(
-        'Distance',
-        fitIn.map((d) => ({ date: d.date, val: (d as any).distance }))
-      );
-    if (selections.floors)
-      csv += emitScalar(
-        'Floors',
-        fitIn.map((d) => ({ date: d.date, val: (d as any).floors }))
-      );
     if (selections.breathing)
       csv += emitScalar(
         'Breathing Rate',
         fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
-      );
-    if (selections.hrv)
-      csv += emitScalar(
-        'HRV (dailyRmssd)',
-        fitIn.map((d: any) => ({ date: d.date, val: d.hrv?.dailyRmssd }))
       );
 
     if (selections.sleep) {
@@ -397,11 +376,8 @@ const HealthPage: React.FC = observer(() => {
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
       { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
-      { ref: svgRefs.floors, key: 'floors', title: t('Floors Climbed') },
       { ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
-      { ref: svgRefs.distance, key: 'distance', title: t('Distance Traveled') },
       { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
-      { ref: svgRefs.hrv, key: 'hrv', title: t('Heart Rate Variability (dailyRmssd in ms)') },
       { ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
       { ref: svgRefs.bloodPressure, key: 'bloodPressure', title: t('Blood Pressure (SYS/DIA)') },
       { ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
