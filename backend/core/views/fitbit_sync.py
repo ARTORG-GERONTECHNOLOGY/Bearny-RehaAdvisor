@@ -71,6 +71,199 @@ def get_valid_access_token(user):
 FETCH_COOLDOWN_MINUTES = 15
 
 
+def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: datetime.date) -> int:
+    """Fetch Fitbit data for [start_date, end_date] inclusive and upsert into DB.
+
+    Used to backfill historical days that the background tasks missed (e.g. when
+    the patient's Fitbit data was synced to Fitbit's servers after the nightly
+    01:00 UTC run).  Does NOT skip already-present records — the caller is
+    responsible for only passing dates that have gaps.
+
+    Returns the number of days written.
+    """
+    token = FitbitUserToken.objects(user=user).first()
+    if not token:
+        logger.info("[fitbit_range] no token for user=%s, skip", user)
+        return 0
+
+    try:
+        access_token = get_valid_access_token(user)
+    except Exception:
+        logger.exception("[fitbit_range] token error for user=%s", user)
+        return 0
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
+    date_range = f"{start_str}/{end_str}"
+
+    series: dict[str, dict[datetime.date, object]] = {
+        "steps": {},
+        "floors": {},
+        "distance": {},
+        "calories": {},
+        "minutesVeryActive": {},
+        "minutesFairlyActive": {},
+        "activeZoneMinutes": {},
+        "resting_heart_rate": {},
+        "heart_rate_zones": {},
+    }
+    breathing_data: dict[datetime.date, object] = {}
+    hrv_data: dict[datetime.date, object] = {}
+    sleep_data: dict[datetime.date, dict] = {}
+    exercise_data: dict[datetime.date, list] = {}
+    azm_breakdown: dict[datetime.date, dict] = {}
+
+    def _fetch(key: str, url_suffix: str) -> None:
+        url = f"{FITBIT_API_URL}/{url_suffix}/date/{date_range}.json"
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code != 200:
+            logger.warning("[fitbit_range] %s HTTP %s for user=%s", key, r.status_code, user)
+            return
+        for item in r.json().get(f"activities-{key}", []):
+            dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
+            val = item.get("value")
+            try:
+                val = int(float(val)) if isinstance(val, str) else val
+            except Exception:
+                val = 0
+            series[key][dt] = val
+
+    _fetch("steps", "activities/steps")
+    _fetch("floors", "activities/floors")
+    _fetch("distance", "activities/distance")
+    _fetch("calories", "activities/calories")
+    _fetch("minutesVeryActive", "activities/minutesVeryActive")
+    _fetch("minutesFairlyActive", "activities/minutesFairlyActive")
+
+    # Heart rate (resting + zones)
+    r = requests.get(f"{FITBIT_API_URL}/activities/heart/date/{date_range}.json", headers=headers, timeout=15)
+    if r.status_code == 200:
+        for item in r.json().get("activities-heart", []):
+            dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
+            val = item.get("value", {})
+            series["resting_heart_rate"][dt] = val.get("restingHeartRate")
+            series["heart_rate_zones"][dt] = val.get("heartRateZones")
+
+    # Active Zone Minutes
+    r = requests.get(
+        f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_range}.json", headers=headers, timeout=15
+    )
+    if r.status_code == 200:
+        for item in r.json().get("activities-active-zone-minutes", []):
+            dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
+            val = item.get("value") or {}
+            total = val.get("activeZoneMinutes")
+            if val:
+                azm_breakdown[dt] = {
+                    "fat_burn": val.get("fatBurnActiveZoneMinutes"),
+                    "cardio": val.get("cardioActiveZoneMinutes"),
+                    "peak": val.get("peakActiveZoneMinutes"),
+                    "total": total,
+                }
+            if total is not None:
+                series["activeZoneMinutes"][dt] = int(total)
+
+    # Breathing rate
+    r = requests.get(f"{FITBIT_API_URL}/br/date/{date_range}.json", headers=headers, timeout=15)
+    if r.status_code == 200:
+        for item in r.json().get("br", []):
+            dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
+            breathing_data[dt] = item.get("value")
+
+    # HRV
+    r = requests.get(f"{FITBIT_API_URL}/hrv/date/{date_range}.json", headers=headers, timeout=15)
+    if r.status_code == 200:
+        for item in r.json().get("hrv", []):
+            dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
+            hrv_data[dt] = item.get("value")
+
+    # Sleep
+    r = requests.get(f"{FITBIT_API_URL}/sleep/date/{date_range}.json", headers=headers, timeout=20)
+    if r.status_code == 200:
+        for entry in r.json().get("sleep", []):
+            dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
+            sleep_data[dt] = {
+                "sleep_duration": entry.get("duration"),
+                "minutes_asleep": entry.get("minutesAsleep"),
+                "sleep_start": entry.get("startTime"),
+                "sleep_end": entry.get("endTime"),
+                "awakenings": entry.get("awakeningsCount"),
+            }
+
+    # Exercise sessions
+    r = requests.get(
+        f"{FITBIT_API_URL}/activities/list.json?afterDate={start_str}&sort=asc&limit=200&offset=0",
+        headers=headers,
+        timeout=20,
+    )
+    if r.status_code == 200:
+        for act in r.json().get("activities", []):
+            dt = datetime.datetime.strptime(act["startTime"].split("T")[0], "%Y-%m-%d").date()
+            if start_date <= dt <= end_date:
+                exercise_data.setdefault(dt, []).append(
+                    {
+                        "name": act.get("activityName"),
+                        "duration": act.get("duration"),
+                        "calories": act.get("calories"),
+                    }
+                )
+
+    # Collect all dates with any data
+    all_dates: set[datetime.date] = set()
+    for m in series.values():
+        if isinstance(m, dict):
+            all_dates |= set(m.keys())
+    all_dates |= set(sleep_data.keys()) | set(exercise_data.keys())
+
+    upserted = 0
+    for dt in sorted(d for d in all_dates if start_date <= d <= end_date):
+        azm = series["activeZoneMinutes"].get(dt)
+        if azm is not None:
+            active_minutes = int(azm)
+        else:
+            va = int(series["minutesVeryActive"].get(dt, 0) or 0)
+            fa = int(series["minutesFairlyActive"].get(dt, 0) or 0)
+            active_minutes = va + fa
+
+        sm = sleep_data.get(dt) or {}
+        val = sm.get("minutes_asleep")
+        if val is not None:
+            try:
+                sleep_min = max(0, int(val))
+            except Exception:
+                sleep_min = 0
+        else:
+            dur_ms = sm.get("sleep_duration") or 0
+            try:
+                sleep_min = max(0, int(round(dur_ms / 60000)))
+            except Exception:
+                sleep_min = 0
+
+        inactivity = max(0, 1440 - (active_minutes + sleep_min))
+
+        FitbitData.objects(user=user, date=dt).update_one(
+            set__steps=series["steps"].get(dt),
+            set__floors=series["floors"].get(dt),
+            set__distance=series["distance"].get(dt),
+            set__calories=series["calories"].get(dt),
+            set__resting_heart_rate=series["resting_heart_rate"].get(dt),
+            set__active_minutes=active_minutes,
+            set__active_zone_minutes=azm_breakdown.get(dt),
+            set__inactivity_minutes=inactivity,
+            set__heart_rate_zones=series["heart_rate_zones"].get(dt),
+            set__sleep=sleep_data.get(dt),
+            set__breathing_rate=breathing_data.get(dt),
+            set__hrv=hrv_data.get(dt),
+            set__exercise=exercise_data.get(dt, []),
+            upsert=True,
+        )
+        upserted += 1
+
+    logger.info("[fitbit_range] backfilled %d days for user=%s (%s → %s)", upserted, user, start_str, end_str)
+    return upserted
+
+
 def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
     """Fetch **today only** for a single user; returns upserted day-count (0|1)."""
     today = datetime.date.today()
