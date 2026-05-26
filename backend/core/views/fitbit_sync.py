@@ -98,9 +98,15 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
     date_range = f"{start_str}/{end_str}"
 
     series: dict[str, dict[datetime.date, object]] = {
-        "steps": {}, "floors": {}, "distance": {}, "calories": {},
-        "minutesVeryActive": {}, "minutesFairlyActive": {},
-        "activeZoneMinutes": {}, "resting_heart_rate": {}, "heart_rate_zones": {},
+        "steps": {},
+        "floors": {},
+        "distance": {},
+        "calories": {},
+        "minutesVeryActive": {},
+        "minutesFairlyActive": {},
+        "activeZoneMinutes": {},
+        "resting_heart_rate": {},
+        "heart_rate_zones": {},
     }
     breathing_data: dict[datetime.date, object] = {}
     hrv_data: dict[datetime.date, object] = {}
@@ -140,7 +146,9 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
             series["heart_rate_zones"][dt] = val.get("heartRateZones")
 
     # Active Zone Minutes
-    r = requests.get(f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_range}.json", headers=headers, timeout=15)
+    r = requests.get(
+        f"{FITBIT_API_URL}/activities/active-zone-minutes/date/{date_range}.json", headers=headers, timeout=15
+    )
     if r.status_code == 200:
         for item in r.json().get("activities-active-zone-minutes", []):
             dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
@@ -193,11 +201,13 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
         for act in r.json().get("activities", []):
             dt = datetime.datetime.strptime(act["startTime"].split("T")[0], "%Y-%m-%d").date()
             if start_date <= dt <= end_date:
-                exercise_data.setdefault(dt, []).append({
-                    "name": act.get("activityName"),
-                    "duration": act.get("duration"),
-                    "calories": act.get("calories"),
-                })
+                exercise_data.setdefault(dt, []).append(
+                    {
+                        "name": act.get("activityName"),
+                        "duration": act.get("duration"),
+                        "calories": act.get("calories"),
+                    }
+                )
 
     # Collect all dates with any data
     all_dates: set[datetime.date] = set()
