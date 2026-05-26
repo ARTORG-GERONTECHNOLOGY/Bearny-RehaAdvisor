@@ -4,14 +4,14 @@ import { Accordion, Col, Row } from 'react-bootstrap';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
 import MetricBarOrBox from '@/components/Health/charts/MetricBarOrBox';
-import SleepChart from '@/components/Health//charts/SleepChart';
-import HRZonesStacked from '@/components/Health//charts/HRZonesStacked';
-import AdherenceLine from '@/components/Health//charts/AdherenceLine';
-import WeightChart from '@/components/Health//charts/WeightChart';
-import BloodPressureChart from '@/components/Health//charts/BloodPressureChart';
-import ExerciseSessionsChart from '@/components/Health//charts/ExerciseSessionsChart';
-import ExerciseSessionsTable from '@/components/Health//charts/ExerciseSessionsTable';
-import QuestionnaireResultsTable from '@/components/Health//QuestionnaireResultsTable';
+import SleepChart from '@/components/Health/charts/SleepChart';
+import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
+import AdherenceLine from '@/components/Health/charts/AdherenceLine';
+import WeightChart from '@/components/Health/charts/WeightChart';
+import BloodPressureChart from '@/components/Health/charts/BloodPressureChart';
+import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
+import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
+import QuestionnaireResultsTable from '@/components/Health/QuestionnaireResultsTable';
 
 type SvgRefs = {
   adherence: React.RefObject<SVGSVGElement>;
