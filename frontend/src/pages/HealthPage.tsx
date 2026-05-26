@@ -63,6 +63,7 @@ const HealthPage: React.FC = observer(() => {
     questionnaire: true,
     restingHR: true,
     sleep: true,
+    wearTime: true,
     hrZones: true,
     steps: true,
     breathing: true,
@@ -277,6 +278,11 @@ const HealthPage: React.FC = observer(() => {
         'Breathing Rate',
         fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
       );
+    if (selections.wearTime)
+      csv += emitScalar(
+        'Wear Time (min)',
+        fitIn.map((d: any) => ({ date: d.date, val: d.wear_time_minutes }))
+      );
 
     if (selections.sleep) {
       const rows = fitIn
@@ -378,6 +384,7 @@ const HealthPage: React.FC = observer(() => {
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
       { ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
       { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
+      { ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
       { ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
       { ref: svgRefs.bloodPressure, key: 'bloodPressure', title: t('Blood Pressure (SYS/DIA)') },
       { ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
