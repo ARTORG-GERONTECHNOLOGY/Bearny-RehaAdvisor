@@ -19,7 +19,12 @@ import pytest
 from django.utils import timezone
 
 from core.models import FitbitData, FitbitUserToken, User
-from core.views.fitbit_sync import FETCH_COOLDOWN_MINUTES, fetch_fitbit_today_for_user, get_valid_access_token
+from core.views.fitbit_sync import (
+    FETCH_COOLDOWN_MINUTES,
+    fetch_fitbit_date_range_for_user,
+    fetch_fitbit_today_for_user,
+    get_valid_access_token,
+)
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -808,3 +813,151 @@ def test_active_minutes_falls_back_when_azm_absent(mock_get, _):
 
     row = FitbitData.objects(user=user).first()
     assert row.active_minutes == 15  # 10 + 5
+
+
+# ---------------------------------------------------------------------------
+# fetch_fitbit_date_range_for_user — wear_time_minutes / max_heart_rate
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.fitbit_sync.requests.get")
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok")
+def test_range_backfill_fills_wear_time_when_intraday_available(mock_tok, mock_get):
+    """wear_time_minutes and max_heart_rate are stored when intraday HR returns data."""
+    user, _ = make_user_with_token()
+    import datetime as _dt
+
+    day = _dt.date.today() - _dt.timedelta(days=1)
+    day_str = day.strftime("%Y-%m-%d")
+
+    intraday_dataset = [
+        {"time": "08:00:00", "value": 65},
+        {"time": "08:01:00", "value": 70},
+        {"time": "08:02:00", "value": 0},   # not worn
+        {"time": "09:00:00", "value": 120},
+    ]
+
+    def mk_resp(body, status=200):
+        m = Mock()
+        m.status_code = status
+        m.json.return_value = body
+        return m
+
+    def side_effect(url, **_kw):
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": intraday_dataset}})
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day_str, "value": "500"}]})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-active-zone-minutes": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+
+    result = fetch_fitbit_date_range_for_user(user, day, day)
+
+    assert result == 1
+    row = FitbitData.objects(user=user).first()
+    assert row.max_heart_rate == 120
+    assert row.wear_time_minutes == 3  # 3 unique minute slots with HR > 0
+
+
+@patch("core.views.fitbit_sync.requests.get")
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok")
+def test_range_backfill_skips_wear_time_when_intraday_unavailable(mock_tok, mock_get):
+    """wear_time_minutes and max_heart_rate are NOT written when intraday returns non-200."""
+    user, _ = make_user_with_token()
+    import datetime as _dt
+
+    day = _dt.date.today() - _dt.timedelta(days=1)
+    day_str = day.strftime("%Y-%m-%d")
+
+    def mk_resp(body, status=200):
+        m = Mock()
+        m.status_code = status
+        m.json.return_value = body
+        return m
+
+    def side_effect(url, **_kw):
+        if "1d/1sec" in url:
+            return mk_resp({}, status=403)   # no intraday access
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day_str, "value": "800"}]})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-active-zone-minutes": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+
+    result = fetch_fitbit_date_range_for_user(user, day, day)
+
+    assert result == 1
+    row = FitbitData.objects(user=user).first()
+    # Fields must be absent (None) — not forced to null by the upsert
+    assert row.max_heart_rate is None
+    assert row.wear_time_minutes is None
+
+
+@patch("core.views.fitbit_sync.requests.get")
+@patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok")
+def test_range_backfill_skips_wear_time_when_intraday_empty(mock_tok, mock_get):
+    """wear_time_minutes is NOT written when intraday returns 200 but empty dataset."""
+    user, _ = make_user_with_token()
+    import datetime as _dt
+
+    day = _dt.date.today() - _dt.timedelta(days=1)
+    day_str = day.strftime("%Y-%m-%d")
+
+    def mk_resp(body, status=200):
+        m = Mock()
+        m.status_code = status
+        m.json.return_value = body
+        return m
+
+    def side_effect(url, **_kw):
+        if "1d/1sec" in url:
+            return mk_resp({"activities-heart-intraday": {"dataset": []}})  # empty
+        if "activities/steps" in url:
+            return mk_resp({"activities-steps": [{"dateTime": day_str, "value": "300"}]})
+        if "activities/heart" in url:
+            return mk_resp({"activities-heart": []})
+        if "active-zone-minutes" in url:
+            return mk_resp({"activities-active-zone-minutes": []})
+        if "/br/" in url:
+            return mk_resp({"br": []})
+        if "/hrv/" in url:
+            return mk_resp({"hrv": []})
+        if "/sleep/" in url:
+            return mk_resp({"sleep": []})
+        if "activities/list.json" in url:
+            return mk_resp({"activities": []})
+        return mk_resp({})
+
+    mock_get.side_effect = side_effect
+
+    result = fetch_fitbit_date_range_for_user(user, day, day)
+
+    assert result == 1
+    row = FitbitData.objects(user=user).first()
+    assert row.wear_time_minutes is None
+    assert row.max_heart_rate is None
