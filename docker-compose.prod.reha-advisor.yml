@@ -85,7 +85,7 @@ services:
       libretranslate:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      test: ["CMD", "wget", "-qO/dev/null", "http://localhost:8000/api/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -97,7 +97,7 @@ services:
     image: ${GHCR_IMAGE}-backend:${IMAGE_TAG:-latest}
     container_name: celery-prod
     restart: always
-    command: python -m celery -A api.celery:app worker --loglevel=info --statedb=/app/celery_worker.state -c 4
+    command: conda run --no-capture-output -n teleRehabApp python -m celery -A api.celery:app worker --loglevel=info -c 4
     volumes:
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -111,7 +111,6 @@ services:
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - CELERY_WORKER_PREFETCH_MULTIPLIER=4
-      - CELERY_WORKER_STATE_DB=/app/celery_worker.state
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.prod to activate
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf}
       - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www}
@@ -132,7 +131,7 @@ services:
     restart: always
     working_dir: /app
     command: >
-      python -m celery -A api.celery:app beat -l info
+      conda run --no-capture-output -n teleRehabApp python -m celery -A api.celery:app beat -l info
       --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - ./.env.prod
