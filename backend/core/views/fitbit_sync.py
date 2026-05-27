@@ -209,6 +209,32 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
                     }
                 )
 
+    # Intraday HR (1-sec) — one request per day.
+    # Requires Fitbit intraday access approval; silently skipped per day when
+    # the endpoint returns non-200 (e.g. 403 no intraday access) or empty data.
+    max_hr_map: dict[datetime.date, int] = {}
+    wear_time_map: dict[datetime.date, int] = {}
+    n_days = (end_date - start_date).days + 1
+    for offset in range(n_days):
+        d = start_date + datetime.timedelta(days=offset)
+        d_str = d.strftime("%Y-%m-%d")
+        r = requests.get(
+            f"{FITBIT_API_URL}/activities/heart/date/{d_str}/1d/1sec.json",
+            headers=headers,
+            timeout=20,
+        )
+        if r.status_code != 200:
+            continue
+        dataset = r.json().get("activities-heart-intraday", {}).get("dataset", [])
+        if not dataset:
+            continue
+        hr_values = [e.get("value", 0) for e in dataset if e.get("value", 0) > 0]
+        if hr_values:
+            max_hr_map[d] = max(hr_values)
+        worn_minutes = {e.get("time", "")[:5] for e in dataset if e.get("value", 0) > 0}
+        if worn_minutes:
+            wear_time_map[d] = len(worn_minutes)
+
     # Collect all dates with any data
     all_dates: set[datetime.date] = set()
     for m in series.values():
@@ -242,22 +268,27 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
 
         inactivity = max(0, 1440 - (active_minutes + sleep_min))
 
-        FitbitData.objects(user=user, date=dt).update_one(
-            set__steps=series["steps"].get(dt),
-            set__floors=series["floors"].get(dt),
-            set__distance=series["distance"].get(dt),
-            set__calories=series["calories"].get(dt),
-            set__resting_heart_rate=series["resting_heart_rate"].get(dt),
-            set__active_minutes=active_minutes,
-            set__active_zone_minutes=azm_breakdown.get(dt),
-            set__inactivity_minutes=inactivity,
-            set__heart_rate_zones=series["heart_rate_zones"].get(dt),
-            set__sleep=sleep_data.get(dt),
-            set__breathing_rate=breathing_data.get(dt),
-            set__hrv=hrv_data.get(dt),
-            set__exercise=exercise_data.get(dt, []),
-            upsert=True,
-        )
+        update_kwargs: dict = {
+            "set__steps": series["steps"].get(dt),
+            "set__floors": series["floors"].get(dt),
+            "set__distance": series["distance"].get(dt),
+            "set__calories": series["calories"].get(dt),
+            "set__resting_heart_rate": series["resting_heart_rate"].get(dt),
+            "set__active_minutes": active_minutes,
+            "set__active_zone_minutes": azm_breakdown.get(dt),
+            "set__inactivity_minutes": inactivity,
+            "set__heart_rate_zones": series["heart_rate_zones"].get(dt),
+            "set__sleep": sleep_data.get(dt),
+            "set__breathing_rate": breathing_data.get(dt),
+            "set__hrv": hrv_data.get(dt),
+            "set__exercise": exercise_data.get(dt, []),
+        }
+        if dt in max_hr_map:
+            update_kwargs["set__max_heart_rate"] = max_hr_map[dt]
+        if dt in wear_time_map:
+            update_kwargs["set__wear_time_minutes"] = wear_time_map[dt]
+
+        FitbitData.objects(user=user, date=dt).update_one(**update_kwargs, upsert=True)
         upserted += 1
 
     logger.info("[fitbit_range] backfilled %d days for user=%s (%s → %s)", upserted, user, start_str, end_str)
