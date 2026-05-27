@@ -833,7 +833,7 @@ def test_range_backfill_fills_wear_time_when_intraday_available(mock_tok, mock_g
     intraday_dataset = [
         {"time": "08:00:00", "value": 65},
         {"time": "08:01:00", "value": 70},
-        {"time": "08:02:00", "value": 0},   # not worn
+        {"time": "08:02:00", "value": 0},  # not worn
         {"time": "09:00:00", "value": 120},
     ]
 
@@ -890,7 +890,7 @@ def test_range_backfill_skips_wear_time_when_intraday_unavailable(mock_tok, mock
 
     def side_effect(url, **_kw):
         if "1d/1sec" in url:
-            return mk_resp({}, status=403)   # no intraday access
+            return mk_resp({}, status=403)  # no intraday access
         if "activities/steps" in url:
             return mk_resp({"activities-steps": [{"dateTime": day_str, "value": "800"}]})
         if "activities/heart" in url:
