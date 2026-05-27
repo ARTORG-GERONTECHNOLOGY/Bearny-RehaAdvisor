@@ -14,19 +14,24 @@ Patient device (Fitbit)
         ▼
 Fitbit Web API (api.fitbit.com)
         │
-   ┌────┴────────────────────────────────┐
-   │  Two fetch paths                    │
-   │                                     │
-   │  1. On-demand (view layer)          │
-   │     fitbit_summary view             │
-   │     → fetch_fitbit_today_for_user() │
-   │       (15-min cooldown guard)       │
-   │                                     │
-   │  2. Scheduled (Celery)              │
-   │     run_fetch_fitbit_data task      │
-   │     → fetch_fitbit_data command     │
-   │       (30-day backfill, no cooldown)│
-   └────────────────┬────────────────────┘
+   ┌────┴─────────────────────────────────────────┐
+   │  Three fetch paths                            │
+   │                                               │
+   │  1. On-demand today (view layer)              │
+   │     fitbit_summary view                       │
+   │     → fetch_fitbit_today_for_user()           │
+   │       (15-min cooldown guard)                 │
+   │                                               │
+   │  2. On-demand gap backfill (view layer)       │
+   │     fitbit_summary view — gap detection       │
+   │     → fetch_fitbit_date_range_for_user()      │
+   │       (triggered when historical days missing)│
+   │                                               │
+   │  3. Scheduled (Celery)                        │
+   │     run_fetch_fitbit_data task                │
+   │     → fetch_fitbit_data command               │
+   │       (30-day backfill, no cooldown)          │
+   └────────────────┬─────────────────────────────┘
                     ▼
               MongoDB (FitbitData)
                     │
@@ -137,7 +142,7 @@ Unique on `(user, date)`. All numeric fields are `None` when not yet received.
 
 ---
 
-## Data Fetch: Two Paths
+## Data Fetch: Three Paths
 
 ### 1. On-demand fetch (per page load)
 
@@ -193,7 +198,35 @@ fetch_fitbit_today_for_user(user, bypass_cooldown=True)
 
 ---
 
-### 2. Scheduled sync (Celery)
+### 2. On-demand gap backfill (per page load)
+
+**Entry point:** `fetch_fitbit_date_range_for_user(user, start_date, end_date)`
+**Source:** [core/views/fitbit_sync.py](../backend/core/views/fitbit_sync.py)
+
+Called from `fitbit_summary` whenever the requested view window has days missing from the DB. The gap detection runs **before** the main query response is built:
+
+1. Determine the window: `start_date` to `yesterday` (today's data is handled by path 1).
+2. Compare the set of dates already in `FitbitData` against the full expected set.
+3. If any dates are missing, call `fetch_fitbit_date_range_for_user(user, min_missing, max_missing)`.
+4. Re-query `FitbitData` so the response includes the freshly backfilled rows.
+
+The entire block is wrapped in `try/except` — a failure here never breaks the view response.
+
+**What this function fetches:**
+
+Same series-level endpoints as `fetch_fitbit_today_for_user` (steps, floors, distance, calories, active minutes, resting HR, HR zones, AZM, breathing rate, HRV, sleep, exercise), fetched as date-range requests in **one call per metric** (not per day). In addition it makes **one intraday-HR request per day** to derive `max_heart_rate` and `wear_time_minutes`:
+
+| Intraday endpoint | Fields derived |
+|---|---|
+| `activities/heart/date/{date}/1d/1sec` | `max_heart_rate` (peak HR value), `wear_time_minutes` (distinct minutes with HR > 0) |
+
+The intraday fetch is **optional**. If the Fitbit app has not been granted "Read Fitbit Intraday Data" access at the developer console level, the endpoint returns 403. If the device was not worn that day, the dataset is empty. In either case, `max_heart_rate` and `wear_time_minutes` are simply omitted from the upsert for that day — the rest of the fields are still saved.
+
+> **No cooldown guard.** Unlike `fetch_fitbit_today_for_user`, this function has no cooldown — it is only called when the DB actually has gaps, so it would block legitimate backfill unnecessarily if guarded.
+
+---
+
+### 3. Scheduled sync (Celery)
 
 **Entry points:**
 
@@ -246,7 +279,12 @@ OAuth callback. Not called by clients directly — Fitbit redirects here after u
 
 ### `GET /api/fitbit/summary/<patient_id>/`
 
-Main dashboard endpoint. Triggers an on-demand today-fetch (subject to the 15-minute cooldown), then returns a summary of the requested period.
+Main dashboard endpoint. On every request it:
+
+1. Triggers an on-demand today-fetch via `fetch_fitbit_today_for_user` (subject to the 15-minute cooldown).
+2. Checks for missing days in the requested window (`start` to yesterday). If any are absent from the DB, calls `fetch_fitbit_date_range_for_user` synchronously to backfill them before building the response.
+
+This two-step approach ensures both same-day currency and correct historical data the first time a patient opens the dashboard after a gap (e.g. the nightly sync ran before the Fitbit device synced its data to Fitbit's servers).
 
 **Query parameters:**
 
@@ -424,10 +462,36 @@ If a user's quota is exhausted (HTTP 429), all subsequent fetches within the coo
 
 ---
 
+### 2026-05-27 — Historical Fitbit data missing in patient view (#311 / #312)
+
+**Symptoms reported:**
+
+- Therapist view (`health-combined-history`) showed Fitbit data for the past week correctly.
+- Patient view (`fitbit_summary`) showed data only for today — all historical days appeared empty.
+
+**Root cause:**
+
+`fitbit_summary` only called `fetch_fitbit_today_for_user`, which syncs today's data. The nightly 30-day backfill Celery task (`run_fetch_fitbit_data`, 01:00 UTC) populated historical data. However, if a patient had their Fitbit device sync to Fitbit's cloud *after* the nightly job ran (e.g. by opening the Fitbit app in the morning), those historical days were absent from the DB. The therapist view read the DB directly and saw the correct data after the *following* night; the patient saw the gap immediately on the same day.
+
+**Fixes:**
+
+1. **On-demand gap backfill in `fitbit_summary`** (#311): Added gap-detection logic that compares existing `FitbitData` dates against the full requested window. Any missing historical days trigger a synchronous call to the new `fetch_fitbit_date_range_for_user` function before the response is built. The fix is transparent to the caller — the patient sees correct historical data on the first page load after the gap.
+
+2. **`wear_time_minutes` and `max_heart_rate` in range backfill** (#312): The original `fetch_fitbit_date_range_for_user` (added in #311) did not attempt the intraday HR endpoint. Extended in #312 to fetch `activities/heart/date/{date}/1d/1sec` per day and derive `wear_time_minutes` (distinct minutes with HR > 0) and `max_heart_rate`. Both fields are skipped silently when the endpoint returns 403 (app not approved for intraday access) or an empty dataset, so the fix is safe regardless of Fitbit developer console settings.
+
+> **Note on intraday access:** The Fitbit intraday HR endpoint requires app-level "Read Fitbit Intraday Data" approval from the Fitbit developer console — beyond the `heartrate` user OAuth scope. Existing user tokens do not need to be re-authorised; access is controlled at the app level. Until approved, these fields remain `None` in the range backfill (they are populated in `fetch_fitbit_today_for_user` via a separate code path that was already present).
+
+**Fix branches:** `311-fix-fitbit-patient-view` (merged to main), `312-backfill-wear-time`
+
+---
+
 ## Adding a New Fitbit Data Field
 
 1. **Add the field** to `FitbitData` in [core/models.py](../backend/core/models.py).
-2. **Fetch the data** in `fetch_fitbit_today_for_user` ([fitbit_sync.py](../backend/core/views/fitbit_sync.py)) and in the management command ([fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py)).
+2. **Fetch the data** in all three fetch paths:
+   - `fetch_fitbit_today_for_user` ([fitbit_sync.py](../backend/core/views/fitbit_sync.py)) — today-only, on-demand
+   - `fetch_fitbit_date_range_for_user` ([fitbit_sync.py](../backend/core/views/fitbit_sync.py)) — range backfill, on-demand when gaps detected
+   - Management command ([fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py)) — nightly 30-day bulk backfill
 3. **Expose it** in whichever endpoints need it (`fitbit_summary`, `get_fitbit_health_data`, `health_combined_history`).
 4. **Add tests** in [tests/fitbit_sync/test_fitbit_sync.py](../backend/tests/fitbit_sync/test_fitbit_sync.py) and [tests/fitbit_views/test_fitbit_views.py](../backend/tests/fitbit_views/test_fitbit_views.py).
 
@@ -439,7 +503,7 @@ MongoDB is schema-less, so no migration is needed — new fields are `None` in e
 
 | File | Purpose |
 |---|---|
-| [core/views/fitbit_sync.py](../backend/core/views/fitbit_sync.py) | `fetch_fitbit_today_for_user`, token refresh, cooldown guard |
+| [core/views/fitbit_sync.py](../backend/core/views/fitbit_sync.py) | `fetch_fitbit_today_for_user`, `fetch_fitbit_date_range_for_user`, token refresh, cooldown guard |
 | [core/views/fitbit_view.py](../backend/core/views/fitbit_view.py) | All Fitbit REST endpoints |
 | [core/management/commands/fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py) | 30-day bulk backfill command |
 | [core/tasks.py](../backend/core/tasks.py) | Celery tasks wrapping the above |
