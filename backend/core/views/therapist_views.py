@@ -85,8 +85,7 @@ def _latest_feedback_at(patient, questionnaire_last):
     )
     if latest_intervention_log:
         intervention_dt = _aware(
-            getattr(latest_intervention_log, "updatedAt", None)
-            or getattr(latest_intervention_log, "date", None)
+            getattr(latest_intervention_log, "updatedAt", None) or getattr(latest_intervention_log, "date", None)
         )
         if intervention_dt and (latest is None or intervention_dt > latest):
             latest = intervention_dt
