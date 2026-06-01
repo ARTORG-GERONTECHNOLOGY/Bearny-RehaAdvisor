@@ -61,7 +61,19 @@ def _thresholds_to_dict(thresholds):
 
 
 def _latest_feedback_at(patient, questionnaire_last):
-    latest = questionnaire_last
+    from django.utils import timezone as _tz
+
+    def _aware(dt):
+        if not isinstance(dt, datetime):
+            return None
+        if _tz.is_naive(dt):
+            try:
+                return _tz.make_aware(dt, _tz.get_current_timezone())
+            except Exception:
+                return _tz.make_aware(dt, _tz.utc)
+        return dt
+
+    latest = _aware(questionnaire_last) if questionnaire_last else None
 
     latest_intervention_log = (
         PatientInterventionLogs.objects(
@@ -72,15 +84,15 @@ def _latest_feedback_at(patient, questionnaire_last):
         .first()
     )
     if latest_intervention_log:
-        intervention_dt = getattr(latest_intervention_log, "updatedAt", None) or getattr(
-            latest_intervention_log, "date", None
+        intervention_dt = _aware(
+            getattr(latest_intervention_log, "updatedAt", None) or getattr(latest_intervention_log, "date", None)
         )
         if intervention_dt and (latest is None or intervention_dt > latest):
             latest = intervention_dt
 
     general_feedback = GeneralFeedback.objects(patient_id=patient).order_by("-createdAt").first()
     if general_feedback:
-        general_dt = getattr(general_feedback, "createdAt", None)
+        general_dt = _aware(getattr(general_feedback, "createdAt", None))
         if general_dt and (latest is None or general_dt > latest):
             latest = general_dt
 
