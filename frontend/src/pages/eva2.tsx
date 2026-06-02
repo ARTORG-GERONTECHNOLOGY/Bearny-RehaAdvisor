@@ -42,7 +42,7 @@ import '@/assets/styles/icf.css';
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
 const REAL_QUESTIONS = [
-  'Allgemeine Gesundheit und wie geht es Ihnen heute und in den letzten Tagen und warum?',
+  'Gesundheit, Befinden und Wohlbefinden allgemein',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
   'Die Toilette benutzen, das Blasenmanagement und die Urinausscheidung',
@@ -158,7 +158,9 @@ export default function HealthSlider() {
   const [isPracticeMode, setIsPracticeMode] = useState(
     () => localStorage.getItem('survey_index') === null
   );
-  const [testMode, setTestMode] = useState(true);
+  const [testMode, setTestMode] = useState(
+    () => localStorage.getItem('survey_index') === null && localStorage.getItem('survey_sessionId') === null
+  );
   const [showSummary, setShowSummary] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [patientId, setPatientId] = useState(() => {
@@ -462,7 +464,9 @@ export default function HealthSlider() {
     rec.onerror = (e) => handleRecorderErrorRef.current(e);
 
     recorderRef.current = rec;
-    rec.start(); // no timeslice -> complete file with header
+    // 250ms timeslice ensures chunks arrive periodically; fixes iOS/Safari where
+    // ondataavailable can fire after onstop when no timeslice is used.
+    rec.start(250);
     setIsRecording(true);
   }, []);
 
@@ -537,15 +541,13 @@ export default function HealthSlider() {
     const blob: Blob | null = await new Promise((resolve) => {
       try {
         rec.onstop = () => {
-          const chunks = chunksRef.current;
-          if (!chunks.length) return resolve(null);
-          resolve(new Blob(chunks, { type: blobType }));
+          // Give a brief tick for any final ondataavailable to fire (iOS Safari quirk)
+          setTimeout(() => {
+            const chunks = chunksRef.current;
+            if (!chunks.length) return resolve(null);
+            resolve(new Blob(chunks, { type: blobType }));
+          }, 50);
         };
-        try {
-          (rec as any).requestData?.();
-        } catch {
-          /* empty */
-        }
         rec.stop();
       } catch {
         resolve(null);
@@ -1098,8 +1100,9 @@ export default function HealthSlider() {
       {showSummary && (
         <EndScreen
           onEnd={() => {
-            localStorage.clear();
-            window.location.reload();
+            localStorage.removeItem('survey_index');
+            localStorage.removeItem('survey_sessionId');
+            localStorage.removeItem('patient_id');
           }}
         />
       )}

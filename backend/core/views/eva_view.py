@@ -287,7 +287,7 @@ def list_healthslider_items(request):
                 "audioSize": size,
                 "audioName": it.audio_name,
                 "audioMime": it.audio_mime,  # ✅ include to help UI if needed
-                "answeredAt": it.answered_at.isoformat() if it.answered_at else None,
+                "answeredAt": it.answered_at.strftime("%Y-%m-%dT%H:%M:%SZ") if it.answered_at else None,
             }
         )
 
