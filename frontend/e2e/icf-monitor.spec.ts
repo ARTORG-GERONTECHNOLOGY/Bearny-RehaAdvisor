@@ -428,7 +428,9 @@ test.describe('#329 — first real question text', () => {
     ).toBeVisible();
 
     // Old wording must be gone
-    await expect(page.getByText(/wie geht es Ihnen heute und in den letzten Tagen/i)).not.toBeVisible();
+    await expect(
+      page.getByText(/wie geht es Ihnen heute und in den letzten Tagen/i)
+    ).not.toBeVisible();
   });
 });
 
