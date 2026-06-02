@@ -44,11 +44,11 @@ describe('HealthSlider (Full Sync)', () => {
 
   // Helper to enter patient ID (since eva2 uses form, not prompt)
   const enterPatientId = async (patientId = 'P001-001T1') => {
-    const input = screen.getByPlaceholderText('P001-001T1');
+    const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: patientId } });
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     await waitFor(() => {
-      expect(screen.queryByText(/Patienten-ID eingeben/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Teilnehmer:in-ID' })).not.toBeInTheDocument();
     });
   };
 
@@ -618,17 +618,18 @@ describe('HealthSlider (Full Sync)', () => {
   });
 
   it('REC dot disappears after recording stops (summary screen)', async () => {
-    localStorage.setItem('survey_index', '28'); // last question
+    // Pre-seed a mid-survey state at the last question (#328: testMode skips StartScreen
+    // when survey_index exists, so mic is not started via the welcome screen).
+    localStorage.setItem('survey_index', '28');
+    localStorage.setItem('survey_sessionId', 'test-session');
+    localStorage.setItem('patient_id', 'P001-001T1');
     render(<HealthSlider />);
-    await enterPatientId();
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    // Survey opens directly at Q29 (no StartScreen, no mic) — REC dot not present
     await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
+    expect(screen.queryByLabelText('Aufnahme läuft')).not.toBeInTheDocument();
 
-    // REC dot should be visible while recorder is running
-    await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
-
-    // Wait for the 3s lock to lift
+    // Wait for the 3s lock to lift then submit the last answer
     await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
       timeout: 5000,
     });
@@ -636,21 +637,18 @@ describe('HealthSlider (Full Sync)', () => {
     const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
     fireEvent.click(track, { clientY: 0 });
 
-    // Wrap the click + async chain in act() so the full executeNextSafe promise chain
-    // (stopItemRecorder → uploadItem → setShowSummary) is flushed before we assert.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
-      // Drain microtasks so the mocked fetch and state updates complete
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });
 
+    // Summary screen appears and REC dot is still absent
     await waitFor(
       () => expect(screen.getByRole('button', { name: 'Beenden' })).toBeInTheDocument(),
       { timeout: 3000 }
     );
-
     expect(screen.queryByLabelText('Aufnahme läuft')).not.toBeInTheDocument();
   });
 
