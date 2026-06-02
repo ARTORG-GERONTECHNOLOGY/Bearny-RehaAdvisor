@@ -159,7 +159,9 @@ export default function HealthSlider() {
     () => localStorage.getItem('survey_index') === null
   );
   const [testMode, setTestMode] = useState(
-    () => localStorage.getItem('survey_index') === null && localStorage.getItem('survey_sessionId') === null
+    () =>
+      localStorage.getItem('survey_index') === null &&
+      localStorage.getItem('survey_sessionId') === null
   );
   const [showSummary, setShowSummary] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
