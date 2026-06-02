@@ -15,13 +15,9 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
       <FlowerSides />
 
       <img src={logoImage} alt="Logo" className="icf-logo" />
-      <h1 className="icf-heading">Patienten-ID</h1>
+      <h1 className="icf-heading">Teilnehmer:in-ID</h1>
 
       <div className="mt-6 max-w-2xl w-full">
-        <label htmlFor="patient-id-input" className="text-center mb-3.5 block">
-          Bitte geben Sie die Patienten-ID ein (Format: P001-001T1).
-        </label>
-
         <input
           id="patient-id-input"
           type="text"
@@ -30,7 +26,6 @@ export default function PatientIdScreen({ value, error, onChange, onSubmit }: Pr
           onKeyDown={(e) => {
             if (e.key === 'Enter') onSubmit();
           }}
-          placeholder="P001-001T1"
           autoFocus
           className={`icf-input max-w-sm mx-auto block${error ? ' icf-input--error' : ''}`}
         />
