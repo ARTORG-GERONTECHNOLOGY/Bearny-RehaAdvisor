@@ -32,14 +32,7 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
         </p>
 
         <p className="mb-3.5">
-          Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
-          <strong className="icf-accent">
-            <i>
-              {
-                '"Von sehr schlecht bis sehr gut, wie geht es in folgendem Bereich jetzt und in den letzten Tagen …"'
-              }
-            </i>
-          </strong>{' '}
+          Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie auf einer Skala{' '}
           <strong>
             <i>bewerten</i>
           </strong>{' '}
@@ -71,9 +64,8 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
         </p>
 
         <p className="mb-3.5">
-          Wir möchten Sie gerne daran erinnern, dass sich dieses Instrument in der Entwicklung
-          befindet und als interaktiver Fragebogen verstanden wird. Bei Bedarf an medizinischer
-          Unterstützung, wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
+          Dieses Instrument wird als interaktiver Fragebogen verstanden. Bei Bedarf an
+          medizinischer Unterstützung wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
         </p>
 
         <p className="mb-3.5">
