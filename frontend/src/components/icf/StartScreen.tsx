@@ -57,8 +57,8 @@ export default function StartScreen({ micError, onStart }: Props) {
         </p>
 
         <p className="mb-3.5">
-          Dieses Instrument wird als interaktiver Fragebogen verstanden. Bei Bedarf an
-          medizinischer Unterstützung wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
+          Dieses Instrument wird als interaktiver Fragebogen verstanden. Bei Bedarf an medizinischer
+          Unterstützung wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
         </p>
 
         <p className="mb-3.5">
