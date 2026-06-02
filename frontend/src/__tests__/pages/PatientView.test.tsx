@@ -313,7 +313,7 @@ describe('PatientView', () => {
     });
 
     const firstProps = (dailyCardMock as jest.Mock).mock.calls[0][0];
-    expect(firstProps.title).toBe('Your recommendations');
+    expect(firstProps.title).toBe('Todays Recommendation');
     expect(firstProps.badgeText).toBe('1/3');
     expect(firstProps.date).toBeInstanceOf(Date);
 
