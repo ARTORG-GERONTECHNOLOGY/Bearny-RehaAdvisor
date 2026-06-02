@@ -25,11 +25,12 @@ async function mockAudioAPIs(page: Page) {
       },
     });
 
-    // Mock MediaRecorder
+    // Mock MediaRecorder — records the timeslice passed to start() for assertions
     class FakeMediaRecorder extends EventTarget {
       static isTypeSupported(mime: string) {
         return mime.includes('webm') || mime.includes('mp4');
       }
+      static lastStartTimeslice: number | undefined = undefined;
       mimeType: string;
       ondataavailable: ((ev: any) => void) | null = null;
       onstop: (() => void) | null = null;
@@ -37,17 +38,43 @@ async function mockAudioAPIs(page: Page) {
         super();
         this.mimeType = opts?.mimeType ?? 'audio/webm';
       }
-      start() {}
+      start(timeslice?: number) {
+        FakeMediaRecorder.lastStartTimeslice = timeslice;
+      }
       stop() {
         if (this.ondataavailable) {
           this.ondataavailable({ data: new Blob(['x'], { type: this.mimeType }), size: 1 });
         }
-        if (this.onstop) this.onstop();
+        // Simulate slight async delay before onstop (mirrors real browser behaviour)
+        setTimeout(() => {
+          if (this.onstop) this.onstop();
+        }, 10);
       }
       requestData() {}
     }
     (window as any).MediaRecorder = FakeMediaRecorder;
+    (window as any).FakeMediaRecorder = FakeMediaRecorder;
   });
+}
+
+/**
+ * Pre-seed localStorage to simulate a mid-survey state so the page
+ * opens directly at the given question index without going through
+ * the start screen or practice mode.
+ */
+async function seedMidSurveyState(
+  page: Page,
+  opts: { questionIndex?: number; patientId?: string } = {}
+) {
+  const { questionIndex = 0, patientId = 'P01-001T1' } = opts;
+  await page.addInitScript(
+    ({ idx, pid, sid }) => {
+      localStorage.setItem('survey_index', String(idx));
+      localStorage.setItem('survey_sessionId', sid);
+      localStorage.setItem('patient_id', pid);
+    },
+    { idx: questionIndex, pid: patientId, sid: `seeded_session_${Date.now()}` }
+  );
 }
 
 /** Navigate to /icf with a patient ID already provided in the URL (skips ID-entry screen). */
@@ -74,12 +101,21 @@ async function stubSubmitItem(page: Page) {
 // ---------------------------------------------------------------------------
 
 test.describe('ICF Monitor — patient ID entry', () => {
-  test('shows ID entry form when no patient ID is in the URL', async ({ page }) => {
+  // #327 — heading renamed from "Patienten-ID" to "Teilnehmer:in-ID"
+  test('shows Teilnehmer:in-ID heading when no patient ID is in the URL', async ({ page }) => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await expect(page.getByRole('heading', { name: 'Patienten-ID' })).toBeVisible();
-    await expect(page.getByPlaceholder('P001-001T1')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).toBeVisible();
+  });
+
+  // #327 — format hint label removed to prevent unauthorised access
+  test('does not show the format hint label on the ID entry screen', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await page.goto('/icf');
+
+    await expect(page.getByText(/Format.*P001/i)).not.toBeVisible();
+    await expect(page.getByText(/Patienten-ID/i)).not.toBeVisible();
   });
 
   test('accepts /icf/:patientId URL and skips the ID form', async ({ page }) => {
@@ -91,11 +127,11 @@ test.describe('ICF Monitor — patient ID entry', () => {
     await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
   });
 
-  test('validates that the ID must start with P followed by digits', async ({ page }) => {
+  test('validates that the ID must match the expected format', async ({ page }) => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await page.getByPlaceholder('P001-001T1').fill('BADID');
+    await page.getByRole('textbox').fill('BADID');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await expect(page.getByText(/ID muss dem Format/)).toBeVisible();
@@ -105,7 +141,7 @@ test.describe('ICF Monitor — patient ID entry', () => {
     await mockAudioAPIs(page);
     await page.goto('/icf');
 
-    await page.getByPlaceholder('P001-001T1').fill('P001-001T1');
+    await page.getByRole('textbox').fill('P001-001T1');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
@@ -368,5 +404,156 @@ test.describe('ICF Monitor — item audio playback', () => {
       .toBeGreaterThanOrEqual(2);
 
     await expect(page.getByText(/Audio kann nicht abgespielt werden/i)).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for issues #324–#329
+// ---------------------------------------------------------------------------
+
+test.describe('#329 — first real question text', () => {
+  test('first real question is the topic form, not the old question form', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+    await gotoWithPatientId(page);
+    await startMicAndPractice(page);
+
+    // Advance from practice mode into the real survey
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // New wording (#329)
+    await expect(
+      page.getByRole('heading', { name: 'Gesundheit, Befinden und Wohlbefinden allgemein' })
+    ).toBeVisible();
+
+    // Old wording must be gone
+    await expect(page.getByText(/wie geht es Ihnen heute und in den letzten Tagen/i)).not.toBeVisible();
+  });
+});
+
+test.describe('#327 — Teilnehmer:in-ID and end-screen behaviour', () => {
+  test('ID entry screen shows Teilnehmer:in-ID heading without format hint', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await page.goto('/icf');
+
+    await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).toBeVisible();
+    // Format hint and old "Patienten-ID" label must not be present
+    await expect(page.getByText(/Patienten-ID/)).not.toBeVisible();
+    await expect(page.getByText(/P001-001T1/)).not.toBeVisible();
+  });
+
+  test('clicking Beenden stays on the thank-you screen and does not redirect to ID entry', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    // Seed localStorage so the page opens on the last question directly (#328 helper)
+    await seedMidSurveyState(page, { questionIndex: 28, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    // The last question should be visible (question 29/29)
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // Wait for the 3-second lock to lift, then submit the last answer
+    const naBtn = page.getByRole('button', { name: 'Kann ich nicht beantworten' });
+    await expect(naBtn).toBeEnabled({ timeout: 5000 });
+    await naBtn.click();
+
+    // End screen should appear
+    await expect(page.getByText('Vielen Dank')).toBeVisible({ timeout: 5000 });
+
+    // Click Beenden
+    await page.getByRole('button', { name: 'Beenden' }).click();
+
+    // Must stay on the thank-you screen — no redirect to ID entry
+    await expect(page.getByText('Vielen Dank')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).not.toBeVisible();
+  });
+});
+
+test.describe('#328 — refresh mid-survey resumes at the saved question', () => {
+  test('opens directly on the saved question when survey_index is in localStorage', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    // Simulate a mid-survey state at question index 5 (question 6/29)
+    await seedMidSurveyState(page, { questionIndex: 5, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    // Should skip StartScreen entirely and show the survey at question 6
+    await expect(page.getByText('Willkommen')).not.toBeVisible();
+    await expect(page.getByText('ÜBUNGSMODUS')).not.toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // Progress counter should reflect the saved position
+    await expect(page.getByText('6')).toBeVisible();
+  });
+
+  test('shows the StartScreen when no saved survey progress exists', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await gotoWithPatientId(page);
+
+    // Fresh visit — no localStorage — should land on the welcome screen
+    await expect(page.getByText('Willkommen')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
+  });
+});
+
+test.describe('#325 / #326 — updated start and info screen texts', () => {
+  test('StartScreen shows simplified scale description without the old question phrasing', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await gotoWithPatientId(page);
+
+    await expect(page.getByText('Willkommen')).toBeVisible();
+    // New wording
+    await expect(page.getByText(/auf einer Skala/i)).toBeVisible();
+    // Old "Von sehr schlecht bis sehr gut …" question form must be gone
+    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).not.toBeVisible();
+  });
+
+  test('InfoScreen shows simplified scale description without the old question phrasing', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+    await gotoWithPatientId(page);
+    await startMicAndPractice(page);
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // Open info overlay
+    await page.getByRole('button', { name: 'Information' }).click();
+    await expect(page.getByRole('heading', { name: 'Information' })).toBeVisible();
+
+    // New wording
+    await expect(page.getByText(/auf einer Skala/i)).toBeVisible();
+    // Old "Von sehr schlecht bis sehr gut …" question form must be gone
+    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).not.toBeVisible();
+  });
+});
+
+test.describe('#324 — MediaRecorder started with timeslice', () => {
+  test('recorder is started with a 250ms timeslice to prevent empty blobs on iOS', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+    await gotoWithPatientId(page);
+
+    // Click start — this triggers startMic() → startItemRecorder() → rec.start(250)
+    await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
+
+    // Read the timeslice that was passed to FakeMediaRecorder.start()
+    const timeslice = await page.evaluate(
+      () => (window as any).FakeMediaRecorder?.lastStartTimeslice
+    );
+    expect(timeslice).toBe(250);
   });
 });
