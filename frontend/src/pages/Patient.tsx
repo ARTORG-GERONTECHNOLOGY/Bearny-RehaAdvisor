@@ -126,7 +126,7 @@ const PatientView: React.FC = observer(() => {
       <div className="mt-28 flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:items-start">
         <DailyInterventionCard
           date={today}
-          title={t('Your recommendations')}
+          title={t('Todays Recommendation')}
           badgeText={completionBadge}
           onOpenIntervention={(rec, date) =>
             navigate(
