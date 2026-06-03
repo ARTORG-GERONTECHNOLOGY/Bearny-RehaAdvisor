@@ -88,24 +88,24 @@ teardown() { teardown_repo; }
 # Media backup
 # ---------------------------------------------------------------------------
 
-@test "django-prod not running skips media and exits 0" {
-    export MOCK_DOCKER_CONTAINERS="db-prod"  # no django-prod
+@test "media backup is skipped with a message (volume too large for CI)" {
+    export MOCK_DOCKER_CONTAINERS="db-prod django-prod"
     run bash "$REPO_DIR/scripts/backup.sh"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"skipping media backup"* ]]
+    [[ "$output" == *"Media backup skipped"* ]]
     local count
     count=$(ls "$REPO_DIR/backups/media_"*.tar.gz 2>/dev/null | wc -l)
     [ "$count" -eq 0 ]
 }
 
-@test "full backup with all containers creates all three files" {
+@test "full backup creates mongodb and sqlite files but no media archive" {
     export MOCK_DOCKER_CONTAINERS="db-prod django-prod"
     touch "$REPO_DIR/data/db.sqlite3"
     run bash "$REPO_DIR/scripts/backup.sh"
     [ "$status" -eq 0 ]
     [ "$(ls "$REPO_DIR/backups/mongodb_"*.archive 2>/dev/null | wc -l)" -eq 1 ]
     [ "$(ls "$REPO_DIR/backups/sqlite_"*.db 2>/dev/null | wc -l)" -eq 1 ]
-    [ "$(ls "$REPO_DIR/backups/media_"*.tar.gz 2>/dev/null | wc -l)" -eq 1 ]
+    [ "$(ls "$REPO_DIR/backups/media_"*.tar.gz 2>/dev/null | wc -l)" -eq 0 ]
 }
 
 # ---------------------------------------------------------------------------
