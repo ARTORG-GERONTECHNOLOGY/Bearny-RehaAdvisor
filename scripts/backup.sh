@@ -86,10 +86,13 @@ echo -e "${YELLOW}[1/3] MongoDB backup...${NC}"
 if ! docker ps --format '{{.Names}}' | grep -q "^db-prod$"; then
     echo -e "${RED}✗ MongoDB container (db-prod) is not running — skipping${NC}" | tee -a "$BACKUP_LOG"
 else
-    # Pipe mongodump stdout to a host file — the only correct way with --archive
+    # Pipe mongodump stdout to a host file — the only correct way with --archive.
+    # --tls + --tlsAllowInvalidCertificates required because db-prod runs with
+    # tlsMode=requireTLS (self-signed cert).
     # shellcheck disable=SC2086
     if docker exec db-prod mongodump \
             --archive --gzip \
+            --ssl --tlsInsecure \
             $MONGO_AUTH_ARGS \
             2>>"$BACKUP_LOG" > "$MONGODB_BACKUP"; then
         MONGO_SIZE=$(du -h "$MONGODB_BACKUP" | cut -f1)
@@ -125,18 +128,8 @@ fi
 # ---------------------------------------------------------------------------
 echo -e "${YELLOW}[3/3] Media backup...${NC}"
 
-if ! docker ps --format '{{.Names}}' | grep -q "^django-prod$"; then
-    echo -e "${YELLOW}  django-prod not running — skipping media backup${NC}"
-else
-    if docker exec django-prod tar -czf - /srv/app/media 2>>"$BACKUP_LOG" > "$MEDIA_BACKUP"; then
-        MEDIA_SIZE=$(du -h "$MEDIA_BACKUP" | cut -f1)
-        echo -e "${GREEN}✓ Media backup: $MEDIA_BACKUP ($MEDIA_SIZE)${NC}"
-        MEDIA_OK=true
-    else
-        echo -e "${RED}✗ Media backup failed — check $BACKUP_LOG${NC}"
-        rm -f "$MEDIA_BACKUP"
-    fi
-fi
+echo -e "${YELLOW}  Media backup skipped — volume is too large for CI deploy steps.${NC}"
+echo -e "${YELLOW}  Back up media manually when needed.${NC}"
 
 # ---------------------------------------------------------------------------
 # Fail if MongoDB backup (the critical one) did not succeed
