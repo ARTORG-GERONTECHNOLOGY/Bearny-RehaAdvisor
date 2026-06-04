@@ -15,11 +15,12 @@
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
  *                         participantId, sessionId, questionIndex, answerValue, and the
  *                         recorded audio Blob (webm or m4a depending on browser).
- * 5. Summary / end      — shown after the last question; "Beenden" clears localStorage.
+ * 5. Summary / end      — shown after the last question; localStorage is cleared immediately
+ *                         before the end screen renders (no "Beenden" button).
  *
  * Persistence (localStorage)
  * --------------------------
- * patient_id        — survives page reloads; cleared at survey end ("Beenden").
+ * patient_id        — survives page reloads; cleared when the last answer is submitted.
  * survey_index      — allows resuming mid-survey after accidental reload.
  * survey_sessionId  — groups all answers for a single sitting.
  *
@@ -688,6 +689,9 @@ export default function HealthSlider() {
       setSliderPosition(50);
       setSliderMoved(false);
     } else {
+      localStorage.removeItem('survey_index');
+      localStorage.removeItem('survey_sessionId');
+      localStorage.removeItem('patient_id');
       setShowSummary(true);
       stopAll();
     }
@@ -735,6 +739,9 @@ export default function HealthSlider() {
           }
         }, 0);
       } else {
+        localStorage.removeItem('survey_index');
+        localStorage.removeItem('survey_sessionId');
+        localStorage.removeItem('patient_id');
         setShowSummary(true);
         stopAll();
       }
@@ -1104,13 +1111,7 @@ export default function HealthSlider() {
       )}
 
       {showSummary && (
-        <EndScreen
-          onEnd={() => {
-            localStorage.removeItem('survey_index');
-            localStorage.removeItem('survey_sessionId');
-            localStorage.removeItem('patient_id');
-          }}
-        />
+        <EndScreen />
       )}
 
       {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}

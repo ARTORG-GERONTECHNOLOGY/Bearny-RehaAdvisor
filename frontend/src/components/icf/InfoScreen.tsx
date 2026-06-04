@@ -24,25 +24,23 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
 
       <div className="mt-6 max-w-2xl">
         <p className="mb-3.5">
-          Der{' '}
-          <strong>
+          Das <strong>
             <i>FunktionsBarometer</i>
           </strong>{' '}
           ist ein interaktives Instrument zur Erhebung Ihrer Funktionsfähigkeit.
         </p>
 
         <p className="mb-3.5">
-          Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie auf einer Skala{' '}
+          Dafür nennen wir Ihnen Themen und Bereiche, welche Sie mit der Frage{' '}
           <strong>
-            <i>bewerten</i>
+            <i>“Von sehr schlecht bis sehr gut, wie geht es in dem folgenden Bereich, jetzt und in den letzten Tagen  … “</i>
           </strong>{' '}
-          dürfen.
-          <br />
-          Erklären Sie uns Ihre Bewertung, indem Sie einfach{' '}
-          <strong>
-            <i>frei erzählen</i>
-          </strong>
-          .
+          bewerten dürfen.
+        </p>
+
+        <p className="mb-3.5">
+          Zuerst dürfen Sie den Bereich auf der Skala bewerten. Danach erklären Sie uns Ihre Bewertung,
+          indem Sie frei dazu erzählen.
         </p>
 
         <div className="mb-3.5">
@@ -60,16 +58,18 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
           <strong>
             <i>verschlüsselt übermittelt</i>
           </strong>
-          , nennen Sie dennoch bitte keine Namen oder andere identifizierende Merkmale.
+          , nennen Sie dennoch, wenn möglich bitte keine Namen oder andere identifizierenden
+          Merkmale.
         </p>
 
         <p className="mb-3.5">
-          Dieses Instrument wird als interaktiver Fragebogen verstanden. Bei Bedarf an medizinischer
-          Unterstützung wenden Sie sich bitte an Ihre/n behandelnde/n Ärztin/Arzt.
+          Wir möchten Sie gerne daran erinnern, dass dieses Instrument als interaktiver Fragebogen
+          verstanden wird. Wenn Sie ergänzend medizinische Unterstützung wünschen, wenden Sie sich
+          bitte an Ihre/n behandelnde/n Ärztin/Arzt.
         </p>
 
         <p className="mb-3.5">
-          Die Informationen von dieser Seite können jederzeit über den{' '}
+          Die Informationen von dieser Seite können jeder Zeit über den{' '}
           <strong>
             <i>hellgrünen Infobutton</i>
           </strong>{' '}
