@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from collections import defaultdict
 from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
@@ -27,32 +26,33 @@ class WearablesSyncError(ValueError):
         self.code = code
 
 
-# How many weeks to take from each end of the follow-up period
-BASELINE_WEEKS = 4
-FOLLOWUP_WEEKS = 4
+# ---------------------------------------------------------------------------
+# Window definitions (days relative to first Fitbit measurement date, 1-indexed)
+# ---------------------------------------------------------------------------
+BASELINE_DAY_START = 8    # first 7 days are excluded (device calibration / habituation)
+BASELINE_DAY_END = 28
+FOLLOWUP_DAY_START = 150
+FOLLOWUP_DAY_END = 180
 
-# Per-project configuration for longitudinal REDCap projects.
-# Override event names with REDCAP_WEARABLES_EVENT_BASELINE / FOLLOWUP env vars.
-#
-# sleep_duration_format:
-#   "hours_int"  — integer 0-24  (COMPASS: text integer, Max: 24)
-#   "hhmm"       — "HH:MM" time  (COPAIN:  text time,    Max: 23:59)
+# Validity thresholds
+MIN_WEAR_MINUTES = 600    # 10 hours — minimum for a valid activity day
+MIN_SLEEP_MINUTES = 180   # 3 hours  — minimum for a valid sleep night
+
+# Day-selection targets per window
+MAX_WEEKDAYS = 5
+MAX_WEEKENDS = 2
+
+# Per-project REDCap configuration
 _PROJECT_CONFIG: Dict[str, Dict[str, str]] = {
     "COMPASS": {
         "baseline": "visit_baseline_arm_1",
         "followup": "visit_6m_arm_1",
         "sleep_duration_format": "hours_int",
-        # Baseline data collected after discharge (outpatient rehab).
-        "baseline_anchor": "after_reha_end",
     },
     "COPAIN": {
         "baseline": "t0_at_disch_arm_1",
         "followup": "t2_six_months_afte_arm_1",
         "sleep_duration_format": "hhmm",
-        # Baseline data collected during the last weeks of the hospital stay,
-        # i.e. BEFORE discharge (reha_end_date). The window is
-        # [reha_end - BASELINE_WEEKS, reha_end).
-        "baseline_anchor": "before_reha_end",
     },
 }
 
@@ -60,48 +60,89 @@ _PROJECT_CONFIG: Dict[str, Dict[str, str]] = {
 _PROJECT_EVENTS = _PROJECT_CONFIG
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _as_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=dt_tz.utc)
     return dt.astimezone(dt_tz.utc)
 
 
-def _fmt_dmy(dt: datetime) -> str:
-    """Format date as YYYY-MM-DD — REDCap import always requires Y-M-D regardless of field display format."""
-    return dt.strftime("%Y-%m-%d")
-
-
-def _pick_best_wear_week(
-    records: List[FitbitData],
-) -> Optional[Tuple[datetime, datetime, List[FitbitData]]]:
-    """
-    Group records by ISO week, return (week_start, week_end, records) for the
-    week with the highest total wear_time_minutes.
-    """
-    if not records:
+def _record_date(r: FitbitData):
+    """Return the date part of a FitbitData record as a datetime.date."""
+    d = r.date
+    if d is None:
         return None
+    if hasattr(d, "date"):
+        return _as_utc(d).date()
+    return d
 
-    weeks: Dict[Tuple[int, int], List[FitbitData]] = defaultdict(list)
-    for r in records:
-        if r.date is None:
-            continue
-        iso = _as_utc(r.date).isocalendar()
-        weeks[(iso[0], iso[1])].append(r)
 
-    if not weeks:
+def _find_first_measurement_date(user) -> Optional[datetime.date]:
+    """Return the earliest calendar date that has any Fitbit data for *user*."""
+    first = FitbitData.objects(user=user).order_by("date").first()
+    if not first:
         return None
-
-    best_key = max(weeks, key=lambda k: sum((r.wear_time_minutes or 0) for r in weeks[k]))
-    best_records = weeks[best_key]
-    dates = sorted(_as_utc(r.date) for r in best_records if r.date)
-    return dates[0], dates[-1], best_records
+    return _record_date(first)
 
 
-def _sleep_minutes_raw(r: FitbitData) -> Optional[float]:
-    """Return sleep duration in fractional minutes (intermediate unit for averaging)."""
+def _is_valid_activity_day(r: FitbitData) -> bool:
+    """A day is valid for activity aggregation if wear_time_minutes >= 10 h."""
+    return (r.wear_time_minutes or 0) >= MIN_WEAR_MINUTES
+
+
+def _is_valid_sleep_night(r: FitbitData) -> bool:
+    """A night is valid for sleep aggregation if sleep >= 3 h."""
     try:
-        if r.sleep and r.sleep.sleep_duration:
-            return r.sleep.sleep_duration / 60_000  # ms → minutes
+        if r.sleep is None:
+            return False
+        mins = r.sleep.minutes_asleep
+        if mins is None:
+            dur_ms = r.sleep.sleep_duration or 0
+            mins = dur_ms / 60_000
+        return (mins or 0) >= MIN_SLEEP_MINUTES
+    except Exception:
+        return False
+
+
+def _split_weekday_weekend(
+    records: List[FitbitData],
+    max_weekdays: int = MAX_WEEKDAYS,
+    max_weekends: int = MAX_WEEKENDS,
+) -> Tuple[List[FitbitData], List[FitbitData]]:
+    """
+    Sort records chronologically, then greedily pick up to *max_weekdays*
+    weekdays (Mon–Fri) and *max_weekends* weekend days (Sat–Sun).
+    Returns (selected_weekdays, selected_weekends).
+    """
+    sorted_records = sorted(
+        (r for r in records if _record_date(r) is not None),
+        key=lambda r: _record_date(r),
+    )
+    weekdays: List[FitbitData] = []
+    weekends: List[FitbitData] = []
+    for r in sorted_records:
+        dow = _record_date(r).weekday()  # Monday=0, Sunday=6
+        if dow < 5:
+            if len(weekdays) < max_weekdays:
+                weekdays.append(r)
+        else:
+            if len(weekends) < max_weekends:
+                weekends.append(r)
+    return weekdays, weekends
+
+
+def _sleep_minutes(r: FitbitData) -> Optional[float]:
+    """Return sleep duration in minutes (preferred: minutes_asleep; fallback: sleep_duration ms)."""
+    try:
+        if r.sleep is None:
+            return None
+        if r.sleep.minutes_asleep is not None:
+            return float(r.sleep.minutes_asleep)
+        if r.sleep.sleep_duration:
+            return r.sleep.sleep_duration / 60_000
     except Exception:
         pass
     return None
@@ -114,106 +155,159 @@ def _format_sleep(avg_minutes: float, fmt: str) -> str:
         hh = total_min // 60
         mm = total_min % 60
         return f"{hh:02d}:{mm:02d}"
-    else:  # "hours_int" — COMPASS expects integer 0-24
-        return str(int(round(avg_minutes / 60)))
+    # "hours_int" — COMPASS expects integer 0-24
+    return str(int(round(avg_minutes / 60)))
 
 
-def _compute_averages(records: List[FitbitData], sleep_fmt: str) -> Dict[str, Any]:
-    steps = [r.steps for r in records if r.steps is not None]
-    # active_minutes stores Active Zone Minutes (AZM) — Fitbit's weighted formula
-    # (moderate × 1 + vigorous × 2), matching the REDCap fitbit_pa description.
-    active_min = [r.active_minutes for r in records if r.active_minutes is not None]
-    inactive_min = [r.inactivity_minutes for r in records if r.inactivity_minutes is not None]
-    sleep_min = [m for r in records for m in [_sleep_minutes_raw(r)] if m is not None]
+def _fmt_date(d) -> str:
+    """Format a date as YYYY-MM-DD for REDCap."""
+    if hasattr(d, "strftime"):
+        return d.strftime("%Y-%m-%d")
+    return str(d)
 
-    def _avg_int(vals: list) -> Optional[int]:
-        return round(sum(vals) / len(vals)) if vals else None
 
-    result: Dict[str, Any] = {
-        "fitbit_steps": _avg_int(steps),
-        "fitbit_pa": _avg_int(active_min),
-        "fitbit_inactivity": _avg_int(inactive_min),
-    }
-    if sleep_min:
-        result["sleep_duration"] = _format_sleep(sum(sleep_min) / len(sleep_min), sleep_fmt)
-    return result
-
+# ---------------------------------------------------------------------------
+# Core summarization
+# ---------------------------------------------------------------------------
 
 def _summarize_period(
-    user: Any, period_start: datetime, period_end: datetime, sleep_fmt: str
+    user: Any,
+    window_start: datetime.date,
+    window_end: datetime.date,
+    sleep_fmt: str,
 ) -> Optional[Dict[str, Any]]:
+    """
+    Apply the aggregation spec for a single monitoring window.
+
+    Activity (independent of sleep):
+      1. Fetch all records in window.
+      2. Keep valid activity days (wear_time_minutes >= 600).
+      3. Select earliest 5 weekdays + 2 weekend days.
+      4. Compute means for steps, active_minutes, inactivity_minutes.
+
+    Sleep (independent of activity):
+      1. Same set of records.
+      2. Keep valid sleep nights (sleep >= 180 min).
+      3. Select earliest 5 weekday nights + 2 weekend nights.
+      4. Compute mean sleep duration.
+
+    Returns None when no valid days or nights exist in the window.
+    """
+    start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
+    end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
+
     records = list(
         FitbitData.objects(
             user=user,
-            date__gte=period_start,
-            date__lt=period_end,
+            date__gte=start_dt,
+            date__lte=end_dt,
         ).order_by("date")
     )
+
     if not records:
         return None
 
-    best = _pick_best_wear_week(records)
-    if not best:
+    # ── Activity selection ──────────────────────────────────────────────────
+    valid_activity = [r for r in records if _is_valid_activity_day(r)]
+    act_weekdays, act_weekends = _split_weekday_weekend(valid_activity)
+    selected_activity = act_weekdays + act_weekends
+
+    # ── Sleep selection ─────────────────────────────────────────────────────
+    valid_sleep = [r for r in records if _is_valid_sleep_night(r)]
+    sleep_weekdays, sleep_weekends = _split_weekday_weekend(valid_sleep)
+    selected_sleep = sleep_weekdays + sleep_weekends
+
+    if not selected_activity and not selected_sleep:
         return None
 
-    week_start, week_end, week_records = best
-    avgs = _compute_averages(week_records, sleep_fmt)
-    return {
-        # date_dmy format required by REDCap
-        "monitoring_start": _fmt_dmy(week_start),
-        "monitoring_end": _fmt_dmy(week_end),
-        "monitoring_days": len(week_records),
-        **avgs,
+    result: Dict[str, Any] = {
+        "monitoring_start": _fmt_date(window_start),
+        "monitoring_end": _fmt_date(window_end),
+        # Valid day / night counts
+        "valid_week_days": len(act_weekdays),
+        "valid_weekend_days": len(act_weekends),
+        "valid_week_nights": len(sleep_weekdays),
+        "valid_weekend_nights": len(sleep_weekends),
     }
 
+    # ── Activity means ──────────────────────────────────────────────────────
+    if selected_activity:
+        steps = [r.steps for r in selected_activity if r.steps is not None]
+        pa = [r.active_minutes for r in selected_activity if r.active_minutes is not None]
+        inact = [r.inactivity_minutes for r in selected_activity if r.inactivity_minutes is not None]
+
+        if steps:
+            result["fitbit_steps"] = round(sum(steps) / len(steps))
+        if pa:
+            result["fitbit_pa"] = round(sum(pa) / len(pa))
+        if inact:
+            result["fitbit_inactivity"] = round(sum(inact) / len(inact))
+
+    # ── Sleep means ─────────────────────────────────────────────────────────
+    if selected_sleep:
+        sleep_mins = [m for r in selected_sleep for m in [_sleep_minutes(r)] if m is not None]
+        if sleep_mins:
+            result["sleep_duration"] = _format_sleep(sum(sleep_mins) / len(sleep_mins), sleep_fmt)
+
+        # sleep_score is not yet available via Fitbit REST API for standard OAuth apps.
+        # Placeholder so the field is present when it becomes available.
+        result["sleep_score"] = None
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     """
-    Compute wearables summaries for two periods:
-      - baseline:  first BASELINE_WEEKS weeks after reha_end_date
-      - followup:  last FOLLOWUP_WEEKS weeks before study_end_date
-                   (or 26 weeks after reha_end_date if study_end_date is unset)
+    Compute wearables summaries for baseline and follow-up periods using the
+    protocol-specified windows anchored to the first Fitbit measurement date.
 
-    sleep_duration format is determined per project:
-      COMPASS → integer hours (0-24)
-      COPAIN  → HH:MM time string
+    Baseline  (visit_baseline): Day 8–28 after first measurement
+    Follow-up (visit_6m):       Day 150–180 after first measurement
 
-    Returns {"baseline": {...} or None, "followup": {...} or None}
-    Raises ValueError if patient has no reha_end_date or userId.
+    The first 7 days after Fitbit activation are excluded to allow
+    device habituation.
+
+    Returns {"baseline": {...} or None, "followup": {...} or None}.
+    Raises WearablesSyncError if no Fitbit data exists for the patient.
     """
-    if not patient.reha_end_date:
+    try:
+        user = patient.userId
+    except Exception as e:
+        raise ValueError(
+            f"Could not resolve userId for patient {patient.patient_code}: {e}"
+        ) from e
+
+    first_date = _find_first_measurement_date(user)
+    if not first_date:
         raise WearablesSyncError(
-            f"Patient {patient.patient_code} is missing the Rehabilitation End Date. "
-            "Please set it in the patient profile before syncing.",
-            code="wearables_missing_reha_end_date",
+            f"No Fitbit data found for patient {patient.patient_code}. "
+            "The device must be worn before wearables can be exported to REDCap.",
+            code="wearables_no_fitbit_data",
         )
 
     project_name = (patient.project or "").strip().upper()
     proj_cfg = _PROJECT_CONFIG.get(project_name, {})
     sleep_fmt = proj_cfg.get("sleep_duration_format", "hours_int")
 
-    reha_end = _as_utc(patient.reha_end_date)
-    study_end_raw = patient.study_end_date
-    study_end = _as_utc(study_end_raw) if study_end_raw else reha_end + timedelta(weeks=26)
+    # Day N means first_date + (N-1) days  →  Day 8 = first_date + 7
+    baseline_start = first_date + timedelta(days=BASELINE_DAY_START - 1)
+    baseline_end = first_date + timedelta(days=BASELINE_DAY_END - 1)
+    followup_start = first_date + timedelta(days=FOLLOWUP_DAY_START - 1)
+    followup_end = first_date + timedelta(days=FOLLOWUP_DAY_END - 1)
 
-    # baseline_anchor controls which side of reha_end_date to scan.
-    # "before_reha_end" — data collected before discharge (e.g. COPAIN in-hospital).
-    # "after_reha_end"  — data collected after discharge (default, e.g. COMPASS outpatient).
-    baseline_anchor = proj_cfg.get("baseline_anchor", "after_reha_end")
-    if baseline_anchor == "before_reha_end":
-        baseline_start = reha_end - timedelta(weeks=BASELINE_WEEKS)
-        baseline_end = reha_end
-    else:
-        baseline_start = reha_end
-        baseline_end = reha_end + timedelta(weeks=BASELINE_WEEKS)
-
-    followup_start = study_end - timedelta(weeks=FOLLOWUP_WEEKS)
-    followup_end = study_end
-
-    try:
-        user = patient.userId  # triggers MongoEngine dereference
-    except Exception as e:
-        raise ValueError(f"Could not resolve userId for patient {patient.patient_code}: {e}") from e
+    logger.info(
+        "[wearables] %s first_date=%s  baseline=%s–%s  followup=%s–%s",
+        patient.patient_code,
+        first_date,
+        baseline_start,
+        baseline_end,
+        followup_start,
+        followup_end,
+    )
 
     return {
         "baseline": _summarize_period(user, baseline_start, baseline_end, sleep_fmt),
@@ -226,33 +320,24 @@ def _resolve_event_names(
     event_baseline: Optional[str],
     event_followup: Optional[str],
 ) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Resolve REDCap event names with priority:
-      1. Explicit argument (from API call / task parameter)
-      2. Environment variable
-      3. Built-in per-project defaults (_PROJECT_EVENTS)
-      4. None (works for non-longitudinal / classic projects)
-    """
     proj_defaults = _PROJECT_CONFIG.get(project_name.upper(), {})
-
     ev_baseline = (
-        event_baseline or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip() or proj_defaults.get("baseline")
+        event_baseline
+        or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip()
+        or proj_defaults.get("baseline")
     ) or None
-
     ev_followup = (
-        event_followup or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip() or proj_defaults.get("followup")
+        event_followup
+        or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip()
+        or proj_defaults.get("followup")
     ) or None
-
     return ev_baseline, ev_followup
 
 
 def _import_record(token: str, payload: Dict[str, Any], record: Dict[str, Any]) -> None:
     """
-    POST a wearables record to REDCap.  On 400 with invalid field names (the
-    same error REDCap returns for mismatched instrument field names across
-    projects), strips the offending fields and retries once — mirroring the
-    behaviour of _post_redcap_with_field_fallback used on the read side.
-    Raises RedcapError on final failure.
+    POST a wearables record to REDCap.  On 400 with invalid field names, strip
+    the offending fields and retry once.
     """
     try:
         _post_redcap(token, payload)
@@ -276,72 +361,94 @@ def export_wearables_to_redcap(
     event_baseline: Optional[str] = None,
     event_followup: Optional[str] = None,
     return_payloads: bool = False,
-) -> Dict[str, str] | Tuple[Dict[str, str], Dict[str, Dict[str, Any]]]:
+    skip_if_populated: bool = True,
+) -> "Dict[str, str] | Tuple[Dict[str, str], Dict[str, Dict[str, Any]]]":
     """
     Compute wearables summary for both periods and import into REDCap.
 
-    For COMPASS, event names default to visit_baseline_arm_1 / visit_6m_arm_1.
-    Override per-call or via REDCAP_WEARABLES_EVENT_BASELINE / FOLLOWUP env vars.
+    skip_if_populated (default True):
+        If monitoring_start is already set for a given event in REDCap, that
+        period is skipped to avoid overwriting previously validated data.
+        Pass False to force recalculation.
 
-    Returns {"baseline": "ok" | "skipped" | "error: ...", "followup": ...}
-    Optionally returns payload details when return_payloads=True:
-      (results, payloads)
+    Returns {"baseline": "ok"|"skipped"|"error: ...", "followup": ...}.
+    Optionally returns payload details when return_payloads=True.
     """
     project_name = (patient.project or "").strip()
     if not project_name:
         raise WearablesSyncError(
-            f"Patient {patient.patient_code} has no REDCap project assigned. "
-            "Please set the project in the patient profile before syncing.",
+            f"Patient {patient.patient_code} has no REDCap project assigned.",
             code="wearables_missing_project",
         )
 
     project = resolve_project(project_name)
     token = get_token_for_project(project)
 
-    # Look up the REDCap record_id (authoritative primary key for import)
     rows = export_record_by_pat_id(project_name, patient.patient_code)
     if not rows:
         raise ValueError(
-            f"No REDCap record found for patient_code={patient.patient_code} " f"in project={project_name}"
+            f"No REDCap record found for patient_code={patient.patient_code} "
+            f"in project={project_name}"
         )
     record_id = str(rows[0].get("record_id") or "").strip()
     if not record_id:
         raise ValueError(f"REDCap record for {patient.patient_code} has no record_id")
+
+    # Build a lookup of existing REDCap data keyed by event name
+    existing_by_event: Dict[str, Dict] = {}
+    if skip_if_populated:
+        for row in rows:
+            ev = row.get("redcap_event_name", "")
+            if ev:
+                existing_by_event[ev] = row
 
     summary = compute_wearables_summary(patient)
     ev_baseline, ev_followup = _resolve_event_names(project_name, event_baseline, event_followup)
 
     results: Dict[str, str] = {}
     payloads: Dict[str, Dict[str, Any]] = {}
+
     for period, ev_name in [("baseline", ev_baseline), ("followup", ev_followup)]:
         data = summary.get(period)
+
         if not data:
             results[period] = "skipped"
-            payloads[period] = {
-                "status": "skipped",
-                "reason": "no_fitbit_data_in_period",
-            }
+            payloads[period] = {"status": "skipped", "reason": "no_fitbit_data_in_period"}
             logger.info(
-                "Wearables [%s] for %s: no Fitbit data in period — skipped",
+                "Wearables [%s] for %s: no valid Fitbit data in window — skipped",
                 period,
                 patient.patient_code,
             )
             continue
 
+        # Skip if already populated in REDCap (duplicate-protection)
+        if skip_if_populated and ev_name:
+            existing = existing_by_event.get(ev_name, {})
+            if existing.get("monitoring_start", "").strip():
+                results[period] = "skipped"
+                payloads[period] = {
+                    "status": "skipped",
+                    "reason": "already_populated",
+                    "existing_start": existing.get("monitoring_start"),
+                }
+                logger.info(
+                    "Wearables [%s] for %s: REDCap event %s already has monitoring_start=%s — skipped",
+                    period,
+                    patient.patient_code,
+                    ev_name,
+                    existing.get("monitoring_start"),
+                )
+                continue
+
         record: Dict[str, Any] = {
             "record_id": record_id,
             **{k: str(v) for k, v in data.items() if v is not None},
-            # Mark form as Unverified so research team can review before marking Complete
-            "wearables_complete": "1",
+            "wearables_complete": "1",  # Unverified — research team reviews before Complete
         }
         if ev_name:
             record["redcap_event_name"] = ev_name
 
-        payloads[period] = {
-            "status": "prepared",
-            "record": record,
-        }
-
+        payloads[period] = {"status": "prepared", "record": record}
         payload = {
             "content": "record",
             "action": "import",
@@ -352,6 +459,7 @@ def export_wearables_to_redcap(
             "returnFormat": "json",
             "data": json.dumps([record]),
         }
+
         try:
             _import_record(token, payload, record)
             results[period] = "ok"
