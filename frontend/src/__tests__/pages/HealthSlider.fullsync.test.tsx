@@ -627,16 +627,15 @@ describe('HealthSlider (Full Sync)', () => {
 
   it('REC dot disappears after recording stops (summary screen)', async () => {
     // allow 10 s — 3 s are spent waiting for the question-lock timer to lift
-    // Pre-seed a mid-survey state at the last question. The mic auto-restarts on
-    // resume (survey_sessionId present), so the REC dot IS shown during the survey.
-    mockMedia();
+    // Pre-seed a mid-survey state at the last question (#328: testMode skips StartScreen
+    // when survey_index exists, so mic is not started via the welcome screen).
     localStorage.setItem('survey_index', '28');
     localStorage.setItem('survey_sessionId', 'test-session');
     renderICF('/icf/P001-001T1');
 
-    // Survey opens at Q29 with mic auto-started — REC dot should appear
+    // Survey opens directly at Q29 (no StartScreen, no mic) — REC dot not present
     await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByLabelText('Aufnahme läuft')).toBeInTheDocument());
+    expect(screen.queryByLabelText('Aufnahme läuft')).not.toBeInTheDocument();
 
     // Wait for the 3s lock to lift then submit the last answer via "Kann ich nicht
     // beantworten" — this bypasses the slider-moved guard so state-flush order
