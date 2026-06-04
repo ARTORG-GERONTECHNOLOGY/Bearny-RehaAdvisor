@@ -926,7 +926,9 @@ describe('HealthSlider (Full Sync)', () => {
 
     expect(screen.queryByRole('button', { name: 'Beenden' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Weiter' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Kann ich nicht beantworten' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Sie haben alles geschafft!')).toBeInTheDocument();
   }, 10_000);
 
@@ -951,7 +953,9 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Advance to Q2
     fireEvent.click(screen.getByRole('button', { name: 'Kann ich nicht beantworten' }));
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await waitFor(() => expect(localStorage.getItem('survey_index')).toBe('1'), { timeout: 3000 });
   });
