@@ -600,7 +600,7 @@ class TestFindFirstMeasurementDate:
     def test_returns_earliest_date(self):
         user, _ = _make_patient()
         _make_fitbit_day(user, datetime(2024, 3, 10, tzinfo=dt_tz.utc))
-        _make_fitbit_day(user, datetime(2024, 3, 5, tzinfo=dt_tz.utc))   # ← earliest
+        _make_fitbit_day(user, datetime(2024, 3, 5, tzinfo=dt_tz.utc))  # ← earliest
         _make_fitbit_day(user, datetime(2024, 3, 15, tzinfo=dt_tz.utc))
         assert _find_first_measurement_date(user) == datetime(2024, 3, 5).date()
 
@@ -666,8 +666,8 @@ class TestWindowBoundaries:
     def test_day_7_excluded_day_8_included(self):
         user, patient = _make_patient()
         self._anchor(user)
-        _make_fitbit_day(user, self._day(7), steps=9999, wear_min=700)   # excluded
-        _make_fitbit_day(user, self._day(8), steps=1000, wear_min=700)   # included
+        _make_fitbit_day(user, self._day(7), steps=9999, wear_min=700)  # excluded
+        _make_fitbit_day(user, self._day(8), steps=1000, wear_min=700)  # included
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["fitbit_steps"] == 1000
 
