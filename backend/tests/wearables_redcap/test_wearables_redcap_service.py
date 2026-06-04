@@ -24,10 +24,13 @@ from core.services.redcap_service import RedcapError
 from core.services.wearables_redcap_service import (
     MIN_SLEEP_MINUTES,
     MIN_WEAR_MINUTES,
+    _find_first_measurement_date,
     _format_sleep,
     _is_valid_activity_day,
     _is_valid_sleep_night,
+    _record_date,
     _resolve_event_names,
+    _sleep_minutes,
     _split_weekday_weekend,
     compute_wearables_summary,
     export_wearables_to_redcap,
@@ -571,3 +574,227 @@ class TestExportWearablesToRedcap:
         assert results["baseline"] == "ok"
         assert payloads["baseline"]["status"] == "sent"
         assert payloads["followup"]["reason"] == "no_fitbit_data_in_period"
+
+
+# ---------------------------------------------------------------------------
+# _record_date and _find_first_measurement_date — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestRecordDate:
+    def test_extracts_date_from_aware_datetime(self):
+        user, _ = _make_patient()
+        r = _make_fitbit_day(user, datetime(2024, 3, 15, 12, 0, tzinfo=dt_tz.utc))
+        assert _record_date(r) == datetime(2024, 3, 15).date()
+
+    def test_returns_none_when_date_is_none(self):
+        r = FitbitData(date=None)
+        assert _record_date(r) is None
+
+
+class TestFindFirstMeasurementDate:
+    def test_returns_none_when_no_data(self):
+        user, _ = _make_patient()
+        assert _find_first_measurement_date(user) is None
+
+    def test_returns_earliest_date(self):
+        user, _ = _make_patient()
+        _make_fitbit_day(user, datetime(2024, 3, 10, tzinfo=dt_tz.utc))
+        _make_fitbit_day(user, datetime(2024, 3, 5, tzinfo=dt_tz.utc))   # ← earliest
+        _make_fitbit_day(user, datetime(2024, 3, 15, tzinfo=dt_tz.utc))
+        assert _find_first_measurement_date(user) == datetime(2024, 3, 5).date()
+
+    def test_counts_zero_wear_day_as_first_measurement(self):
+        """A day with no activity still anchors the window."""
+        user, _ = _make_patient()
+        _make_fitbit_day(user, datetime(2024, 1, 1, tzinfo=dt_tz.utc), wear_min=0, sleep_min=None)
+        _make_fitbit_day(user, datetime(2024, 1, 5, tzinfo=dt_tz.utc), wear_min=700)
+        assert _find_first_measurement_date(user) == datetime(2024, 1, 1).date()
+
+
+# ---------------------------------------------------------------------------
+# _sleep_minutes — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestSleepMinutes:
+    def test_prefers_minutes_asleep(self):
+        r = FitbitData(sleep=SleepData(minutes_asleep=420, sleep_duration=99_999_999))
+        assert _sleep_minutes(r) == 420.0
+
+    def test_falls_back_to_sleep_duration_ms(self):
+        # 7h = 25200000 ms
+        r = FitbitData(sleep=SleepData(minutes_asleep=None, sleep_duration=25_200_000))
+        assert _sleep_minutes(r) == 420.0
+
+    def test_returns_none_when_no_sleep(self):
+        r = FitbitData(sleep=None)
+        assert _sleep_minutes(r) is None
+
+    def test_returns_none_when_sleep_has_no_fields(self):
+        r = FitbitData(sleep=SleepData(minutes_asleep=None, sleep_duration=None))
+        assert _sleep_minutes(r) is None
+
+
+# ---------------------------------------------------------------------------
+# Exact window boundary tests
+# ---------------------------------------------------------------------------
+
+
+class TestWindowBoundaries:
+    """
+    First date = 2024-01-01.
+    Baseline:  Day 8  = 2024-01-08 (included)
+               Day 7  = 2024-01-07 (excluded — habituation period)
+               Day 28 = 2024-01-28 (included)
+               Day 29 = 2024-01-29 (excluded)
+    Follow-up: Day 150 = 2024-05-29 (included)
+               Day 149 = 2024-05-28 (excluded)
+               Day 180 = 2024-06-28 (included)
+               Day 181 = 2024-06-29 (excluded)
+    """
+
+    FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
+
+    def _anchor(self, user):
+        _make_fitbit_day(user, self.FIRST_DATE, wear_min=0, sleep_min=None)
+
+    def _day(self, n: int) -> datetime:
+        """Day N (1-indexed) relative to first measurement date."""
+        return self.FIRST_DATE + timedelta(days=n - 1)
+
+    def test_day_7_excluded_day_8_included(self):
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._day(7), steps=9999, wear_min=700)   # excluded
+        _make_fitbit_day(user, self._day(8), steps=1000, wear_min=700)   # included
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"]["fitbit_steps"] == 1000
+
+    def test_day_28_included_day_29_excluded(self):
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._day(28), steps=2000, wear_min=700)  # included
+        _make_fitbit_day(user, self._day(29), steps=9999, wear_min=700)  # excluded
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"]["fitbit_steps"] == 2000
+
+    def test_day_149_excluded_day_150_included(self):
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._day(149), steps=9999, wear_min=700)  # excluded
+        _make_fitbit_day(user, self._day(150), steps=3000, wear_min=700)  # included
+        summary = compute_wearables_summary(patient)
+        assert summary["followup"]["fitbit_steps"] == 3000
+
+    def test_day_180_included_day_181_excluded(self):
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._day(180), steps=4000, wear_min=700)  # included
+        _make_fitbit_day(user, self._day(181), steps=9999, wear_min=700)  # excluded
+        summary = compute_wearables_summary(patient)
+        assert summary["followup"]["fitbit_steps"] == 4000
+
+
+# ---------------------------------------------------------------------------
+# Edge cases: records exist but none valid, None fields, both periods filled
+# ---------------------------------------------------------------------------
+
+
+class TestEdgeCases:
+    FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
+
+    def _anchor(self, user):
+        _make_fitbit_day(user, self.FIRST_DATE, wear_min=0, sleep_min=None)
+
+    def _in_baseline(self, offset: int) -> datetime:
+        return self.FIRST_DATE + timedelta(days=7 + offset)
+
+    def _in_followup(self, offset: int) -> datetime:
+        return self.FIRST_DATE + timedelta(days=149 + offset)
+
+    def test_returns_none_when_records_exist_but_no_valid_activity_days(self):
+        """Records in window but all below wear threshold → no activity output."""
+        user, patient = _make_patient()
+        self._anchor(user)
+        # 3 days in baseline, all below 600 min wear, no sleep either
+        for i in range(3):
+            _make_fitbit_day(user, self._in_baseline(i), wear_min=300, sleep_min=None)
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is None
+
+    def test_steps_none_excluded_from_mean(self):
+        """Days where steps is None must not be zero-averaged."""
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._in_baseline(0), steps=6000, wear_min=700)
+        r = _make_fitbit_day(user, self._in_baseline(1), steps=None, wear_min=700)
+        r.steps = None
+        r.save()
+        summary = compute_wearables_summary(patient)
+        # Only the 6000-step day contributes
+        assert summary["baseline"]["fitbit_steps"] == 6000
+
+    def test_both_baseline_and_followup_populated(self):
+        """When data exists in both windows, both periods return results."""
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700)
+        _make_fitbit_day(user, self._in_followup(0), steps=8000, wear_min=700)
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"]["fitbit_steps"] == 5000
+        assert summary["followup"]["fitbit_steps"] == 8000
+
+    def test_regression_934_1_zero_days_before_activation_not_averaged(self):
+        """
+        Regression for patient 934-1: device activated on Day 5 (first data),
+        but wear_min=0 on Days 1-4. Days 8-28 contain real data from Day 8 onward.
+        Zero-wear days in Days 1-4 must not be included in the activity average.
+        """
+        user, patient = _make_patient()
+        # Days 1-4: device not worn (exist in DB with zero wear)
+        for i in range(4):
+            _make_fitbit_day(
+                user,
+                self.FIRST_DATE + timedelta(days=i),
+                steps=0,
+                wear_min=0,
+                sleep_min=None,
+            )
+        # Days 8, 9, 10 (offsets 0-2 from Day 8): device worn, real data
+        for i, steps in enumerate([10000, 12000, 11000]):
+            _make_fitbit_day(user, self._in_baseline(i), steps=steps, wear_min=700)
+
+        summary = compute_wearables_summary(patient)
+        b = summary["baseline"]
+        # Mean of [10000, 12000, 11000] = 11000 — zeros must NOT be included
+        assert b["fitbit_steps"] == 11000
+        assert b["valid_week_days"] == 3
+
+    def test_no_sleep_data_in_window_omits_sleep_fields(self):
+        """When no valid sleep nights exist, sleep fields are absent from output."""
+        user, patient = _make_patient()
+        self._anchor(user)
+        _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700, sleep_min=None)
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is not None
+        assert "sleep_duration" not in summary["baseline"]
+
+    def test_split_weekday_weekend_empty_input(self):
+        weekdays, weekends = _split_weekday_weekend([])
+        assert weekdays == []
+        assert weekends == []
+
+    def test_all_5_weekdays_5_nights_from_one_week(self):
+        """A full Mon–Fri week produces exactly 5 activity days and 5 sleep nights."""
+        user, patient = _make_patient()
+        self._anchor(user)
+        # Day 8 = Mon, Day 9 = Tue, … Day 12 = Fri  (offsets 0-4)
+        for i in range(5):
+            _make_fitbit_day(user, self._in_baseline(i), wear_min=700, sleep_min=300)
+        summary = compute_wearables_summary(patient)
+        b = summary["baseline"]
+        assert b["valid_week_days"] == 5
+        assert b["valid_weekend_days"] == 0
+        assert b["valid_week_nights"] == 5
+        assert b["valid_weekend_nights"] == 0
