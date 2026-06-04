@@ -24,7 +24,8 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
 
       <div className="mt-6 max-w-2xl">
         <p className="mb-3.5">
-          Das <strong>
+          Das{' '}
+          <strong>
             <i>FunktionsBarometer</i>
           </strong>{' '}
           ist ein interaktives Instrument zur Erhebung Ihrer Funktionsfähigkeit.
@@ -33,14 +34,17 @@ export default function InfoScreen({ isRecording, onClose }: Props) {
         <p className="mb-3.5">
           Dafür nennen wir Ihnen Themen und Bereiche, welche Sie mit der Frage{' '}
           <strong>
-            <i>“Von sehr schlecht bis sehr gut, wie geht es in dem folgenden Bereich, jetzt und in den letzten Tagen  … “</i>
+            <i>
+              “Von sehr schlecht bis sehr gut, wie geht es in dem folgenden Bereich, jetzt und in
+              den letzten Tagen … “
+            </i>
           </strong>{' '}
           bewerten dürfen.
         </p>
 
         <p className="mb-3.5">
-          Zuerst dürfen Sie den Bereich auf der Skala bewerten. Danach erklären Sie uns Ihre Bewertung,
-          indem Sie frei dazu erzählen.
+          Zuerst dürfen Sie den Bereich auf der Skala bewerten. Danach erklären Sie uns Ihre
+          Bewertung, indem Sie frei dazu erzählen.
         </p>
 
         <div className="mb-3.5">

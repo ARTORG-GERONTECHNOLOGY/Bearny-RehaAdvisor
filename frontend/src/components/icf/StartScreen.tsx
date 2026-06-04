@@ -27,7 +27,10 @@ export default function StartScreen({ micError, onStart }: Props) {
         <p className="mb-3.5">
           Dafür werden wir Ihnen Themen und Bereiche nennen, welche Sie mit der Frage{' '}
           <strong>
-            <i>“Von sehr schlecht bis sehr gut, wie geht es in dem folgenden Bereich, jetzt und in den letzten Tagen  … “</i>
+            <i>
+              “Von sehr schlecht bis sehr gut, wie geht es in dem folgenden Bereich, jetzt und in
+              den letzten Tagen … “
+            </i>
           </strong>{' '}
           bewerten dürfen.
         </p>

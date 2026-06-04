@@ -471,7 +471,9 @@ test.describe('#327 — Teilnehmer:in-ID and end-screen behaviour', () => {
 
     // "Weiter" and "Kann ich nicht beantworten" must also be gone
     await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Kann ich nicht beantworten' })).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeVisible();
 
     // Page must not auto-redirect to ID entry
     await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).not.toBeVisible();
@@ -628,7 +630,9 @@ test.describe('End-screen — no interactive buttons', () => {
     // Survey action buttons must be gone
     await expect(page.getByRole('button', { name: 'Beenden' })).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Kann ich nicht beantworten' })).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Start' })).not.toBeVisible();
   });
 });
