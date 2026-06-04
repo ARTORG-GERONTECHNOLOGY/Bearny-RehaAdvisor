@@ -1110,9 +1110,7 @@ export default function HealthSlider() {
         </>
       )}
 
-      {showSummary && (
-        <EndScreen />
-      )}
+      {showSummary && <EndScreen />}
 
       {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}
 
