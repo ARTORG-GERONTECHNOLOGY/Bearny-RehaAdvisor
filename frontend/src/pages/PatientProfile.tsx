@@ -25,6 +25,11 @@ const PatientProfile: React.FC = observer(() => {
   const patientId = localStorage.getItem('id') || authStore.id || '';
   const displayName = authStore.firstName || t('Profile');
 
+  const contactEmail =
+    (config.contactEmails as Record<string, Record<string, string>>)[authStore.project]?.[
+      authStore.clinic
+    ] ?? config.contact.email;
+
   const partnerLogos = [
     {
       src: '/artorg_unibern_logo.gif',
@@ -91,14 +96,14 @@ const PatientProfile: React.FC = observer(() => {
             <div className="font-bold text-lg leading-6 text-zinc-800">
               {t('Research Project Contact')}
             </div>
-            {config.contact.email && (
+            {contactEmail && (
               <Badge variant="card">
                 <a
-                  href={`mailto:${config.contact.email}`}
+                  href={`mailto:${contactEmail}`}
                   className="flex items-center gap-1 no-underline text-brand"
                 >
                   <Mail className="w-4 h-4" />
-                  <span>{config.contact.email}</span>
+                  <span>{contactEmail}</span>
                 </a>
               </Badge>
             )}
