@@ -445,17 +445,16 @@ test.describe('#327 — Teilnehmer:in-ID and end-screen behaviour', () => {
     await expect(page.getByText(/P001-001T1/)).not.toBeVisible();
   });
 
-  test('clicking Beenden stays on the thank-you screen and does not redirect to ID entry', async ({
+  test('end screen shows Vielen Dank without a Beenden button and does not auto-redirect', async ({
     page,
   }) => {
     await mockAudioAPIs(page);
     await stubSubmitItem(page);
 
-    // Seed localStorage so the page opens on the last question directly (#328 helper)
+    // Seed localStorage so the page opens on the last question directly
     await seedMidSurveyState(page, { questionIndex: 28, patientId: 'P01-001T1' });
     await page.goto('/icf/P01-001T1');
 
-    // The last question should be visible (question 29/29)
     await expect(page.getByText('/ 29')).toBeVisible();
 
     // Wait for the 3-second lock to lift, then submit the last answer
@@ -463,15 +462,48 @@ test.describe('#327 — Teilnehmer:in-ID and end-screen behaviour', () => {
     await expect(naBtn).toBeEnabled({ timeout: 5000 });
     await naBtn.click();
 
-    // End screen should appear
+    // End screen must appear
+    await expect(page.getByText('Vielen Dank')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Sie haben alles geschafft!')).toBeVisible();
+
+    // The Beenden button must NOT exist on the end screen
+    await expect(page.getByRole('button', { name: 'Beenden' })).not.toBeVisible();
+
+    // "Weiter" and "Kann ich nicht beantworten" must also be gone
+    await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeVisible();
+
+    // Page must not auto-redirect to ID entry
+    await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).not.toBeVisible();
+  });
+
+  test('localStorage is cleared immediately when the last answer is submitted', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    await seedMidSurveyState(page, { questionIndex: 28, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    await expect(page.getByText('/ 29')).toBeVisible();
+    const naBtn = page.getByRole('button', { name: 'Kann ich nicht beantworten' });
+    await expect(naBtn).toBeEnabled({ timeout: 5000 });
+    await naBtn.click();
+
     await expect(page.getByText('Vielen Dank')).toBeVisible({ timeout: 5000 });
 
-    // Click Beenden
-    await page.getByRole('button', { name: 'Beenden' }).click();
-
-    // Must stay on the thank-you screen — no redirect to ID entry
-    await expect(page.getByText('Vielen Dank')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Teilnehmer:in-ID' })).not.toBeVisible();
+    // All three localStorage keys must be gone after survey completion
+    const keys = await page.evaluate(() => ({
+      surveyIndex: localStorage.getItem('survey_index'),
+      sessionId: localStorage.getItem('survey_sessionId'),
+      patientId: localStorage.getItem('patient_id'),
+    }));
+    expect(keys.surveyIndex).toBeNull();
+    expect(keys.sessionId).toBeNull();
+    expect(keys.patientId).toBeNull();
   });
 });
 
@@ -505,23 +537,23 @@ test.describe('#328 — refresh mid-survey resumes at the saved question', () =>
   });
 });
 
-test.describe('#325 / #326 — updated start and info screen texts', () => {
-  test('StartScreen shows simplified scale description without the old question phrasing', async ({
-    page,
-  }) => {
+test.describe('#325 / #326 — start and info screen content', () => {
+  test('StartScreen shows full question phrasing and scale description', async ({ page }) => {
     await mockAudioAPIs(page);
     await gotoWithPatientId(page);
 
     await expect(page.getByText('Willkommen')).toBeVisible();
-    // New wording
-    await expect(page.getByText(/auf einer Skala/i)).toBeVisible();
-    // Old "Von sehr schlecht bis sehr gut …" question form must be gone
-    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).not.toBeVisible();
+    // Scale question phrasing is shown on the start screen
+    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).toBeVisible();
+    // Instructions for rating then explaining are present
+    await expect(page.getByText(/auf der Skala bewerten/i)).toBeVisible();
+    await expect(page.getByText(/frei dazu erzählen/i)).toBeVisible();
+    // Mic and privacy instructions are present
+    await expect(page.getByText(/Mikrofon/i)).toBeVisible();
+    await expect(page.getByText(/verschlüsselt übermittelt/i)).toBeVisible();
   });
 
-  test('InfoScreen shows simplified scale description without the old question phrasing', async ({
-    page,
-  }) => {
+  test('InfoScreen shows full question phrasing and scale description', async ({ page }) => {
     await mockAudioAPIs(page);
     await stubSubmitItem(page);
     await gotoWithPatientId(page);
@@ -533,10 +565,130 @@ test.describe('#325 / #326 — updated start and info screen texts', () => {
     await page.getByRole('button', { name: 'Information' }).click();
     await expect(page.getByRole('heading', { name: 'Information' })).toBeVisible();
 
-    // New wording
-    await expect(page.getByText(/auf einer Skala/i)).toBeVisible();
-    // Old "Von sehr schlecht bis sehr gut …" question form must be gone
-    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).not.toBeVisible();
+    // Scale question phrasing and instructions are shown in the info overlay
+    await expect(page.getByText(/Von sehr schlecht bis sehr gut/i)).toBeVisible();
+    await expect(page.getByText(/auf der Skala bewerten/i)).toBeVisible();
+    await expect(page.getByText(/frei dazu erzählen/i)).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for refresh / resume edge cases (#328 extended)
+// ---------------------------------------------------------------------------
+
+test.describe('#328 — refresh during practice mode skips StartScreen', () => {
+  test('refresh while in practice mode (survey_sessionId set, no survey_index) shows ÜBUNGSMODUS', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    // Simulate a refresh mid-practice: survey_sessionId was written when mic started,
+    // but survey_index was not yet written (only written when real-mode answers are saved).
+    await page.addInitScript(
+      ({ pid, sid }) => {
+        localStorage.setItem('survey_sessionId', sid);
+        localStorage.setItem('patient_id', pid);
+        // Intentionally NO survey_index
+      },
+      { pid: 'P01-001T1', sid: 'practice_session_refresh' }
+    );
+
+    await page.goto('/icf/P01-001T1');
+
+    // Must NOT show the welcome screen (testMode=false because survey_sessionId is set)
+    await expect(page.getByText('Willkommen')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Übungslauf starten' })).not.toBeVisible();
+
+    // Must show practice mode directly
+    await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
+
+    // Navigation buttons for real survey must not appear yet
+    await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
+  });
+});
+
+test.describe('End-screen — no interactive buttons', () => {
+  test('end screen has no Beenden, Weiter, or "Kann ich nicht beantworten" buttons', async ({
+    page,
+  }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    await seedMidSurveyState(page, { questionIndex: 28, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    await expect(page.getByText('/ 29')).toBeVisible();
+    const naBtn = page.getByRole('button', { name: 'Kann ich nicht beantworten' });
+    await expect(naBtn).toBeEnabled({ timeout: 5000 });
+    await naBtn.click();
+
+    await expect(page.getByText('Vielen Dank')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Sie haben alles geschafft!')).toBeVisible();
+
+    // Survey action buttons must be gone
+    await expect(page.getByRole('button', { name: 'Beenden' })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Weiter' })).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Kann ich nicht beantworten' })
+    ).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start' })).not.toBeVisible();
+  });
+});
+
+test.describe('Mid-survey resume — correct question shown', () => {
+  test('resuming from question 10 shows 10/29 and the correct question text', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    // Question index 9 = question 10 (0-based)
+    await seedMidSurveyState(page, { questionIndex: 9, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    // Counter should show 10 / 29
+    await expect(page.getByText('10')).toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // The 10th question text (index 9 in REAL_QUESTIONS)
+    await expect(
+      page.getByRole('heading', { name: /Herzfunktion, Atmung, Leistungsfähigkeit/i })
+    ).toBeVisible();
+
+    // Practice mode banner must be absent
+    await expect(page.getByText('ÜBUNGSMODUS')).not.toBeVisible();
+  });
+
+  test('resuming from question 1 shows 1/29 and skips practice mode', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    await seedMidSurveyState(page, { questionIndex: 0, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    await expect(page.getByText('1')).toBeVisible();
+    await expect(page.getByText('/ 29')).toBeVisible();
+    await expect(page.getByText('ÜBUNGSMODUS')).not.toBeVisible();
+    await expect(page.getByText('Willkommen')).not.toBeVisible();
+  });
+
+  test('advancing through real questions increments the counter', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await stubSubmitItem(page);
+
+    await seedMidSurveyState(page, { questionIndex: 0, patientId: 'P01-001T1' });
+    await page.goto('/icf/P01-001T1');
+
+    await expect(page.getByText('/ 29')).toBeVisible();
+
+    // Wait for lock to lift, then answer Q1
+    const naBtn = page.getByRole('button', { name: 'Kann ich nicht beantworten' });
+    await expect(naBtn).toBeEnabled({ timeout: 5000 });
+    await naBtn.click();
+
+    // Counter should advance to 2
+    await expect(page.getByText('2')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText('/ 29')).toBeVisible();
   });
 });
 

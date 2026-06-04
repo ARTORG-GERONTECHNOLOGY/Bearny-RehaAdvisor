@@ -15,13 +15,17 @@
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
  *                         participantId, sessionId, questionIndex, answerValue, and the
  *                         recorded audio Blob (webm or m4a depending on browser).
- * 5. Summary / end      — shown after the last question; "Beenden" clears localStorage.
+ * 5. Summary / end      — shown after the last question; localStorage is cleared immediately
+ *                         before the end screen renders (no "Beenden" button).
  *
  * Persistence (localStorage)
  * --------------------------
- * patient_id        — survives page reloads; cleared at survey end ("Beenden").
  * survey_index      — allows resuming mid-survey after accidental reload.
- * survey_sessionId  — groups all answers for a single sitting.
+ * survey_sessionId  — groups all answers for a single sitting; also signals that mic
+ *                     was started so a refresh during practice mode skips the welcome screen.
+ *
+ * The patient ID is NOT stored in localStorage — it lives in the URL (/icf/:patientId)
+ * which the browser preserves across reloads automatically.
  *
  * Upload failure handling
  * -----------------------
@@ -30,7 +34,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
 import EndScreen from '@/components/icf/EndScreen';
@@ -147,6 +151,7 @@ const pickRecorderMime = () => {
 
 export default function HealthSlider() {
   const { patientId: urlPatientId } = useParams<{ patientId?: string }>();
+  const navigate = useNavigate();
 
   // --- questionnaire states ---
   const [sliderPosition, setSliderPosition] = useState(50);
@@ -165,10 +170,7 @@ export default function HealthSlider() {
   );
   const [showSummary, setShowSummary] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [patientId, setPatientId] = useState(() => {
-    if (urlPatientId) return urlPatientId;
-    return localStorage.getItem('patient_id') || '';
-  });
+  const [patientId, setPatientId] = useState(() => urlPatientId ?? '');
   const [patientIdInput, setPatientIdInput] = useState('');
   const [patientIdError, setPatientIdError] = useState('');
 
@@ -392,7 +394,6 @@ export default function HealthSlider() {
     }
   }, [isPracticeMode, questionIndex]);
 
-  /** --- sync URL-provided patient ID to in-memory state (avoid persistent cleartext storage) --- */
   useEffect(() => {
     if (urlPatientId) {
       setPatientId(urlPatientId);
@@ -406,8 +407,7 @@ export default function HealthSlider() {
       setPatientIdError('ID muss dem Format Pxxx-xxxTx entsprechen (z.B. P001-001T1).');
       return;
     }
-    localStorage.setItem('patient_id', v);
-    setPatientId(v);
+    navigate(`/icf/${encodeURIComponent(v)}`);
   };
 
   /** --- persistence --- */
@@ -657,6 +657,10 @@ export default function HealthSlider() {
       }
 
       ensureSessionId();
+      // Persist sessionId immediately so a refresh during practice mode also
+      // skips the welcome screen (testMode initialises to false when either
+      // survey_index or survey_sessionId is present in localStorage).
+      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
       startItemRecorder();
 
       setTestMode(false);
@@ -684,6 +688,8 @@ export default function HealthSlider() {
       setSliderPosition(50);
       setSliderMoved(false);
     } else {
+      localStorage.removeItem('survey_index');
+      localStorage.removeItem('survey_sessionId');
       setShowSummary(true);
       stopAll();
     }
@@ -731,6 +737,9 @@ export default function HealthSlider() {
           }
         }, 0);
       } else {
+        localStorage.removeItem('survey_index');
+        localStorage.removeItem('survey_sessionId');
+        localStorage.removeItem('patient_id');
         setShowSummary(true);
         stopAll();
       }
@@ -1099,15 +1108,7 @@ export default function HealthSlider() {
         </>
       )}
 
-      {showSummary && (
-        <EndScreen
-          onEnd={() => {
-            localStorage.removeItem('survey_index');
-            localStorage.removeItem('survey_sessionId');
-            localStorage.removeItem('patient_id');
-          }}
-        />
-      )}
+      {showSummary && <EndScreen />}
 
       {showInfo && <InfoScreen isRecording={isRecording} onClose={() => setShowInfo(false)} />}
 
