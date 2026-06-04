@@ -11,7 +11,7 @@ Tests for the new protocol-specified aggregation logic:
 """
 
 import json
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 from datetime import timezone as dt_tz
 from unittest.mock import patch
 
@@ -87,8 +87,8 @@ def _make_fitbit_day(
     steps=5000,
     active_min=30,
     inactive_min=300,
-    wear_min=700,       # valid by default (>= 600)
-    sleep_min=420,      # valid by default (>= 180 min) — stored as minutes_asleep
+    wear_min=700,  # valid by default (>= 600)
+    sleep_min=420,  # valid by default (>= 180 min) — stored as minutes_asleep
 ):
     """Create a FitbitData record. sleep_min=None skips sleep entirely."""
     sleep = SleepData(minutes_asleep=sleep_min) if sleep_min is not None else None
@@ -166,8 +166,8 @@ class TestSplitWeekdayWeekend:
         user, _ = _make_patient()
         records = [self._day(user, i) for i in range(7)]  # Mon–Sun
         weekdays, weekends = _split_weekday_weekend(records)
-        assert len(weekdays) == 5   # Mon–Fri
-        assert len(weekends) == 2   # Sat–Sun
+        assert len(weekdays) == 5  # Mon–Fri
+        assert len(weekends) == 2  # Sat–Sun
 
     def test_caps_weekdays_at_5_even_with_more_available(self):
         user, _ = _make_patient()
@@ -192,8 +192,8 @@ class TestSplitWeekdayWeekend:
 
     def test_picks_earliest_days(self):
         user, _ = _make_patient()
-        early_mon = self._day(user, 0)   # 2024-01-08 Mon — should be selected (earliest)
-        late_mon = self._day(user, 7)    # 2024-01-15 Mon — should not be selected (6th weekday)
+        early_mon = self._day(user, 0)  # 2024-01-08 Mon — should be selected (earliest)
+        late_mon = self._day(user, 7)  # 2024-01-15 Mon — should not be selected (6th weekday)
         tue = self._day(user, 1)
         wed = self._day(user, 2)
         thu = self._day(user, 3)
@@ -352,7 +352,7 @@ class TestComputeWearablesSummary:
         assert summary["baseline"]["valid_week_days"] == 1
         assert summary["baseline"]["valid_week_nights"] == 1
         assert summary["baseline"]["fitbit_steps"] == 5000
-        assert summary["baseline"]["sleep_duration"] == "6"   # 360 min = 6 h
+        assert summary["baseline"]["sleep_duration"] == "6"  # 360 min = 6 h
 
     def test_weekday_weekend_counts_in_output(self):
         """valid_week_days / valid_weekend_days reflect the selection, not total valid days."""
@@ -449,13 +449,19 @@ class TestExportWearablesToRedcap:
         user, patient = _make_patient(project="COMPASS")
         self._anchor(user)
         # Mon + Sat in baseline
-        _make_fitbit_day(user, self._in_baseline(0), steps=5000, active_min=30, inactive_min=300, wear_min=700, sleep_min=420)
-        _make_fitbit_day(user, self._in_baseline(5), steps=3000, active_min=10, inactive_min=500, wear_min=700, sleep_min=480)
+        _make_fitbit_day(
+            user, self._in_baseline(0), steps=5000, active_min=30, inactive_min=300, wear_min=700, sleep_min=420
+        )
+        _make_fitbit_day(
+            user, self._in_baseline(5), steps=3000, active_min=10, inactive_min=500, wear_min=700, sleep_min=480
+        )
 
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
         captured = []
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "99"}]):
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "99"}]
+        ):
             with patch(
                 "core.services.wearables_redcap_service._post_redcap",
                 side_effect=lambda *a, **kw: captured.append(a[1]) or '{"count":1}',
@@ -542,7 +548,9 @@ class TestExportWearablesToRedcap:
                 )
             return '{"count":1}'
 
-        with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]):
+        with patch(
+            "core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "42"}]
+        ):
             with patch("core.services.wearables_redcap_service._post_redcap", side_effect=_fake_post):
                 results = export_wearables_to_redcap(patient)
 

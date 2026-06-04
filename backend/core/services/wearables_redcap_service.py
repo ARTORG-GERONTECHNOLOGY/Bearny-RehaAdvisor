@@ -29,14 +29,14 @@ class WearablesSyncError(ValueError):
 # ---------------------------------------------------------------------------
 # Window definitions (days relative to first Fitbit measurement date, 1-indexed)
 # ---------------------------------------------------------------------------
-BASELINE_DAY_START = 8    # first 7 days are excluded (device calibration / habituation)
+BASELINE_DAY_START = 8  # first 7 days are excluded (device calibration / habituation)
 BASELINE_DAY_END = 28
 FOLLOWUP_DAY_START = 150
 FOLLOWUP_DAY_END = 180
 
 # Validity thresholds
-MIN_WEAR_MINUTES = 600    # 10 hours — minimum for a valid activity day
-MIN_SLEEP_MINUTES = 180   # 3 hours  — minimum for a valid sleep night
+MIN_WEAR_MINUTES = 600  # 10 hours — minimum for a valid activity day
+MIN_SLEEP_MINUTES = 180  # 3 hours  — minimum for a valid sleep night
 
 # Day-selection targets per window
 MAX_WEEKDAYS = 5
@@ -63,6 +63,7 @@ _PROJECT_EVENTS = _PROJECT_CONFIG
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _as_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -170,6 +171,7 @@ def _fmt_date(d) -> str:
 # Core summarization
 # ---------------------------------------------------------------------------
 
+
 def _summarize_period(
     user: Any,
     window_start: datetime.date,
@@ -260,6 +262,7 @@ def _summarize_period(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     """
     Compute wearables summaries for baseline and follow-up periods using the
@@ -277,9 +280,7 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     try:
         user = patient.userId
     except Exception as e:
-        raise ValueError(
-            f"Could not resolve userId for patient {patient.patient_code}: {e}"
-        ) from e
+        raise ValueError(f"Could not resolve userId for patient {patient.patient_code}: {e}") from e
 
     first_date = _find_first_measurement_date(user)
     if not first_date:
@@ -322,14 +323,10 @@ def _resolve_event_names(
 ) -> Tuple[Optional[str], Optional[str]]:
     proj_defaults = _PROJECT_CONFIG.get(project_name.upper(), {})
     ev_baseline = (
-        event_baseline
-        or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip()
-        or proj_defaults.get("baseline")
+        event_baseline or os.environ.get("REDCAP_WEARABLES_EVENT_BASELINE", "").strip() or proj_defaults.get("baseline")
     ) or None
     ev_followup = (
-        event_followup
-        or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip()
-        or proj_defaults.get("followup")
+        event_followup or os.environ.get("REDCAP_WEARABLES_EVENT_FOLLOWUP", "").strip() or proj_defaults.get("followup")
     ) or None
     return ev_baseline, ev_followup
 
@@ -387,8 +384,7 @@ def export_wearables_to_redcap(
     rows = export_record_by_pat_id(project_name, patient.patient_code)
     if not rows:
         raise ValueError(
-            f"No REDCap record found for patient_code={patient.patient_code} "
-            f"in project={project_name}"
+            f"No REDCap record found for patient_code={patient.patient_code} " f"in project={project_name}"
         )
     record_id = str(rows[0].get("record_id") or "").strip()
     if not record_id:
