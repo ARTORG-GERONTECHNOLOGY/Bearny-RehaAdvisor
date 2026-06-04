@@ -12,6 +12,16 @@
     "email": "forschung.respo@insel.ch",
     "phone": ""
   },
+  "contactEmails": {
+    "COPAIN": {
+      "Inselspital": "copain@insel.ch",
+      "Berner Reha Centrum": "copain@insel.ch"
+    },
+    "COMPASS": {
+      "Bern": "forschung-respo@insel.ch",
+      "Inselspital": "forschung-respo@insel.ch"
+    }
+  },
   "patientInfo": {
     "sex": ["Male", "Female"],
     "functionPat": {

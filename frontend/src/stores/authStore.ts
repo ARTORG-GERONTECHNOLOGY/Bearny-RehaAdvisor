@@ -23,6 +23,8 @@ class AuthStore {
   firstName = '';
   specialisations: string[] = [];
   preferredLanguage = '';
+  clinic = '';
+  project = '';
 
   // 2FA
   partialLogin = false;
@@ -151,6 +153,14 @@ class AuthStore {
         const specs = this._parseSpecialisationsFromPayload(data);
         if (specs.length) this.setSpecialisations(specs);
         if (data.preferred_language) this.setPreferredLanguage(String(data.preferred_language));
+        if (data.clinic !== undefined) {
+          this.clinic = String(data.clinic || '');
+          localStorage.setItem('clinic', this.clinic);
+        }
+        if (data.project !== undefined) {
+          this.project = String(data.project || '');
+          localStorage.setItem('project', this.project);
+        }
       });
     } catch (err) {
       console.warn('Failed to fetch user info:', err);
@@ -342,6 +352,8 @@ class AuthStore {
         : [];
 
       this.preferredLanguage = localStorage.getItem('preferredLanguage') || '';
+      this.clinic = localStorage.getItem('clinic') || '';
+      this.project = localStorage.getItem('project') || '';
       this.partialLogin = false;
       this.loginErrorMessage = '';
     });
@@ -466,6 +478,8 @@ class AuthStore {
       this.firstName = '';
       this.specialisations = [];
       this.preferredLanguage = '';
+      this.clinic = '';
+      this.project = '';
       this.partialLogin = false;
     });
   }
