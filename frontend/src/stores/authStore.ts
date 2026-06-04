@@ -447,12 +447,18 @@ class AuthStore {
     // preserve language and notification settings
     const lang = localStorage.getItem('i18nextLng');
     const notificationsEnabled = localStorage.getItem('notifications-enabled');
+    // preserve ICF assessment progress — the /icf page is public (no auth required)
+    // so clearStorage() must not wipe an in-progress patient session
+    const surveyIndex = localStorage.getItem('survey_index');
+    const surveySessionId = localStorage.getItem('survey_sessionId');
 
     sessionStorage.clear();
     localStorage.clear();
 
     if (lang) localStorage.setItem('i18nextLng', lang);
     if (notificationsEnabled) localStorage.setItem('notifications-enabled', notificationsEnabled);
+    if (surveyIndex !== null) localStorage.setItem('survey_index', surveyIndex);
+    if (surveySessionId !== null) localStorage.setItem('survey_sessionId', surveySessionId);
   }
 
   reset() {
