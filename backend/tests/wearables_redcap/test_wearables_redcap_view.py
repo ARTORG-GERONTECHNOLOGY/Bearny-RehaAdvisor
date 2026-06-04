@@ -10,7 +10,7 @@ Coverage
 --------
   - 405 for non-POST methods
   - 404 when patient_id is unknown
-  - 400 when patient has no reha_end_date (ValueError from service)
+  - 400 when patient has no Fitbit data (WearablesSyncError from service)
   - 400 when patient has no project set (ValueError from service)
   - 502 when REDCap API returns an error (RedcapError from service)
   - 200 with results + summary on success
@@ -104,13 +104,14 @@ def test_patient_not_found():
     assert resp.json()["error"] == "Patient not found"
 
 
-def test_missing_reha_end_date_returns_400():
+def test_no_fitbit_data_returns_400():
+    # Patient exists but has never worn the device — no FitbitData records
     patient = _make_patient(reha_end_date=None)
     resp = client.post(URL(patient.id), **AUTH)
     assert resp.status_code == 400
     body = resp.json()
-    assert "Rehabilitation End Date" in body["error"]
-    assert body["code"] == "wearables_missing_reha_end_date"
+    assert "No Fitbit data" in body["error"]
+    assert body["code"] == "wearables_no_fitbit_data"
 
 
 def test_missing_project_returns_400():
@@ -143,16 +144,16 @@ def test_wearables_sync_error_returns_code():
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
         side_effect=WearablesSyncError(
-            "Patient P-X is missing the Rehabilitation End Date.",
-            code="wearables_missing_reha_end_date",
+            "No Fitbit data found for patient P-X.",
+            code="wearables_no_fitbit_data",
         ),
     ):
         resp = client.post(URL(patient.id), **AUTH)
 
     assert resp.status_code == 400
     body = resp.json()
-    assert body["code"] == "wearables_missing_reha_end_date"
-    assert "Rehabilitation End Date" in body["error"]
+    assert body["code"] == "wearables_no_fitbit_data"
+    assert "No Fitbit data" in body["error"]
 
 
 def test_redcap_error_returns_502():
