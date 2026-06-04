@@ -682,16 +682,6 @@ export default function HealthSlider() {
     }
   };
 
-  // On a page reload mid-session the mic stream is gone. Auto-restart it so
-  // recording continues seamlessly. survey_sessionId in localStorage means the
-  // mic was previously granted and a session is in progress.
-  useEffect(() => {
-    if (localStorage.getItem('survey_sessionId') !== null) {
-      startMic();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const advanceToNextQuestion = () => {
     if (questionIndex < total - 1) {
       setQuestionIndex((i) => i + 1);
@@ -721,13 +711,7 @@ export default function HealthSlider() {
         setSliderPosition(50);
         setSliderMoved(false);
 
-        try {
-          startItemRecorder();
-        } catch (e: any) {
-          setRecorderWarning(
-            `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
-          );
-        }
+        startItemRecorder();
         return;
       }
 
@@ -1079,20 +1063,6 @@ export default function HealthSlider() {
               <button
                 type="button"
                 onClick={() => setRecorderWarning('')}
-                className="icf-dismiss-btn"
-                aria-label="Meldung schließen"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {micError && (
-            <div role="alert" className="icf-recorder-warning">
-              <span>{micError}</span>
-              <button
-                type="button"
-                onClick={() => setMicError('')}
                 className="icf-dismiss-btn"
                 aria-label="Meldung schließen"
               >
