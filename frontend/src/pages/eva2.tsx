@@ -392,10 +392,10 @@ export default function HealthSlider() {
     }
   }, [isPracticeMode, questionIndex]);
 
-  /** --- sync URL-provided patient ID to in-memory state (avoid persistent cleartext storage) --- */
   useEffect(() => {
     if (urlPatientId) {
       setPatientId(urlPatientId);
+      localStorage.setItem('patient_id', urlPatientId);
       setPatientIdError('');
     }
   }, [urlPatientId]);
@@ -657,6 +657,10 @@ export default function HealthSlider() {
       }
 
       ensureSessionId();
+      // Persist sessionId immediately so a refresh during practice mode also
+      // skips the welcome screen (testMode initialises to false when either
+      // survey_index or survey_sessionId is present in localStorage).
+      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
       startItemRecorder();
 
       setTestMode(false);
