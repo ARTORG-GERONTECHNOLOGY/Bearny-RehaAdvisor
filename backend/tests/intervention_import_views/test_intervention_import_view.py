@@ -435,3 +435,46 @@ def test_import_slot2_replaces_existing_slot2():
         assert len(doc.media) == 1
         assert doc.media[0].media_slot == 2
         assert "new_slot2" in doc.media[0].url
+
+
+def test_excel_reimport_preserves_uploaded_images():
+    """Re-importing an Excel row must NOT wipe images that were uploaded via the
+    media-upload endpoint.  Uploaded files have a folder-prefixed path (e.g.
+    "images/20260609_143022_foo.jpg"); raw Excel filenames never contain a slash."""
+    # Seed an intervention that already has an uploaded image (kind="file", path with /)
+    Intervention(
+        external_id="7200_gfx",
+        language="de",
+        title="Spaziergang",
+        description="Desc",
+        content_type="Graphics",
+        media=[
+            InterventionMedia(
+                kind="file",
+                media_type="image",
+                file_path="images/20260609_143022_spaziergang.jpg",
+                mime="image/jpeg",
+                media_slot=None,
+            )
+        ],
+    ).save()
+
+    # Re-import Excel with the same row (link = raw filename, as Excel originally had)
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "update.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["7200_gfx_de", "Spaziergang", "Desc", "Graphics", "7200_gfx_de.jpg"])
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+        assert result["updated"] == 1
+
+    doc = Intervention.objects(external_id="7200_gfx", language="de").first()
+    assert doc is not None
+
+    file_paths = [m.file_path for m in (doc.media or []) if getattr(m, "kind", "") == "file"]
+    # The uploaded image must still be present
+    assert "images/20260609_143022_spaziergang.jpg" in file_paths

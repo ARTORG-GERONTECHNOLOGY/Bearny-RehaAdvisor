@@ -966,17 +966,23 @@ def import_interventions_from_excel(
                     merged.append(new_media)
                 else:
                     # No explicit slot — replace the primary entry (slot=None) with the
-                    # new one and preserve any numbered slots.
+                    # new one, but preserve:
+                    #   • numbered slots (any kind)
+                    #   • uploaded files (kind="file", path contains "/" — written by the
+                    #     media-upload endpoint as "images/YYYYMMDD_…"; raw Excel filenames
+                    #     never contain a slash and are safe to replace)
                     seen_keys: set = set()
                     merged = []
-                    # Keep numbered-slot media intact
                     for m in existing_media:
                         existing_kind = _norm(getattr(m, "kind", ""))
                         if existing_kind == "external":
                             existing_url = _norm(getattr(m, "url", ""))
                             if existing_url and not _is_http_url(existing_url):
                                 continue  # drop old broken entries
-                        if getattr(m, "media_slot", None) is not None:
+                        slot = getattr(m, "media_slot", None)
+                        fp = getattr(m, "file_path", "") or ""
+                        is_uploaded_file = existing_kind == "file" and "/" in fp
+                        if slot is not None or is_uploaded_file:
                             k = _media_key(m)
                             if k not in seen_keys:
                                 merged.append(m)
