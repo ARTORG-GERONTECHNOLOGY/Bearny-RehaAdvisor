@@ -19,7 +19,11 @@
     },
     "COMPASS": {
       "Bern": "forschung-respo@insel.ch",
-      "Inselspital": "forschung-respo@insel.ch"
+      "Inselspital": "forschung-respo@insel.ch",
+      "Leuven": "cvep@kuleuven.be",
+      "Lisbon": "compass@medicina.ulisboa.pt",
+      "Lumezzane": "compass.lumezzane@icsmaugeri.it",
+      "Milano": "compass@dongnocchi.it"
     }
   },
   "patientInfo": {
