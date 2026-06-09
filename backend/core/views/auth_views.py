@@ -1051,6 +1051,8 @@ def get_user_info(request, user_id):
         specialisation = ""
         function = ""
         preferred_language = "en"
+        clinic = ""
+        project = ""
 
         if user.role == "Therapist":
             therapist = Therapist.objects.filter(userId=user).first()
@@ -1066,6 +1068,8 @@ def get_user_info(request, user_id):
                 last_name = patient.name
                 function = patient.function
                 preferred_language = getattr(patient, "preferred_language", None) or "en"
+                clinic = getattr(patient, "clinic", None) or ""
+                project = getattr(patient, "project", None) or ""
 
         else:  # Admin fallback
             first_name = user.username
@@ -1078,6 +1082,8 @@ def get_user_info(request, user_id):
                 "function": function,
                 "role": user.role,
                 "preferred_language": preferred_language,
+                "clinic": clinic,
+                "project": project,
             },
             status=200,
         )
