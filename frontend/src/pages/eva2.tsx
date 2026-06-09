@@ -46,7 +46,7 @@ import '@/assets/styles/icf.css';
 /** ====== DATA ====== */
 const PRACTICE_QUESTION = 'Übungslauf Beispiel (Wird nicht gespeichert)';
 const REAL_QUESTIONS = [
-  'Gesundheit, Befinden und Wohlbefinden allgemein',
+  'Gesundheit, Befinden und Wohlergehen allgemein',
   'Essen und Trinken',
   'Sich selber und den Körper pflegen, sich waschen und kleiden',
   'Die Toilette benutzen, das Blasenmanagement und die Urinausscheidung',
@@ -1034,6 +1034,21 @@ export default function HealthSlider() {
             <div className="icf-modal-overlay">
               <div className="icf-modal">
                 <h3 className="mt-0">Upload fehlgeschlagen</h3>
+
+                {uploadFail.meta && (
+                  <div className="icf-rating-rescue mb-4">
+                    <div className="icf-rating-rescue__label">Bewertung für diese Frage</div>
+                    <div className="icf-rating-rescue__question">
+                      {uploadFail.meta.questionText}
+                    </div>
+                    <div className="icf-rating-rescue__value">
+                      {uploadFail.meta.answerValue === -1
+                        ? 'Kann ich nicht beantworten'
+                        : `${uploadFail.meta.answerValue} / 100`}
+                    </div>
+                  </div>
+                )}
+
                 <p className="whitespace-pre-wrap mb-4">{uploadFail.message}</p>
 
                 <div className="icf-modal-actions">
