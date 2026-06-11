@@ -2580,9 +2580,33 @@ def get_patient_plan_for_therapist(request, patient_id):
             "interventions": [],
         }
 
-        for assignment in plan.interventions:
+        # Group assignments by external_id to avoid showing duplicates when the
+        # same intervention was added in multiple language variants.
+        _seen_ext: dict = {}
+        for _a in plan.interventions:
+            _iv = _a.interventionId
+            _ext = getattr(_iv, "external_id", None) or str(_iv.id)
+            if _ext not in _seen_ext:
+                _seen_ext[_ext] = {
+                    "canonical": _a,
+                    "all_dates": list(_a.dates),
+                    "all_ids": [_iv.id],
+                }
+            else:
+                _existing_days = {_d.date() for _d in _seen_ext[_ext]["all_dates"]}
+                for _d in _a.dates:
+                    if _d.date() not in _existing_days:
+                        _seen_ext[_ext]["all_dates"].append(_d)
+                        _existing_days.add(_d.date())
+                _seen_ext[_ext]["all_ids"].append(_iv.id)
+
+        for _group in _seen_ext.values():
+            assignment = _group["canonical"]
+            all_dates = sorted(_group["all_dates"])
             intervention = assignment.interventionId
-            logs = PatientInterventionLogs.objects(userId=patient, interventionId=intervention)
+            logs = PatientInterventionLogs.objects(
+                userId=patient, interventionId__in=_group["all_ids"]
+            )
 
             completed_dates = {log.date.date() for log in logs if "completed" in (log.status or [])}
 
@@ -2592,7 +2616,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             rating_sum = 0
             rating_count = 0
 
-            for date in assignment.dates:
+            for date in all_dates:
                 log = next((l for l in logs if l.date.date() == date.date()), None)
 
                 if log and "completed" in (log.status or []):
@@ -2674,7 +2698,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                     "frequency": assignment.frequency,
                     "notes": assignment.notes,
                     "dates": intervention_dates,
-                    "totalCount": len(assignment.dates),
+                    "totalCount": len(all_dates),
                     "currentTotalCount": current_total_count,
                     "completedCount": completed_count,
                     "averageRating": (round(rating_sum / rating_count, 1) if rating_count > 0 else 0),
