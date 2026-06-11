@@ -247,6 +247,8 @@ Returns a structured plan with adherence metadata for the therapist dashboard.  
 | `test_get_patient_plan_for_therapist_patient_not_found` | Unknown Patient ObjectId | 404, 'Patient not found' |
 | `test_get_patient_plan_for_therapist_no_plan` | Patient but no plan | 200, 'No rehabilitation plan found' |
 | `test_get_patient_plan_for_therapist_post_method_not_allowed` | POST | 405 |
+| `test_therapist_plan_deduplicates_multilingual_assignments` | Same `external_id` assigned in DE + EN | One entry returned, dates merged (fix #347) |
+| `test_therapist_plan_feedback_visible_for_other_language_variant` | Log under DE variant, EN variant assigned | Session counted as completed (fix #347) |
 
 ---
 
