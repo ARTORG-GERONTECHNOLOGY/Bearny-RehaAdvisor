@@ -131,8 +131,10 @@ describe('Home page', () => {
     // since t() returns the key, we expect those keys in the DOM
     expect(screen.getByText(/homeHeadline/)).toBeInTheDocument();
     expect(screen.getByText(/homeSubheadline/)).toBeInTheDocument();
-
-    expect(screen.getByText('Sign in as a Therapist or Patient.')).toBeInTheDocument();
+    expect(screen.getByText(/homeDescription/)).toBeInTheDocument();
+    expect(screen.getByText(/homeFeatureExercises/)).toBeInTheDocument();
+    expect(screen.getByText(/homeFeatureMonitoring/)).toBeInTheDocument();
+    expect(screen.getByText(/homeFeatureAssessment/)).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
   });
