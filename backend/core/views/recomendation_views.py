@@ -892,7 +892,13 @@ def get_intervention_detail(request, intervention_id):
                 intervention = picked
 
         feedbacks = []
-        patient_logs = PatientInterventionLogs.objects.filter(interventionId=intervention)
+        # Query across ALL language variants so logs recorded under a different
+        # language variant of the same intervention are included.
+        if external_id:
+            _variant_ids = [v.id for v in Intervention.objects(external_id=external_id).only("id")]
+            patient_logs = PatientInterventionLogs.objects.filter(interventionId__in=_variant_ids)
+        else:
+            patient_logs = PatientInterventionLogs.objects.filter(interventionId=base_doc)
         for log in patient_logs:
             for entry in log.feedback or []:
                 feedbacks.append(
@@ -984,7 +990,7 @@ def list_all_interventions(request, patient_id=None):
                 seen.add(k)
             return out
 
-        def serialize(item, available_languages=None):
+        def serialize(item, available_languages=None, all_docs=None):
             aim_val = getattr(item, "aim", None)
             aims = [aim_val.strip()] if isinstance(aim_val, str) and aim_val.strip() else []
 
@@ -994,6 +1000,12 @@ def list_all_interventions(request, patient_id=None):
             keywords = _safe_list(getattr(item, "keywords", None))
             tags = _dedup_keep_order(topic + where + setting + keywords)
 
+            _all_titles = list({
+                getattr(d, "title", None)
+                for d in (all_docs or [item])
+                if getattr(d, "title", None)
+            })
+
             return {
                 "_id": str(item.pk),
                 "external_id": getattr(item, "external_id", None),
@@ -1001,6 +1013,7 @@ def list_all_interventions(request, patient_id=None):
                 "available_languages": available_languages or [],
                 "provider": getattr(item, "provider", None),
                 "title": getattr(item, "title", None),
+                "all_titles": _all_titles,
                 "description": getattr(item, "description", None),
                 "content_type": getattr(item, "content_type", None),
                 "aims": aims,
@@ -1053,7 +1066,7 @@ def list_all_interventions(request, patient_id=None):
         public_serialized = []
         for external_id, docs in grouped.items():
             chosen, langs = _pick_variant(docs, preferred_lang, fallback_order=["en", "de"])
-            public_serialized.append(serialize(chosen, langs))
+            public_serialized.append(serialize(chosen, langs, all_docs=docs))
 
         all_serialized = private_serialized + public_serialized
 
