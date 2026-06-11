@@ -2604,9 +2604,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             assignment = _group["canonical"]
             all_dates = sorted(_group["all_dates"])
             intervention = assignment.interventionId
-            logs = PatientInterventionLogs.objects(
-                userId=patient, interventionId__in=_group["all_ids"]
-            )
+            logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=_group["all_ids"])
 
             completed_dates = {log.date.date() for log in logs if "completed" in (log.status or [])}
 

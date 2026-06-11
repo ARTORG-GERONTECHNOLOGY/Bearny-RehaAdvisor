@@ -1000,11 +1000,7 @@ def list_all_interventions(request, patient_id=None):
             keywords = _safe_list(getattr(item, "keywords", None))
             tags = _dedup_keep_order(topic + where + setting + keywords)
 
-            _all_titles = list({
-                getattr(d, "title", None)
-                for d in (all_docs or [item])
-                if getattr(d, "title", None)
-            })
+            _all_titles = list({getattr(d, "title", None) for d in (all_docs or [item]) if getattr(d, "title", None)})
 
             return {
                 "_id": str(item.pk),
