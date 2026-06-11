@@ -2609,9 +2609,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             # under a different variant are still counted.
             _ext_id = getattr(intervention, "external_id", None)
             if _ext_id:
-                _all_variant_ids = [
-                    _v.id for _v in Intervention.objects(external_id=_ext_id).only("id")
-                ]
+                _all_variant_ids = [_v.id for _v in Intervention.objects(external_id=_ext_id).only("id")]
             else:
                 _all_variant_ids = _group["all_ids"]
             logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=_all_variant_ids)
