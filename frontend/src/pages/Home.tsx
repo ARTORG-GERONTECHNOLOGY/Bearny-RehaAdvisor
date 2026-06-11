@@ -39,13 +39,7 @@ const Home: React.FC = () => {
             <h1 className="font-bold mb-0">{t('homeHeadline')}</h1>
             <h2 className="text-lg text-muted mb-3">{t('homeSubheadline')}</h2>
 
-            <p className="text-base mb-4">{t('homeDescription')}</p>
-
-            <ul className="text-sm text-muted mb-5 space-y-1 list-none p-0 w-full">
-              <li>✓ {t('homeFeatureExercises')}</li>
-              <li>✓ {t('homeFeatureMonitoring')}</li>
-              <li>✓ {t('homeFeatureAssessment')}</li>
-            </ul>
+            <p className="text-base text-muted mb-6">{t('homeDescription')}</p>
 
             <div className="flex flex-col items-center md:items-start w-full md:w-auto gap-2">
               <Button onClick={toggleLoginModal} className="w-full sm:w-auto">
