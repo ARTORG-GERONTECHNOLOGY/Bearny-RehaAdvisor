@@ -424,6 +424,9 @@ def mark_intervention_completed(request):
         patient_id = data.get("patient_id")
         intervention_id = data.get("intervention_id")
         target_date_str = data.get("date")  # optional YYYY-MM-DD
+        assistance = data.get("assistance")  # "alone" or "with_help"
+        if assistance not in ("alone", "with_help"):
+            assistance = None
 
         if not patient_id or not intervention_id:
             return JsonResponse({"error": "Missing patient_id or intervention_id"}, status=400)
@@ -516,6 +519,9 @@ def mark_intervention_completed(request):
             # Normalise stored date to the canonical log_date for this day
             keep.date = log_date
 
+            if assistance is not None:
+                keep.assistance = assistance
+
             keep.save()
 
             Logs(
@@ -537,6 +543,7 @@ def mark_intervention_completed(request):
             status=["completed"],
             feedback=[],
             comments="",
+            assistance=assistance,
         )
         log.save()
 

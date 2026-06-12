@@ -1353,5 +1353,9 @@
   "Star rating": "Valutazione a stelle",
   "Answer options": "Opzioni di risposta",
   "Microphone access denied.": "Accesso al microfono negato.",
-  "Text Feedback": "Riscontro testuale"
+  "Text Feedback": "Riscontro testuale",
+  "assistanceQuestion": "Stai facendo i tuoi esercizi oggi da solo/a o con assistenza?",
+  "assistanceDescription": "La tua risposta ci aiuta a capire i tuoi progressi.",
+  "assistanceAlone": "Da solo/a",
+  "assistanceWithHelp": "Con assistenza"
 }
