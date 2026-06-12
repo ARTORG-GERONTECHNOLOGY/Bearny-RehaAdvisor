@@ -18,6 +18,8 @@ export const filterInterventions = (
     tagFilter: string[];
     benefitForFilter: string[];
     searchTerm: string;
+    includeTagsInSearch?: boolean;
+    getTagLabel?: (tag: string) => string;
   }
 ): Intervention[] => {
   let result = [...recommendations];
@@ -66,10 +68,17 @@ export const filterInterventions = (
       const originalTitle = rec.title.toLowerCase();
       const translatedTitle = translatedTitles?.[rec._id]?.title?.toLowerCase();
       const allTitles: string[] = (rec as any).all_titles ?? [];
+      const matchesTags =
+        filters.includeTagsInSearch === true &&
+        (rec.tags ?? []).some((tag) => {
+          const label = filters.getTagLabel ? filters.getTagLabel(tag) : tag;
+          return label.toLowerCase().includes(searchLower);
+        });
       return (
         originalTitle.includes(searchLower) ||
         translatedTitle?.includes(searchLower) ||
-        allTitles.some((t) => t.toLowerCase().includes(searchLower))
+        allTitles.some((t) => t.toLowerCase().includes(searchLower)) ||
+        matchesTags
       );
     });
   }
