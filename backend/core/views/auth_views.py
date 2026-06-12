@@ -23,6 +23,15 @@ from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 email_user = settings.EMAIL_HOST_USER
+
+
+def _parse_device_type(ua: str) -> str:
+    ua_lower = ua.lower()
+    if any(x in ua_lower for x in ["tablet", "ipad"]):
+        return "Tablet"
+    if any(x in ua_lower for x in ["mobile", "android", "iphone", "ipod", "blackberry", "windows phone"]):
+        return "Mobile"
+    return "Desktop"
 import uuid
 
 from django.core.mail import EmailMultiAlternatives
@@ -390,7 +399,14 @@ def login_view(request):
             )
 
         # Others: issue JWT immediately
-        Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
+        _ua = (request.headers.get("User-Agent", "") or "")[:300]
+        Logs.objects.create(
+            userId=user,
+            action="LOGIN",
+            actor_role=user.role,
+            user_agent=_ua,
+            device_type=_parse_device_type(_ua),
+        )
 
         refresh = RefreshToken()
         refresh["user_id"] = user_id_str
@@ -1049,7 +1065,14 @@ def verify_code_view(request):
         reset_verify_attempts(user_id)
 
         refresh = RefreshToken.for_user(user)
-        Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
+        _ua = (request.headers.get("User-Agent", "") or "")[:300]
+        Logs.objects.create(
+            userId=user,
+            action="LOGIN",
+            actor_role=user.role,
+            user_agent=_ua,
+            device_type=_parse_device_type(_ua),
+        )
 
         return JsonResponse(
             {

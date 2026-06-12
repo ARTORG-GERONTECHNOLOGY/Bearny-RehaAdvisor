@@ -207,6 +207,7 @@ class Logs(Document):
     actor_role = StringField(max_length=50, required=True, db_field="userAgent")
     # Optional browser User-Agent string (populated when the event originates from a web request)
     user_agent = StringField(max_length=300, required=False, null=True)
+    device_type = StringField(max_length=20, required=False, null=True)
     patient = ReferenceField("Patient", required=False, null=True)
     details = StringField(max_length=1000)
 
@@ -358,8 +359,9 @@ class PatientInterventionLogs(Document):
     comments = StringField()
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
-    video_url = StringField(null=True)  # new
-    video_expired = BooleanField(default=False)  # new
+    video_url = StringField(null=True)
+    video_expired = BooleanField(default=False)
+    assistance = StringField(max_length=20, required=False, null=True)  # "alone" or "with_help"
 
 
 class InterventionAssignment(EmbeddedDocument):
@@ -723,6 +725,7 @@ class HealthSliderEntry(Document):
     audio_mime = StringField()  # "audio/webm", "audio/wav", ...
 
     answered_at = DateTimeField(default=timezone.now)
+    device_type = StringField(max_length=20, required=False, null=True)
 
     meta = {
         "indexes": [

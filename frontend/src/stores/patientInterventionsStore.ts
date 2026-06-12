@@ -68,6 +68,8 @@ class PatientInterventionsStore {
   error: string | null = null;
   errorDetails: string | null = null;
 
+  assistanceMode: 'alone' | 'with_help' | null = null;
+
   private currentPatientId: string | null = null;
 
   constructor() {
@@ -96,6 +98,10 @@ class PatientInterventionsStore {
   clearError() {
     this.error = null;
     this.errorDetails = null;
+  }
+
+  setAssistanceMode(mode: 'alone' | 'with_help') {
+    this.assistanceMode = mode;
   }
 
   isCompletedOn(rec: PatientRec, date: Date) {
@@ -182,6 +188,7 @@ class PatientInterventionsStore {
         patient_id: patientId,
         intervention_id: rec.intervention_id,
         date: dateKey,
+        ...(this.assistanceMode ? { assistance: this.assistanceMode } : {}),
       });
 
       runInAction(() => {
