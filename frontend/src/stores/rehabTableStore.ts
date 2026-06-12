@@ -248,14 +248,21 @@ export class RehabTableStore {
 
     const merged: Intervention[] = (plan?.interventions || []).map((p0) => {
       const p = (p0 as unknown as PlanLike) || {};
-      const full = (catalogMap.get((p._id as string) || '') ??
-        catalogByExtId.get((p as any).external_id || '')) as unknown as PlanLike | undefined;
+      const catalogMatch = catalogMap.get((p._id as string) || '');
+      const extIdFallback = !catalogMatch
+        ? catalogByExtId.get((p as any).external_id || '')
+        : undefined;
+      const full = (catalogMatch ?? extIdFallback) as unknown as PlanLike | undefined;
 
       // keep schedule fields from plan (dates/notes/frequency/etc)
       // keep media/desc/etc from catalog if plan doesn't have it
       const out: PlanLike = {
         ...(full || {}),
         ...(p || {}),
+        // When matched via external_id (not _id), adopt the catalog's _id so
+        // all downstream _id-based lookups (patientAssignedItems, hasFutureDates,
+        // InterventionLeftPanel) resolve correctly.
+        ...(extIdFallback ? { _id: (extIdFallback as any)._id as string } : {}),
         title:
           (typeof p.title === 'string' && p.title) ||
           (typeof full?.title === 'string' ? full.title : '') ||
