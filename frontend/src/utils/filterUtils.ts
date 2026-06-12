@@ -77,7 +77,7 @@ export const filterInterventions = (
       return (
         originalTitle.includes(searchLower) ||
         translatedTitle?.includes(searchLower) ||
-        allTitles.some((t) => t.toLowerCase().includes(searchLower))  ||
+        allTitles.some((t) => t.toLowerCase().includes(searchLower)) ||
         matchesTags
       );
     });
