@@ -243,17 +243,29 @@ export class RehabTableStore {
    */
   private mergePlanWithCatalog(plan: PatientPlan, catalog: Intervention[]): PatientPlan {
     const catalogMap = new Map<string, Intervention>();
-    for (const it of catalog || []) catalogMap.set(it._id, it);
+    const catalogByExtId = new Map<string, Intervention>();
+    for (const it of catalog || []) {
+      catalogMap.set(it._id, it);
+      if ((it as any).external_id) catalogByExtId.set((it as any).external_id, it);
+    }
 
     const merged: Intervention[] = (plan?.interventions || []).map((p0) => {
       const p = (p0 as unknown as PlanLike) || {};
-      const full = catalogMap.get((p._id as string) || '') as unknown as PlanLike | undefined;
+      const catalogMatch = catalogMap.get((p._id as string) || '');
+      const extIdFallback = !catalogMatch
+        ? catalogByExtId.get((p as any).external_id || '')
+        : undefined;
+      const full = (catalogMatch ?? extIdFallback) as unknown as PlanLike | undefined;
 
       // keep schedule fields from plan (dates/notes/frequency/etc)
       // keep media/desc/etc from catalog if plan doesn't have it
       const out: PlanLike = {
         ...(full || {}),
         ...(p || {}),
+        // When matched via external_id (not _id), adopt the catalog's _id so
+        // all downstream _id-based lookups (patientAssignedItems, hasFutureDates,
+        // InterventionLeftPanel) resolve correctly.
+        ...(extIdFallback ? { _id: (extIdFallback as any)._id as string } : {}),
         title:
           (typeof p.title === 'string' && p.title) ||
           (typeof full?.title === 'string' ? full.title : '') ||
