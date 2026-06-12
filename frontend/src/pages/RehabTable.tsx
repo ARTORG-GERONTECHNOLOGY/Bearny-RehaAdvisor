@@ -105,6 +105,13 @@ const RehabTable: React.FC = observer(() => {
   const navigate = useNavigate();
 
   const store = useMemo(() => new RehabTableStore(), []);
+
+  // keep tag translation in sync with current language
+  useEffect(() => {
+    store.translateTag = t;
+    store.applyAllFilters();
+  }, [store, t, i18n.language]);
+
   const [questionnaires, setQuestionnaires] = useState<QItem[]>([]);
   const [assignedQuestionnaires, setAssignedQuestionnaires] = useState<QAssigned[]>([]);
   const [qModalOpen, setQModalOpen] = useState(false);

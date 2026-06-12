@@ -265,5 +265,71 @@ describe('filterInterventions', () => {
       });
       expect(result.map((r) => r._id)).toEqual(['b']);
     });
+
+    it('does not match tags when includeTagsInSearch is not set', () => {
+      const items = [
+        makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] }),
+        makeIntervention({ _id: 'b', title: 'Other', tags: ['cardio'] }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'balance',
+      });
+      expect(result).toHaveLength(0);
+    });
+
+    it('matches raw tag key when includeTagsInSearch is true', () => {
+      const items = [
+        makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] }),
+        makeIntervention({ _id: 'b', title: 'Other', tags: ['cardio'] }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'balance',
+        includeTagsInSearch: true,
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('matches translated tag label when getTagLabel is provided', () => {
+      const translations: Record<string, string> = { balance: 'Gleichgewicht', cardio: 'Herz' };
+      const getTagLabel = (tag: string) => translations[tag] ?? tag;
+      const items = [
+        makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] }),
+        makeIntervention({ _id: 'b', title: 'Other', tags: ['cardio'] }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'gleichgewicht',
+        includeTagsInSearch: true,
+        getTagLabel,
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('does not match raw tag key when getTagLabel is provided (locale-only matching)', () => {
+      const translations: Record<string, string> = { balance: 'Gleichgewicht' };
+      const getTagLabel = (tag: string) => translations[tag] ?? tag;
+      const items = [makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] })];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'balance',
+        includeTagsInSearch: true,
+        getTagLabel,
+      });
+      expect(result).toHaveLength(0);
+    });
+
+    it('is case-insensitive when matching tag labels', () => {
+      const getTagLabel = (tag: string) => (tag === 'balance' ? 'Gleichgewicht' : tag);
+      const items = [makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] })];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'GLEICHGEWICHT',
+        includeTagsInSearch: true,
+        getTagLabel,
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
   });
 });
