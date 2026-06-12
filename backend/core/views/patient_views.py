@@ -2699,6 +2699,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             plan_data["interventions"].append(
                 {
                     "_id": str(intervention.id),
+                    "external_id": getattr(intervention, "external_id", None),
                     "title": intervention.title,
                     "aim": intervention.aim,
                     "frequency": assignment.frequency,
