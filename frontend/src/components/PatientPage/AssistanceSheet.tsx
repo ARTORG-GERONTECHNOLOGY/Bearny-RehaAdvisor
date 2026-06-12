@@ -33,10 +33,7 @@ const AssistanceSheet: React.FC<AssistanceSheetProps> = ({ open, onSelect }) => 
           >
             {t('assistanceAlone')}
           </Button>
-          <Button
-            className="w-full sm:w-48 h-16 text-lg"
-            onClick={() => onSelect('with_help')}
-          >
+          <Button className="w-full sm:w-48 h-16 text-lg" onClick={() => onSelect('with_help')}>
             {t('assistanceWithHelp')}
           </Button>
         </div>
