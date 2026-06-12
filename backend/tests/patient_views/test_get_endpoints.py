@@ -1055,3 +1055,100 @@ def test_therapist_plan_feedback_visible_for_other_language_variant(mongo_mock):
     dates = body["interventions"][0]["dates"]
     completed = [d for d in dates if d["status"] == "completed"]
     assert len(completed) == 1, "log under DE variant must count as completed"
+
+
+def test_therapist_plan_includes_external_id(mongo_mock):
+    """
+    Regression for the rehab-table filter/feedback/delete mismatch.
+
+    The catalog endpoint picks the preferred-language variant and returns ITS
+    ObjectId.  The plan endpoint stored the assigned variant's ObjectId.  When
+    the two variants differ the frontend merge failed because it matched only
+    by _id.
+
+    Fix: plan response must include external_id so the frontend can fall back
+    to it when _id lookup misses.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    int_en = Intervention(
+        title="Blood Pressure Basics",
+        description="EN",
+        content_type="Video",
+        external_id="MISMATCH-001",
+        language="en",
+    )
+    int_en.save()
+
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["interventions"], "plan must contain at least one intervention"
+
+    entry = body["interventions"][0]
+    assert "external_id" in entry, "plan response must include external_id"
+    assert entry["external_id"] == "MISMATCH-001", (
+        "external_id must match the intervention's external_id so the "
+        "frontend can join plan items to catalog items even when the "
+        "ObjectIds differ across language variants"
+    )
+
+
+def test_therapist_plan_external_id_enables_cross_variant_merge(mongo_mock):
+    """
+    Simulates the exact production scenario for patient 934-22:
+
+    * Intervention exists in EN only (no DE variant in DB).
+    * Patient's plan assigns the EN ObjectId.
+    * Catalog endpoint (list_all_interventions) would return a DIFFERENT
+      ObjectId if a DE variant existed.  We verify that external_id is
+      present so the frontend fallback merge can locate the entry.
+
+    The plan endpoint must return external_id alongside _id so that
+    mergePlanWithCatalog can use it as a secondary key.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    # Only one language variant exists (EN) — mirrors the production case
+    int_en = Intervention(
+        title="Cholesterin – in Kürze",
+        description="EN only",
+        content_type="Video",
+        external_id="PROD-CHOL-001",
+        language="en",
+    )
+    int_en.save()
+
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        )
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    entry = resp.json()["interventions"][0]
+
+    # Both identifiers must be present
+    assert entry["_id"] == str(int_en.id)
+    assert entry["external_id"] == "PROD-CHOL-001"
