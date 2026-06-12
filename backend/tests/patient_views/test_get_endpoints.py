@@ -934,3 +934,124 @@ def test_star_rating_absent_when_no_intervention_id(mongo_mock):
     assert "rating_stars_education" not in keys
     assert "rating_stars_exercise" not in keys
     assert "difficulty_scale" in keys, f"Core questions missing: {keys}"
+
+
+# ===========================================================================
+# Regression tests for issue #347 — multilingual intervention bugs
+# ===========================================================================
+
+
+def test_therapist_plan_deduplicates_multilingual_assignments(mongo_mock):
+    """
+    Fix #347 Bug 1: if the same external_id was assigned in two language
+    variants, the therapist plan view must return only ONE entry (not two).
+    Dates from both assignments must be merged so no session is lost.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    int_de = Intervention(
+        title="Blutdruck Grundlagen",
+        description="DE",
+        content_type="Video",
+        external_id="MULTI-001",
+        language="de",
+    )
+    int_de.save()
+    int_en = Intervention(
+        title="Blood Pressure Basics",
+        description="EN",
+        content_type="Video",
+        external_id="MULTI-001",
+        language="en",
+    )
+    int_en.save()
+
+    tomorrow = datetime.now() + timedelta(days=1)
+    day_after = datetime.now() + timedelta(days=2)
+
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_de,
+            frequency="Daily",
+            notes="",
+            dates=[tomorrow],
+        ),
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[day_after],
+        ),
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    interventions = body["interventions"]
+
+    # Must be deduplicated to one entry
+    assert len(interventions) == 1
+    # Both dates must be present (merged)
+    assert interventions[0]["totalCount"] == 2
+
+
+def test_therapist_plan_feedback_visible_for_other_language_variant(mongo_mock):
+    """
+    Fix #347 Bug 3: feedback logged under the DE variant's ObjectId must appear
+    in the therapist plan even when the plan references the EN variant.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    int_de = Intervention(
+        title="Blutdruck Grundlagen",
+        description="DE",
+        content_type="Video",
+        external_id="FEEDBACK-001",
+        language="de",
+    )
+    int_de.save()
+    int_en = Intervention(
+        title="Blood Pressure Basics",
+        description="EN",
+        content_type="Video",
+        external_id="FEEDBACK-001",
+        language="en",
+    )
+    int_en.save()
+
+    session_date = datetime(2026, 6, 1, 8, 0, 0)
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[session_date],
+        )
+    ]
+    plan.save()
+
+    # Log recorded under the DE variant (different ObjectId)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=int_de,
+        rehabilitationPlanId=plan,
+        date=session_date,
+        status=["completed"],
+        feedback=[],
+        comments="DE variant log",
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+
+    dates = body["interventions"][0]["dates"]
+    completed = [d for d in dates if d["status"] == "completed"]
+    assert len(completed) == 1, "log under DE variant must count as completed"

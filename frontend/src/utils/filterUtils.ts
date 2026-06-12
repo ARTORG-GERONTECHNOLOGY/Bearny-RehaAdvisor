@@ -67,6 +67,7 @@ export const filterInterventions = (
     result = result.filter((rec) => {
       const originalTitle = rec.title.toLowerCase();
       const translatedTitle = translatedTitles?.[rec._id]?.title?.toLowerCase();
+      const allTitles: string[] = (rec as any).all_titles ?? [];
       const matchesTags =
         filters.includeTagsInSearch === true &&
         (rec.tags ?? []).some((tag) => {
@@ -74,7 +75,10 @@ export const filterInterventions = (
           return label.toLowerCase().includes(searchLower);
         });
       return (
-        originalTitle.includes(searchLower) || translatedTitle?.includes(searchLower) || matchesTags
+        originalTitle.includes(searchLower) ||
+        translatedTitle?.includes(searchLower) ||
+        allTitles.some((t) => t.toLowerCase().includes(searchLower))  ||
+        matchesTags
       );
     });
   }
