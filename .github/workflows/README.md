@@ -23,7 +23,7 @@ Four comprehensive workflows are configured for continuous integration and deplo
 ### Jobs
 
 #### Frontend Tests (Jest)
-- **Node.js:** 18.x
+- **Node.js:** 20.x
 - **Cache:** npm dependencies
 - **Steps:**
   1. Install dependencies
@@ -46,7 +46,7 @@ Four comprehensive workflows are configured for continuous integration and deplo
 **Timeout:** 30 minutes
 
 #### Frontend E2E (Playwright)
-- **Node.js:** 18.x
+- **Node.js:** 20.x
 - **Python:** 3.10 (starts Django backend for FE↔BE E2E)
 - **Services:** MongoDB 8.0, Redis 7
 - **Steps:**

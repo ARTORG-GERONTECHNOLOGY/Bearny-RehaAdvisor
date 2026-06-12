@@ -2,7 +2,7 @@
 FROM ubuntu:22.04 AS react-builder
 
 # Install Node.js and npm
-ENV NODE_VERSION=18.x
+ENV NODE_VERSION=20.x
 
 # Set work directory
 WORKDIR /app
