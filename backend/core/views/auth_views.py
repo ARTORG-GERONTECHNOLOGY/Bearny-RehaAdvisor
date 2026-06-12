@@ -32,6 +32,8 @@ def _parse_device_type(ua: str) -> str:
     if any(x in ua_lower for x in ["mobile", "android", "iphone", "ipod", "blackberry", "windows phone"]):
         return "Mobile"
     return "Desktop"
+
+
 import uuid
 
 from django.core.mail import EmailMultiAlternatives
