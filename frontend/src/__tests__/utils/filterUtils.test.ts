@@ -266,6 +266,35 @@ describe('filterInterventions', () => {
       expect(result.map((r) => r._id)).toEqual(['b']);
     });
 
+    // Fix #347 Bug 2: searching by a non-primary language title must work
+    it('filters by all_titles — finds German title when English variant is primary', () => {
+      const items = [
+        makeIntervention({
+          _id: 'a',
+          title: 'Walking in the Fresh Air', // EN variant is primary
+          all_titles: ['Walking in the Fresh Air', 'Spaziergang im Freien'],
+        }),
+        makeIntervention({ _id: 'b', title: 'Blood Pressure Basics' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'spaziergang',
+      });
+      expect(result.map((r) => r._id)).toEqual(['a']);
+    });
+
+    it('all_titles absent — falls back to primary title only', () => {
+      const items = [
+        makeIntervention({ _id: 'a', title: 'Walking in the Fresh Air' }),
+        makeIntervention({ _id: 'b', title: 'Blood Pressure Basics' }),
+      ];
+      const result = filterInterventions(items, undefined, {
+        ...emptyFilters,
+        searchTerm: 'spaziergang',
+      });
+      expect(result).toHaveLength(0);
+    });
+
     it('does not match tags when includeTagsInSearch is not set', () => {
       const items = [
         makeIntervention({ _id: 'a', title: 'Exercise', tags: ['balance'] }),
