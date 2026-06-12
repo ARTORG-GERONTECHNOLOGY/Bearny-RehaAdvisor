@@ -243,11 +243,16 @@ export class RehabTableStore {
    */
   private mergePlanWithCatalog(plan: PatientPlan, catalog: Intervention[]): PatientPlan {
     const catalogMap = new Map<string, Intervention>();
-    for (const it of catalog || []) catalogMap.set(it._id, it);
+    const catalogByExtId = new Map<string, Intervention>();
+    for (const it of catalog || []) {
+      catalogMap.set(it._id, it);
+      if ((it as any).external_id) catalogByExtId.set((it as any).external_id, it);
+    }
 
     const merged: Intervention[] = (plan?.interventions || []).map((p0) => {
       const p = (p0 as unknown as PlanLike) || {};
-      const full = catalogMap.get((p._id as string) || '') as unknown as PlanLike | undefined;
+      const full = (catalogMap.get((p._id as string) || '') ??
+        catalogByExtId.get((p as any).external_id || '')) as unknown as PlanLike | undefined;
 
       // keep schedule fields from plan (dates/notes/frequency/etc)
       // keep media/desc/etc from catalog if plan doesn't have it
