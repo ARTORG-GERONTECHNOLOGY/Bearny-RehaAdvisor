@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 
 # Install Node.js and npm
 # Set environment variables
-ENV NODE_VERSION=20.x
+ENV NODE_VERSION=22.x
 # set work directory
 WORKDIR /app/
 # Install Node.js, npm, and other necessary packages
