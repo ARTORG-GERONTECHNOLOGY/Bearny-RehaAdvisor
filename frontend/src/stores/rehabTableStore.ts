@@ -188,6 +188,9 @@ export class RehabTableStore {
   benefitForFilter: string[] = [];
   languageFilter: string[] = [];
 
+  // tag translation function (set from component)
+  translateTag: ((tag: string) => string) | undefined = undefined;
+
   // Selected intervention + modals
   selectedExerciseId: string | null = null;
 
@@ -205,7 +208,7 @@ export class RehabTableStore {
   private entryTime = 0;
 
   constructor() {
-    makeAutoObservable(this, {}, { autoBind: true });
+    makeAutoObservable(this, { translateTag: false }, { autoBind: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -556,6 +559,8 @@ export class RehabTableStore {
       tagFilter: this.tagFilter,
       benefitForFilter: this.benefitForFilter,
       searchTerm: this.searchTerm,
+      includeTagsInSearch: true,
+      getTagLabel: this.translateTag,
     });
     this.filteredRecommendations = filtered;
   }

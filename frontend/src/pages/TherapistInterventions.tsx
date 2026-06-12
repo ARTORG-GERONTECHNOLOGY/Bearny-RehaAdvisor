@@ -248,8 +248,10 @@ const TherapistRecomendations: React.FC = observer(() => {
       tagFilter: libraryFilters.tagFilter,
       benefitForFilter: libraryFilters.aimsFilter,
       searchTerm: libraryFilters.searchTerm,
+      includeTagsInSearch: true,
+      getTagLabel: t,
     });
-  }, [recommendations, libraryFilters, translatedTitles]);
+  }, [recommendations, libraryFilters, translatedTitles, t]);
 
   const templateFilteredAll = useMemo(() => {
     return filterInterventions(recommendations, translatedTitles, {
@@ -259,8 +261,10 @@ const TherapistRecomendations: React.FC = observer(() => {
       tagFilter: templatesFilters.tTagFilter,
       benefitForFilter: [], // templates don't use aims filter
       searchTerm: templatesFilters.tSearchTerm,
+      includeTagsInSearch: true,
+      getTagLabel: t,
     });
-  }, [recommendations, templatesFilters, translatedTitles]);
+  }, [recommendations, templatesFilters, translatedTitles, t]);
 
   // ─────────────────────────── auth check ───────────────────────────
   useEffect(() => {
