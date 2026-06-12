@@ -1353,5 +1353,9 @@
   "Star rating": "Sternbewertung",
   "Answer options": "Antwortoptionen",
   "Microphone access denied.": "Mikrofonzugriff verweigert.",
-  "Text Feedback": "Textrückmeldung"
+  "Text Feedback": "Textrückmeldung",
+  "assistanceQuestion": "Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?",
+  "assistanceDescription": "Ihre Antwort hilft uns, Ihren Fortschritt besser zu verstehen.",
+  "assistanceAlone": "Alleine",
+  "assistanceWithHelp": "Mit Unterstützung"
 }

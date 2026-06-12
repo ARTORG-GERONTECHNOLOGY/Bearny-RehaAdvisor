@@ -1353,5 +1353,9 @@
   "Star rating": "Sterrenbeoordeling",
   "Answer options": "Antwoordopties",
   "Microphone access denied.": "Toegang tot microfoon geweigerd.",
-  "Text Feedback": "Tekstfeedback"
+  "Text Feedback": "Tekstfeedback",
+  "assistanceQuestion": "Doet u uw oefeningen vandaag alleen of met hulp?",
+  "assistanceDescription": "Uw antwoord helpt ons uw vooruitgang beter te begrijpen.",
+  "assistanceAlone": "Alleen",
+  "assistanceWithHelp": "Met hulp"
 }

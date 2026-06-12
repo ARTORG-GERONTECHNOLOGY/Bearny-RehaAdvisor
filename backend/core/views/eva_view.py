@@ -224,6 +224,7 @@ def submit_healthslider_item(request):
         entry.answer_value = answer_value
         entry.question_text = q_text
         entry.answered_at = dt
+        entry.device_type = (request.POST.get("deviceType") or "").strip() or None
 
         audio = request.FILES.get("audio")
         if audio:

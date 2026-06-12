@@ -1353,5 +1353,9 @@
   "Star rating": "Star rating",
   "Answer options": "Answer options",
   "Microphone access denied.": "Microphone access denied.",
-  "Text Feedback": "Text Feedback"
+  "Text Feedback": "Text Feedback",
+  "assistanceQuestion": "Are you doing your exercises today alone or with help?",
+  "assistanceDescription": "Your answer helps us understand how you are progressing.",
+  "assistanceAlone": "Alone",
+  "assistanceWithHelp": "With help"
 }

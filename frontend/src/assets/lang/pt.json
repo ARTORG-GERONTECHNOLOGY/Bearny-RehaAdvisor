@@ -1353,5 +1353,9 @@
   "Star rating": "Avaliação por estrelas",
   "Answer options": "Opções de resposta",
   "Microphone access denied.": "Acesso ao microfone negado.",
-  "Text Feedback": "Comentário de texto"
+  "Text Feedback": "Comentário de texto",
+  "assistanceQuestion": "Está a fazer os seus exercícios hoje sozinho/a ou com ajuda?",
+  "assistanceDescription": "A sua resposta ajuda-nos a compreender o seu progresso.",
+  "assistanceAlone": "Sozinho/a",
+  "assistanceWithHelp": "Com ajuda"
 }
