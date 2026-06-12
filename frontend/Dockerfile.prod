@@ -2,7 +2,7 @@
 FROM ubuntu:22.04
 
 # Install Node.js and npm
-ENV NODE_VERSION=18.x
+ENV NODE_VERSION=22.x
 
 # Set work directory
 WORKDIR /app

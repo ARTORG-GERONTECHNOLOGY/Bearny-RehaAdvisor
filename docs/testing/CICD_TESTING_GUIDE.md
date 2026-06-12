@@ -33,11 +33,11 @@ Trigger (push/PR)
 
 **Name**: `frontend-tests`  
 **Runtime**: ~5-10 minutes  
-**Node Version**: 18 LTS
+**Node Version**: 22 LTS
 
 #### Steps:
 1. **Checkout Code**: Clone repository at current commit
-2. **Setup Node.js**: Install Node 18 with npm caching
+2. **Setup Node.js**: Install Node 22 with npm caching
 3. **Install Dependencies**: `npm ci` for reproducible installations
 4. **Lint Code**: ESLint with TypeScript support
 5. **Run Tests**: Jest with coverage reporting

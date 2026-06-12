@@ -1,7 +1,7 @@
 # Build context must be the repo root so we can access both frontend/ and nginx/
 FROM ubuntu:22.04 AS react-builder
 
-ENV NODE_VERSION=18.x
+ENV NODE_VERSION=22.x
 WORKDIR /app
 
 RUN apt-get update && \
