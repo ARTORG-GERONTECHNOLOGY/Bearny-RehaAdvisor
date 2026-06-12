@@ -133,66 +133,60 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
     }, PATIENT_ID);
   });
 
-  test(
-    'intervention with mismatched _id appears in Patient Filter list when external_id matches',
-    async ({ page }) => {
-      skipUnlessSeeded();
-      await mockPlanAndCatalog(page);
-      await page.goto('/rehabtable');
+  test('intervention with mismatched _id appears in Patient Filter list when external_id matches', async ({
+    page,
+  }) => {
+    skipUnlessSeeded();
+    await mockPlanAndCatalog(page);
+    await page.goto('/rehabtable');
 
-      // Wait for the left panel to finish loading
-      await page.waitForSelector('[data-testid="left-panel-loaded"], .intervention-left-panel, #intervention-list', {
-        timeout: 15_000,
-      }).catch(() => {
+    // Wait for the left panel to finish loading
+    await page
+      .waitForSelector(
+        '[data-testid="left-panel-loaded"], .intervention-left-panel, #intervention-list',
+        {
+          timeout: 15_000,
+        }
+      )
+      .catch(() => {
         // fallback: just wait for network idle
       });
-      await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle');
 
-      // The intervention title should be visible in the left-panel filter list.
-      // Before the fix this was absent because patientAssignedItems was empty.
-      await expect(
-        page.getByText(/Blood Pressure.*Basics|Blutdruck.*Grundlagen/i).first()
-      ).toBeVisible({ timeout: 10_000 });
-    }
-  );
+    // The intervention title should be visible in the left-panel filter list.
+    // Before the fix this was absent because patientAssignedItems was empty.
+    await expect(
+      page.getByText(/Blood Pressure.*Basics|Blutdruck.*Grundlagen/i).first()
+    ).toBeVisible({ timeout: 10_000 });
+  });
 
-  test(
-    'Stats/Feedback button is visible for mismatched-id intervention',
-    async ({ page }) => {
-      skipUnlessSeeded();
-      await mockPlanAndCatalog(page);
-      await page.goto('/rehabtable');
-      await page.waitForLoadState('networkidle');
+  test('Stats/Feedback button is visible for mismatched-id intervention', async ({ page }) => {
+    skipUnlessSeeded();
+    await mockPlanAndCatalog(page);
+    await page.goto('/rehabtable');
+    await page.waitForLoadState('networkidle');
 
-      // Stats button appears only when `assigned === true` in InterventionLeftPanel.
-      // Before the fix, assigned was always false for mismatched-id interventions.
-      const statsBtn = page
-        .getByRole('button', { name: /stats|feedback|statistik/i })
-        .first();
-      await expect(statsBtn).toBeVisible({ timeout: 10_000 });
-    }
-  );
+    // Stats button appears only when `assigned === true` in InterventionLeftPanel.
+    // Before the fix, assigned was always false for mismatched-id interventions.
+    const statsBtn = page.getByRole('button', { name: /stats|feedback|statistik/i }).first();
+    await expect(statsBtn).toBeVisible({ timeout: 10_000 });
+  });
 
-  test(
-    'calendar events are present for mismatched-id intervention',
-    async ({ page }) => {
-      skipUnlessSeeded();
-      await mockPlanAndCatalog(page);
-      await page.goto('/rehabtable');
-      await page.waitForLoadState('networkidle');
+  test('calendar events are present for mismatched-id intervention', async ({ page }) => {
+    skipUnlessSeeded();
+    await mockPlanAndCatalog(page);
+    await page.goto('/rehabtable');
+    await page.waitForLoadState('networkidle');
 
-      // The calendar was always populated from patientData directly (not the merged
-      // catalog), so calendar events should be present regardless of the fix.
-      // This test confirms the calendar regression isn't introduced by the fix.
-      const calendarEvent = page
-        .locator('.rbc-event, [class*="fc-event"], .calendar-event')
-        .first();
-      // If the calendar library is fully rendered, at least one event tile shows.
-      // We accept "not found" here — the important tests are the filter and stats ones.
-      const count = await calendarEvent.count();
-      // Just ensure the page rendered without a JS crash
-      await expect(page.locator('body')).not.toContainText(/TypeError|Uncaught|chunk load/i);
-      expect(count).toBeGreaterThanOrEqual(0);
-    }
-  );
+    // The calendar was always populated from patientData directly (not the merged
+    // catalog), so calendar events should be present regardless of the fix.
+    // This test confirms the calendar regression isn't introduced by the fix.
+    const calendarEvent = page.locator('.rbc-event, [class*="fc-event"], .calendar-event').first();
+    // If the calendar library is fully rendered, at least one event tile shows.
+    // We accept "not found" here — the important tests are the filter and stats ones.
+    const count = await calendarEvent.count();
+    // Just ensure the page rendered without a JS crash
+    await expect(page.locator('body')).not.toContainText(/TypeError|Uncaught|chunk load/i);
+    expect(count).toBeGreaterThanOrEqual(0);
+  });
 });

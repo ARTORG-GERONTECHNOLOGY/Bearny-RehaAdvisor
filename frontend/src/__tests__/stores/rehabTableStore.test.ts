@@ -30,8 +30,12 @@ jest.mock('@/stores/authStore', () => ({
   default: { id: 'therapist-1', userType: 'Therapist', isAuthenticated: true },
 }));
 
-jest.mock('@/utils/translate', () => ({ translateText: jest.fn((t: string) => Promise.resolve(t)) }));
-jest.mock('@/utils/filterUtils', () => ({ filterInterventions: jest.fn((_: unknown, items: unknown[]) => items) }));
+jest.mock('@/utils/translate', () => ({
+  translateText: jest.fn((t: string) => Promise.resolve(t)),
+}));
+jest.mock('@/utils/filterUtils', () => ({
+  filterInterventions: jest.fn((_: unknown, items: unknown[]) => items),
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,9 +59,7 @@ describe('rehabTableStore.mergePlanWithCatalog — _id-based merge', () => {
     const store = makeStore();
 
     const plan = {
-      interventions: [
-        { _id: 'id-abc', external_id: 'ext-001', title: 'Plan title', dates: [] },
-      ],
+      interventions: [{ _id: 'id-abc', external_id: 'ext-001', title: 'Plan title', dates: [] }],
     };
     const catalog = [
       {
@@ -89,7 +91,7 @@ describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regress
     const plan = {
       interventions: [
         {
-          _id: 'en-object-id',      // assigned variant's ObjectId
+          _id: 'en-object-id', // assigned variant's ObjectId
           external_id: 'ext-blood-pressure',
           title: 'Blood Pressure Basics',
           dates: [],
@@ -98,7 +100,7 @@ describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regress
     };
     const catalog = [
       {
-        _id: 'de-object-id',        // preferred-language variant's ObjectId — differs!
+        _id: 'de-object-id', // preferred-language variant's ObjectId — differs!
         external_id: 'ext-blood-pressure',
         title: 'Blutdruck Grundlagen',
         preview_img: 'bp.png',
@@ -147,9 +149,7 @@ describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regress
     // Plan item whose _id matches catalog entry A, but external_id matches B.
     // Should pick A (exact _id match wins).
     const plan = {
-      interventions: [
-        { _id: 'id-a', external_id: 'ext-b', title: 'Plan', dates: [] },
-      ],
+      interventions: [{ _id: 'id-a', external_id: 'ext-b', title: 'Plan', dates: [] }],
     };
     const catalog = [
       { _id: 'id-a', external_id: 'ext-a', title: 'Catalog A', preview_img: 'a.png' },
