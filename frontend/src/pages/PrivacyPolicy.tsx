@@ -84,8 +84,8 @@ const PrivacyPolicy: React.FC = () => {
           movement goals during rehabilitation.
         </li>
         <li>
-          <strong>fitness.heart_rate.read</strong> — Resting heart rate and time spent in heart
-          rate zones (fat-burn, cardio, peak). Used to verify that the patient is exercising at the
+          <strong>fitness.heart_rate.read</strong> — Resting heart rate and time spent in heart rate
+          zones (fat-burn, cardio, peak). Used to verify that the patient is exercising at the
           correct intensity as specified in their rehabilitation plan.
         </li>
         <li>
@@ -101,8 +101,8 @@ const PrivacyPolicy: React.FC = () => {
           important safety and recovery metric for patients with cardiopulmonary conditions.
         </li>
         <li>
-          <strong>fitness.body_temperature.read</strong> — Skin temperature data. An early
-          indicator of post-operative infection or inflammation.
+          <strong>fitness.body_temperature.read</strong> — Skin temperature data. An early indicator
+          of post-operative infection or inflammation.
         </li>
       </ul>
       <p>
