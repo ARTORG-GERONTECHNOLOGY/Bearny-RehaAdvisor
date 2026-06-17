@@ -1,0 +1,13 @@
+{
+  "name": "bearny-oauth-screenshot-capture",
+  "version": "1.0.0",
+  "description": "Captures OAuth consent flow screenshots for the Bearny Google verification video",
+  "main": "capture.js",
+  "scripts": {
+    "setup": "npm install && npx playwright install chrome",
+    "capture": "node capture.js"
+  },
+  "dependencies": {
+    "playwright": "^1.45.0"
+  }
+}
