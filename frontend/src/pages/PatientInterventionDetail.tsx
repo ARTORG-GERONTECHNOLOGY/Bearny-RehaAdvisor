@@ -644,15 +644,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
           <Section>
             <Card className="flex flex-col items-start gap-3">
               <Badge variant="card">
-                {effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? (
+                {lower(effectiveItem.intervention.aim) === 'exercise' ? (
                   <ExerciseIcon className="flex-none w-8 h-8" />
                 ) : (
                   <EducationIcon className="flex-none w-8 h-8" />
                 )}
                 <span
-                  className={`text-xl ${effectiveItem.intervention.aim.toLowerCase() === 'exercise' ? 'text-pink' : 'text-yellow'}`}
+                  className={`text-xl ${lower(effectiveItem.intervention.aim) === 'exercise' ? 'text-pink' : 'text-yellow'}`}
                 >
-                  {t(effectiveItem.intervention.aim)}
+                  {effectiveItem.intervention.aim ? t(effectiveItem.intervention.aim) : null}
                 </span>
               </Badge>
               {effectiveIsPrivate && (
