@@ -34,9 +34,42 @@
     <meta name="theme-color" content="#F2F2F7" />
   </head>
   <body>
-    <!-- Root Element for React App -->
-    <div id="root"></div>
-    <!-- Load React Application -->
+    <div id="root">
+      <!-- Pre-rendered fallback — replaced by React on load; visible to crawlers without JavaScript -->
+      <main
+        style="
+          font-family: sans-serif;
+          max-width: 800px;
+          margin: 60px auto;
+          padding: 0 20px;
+          color: #222;
+        "
+      >
+        <h1 style="font-size: 2rem; margin-bottom: 0.25rem">Bearny</h1>
+        <p style="font-size: 1.1rem; color: #555; margin-top: 0">Be Ready After Rehabilitation</p>
+        <p>
+          Bearny is a digital telerehabilitation platform that connects patients recovering from
+          surgery or injury with their physiotherapists. It provides personalised exercise plans,
+          remote progress monitoring via wearable health data, and standardised clinical
+          assessments.
+        </p>
+        <p>
+          The platform is operated by the ARTORG Center for Biomedical Engineering Research,
+          University of Bern, and is deployed at
+          <a href="https://reha-advisor.ch">https://reha-advisor.ch</a>.
+        </p>
+        <ul>
+          <li>Personalised rehabilitation exercise programmes</li>
+          <li>Remote monitoring of activity, heart rate, sleep, and other health metrics</li>
+          <li>Standardised clinical questionnaires and assessments</li>
+          <li>Secure communication between patient and therapist</li>
+        </ul>
+        <p>
+          <a href="/privacy-policy.html">Privacy Policy</a> &nbsp;|&nbsp;
+          <a href="/terms">Terms &amp; Conditions</a>
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

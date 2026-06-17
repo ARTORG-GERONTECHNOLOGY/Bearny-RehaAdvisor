@@ -318,6 +318,41 @@ describe('PatientInterventionDetail', () => {
     );
   });
 
+  it('renders without crashing when intervention aim is null ("Benvenuti in Fase III" case)', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention_title: 'Benvenuti in Fase III',
+        intervention: {
+          _id: 'int-1',
+          aim: null,
+          media: [],
+        },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+
+    expect(await screen.findByText('Benvenuti in Fase III')).toBeInTheDocument();
+    // aim badge renders without throwing
+    expect(screen.queryByText('Exercise')).not.toBeInTheDocument();
+  });
+
+  it('renders without crashing when intervention aim is undefined', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          // aim intentionally omitted
+          media: [],
+        },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+
+    expect(await screen.findByText('Morning Stretch')).toBeInTheDocument();
+  });
+
   it('posts intervention view duration to backend on unmount', async () => {
     (patientInterventionsStore as any).items = [buildRec()];
 
