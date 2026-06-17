@@ -59,9 +59,9 @@ const Footer: FunctionComponent = () => {
                 <NavLink to="/terms" className="text-sm">
                   {t('Terms & Conditions')}
                 </NavLink>
-                <NavLink to="/privacypolicy" className="text-sm">
+                <a href="/privacy-policy.html" className="text-sm">
                   {t('Privacy Policy')}
-                </NavLink>
+                </a>
               </div>
               <div className="text-sm">
                 &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}

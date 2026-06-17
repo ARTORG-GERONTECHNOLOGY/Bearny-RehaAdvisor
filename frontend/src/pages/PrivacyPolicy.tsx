@@ -67,6 +67,72 @@ const PrivacyPolicy: React.FC = () => {
         We may update this policy as needed to reflect legal or methodological changes. Any updates
         will be posted within the application.
       </p>
+
+      <h4>7. Google Health &amp; Fitness API Data</h4>
+      <p>
+        Bearny integrates with the <strong>Google Fit / Google Health REST API</strong> to collect
+        wearable health metrics for rehabilitation monitoring. This section explains how we handle
+        data obtained through Google APIs.
+      </p>
+      <p>
+        <strong>Scopes requested and their purpose:</strong>
+      </p>
+      <ul>
+        <li>
+          <strong>fitness.activity.read</strong> — Daily step count, walking distance, calories
+          burned, and active minutes. Used to track whether the patient is meeting their prescribed
+          movement goals during rehabilitation.
+        </li>
+        <li>
+          <strong>fitness.heart_rate.read</strong> — Resting heart rate and time spent in heart rate
+          zones (fat-burn, cardio, peak). Used to verify that the patient is exercising at the
+          correct intensity as specified in their rehabilitation plan.
+        </li>
+        <li>
+          <strong>fitness.sleep.read</strong> — Sleep duration, time actually asleep, and number of
+          awakenings. Sleep quality is a key recovery indicator in post-surgical rehabilitation.
+        </li>
+        <li>
+          <strong>fitness.body.read</strong> — Body weight data. Tracked alongside other health
+          metrics where clinically relevant to the patient's rehabilitation outcome.
+        </li>
+        <li>
+          <strong>fitness.oxygen_saturation.read</strong> — Blood oxygen saturation (SpO2). An
+          important safety and recovery metric for patients with cardiopulmonary conditions.
+        </li>
+        <li>
+          <strong>fitness.body_temperature.read</strong> — Skin temperature data. An early indicator
+          of post-operative infection or inflammation.
+        </li>
+      </ul>
+      <p>
+        <strong>Data protection commitments:</strong>
+      </p>
+      <ul>
+        <li>
+          Google Health data is accessible only to the patient and their assigned physiotherapist.
+        </li>
+        <li>
+          Bearny accesses Google Health data in <strong>read-only</strong> mode — we never write,
+          modify, or delete data in your Google account.
+        </li>
+        <li>
+          Google Health data is <strong>not sold, rented, or shared</strong> with any third party,
+          and is <strong>not used for advertising</strong> or any commercial purpose.
+        </li>
+        <li>
+          Data is stored on servers located in <strong>Switzerland</strong> and subject to the same
+          access controls as all other Bearny data.
+        </li>
+        <li>
+          Our use of Google API data is limited to the purposes described here and does not extend
+          to any use prohibited by the Google API Services User Data Policy.
+        </li>
+      </ul>
+      <p>
+        You can revoke Bearny's access to your Google Health data at any time via your Google
+        Account permissions page, or by contacting us to request deletion of stored data.
+      </p>
     </Layout>
   );
 };
