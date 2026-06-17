@@ -351,6 +351,17 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Fitbit client ID is configured
+        run: |
+          # Keep this value in sync with the VITE_FITBIT_CLIENT_ID build-arg below.
+          # If you ever change the Fitbit app, update both places or this step will catch it.
+          EFFECTIVE="23Q9W2"
+          if [ -z "$EFFECTIVE" ]; then
+            echo "::error::VITE_FITBIT_CLIENT_ID is empty — Fitbit OAuth will break in production (client_id will be missing from the authorization URL)."
+            exit 1
+          fi
+          echo "Fitbit client ID configured: ${EFFECTIVE}"
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
