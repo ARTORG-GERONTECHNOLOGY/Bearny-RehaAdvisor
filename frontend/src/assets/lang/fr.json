@@ -1,5 +1,4 @@
 {
-  "Tele-Rehabilitation Platform": "Plateforme de télé-réadaptation",
   "Intervention successfully added": "Intervention ajoutée avec succès",
   "Filter by Disease": "Filtrer par maladie",
   "failedCheck": "Impossible de vérifier les constantes d’aujourd’hui.",
@@ -1269,7 +1268,7 @@
   "Select...": "Sélectionner...",
   "homeHeadline": "Bearny",
   "homeSubheadline": "prêt après la rééducation",
-  "homeDescription": "Bearny est une plateforme numérique de téléréhabilitation qui connecte les patients et les thérapeutes grâce à des programmes d'exercices personnalisés, un suivi à distance des progrès et des évaluations cliniques standardisées.",
+  "homeDescription": "Bearny est une plateforme numérique qui connecte les patients et les thérapeutes grâce à des programmes d'exercices personnalisés, un suivi à distance des progrès et des évaluations cliniques standardisées.",
   "homeFeatureExercises": "Programmes d'exercices à domicile personnalisés",
   "homeFeatureMonitoring": "Suivi à distance des progrès pour les thérapeutes",
   "homeFeatureAssessment": "Évaluations standardisées (ICF, EVA)",
