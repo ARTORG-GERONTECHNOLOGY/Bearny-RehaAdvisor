@@ -1,5 +1,4 @@
 {
-  "Tele-Rehabilitation Platform": "Plataforma de Telereabilitação",
   "Intervention successfully added": "Intervenção adicionada com sucesso",
   "Filter by Disease": "Filtrar por Doença",
   "failedCheck": "Falha ao verificar os dados vitais de hoje.",
@@ -1260,7 +1259,7 @@
   "Select...": "Selecionar...",
   "homeHeadline": "Bearny",
   "homeSubheadline": "pronto após a reabilitação",
-  "homeDescription": "Bearny é uma plataforma digital de telerreabilitação que conecta pacientes e terapeutas através de programas de exercícios personalizados, monitorização remota do progresso e avaliações clínicas padronizadas.",
+  "homeDescription": "Bearny é uma plataforma digital que conecta pacientes e terapeutas através de programas de exercícios personalizados, monitorização remota do progresso e avaliações clínicas padronizadas.",
   "homeFeatureExercises": "Programas de exercícios domiciliários personalizados",
   "homeFeatureMonitoring": "Monitorização remota do progresso para terapeutas",
   "homeFeatureAssessment": "Avaliações padronizadas (ICF, EVA)",
