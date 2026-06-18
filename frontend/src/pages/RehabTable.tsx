@@ -449,7 +449,6 @@ const RehabTable: React.FC = observer(() => {
             onHide={store.closeFeedbackBrowser}
             intervention={store.feedbackBrowserIntervention as any}
             initialDatetime={store.feedbackInitialDatetime ?? undefined}
-            t={t as any}
           />
         ) : null}
       </div>
