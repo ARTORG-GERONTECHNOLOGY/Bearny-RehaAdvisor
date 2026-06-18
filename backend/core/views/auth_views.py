@@ -438,7 +438,7 @@ def generate_random_password(length=12):
 
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def reset_password_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
