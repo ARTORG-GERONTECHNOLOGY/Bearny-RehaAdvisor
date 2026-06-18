@@ -377,7 +377,7 @@ def test_fitbit_summary_with_daily_data_and_vitals_merge(mock_fetch):
 
 def test_get_fitbit_health_data_success_with_entries():
     _, _, patient_user, patient = create_patient_graph()
-    today = datetime.now().date()
+    today = timezone.now().date()
     dt0 = datetime.combine(today, time.min)
     FitbitData(
         user=patient_user,
@@ -507,7 +507,7 @@ def test_fitbit_summary_does_not_bypass_cooldown(mock_fetch):
 def test_health_data_includes_minutes_asleep():
     """health-data endpoint returns minutes_asleep in the sleep object."""
     _, _, patient_user, patient = create_patient_graph()
-    today = datetime.now().date()
+    today = timezone.now().date()
     dt0 = datetime.combine(today, time.min)
     FitbitData(
         user=patient_user,
@@ -759,7 +759,7 @@ def test_fitbit_summary_triggers_backfill_for_missing_days(mock_backfill, mock_t
 def test_fitbit_summary_skips_backfill_when_no_gaps(mock_backfill, mock_today_fetch):
     """When all days in the window have data, the range backfill is not triggered."""
     _, _, patient_user, patient = create_patient_graph()
-    now = datetime.now()
+    now = timezone.now().replace(tzinfo=None)
 
     # Insert FitbitData for all 7 days
     for offset in range(7):
