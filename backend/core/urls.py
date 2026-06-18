@@ -42,6 +42,7 @@ from core.views.redcap_import_views import (
     available_redcap_patients,
     import_patient_from_redcap,
 )
+from core.views.media_auth_view import media_auth_check
 from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access
@@ -50,6 +51,10 @@ from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
+    # Internal endpoint used by nginx auth_request to gate /media/ access.
+    # nginx sends a subrequest here before serving any /media/ file; JWT is
+    # checked by JWTAuthMiddleware + @permission_classes([IsAuthenticated]).
+    path("api/media-auth/", media_auth_check),
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),
