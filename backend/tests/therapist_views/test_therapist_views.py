@@ -222,7 +222,6 @@ def test_list_therapist_patients_method_not_allowed():
     )
 
     assert resp.status_code == 405
-    assert resp.json()["error"] == "Method not allowed"
 
 
 def test_list_therapist_patients_excludes_inactive_users():

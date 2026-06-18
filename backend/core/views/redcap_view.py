@@ -25,7 +25,7 @@ def list_my_redcap_participants(request):
     GET /api/redcap/my-participants/  (not yet in urls.py)
     Returns RedcapParticipant records assigned to the calling therapist.
     """
-    therapist = Therapist.objects.filter(userId=request.user).first()
+    therapist = Therapist.objects.filter(userId=request.user.id).first()
     if not therapist:
         return JsonResponse({"error": "Only therapists"}, status=403)
 

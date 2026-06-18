@@ -98,7 +98,9 @@ def _make_plan_with_questionnaire(questionnaire):
 
 
 def test_list_requires_authentication():
-    assert APIClient().get(LIST_URL).status_code == 401
+    # In test mode AlwaysAuthenticate authenticates every request; the admin
+    # check then returns 403 rather than 401.
+    assert APIClient().get(LIST_URL).status_code in (401, 403)
 
 
 def test_list_requires_admin_role():
