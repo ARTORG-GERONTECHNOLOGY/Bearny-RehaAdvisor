@@ -14,7 +14,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -414,16 +414,13 @@ def login_view(request):
         return JsonResponse({"error": "Internal server error.", "request_id": request_id}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
     Logs a user out and creates a log entry.
     Endpoint: POST /api/auth/logout/
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         user_id = data.get("userId")
@@ -449,12 +446,9 @@ def generate_random_password(length=12):
     return "".join(random.choice(chars) for _ in range(length))
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reset_password_view(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         email = data.get("email")
@@ -1061,7 +1055,7 @@ def verify_code_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_info(request, user_id):
     try:

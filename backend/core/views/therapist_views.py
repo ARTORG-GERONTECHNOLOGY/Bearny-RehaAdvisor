@@ -5,9 +5,8 @@ from statistics import mean
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -535,12 +534,9 @@ def _feedback_computing(patient):
     return summary, global_last
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_therapist_patients(request, therapist_id):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     # Validate therapist ID
     try:
         therapist_oid = ObjectId(therapist_id)
@@ -709,7 +705,7 @@ def list_therapist_patients(request, therapist_id):
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patients_by_therapist(request, therapist_id):
     """
@@ -730,7 +726,7 @@ def get_patients_by_therapist(request, therapist_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_log(request):
     try:

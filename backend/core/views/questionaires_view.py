@@ -11,8 +11,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -377,7 +376,7 @@ def _expand_dates(
 # ───────────────────── list available questionnaires ─────────────────────
 
 
-@csrf_exempt
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def list_health_questionnaires(request):
     """GET/POST /api/questionnaires/health/"""
@@ -398,9 +397,6 @@ def list_health_questionnaires(request):
         qs = HealthQuestionnaire.objects().order_by("title")
         data = [_serialize_health_questionnaire(q) for q in qs]
         return JsonResponse(data, safe=False, status=200)
-
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -519,7 +515,7 @@ def _prettify(group_key: str) -> str:
     return group_key.replace("_", " ").title()
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_dynamic_questionnaires(request):
     """
@@ -561,12 +557,10 @@ def list_dynamic_questionnaires(request):
 # ───────────────────── list patient assignments ─────────────────────
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_patient_questionnaires(request, patient_id):
     """GET /api/questionnaires/patient/<patient_id>/"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
     try:
         patient = _get_patient_by_any_id(patient_id)
         plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -668,12 +662,9 @@ def _resolve_therapist(tid: Optional[str], patient: Optional[Patient]) -> Option
     return None
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def assign_questionnaire(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
 
@@ -796,13 +787,10 @@ def assign_questionnaire(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def remove_questionnaire(request):
     """POST /api/questionnaires/remove/"""
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         payload = json.loads(request.body or "{}")
         patient_id = payload.get("patientId")
@@ -837,7 +825,7 @@ def remove_questionnaire(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reset_patient_feedback(request):
     """POST /api/questionnaires/reset-feedback/
@@ -847,8 +835,6 @@ def reset_patient_feedback(request):
 
     Body: { "patientId": "<id>", "date": "YYYY-MM-DD" }   (date defaults to today)
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         payload = json.loads(request.body or "{}")
