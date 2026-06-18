@@ -165,8 +165,22 @@ const InterventionCalendar: React.FC<Props> = ({
       [event.id]: { start: newStart, end: newEnd },
     }));
 
+    const clearOverride = () =>
+      setEventOverrides((prev) => {
+        const copy = { ...prev };
+        delete copy[event.id];
+        return copy;
+      });
+
+    if (!onMoveEvent) {
+      // No persistence callback — optimistic override is the final state, but
+      // there's no store refresh coming to provide a fresh id, so clear it now.
+      clearOverride();
+      return;
+    }
+
     try {
-      await onMoveEvent?.({
+      await onMoveEvent({
         eventId: event.id,
         interventionId: event.resource.interventionId,
         dateEntry: event.resource.dateEntry,
@@ -175,13 +189,12 @@ const InterventionCalendar: React.FC<Props> = ({
         newStart,
         newEnd,
       });
+      // Store refreshed successfully — the event now has a new id based on the
+      // moved datetime, so the old override key is stale. Remove it.
+      clearOverride();
     } catch {
       // Revert if persistence callback fails.
-      setEventOverrides((prev) => {
-        const copy = { ...prev };
-        delete copy[event.id];
-        return copy;
-      });
+      clearOverride();
     }
   };
 
@@ -273,7 +286,7 @@ const InterventionCalendar: React.FC<Props> = ({
           events={events}
           startAccessor="start"
           endAccessor="end"
-          draggableAccessor={() => true}
+          draggableAccessor={() => Boolean(onMoveEvent)}
           view={view}
           onView={(v) => setView(v)}
           date={date}
