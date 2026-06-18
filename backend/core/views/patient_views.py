@@ -53,6 +53,7 @@ from utils.utils import (
     serialize_datetime,
     transcribe_file,
 )
+from core.services.redcap_access import get_therapist_for_user
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
@@ -677,6 +678,25 @@ def get_patient_recommendations(request, patient_id):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
+        # Authorization: only a therapist whose clinics include this patient's
+        # clinic (or an Admin) may view the patient's recommendations.
+        try:
+            from bson import ObjectId as _OID
+            from core.models import User as _User
+            _caller = _User.objects.get(pk=_OID(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _patient = resolve_patient(patient_id)
+            if _patient is None:
+                return JsonResponse({"error": "Patient not found"}, status=404)
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(_patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
         recommendations = PatientIntervention.get_todays_recommendations(patient_id)
         return JsonResponse({"recommendations": recommendations}, safe=False, status=200)
 
@@ -2548,6 +2568,25 @@ def get_patient_plan_for_therapist(request, patient_id):
                 },
                 status=404,
             )
+
+        # Authorization: verify the calling therapist's clinics include the
+        # patient's clinic.  Admins bypass this check.
+        try:
+            from bson import ObjectId as _OID
+            from core.models import User as _User
+            _caller = _User.objects.get(pk=_OID(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse(
+                    {"success": False, "error": "You are not authorised to access this patient's data."},
+                    status=403,
+                )
 
         try:
             plan = RehabilitationPlan.objects.get(patientId=patient)

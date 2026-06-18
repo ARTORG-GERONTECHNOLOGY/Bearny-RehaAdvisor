@@ -21,6 +21,7 @@ from core.models import (
     Therapist,
     User,
 )
+from core.services.redcap_access import get_therapist_for_user
 from utils.utils import _adherence, resolve_patient
 
 LOOKBACK_DAYS = 7
@@ -552,6 +553,22 @@ def list_therapist_patients(request, therapist_id):
         logger.warning("[list_therapist_patients] Therapist not found: %s", therapist_id)
         # ✅ tests expect this exact key + value
         return JsonResponse({"error": "Therapist not found"}, status=404)
+
+    # Authorization: the caller must be the therapist whose patient list is
+    # being requested, OR an Admin.  Without this check, any authenticated
+    # therapist could substitute a different therapist_id in the URL and
+    # retrieve the full patient list of another therapist's clinics.
+    try:
+        caller_user = User.objects.get(pk=ObjectId(request.user.id))
+        is_admin = caller_user.role == "Admin" and caller_user.isActive
+    except Exception:
+        is_admin = False
+
+    if not is_admin:
+        caller_therapist = get_therapist_for_user(request.user)
+        is_self = caller_therapist and str(caller_therapist.id) == str(therapist.id)
+        if not is_self:
+            return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
 
     try:
         since = timezone.now() - timedelta(days=LOOKBACK_DAYS)
