@@ -58,8 +58,7 @@ test.describe('Patient plan page', () => {
 
     const planRequestPromise = page.waitForRequest(
       (req) =>
-        req.method() === 'GET' &&
-        req.url().includes('/patients/rehabilitation-plan/patient/')
+        req.method() === 'GET' && req.url().includes('/patients/rehabilitation-plan/patient/')
     );
 
     await page.goto('/patient/plan');

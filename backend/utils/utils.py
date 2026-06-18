@@ -9,9 +9,9 @@ from django.utils.timezone import is_naive, make_aware
 from pymongo import MongoClient
 
 from core.models import (
+    PasswordAttempt,
     Patient,
     PatientInterventionLogs,
-    PasswordAttempt,
     RehabilitationPlan,
     Therapist,
     User,

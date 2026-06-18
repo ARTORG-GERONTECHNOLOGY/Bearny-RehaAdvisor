@@ -36,6 +36,7 @@ def pytest_configure(config):
     # override in test.py is actually picked up by @api_view decorated views.
     try:
         from rest_framework.settings import api_settings
+
         api_settings.reload()
     except Exception:
         pass

@@ -40,6 +40,7 @@ from core.models import (
     Translation,
     User,
 )
+from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.utils import (
     _adherence,
@@ -52,7 +53,6 @@ from utils.utils import (
     serialize_datetime,
     transcribe_file,
 )
-from core.services.redcap_access import get_therapist_for_user
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
@@ -671,10 +671,13 @@ def get_patient_recommendations(request, patient_id):
         # clinic (or an Admin) may view the patient's recommendations.
         # Skipped in test mode because test requests use a synthetic user.
         from django.conf import settings as _dj_settings
+
         if not getattr(_dj_settings, "TESTING", False):
             try:
                 from bson import ObjectId as _OID
+
                 from core.models import User as _User
+
                 _caller = _User.objects.get(pk=_OID(request.user.id))
                 _is_admin = _caller.role == "Admin" and _caller.isActive
             except Exception:
@@ -2524,10 +2527,13 @@ def get_patient_plan_for_therapist(request, patient_id):
         # patient's clinic.  Admins bypass this check.  Skipped in test mode
         # because test requests use a synthetic user with no DB record.
         from django.conf import settings as _dj_settings
+
         if not getattr(_dj_settings, "TESTING", False):
             try:
                 from bson import ObjectId as _OID
+
                 from core.models import User as _User
+
                 _caller = _User.objects.get(pk=_OID(request.user.id))
                 _is_admin = _caller.role == "Admin" and _caller.isActive
             except Exception:
