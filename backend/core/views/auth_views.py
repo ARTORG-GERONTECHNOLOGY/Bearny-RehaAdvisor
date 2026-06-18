@@ -334,27 +334,21 @@ def login_view(request):
             )
         user = User.objects(Q(email=identifier) | Q(username=identifier)).first()
 
-        # IMPORTANT: never touch user fields before checking user exists
-        if not user:
-            return JsonResponse(
-                {"error": "Invalid credentials (username).", "request_id": request_id},
-                status=401,
-            )
+        # Use a single error message for all credential failures to prevent
+        # user-enumeration: an attacker must not be able to distinguish
+        # "email not found" from "wrong password" by reading the response.
+        _INVALID_CREDS = {"error": "Invalid credentials.", "request_id": request_id}
 
-        # If a user exists but pwdhash missing / empty
+        if not user:
+            return JsonResponse(_INVALID_CREDS, status=401)
+
         pwdhash = getattr(user, "pwdhash", None)
         if not pwdhash:
-            logger.warning(f"[LOGIN][{request_id}] User has no pwdhash user_id={user.id}")
-            return JsonResponse(
-                {
-                    "error": "Invalid credentials. Password is missing.",
-                    "request_id": request_id,
-                },
-                status=401,
-            )
+            logger.warning("[LOGIN][%s] User has no pwdhash user_id=%s", request_id, user.id)
+            return JsonResponse(_INVALID_CREDS, status=401)
 
         if not check_password(raw_password, pwdhash):
-            return JsonResponse({"error": "Invalid credentials.", "request_id": request_id}, status=401)
+            return JsonResponse(_INVALID_CREDS, status=401)
 
         if not getattr(user, "isActive", False):
             return JsonResponse(
