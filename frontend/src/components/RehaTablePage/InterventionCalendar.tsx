@@ -287,6 +287,7 @@ const InterventionCalendar: React.FC<Props> = ({
           startAccessor="start"
           endAccessor="end"
           draggableAccessor={() => Boolean(onMoveEvent)}
+          resizableAccessor={() => false}
           view={view}
           onView={(v) => setView(v)}
           date={date}
