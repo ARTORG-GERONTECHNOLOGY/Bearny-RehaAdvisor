@@ -746,4 +746,42 @@ export class RehabTableStore {
       });
     }
   }
+
+  async moveInterventionDate(
+    interventionId: string,
+    fromDatetime: string,
+    toDatetime: string,
+    t: (k: string) => unknown
+  ) {
+    try {
+      const res = await apiClient.post('interventions/move-date/', {
+        patientId: this.patientIdForCalls,
+        interventionId,
+        fromDatetime,
+        toDatetime,
+      });
+
+      if (res.status === 200 || res.status === 201) {
+        await Promise.all([this.fetchAll(t), this.fetchInts(t)]);
+        runInAction(() => {
+          this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
+        });
+        await this.translateVisibleItems(this.userLang);
+        return;
+      }
+
+      throw new Error('Unexpected response while moving intervention date.');
+    } catch (err: unknown) {
+      const msg = extractApiError(
+        err,
+        typeof t === 'function'
+          ? String(t('Failed to move scheduled intervention.'))
+          : 'Failed to move scheduled intervention.'
+      );
+      runInAction(() => {
+        this.error = msg;
+      });
+      throw err;
+    }
+  }
 }

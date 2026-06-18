@@ -123,6 +123,11 @@ urlpatterns = [
         name="del_rehabilitation_plan_intervention",
     ),
     path(
+        "api/interventions/move-date/",
+        patient_views.move_intervention_date,
+        name="move_rehabilitation_plan_intervention_date",
+    ),
+    path(
         "api/therapists/<str:therapist_id>/template-plan",
         recomendation_views.template_plan_preview,
     ),

@@ -186,6 +186,22 @@ const RehabTable: React.FC = observer(() => {
     }
   }, [store, t]);
 
+  const moveCalendarEvent = useCallback(
+    async (payload: {
+      interventionId: string;
+      dateEntry: { datetime: string };
+      newStart: Date;
+    }) => {
+      await store.moveInterventionDate(
+        payload.interventionId,
+        payload.dateEntry.datetime,
+        payload.newStart.toISOString(),
+        t as any
+      );
+    },
+    [store, t]
+  );
+
   const openAddQ = useCallback((q: QItem) => {
     setQMode('create');
     setSelectedQ({ _id: q._id, key: q.key, title: q.title });
@@ -361,6 +377,7 @@ const RehabTable: React.FC = observer(() => {
                         patientData={store.patientData as any}
                         titleMap={store.titleMap}
                         onSelectIntervention={store.handleExerciseClick}
+                        onMoveEvent={moveCalendarEvent}
                       />
                     </div>
                   </RehaCalendarPanelShell>
