@@ -3,14 +3,15 @@
 This directory contains end-to-end tests that validate browser -> frontend -> backend ->
 frontend behavior.
 
-Current scope starts with the home/login journey.
-
 ---
 
 ## Test files
 
 | File                                                | Flow covered                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin-security.spec.ts`                            | Security regression for `/api/admin/` endpoint auth enforcement. All admin routes return 401 without a token (no credentials required to run). Non-admin JWT (patient credentials) returns 403. Public auth endpoints (`/auth/login/`, `/auth/register/`) remain unblocked. Always runs in CI. 403 checks skip gracefully when `E2E_PATIENT_LOGIN` / `E2E_PATIENT_PASSWORD` are absent.                                                   |
+| `auth-security.spec.ts`                             | Authentication hardening regression. Rate-limiting (Fix 8): 5 failed attempts return 401; the 6th returns 429 with an error body. User-enumeration prevention (Fix 10): unknown e-mail and wrong-password both return `{"error":"Invalid credentials."}` with no account-existence hints. No credentials required; always runs in CI.                                                                                                     |
+| `patient-plan.spec.ts`                              | Patient plan page (`/patient/plan`): auth guard redirects unauthenticated users, plan API is fetched on load, previous/next week navigation changes the displayed date range, day-of-week filter chips update visible day sections. Requires `E2E_PATIENT_LOGIN` / `E2E_PATIENT_PASSWORD`; tests skip gracefully without them.                                                                                                            |
 | `home-login.spec.ts`                                | Home page opens login modal, submits credentials to `/auth/login/`, and verifies error feedback is rendered on failed login.                                                                                                                                                                                                                                                                                                              |
 | `home-login-success-redirects.spec.ts`              | Home login succeeds for seeded users and verifies role-based redirects (`/patient` and `/admin`).                                                                                                                                                                                                                                                                                                                                         |
 | `home-login-therapist.spec.ts`                      | Seeded therapist login validates `/auth/login/` 2FA response and 2FA step rendering in modal.                                                                                                                                                                                                                                                                                                                                             |
@@ -36,6 +37,19 @@ Current scope starts with the home/login journey.
 
 ## What this validates
 
+- **Admin endpoint security** (`admin-security.spec.ts`, always runs):
+  - Every `/api/admin/` route returns 401 without an Authorization header (JWTAuthMiddleware).
+  - Every `/api/admin/` route returns 403 when called with a non-admin Bearer token (IsAdmin permission class).
+  - Public auth endpoints (`/auth/login/`, `/auth/register/`) are not blocked by the middleware.
+- **Authentication hardening** (`auth-security.spec.ts`, always runs):
+  - Login rate-limiting locks an account after 5 wrong-password attempts (HTTP 429 on the 6th).
+  - The 429 response body contains a human-readable `error` field.
+  - Unknown e-mail and wrong-password login attempts return identical `{"error":"Invalid credentials."}` responses (no account-existence information leaked).
+- **Patient plan page** (`patient-plan.spec.ts`, requires seeded patient):
+  - Unauthenticated access to `/patient/plan` redirects to the root.
+  - Authenticated load triggers a `GET .../patients/rehabilitation-plan/patient/` request.
+  - Previous/next week navigation changes the displayed date range heading.
+  - Day-of-week filter chips (when visible) reduce or restore the number of rendered day sections.
 - The home page is reachable from the frontend root route (`/`).
 - Login modal opens from the home page CTA.
 - Credentials are posted to backend endpoint `/auth/login/`.
@@ -183,6 +197,23 @@ npm run test:e2e:headed
 ```bash
 # playwright interactive UI
 npm run test:e2e:ui
+```
+
+Security regression tests (no credentials required):
+
+```bash
+# Admin endpoint auth enforcement
+npm run test:e2e -- e2e/admin-security.spec.ts
+
+# Login rate-limiting + user-enumeration prevention
+npm run test:e2e -- e2e/auth-security.spec.ts
+```
+
+Patient plan page (requires seeded patient credentials):
+
+```bash
+E2E_PATIENT_LOGIN=<email> E2E_PATIENT_PASSWORD=<password> \
+npm run test:e2e -- e2e/patient-plan.spec.ts
 ```
 
 Install browsers (one-time):
