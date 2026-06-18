@@ -200,6 +200,7 @@ export class RehabTableStore {
 
   showFeedbackBrowser = false;
   feedbackBrowserIntervention: Intervention | null = null;
+  feedbackInitialDatetime: string | null = null;
 
   repeatMode: 'create' | 'modify' = 'create';
   modifyDefaults: ModifyDefaults | null = null;
@@ -658,18 +659,20 @@ export class RehabTableStore {
     this.showExerciseStats = false;
   }
 
-  openFeedbackBrowser(intervention: unknown) {
+  openFeedbackBrowser(intervention: unknown, datetime?: string) {
     this.setSelected(intervention);
 
     // use merged plan item if possible (dates + feedback are there)
     const planItem = this.selectedExerciseFromPlan || null;
     this.feedbackBrowserIntervention = planItem || (intervention as Intervention);
+    this.feedbackInitialDatetime = datetime ?? null;
     this.showFeedbackBrowser = true;
   }
 
   closeFeedbackBrowser() {
     this.showFeedbackBrowser = false;
     this.feedbackBrowserIntervention = null;
+    this.feedbackInitialDatetime = null;
   }
 
   openAddIntervention(intervention: unknown) {

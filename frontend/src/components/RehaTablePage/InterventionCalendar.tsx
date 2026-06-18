@@ -6,7 +6,9 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import de from 'date-fns/locale/de';
 import enUS from 'date-fns/locale/en-US';
 
-import type { Intervention } from '../../types';
+import type { Intervention } from '@/types';
+import StarRating, { getRatingFromDateEntry } from './StarRating';
+import { getDateFnsLocale } from '@/utils/dateLocale';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
@@ -52,14 +54,17 @@ interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
   onSelectIntervention?: (it: Intervention) => void;
+  onSelectFeedback?: (it: Intervention, datetime?: string) => void;
 }
 
 const InterventionCalendar: React.FC<Props> = ({
   patientData,
   titleMap = {},
   onSelectIntervention,
+  onSelectFeedback,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateFnsLocale = getDateFnsLocale(i18n.language);
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
 
@@ -121,13 +126,26 @@ const InterventionCalendar: React.FC<Props> = ({
     return { className: 'rehaEvent' };
   };
 
+  const sortedEvents = useMemo(() => {
+    // Match the built-in agenda: 30-day window starting from `date`
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 30);
+    return [...events]
+      .filter((ev) => ev.start >= start && ev.start < end)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events, date]);
+
   return (
     <div className="rehaCalendar">
       <div className="rehaCalendar__topbar">
         <div className="rehaCalendar__legendWrap">{legend}</div>
       </div>
 
-      <div className="rehaCalendar__body">
+      <div
+        className={`rehaCalendar__body${view === Views.AGENDA ? ' rehaCalendar__body--agenda' : ''}`}
+      >
         <Calendar
           localizer={localizer}
           events={events}
@@ -144,6 +162,82 @@ const InterventionCalendar: React.FC<Props> = ({
             if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
           }}
         />
+
+        {view === Views.AGENDA && (
+          <table className="w-full border-collapse text-sm mt-2">
+            <thead>
+              {(() => {
+                const th =
+                  'px-3 py-2 text-left font-semibold bg-gray-50 border-b-2 border-gray-200 align-middle';
+                return (
+                  <tr>
+                    <th className={th}>{t('Date')}</th>
+                    <th className={th}>{t('Time')}</th>
+                    <th className={th}>{t('Event')}</th>
+                    <th className={th}>{t('Rating')}</th>
+                  </tr>
+                );
+              })()}
+            </thead>
+            <tbody>
+              {sortedEvents.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-gray-400">
+                    {t('No entries found.')}
+                  </td>
+                </tr>
+              )}
+              {sortedEvents.map((ev) => {
+                const rating = getRatingFromDateEntry(ev.resource.dateEntry);
+                const status = ev.resource.status || '';
+                const rowBg =
+                  status === 'completed'
+                    ? 'bg-green-500/10'
+                    : status === 'missed'
+                      ? 'bg-red-500/10'
+                      : status === 'today'
+                        ? 'bg-blue-500/10'
+                        : '';
+                return (
+                  <tr
+                    key={ev.id}
+                    className={`cursor-pointer hover:bg-gray-500/5 ${rowBg}`}
+                    onClick={() => onSelectIntervention?.(ev.resource.intervention)}
+                  >
+                    <td className="px-3 py-2 border-b border-chartMuted align-middle">
+                      {(() => {
+                        const s = format(ev.start, 'EEE, dd.MM.yyyy', { locale: dateFnsLocale });
+                        return s.charAt(0).toUpperCase() + s.slice(1);
+                      })()}
+                    </td>
+                    <td className="px-3 py-2 border-b border-chartMuted align-middle whitespace-nowrap tabular-nums">
+                      {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
+                    </td>
+                    <td className="px-3 py-2 border-b border-chartMuted align-middle">
+                      {ev.title}
+                    </td>
+                    <td
+                      className="px-3 py-2 border-b border-chartMuted align-middle"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectFeedback?.(
+                          ev.resource.intervention,
+                          ev.resource.dateEntry.datetime
+                        );
+                      }}
+                    >
+                      {rating !== null ? (
+                        <StarRating value={rating} />
+                      ) : (
+                        <span className="text-chartMuted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
