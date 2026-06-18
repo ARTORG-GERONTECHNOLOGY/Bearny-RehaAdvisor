@@ -23,9 +23,8 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 import utils.interventions  # for _save_file and other helpers
@@ -112,12 +111,9 @@ BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def apply_template_to_patient(request, therapist_id):
-    if request.method != "POST":
-        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
     field_errors: Dict[str, List[str]] = {}
     non_field_errors: List[str] = []
 
@@ -295,6 +291,7 @@ def apply_template_to_patient(request, therapist_id):
 # --------------------------------------------------------------------
 
 
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def template_plan_preview(request, therapist_id):
     try:
@@ -387,12 +384,9 @@ def template_plan_preview(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_intervention_by_external_id(request, external_id: str):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     lang = (request.GET.get("lang") or "").lower().strip()
     preferred = lang or "en"
 
@@ -432,7 +426,7 @@ def get_intervention_by_external_id(request, external_id: str):
 # --------------------------------------------------------------------
 # VIEW: add_new_intervention (UPDATED for contentType normalization)
 # --------------------------------------------------------------------
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
@@ -453,8 +447,6 @@ def add_new_intervention(request):
       - isPrivate + patientId
       - external_id, provider, language
     """
-    if request.method != "POST":
-        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
 
     def bad(message, field_errors=None, non_field_errors=None, status=400):
         return JsonResponse(
@@ -870,12 +862,9 @@ def add_new_intervention(request):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_intervention_detail(request, intervention_id):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         user_lang = (
             (request.GET.get("lang") or request.headers.get("Accept-Language") or "en").split(",")[0].strip().lower()
@@ -955,7 +944,7 @@ def get_intervention_detail(request, intervention_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_all_interventions(request, patient_id=None):
     """
@@ -1109,12 +1098,9 @@ def list_all_interventions(request, patient_id=None):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def assign_intervention_to_types(request, therapist_id):
-    if request.method != "POST":
-        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
     field_errors = {}
     non_field_errors = []
 
@@ -1437,12 +1423,9 @@ def assign_intervention_to_types(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def remove_intervention_from_types(request, therapist_id):
-    if request.method != "POST":
-        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
     field_errors = {}
     non_field_errors = []
 
@@ -1604,12 +1587,9 @@ def remove_intervention_from_types(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_patient_group(request):
-    if request.method != "POST":
-        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
     field_errors = {}
     non_field_errors = []
 
@@ -1706,16 +1686,13 @@ def create_patient_group(request):
     return JsonResponse({"success": True, "message": "Diagnosis group added successfully."}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_intervention_diagnoses(request, intervention, specialisation, therapist_id):
     """
     GET /api/interventions/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
     Returns a mapping of diagnoses to their assigned status and the 'all' flag.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         intervention_id = ObjectId(intervention)

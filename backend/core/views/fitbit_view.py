@@ -8,8 +8,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import FitbitData, FitbitUserToken, Patient, User
@@ -111,7 +110,7 @@ def avg_excluding_zero(values):
     return sum(non_zero) // len(non_zero) if non_zero else 0
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def fitbit_summary(request, patient_id=None):
     try:
@@ -425,7 +424,7 @@ def _merge_thresholds(patient):
     return base
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def fitbit_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
@@ -442,7 +441,7 @@ def fitbit_status(request, patient_id):
     return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data})
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def fitbit_callback(request):
     code = request.GET.get("code")
@@ -507,7 +506,7 @@ def fitbit_callback(request):
         return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=error")
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_fitbit_health_data(request, patient_id):
     try:
@@ -635,12 +634,9 @@ def get_fitbit_health_data(request, patient_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def manual_steps(request, patient_id):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -676,8 +672,7 @@ from django.http import JsonResponse
 # HEALTH-COMBINED-HISTORY ENDPOINT
 # --------------------------------------------
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -699,7 +694,7 @@ def _date(d):
     return None
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def health_combined_history(request, patient_id):
     """
