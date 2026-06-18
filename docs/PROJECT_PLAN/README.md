@@ -12,7 +12,7 @@
 
 ## Project Overview
 
-**RehaAdvisor** is a comprehensive Tele-Rehabilitation Platform designed to revolutionize remote rehabilitation management through intelligent intervention delivery, real-time patient monitoring, and evidence-based therapy tracking.
+**RehaAdvisor** is a comprehensive digital Platform designed to revolutionize remote rehabilitation management through intelligent intervention delivery, real-time patient monitoring, and evidence-based therapy tracking.
 
 ### Core Purpose
 To provide therapists, researchers, and healthcare administrators with a unified digital platform that:
