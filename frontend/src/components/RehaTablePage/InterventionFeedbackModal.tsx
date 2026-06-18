@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Modal, Button, ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import StarRating, { getRatingFromDateEntry } from './StarRating';
 
 type AnyObj = Record<string, any>;
 
@@ -8,6 +9,7 @@ interface Props {
   show: boolean;
   onHide: () => void;
   intervention: AnyObj; // should include dates[] with feedback/video
+  initialDatetime?: string;
 }
 
 const safeT = (t: any, key: string) => {
@@ -40,7 +42,12 @@ const pickTranslation = (translations: any[], preferredLang: string) => {
   );
 };
 
-const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention }) => {
+const InterventionFeedbackModal: React.FC<Props> = ({
+  show,
+  onHide,
+  intervention,
+  initialDatetime,
+}) => {
   const { t, i18n } = useTranslation();
   const userLang = i18n.language || 'en';
 
@@ -51,10 +58,17 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
   // reset UI when opening a different intervention/modal
   useEffect(() => {
     if (show) {
-      setOnlyWithFeedback(true);
-      setSelectedIdx(0);
+      if (initialDatetime) {
+        // Show all dates so the target is always reachable, then select it
+        setOnlyWithFeedback(false);
+        const idx = allDates.findIndex((d: any) => d?.datetime === initialDatetime);
+        setSelectedIdx(idx >= 0 ? idx : 0);
+      } else {
+        setOnlyWithFeedback(true);
+        setSelectedIdx(0);
+      }
     }
-  }, [show, intervention?._id]);
+  }, [show, intervention?._id, initialDatetime]);
 
   // counts
   const totalScheduled = allDates.length;
@@ -229,7 +243,16 @@ const InterventionFeedbackModal: React.FC<Props> = ({ show, onHide, intervention
                               <ListGroup.Item key={i}>
                                 <div className="fw-semibold">{qText || safeT(t, 'Question')}</div>
 
-                                {answerText ? <div className="mt-1">{answerText}</div> : null}
+                                {(() => {
+                                  const r = getRatingFromDateEntry({ feedback: [fb] });
+                                  return r !== null ? (
+                                    <div className="mt-1">
+                                      <StarRating value={r} showNumber />
+                                    </div>
+                                  ) : answerText ? (
+                                    <div className="mt-1">{answerText}</div>
+                                  ) : null;
+                                })()}
 
                                 {fb?.comment ? (
                                   <div

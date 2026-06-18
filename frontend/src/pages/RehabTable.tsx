@@ -142,7 +142,7 @@ const RehabTable: React.FC = observer(() => {
     store.translateVisibleItems(i18n.language || 'en');
   }, [i18n.language]);
 
-  // ✅ Central refresh function (used after successful submit)
+  // Central refresh function (used after successful submit)
   const refreshAfterScheduleChange = async () => {
     await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
     store.patientData = (store as any).mergePlanWithCatalog(
@@ -361,6 +361,7 @@ const RehabTable: React.FC = observer(() => {
                         patientData={store.patientData as any}
                         titleMap={store.titleMap}
                         onSelectIntervention={store.handleExerciseClick}
+                        onSelectFeedback={store.openFeedbackBrowser}
                       />
                     </div>
                   </RehaCalendarPanelShell>
@@ -447,6 +448,7 @@ const RehabTable: React.FC = observer(() => {
             show
             onHide={store.closeFeedbackBrowser}
             intervention={store.feedbackBrowserIntervention as any}
+            initialDatetime={store.feedbackInitialDatetime ?? undefined}
             t={t as any}
           />
         ) : null}

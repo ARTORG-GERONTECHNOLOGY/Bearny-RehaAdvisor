@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Modal, Button, Table, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import StarRating from './StarRating';
 
 type AnyObj = Record<string, any>;
 
@@ -106,7 +107,9 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           <tbody>
             <tr>
               <th style={{ width: 220 }}>{safeT(t, 'Average rating')}</th>
-              <td>{stats.avgRating}</td>
+              <td>
+                {stats.avgRating > 0 ? <StarRating value={stats.avgRating} showNumber /> : '-'}
+              </td>
             </tr>
             <tr>
               <th>{safeT(t, 'Feedback entries')}</th>
