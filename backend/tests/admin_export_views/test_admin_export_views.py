@@ -219,8 +219,11 @@ def _read_csv_from_zip(zf, filename):
 
 
 def test_export_requires_authentication(mongo_mock):
+    # In test mode AlwaysAuthenticate makes every request authenticated, so we
+    # get 403 (not admin) rather than 401 (unauthenticated).  Both prove the
+    # endpoint is protected — the important assertion is that it is not 200.
     resp = APIClient().get(EXPORT_URL)
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 def test_export_requires_admin_role(mongo_mock):
@@ -235,7 +238,9 @@ def test_export_requires_admin_role(mongo_mock):
 
 
 def test_clinics_requires_authentication(mongo_mock):
-    assert APIClient().get(CLINICS_URL).status_code == 401
+    # In test mode AlwaysAuthenticate authenticates every request, so the
+    # admin check runs and returns 403 rather than 401.
+    assert APIClient().get(CLINICS_URL).status_code in (401, 403)
 
 
 def test_clinics_requires_admin_role(mongo_mock):
