@@ -5,11 +5,15 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
 # Allow localhost origin for the React dev/prod UI
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://reha-advisor.ch")
 CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
     "https://reha-advisor.ch",
     "https://www.reha-advisor.ch",
     "http://localhost:8080",
     "http://localhost",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1",
 ]
 
 ALLOWED_HOSTS = [

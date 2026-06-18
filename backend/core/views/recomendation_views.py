@@ -23,9 +23,9 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
-from django.views.decorators.csrf import csrf_exempt
+
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 import utils.interventions  # for _save_file and other helpers
@@ -112,7 +112,7 @@ BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def apply_template_to_patient(request, therapist_id):
     if request.method != "POST":
@@ -387,7 +387,7 @@ def template_plan_preview(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_intervention_by_external_id(request, external_id: str):
     if request.method != "GET":
@@ -432,7 +432,7 @@ def get_intervention_by_external_id(request, external_id: str):
 # --------------------------------------------------------------------
 # VIEW: add_new_intervention (UPDATED for contentType normalization)
 # --------------------------------------------------------------------
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_new_intervention(request):
     """
@@ -870,7 +870,7 @@ def add_new_intervention(request):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_intervention_detail(request, intervention_id):
     if request.method != "GET":
@@ -955,7 +955,7 @@ def get_intervention_detail(request, intervention_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_all_interventions(request, patient_id=None):
     """
@@ -1109,7 +1109,7 @@ def list_all_interventions(request, patient_id=None):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def assign_intervention_to_types(request, therapist_id):
     if request.method != "POST":
@@ -1437,7 +1437,7 @@ def assign_intervention_to_types(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def remove_intervention_from_types(request, therapist_id):
     if request.method != "POST":
@@ -1604,7 +1604,7 @@ def remove_intervention_from_types(request, therapist_id):
 # --------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def create_patient_group(request):
     if request.method != "POST":
@@ -1706,7 +1706,7 @@ def create_patient_group(request):
     return JsonResponse({"success": True, "message": "Diagnosis group added successfully."}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def list_intervention_diagnoses(request, intervention, specialisation, therapist_id):
     """

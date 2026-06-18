@@ -11,8 +11,8 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -377,7 +377,7 @@ def _expand_dates(
 # ───────────────────── list available questionnaires ─────────────────────
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def list_health_questionnaires(request):
     """GET/POST /api/questionnaires/health/"""
@@ -519,7 +519,7 @@ def _prettify(group_key: str) -> str:
     return group_key.replace("_", " ").title()
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def list_dynamic_questionnaires(request):
     """
@@ -561,7 +561,7 @@ def list_dynamic_questionnaires(request):
 # ───────────────────── list patient assignments ─────────────────────
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def list_patient_questionnaires(request, patient_id):
     """GET /api/questionnaires/patient/<patient_id>/"""
@@ -668,7 +668,7 @@ def _resolve_therapist(tid: Optional[str], patient: Optional[Patient]) -> Option
     return None
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def assign_questionnaire(request):
     if request.method != "POST":
@@ -796,7 +796,7 @@ def assign_questionnaire(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def remove_questionnaire(request):
     """POST /api/questionnaires/remove/"""
@@ -837,7 +837,7 @@ def remove_questionnaire(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def reset_patient_feedback(request):
     """POST /api/questionnaires/reset-feedback/

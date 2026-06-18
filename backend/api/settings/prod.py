@@ -4,7 +4,9 @@ DEBUG = False
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
+CORS_FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://reha-advisor.ch")
 CORS_ALLOWED_ORIGINS = [
+    CORS_FRONTEND_URL,
     "https://reha-advisor.ch",
     "https://www.reha-advisor.ch",
 ]
@@ -31,7 +33,7 @@ CSRF_COOKIE_SECURE = True
 FITBIT_CLIENT_ID = os.environ.get("FITBIT_CLIENT_ID", "")
 FITBIT_CLIENT_SECRET = os.environ.get("FITBIT_CLIENT_SECRET", "")
 FITBIT_REDIRECT_URI = os.environ.get("FITBIT_REDIRECT_URI", "https://reha-advisor.ch/api/fitbit/callback/")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://reha-advisor.ch")
+FRONTEND_URL = CORS_FRONTEND_URL
 
 # REDCap settings
 REDCAP_API_URL = os.environ.get("REDCAP_API_URL", "https://redcap.unibe.ch/api/")

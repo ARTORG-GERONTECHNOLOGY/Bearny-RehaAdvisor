@@ -2,8 +2,8 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
@@ -139,7 +139,7 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
     }
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def upload_intervention_media(request):
     """

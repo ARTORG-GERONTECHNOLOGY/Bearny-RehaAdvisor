@@ -40,10 +40,10 @@ from typing import Any, Dict, Optional, Tuple
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
+
 from mongoengine.errors import DoesNotExist
 from mongoengine.errors import ValidationError as MEValidationError
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import PatientThresholds  # adjust import path
@@ -431,7 +431,7 @@ def update_patient_thresholds_with_history(
 # ----------------------------
 # View
 # ----------------------------
-@csrf_exempt
+@api_view(["GET", "POST", "PATCH"])
 @permission_classes([IsAuthenticated])
 def patient_thresholds_view(request, patient_id: str):
     """

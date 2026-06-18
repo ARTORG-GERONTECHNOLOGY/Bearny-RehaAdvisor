@@ -13,8 +13,8 @@ import os
 from bson import ObjectId
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -41,7 +41,7 @@ def _serialize_intervention(doc):
     }
 
 
-@csrf_exempt
+@api_view(["DELETE", "GET"])
 @permission_classes([IsAuthenticated])
 def admin_interventions(request, intervention_id=None):
     if intervention_id:

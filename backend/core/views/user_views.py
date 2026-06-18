@@ -76,8 +76,8 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, PasswordAttempt, Patient, Therapist, User
@@ -131,7 +131,7 @@ def valid_update_value(v):
     return True  # update stored value
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def change_password(request, therapist_id):
     """
@@ -229,7 +229,7 @@ def change_password(request, therapist_id):
     return JsonResponse({"message": "Password changed successfully"}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "DELETE"])
 @permission_classes([IsAuthenticated])
 def user_profile_view(request, user_id):
     """
@@ -611,7 +611,7 @@ def user_profile_view(request, user_id):
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
-@csrf_exempt
+@api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def reset_patient_password(request, patient_id):
     """
@@ -675,7 +675,7 @@ def reset_patient_password(request, patient_id):
     return JsonResponse({"message": "Password reset successfully"}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def get_pending_users(request):
     if request.method != "GET":
@@ -749,7 +749,7 @@ def get_pending_users(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def accept_user(request):
     if request.method != "POST":
@@ -791,7 +791,7 @@ def accept_user(request):
         return JsonResponse({"error": "An internal error occurred."}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def decline_user(request):
     if request.method != "POST":

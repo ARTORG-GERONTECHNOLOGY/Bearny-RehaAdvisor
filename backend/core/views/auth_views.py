@@ -13,9 +13,9 @@ from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.tasks import fetch_fitbit_data_async
@@ -310,7 +310,8 @@ def _parse_body(request):
 # ---------------------------------------------------------------------
 # LOGIN
 # ---------------------------------------------------------------------
-@csrf_exempt
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def login_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -401,7 +402,7 @@ def login_view(request):
         return JsonResponse({"error": "Internal server error.", "request_id": request_id}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
@@ -436,8 +437,8 @@ def generate_random_password(length=12):
     return "".join(random.choice(chars) for _ in range(length))
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def reset_password_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -530,7 +531,8 @@ def _notify_admins_new_therapist(user, therapist):
         logger.exception("Failed to notify admins of new therapist registration")
 
 
-@csrf_exempt
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def register_view(request):
     """
     Registers a new patient or therapist.
@@ -906,7 +908,8 @@ def generate_code(length=6):
 # - Deletes old codes first
 # - Logs what's saved
 # =============================
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@permission_classes([AllowAny])
 def send_verification_code(request):
     try:
         data = json.loads(request.body)
@@ -992,7 +995,8 @@ def send_verification_code(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@permission_classes([AllowAny])
 def verify_code_view(request):
     try:
         data = json.loads(request.body or "{}")
@@ -1038,7 +1042,7 @@ def verify_code_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def get_user_info(request, user_id):
     try:

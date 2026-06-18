@@ -13,8 +13,8 @@ import logging
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import HealthQuestionnaire, RehabilitationPlan
@@ -63,7 +63,7 @@ def _serialize(doc):
     }
 
 
-@csrf_exempt
+@api_view(["PUT", "DELETE", "GET"])
 @permission_classes([IsAuthenticated])
 def admin_questionnaires(request, questionnaire_id=None):
     if questionnaire_id:

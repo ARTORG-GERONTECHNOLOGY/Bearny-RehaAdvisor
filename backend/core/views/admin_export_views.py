@@ -28,8 +28,7 @@ import zipfile
 from datetime import date
 
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -566,7 +565,7 @@ def _csv_activity_logs(patient_map):
 # ---------------------------------------------------------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_export_patients(request):
     """
@@ -633,7 +632,7 @@ def admin_export_patients(request):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_export_clinics(request):
     """

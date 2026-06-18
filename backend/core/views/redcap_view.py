@@ -3,15 +3,15 @@ from bson import ObjectId
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import RedcapParticipant, Therapist, User
 from core.redcap import redcap_export_record
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def import_redcap_participant(request):
     if request.method != "POST":
@@ -65,7 +65,7 @@ def import_redcap_participant(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def list_my_redcap_participants(request):
     if request.method != "GET":

@@ -9,9 +9,9 @@ from bson import ObjectId
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
+
 from mongoengine.errors import NotUniqueError
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
@@ -325,7 +325,7 @@ def _is_strong_password(pw: str) -> bool:
 # =========================================================
 # 1) GET /api/redcap/available-patients/
 # =========================================================
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def available_redcap_patients(request):
     """
@@ -485,7 +485,7 @@ def available_redcap_patients(request):
 # =========================================================
 # 2) POST /api/redcap/import-patient/
 # =========================================================
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def import_patient_from_redcap(request):
     """

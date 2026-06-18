@@ -2,8 +2,8 @@
 import logging
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.services.redcap_access import (
@@ -15,7 +15,7 @@ from core.services.redcap_service import RedcapError, export_record_by_pat_id
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def redcap_projects(request):
     """
@@ -41,7 +41,7 @@ def redcap_projects(request):
     )
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @permission_classes([IsAuthenticated])
 def redcap_record(request):
     """
