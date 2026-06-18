@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 // Star path and viewBox extracted from assets/icons/interventions/star.svg
 const STAR_PATH =
@@ -44,6 +44,7 @@ const StarRating: React.FC<StarRatingProps> = ({
 }) => {
   if (value == null || isNaN(value) || value <= 0) return null;
 
+  const uid = useId();
   const clamped = Math.min(value, max);
 
   return (
@@ -53,7 +54,7 @@ const StarRating: React.FC<StarRatingProps> = ({
     >
       {Array.from({ length: max }, (_, i) => {
         const fill = Math.min(1, Math.max(0, clamped - i));
-        return <Star key={i} fill={fill} id={`star-${i}-${Math.round(fill * 100)}`} size={size} />;
+        return <Star key={i} fill={fill} id={`${uid}-${i}`} size={size} />;
       })}
       {showNumber && <span className="text-xs text-gray-500 ml-1">{value}</span>}
     </span>
@@ -66,7 +67,6 @@ const StarRating: React.FC<StarRatingProps> = ({
  * translations containing the ★ character (e.g. "★★★☆☆ (3/5)").
  */
 export const getRatingFromDateEntry = (dateEntry: { feedback?: any[] }): number | null => {
-  console.dir(dateEntry, { depth: 3 });
   const fbs = Array.isArray(dateEntry.feedback) ? dateEntry.feedback : [];
   for (const fb of fbs as any[]) {
     const answers = Array.isArray(fb?.answer) ? (fb.answer as any[]) : [];
