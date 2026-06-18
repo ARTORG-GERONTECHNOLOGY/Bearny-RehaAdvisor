@@ -255,9 +255,7 @@ describe('InterventionList Component', () => {
     // Week view should switch to the 7-day grid layout with a week-range heading.
     (patientUiStore as any).viewMode = 'week';
     render(<InterventionList />);
-    expect(
-      screen.getByRole('grid', { name: /Weekly interventions grid/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('grid', { name: /Weekly interventions grid/i })).toBeInTheDocument();
     // The week-range heading (e.g. "17.02 – 23.02 (Week 8)") is rendered as h5
     expect(document.querySelector('h5')).toBeInTheDocument();
   });

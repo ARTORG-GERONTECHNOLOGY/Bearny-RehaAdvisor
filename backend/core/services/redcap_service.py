@@ -136,8 +136,7 @@ def export_record_by_pat_id(project_name: str, pat_id: str) -> List[Dict[str, An
     # alphanumerics, hyphens, and underscores — reject anything else early.
     if not re.fullmatch(r"[\w\-]+", identifier):
         raise RedcapError(
-            f"Invalid identifier format: {identifier!r}. "
-            "Only alphanumerics, hyphens, and underscores are allowed."
+            f"Invalid identifier format: {identifier!r}. " "Only alphanumerics, hyphens, and underscores are allowed."
         )
 
     # ---- fields you likely want in the PatientPopup ----

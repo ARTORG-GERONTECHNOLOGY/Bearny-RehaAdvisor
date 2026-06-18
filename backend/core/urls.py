@@ -29,6 +29,7 @@ from core.views.eva_view import (
 )
 from core.views.intervention_import import import_interventions
 from core.views.intervention_media_upload import upload_intervention_media
+from core.views.media_auth_view import media_auth_check
 from core.views.patient_thresholds import patient_thresholds_view
 from core.views.questionaires_view import (
     assign_questionnaire,
@@ -42,7 +43,6 @@ from core.views.redcap_import_views import (
     available_redcap_patients,
     import_patient_from_redcap,
 )
-from core.views.media_auth_view import media_auth_check
 from core.views.redcap_patient_views import redcap_patient
 from core.views.redcap_views import redcap_projects, redcap_record
 from core.views.therapist_access_views import therapist_access

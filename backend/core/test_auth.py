@@ -16,6 +16,7 @@ Strategy:
 Tests that specifically verify 401/403 behaviour should patch the permission
 class or use APIRequestFactory.force_authenticate().
 """
+
 from types import SimpleNamespace
 
 from bson import ObjectId

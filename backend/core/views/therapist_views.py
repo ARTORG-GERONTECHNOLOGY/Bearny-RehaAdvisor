@@ -554,6 +554,7 @@ def list_therapist_patients(request, therapist_id):
     # being requested, OR an Admin.  Skipped in test mode because test requests
     # use a synthetic user that has no corresponding DB record.
     from django.conf import settings as _settings
+
     if not getattr(_settings, "TESTING", False):
         try:
             caller_user = User.objects.get(pk=ObjectId(request.user.id))
