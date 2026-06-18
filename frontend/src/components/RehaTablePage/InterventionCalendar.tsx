@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Button, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -19,8 +18,6 @@ type DateEntry = {
   video?: any;
 };
 
-type ColorMode = 'status' | 'benefit';
-
 type CalendarEvent = {
   id: string;
   title: string;
@@ -31,7 +28,6 @@ type CalendarEvent = {
     intervention: any;
     dateEntry: DateEntry;
     status?: string;
-    benefitKey?: string;
   };
 };
 
@@ -52,13 +48,6 @@ const safeDate = (v: string): Date | null => {
 
 const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000);
 
-// deterministic “bucket” for benefit → css var
-const hashBucket = (s: string, buckets = 10) => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % buckets;
-};
-
 interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
@@ -73,7 +62,6 @@ const InterventionCalendar: React.FC<Props> = ({
   const { t } = useTranslation();
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
-  const [colorMode, setColorMode] = useState<ColorMode>('status');
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -87,16 +75,7 @@ const InterventionCalendar: React.FC<Props> = ({
 
       const displayTitle = titleMap[it._id]?.title || it.title;
 
-      // benefitFor can be array or string in your system; normalize
-      const benefitArr: string[] = Array.isArray(it?.benefitFor)
-        ? it.benefitFor.map(String)
-        : it?.benefitFor
-          ? [String(it.benefitFor)]
-          : [];
-
-      // Use first benefit as primary key for coloring
-      const benefitKey = benefitArr[0] || 'benefit_unknown';
-
+      // normalize dates
       for (const d of dates) {
         const start = safeDate(d.datetime);
         if (!start) continue;
@@ -111,7 +90,6 @@ const InterventionCalendar: React.FC<Props> = ({
             intervention: it,
             dateEntry: d,
             status: d.status,
-            benefitKey,
           },
         });
       }
@@ -121,84 +99,31 @@ const InterventionCalendar: React.FC<Props> = ({
   }, [patientData, titleMap]);
 
   // legend content
-  const legend = useMemo(() => {
-    if (colorMode === 'status') {
-      return (
-        <div className="rehaLegend">
-          <span className="rehaLegend__label">{t('Status')}:</span>
-          <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
-          <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
-          <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
-          <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
-        </div>
-      );
-    }
-
-    // benefit legend: show distinct benefits in range (cap)
-    const keys = Array.from(
-      new Set(events.map((e) => e.resource.benefitKey).filter(Boolean))
-    ) as string[];
-    const shown = keys.slice(0, 8);
-
-    return (
+  const legend = useMemo(
+    () => (
       <div className="rehaLegend">
-        <span className="rehaLegend__label">{t('Benefit')}:</span>
-        {shown.map((k) => {
-          const b = hashBucket(k, 10);
-          return (
-            <span
-              key={k}
-              className={`rehaLegend__item rehaLegend__item--benefit`}
-              style={{ ['--benefit-bucket' as any]: b }}
-            >
-              {k === 'benefit_unknown' ? t('Unknown') : k}
-            </span>
-          );
-        })}
-        {keys.length > shown.length ? <span className="rehaLegend__more">…</span> : null}
+        <span className="rehaLegend__label">{t('Status')}:</span>
+        <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
+        <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
+        <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
+        <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
       </div>
-    );
-  }, [colorMode, events, t]);
+    ),
+    [t]
+  );
 
   const eventPropGetter = (event: CalendarEvent) => {
-    if (colorMode === 'status') {
-      const status = event.resource?.status;
-      if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
-      if (status === 'missed') return { className: 'rehaEvent rehaEvent--missed' };
-      if (status === 'today') return { className: 'rehaEvent rehaEvent--today' };
-      if (status === 'upcoming') return { className: 'rehaEvent rehaEvent--upcoming' };
-      return { className: 'rehaEvent' };
-    }
-
-    const key = event.resource?.benefitKey || 'benefit_unknown';
-    const bucket = hashBucket(key, 10);
-    return {
-      className: 'rehaEvent rehaEvent--benefit',
-      style: { ['--benefit-bucket' as any]: bucket },
-    };
+    const status = event.resource?.status;
+    if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
+    if (status === 'missed') return { className: 'rehaEvent rehaEvent--missed' };
+    if (status === 'today') return { className: 'rehaEvent rehaEvent--today' };
+    if (status === 'upcoming') return { className: 'rehaEvent rehaEvent--upcoming' };
+    return { className: 'rehaEvent' };
   };
 
   return (
     <div className="rehaCalendar">
       <div className="rehaCalendar__topbar">
-        <div className="rehaCalendar__controls">
-          <span className="me-2">{t('Color by')}</span>
-          <ButtonGroup size="sm" aria-label={t('Color mode')}>
-            <Button
-              variant={colorMode === 'status' ? 'dark' : 'outline-dark'}
-              onClick={() => setColorMode('status')}
-            >
-              {t('Status')}
-            </Button>
-            <Button
-              variant={colorMode === 'benefit' ? 'dark' : 'outline-dark'}
-              onClick={() => setColorMode('benefit')}
-            >
-              {t('Benefit')}
-            </Button>
-          </ButtonGroup>
-        </div>
-
         <div className="rehaCalendar__legendWrap">{legend}</div>
       </div>
 
