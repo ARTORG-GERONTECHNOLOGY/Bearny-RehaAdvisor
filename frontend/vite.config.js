@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
           name: isDev ? 'Bearny (Dev)' : 'Bearny',
           short_name: isDev ? 'Bearny (Dev)' : 'Bearny',
           description:
-            'A digital telerehabilitation platform connecting patients and therapists through personalised exercise plans, remote progress monitoring, and standardised clinical assessments.',
+            'Bearny is a digital platform that connects patients and therapists through personalised exercise plans, remote progress monitoring, and standardised clinical assessments.',
           theme_color: '#F2F2F7',
           background_color: '#F2F2F7',
           display: 'standalone',
