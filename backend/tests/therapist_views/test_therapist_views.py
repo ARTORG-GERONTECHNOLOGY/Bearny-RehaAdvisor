@@ -34,6 +34,7 @@ import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
+from django.utils import timezone
 
 from core.models import (
     AnswerOption,
@@ -727,14 +728,15 @@ def test_biomarker_includes_wear_time_fields():
     therapist, patient = create_therapist_with_patient()
     user = patient.userId
 
+    _utcnow = timezone.now().replace(tzinfo=None)
     FitbitData(
         user=user,
-        date=datetime.now() - timedelta(days=1),
+        date=_utcnow - timedelta(days=1),
         wear_time_minutes=720,
     ).save()
     FitbitData(
         user=user,
-        date=datetime.now() - timedelta(days=2),
+        date=_utcnow - timedelta(days=2),
         wear_time_minutes=480,
     ).save()
 
