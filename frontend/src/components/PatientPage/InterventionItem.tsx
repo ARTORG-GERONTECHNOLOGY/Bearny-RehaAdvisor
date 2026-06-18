@@ -32,7 +32,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
   const completed = patientInterventionsStore.isCompletedOn(rec, date);
   const title = rec.translated_title || rec.intervention_title || '';
   const duration = rec.duration || rec.intervention?.duration;
-  const isExercise = rec.intervention?.aim?.toLowerCase() === 'exercise';
+  const isExercise = (rec.intervention?.aim ?? '').toLowerCase() === 'exercise';
 
   return (
     <Card
