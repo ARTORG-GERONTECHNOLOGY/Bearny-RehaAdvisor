@@ -11,9 +11,11 @@ from pymongo import MongoClient
 from core.models import (
     Patient,
     PatientInterventionLogs,
+    PasswordAttempt,
     RehabilitationPlan,
     Therapist,
     User,
+    VerifyAttempt,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,6 +103,48 @@ def increment_attempt(record):
     record.count += 1
     record.last_attempt = datetime.utcnow()
     record.save()
+
+
+# ---------------------------------------------------------------------------
+# 2FA / email-code rate limiting (VerifyAttempt)
+# ---------------------------------------------------------------------------
+_VERIFY_MAX_ATTEMPTS = 10
+_VERIFY_WINDOW_MINUTES = 30
+
+
+def check_verify_rate_limit(key: str):
+    """
+    Returns (is_locked, record) for the given key (e.g. a user_id string or
+    "healthslider_download").  Resets after _VERIFY_WINDOW_MINUTES minutes.
+    """
+    record = VerifyAttempt.objects(key=key).first()
+    now = datetime.utcnow()
+
+    if not record:
+        record = VerifyAttempt(key=key, count=0, last_attempt=now)
+        record.save()
+        return False, record
+
+    if now - record.last_attempt > timedelta(minutes=_VERIFY_WINDOW_MINUTES):
+        record.count = 0
+        record.last_attempt = now
+        record.save()
+        return False, record
+
+    if record.count >= _VERIFY_MAX_ATTEMPTS:
+        return True, record
+
+    return False, record
+
+
+def increment_verify_attempt(record):
+    record.count += 1
+    record.last_attempt = datetime.utcnow()
+    record.save()
+
+
+def reset_verify_attempts(key: str):
+    VerifyAttempt.objects(key=key).update(set__count=0)
 
 
 def resolve_patient(identifier: str):

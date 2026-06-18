@@ -41,11 +41,14 @@ from core.models import (
 )
 from utils.utils import (
     check_rate_limit,
+    check_verify_rate_limit,
     convert_to_serializable,
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
     increment_attempt,
+    increment_verify_attempt,
+    reset_verify_attempts,
     sanitize_text,
     validate_password_strength,
 )
@@ -1012,8 +1015,17 @@ def verify_code_view(request):
         if not user_id or not code:
             return JsonResponse({"error": "Missing user ID or verification code"}, status=400)
 
+        # Brute-force protection: 10 attempts per 30-minute window per user_id.
+        is_locked, verify_record = check_verify_rate_limit(user_id)
+        if is_locked:
+            return JsonResponse(
+                {"error": "Too many verification attempts. Please request a new code."},
+                status=429,
+            )
+
         verification = SMSVerification.objects(userId=user_id, code=code).order_by("-created_at").first()
         if not verification:
+            increment_verify_attempt(verify_record)
             return JsonResponse({"error": "Invalid verification code"}, status=400)
 
         # ---- Compare in UTC (+00:00) ALWAYS ----
@@ -1031,6 +1043,7 @@ def verify_code_view(request):
 
         user = User.objects.get(pk=user_id)
         verification.delete()
+        reset_verify_attempts(user_id)
 
         refresh = RefreshToken.for_user(user)
         Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
