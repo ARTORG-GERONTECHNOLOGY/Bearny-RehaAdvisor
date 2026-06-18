@@ -7,9 +7,9 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+
+from core.permissions import IsAdmin
 
 from core.models import Logs, PasswordAttempt, Patient, Therapist, User
 from utils.config import config
@@ -40,8 +40,8 @@ def _allowed_projects_for_clinics(clinics: list[str], clinic_projects: dict) -> 
     return allowed
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET", "PUT"])
+@permission_classes([IsAdmin])
 def therapist_access(request, therapistId: str | None = None):
     available_clinics, available_projects, clinic_projects = _cfg()
 

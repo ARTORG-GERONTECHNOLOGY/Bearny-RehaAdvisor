@@ -39,11 +39,12 @@ import csv
 import io
 import zipfile
 from datetime import datetime
+from types import SimpleNamespace
 
 import mongomock
 import pytest
-from django.test import Client
 from mongoengine import connect, disconnect
+from rest_framework.test import APIClient
 
 from core.models import (
     FeedbackEntry,
@@ -86,10 +87,21 @@ def mongo_mock():
     disconnect(alias)
 
 
-client = Client()
-
 EXPORT_URL = "/api/admin/export/patients/"
 CLINICS_URL = "/api/admin/export/clinics/"
+
+# Populated by the autouse fixture below so every test uses an admin-authenticated client.
+client: APIClient = None  # type: ignore[assignment]
+
+
+@pytest.fixture(autouse=True)
+def _setup_admin_client(mongo_mock):
+    global client
+    admin = _make_admin()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(admin.id)))
+    client = c
+    yield
 
 EXPECTED_CSV_FILES = {
     "patients.csv",
@@ -169,6 +181,25 @@ def _make_intervention(external_id="iv_001", language="en"):
     ).save()
 
 
+def _make_admin():
+    user = User(
+        username="admin_test",
+        email="admin@test.example.com",
+        role="Admin",
+        isActive=True,
+        createdAt=datetime.now(),
+    )
+    user.pwdhash = "x"
+    user.save()
+    return user
+
+
+def _admin_client(admin_user):
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(admin_user.id)))
+    return c
+
+
 def _open_zip(response):
     """Return a ZipFile object from the HTTP response bytes."""
     return zipfile.ZipFile(io.BytesIO(response.content))
@@ -179,6 +210,42 @@ def _read_csv_from_zip(zf, filename):
     with zf.open(filename) as f:
         text = f.read().decode("utf-8")
     return list(csv.DictReader(io.StringIO(text)))
+
+
+# ===========================================================================
+# Security: authentication and role enforcement
+# ===========================================================================
+
+
+def test_export_requires_authentication(mongo_mock):
+    resp = APIClient().get(EXPORT_URL)
+    assert resp.status_code == 401
+
+
+def test_export_requires_admin_role(mongo_mock):
+    therapist_user = User(
+        username="th_sec", email="th_sec@example.com", role="Therapist", isActive=True, createdAt=datetime.now()
+    )
+    therapist_user.pwdhash = "x"
+    therapist_user.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(therapist_user.id)))
+    assert c.get(EXPORT_URL).status_code == 403
+
+
+def test_clinics_requires_authentication(mongo_mock):
+    assert APIClient().get(CLINICS_URL).status_code == 401
+
+
+def test_clinics_requires_admin_role(mongo_mock):
+    patient_user = User(
+        username="pt_sec", email="pt_sec@example.com", role="Patient", isActive=True, createdAt=datetime.now()
+    )
+    patient_user.pwdhash = "x"
+    patient_user.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id)))
+    assert c.get(CLINICS_URL).status_code == 403
 
 
 # ===========================================================================
