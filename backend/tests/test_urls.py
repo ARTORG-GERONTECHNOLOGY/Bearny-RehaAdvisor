@@ -57,6 +57,11 @@ def test_add_intervention_to_patient_url_resolves():
     assert resolver.func == patient_views.add_intervention_to_patient
 
 
+def test_move_intervention_date_url_resolves():
+    resolver = resolve("/api/interventions/move-date/")
+    assert resolver.func == patient_views.move_intervention_date
+
+
 def test_submit_feedback_url_resolves():
     resolver = resolve("/api/patients/feedback/questionaire/")
     assert resolver.func == patient_views.submit_patient_feedback

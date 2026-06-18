@@ -162,3 +162,149 @@ describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regress
     expect(item.preview_img).toBe('a.png'); // matched via _id, not external_id
   });
 });
+
+// ---------------------------------------------------------------------------
+// moveInterventionDate API + refresh tests
+// ---------------------------------------------------------------------------
+
+describe('rehabTableStore.moveInterventionDate', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+
+    // Default mock for GET endpoints (used by fetchAll and fetchInts on success)
+    mockApiClient.get.mockResolvedValue({
+      status: 200,
+      data: { interventions: [] },
+    });
+  });
+
+  it('successfully moves intervention date with correct API payload', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    // Mock successful move response
+    mockApiClient.post.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        success: true,
+        message: 'Intervention occurrence moved.',
+        movedFrom: '2026-01-01T08:00:00Z',
+        movedTo: '2026-01-02T08:00:00Z',
+      },
+    });
+
+    // Call the method
+    await store.moveInterventionDate(
+      'int-1',
+      '2026-01-01T08:00:00Z',
+      '2026-01-02T08:00:00Z',
+      mockT
+    );
+
+    // Verify API was called with correct payload structure
+    expect(mockApiClient.post).toHaveBeenCalledWith('interventions/move-date/', {
+      patientId: store.patientIdForCalls,
+      interventionId: 'int-1',
+      fromDatetime: '2026-01-01T08:00:00Z',
+      toDatetime: '2026-01-02T08:00:00Z',
+    });
+
+    // Verify error is cleared on success
+    expect(store.error).toBeNull();
+  });
+
+  it('handles API error and sets error message in store', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    // Mock API error response (400 bad request)
+    const errorResponse = {
+      response: {
+        status: 400,
+        data: {
+          message: 'Validation error.',
+          field_errors: {
+            fromDatetime: ['Source datetime not found in assigned schedule.'],
+          },
+        },
+      },
+    };
+    mockApiClient.post.mockRejectedValueOnce(errorResponse);
+
+    // Call the method and catch the error
+    const error = await store
+      .moveInterventionDate('int-1', 'bad-date', '2026-01-02T08:00:00Z', mockT)
+      .catch((e) => e);
+
+    // Verify an error was thrown
+    expect(error).toBeDefined();
+    // Verify error message was extracted and set in store
+    expect(store.error).toContain('Validation error.');
+  });
+
+  it('extracts field errors when move validation fails', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    const errorResponse = {
+      response: {
+        status: 404,
+        data: {
+          message: 'Source datetime not found.',
+          field_errors: {
+            fromDatetime: ['No matching scheduled occurrence found.'],
+          },
+        },
+      },
+    };
+    mockApiClient.post.mockRejectedValueOnce(errorResponse);
+
+    // Call the method and catch the error
+    const error = await store
+      .moveInterventionDate('int-1', '2030-01-01T08:00:00Z', '2030-01-02T08:00:00Z', mockT)
+      .catch((e) => e);
+
+    expect(error).toBeDefined();
+    // Error message should include the field error detail
+    expect(store.error).toContain('fromDatetime');
+    expect(store.error).toContain('No matching scheduled occurrence found');
+  });
+
+  it('uses fallback error message when API response lacks detail', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    mockApiClient.post.mockRejectedValueOnce({
+      response: { status: 500, data: {} },
+    });
+
+    // Call the method and catch the error
+    const error = await store
+      .moveInterventionDate('int-1', '2026-01-01T08:00:00Z', '2026-01-02T08:00:00Z', mockT)
+      .catch((e) => e);
+
+    expect(error).toBeDefined();
+    // Should use fallback from translation or default message
+    expect(store.error).toBeTruthy();
+    expect(store.error.length).toBeGreaterThan(0);
+  });
+
+  it('propagates thrown error to caller for retry handling', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    const testError = new Error('Network timeout');
+    mockApiClient.post.mockRejectedValueOnce(testError);
+
+    // Verify the error is rethrown so caller can handle it (e.g., with retry UI)
+    const caughtError = await store
+      .moveInterventionDate('int-1', '2026-01-01T08:00:00Z', '2026-01-02T08:00:00Z', mockT)
+      .catch((e) => e);
+
+    expect(caughtError).toBeDefined();
+    expect(store.error).toBeTruthy();
+  });
+});
