@@ -16,3 +16,7 @@ secrets/
 backups/
 .codex
 .claude
+
+
+celery_worker.state*
+celerybeat-schedule*
