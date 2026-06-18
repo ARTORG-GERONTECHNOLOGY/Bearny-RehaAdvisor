@@ -46,6 +46,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny
 
 
 from core.models import HealthSliderEntry, SMSVerification
@@ -70,6 +71,7 @@ def _check_download_token(request) -> bool:
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 def healthslider_download_auth(request):
     """
     POST /api/healthslider/auth/
@@ -110,6 +112,7 @@ def healthslider_download_auth(request):
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 def healthslider_download_verify(request):
     """
     POST /api/healthslider/auth/verify/
@@ -182,6 +185,7 @@ def _guess_ext(mime: str, fallback=".webm") -> str:
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 def submit_healthslider_item(request):
     """
     POST /api/healthslider/submit-item/
@@ -259,6 +263,7 @@ def submit_healthslider_item(request):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def list_healthslider_items(request):
     """
     GET /api/healthslider/items/?participantId=...
@@ -296,6 +301,7 @@ def list_healthslider_items(request):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def download_healthslider_audio(request, item_id: str):
     """
     GET /api/healthslider/audio/<item_id>/
@@ -341,6 +347,7 @@ def download_healthslider_audio(request, item_id: str):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def download_healthslider_session_zip(request):
     """
     GET /api/healthslider/session-zip/?participantId=...&sessionId=...
@@ -374,6 +381,7 @@ def download_healthslider_session_zip(request):
 
 
 @api_view(["DELETE"])
+@permission_classes([AllowAny])
 def delete_healthslider_session(request):
     """
     DELETE /api/healthslider/delete-session/?participantId=...&sessionId=...
