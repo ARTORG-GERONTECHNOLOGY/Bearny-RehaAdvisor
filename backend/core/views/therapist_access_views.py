@@ -9,9 +9,8 @@ from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 
-from core.permissions import IsAdmin
-
 from core.models import Logs, PasswordAttempt, Patient, Therapist, User
+from core.permissions import IsAdmin
 from utils.config import config
 
 logger = logging.getLogger(__name__)

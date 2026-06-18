@@ -92,6 +92,7 @@ def _setup_admin_client(mongo_mock):
     client = c
     yield
 
+
 LIST_URL = "/api/admin/interventions/"
 DELETE_URL = "/api/admin/interventions/{intervention_id}/"
 

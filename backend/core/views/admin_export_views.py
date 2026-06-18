@@ -30,8 +30,6 @@ from datetime import date
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 
-from core.permissions import IsAdmin
-
 from core.models import (
     FitbitData,
     GeneralFeedback,
@@ -43,6 +41,7 @@ from core.models import (
     PatientVitals,
     RehabilitationPlan,
 )
+from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
