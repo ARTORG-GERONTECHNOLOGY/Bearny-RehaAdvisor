@@ -1,5 +1,5 @@
 /**
- * E2E tests for the PatientPlan page (/patient/plan).
+ * E2E tests for the PatientPlan page (/patient-plan).
  *
  * PatientPlan is the main weekly intervention schedule for patients. It renders
  * DailyInterventionCard + InterventionItem (the active production components)
@@ -47,13 +47,13 @@ function weekRangeLabel(date: Date) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Patient plan page', () => {
-  test('redirects unauthenticated user away from /patient/plan', async ({ page }) => {
-    await page.goto('/patient/plan');
+  test('redirects unauthenticated user away from /patient-plan', async ({ page }) => {
+    await page.goto('/patient-plan');
     // The auth guard navigates to the home/login page
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('loads /patient/plan and fetches the rehabilitation plan', async ({ page }) => {
+  test('loads /patient-plan and fetches the rehabilitation plan', async ({ page }) => {
     await loginAsSeededPatient(page);
 
     const planRequestPromise = page.waitForRequest(
@@ -61,8 +61,8 @@ test.describe('Patient plan page', () => {
         req.method() === 'GET' && req.url().includes('/patients/rehabilitation-plan/patient/')
     );
 
-    await page.goto('/patient/plan');
-    await expect(page).toHaveURL(/\/patient\/plan(?:\/)?$/);
+    await page.goto('/patient-plan');
+    await expect(page).toHaveURL(/\/patient-plan(?:\/)?$/);
     await planRequestPromise;
 
     // The week-range header (e.g. "16.06. - 22.06.") should be visible
@@ -71,7 +71,7 @@ test.describe('Patient plan page', () => {
 
   test('navigating to the next week updates the displayed date range', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient/plan');
+    await page.goto('/patient-plan');
 
     // Capture the current week label from the page header before navigation
     const header = page.getByRole('heading').first();
@@ -89,7 +89,7 @@ test.describe('Patient plan page', () => {
 
   test('navigating to the previous week updates the displayed date range', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient/plan');
+    await page.goto('/patient-plan');
 
     const header = page.getByRole('heading').first();
     await expect(header).toBeVisible();
@@ -102,7 +102,7 @@ test.describe('Patient plan page', () => {
 
   test('day-of-week filter chips change the visible day section', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient/plan');
+    await page.goto('/patient-plan');
 
     // "Whole Week" shows all 7 day sections; clicking "Mon" should reduce to 1.
     // The chips are rendered as ToggleGroup items.
