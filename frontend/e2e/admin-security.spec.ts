@@ -41,23 +41,28 @@ const ADMIN_ENDPOINTS: Array<{ method: 'GET' | 'POST' | 'DELETE'; path: string }
 ];
 
 // ---------------------------------------------------------------------------
-// Helper — obtain a non-admin (therapist) JWT so we can assert 403
+// Helper — obtain a non-admin JWT so we can assert 403
+//
+// Patients receive an access_token on the first login step (no 2FA).
+// Therapists require 2FA so their first-step response contains only
+// require_2fa=true and no token — using patient credentials here avoids
+// that complication while still producing a valid non-admin Bearer token.
 // ---------------------------------------------------------------------------
 
-async function getTherapistToken(request: APIRequestContext): Promise<string | null> {
-  const login = process.env.E2E_THERAPIST_LOGIN;
-  const password = process.env.E2E_THERAPIST_PASSWORD;
+async function getNonAdminToken(request: APIRequestContext): Promise<string | null> {
+  const login = process.env.E2E_PATIENT_LOGIN;
+  const password = process.env.E2E_PATIENT_PASSWORD;
 
   if (!login || !password) return null;
 
-  // login_view returns an access token directly (no 2FA for API-level call)
   const res = await request.post(`${API_BASE}/auth/login/`, {
     data: { email: login, password },
   });
   if (!res.ok()) return null;
 
   const body = await res.json();
-  return body?.access ?? null;
+  // Patient login returns { access_token: "..." }
+  return body?.access_token ?? body?.access ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,15 +86,16 @@ test.describe('Admin endpoints — unauthenticated access returns 401', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Admin endpoints — non-admin JWT returns 403', () => {
-  // These tests require a seeded non-admin account (therapist role).
-  // They skip gracefully when credentials are absent.
+  // These tests require a seeded patient account (patients return an access
+  // token on first login without 2FA, making them the simplest source of a
+  // valid non-admin Bearer token).  Skip gracefully when credentials are absent.
 
   for (const { method, path } of ADMIN_ENDPOINTS) {
     test(`${method} ${path}`, async ({ request }) => {
-      const token = await getTherapistToken(request);
+      const token = await getNonAdminToken(request);
       test.skip(
         !token,
-        'E2E_THERAPIST_LOGIN / E2E_THERAPIST_PASSWORD not set — skipping non-admin 403 checks'
+        'E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD not set — skipping non-admin 403 checks'
       );
 
       const res = await request[method.toLowerCase() as 'get' | 'post' | 'delete'](
