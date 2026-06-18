@@ -16,15 +16,16 @@ Coverage goals
 
 import json
 from datetime import datetime
+from types import SimpleNamespace
 
 import mongomock
 import pytest
 from bson import ObjectId
-from django.test import Client
+from rest_framework.test import APIClient
 
 from core.models import Logs, Therapist, User
 
-client = Client()
+client: APIClient = None  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -44,6 +45,24 @@ def mongo_mock():
     )
     yield conn
     disconnect(alias)
+
+
+@pytest.fixture(autouse=True)
+def _setup_admin_client(mongo_mock):
+    global client
+    admin_user = User(
+        username="admin_ta_test",
+        email="admin_ta@test.example.com",
+        role="Admin",
+        isActive=True,
+        createdAt=datetime.now(),
+    )
+    admin_user.pwdhash = "x"
+    admin_user.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(admin_user.id)))
+    client = c
+    yield
 
 
 def create_therapist():

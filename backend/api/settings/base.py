@@ -62,6 +62,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Enforces JWT Bearer tokens on all /api/ routes that lack @api_view.
+    # See core/middleware.py for the list of public (token-exempt) paths.
+    "core.middleware.JWTAuthMiddleware",
 ]
 
 STATIC_URL = "/static/"
