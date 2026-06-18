@@ -1,5 +1,4 @@
 {
-  "Tele-Rehabilitation Platform": "Tele-Revalidatieplatform",
   "Intervention successfully added": "Interventie succesvol toegevoegd",
   "Filter by Disease": "Filteren op ziekte",
   "failedCheck": "Kon de vitale waarden van vandaag niet ophalen.",
@@ -1259,7 +1258,7 @@
   "Select...": "Selecteren...",
   "homeHeadline": "Bearny",
   "homeSubheadline": "klaar na de revalidatie",
-  "homeDescription": "Bearny is een digitaal telerevalidatieplatform dat patiënten en therapeuten verbindt via gepersonaliseerde oefenprogramma's, monitoring van voortgang op afstand en gestandaardiseerde klinische beoordelingen.",
+  "homeDescription": "Bearny is een digitaal platform dat patiënten en therapeuten verbindt via gepersonaliseerde oefenprogramma's, monitoring van voortgang op afstand en gestandaardiseerde klinische beoordelingen.",
   "homeFeatureExercises": "Gepersonaliseerde thuisoefenprogramma's",
   "homeFeatureMonitoring": "Monitoring van voortgang op afstand voor therapeuten",
   "homeFeatureAssessment": "Gestandaardiseerde beoordelingen (ICF, EVA)",
