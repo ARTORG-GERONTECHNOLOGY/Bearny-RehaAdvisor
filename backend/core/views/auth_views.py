@@ -45,6 +45,7 @@ from utils.utils import (
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
+    increment_attempt,
     sanitize_text,
     validate_password_strength,
 )
@@ -342,13 +343,28 @@ def login_view(request):
         if not user:
             return JsonResponse(_INVALID_CREDS, status=401)
 
+        # Per-account brute-force protection: lock after MAX_ATTEMPTS failures.
+        # The counter resets automatically after 1 hour (see check_rate_limit).
+        is_locked, rate_record = check_rate_limit(user)
+        if is_locked:
+            return JsonResponse(
+                {"error": "Too many failed login attempts. Try again later.", "request_id": request_id},
+                status=429,
+            )
+
         pwdhash = getattr(user, "pwdhash", None)
         if not pwdhash:
             logger.warning("[LOGIN][%s] User has no pwdhash user_id=%s", request_id, user.id)
+            increment_attempt(rate_record)
             return JsonResponse(_INVALID_CREDS, status=401)
 
         if not check_password(raw_password, pwdhash):
+            increment_attempt(rate_record)
             return JsonResponse(_INVALID_CREDS, status=401)
+
+        # Successful credential check — reset the failure counter.
+        rate_record.count = 0
+        rate_record.save()
 
         if not getattr(user, "isActive", False):
             return JsonResponse(
