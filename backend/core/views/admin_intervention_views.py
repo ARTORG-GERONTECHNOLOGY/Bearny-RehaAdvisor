@@ -15,8 +15,6 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 
-from core.permissions import IsAdmin
-
 from core.models import (
     Intervention,
     InterventionTemplate,
@@ -24,6 +22,7 @@ from core.models import (
     RehabilitationPlan,
     Therapist,
 )
+from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,7 @@ def admin_interventions(request, intervention_id=None):
         if request.method == "DELETE":
             return _delete_intervention(request, intervention_id)
         from django.http import JsonResponse
+
         return JsonResponse({"error": "Method not allowed"}, status=405)
     return _list_interventions(request)
 

@@ -262,7 +262,9 @@ def test_user_profile_view_therapist_get_success():
     the linked Therapist document's ``name`` field.
     """
     user, therapist = create_user_and_therapist()
-    resp = client.get(f"/api/users/{user.id}/profile/",)
+    resp = client.get(
+        f"/api/users/{user.id}/profile/",
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["email"] == user.email
@@ -277,7 +279,9 @@ def test_user_profile_view_therapist_response_contains_expected_fields():
     should be present.
     """
     user, therapist = create_user_and_therapist()
-    resp = client.get(f"/api/users/{user.id}/profile/",)
+    resp = client.get(
+        f"/api/users/{user.id}/profile/",
+    )
     data = resp.json()
 
     for key in (
@@ -299,7 +303,9 @@ def test_user_profile_view_patient_get_success():
     with the patient's e-mail and ``first_name``.
     """
     user, patient = create_patient()
-    resp = client.get(f"/api/users/{str(patient.pk)}/profile/",)
+    resp = client.get(
+        f"/api/users/{str(patient.pk)}/profile/",
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["email"] == user.email
@@ -312,7 +318,9 @@ def test_user_profile_view_patient_response_excludes_sensitive_fields():
     These are filtered out by the view's ``excluded_patient`` set.
     """
     user, patient = create_patient()
-    resp = client.get(f"/api/users/{user.id}/profile/",)
+    resp = client.get(
+        f"/api/users/{user.id}/profile/",
+    )
     data = resp.json()
 
     assert "pwdhash" not in data, "pwdhash must never appear in GET response"
@@ -326,7 +334,9 @@ def test_user_profile_view_therapist_profile_not_found():
     """
     user, _ = create_user_and_therapist()
     Therapist.objects(userId=user.id).delete()
-    resp = client.get(f"/api/users/{user.id}/profile/",)
+    resp = client.get(
+        f"/api/users/{user.id}/profile/",
+    )
     assert resp.status_code == 404
     assert "profile not found" in resp.json()["error"]
 
@@ -335,7 +345,9 @@ def test_user_profile_view_user_not_found():
     """
     GET with an ObjectId that matches no User or Patient document returns 404.
     """
-    resp = client.get(f"/api/users/{ObjectId()}/profile/",)
+    resp = client.get(
+        f"/api/users/{ObjectId()}/profile/",
+    )
     assert resp.status_code == 404
     assert "error" in resp.json()
 
@@ -366,7 +378,6 @@ def test_user_profile_view_update_password_success():
             f"/api/users/{user.id}/profile/",
             data=json.dumps(payload),
             content_type="application/json",
-    
         )
     assert resp.status_code == 200
     assert "Profile updated" in resp.json()["message"]
@@ -389,7 +400,6 @@ def test_user_profile_view_update_password_wrong_old():
             f"/api/users/{user.id}/profile/",
             data=json.dumps(payload),
             content_type="application/json",
-    
         )
     assert resp.status_code == 403
     assert "Old password incorrect" in resp.json()["error"]
@@ -406,7 +416,6 @@ def test_user_profile_view_update_password_missing_old():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Old password required" in resp.json()["error"]
@@ -425,7 +434,6 @@ def test_user_profile_view_update_password_missing_new():
             f"/api/users/{user.id}/profile/",
             data=json.dumps(payload),
             content_type="application/json",
-    
         )
     assert resp.status_code == 400
     assert "New password required" in resp.json()["error"]
@@ -448,7 +456,6 @@ def test_user_profile_view_update_therapist_fields():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     updated = resp.json().get("updated", {})
@@ -468,7 +475,6 @@ def test_user_profile_view_update_patient_reha_end_date():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "reha_end_date" in resp.json().get("updated", {})
@@ -491,7 +497,6 @@ def test_user_profile_view_update_patient_characteristics_preserves_internal_spa
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
 
     assert resp.status_code == 200
@@ -513,7 +518,6 @@ def test_user_profile_view_update_invalid_date_format():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Invalid date format" in resp.json()["error"]
@@ -530,7 +534,6 @@ def test_user_profile_view_update_invalid_email():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Invalid email" in resp.json()["error"]
@@ -547,7 +550,6 @@ def test_user_profile_view_update_invalid_phone():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Invalid phone" in resp.json()["error"]
@@ -571,7 +573,6 @@ def test_user_profile_view_overposting_forbidden_fields_are_ignored():
         f"/api/users/{user.id}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     # View should respond 200 (no valid update fields → empty update)
     assert resp.status_code == 200
@@ -599,7 +600,6 @@ def test_user_profile_view_update_therapist_name_persists_to_db():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"name": "NewLast", "first_name": "NewFirst"}),
         content_type="application/json",
-
     )
     therapist.reload()
     assert therapist.name == "NewLast"
@@ -616,7 +616,6 @@ def test_user_profile_view_update_therapist_specializations():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"specializations": ["Neurology", "Orthopedics"]}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "specializations" in resp.json().get("updated", {})
@@ -634,7 +633,6 @@ def test_user_profile_view_update_therapist_clinics():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"clinics": ["Berner Reha Centrum"]}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     therapist.reload()
@@ -650,7 +648,6 @@ def test_user_profile_view_update_therapist_username():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"username": "updated_username"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     user.reload()
@@ -667,7 +664,6 @@ def test_user_profile_view_update_valid_email_accepted_and_persisted():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"email": "newemail@clinic.org"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     user.reload()
@@ -684,7 +680,6 @@ def test_user_profile_view_update_valid_phone_accepted_and_persisted():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"phone": "+41791234567"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     user.reload()
@@ -704,7 +699,6 @@ def test_user_profile_view_update_creates_audit_log():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"first_name": "Audited"}),
         content_type="application/json",
-
     )
     log = Logs.objects(userId=user, action="UPDATE_PROFILE").first()
     assert log is not None
@@ -725,7 +719,6 @@ def test_user_profile_view_update_empty_string_does_not_overwrite():
         f"/api/users/{user.id}/profile/",
         data=json.dumps({"name": ""}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200  # empty value is silently skipped, not an error
     therapist.reload()
@@ -742,7 +735,9 @@ def test_user_profile_view_delete_success():
     DELETE returns 200 with 'User deleted' in the message.
     """
     user, _ = create_user_and_therapist()
-    resp = client.delete(f"/api/users/{user.id}/profile/",)
+    resp = client.delete(
+        f"/api/users/{user.id}/profile/",
+    )
     assert resp.status_code == 200
     assert "User deleted" in resp.json()["message"]
 
@@ -756,7 +751,9 @@ def test_user_profile_view_delete_is_soft_delete():
     patient assignments.  Soft-deletion preserves audit history.
     """
     user, _ = create_user_and_therapist()
-    client.delete(f"/api/users/{user.id}/profile/",)
+    client.delete(
+        f"/api/users/{user.id}/profile/",
+    )
 
     refreshed = User.objects.filter(pk=user.id).first()
     assert refreshed is not None, "User document must still exist after soft-delete"
@@ -774,7 +771,9 @@ def test_user_profile_view_method_not_allowed():
     Only GET, PUT, and DELETE are accepted.
     """
     user, _ = create_user_and_therapist()
-    resp = client.post(f"/api/users/{user.id}/profile/",)
+    resp = client.post(
+        f"/api/users/{user.id}/profile/",
+    )
     assert resp.status_code == 405
     assert "Method not allowed" in resp.json()["error"]
 
@@ -793,7 +792,9 @@ def test_get_pending_users_success():
     user.isActive = False
     user.save()
 
-    resp = client.get("/api/admin/pending-users/",)
+    resp = client.get(
+        "/api/admin/pending-users/",
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "pending_users" in data
@@ -809,7 +810,9 @@ def test_get_pending_users_empty_when_all_active():
     user.isActive = True
     user.save()
 
-    resp = client.get("/api/admin/pending-users/",)
+    resp = client.get(
+        "/api/admin/pending-users/",
+    )
     assert resp.status_code == 200
     pending = resp.json().get("pending_users", [])
     assert all(u["email"] != user.email for u in pending)
@@ -825,7 +828,9 @@ def test_get_pending_users_therapist_includes_therapist_details():
     user.isActive = False
     user.save()
 
-    resp = client.get("/api/admin/pending-users/",)
+    resp = client.get(
+        "/api/admin/pending-users/",
+    )
     data = resp.json()
 
     pending_therapist = next((u for u in data["pending_users"] if u["email"] == user.email), None)
@@ -838,7 +843,9 @@ def test_get_pending_users_method_not_allowed():
     """
     POST to the pending-users endpoint returns 405.  Only GET is allowed.
     """
-    resp = client.post("/api/admin/pending-users/",)
+    resp = client.post(
+        "/api/admin/pending-users/",
+    )
     assert resp.status_code == 405
 
 
@@ -861,7 +868,6 @@ def test_accept_user_success(mock_send_mail):
         "/api/admin/accept-user/",
         data=json.dumps({"userId": str(user.id)}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "User accepted successfully" in resp.json()["message"]
@@ -882,7 +888,6 @@ def test_accept_user_sets_active_flag(mock_send_mail):
         "/api/admin/accept-user/",
         data=json.dumps({"userId": str(user.id)}),
         content_type="application/json",
-
     )
 
     refreshed = User.objects.get(pk=user.id)
@@ -897,7 +902,6 @@ def test_accept_user_not_found():
         "/api/admin/accept-user/",
         data=json.dumps({"userId": str(ObjectId())}),
         content_type="application/json",
-
     )
     assert resp.status_code == 404
     assert "User not found" in resp.json()["error"]
@@ -911,7 +915,6 @@ def test_accept_user_missing_user_id():
         "/api/admin/accept-user/",
         data=json.dumps({}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
 
@@ -924,7 +927,6 @@ def test_accept_user_invalid_objectid():
         "/api/admin/accept-user/",
         data=json.dumps({"userId": "not-an-objectid"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
 
@@ -933,7 +935,9 @@ def test_accept_user_get_method_not_allowed():
     """
     GET to the accept-user endpoint returns 405.  Only POST is accepted.
     """
-    resp = client.get("/api/admin/accept-user/",)
+    resp = client.get(
+        "/api/admin/accept-user/",
+    )
     assert resp.status_code == 405
 
 
@@ -953,7 +957,6 @@ def test_decline_user_success(mock_send_mail):
         "/api/admin/decline-user/",
         data=json.dumps({"userId": str(user.id)}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "User declined and deleted successfully" in resp.json()["message"]
@@ -974,7 +977,6 @@ def test_decline_user_removes_user_from_db(mock_send_mail):
         "/api/admin/decline-user/",
         data=json.dumps({"userId": str(user_id)}),
         content_type="application/json",
-
     )
 
     remaining = User.objects.filter(pk=user_id).first()
@@ -989,7 +991,6 @@ def test_decline_user_not_found():
         "/api/admin/decline-user/",
         data=json.dumps({"userId": str(ObjectId())}),
         content_type="application/json",
-
     )
     assert resp.status_code == 404
     assert "User not found" in resp.json()["error"]
@@ -1003,7 +1004,6 @@ def test_decline_user_missing_user_id():
         "/api/admin/decline-user/",
         data=json.dumps({}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
 
@@ -1016,7 +1016,6 @@ def test_decline_user_invalid_objectid():
         "/api/admin/decline-user/",
         data=json.dumps({"userId": "bad-id"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
 
@@ -1025,7 +1024,9 @@ def test_decline_user_get_method_not_allowed():
     """
     GET to the decline-user endpoint returns 405.  Only POST is accepted.
     """
-    resp = client.get("/api/admin/decline-user/",)
+    resp = client.get(
+        "/api/admin/decline-user/",
+    )
     assert resp.status_code == 405
 
 
@@ -1057,7 +1058,6 @@ def test_change_password_success():
             f"/api/users/{user.id}/change-password/",
             data=json.dumps({"old_password": "OldPass1!", "new_password": "NewPass1!"}),
             content_type="application/json",
-    
         )
     assert resp.status_code == 200
     assert "Password changed" in resp.json().get("message", "")
@@ -1073,7 +1073,6 @@ def test_change_password_missing_old_returns_400():
         f"/api/users/{user.id}/change-password/",
         data=json.dumps({"new_password": "New!pass1"}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Missing password fields" in resp.json().get("error", "")
@@ -1089,7 +1088,6 @@ def test_change_password_missing_both_returns_400():
         f"/api/users/{user.id}/change-password/",
         data=json.dumps({}),
         content_type="application/json",
-
     )
     assert resp.status_code == 400
     assert "Missing password fields" in resp.json().get("error", "")
@@ -1103,7 +1101,6 @@ def test_change_password_user_not_found():
         f"/api/users/{ObjectId()}/change-password/",
         data=json.dumps({}),
         content_type="application/json",
-
     )
     assert resp.status_code == 404
 
@@ -1115,7 +1112,6 @@ def test_change_password_get_method_not_allowed():
     user, _ = create_user_and_therapist()
     resp = client.get(
         f"/api/users/{user.id}/change-password/",
-
     )
     assert resp.status_code == 405
 
@@ -1145,7 +1141,6 @@ def test_redcap_patient_put_with_null_email_and_phone_returns_200():
         f"/api/users/{str(patient.id)}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200, resp.json()
 
@@ -1164,7 +1159,6 @@ def test_redcap_patient_put_updates_last_clinic_visit():
         f"/api/users/{str(patient.id)}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "last_clinic_visit" in resp.json().get("updated", {})
@@ -1184,7 +1178,6 @@ def test_redcap_patient_put_persists_to_database():
         f"/api/users/{str(patient.id)}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
 
@@ -1207,7 +1200,6 @@ def test_redcap_patient_put_via_patient_id_resolves_correctly():
         f"/api/users/{str(patient.id)}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
     assert "name" in resp.json().get("updated", {})
@@ -1225,12 +1217,10 @@ def test_redcap_patient_get_after_put_reflects_updated_value():
         f"/api/users/{str(patient.id)}/profile/",
         data=json.dumps({"last_clinic_visit": "2026-03-02"}),
         content_type="application/json",
-
     )
 
     resp = client.get(
         f"/api/users/{str(patient.id)}/profile/",
-
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -1258,7 +1248,6 @@ def test_profile_put_password_change_succeeds_for_redcap_patient():
             f"/api/users/{str(patient.id)}/profile/",
             data=json.dumps(payload),
             content_type="application/json",
-    
         )
     assert resp.status_code == 200
     assert "Profile updated" in resp.json().get("message", "")
@@ -1280,7 +1269,6 @@ def test_profile_put_null_email_is_skipped_not_saved():
         f"/api/users/{str(user.id)}/profile/",
         data=json.dumps(payload),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
 
@@ -1308,7 +1296,6 @@ def test_reset_patient_password_success():
             f"/api/patients/{str(patient.id)}/reset-password/",
             data=json.dumps({"new_password": "NewPass1!"}),
             content_type="application/json",
-    
         )
 
     assert resp.status_code == 200
@@ -1327,7 +1314,6 @@ def test_reset_patient_password_persists_new_hash():
             f"/api/patients/{str(patient.id)}/reset-password/",
             data=json.dumps({"new_password": "NewPass1!"}),
             content_type="application/json",
-    
         )
 
     refreshed_patient = Patient.objects.get(pk=patient.id)
@@ -1347,7 +1333,6 @@ def test_reset_patient_password_accepts_camel_case_key():
             f"/api/patients/{str(patient.id)}/reset-password/",
             data=json.dumps({"newPassword": "NewPass1!"}),
             content_type="application/json",
-    
         )
 
     assert resp.status_code == 200
@@ -1364,7 +1349,6 @@ def test_reset_patient_password_missing_new_password_returns_400():
         f"/api/patients/{str(patient.id)}/reset-password/",
         data=json.dumps({}),
         content_type="application/json",
-
     )
 
     assert resp.status_code == 400
@@ -1383,7 +1367,6 @@ def test_reset_patient_password_weak_password_returns_400():
         f"/api/patients/{str(patient.id)}/reset-password/",
         data=json.dumps({"new_password": "weakpw"}),
         content_type="application/json",
-
     )
 
     assert resp.status_code == 400
@@ -1399,7 +1382,6 @@ def test_reset_patient_password_patient_not_found_returns_404():
         f"/api/patients/{ObjectId()}/reset-password/",
         data=json.dumps({"new_password": "NewPass1!"}),
         content_type="application/json",
-
     )
 
     assert resp.status_code == 404
@@ -1414,7 +1396,6 @@ def test_reset_patient_password_invalid_objectid_returns_400():
         "/api/patients/not-an-objectid/reset-password/",
         data=json.dumps({"new_password": "NewPass1!"}),
         content_type="application/json",
-
     )
 
     assert resp.status_code == 400
@@ -1429,7 +1410,6 @@ def test_reset_patient_password_method_not_allowed():
 
     resp = client.get(
         f"/api/patients/{str(patient.id)}/reset-password/",
-
     )
 
     assert resp.status_code == 405
@@ -1448,7 +1428,6 @@ def test_reset_patient_password_works_for_regular_patient():
             f"/api/patients/{str(patient.id)}/reset-password/",
             data=json.dumps({"new_password": "NewPass1!"}),
             content_type="application/json",
-    
         )
 
     assert resp.status_code == 200
@@ -1472,7 +1451,6 @@ def test_patient_profile_put_enables_initial_questionnaire():
         f"/api/users/{str(user.id)}/profile/",
         data=json.dumps({"initial_questionnaire_enabled": True}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
 
@@ -1494,7 +1472,6 @@ def test_patient_profile_put_disables_initial_questionnaire():
         f"/api/users/{str(user.id)}/profile/",
         data=json.dumps({"initial_questionnaire_enabled": False}),
         content_type="application/json",
-
     )
     assert resp.status_code == 200
 
@@ -1520,7 +1497,6 @@ def test_patient_profile_get_includes_created_by_name():
 
     resp = client.get(
         f"/api/users/{str(user.id)}/profile/",
-
     )
 
     assert resp.status_code == 200
@@ -1541,7 +1517,6 @@ def test_patient_profile_get_created_by_null_when_not_set():
 
     resp = client.get(
         f"/api/users/{str(user.id)}/profile/",
-
     )
 
     assert resp.status_code == 200
