@@ -27,10 +27,9 @@ import logging
 import zipfile
 from datetime import date
 
+from bson import ObjectId
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
-
-from bson import ObjectId
 
 from core.models import (
     FitbitData,
@@ -640,7 +639,9 @@ def admin_export_patients(request):
                 details=f"clinics={clinics_param} rows={len(patients)}",
             ).save()
         except Exception:
-            logger.warning("admin_export_patients: could not write audit log for user %s", getattr(request.user, "id", "?"))
+            logger.warning(
+                "admin_export_patients: could not write audit log for user %s", getattr(request.user, "id", "?")
+            )
 
         logger.info(
             "ADMIN_EXPORT user=%s clinics=%s patients=%d",
@@ -671,12 +672,14 @@ def admin_export_audit(request):
                 email = log.userId.email
             except Exception:
                 pass
-            entries.append({
-                "timestamp": log.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if log.timestamp else None,
-                "user_email": email,
-                "details": log.details or "",
-                "user_agent": log.user_agent or "",
-            })
+            entries.append(
+                {
+                    "timestamp": log.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if log.timestamp else None,
+                    "user_email": email,
+                    "details": log.details or "",
+                    "user_agent": log.user_agent or "",
+                }
+            )
         return JsonResponse({"total": len(entries), "entries": entries})
     except Exception:
         logger.exception("admin_export_audit failed")

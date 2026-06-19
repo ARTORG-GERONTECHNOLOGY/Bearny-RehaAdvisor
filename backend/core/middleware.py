@@ -154,10 +154,7 @@ class ApiAuditMiddleware:
             except Exception:
                 pass
 
-        ip = (
-            request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-            or request.META.get("REMOTE_ADDR", "-")
-        )
+        ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR", "-")
 
         audit_logger.info(
             "%s %s %s user_id=%s ip=%s",
