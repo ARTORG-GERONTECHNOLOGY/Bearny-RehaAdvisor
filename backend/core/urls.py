@@ -15,7 +15,7 @@ from core.views.access_change_views import (
     admin_access_change_requests,
     submit_access_change_request,
 )
-from core.views.admin_export_views import admin_export_clinics, admin_export_patients
+from core.views.admin_export_views import admin_export_audit, admin_export_clinics, admin_export_patients
 from core.views.admin_intervention_views import admin_interventions
 from core.views.admin_questionnaire_views import admin_questionnaires
 from core.views.eva_view import (
@@ -67,6 +67,7 @@ urlpatterns = [
     # Admin data export
     path("api/admin/export/patients/", admin_export_patients),
     path("api/admin/export/clinics/", admin_export_clinics),
+    path("api/admin/export/audit/", admin_export_audit),
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),

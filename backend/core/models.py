@@ -195,6 +195,7 @@ class Logs(Document):
             "INTERVENTION_UNCOMPLETE",
             "TEMPLATE_APPLY",
             "PATIENT_REGISTER",
+            "ADMIN_EXPORT",
         ],
         required=True,
     )

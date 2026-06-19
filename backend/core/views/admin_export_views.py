@@ -27,6 +27,7 @@ import logging
 import zipfile
 from datetime import date
 
+from bson import ObjectId
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 
@@ -38,8 +39,11 @@ from core.models import (
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
+    PatientThresholds,
+    PatientThresholdsSnapshot,
     PatientVitals,
     RehabilitationPlan,
+    User,
 )
 from core.permissions import IsAdmin
 
@@ -622,10 +626,63 @@ def admin_export_patients(request):
 
         response = HttpResponse(zip_buf.getvalue(), content_type="application/zip")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        # Audit log — persisted in MongoDB so it survives container restarts.
+        # Wrapped in try/except so a DB hiccup never blocks the download.
+        try:
+            mongo_user = User.objects.get(pk=ObjectId(request.user.id))
+            Logs(
+                userId=mongo_user,
+                action="ADMIN_EXPORT",
+                actor_role="Admin",
+                user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:300],
+                details=f"clinics={clinics_param} rows={len(patients)}",
+            ).save()
+        except Exception:
+            logger.warning(
+                "admin_export_patients: could not write audit log for user %s", getattr(request.user, "id", "?")
+            )
+
+        logger.info(
+            "ADMIN_EXPORT user=%s clinics=%s patients=%d",
+            getattr(request.user, "id", "?"),
+            clinics_param,
+            len(patients),
+        )
         return response
 
     except Exception:
         logger.exception("admin_export_patients failed")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def admin_export_audit(request):
+    """
+    GET /api/admin/export/audit/
+    Returns the audit log of all patient-data export downloads.
+    Requires Admin role. Returns at most 200 most-recent entries.
+    """
+    try:
+        entries = []
+        for log in Logs.objects(action="ADMIN_EXPORT").order_by("-timestamp")[:200]:
+            email = None
+            try:
+                email = log.userId.email
+            except Exception:
+                pass
+            entries.append(
+                {
+                    "timestamp": log.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if log.timestamp else None,
+                    "user_email": email,
+                    "details": log.details or "",
+                    "user_agent": log.user_agent or "",
+                }
+            )
+        return JsonResponse({"total": len(entries), "entries": entries})
+    except Exception:
+        logger.exception("admin_export_audit failed")
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 

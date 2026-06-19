@@ -65,6 +65,9 @@ MIDDLEWARE = [
     # Enforces JWT Bearer tokens on all /api/ routes that lack @api_view.
     # See core/middleware.py for the list of public (token-exempt) paths.
     "core.middleware.JWTAuthMiddleware",
+    # Logs every authenticated API request (method, path, status, user_id, ip)
+    # to the core.api_audit logger — written to a rotating file in prod.
+    "core.middleware.ApiAuditMiddleware",
 ]
 
 STATIC_URL = "/static/"
@@ -162,6 +165,10 @@ import sys
 print("STATICFILES_DIRS =", STATICFILES_DIRS, file=sys.stderr)
 print("STATIC_ROOT =", STATIC_ROOT, file=sys.stderr)
 
+_log_dir = os.getenv("LOG_DIR", "")
+if _log_dir:
+    os.makedirs(_log_dir, exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -177,6 +184,20 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        **(
+            {
+                "api_audit_file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "filename": os.path.join(_log_dir, "api_access.log"),
+                    "maxBytes": 10 * 1024 * 1024,  # 10 MB per file
+                    "backupCount": 10,
+                    "formatter": "verbose",
+                    "encoding": "utf-8",
+                }
+            }
+            if _log_dir
+            else {}
+        ),
     },
     "root": {
         "handlers": ["console"],
@@ -191,6 +212,11 @@ LOGGING = {
         "core": {
             "handlers": ["console"],
             "level": os.getenv("APP_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+        "core.api_audit": {
+            "handlers": ["console"] + (["api_audit_file"] if _log_dir else []),
+            "level": "INFO",
             "propagate": False,
         },
     },
