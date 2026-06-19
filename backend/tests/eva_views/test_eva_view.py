@@ -297,12 +297,15 @@ def test_download_verify_valid_code_returns_token():
 
 
 def test_download_session_zip_requires_participant_and_no_files():
-    r1 = client.get("/api/healthslider/delete-session/")
-    assert r1.status_code in (400, 405)
+    tok = _dl_token()
+    r1 = client.get("/api/healthslider/session-zip/", HTTP_X_HEALTHSLIDER_TOKEN=tok)
+    assert r1.status_code == 400  # participantId missing
 
-    r2 = client.get("/api/healthslider/delete-session/?participantId=P1")
-    # mapped endpoint currently points to download zip in urls
-    assert r2.status_code == 404
+    r2 = client.get(
+        "/api/healthslider/session-zip/?participantId=P1",
+        HTTP_X_HEALTHSLIDER_TOKEN=tok,
+    )
+    assert r2.status_code == 404  # no audio files found
 
 
 def test_download_session_zip_direct_success():
@@ -315,7 +318,10 @@ def test_download_session_zip_direct_success():
         audio_name="a.webm",
         has_audio=True,
     ).save()
-    req = rf.get("/api/healthslider/session-zip/?participantId=P1&sessionId=S1")
+    req = rf.get(
+        "/api/healthslider/session-zip/?participantId=P1&sessionId=S1",
+        HTTP_X_HEALTHSLIDER_TOKEN=_dl_token(),
+    )
     with (
         patch("core.views.eva_view.default_storage.exists", return_value=True),
         patch(
@@ -329,20 +335,35 @@ def test_download_session_zip_direct_success():
 
 
 def test_delete_session_method_and_required():
-    r1 = client.get("/api/healthslider/delete-session/?participantId=P1")
-    assert r1.status_code == 404 or r1.status_code == 405
+    tok = _dl_token()
+    r1 = client.get(
+        "/api/healthslider/delete-session/?participantId=P1",
+        HTTP_X_HEALTHSLIDER_TOKEN=tok,
+    )
+    assert r1.status_code == 405  # GET not allowed; only DELETE
 
 
 def test_delete_session_direct_method_and_required_and_not_found():
-    req_get = rf.get("/api/healthslider/delete-session/?participantId=P1")
+    tok = _dl_token()
+
+    req_get = rf.get(
+        "/api/healthslider/delete-session/?participantId=P1",
+        HTTP_X_HEALTHSLIDER_TOKEN=tok,
+    )
     r_get = delete_healthslider_session(req_get)
     assert r_get.status_code == 405
 
-    req_missing = rf.delete("/api/healthslider/delete-session/")
+    req_missing = rf.delete(
+        "/api/healthslider/delete-session/",
+        HTTP_X_HEALTHSLIDER_TOKEN=tok,
+    )
     r_missing = delete_healthslider_session(req_missing)
     assert r_missing.status_code == 400
 
-    req_none = rf.delete("/api/healthslider/delete-session/?participantId=P1")
+    req_none = rf.delete(
+        "/api/healthslider/delete-session/?participantId=P1",
+        HTTP_X_HEALTHSLIDER_TOKEN=tok,
+    )
     r_none = delete_healthslider_session(req_none)
     assert r_none.status_code == 404
 
@@ -352,7 +373,7 @@ def test_delete_session_direct_view_success_with_mocked_storage():
 
     from core.views.eva_view import delete_healthslider_session
 
-    e = HealthSliderEntry(
+    HealthSliderEntry(
         participant_id="P1",
         session_id="S1",
         question_index=0,
@@ -362,11 +383,14 @@ def test_delete_session_direct_view_success_with_mocked_storage():
     ).save()
 
     rf = RequestFactory()
-    req = rf.delete("/api/healthslider/delete-session/?participantId=P1&sessionId=S1")
+    req = rf.delete(
+        "/api/healthslider/delete-session/?participantId=P1&sessionId=S1",
+        HTTP_X_HEALTHSLIDER_TOKEN=_dl_token(),
+    )
 
     with (
         patch("core.views.eva_view.default_storage.exists", return_value=True),
-        patch("core.views.eva_view.default_storage.delete") as mdel,
+        patch("core.views.eva_view.default_storage.delete"),
     ):
         resp = delete_healthslider_session(req)
 

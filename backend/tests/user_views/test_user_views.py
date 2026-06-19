@@ -767,15 +767,16 @@ def test_user_profile_view_delete_is_soft_delete():
 
 def test_user_profile_view_method_not_allowed():
     """
-    POST to the profile endpoint returns 405 with 'Method not allowed'.
+    POST to the profile endpoint returns 405.
     Only GET, PUT, and DELETE are accepted.
+    DRF's @api_view returns the error under the 'detail' key.
     """
     user, _ = create_user_and_therapist()
     resp = client.post(
         f"/api/users/{user.id}/profile/",
     )
     assert resp.status_code == 405
-    assert "Method not allowed" in resp.json()["error"]
+    assert "not allowed" in resp.json()["detail"].lower()
 
 
 # ===========================================================================
@@ -1405,6 +1406,7 @@ def test_reset_patient_password_invalid_objectid_returns_400():
 def test_reset_patient_password_method_not_allowed():
     """
     GET to the reset-password endpoint returns 405.  Only PUT is accepted.
+    DRF's @api_view returns the error under the 'detail' key.
     """
     _, patient = create_redcap_patient()
 
@@ -1413,7 +1415,7 @@ def test_reset_patient_password_method_not_allowed():
     )
 
     assert resp.status_code == 405
-    assert "Method not allowed" in resp.json().get("error", "")
+    assert "not allowed" in resp.json().get("detail", "").lower()
 
 
 def test_reset_patient_password_works_for_regular_patient():

@@ -1,5 +1,4 @@
 {
-  "URL": "http://159.100.246.89:8000/api",
   "apiEndpoints": {
     "getPatientInterventions": "/api/patient/interventions/today",
     "submitFeedback": "/api/patient/feedback",
