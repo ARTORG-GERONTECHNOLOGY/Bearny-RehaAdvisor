@@ -43,6 +43,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
 logger = logging.getLogger(__name__)
+audit_logger = logging.getLogger("core.api_audit")
 
 # Exact-match public paths (no token needed)
 _PUBLIC_EXACT: frozenset[str] = frozenset(
@@ -112,3 +113,58 @@ class JWTAuthMiddleware:
         if path in _PUBLIC_EXACT:
             return True
         return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
+
+
+class ApiAuditMiddleware:
+    """
+    Log every authenticated API request to the core.api_audit logger.
+
+    In production (when LOG_DIR is set) this logger writes to a rotating file
+    at <LOG_DIR>/api_access.log which is bind-mounted to the host — so the log
+    survives container restarts and redeployments.
+
+    Format per line:
+        method path status user_id=<id> ip=<ip>
+
+    Skips public routes (auth, healthslider) and test mode.
+    User identity is extracted from the Bearer JWT without a DB lookup.
+    For full user details (email, role) cross-reference with the MongoDB
+    User collection using the logged user_id.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if getattr(settings, "TESTING", False):
+            return response
+
+        path = request.path
+        if not path.startswith("/api/") or JWTAuthMiddleware._is_public(path):
+            return response
+
+        auth_header = request.headers.get("Authorization", "")
+        user_id = "-"
+        if auth_header.startswith("Bearer "):
+            try:
+                token = AccessToken(auth_header.split(" ", 1)[1])
+                user_id = str(token.get("user_id", "-"))
+            except Exception:
+                pass
+
+        ip = (
+            request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+            or request.META.get("REMOTE_ADDR", "-")
+        )
+
+        audit_logger.info(
+            "%s %s %s user_id=%s ip=%s",
+            request.method,
+            request.get_full_path(),
+            response.status_code,
+            user_id,
+            ip,
+        )
+        return response

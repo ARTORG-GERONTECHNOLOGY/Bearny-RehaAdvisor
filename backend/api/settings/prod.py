@@ -46,16 +46,9 @@ CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_RESULT_BA
 # Silence bot-triggered DisallowedHost rejections — bots probe with raw server
 # IP as Host header; Django correctly rejects them with 400 but Sentry captures
 # the SuspiciousOperation as an error, creating noise. These are not actionable.
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "null": {"class": "logging.NullHandler"},
-    },
-    "loggers": {
-        "django.security.DisallowedHost": {
-            "handlers": ["null"],
-            "propagate": False,
-        },
-    },
+# Extend (not replace) the base LOGGING dict so the file handler from LOG_DIR is preserved.
+LOGGING["handlers"]["null"] = {"class": "logging.NullHandler"}
+LOGGING["loggers"]["django.security.DisallowedHost"] = {
+    "handlers": ["null"],
+    "propagate": False,
 }
