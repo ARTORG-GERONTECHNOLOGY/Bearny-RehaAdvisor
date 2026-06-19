@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 _PUBLIC_EXACT: frozenset[str] = frozenset(
     {
         "/api/",
+        "/api/app-mode/",
     }
 )
 
