@@ -622,9 +622,7 @@ def test_healthslider_session_zip_requires_token():
     all audio for any participant.
     """
     resp = _http_client.get("/api/healthslider/session-zip/?participantId=P001")
-    assert resp.status_code == 401, (
-        "session-zip must require a valid X-Healthslider-Token"
-    )
+    assert resp.status_code == 401, "session-zip must require a valid X-Healthslider-Token"
 
 
 def test_healthslider_delete_session_requires_token():
@@ -635,6 +633,4 @@ def test_healthslider_delete_session_requires_token():
     registered it must also be guarded.
     """
     resp = _http_client.delete("/api/healthslider/delete-session/?participantId=P001")
-    assert resp.status_code == 401, (
-        "delete-session must require a valid X-Healthslider-Token"
-    )
+    assert resp.status_code == 401, "delete-session must require a valid X-Healthslider-Token"
