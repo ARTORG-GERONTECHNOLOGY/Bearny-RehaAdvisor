@@ -715,6 +715,17 @@ def get_patients_by_therapist(request, therapist_id):
     Returns list of patients (first name, last name, id) assigned to a therapist.
     """
     try:
+        # Authorization: therapist_id in the URL is a User ID (same convention as
+        # list_therapist_patients). Compare the caller's user ID directly.
+        is_admin = getattr(request.user, "role", None) == "Admin"
+        if not is_admin:
+            caller_user_id = str(getattr(request.user, "id", ""))
+            if not caller_user_id or caller_user_id != str(therapist_id):
+                return JsonResponse(
+                    {"error": "You are not authorised to access this resource."},
+                    status=403,
+                )
+
         patients = Patient.objects.filter(therapistId=ObjectId(therapist_id))
         data = [
             {

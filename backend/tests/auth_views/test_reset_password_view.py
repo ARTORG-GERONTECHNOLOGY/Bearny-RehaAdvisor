@@ -168,15 +168,16 @@ def test_reset_password_malformed_json(mongo_mock):
 
 def test_reset_password_non_existent_user(mongo_mock):
     """
-    An e-mail address that does not exist in the database returns 404.
-    No e-mail is sent and the response contains a meaningful error message.
+    An e-mail address that does not exist in the database must return 200
+    (not 404) with the same generic message as a successful reset.
+    Returning a distinct status code would allow email enumeration.
     """
     resp = client.post(
         RESET_URL,
         data=json.dumps({"email": "nosuch@example.com"}),
         content_type="application/json",
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 200
 
 
 # ===========================================================================

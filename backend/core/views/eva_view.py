@@ -358,6 +358,9 @@ def download_healthslider_session_zip(request):
     GET /api/healthslider/session-zip/?participantId=...&sessionId=...
     Aggregates all audio files for a session into one ZIP.
     """
+    if not _check_download_token(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
     participant_id = (request.GET.get("participantId") or "").strip()
     session_id = (request.GET.get("sessionId") or "").strip()
 
@@ -390,6 +393,9 @@ def delete_healthslider_session(request):
     """
     DELETE /api/healthslider/delete-session/?participantId=...&sessionId=...
     """
+    if not _check_download_token(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
     if request.method != "DELETE":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 

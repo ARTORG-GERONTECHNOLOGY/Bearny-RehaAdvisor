@@ -132,7 +132,7 @@ def valid_update_value(v):
     return True  # update stored value
 
 
-@csrf_exempt
+@api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def change_password(request, therapist_id):
     """
@@ -141,8 +141,6 @@ def change_password(request, therapist_id):
     - rate limiting
     - strong password rules
     """
-    if request.method != "PUT":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         try:
@@ -230,7 +228,7 @@ def change_password(request, therapist_id):
     return JsonResponse({"message": "Password changed successfully"}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
 def user_profile_view(request, user_id):
     """
@@ -612,7 +610,7 @@ def user_profile_view(request, user_id):
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
-@csrf_exempt
+@api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def reset_patient_password(request, patient_id):
     """
@@ -628,8 +626,6 @@ def reset_patient_password(request, patient_id):
       - at least 8 characters
       - contains uppercase, lowercase, digit and special character
     """
-    if request.method != "PUT":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         data = json.loads(request.body or "{}")

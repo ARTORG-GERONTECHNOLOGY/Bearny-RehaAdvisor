@@ -457,8 +457,10 @@ def reset_password_view(request):
             return JsonResponse({"error": "Email is required"}, status=400)
 
         user = User.objects.filter(email=email).first()
+        # Return same response whether or not the user exists to prevent email enumeration.
+        _RESET_RESPONSE = {"message": "If this email is registered, a new password has been sent."}
         if not user:
-            return JsonResponse({"error": "User not found"}, status=404)
+            return JsonResponse(_RESET_RESPONSE, status=200)
 
         # Generate random password
         new_password = generate_random_password()
@@ -478,7 +480,7 @@ def reset_password_view(request):
             fail_silently=False,
         )
 
-        return JsonResponse({"message": "Password reset successfully, email sent."}, status=200)
+        return JsonResponse(_RESET_RESPONSE, status=200)
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)

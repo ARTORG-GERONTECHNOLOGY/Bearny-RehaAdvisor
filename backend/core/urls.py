@@ -286,7 +286,8 @@ urlpatterns = [
     path("api/healthslider/items/", list_healthslider_items),
     path("api/healthslider/audio/<str:item_id>/", download_healthslider_audio),
     path("api/healthslider/submit-item/", submit_healthslider_item),
-    path("api/healthslider/delete-session/", download_healthslider_session_zip),
+    path("api/healthslider/session-zip/", download_healthslider_session_zip),
+    path("api/healthslider/delete-session/", delete_healthslider_session),
     # REDCap Integration
     path("api/redcap/projects/", redcap_projects),
     path("api/redcap/patient/", redcap_patient),
