@@ -1352,5 +1352,7 @@
   "Star rating": "Valutazione a stelle",
   "Answer options": "Opzioni di risposta",
   "Microphone access denied.": "Accesso al microfono negato.",
-  "Text Feedback": "Riscontro testuale"
+  "Text Feedback": "Riscontro testuale",
+  "Time": "Ora",
+  "Event": "Evento"
 }

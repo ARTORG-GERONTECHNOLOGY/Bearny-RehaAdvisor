@@ -1352,5 +1352,7 @@
   "Star rating": "Sternbewertung",
   "Answer options": "Antwortoptionen",
   "Microphone access denied.": "Mikrofonzugriff verweigert.",
-  "Text Feedback": "Textrückmeldung"
+  "Text Feedback": "Textrückmeldung",
+  "Time": "Uhrzeit",
+  "Event": "Ereignis"
 }

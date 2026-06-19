@@ -14,15 +14,8 @@ import {
 } from 'react-bootstrap';
 import Select from 'react-select';
 import { TFunction } from 'i18next';
-import {
-  FaPlus,
-  FaMinus,
-  FaChartBar,
-  FaEdit,
-  FaCommentDots,
-  FaUndo,
-  FaGlobe,
-} from 'react-icons/fa';
+import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe } from 'react-icons/fa';
+import StarIcon from '@/assets/icons/interventions/star.svg?react';
 import { Accordion } from 'react-bootstrap';
 
 import config from '@/config/config.json';
@@ -342,11 +335,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
                     <Button
-                      variant="outline-info"
+                      variant="outline-primary"
                       onClick={() => openFeedbackBrowser(intervention)}
                       aria-label={t('Feedback')}
                     >
-                      <FaCommentDots />
+                      <StarIcon className="w-4 h-4 text-yellow" />
                     </Button>
                   </OverlayTrigger>
                 </>

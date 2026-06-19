@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Button, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -7,7 +6,9 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import de from 'date-fns/locale/de';
 import enUS from 'date-fns/locale/en-US';
 
-import type { Intervention } from '../../types';
+import type { Intervention } from '@/types';
+import StarRating, { getRatingFromDateEntry } from './StarRating';
+import { getDateFnsLocale } from '@/utils/dateLocale';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
@@ -19,8 +20,6 @@ type DateEntry = {
   video?: any;
 };
 
-type ColorMode = 'status' | 'benefit';
-
 type CalendarEvent = {
   id: string;
   title: string;
@@ -31,7 +30,6 @@ type CalendarEvent = {
     intervention: any;
     dateEntry: DateEntry;
     status?: string;
-    benefitKey?: string;
   };
 };
 
@@ -52,28 +50,23 @@ const safeDate = (v: string): Date | null => {
 
 const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000);
 
-// deterministic “bucket” for benefit → css var
-const hashBucket = (s: string, buckets = 10) => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % buckets;
-};
-
 interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
   onSelectIntervention?: (it: Intervention) => void;
+  onSelectFeedback?: (it: Intervention, datetime?: string) => void;
 }
 
 const InterventionCalendar: React.FC<Props> = ({
   patientData,
   titleMap = {},
   onSelectIntervention,
+  onSelectFeedback,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateFnsLocale = getDateFnsLocale(i18n.language);
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
-  const [colorMode, setColorMode] = useState<ColorMode>('status');
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -87,16 +80,7 @@ const InterventionCalendar: React.FC<Props> = ({
 
       const displayTitle = titleMap[it._id]?.title || it.title;
 
-      // benefitFor can be array or string in your system; normalize
-      const benefitArr: string[] = Array.isArray(it?.benefitFor)
-        ? it.benefitFor.map(String)
-        : it?.benefitFor
-          ? [String(it.benefitFor)]
-          : [];
-
-      // Use first benefit as primary key for coloring
-      const benefitKey = benefitArr[0] || 'benefit_unknown';
-
+      // normalize dates
       for (const d of dates) {
         const start = safeDate(d.datetime);
         if (!start) continue;
@@ -111,7 +95,6 @@ const InterventionCalendar: React.FC<Props> = ({
             intervention: it,
             dateEntry: d,
             status: d.status,
-            benefitKey,
           },
         });
       }
@@ -121,88 +104,48 @@ const InterventionCalendar: React.FC<Props> = ({
   }, [patientData, titleMap]);
 
   // legend content
-  const legend = useMemo(() => {
-    if (colorMode === 'status') {
-      return (
-        <div className="rehaLegend">
-          <span className="rehaLegend__label">{t('Status')}:</span>
-          <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
-          <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
-          <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
-          <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
-        </div>
-      );
-    }
-
-    // benefit legend: show distinct benefits in range (cap)
-    const keys = Array.from(
-      new Set(events.map((e) => e.resource.benefitKey).filter(Boolean))
-    ) as string[];
-    const shown = keys.slice(0, 8);
-
-    return (
+  const legend = useMemo(
+    () => (
       <div className="rehaLegend">
-        <span className="rehaLegend__label">{t('Benefit')}:</span>
-        {shown.map((k) => {
-          const b = hashBucket(k, 10);
-          return (
-            <span
-              key={k}
-              className={`rehaLegend__item rehaLegend__item--benefit`}
-              style={{ ['--benefit-bucket' as any]: b }}
-            >
-              {k === 'benefit_unknown' ? t('Unknown') : k}
-            </span>
-          );
-        })}
-        {keys.length > shown.length ? <span className="rehaLegend__more">…</span> : null}
+        <span className="rehaLegend__label">{t('Status')}:</span>
+        <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
+        <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
+        <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
+        <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
       </div>
-    );
-  }, [colorMode, events, t]);
+    ),
+    [t]
+  );
 
   const eventPropGetter = (event: CalendarEvent) => {
-    if (colorMode === 'status') {
-      const status = event.resource?.status;
-      if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
-      if (status === 'missed') return { className: 'rehaEvent rehaEvent--missed' };
-      if (status === 'today') return { className: 'rehaEvent rehaEvent--today' };
-      if (status === 'upcoming') return { className: 'rehaEvent rehaEvent--upcoming' };
-      return { className: 'rehaEvent' };
-    }
-
-    const key = event.resource?.benefitKey || 'benefit_unknown';
-    const bucket = hashBucket(key, 10);
-    return {
-      className: 'rehaEvent rehaEvent--benefit',
-      style: { ['--benefit-bucket' as any]: bucket },
-    };
+    const status = event.resource?.status;
+    if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
+    if (status === 'missed') return { className: 'rehaEvent rehaEvent--missed' };
+    if (status === 'today') return { className: 'rehaEvent rehaEvent--today' };
+    if (status === 'upcoming') return { className: 'rehaEvent rehaEvent--upcoming' };
+    return { className: 'rehaEvent' };
   };
+
+  const sortedEvents = useMemo(() => {
+    // Match the built-in agenda: 30-day window starting from `date`
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 30);
+    return [...events]
+      .filter((ev) => ev.start >= start && ev.start < end)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events, date]);
 
   return (
     <div className="rehaCalendar">
       <div className="rehaCalendar__topbar">
-        <div className="rehaCalendar__controls">
-          <span className="me-2">{t('Color by')}</span>
-          <ButtonGroup size="sm" aria-label={t('Color mode')}>
-            <Button
-              variant={colorMode === 'status' ? 'dark' : 'outline-dark'}
-              onClick={() => setColorMode('status')}
-            >
-              {t('Status')}
-            </Button>
-            <Button
-              variant={colorMode === 'benefit' ? 'dark' : 'outline-dark'}
-              onClick={() => setColorMode('benefit')}
-            >
-              {t('Benefit')}
-            </Button>
-          </ButtonGroup>
-        </div>
-
         <div className="rehaCalendar__legendWrap">{legend}</div>
       </div>
 
-      <div className="rehaCalendar__body">
+      <div
+        className={`rehaCalendar__body${view === Views.AGENDA ? ' rehaCalendar__body--agenda' : ''}`}
+      >
         <Calendar
           localizer={localizer}
           events={events}
@@ -219,6 +162,84 @@ const InterventionCalendar: React.FC<Props> = ({
             if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
           }}
         />
+
+        {view === Views.AGENDA && (
+          <div className="rehaCalendar__agendaScroll">
+            <table className="w-full border-collapse text-sm mt-2">
+              <thead>
+                {(() => {
+                  const th =
+                    'px-3 py-2 text-left font-semibold bg-gray-50 border-b-2 border-gray-200 align-middle';
+                  return (
+                    <tr>
+                      <th className={th}>{t('Date')}</th>
+                      <th className={th}>{t('Time')}</th>
+                      <th className={th}>{t('Event')}</th>
+                      <th className={th}>{t('Rating')}</th>
+                    </tr>
+                  );
+                })()}
+              </thead>
+              <tbody>
+                {sortedEvents.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-6 text-center text-gray-400">
+                      {t('No entries found.')}
+                    </td>
+                  </tr>
+                )}
+                {sortedEvents.map((ev) => {
+                  const rating = getRatingFromDateEntry(ev.resource.dateEntry);
+                  const status = ev.resource.status || '';
+                  const rowBg =
+                    status === 'completed'
+                      ? 'bg-green-500/10'
+                      : status === 'missed'
+                        ? 'bg-red-500/10'
+                        : status === 'today'
+                          ? 'bg-blue-500/10'
+                          : '';
+                  return (
+                    <tr
+                      key={ev.id}
+                      className={`cursor-pointer hover:bg-gray-500/5 ${rowBg}`}
+                      onClick={() => onSelectIntervention?.(ev.resource.intervention)}
+                    >
+                      <td className="px-3 py-2 border-b border-chartMuted align-middle">
+                        {(() => {
+                          const s = format(ev.start, 'EEE, dd.MM.yyyy', { locale: dateFnsLocale });
+                          return s.charAt(0).toUpperCase() + s.slice(1);
+                        })()}
+                      </td>
+                      <td className="px-3 py-2 border-b border-chartMuted align-middle whitespace-nowrap tabular-nums">
+                        {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
+                      </td>
+                      <td className="px-3 py-2 border-b border-chartMuted align-middle">
+                        {ev.title}
+                      </td>
+                      <td
+                        className="px-3 py-2 border-b border-chartMuted align-middle"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectFeedback?.(
+                            ev.resource.intervention,
+                            ev.resource.dateEntry.datetime
+                          );
+                        }}
+                      >
+                        {rating !== null ? (
+                          <StarRating value={rating} />
+                        ) : (
+                          <span className="text-chartMuted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

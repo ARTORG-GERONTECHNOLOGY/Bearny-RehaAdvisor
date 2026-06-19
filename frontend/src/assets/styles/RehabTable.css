@@ -324,3 +324,20 @@
 .rehaFiltersAccordion .accordion-body {
   padding: 10px;
 }
+
+/* Hide the built-in rbc agenda table — replaced by custom one with rating column */
+.rehaCalendar__body--agenda .rbc-agenda-view {
+  display: none;
+}
+/* Collapse the calendar to just the toolbar height so there's no whitespace gap */
+.rehaCalendar__body--agenda .rbc-calendar {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+/* Scrollable wrapper for the custom agenda table */
+.rehaCalendar__agendaScroll {
+  overflow-y: auto;
+  /* panel height minus: panel header + padding + legend topbar + rbc toolbar + gaps */
+  max-height: calc(var(--reha-panels-max-h) - 190px);
+}
