@@ -128,6 +128,17 @@ def export_record_by_pat_id(project_name: str, pat_id: str) -> List[Dict[str, An
     if not identifier:
         return []
 
+    # Guard against REDCap filterLogic injection.  REDCap doesn't support
+    # parameterised queries; the identifier is interpolated directly into a
+    # filterLogic string of the form [field] = '<value>'.  A value containing
+    # a single-quote followed by a logical operator can match unintended records
+    # across the whole project.  Valid patient / record identifiers contain only
+    # alphanumerics, hyphens, and underscores — reject anything else early.
+    if not re.fullmatch(r"[\w\-]+", identifier):
+        raise RedcapError(
+            f"Invalid identifier format: {identifier!r}. " "Only alphanumerics, hyphens, and underscores are allowed."
+        )
+
     # ---- fields you likely want in the PatientPopup ----
     # Keep this list "small but useful". Add more if you need them.
     fields = config["RedCap_Characteristics"]

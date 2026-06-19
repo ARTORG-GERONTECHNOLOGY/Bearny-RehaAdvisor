@@ -13,9 +13,7 @@ import os
 from bson import ObjectId
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 from core.models import (
     Intervention,
@@ -24,6 +22,7 @@ from core.models import (
     RehabilitationPlan,
     Therapist,
 )
+from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +40,16 @@ def _serialize_intervention(doc):
     }
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET", "DELETE"])
+@permission_classes([IsAdmin])
 def admin_interventions(request, intervention_id=None):
     if intervention_id:
         if request.method == "DELETE":
             return _delete_intervention(request, intervention_id)
+        from django.http import JsonResponse
+
         return JsonResponse({"error": "Method not allowed"}, status=405)
-    if request.method == "GET":
-        return _list_interventions(request)
-    return JsonResponse({"error": "Method not allowed"}, status=405)
+    return _list_interventions(request)
 
 
 def _list_interventions(request):
