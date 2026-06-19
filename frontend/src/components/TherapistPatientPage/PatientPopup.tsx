@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fa';
 
 import config from '../../config/config.json';
+import { appModeStore } from '../../stores/appModeStore';
 import { PatientType } from '../../types';
 import ErrorAlert from '../common/ErrorAlert';
 
@@ -629,6 +630,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     <Row className="g-3">
                       {section.fields
                         .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
+                        .filter(
+                          (f: any) =>
+                            !appModeStore.hidePiiFields ||
+                            !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
+                        )
                         .map((field: any, index: number) => (
                           <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
                             <Form.Group controlId={field.be_name}>
@@ -1168,72 +1174,74 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 </div>
               </Tab>
 
-              <Tab eventKey="redcap" title={t('REDCap')}>
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="text-muted">
-                    {store.redcapProject ? (
-                      <>
-                        {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
-                        <span className="ms-2">
-                          {t('Records')}: {store.redcapRows?.length || 0}
-                        </span>
-                      </>
-                    ) : (
-                      <span>{t('No project selected')}</span>
-                    )}
-                  </div>
-
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => store.fetchRedcapIfPossible(t)}
-                    disabled={store.redcapLoading}
-                  >
-                    <FaSyncAlt className="me-2" />
-                    {store.redcapLoading ? t('Loading...') : t('Refresh')}
-                  </Button>
-                </div>
-
-                {store.redcapLoading ? (
-                  <div className="text-center my-4">
-                    <Spinner animation="border" role="status" aria-label={t('Loading')} />
-                    <p className="mt-3">{t('Loading')}...</p>
-                  </div>
-                ) : !hasRedcap ? (
-                  <p className="text-muted mb-0">
-                    {t('No REDCap data available for this patient.')}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-muted">
-                      {t(
-                        'This data is fetched live from REDCap and is not stored in the platform database.'
+              {appModeStore.showRedcapTab && (
+                <Tab eventKey="redcap" title={t('REDCap')}>
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div className="text-muted">
+                      {store.redcapProject ? (
+                        <>
+                          {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
+                          <span className="ms-2">
+                            {t('Records')}: {store.redcapRows?.length || 0}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{t('No project selected')}</span>
                       )}
-                    </p>
+                    </div>
 
-                    <Table striped bordered hover responsive size="sm">
-                      <thead>
-                        <tr>
-                          <th style={{ width: 280 }}>{t('Field')}</th>
-                          <th>{t('Value')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
-                          <tr key={k}>
-                            <td>
-                              <code>{k}</code>
-                            </td>
-                            <td style={{ whiteSpace: 'pre-wrap' }}>
-                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                            </td>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => store.fetchRedcapIfPossible(t)}
+                      disabled={store.redcapLoading}
+                    >
+                      <FaSyncAlt className="me-2" />
+                      {store.redcapLoading ? t('Loading...') : t('Refresh')}
+                    </Button>
+                  </div>
+
+                  {store.redcapLoading ? (
+                    <div className="text-center my-4">
+                      <Spinner animation="border" role="status" aria-label={t('Loading')} />
+                      <p className="mt-3">{t('Loading')}...</p>
+                    </div>
+                  ) : !hasRedcap ? (
+                    <p className="text-muted mb-0">
+                      {t('No REDCap data available for this patient.')}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-muted">
+                        {t(
+                          'This data is fetched live from REDCap and is not stored in the platform database.'
+                        )}
+                      </p>
+
+                      <Table striped bordered hover responsive size="sm">
+                        <thead>
+                          <tr>
+                            <th style={{ width: 280 }}>{t('Field')}</th>
+                            <th>{t('Value')}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </>
-                )}
-              </Tab>
+                        </thead>
+                        <tbody>
+                          {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
+                            <tr key={k}>
+                              <td>
+                                <code>{k}</code>
+                              </td>
+                              <td style={{ whiteSpace: 'pre-wrap' }}>
+                                {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </>
+                  )}
+                </Tab>
+              )}
             </Tabs>
           </>
         )}

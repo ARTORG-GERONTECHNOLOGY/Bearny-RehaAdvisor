@@ -28,6 +28,7 @@ import config from '@/config/config.json';
 
 import { TherapistPatientsStore, SortKey, RedcapCandidate } from '@/stores/therapistPatientsStore';
 import type { PatientType } from '@/types';
+import { appModeStore } from '@/stores/appModeStore';
 
 // -------------------- local, typed helpers (no any) --------------------
 
@@ -666,20 +667,24 @@ const Therapist: React.FC = observer(() => {
 
           <Row className="mb-3">
             <Col className="d-flex gap-2 flex-wrap">
-              <Button onClick={store.openAddPatient} disabled={store.loading}>
-                {String(t('Add a New Patient'))}
-              </Button>
+              {appModeStore.showManualCreate && (
+                <Button onClick={store.openAddPatient} disabled={store.loading}>
+                  {String(t('Add a New Patient'))}
+                </Button>
+              )}
 
-              <Button
-                variant="outline-primary"
-                onClick={async () => {
-                  store.openImportRedcap();
-                  await store.fetchRedcapCandidates(t);
-                }}
-                disabled={store.loading}
-              >
-                {String(t('Import from REDCap'))}
-              </Button>
+              {appModeStore.showRedcapImport && (
+                <Button
+                  variant="outline-primary"
+                  onClick={async () => {
+                    store.openImportRedcap();
+                    await store.fetchRedcapCandidates(t);
+                  }}
+                  disabled={store.loading}
+                >
+                  {String(t('Import from REDCap'))}
+                </Button>
+              )}
             </Col>
           </Row>
 
@@ -944,21 +949,25 @@ const Therapist: React.FC = observer(() => {
           />
         )}
 
-        <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />
+        {appModeStore.showManualCreate && (
+          <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />
+        )}
 
-        <ImportFromRedcapModal
-          show={store.showImportRedcapModal}
-          onHide={store.closeImportRedcap}
-          loading={store.redcapLoading}
-          error={store.redcapError || ''}
-          candidates={store.redcapCandidates ?? []}
-          rowPasswords={store.redcapRowPasswords ?? {}}
-          setRowPassword={store.setRedcapRowPassword}
-          importingKey={store.importingKey}
-          importedKeys={store.importedKeys ?? {}}
-          onRefresh={() => store.fetchRedcapCandidates(t)}
-          onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
-        />
+        {appModeStore.showRedcapImport && (
+          <ImportFromRedcapModal
+            show={store.showImportRedcapModal}
+            onHide={store.closeImportRedcap}
+            loading={store.redcapLoading}
+            error={store.redcapError || ''}
+            candidates={store.redcapCandidates ?? []}
+            rowPasswords={store.redcapRowPasswords ?? {}}
+            setRowPassword={store.setRedcapRowPassword}
+            importingKey={store.importingKey}
+            importedKeys={store.importedKeys ?? {}}
+            onRefresh={() => store.fetchRedcapCandidates(t)}
+            onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
+          />
+        )}
 
         <style>{`
         .status-stack { display: flex; flex-direction: column; gap: 6px; }
