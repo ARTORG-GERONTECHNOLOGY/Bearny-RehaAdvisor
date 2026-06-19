@@ -20,6 +20,9 @@ async function loginAsSeededPatient(page: Page) {
   await modal.getByRole('button', { name: /login/i }).click();
 
   await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+  // Let React Router's navigate('/patient') fully commit before the caller
+  // issues its own page.goto(), avoiding a navigation collision.
+  await page.waitForLoadState('load');
 }
 
 test.describe('Patient interventions page', () => {
