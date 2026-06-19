@@ -607,3 +607,34 @@ def test_fixfp5_user_views_carry_api_view_decorator():
         assert hasattr(view_fn, "cls"), (
             f"{view_fn.__name__} must be wrapped with @api_view " "so DRF enforces authentication"
         )
+
+
+# ===========================================================================
+# HealthSlider session-zip and delete-session — token required
+# ===========================================================================
+
+
+def test_healthslider_session_zip_requires_token():
+    """
+    GET /api/healthslider/session-zip/ must return 401 when no
+    X-Healthslider-Token header is present.  Previously the endpoint
+    had no token check — any unauthenticated caller could download
+    all audio for any participant.
+    """
+    resp = _http_client.get("/api/healthslider/session-zip/?participantId=P001")
+    assert resp.status_code == 401, (
+        "session-zip must require a valid X-Healthslider-Token"
+    )
+
+
+def test_healthslider_delete_session_requires_token():
+    """
+    DELETE /api/healthslider/delete-session/ must return 401 when no
+    X-Healthslider-Token header is present.  The delete function was
+    previously unregistered in urls.py (dead code); now that it is
+    registered it must also be guarded.
+    """
+    resp = _http_client.delete("/api/healthslider/delete-session/?participantId=P001")
+    assert resp.status_code == 401, (
+        "delete-session must require a valid X-Healthslider-Token"
+    )
