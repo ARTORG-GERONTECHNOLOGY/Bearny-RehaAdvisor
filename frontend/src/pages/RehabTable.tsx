@@ -186,6 +186,31 @@ const RehabTable: React.FC = observer(() => {
     }
   }, [store, t]);
 
+  const moveCalendarEvent = useCallback(
+    async (payload: {
+      interventionId: string;
+      dateEntry: { datetime: string };
+      newStart: Date;
+    }) => {
+      // Format newStart as a local-naive ISO string (no TZ suffix) so the backend
+      // treats it the same way it treats stored naive-UTC datetimes. If we used
+      // newStart.toISOString() (UTC), a UTC+2 user dragging 08:00→10:00 local
+      // would send toDatetime="08:00Z" which equals fromDatetime="08:00Z" (naive
+      // stored date interpreted as UTC), making the backend see no change.
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const d = payload.newStart;
+      const toDatetimeLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+      await store.moveInterventionDate(
+        payload.interventionId,
+        payload.dateEntry.datetime,
+        toDatetimeLocal,
+        t as any
+      );
+    },
+    [store, t]
+  );
+
   const openAddQ = useCallback((q: QItem) => {
     setQMode('create');
     setSelectedQ({ _id: q._id, key: q.key, title: q.title });
@@ -361,6 +386,7 @@ const RehabTable: React.FC = observer(() => {
                         patientData={store.patientData as any}
                         titleMap={store.titleMap}
                         onSelectIntervention={store.handleExerciseClick}
+                        onMoveEvent={moveCalendarEvent}
                       />
                     </div>
                   </RehaCalendarPanelShell>

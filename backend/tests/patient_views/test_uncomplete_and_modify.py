@@ -6,6 +6,7 @@ Endpoints covered
 -----------------
 ``POST /api/interventions/uncomplete/``   → ``unmark_intervention_completed``
 ``POST /api/interventions/modify-patient/`` → ``modify_intervention_from_date``
+``POST /api/interventions/move-date/`` → ``move_intervention_date``
 
 Coverage goals
 --------------
@@ -137,6 +138,7 @@ def setup_patient_with_plan():
 
 UNCOMPLETE_URL = "/api/interventions/uncomplete/"
 MODIFY_URL = "/api/interventions/modify-patient/"
+MOVE_DATE_URL = "/api/interventions/move-date/"
 
 
 # ===========================================================================
@@ -530,3 +532,120 @@ def test_modify_intervention_from_date_internal_date_conversion_error(_, mongo_m
     )
     assert resp.status_code == 500
     assert "Internal date conversion error" in resp.json()["message"]
+
+
+# ===========================================================================
+# move_intervention_date  —  POST /api/interventions/move-date/
+# ===========================================================================
+
+
+def test_move_intervention_date_missing_fields(mongo_mock):
+    resp = client.post(
+        MOVE_DATE_URL,
+        data=json.dumps({}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    errors = resp.json().get("field_errors", {})
+    assert "patientId" in errors
+    assert "interventionId" in errors
+    assert "fromDatetime" in errors
+    assert "toDatetime" in errors
+
+
+def test_move_intervention_date_patient_not_found(mongo_mock):
+    resp = client.post(
+        MOVE_DATE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(ObjectId()),
+                "interventionId": str(ObjectId()),
+                "fromDatetime": "2026-01-01T08:00:00Z",
+                "toDatetime": "2026-01-02T08:00:00Z",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "Patient not found" in resp.json()["message"]
+
+
+def test_move_intervention_date_source_datetime_not_found(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    resp = client.post(
+        MOVE_DATE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "fromDatetime": "2030-01-01T08:00:00Z",
+                "toDatetime": "2030-01-02T08:00:00Z",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "Source datetime not found" in resp.json()["message"]
+
+
+def test_move_intervention_date_success_updates_assignment(mongo_mock):
+    patient, _, intervention, plan = setup_patient_with_plan()
+    original_dates = sorted(plan.interventions[0].dates)
+    from_dt = original_dates[0].replace(microsecond=0)
+    to_dt = (from_dt + timedelta(days=3)).replace(microsecond=0)
+
+    resp = client.post(
+        MOVE_DATE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "fromDatetime": from_dt.isoformat() + "Z",
+                "toDatetime": to_dt.isoformat() + "Z",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
+
+    refreshed = RehabilitationPlan.objects.get(id=plan.id)
+    saved_dates = sorted(d.replace(microsecond=0) for d in refreshed.interventions[0].dates)
+    assert from_dt.replace(tzinfo=None) not in saved_dates
+    assert to_dt.replace(tzinfo=None) in saved_dates
+
+
+def test_move_intervention_date_deduplicates_when_target_already_exists(mongo_mock):
+    patient, _, intervention, plan = setup_patient_with_plan()
+    original_dates = sorted(plan.interventions[0].dates)
+    from_dt = original_dates[0].replace(microsecond=0)
+    existing_target = original_dates[1].replace(microsecond=0)
+
+    resp = client.post(
+        MOVE_DATE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "fromDatetime": from_dt.isoformat() + "Z",
+                "toDatetime": existing_target.isoformat() + "Z",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    refreshed = RehabilitationPlan.objects.get(id=plan.id)
+    saved_dates = [d.replace(microsecond=0) for d in refreshed.interventions[0].dates]
+    assert saved_dates.count(existing_target.replace(tzinfo=None)) == 1
+    assert len(saved_dates) == 2
+
+
+def test_move_intervention_date_get_method_not_allowed(mongo_mock):
+    resp = client.get(MOVE_DATE_URL, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 405

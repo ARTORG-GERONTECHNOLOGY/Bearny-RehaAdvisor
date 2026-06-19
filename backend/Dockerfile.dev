@@ -6,8 +6,17 @@ RUN apt-get update && \
     apt-get -y install build-essential wget curl bzip2 libpq-dev gcc docker.io && \
     apt-get clean
 
-# Download and install Miniconda
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda-installer.sh && \
+# Download and install Miniconda for the build architecture
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        MINICONDA_ARCH="aarch64"; \
+    elif [ "$TARGETARCH" = "amd64" ]; then \
+        MINICONDA_ARCH="x86_64"; \
+    else \
+        echo "Unsupported TARGETARCH: $TARGETARCH"; \
+        exit 1; \
+    fi && \
+    wget --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${MINICONDA_ARCH}.sh" -O /opt/miniconda-installer.sh && \
     bash /opt/miniconda-installer.sh -b -p /opt/conda
 
 ENV PATH=/opt/conda/bin:$PATH

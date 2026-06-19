@@ -2482,6 +2482,182 @@ def modify_intervention_from_date(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def move_intervention_date(request):
+    """
+    POST /api/interventions/move-date/
+
+    Move a single scheduled occurrence from one datetime to another for an
+    already-assigned intervention.
+
+    Body:
+    {
+      "patientId": "...",
+      "interventionId": "...",
+      "fromDatetime": "ISO datetime",
+      "toDatetime": "ISO datetime"
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Method not allowed",
+                "field_errors": {},
+                "non_field_errors": ["Only POST allowed."],
+            },
+            status=405,
+        )
+
+    try:
+        body = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {},
+                "non_field_errors": ["Request body is not valid JSON."],
+            },
+            status=400,
+        )
+
+    field_errors = {}
+
+    def ferr(field, msg):
+        field_errors.setdefault(field, []).append(msg)
+
+    patient_id = body.get("patientId")
+    intervention_id = body.get("interventionId")
+    from_raw = body.get("fromDatetime")
+    to_raw = body.get("toDatetime")
+
+    if not patient_id:
+        ferr("patientId", "Patient ID is required.")
+    if not intervention_id:
+        ferr("interventionId", "Intervention ID is required.")
+    if not from_raw:
+        ferr("fromDatetime", "Source datetime is required.")
+    if not to_raw:
+        ferr("toDatetime", "Target datetime is required.")
+
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": field_errors,
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    try:
+        from_dt = _as_datetime(from_raw)
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid fromDatetime.",
+                "field_errors": {"fromDatetime": ["Must be a valid ISO datetime."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    try:
+        to_dt = _as_datetime(to_raw)
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid toDatetime.",
+                "field_errors": {"toDatetime": ["Must be a valid ISO datetime."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    patient = _resolve_patient_flexible(str(patient_id))
+    if not patient:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Patient not found.",
+                "field_errors": {"patientId": ["No patient exists with this ID."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if not plan:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Rehabilitation plan not found.",
+                "field_errors": {},
+                "non_field_errors": ["No rehabilitation plan exists for this patient."],
+            },
+            status=404,
+        )
+
+    target = next(
+        (a for a in (plan.interventions or []) if str(a.interventionId.id) == str(intervention_id)),
+        None,
+    )
+    if not target:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Intervention assignment not found.",
+                "field_errors": {"interventionId": ["This intervention is not assigned to the patient."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    existing_utc = [_as_aware_utc(d).replace(microsecond=0) for d in (target.dates or [])]
+
+    from_idx = next((idx for idx, d in enumerate(existing_utc) if d == from_dt), None)
+    if from_idx is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Source datetime not found in assigned schedule.",
+                "field_errors": {"fromDatetime": ["No matching scheduled occurrence found."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    # Avoid duplicates: if destination already exists, drop source occurrence.
+    if any(d == to_dt for i, d in enumerate(existing_utc) if i != from_idx):
+        existing_utc.pop(from_idx)
+    else:
+        existing_utc[from_idx] = to_dt
+
+    existing_utc.sort()
+    target.dates = [d.replace(tzinfo=None) for d in existing_utc]
+
+    plan.updatedAt = timezone.now()
+    plan.save()
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Intervention occurrence moved.",
+            "movedFrom": from_dt.isoformat(),
+            "movedTo": to_dt.isoformat(),
+            "updatedCount": len(target.dates or []),
+            "field_errors": {},
+            "non_field_errors": [],
+        },
+        status=200,
+    )
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
 def get_patient_plan_for_therapist(request, patient_id):
     """
     GET /api/patients/rehabilitation-plan/therapist/<patient_id>/

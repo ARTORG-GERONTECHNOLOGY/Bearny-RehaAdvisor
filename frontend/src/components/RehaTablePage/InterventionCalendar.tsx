@@ -2,10 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
-import de from 'date-fns/locale/de';
-import enUS from 'date-fns/locale/en-US';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import { format, parse, startOfWeek, getDay, type Locale } from 'date-fns';
+import { de } from 'date-fns/locale/de';
+import { enUS } from 'date-fns/locale/en-US';
 
 import type { Intervention } from '../../types';
 
@@ -35,6 +37,21 @@ type CalendarEvent = {
   };
 };
 
+type MoveEventPayload = {
+  eventId: string;
+  interventionId: string;
+  dateEntry: DateEntry;
+  oldStart: Date;
+  oldEnd: Date;
+  newStart: Date;
+  newEnd: Date;
+};
+
+type EventOverride = {
+  start: Date;
+  end: Date;
+};
+
 const locales: Record<string, Locale> = { en: enUS, de };
 
 const localizer = dateFnsLocalizer({
@@ -44,6 +61,8 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales,
 });
+
+const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
 
 const safeDate = (v: string): Date | null => {
   const d = new Date(v);
@@ -63,17 +82,20 @@ interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
   onSelectIntervention?: (it: Intervention) => void;
+  onMoveEvent?: (payload: MoveEventPayload) => Promise<void> | void;
 }
 
 const InterventionCalendar: React.FC<Props> = ({
   patientData,
   titleMap = {},
   onSelectIntervention,
+  onMoveEvent,
 }) => {
   const { t } = useTranslation();
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
   const [colorMode, setColorMode] = useState<ColorMode>('status');
+  const [eventOverrides, setEventOverrides] = useState<Record<string, EventOverride>>({});
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -104,8 +126,8 @@ const InterventionCalendar: React.FC<Props> = ({
         out.push({
           id: `${it._id}__${d.datetime}`,
           title: displayTitle,
-          start,
-          end: addMinutes(start, durationMin),
+          start: eventOverrides[`${it._id}__${d.datetime}`]?.start ?? start,
+          end: eventOverrides[`${it._id}__${d.datetime}`]?.end ?? addMinutes(start, durationMin),
           resource: {
             interventionId: it._id,
             intervention: it,
@@ -118,7 +140,63 @@ const InterventionCalendar: React.FC<Props> = ({
     }
 
     return out;
-  }, [patientData, titleMap]);
+  }, [patientData, titleMap, eventOverrides]);
+
+  const handleEventDrop = async ({
+    event,
+    start,
+    end,
+  }: {
+    event: CalendarEvent;
+    start: Date | string;
+    end: Date | string;
+  }) => {
+    const newStart = new Date(start);
+    const newEnd = new Date(end);
+    if (Number.isNaN(newStart.getTime()) || Number.isNaN(newEnd.getTime())) return;
+
+    const oldStart = event.start;
+    const oldEnd = event.end;
+    if (oldStart.getTime() === newStart.getTime() && oldEnd.getTime() === newEnd.getTime()) return;
+
+    // Optimistically move the event in the UI.
+    setEventOverrides((prev) => ({
+      ...prev,
+      [event.id]: { start: newStart, end: newEnd },
+    }));
+
+    const clearOverride = () =>
+      setEventOverrides((prev) => {
+        const copy = { ...prev };
+        delete copy[event.id];
+        return copy;
+      });
+
+    if (!onMoveEvent) {
+      // No persistence callback — optimistic override is the final state, but
+      // there's no store refresh coming to provide a fresh id, so clear it now.
+      clearOverride();
+      return;
+    }
+
+    try {
+      await onMoveEvent({
+        eventId: event.id,
+        interventionId: event.resource.interventionId,
+        dateEntry: event.resource.dateEntry,
+        oldStart,
+        oldEnd,
+        newStart,
+        newEnd,
+      });
+      // Store refreshed successfully — the event now has a new id based on the
+      // moved datetime, so the old override key is stale. Remove it.
+      clearOverride();
+    } catch {
+      // Revert if persistence callback fails.
+      clearOverride();
+    }
+  };
 
   // legend content
   const legend = useMemo(() => {
@@ -203,11 +281,13 @@ const InterventionCalendar: React.FC<Props> = ({
       </div>
 
       <div className="rehaCalendar__body">
-        <Calendar
+        <DnDCalendar
           localizer={localizer}
           events={events}
           startAccessor="start"
           endAccessor="end"
+          draggableAccessor={() => Boolean(onMoveEvent)}
+          resizableAccessor={() => false}
           view={view}
           onView={(v) => setView(v)}
           date={date}
@@ -215,6 +295,7 @@ const InterventionCalendar: React.FC<Props> = ({
           views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
           popup
           eventPropGetter={eventPropGetter}
+          onEventDrop={handleEventDrop}
           onSelectEvent={(ev) => {
             if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
           }}
