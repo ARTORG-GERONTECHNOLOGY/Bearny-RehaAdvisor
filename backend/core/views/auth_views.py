@@ -548,6 +548,13 @@ def register_view(request):
     if request.method != "POST":
         return _err("Method not allowed", status=405)
 
+    # In study mode only REDCap import is allowed; manual registration is blocked.
+    if os.getenv("APP_MODE", "normal").lower() == "study":
+        return JsonResponse(
+            {"error": "Manual patient creation is disabled in study mode. Use REDCap import."},
+            status=403,
+        )
+
     user = None
     patient = None
     therapist = None

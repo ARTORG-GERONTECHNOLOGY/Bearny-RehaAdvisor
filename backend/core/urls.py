@@ -51,6 +51,8 @@ from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
+    # Public: returns current APP_MODE and feature flags — no auth required.
+    path("api/app-mode/", core_views.app_mode, name="app_mode"),
     # Internal endpoint used by nginx auth_request to gate /media/ access.
     # nginx sends a subrequest here before serving any /media/ file; JWT is
     # checked by JWTAuthMiddleware + @permission_classes([IsAuthenticated]).

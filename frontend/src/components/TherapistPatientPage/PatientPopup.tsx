@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fa';
 
 import config from '../../config/config.json';
+import { appModeStore } from '../../stores/appModeStore';
 import { PatientType } from '../../types';
 import ErrorAlert from '../common/ErrorAlert';
 
@@ -629,6 +630,11 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     <Row className="g-3">
                       {section.fields
                         .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
+                        .filter(
+                          (f: any) =>
+                            !appModeStore.hidePiiFields ||
+                            !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name),
+                        )
                         .map((field: any, index: number) => (
                           <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
                             <Form.Group controlId={field.be_name}>
@@ -1168,7 +1174,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                 </div>
               </Tab>
 
-              <Tab eventKey="redcap" title={t('REDCap')}>
+              {appModeStore.showRedcapTab && <Tab eventKey="redcap" title={t('REDCap')}>
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <div className="text-muted">
                     {store.redcapProject ? (
@@ -1233,7 +1239,7 @@ const PatientPopup: React.FC<PatientPopupProps> = observer(({ patient_id, show, 
                     </Table>
                   </>
                 )}
-              </Tab>
+              </Tab>}
             </Tabs>
           </>
         )}
