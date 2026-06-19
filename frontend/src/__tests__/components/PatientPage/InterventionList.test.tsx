@@ -265,6 +265,21 @@ describe('InterventionList Component', () => {
     // Only 2026-02-16 items are in the mock; nothing titled 'Mismatch' exists
     expect(screen.queryByText(/Mismatch/)).not.toBeInTheDocument();
   });
+
+  it('renders without crashing when intervention aim is null ("Benvenuti in Fase III" case)', () => {
+    (patientInterventionsStore as any).items = [
+      {
+        intervention_id: 'int-null-aim',
+        intervention_title: 'Benvenuti in Fase III',
+        translated_title: 'Benvenuti in Fase III',
+        dates: ['2026-02-16T08:00:00.000Z'],
+        duration: 5,
+        intervention: { _id: 'int-null-aim', aim: null, media: [] },
+      },
+    ];
+    render(<InterventionList />);
+    expect(screen.getByText('Benvenuti in Fase III')).toBeInTheDocument();
+  });
 });
 
 // ── InterventionList (store interaction / event tests) ───────────────────────
