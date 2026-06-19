@@ -418,9 +418,7 @@ def test_fixfp1_nonexistent_email_returns_200_not_404():
     with patch("core.views.auth_views.send_mail"):
         resp = reset_password_view(request)
 
-    assert resp.status_code == 200, (
-        "Non-existent email must return 200, not 404, to prevent email enumeration"
-    )
+    assert resp.status_code == 200, "Non-existent email must return 200, not 404, to prevent email enumeration"
 
 
 def test_fixfp1_existing_and_nonexistent_email_return_identical_body():
@@ -455,9 +453,9 @@ def test_fixfp1_existing_and_nonexistent_email_return_identical_body():
 
     assert resp_unknown.status_code == 200
     assert resp_known.status_code == 200
-    assert json.loads(resp_unknown.content) == json.loads(resp_known.content), (
-        "Response body must be identical for existing and non-existing emails"
-    )
+    assert json.loads(resp_unknown.content) == json.loads(
+        resp_known.content
+    ), "Response body must be identical for existing and non-existing emails"
 
 
 # ===========================================================================
@@ -493,9 +491,7 @@ def test_fixfp2_therapist_b_cannot_access_therapist_a_patient_list():
     finally:
         _ds.TESTING = True
 
-    assert resp.status_code == 403, (
-        "Therapist B must not be able to read Therapist A's patient list"
-    )
+    assert resp.status_code == 403, "Therapist B must not be able to read Therapist A's patient list"
 
 
 def test_fixfp2_therapist_can_access_own_patient_list():
@@ -577,15 +573,16 @@ def test_fixfp3_backend_config_has_no_hardcoded_ip():
     # Inside the django container, ./backend is mounted as /app, so config.json
     # sits at parents[2] (/app/config.json).  On the host, it is at parents[3]/backend/.
     f = Path(__file__).resolve()
-    config_path = (f.parents[2] / "config.json") if (f.parents[2] / "config.json").exists() \
+    config_path = (
+        (f.parents[2] / "config.json")
+        if (f.parents[2] / "config.json").exists()
         else (f.parents[3] / "backend" / "config.json")
+    )
     raw = config_path.read_text()
     data = json.loads(raw)
 
     assert "URL" not in data, "The 'URL' key must be removed from backend/config.json"
-    assert "159.100.246.89" not in raw, (
-        "Production server IP must not appear in backend/config.json"
-    )
+    assert "159.100.246.89" not in raw, "Production server IP must not appear in backend/config.json"
 
 
 # ===========================================================================
@@ -608,6 +605,5 @@ def test_fixfp5_user_views_carry_api_view_decorator():
 
     for view_fn in (change_password, user_profile_view, reset_patient_password):
         assert hasattr(view_fn, "cls"), (
-            f"{view_fn.__name__} must be wrapped with @api_view "
-            "so DRF enforces authentication"
+            f"{view_fn.__name__} must be wrapped with @api_view " "so DRF enforces authentication"
         )
