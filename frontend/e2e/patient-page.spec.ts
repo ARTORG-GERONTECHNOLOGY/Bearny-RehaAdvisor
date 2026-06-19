@@ -20,9 +20,11 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   await modal.getByRole('button', { name: /login/i }).click();
 
   await expect(page).toHaveURL(/\/patient(?:\/)?$/);
-  // Let React Router's navigate('/patient') fully commit before the caller
-  // issues its own page.goto(), avoiding a navigation collision.
-  await page.waitForLoadState('load');
+  // Hard reload to flush React Router's pending navigate('/patient') before the
+  // caller issues its own page.goto(). SPA navigations don't fire browser load
+  // events, so waitForLoadState('load') is a no-op here — only a real reload
+  // clears the navigation queue. Matches the therapist helper pattern in auth.ts.
+  await page.reload({ waitUntil: 'networkidle' });
 }
 
 test.describe('Patient page and functions', () => {
