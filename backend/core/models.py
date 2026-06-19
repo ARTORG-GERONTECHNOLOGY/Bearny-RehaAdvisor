@@ -547,9 +547,6 @@ class Patient(Document):
     therapist = ReferenceField("Therapist", required=True)
 
     # ✅ Access fields (platform)
-    access_word = StringField(max_length=100, required=False, default="")
-
-    # ✅ Only if you still use it; otherwise remove
     pwdhash = StringField(required=False, default="")
 
     # ✅ Platform-specific settings

@@ -810,7 +810,6 @@ def register_view(request):
                 diagnosis=data.get("diagnosis"),
                 function=data.get("function"),
                 restrictions=sanitize_text(data.get("restrictions", "-")),
-                access_word=raw_password,
                 duration=(reha_end_date.date() - timezone.now().date()).days,
                 reha_end_date=reha_end_date,
                 study_end_date=study_end_date,

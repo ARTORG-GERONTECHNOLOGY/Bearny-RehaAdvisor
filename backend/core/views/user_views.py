@@ -359,7 +359,6 @@ def user_profile_view(request, user_id):
                 excluded_user = {"pwdhash", "createdAt", "updatedAt", "id"}
                 excluded_patient = {
                     "pwdhash",
-                    "access_word",
                     "therapist",
                     "created_by",
                     "userId",

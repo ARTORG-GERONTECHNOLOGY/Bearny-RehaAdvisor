@@ -114,7 +114,6 @@ def create_patient(complete=False):
         userId=patient_user,
         patient_code="PAT_Q",
         therapist=therapist,
-        access_word="pass",
     )
     if complete:
         kwargs.update(

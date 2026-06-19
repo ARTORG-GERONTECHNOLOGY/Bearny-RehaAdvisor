@@ -81,7 +81,6 @@ def create_patient():
         userId=p_user,
         patient_code="PAT_TEL",
         therapist=therapist,
-        access_word="pass",
     ).save()
 
 

@@ -105,7 +105,6 @@ def _make_patient(therapist, suffix=""):
         userId=p_user,
         patient_code=f"PAT{suffix}",
         therapist=therapist,
-        access_word="pass",
         clinic="Inselspital",
         project="COPAIN",
     ).save()

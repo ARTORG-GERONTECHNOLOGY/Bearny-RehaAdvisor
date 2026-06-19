@@ -16,3 +16,4 @@ secrets/
 backups/
 .codex
 .claude
+export_audit.csv

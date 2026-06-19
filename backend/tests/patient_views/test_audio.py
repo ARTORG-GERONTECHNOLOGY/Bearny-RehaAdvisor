@@ -57,7 +57,6 @@ def setup_patient():
         patient_code="PAT001",
         name="Patient",
         first_name="One",
-        access_word="pass",
         age="30",
         therapist=therapist,  # ✅ NOW PROVIDED
         sex="Male",

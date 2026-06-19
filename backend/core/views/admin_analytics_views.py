@@ -1,16 +1,13 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.models import Logs
+from core.permissions import IsAdmin
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def admin_device_analytics(request):
-    if request.user_obj.role != "Admin":
-        return Response(status=403)
-
     pipeline = [
         {"$match": {"action": "LOGIN", "device_type": {"$exists": True, "$ne": None}}},
         {
