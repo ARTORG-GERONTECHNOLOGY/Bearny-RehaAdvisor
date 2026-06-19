@@ -1354,5 +1354,9 @@
   "Microphone access denied.": "Accès au microphone refusé.",
   "Text Feedback": "Retour textuel",
   "Time": "Heure",
-  "Event": "Événement"
+  "Event": "",
+  "assistanceQuestion": "Faites-vous vos exercices aujourd'hui seul(e) ou avec de l'aide ?",
+  "assistanceDescription": "Votre réponse nous aide à comprendre votre progression.",
+  "assistanceAlone": "Seul(e)",
+  "assistanceWithHelp": "Avec de l'aide"
 }

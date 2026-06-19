@@ -3,6 +3,7 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import DailyInterventionCard from '@/components/PatientPage/DailyInterventionCard';
+import AssistanceSheet from '@/components/PatientPage/AssistanceSheet';
 import { patientUiStore } from '@/stores/patientUiStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { startOfWeek, addDays, format, isToday, endOfWeek } from 'date-fns';
@@ -22,6 +23,7 @@ const PatientPlan: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [dayFilter, setDayFilter] = useState<DayFilter>('all');
+  const [showAssistance, setShowAssistance] = useState(false);
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -64,6 +66,15 @@ const PatientPlan: React.FC = observer(() => {
     }
   }, [patientId, i18n.language]);
 
+  // Show assistance question once per calendar day
+  useEffect(() => {
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const storageKey = `assistance_asked_${todayKey}`;
+    if (!localStorage.getItem(storageKey)) {
+      setShowAssistance(true);
+    }
+  }, []);
+
   // Check authentication
   useEffect(() => {
     let alive = true;
@@ -83,6 +94,13 @@ const PatientPlan: React.FC = observer(() => {
       alive = false;
     };
   }, [navigate]);
+
+  const handleAssistanceSelect = (mode: 'alone' | 'with_help') => {
+    patientInterventionsStore.setAssistanceMode(mode);
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    localStorage.setItem(`assistance_asked_${todayKey}`, mode);
+    setShowAssistance(false);
+  };
 
   return (
     <Layout aria-label={t('Week range and current month')}>
@@ -144,6 +162,8 @@ const PatientPlan: React.FC = observer(() => {
           />
         ))}
       </div>
+
+      <AssistanceSheet open={showAssistance} onSelect={handleAssistanceSelect} />
 
       {/* Intervention Feedback Popup */}
       {patientQuestionnairesStore.showFeedbackPopup && (
