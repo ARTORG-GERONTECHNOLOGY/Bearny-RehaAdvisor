@@ -10,9 +10,8 @@ from urllib.parse import urlparse
 
 import openpyxl
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
@@ -150,7 +149,7 @@ def _friendly_error(exc: Exception) -> str:
 # ---------------- import endpoint ----------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def import_interventions(request):
     """
@@ -175,9 +174,6 @@ def import_interventions(request):
         "Files:",
         request.FILES,
     )
-    if request.method != "POST":
-        return _bad("Method not allowed", status=405)
-
     up = request.FILES.get("file")
     if not up:
         return _bad("Missing file. Please upload an .xlsx or .xlsm file.", status=400)

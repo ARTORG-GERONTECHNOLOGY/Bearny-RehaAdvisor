@@ -14,7 +14,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -41,10 +41,14 @@ from core.models import (
 )
 from utils.utils import (
     check_rate_limit,
+    check_verify_rate_limit,
     convert_to_serializable,
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
+    increment_attempt,
+    increment_verify_attempt,
+    reset_verify_attempts,
     sanitize_text,
     validate_password_strength,
 )
@@ -334,27 +338,36 @@ def login_view(request):
             )
         user = User.objects(Q(email=identifier) | Q(username=identifier)).first()
 
-        # IMPORTANT: never touch user fields before checking user exists
+        # Use a single error message for all credential failures to prevent
+        # user-enumeration: an attacker must not be able to distinguish
+        # "email not found" from "wrong password" by reading the response.
+        _INVALID_CREDS = {"error": "Invalid credentials.", "request_id": request_id}
+
         if not user:
+            return JsonResponse(_INVALID_CREDS, status=401)
+
+        # Per-account brute-force protection: lock after MAX_ATTEMPTS failures.
+        # The counter resets automatically after 1 hour (see check_rate_limit).
+        is_locked, rate_record = check_rate_limit(user)
+        if is_locked:
             return JsonResponse(
-                {"error": "Invalid credentials (username).", "request_id": request_id},
-                status=401,
+                {"error": "Too many failed login attempts. Try again later.", "request_id": request_id},
+                status=429,
             )
 
-        # If a user exists but pwdhash missing / empty
         pwdhash = getattr(user, "pwdhash", None)
         if not pwdhash:
-            logger.warning(f"[LOGIN][{request_id}] User has no pwdhash user_id={user.id}")
-            return JsonResponse(
-                {
-                    "error": "Invalid credentials. Password is missing.",
-                    "request_id": request_id,
-                },
-                status=401,
-            )
+            logger.warning("[LOGIN][%s] User has no pwdhash user_id=%s", request_id, user.id)
+            increment_attempt(rate_record)
+            return JsonResponse(_INVALID_CREDS, status=401)
 
         if not check_password(raw_password, pwdhash):
-            return JsonResponse({"error": "Invalid credentials.", "request_id": request_id}, status=401)
+            increment_attempt(rate_record)
+            return JsonResponse(_INVALID_CREDS, status=401)
+
+        # Successful credential check — reset the failure counter.
+        rate_record.count = 0
+        rate_record.save()
 
         if not getattr(user, "isActive", False):
             return JsonResponse(
@@ -401,16 +414,13 @@ def login_view(request):
         return JsonResponse({"error": "Internal server error.", "request_id": request_id}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
     Logs a user out and creates a log entry.
     Endpoint: POST /api/auth/logout/
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         user_id = data.get("userId")
@@ -436,12 +446,9 @@ def generate_random_password(length=12):
     return "".join(random.choice(chars) for _ in range(length))
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reset_password_view(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         email = data.get("email")
@@ -1002,8 +1009,17 @@ def verify_code_view(request):
         if not user_id or not code:
             return JsonResponse({"error": "Missing user ID or verification code"}, status=400)
 
+        # Brute-force protection: 10 attempts per 30-minute window per user_id.
+        is_locked, verify_record = check_verify_rate_limit(user_id)
+        if is_locked:
+            return JsonResponse(
+                {"error": "Too many verification attempts. Please request a new code."},
+                status=429,
+            )
+
         verification = SMSVerification.objects(userId=user_id, code=code).order_by("-created_at").first()
         if not verification:
+            increment_verify_attempt(verify_record)
             return JsonResponse({"error": "Invalid verification code"}, status=400)
 
         # ---- Compare in UTC (+00:00) ALWAYS ----
@@ -1021,6 +1037,7 @@ def verify_code_view(request):
 
         user = User.objects.get(pk=user_id)
         verification.delete()
+        reset_verify_attempts(user_id)
 
         refresh = RefreshToken.for_user(user)
         Logs.objects.create(userId=user, action="LOGIN", actor_role=user.role)
@@ -1038,7 +1055,7 @@ def verify_code_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_info(request, user_id):
     try:

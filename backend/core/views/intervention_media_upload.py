@@ -2,8 +2,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
@@ -139,7 +138,7 @@ def _process_single_file(file_obj) -> Dict[str, Any]:
     }
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def upload_intervention_media(request):
     """
@@ -154,8 +153,6 @@ def upload_intervention_media(request):
     The language suffix (e.g. _de) determines which language variant receives the file.
     Returns per-file results — never aborts the whole batch on a single error.
     """
-    if request.method != "POST":
-        return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
     files = request.FILES.getlist("files[]")
     if not files:

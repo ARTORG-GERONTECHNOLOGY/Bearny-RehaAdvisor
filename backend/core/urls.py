@@ -29,6 +29,7 @@ from core.views.eva_view import (
 )
 from core.views.intervention_import import import_interventions
 from core.views.intervention_media_upload import upload_intervention_media
+from core.views.media_auth_view import media_auth_check
 from core.views.patient_thresholds import patient_thresholds_view
 from core.views.questionaires_view import (
     assign_questionnaire,
@@ -50,6 +51,10 @@ from core.views.wearables_redcap_view import sync_wearables_to_redcap_view
 
 urlpatterns = [
     path("api/", core_views.index, name="index"),
+    # Internal endpoint used by nginx auth_request to gate /media/ access.
+    # nginx sends a subrequest here before serving any /media/ file; JWT is
+    # checked by JWTAuthMiddleware + @permission_classes([IsAuthenticated]).
+    path("api/media-auth/", media_auth_check),
     path("api/admin/pending-users/", user_views.get_pending_users),
     path("api/admin/accept-user/", user_views.accept_user),
     path("api/admin/decline-user/", user_views.decline_user),

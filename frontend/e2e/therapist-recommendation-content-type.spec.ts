@@ -134,7 +134,7 @@ test.describe('Recommendation content type — submit mapping', () => {
 
       // Intercept the multipart POST before submitting
       const postRequest = page.waitForRequest(
-        (req) => req.url().includes('/api/recomendations/') && req.method() === 'POST',
+        (req) => req.url().includes('/interventions/add/') && req.method() === 'POST',
         { timeout: 10_000 }
       );
 

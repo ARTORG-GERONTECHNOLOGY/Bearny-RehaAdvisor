@@ -23,6 +23,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Therapist, TherapistAccessChangeRequest, User
+from core.permissions import IsAdmin
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ def submit_access_change_request(request):
 
 
 @api_view(["GET", "PUT"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def admin_access_change_requests(request, request_id: str | None = None):
     if request.method == "GET":
         status_filter = request.GET.get("status", "pending")

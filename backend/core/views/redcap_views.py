@@ -2,8 +2,7 @@
 import logging
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.services.redcap_access import (
@@ -15,16 +14,13 @@ from core.services.redcap_service import RedcapError, export_record_by_pat_id
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def redcap_projects(request):
     """
     GET /api/redcap/projects/
     Returns the REDCap projects available to the therapist, based on therapist.clinics (+ optional therapist.project).
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     therapist = get_therapist_for_user(request.user)
     if not therapist:
         return JsonResponse({"error": "Therapist profile not found."}, status=404)
@@ -41,7 +37,7 @@ def redcap_projects(request):
     )
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def redcap_record(request):
     """
@@ -49,9 +45,6 @@ def redcap_record(request):
     - Enforces clinic-based access control.
     - Returns matching rows from REDCap (may be multiple due to longitudinal/events).
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     pat_id = (request.GET.get("pat_id") or "").strip()
     project = (request.GET.get("project") or "").strip()
 

@@ -32,8 +32,8 @@ import io
 import json
 import mimetypes
 import os
-import random
 import re
+import secrets
 import string
 import zipfile
 from datetime import timedelta
@@ -48,6 +48,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from core.models import HealthSliderEntry, SMSVerification
+from utils.utils import check_verify_rate_limit, increment_verify_attempt, reset_verify_attempts
 
 # ---------------------------------------------------------------------------
 # Download-only auth constants
@@ -88,7 +89,7 @@ def healthslider_download_auth(request):
         if not email:
             return JsonResponse({"error": "Email required"}, status=400)
 
-        code = "".join(random.choices(string.digits, k=6))
+        code = "".join(secrets.choice(string.digits) for _ in range(6))
         expires_at = timezone.now() + timedelta(minutes=10)
         SMSVerification(userId="healthslider_download", code=code, expires_at=expires_at).save()
 
@@ -123,10 +124,21 @@ def healthslider_download_verify(request):
         if not code:
             return JsonResponse({"error": "Code required"}, status=400)
 
+        # Brute-force protection: 10 wrong guesses per 30-minute window per IP
+        # keyed on "healthslider_download" (shared across all researchers).
+        _rl_key = "healthslider_download"
+        is_locked, rl_record = check_verify_rate_limit(_rl_key)
+        if is_locked:
+            return JsonResponse(
+                {"error": "Too many attempts. Please request a new code."},
+                status=429,
+            )
+
         verification = (
             SMSVerification.objects(userId="healthslider_download", code=code).order_by("-created_at").first()
         )
         if not verification:
+            increment_verify_attempt(rl_record)
             return JsonResponse({"error": "Invalid code"}, status=400)
 
         expires_at = verification.expires_at
@@ -137,6 +149,7 @@ def healthslider_download_verify(request):
             return JsonResponse({"error": "Code expired"}, status=400)
 
         verification.delete()
+        reset_verify_attempts(_rl_key)
         token = signing.dumps({"ok": True}, salt=_DL_SALT)
         return JsonResponse({"token": token}, status=200)
     except Exception as e:

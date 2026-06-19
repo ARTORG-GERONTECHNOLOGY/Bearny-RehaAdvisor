@@ -3,8 +3,7 @@ import logging
 
 from bson import ObjectId
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Patient
@@ -28,7 +27,7 @@ def _resolve_patient(patient_id: str):
             return None
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def sync_wearables_to_redcap_view(request, patient_id: str):
     """
@@ -43,9 +42,6 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
     Falls back to per-project defaults (COMPASS/COPAIN) and then to
     REDCAP_WEARABLES_EVENT_BASELINE/FOLLOWUP env vars if not provided.
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     patient = _resolve_patient(patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)

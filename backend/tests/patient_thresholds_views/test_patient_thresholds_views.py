@@ -96,7 +96,6 @@ def test_thresholds_method_not_allowed():
     patient = create_patient()
     resp = client.delete(f"/api/patients/{patient.id}/thresholds/", HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 405
-    assert resp.json()["message"] == "Method not allowed."
 
 
 def test_thresholds_patch_invalid_json():

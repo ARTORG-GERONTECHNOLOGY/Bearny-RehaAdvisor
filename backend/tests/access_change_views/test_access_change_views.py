@@ -132,6 +132,14 @@ def _client():
     return c
 
 
+def _admin_client():
+    """Return an APIClient authenticated as an active Admin user."""
+    user, _ = _make_admin()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(user.id)))
+    return c
+
+
 # ---------------------------------------------------------------------------
 # Helper: POST a change request
 # ---------------------------------------------------------------------------
@@ -266,7 +274,7 @@ def test_admin_get_lists_pending_requests():
         created_at=datetime.now(),
     ).save()
 
-    c = _client()
+    c = _admin_client()
     resp = c.get("/api/admin/access-change-requests/")
     assert resp.status_code == 200
     body = resp.json()
@@ -284,7 +292,7 @@ def test_admin_get_filters_by_status_all():
         therapist=therapist, requested_clinics=[], requested_projects=[], status="pending", created_at=datetime.now()
     ).save()
 
-    c = _client()
+    c = _admin_client()
     resp = c.get("/api/admin/access-change-requests/?status=all")
     assert resp.status_code == 200
     assert len(resp.json()["requests"]) == 2
@@ -300,7 +308,7 @@ def test_admin_get_serializes_therapist_name_and_email():
         created_at=datetime.now(),
     ).save()
 
-    c = _client()
+    c = _admin_client()
     resp = c.get("/api/admin/access-change-requests/")
     req = resp.json()["requests"][0]
     assert req["therapistName"] == "Jane Doe"
@@ -325,7 +333,7 @@ def test_admin_put_approve_updates_therapist_clinics_and_projects():
     ).save()
 
     _, admin_therapist = _make_admin()
-    c = _client()
+    c = _admin_client()
     with patch(_GT, return_value=admin_therapist):
         resp = c.put(
             f"/api/admin/access-change-requests/{req.id}/",
@@ -355,7 +363,7 @@ def test_admin_put_reject_marks_request_rejected_without_changing_access():
     ).save()
 
     _, admin_therapist = _make_admin()
-    c = _client()
+    c = _admin_client()
     with patch(_GT, return_value=admin_therapist):
         resp = c.put(
             f"/api/admin/access-change-requests/{req.id}/",
@@ -386,7 +394,7 @@ def test_admin_put_returns_400_for_already_reviewed_request():
     ).save()
 
     _, admin_therapist = _make_admin()
-    c = _client()
+    c = _admin_client()
     with patch(_GT, return_value=admin_therapist):
         resp = c.put(
             f"/api/admin/access-change-requests/{req.id}/",
@@ -400,7 +408,7 @@ def test_admin_put_returns_400_for_already_reviewed_request():
 
 def test_admin_put_returns_404_for_unknown_id():
     _, admin_therapist = _make_admin()
-    c = _client()
+    c = _admin_client()
     with patch(_GT, return_value=admin_therapist):
         resp = c.put(
             f"/api/admin/access-change-requests/{ObjectId()}/",
@@ -421,7 +429,7 @@ def test_admin_put_returns_400_for_invalid_action():
     ).save()
 
     _, admin_therapist = _make_admin()
-    c = _client()
+    c = _admin_client()
     with patch(_GT, return_value=admin_therapist):
         resp = c.put(
             f"/api/admin/access-change-requests/{req.id}/",
@@ -433,7 +441,7 @@ def test_admin_put_returns_400_for_invalid_action():
 
 
 def test_admin_put_requires_request_id_in_url():
-    c = _client()
+    c = _admin_client()
     resp = c.put(
         "/api/admin/access-change-requests/",
         data=json.dumps({"action": "approve"}),
