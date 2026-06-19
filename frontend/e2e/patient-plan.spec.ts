@@ -35,6 +35,10 @@ async function loginAsSeededPatient(page: Page) {
   await modal.getByRole('button', { name: /login/i }).click();
 
   await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+  // Wait for the login-triggered navigation to fully commit before the caller
+  // navigates away. Without this, React Router's navigate('/patient') can still
+  // be in-flight when page.goto('/patient-plan') is called, causing a collision.
+  await page.waitForLoadState('load');
 }
 
 /** Format a date range the same way PatientPlan's header does. */
@@ -78,10 +82,7 @@ test.describe('Patient plan page', () => {
     await expect(header).toBeVisible();
     const currentLabel = await header.innerText();
 
-    // Click the right-arrow icon next to the header
-    const nextWeekBtn = page.locator('[aria-label*="next"], svg.hover\\:cursor-pointer').last();
-    // Fallback: find arrows via their position relative to the heading
-    await page.locator('svg.hover\\:cursor-pointer').last().click();
+    await page.locator('[aria-label="Next week"]').click();
 
     // After clicking, the header must show a different (later) week range
     await expect(header).not.toHaveText(currentLabel);
@@ -95,7 +96,7 @@ test.describe('Patient plan page', () => {
     await expect(header).toBeVisible();
     const currentLabel = await header.innerText();
 
-    await page.locator('svg.hover\\:cursor-pointer').first().click();
+    await page.locator('[aria-label="Previous week"]').click();
 
     await expect(header).not.toHaveText(currentLabel);
   });
