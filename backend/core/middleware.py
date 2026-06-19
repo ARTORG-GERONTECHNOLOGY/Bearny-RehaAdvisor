@@ -49,6 +49,7 @@ audit_logger = logging.getLogger("core.api_audit")
 _PUBLIC_EXACT: frozenset[str] = frozenset(
     {
         "/api/",
+        "/api/app-mode/",
     }
 )
 

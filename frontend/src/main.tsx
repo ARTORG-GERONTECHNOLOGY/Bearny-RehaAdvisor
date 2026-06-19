@@ -9,8 +9,10 @@ import '@/assets/styles/index.css'; // TODO: link in index.html for global style
 import '@/assets/styles/custom-bootstrap.scss'; // Custom Bootstrap overrides (TODO: remove after redesign with Tailwind is complete)
 import { initSentry } from '@/lib/sentry';
 import DevBanner from '@/components/common/DevBanner';
+import { appModeStore } from '@/stores/appModeStore';
 
 initSentry();
+appModeStore.fetchMode();
 
 const container = document.getElementById('root');
 const root = createRoot(container!, {
