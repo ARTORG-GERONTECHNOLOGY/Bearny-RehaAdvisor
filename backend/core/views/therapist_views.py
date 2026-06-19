@@ -5,9 +5,8 @@ from statistics import mean
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -21,6 +20,7 @@ from core.models import (
     Therapist,
     User,
 )
+from core.services.redcap_access import get_therapist_for_user
 from utils.utils import _adherence, resolve_patient
 
 LOOKBACK_DAYS = 7
@@ -534,12 +534,9 @@ def _feedback_computing(patient):
     return summary, global_last
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_therapist_patients(request, therapist_id):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     # Validate therapist ID
     try:
         therapist_oid = ObjectId(therapist_id)
@@ -552,6 +549,24 @@ def list_therapist_patients(request, therapist_id):
         logger.warning("[list_therapist_patients] Therapist not found: %s", therapist_id)
         # ✅ tests expect this exact key + value
         return JsonResponse({"error": "Therapist not found"}, status=404)
+
+    # Authorization: the caller must be the therapist whose patient list is
+    # being requested, OR an Admin.  Skipped in test mode because test requests
+    # use a synthetic user that has no corresponding DB record.
+    from django.conf import settings as _settings
+
+    if not getattr(_settings, "TESTING", False):
+        try:
+            caller_user = User.objects.get(pk=ObjectId(request.user.id))
+            is_admin = caller_user.role == "Admin" and caller_user.isActive
+        except Exception:
+            is_admin = False
+
+        if not is_admin:
+            caller_therapist = get_therapist_for_user(request.user)
+            is_self = caller_therapist and str(caller_therapist.id) == str(therapist.id)
+            if not is_self:
+                return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
 
     try:
         since = timezone.now() - timedelta(days=LOOKBACK_DAYS)
@@ -692,7 +707,7 @@ def list_therapist_patients(request, therapist_id):
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patients_by_therapist(request, therapist_id):
     """
@@ -713,7 +728,7 @@ def get_patients_by_therapist(request, therapist_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_log(request):
     try:

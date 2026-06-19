@@ -9,9 +9,8 @@ from bson import ObjectId
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.errors import NotUniqueError
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
@@ -325,7 +324,7 @@ def _is_strong_password(pw: str) -> bool:
 # =========================================================
 # 1) GET /api/redcap/available-patients/
 # =========================================================
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def available_redcap_patients(request):
     """
@@ -338,8 +337,6 @@ def available_redcap_patients(request):
       - identifier (pat_id if present else record_id)
       - dag (redcap_data_access_group)
     """
-    if request.method != "GET":
-        return _bad("Method not allowed.", status=405)
 
     therapist_user_id = _norm(request.GET.get("therapistUserId"))
 
@@ -485,7 +482,7 @@ def available_redcap_patients(request):
 # =========================================================
 # 2) POST /api/redcap/import-patient/
 # =========================================================
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def import_patient_from_redcap(request):
     """
@@ -504,9 +501,6 @@ def import_patient_from_redcap(request):
       - creates platform User + Patient
       - stores redcap_project + identifier (+ record_id/pat_id/dag if model supports)
     """
-    if request.method != "POST":
-        return _bad("Method not allowed.", status=405)
-
     payload = _safe_json_body(request)
 
     project = _norm(payload.get("project"))

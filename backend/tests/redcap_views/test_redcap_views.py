@@ -93,7 +93,6 @@ def test_redcap_projects_success(mock_get_th, mock_allowed):
 def test_redcap_projects_method_not_allowed():
     resp = client.post("/api/redcap/projects/", data={}, HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 405
-    assert resp.json()["error"] == "Method not allowed"
 
 
 def test_redcap_patient_requires_patient_code():
@@ -221,7 +220,6 @@ def test_redcap_record_method_not_allowed(rf):
     req = rf.post("/api/redcap/record/", data={})
     resp = redcap_record(req)
     assert resp.status_code == 405
-    assert json.loads(resp.content)["error"] == "Method not allowed"
 
 
 def test_redcap_record_requires_pat_id(rf):

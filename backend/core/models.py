@@ -689,6 +689,20 @@ class PasswordAttempt(Document):
     meta = {"collection": "password_attempts"}
 
 
+class VerifyAttempt(Document):
+    """
+    Tracks failed 2FA / email-code verification attempts per key (e.g. a
+    user_id string or "healthslider_download") to prevent brute-forcing the
+    6-digit code.  Resets after 30 minutes; locked after 10 failures.
+    """
+
+    key = StringField(required=True, unique=True)
+    count = IntField(default=0)
+    last_attempt = DateTimeField(default=timezone.now)
+
+    meta = {"collection": "verify_attempts"}
+
+
 class HealthSliderEntry(Document):
     """
     One saved item (one question answer) for HealthSlider.

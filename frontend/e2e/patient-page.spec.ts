@@ -20,6 +20,11 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   await modal.getByRole('button', { name: /login/i }).click();
 
   await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+  // Hard reload to flush React Router's pending navigate('/patient') before the
+  // caller issues its own page.goto(). SPA navigations don't fire browser load
+  // events, so waitForLoadState('load') is a no-op here — only a real reload
+  // clears the navigation queue. Matches the therapist helper pattern in auth.ts.
+  await page.reload({ waitUntil: 'networkidle' });
 }
 
 test.describe('Patient page and functions', () => {
@@ -184,7 +189,9 @@ test.describe('Patient page and functions', () => {
     await completeBtn.click();
     await feedbackQuestionsReqPromise;
 
-    const feedbackModal = page.locator('.modal.show');
+    // FeedbackPopup is a Radix Sheet (built on @radix-ui/react-dialog), so it
+    // renders role="dialog" + data-state="open", NOT Bootstrap's .modal.show.
+    const feedbackModal = page.locator('[role="dialog"][data-state="open"]');
     await expect(feedbackModal).toBeVisible();
 
     const noQuestionsMsg = feedbackModal.getByText(/no feedback questions available/i);
@@ -196,7 +203,8 @@ test.describe('Patient page and functions', () => {
     if ((await textArea.count()) > 0) {
       await textArea.fill('E2E patient feedback');
     } else {
-      const firstAnswerBtn = feedbackModal.locator('.answer-btn').first();
+      // Answer options are shadcn Buttons inside a role="group" container.
+      const firstAnswerBtn = feedbackModal.locator('[role="group"]').getByRole('button').first();
       const hasAnswerBtn = (await firstAnswerBtn.count()) > 0;
       test.skip(!hasAnswerBtn, 'No supported feedback input control available in popup.');
       await firstAnswerBtn.click();

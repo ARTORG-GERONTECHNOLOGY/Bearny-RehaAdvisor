@@ -7,18 +7,19 @@ Tests for admin questionnaire management endpoints:
 
 import json
 from datetime import datetime
+from types import SimpleNamespace
 
 import mongomock
 import pytest
 from bson import ObjectId
-from django.test import Client
+from rest_framework.test import APIClient
 
 from core.models import HealthQuestionnaire, Patient, RehabilitationPlan, Therapist, User
 
 LIST_URL = "/api/admin/questionnaires/"
 DETAIL_URL = "/api/admin/questionnaires/{}/"
 
-client = Client()
+client: APIClient = None  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -37,6 +38,24 @@ def mongo_mock():
     )
     yield conn
     disconnect(alias)
+
+
+@pytest.fixture(autouse=True)
+def _setup_admin_client(mongo_mock):
+    global client
+    admin_user = User(
+        username="admin_q_test",
+        email="admin_q@test.example.com",
+        role="Admin",
+        isActive=True,
+        createdAt=datetime.now(),
+    )
+    admin_user.pwdhash = "x"
+    admin_user.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(admin_user.id)))
+    client = c
+    yield
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -73,6 +92,26 @@ def _make_plan_with_questionnaire(questionnaire):
         questionnaires=[QuestionnaireAssignment(questionnaireId=questionnaire, frequency="Daily")],
     ).save()
     return plan
+
+
+# ── Security ──────────────────────────────────────────────────────────────────
+
+
+def test_list_requires_authentication():
+    # In test mode AlwaysAuthenticate authenticates every request; the admin
+    # check then returns 403 rather than 401.
+    assert APIClient().get(LIST_URL).status_code in (401, 403)
+
+
+def test_list_requires_admin_role():
+    therapist_user = User(
+        username="th_q_sec", email="th_q_sec@example.com", role="Therapist", isActive=True, createdAt=datetime.now()
+    )
+    therapist_user.pwdhash = "x"
+    therapist_user.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(therapist_user.id)))
+    assert c.get(LIST_URL).status_code == 403
 
 
 # ── LIST ──────────────────────────────────────────────────────────────────────

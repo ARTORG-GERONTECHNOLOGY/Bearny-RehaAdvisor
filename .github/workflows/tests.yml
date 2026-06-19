@@ -333,6 +333,14 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e -- e2e/home-login.spec.ts
 
+      - name: Run admin security regression (no credentials required)
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/admin-security.spec.ts
+
+      - name: Run authentication security regression (rate-limit + enumeration)
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/auth-security.spec.ts
+
       - name: Run seeded redirect E2E flow
         if: ${{ vars.E2E_PATIENT_LOGIN != '' }}
         working-directory: frontend
@@ -352,6 +360,11 @@ jobs:
         if: ${{ vars.E2E_PATIENT_LOGIN != '' }}
         working-directory: frontend
         run: npm run test:e2e -- e2e/patient-interventions-page.spec.ts
+
+      - name: Run seeded patient plan E2E flow
+        if: ${{ vars.E2E_PATIENT_LOGIN != '' }}
+        working-directory: frontend
+        run: npm run test:e2e -- e2e/patient-plan.spec.ts
 
       - name: Run seeded therapist rehab-table questionnaires E2E flow
         if: ${{ vars.E2E_THERAPIST_LOGIN != '' && vars.E2E_PATIENT_ID != '' }}

@@ -13,11 +13,10 @@ import logging
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 from core.models import HealthQuestionnaire, RehabilitationPlan
+from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +62,14 @@ def _serialize(doc):
     }
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAdmin])
 def admin_questionnaires(request, questionnaire_id=None):
     if questionnaire_id:
         if request.method == "DELETE":
             return _delete(request, questionnaire_id)
-        if request.method == "PUT":
-            return _update(request, questionnaire_id)
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-    if request.method == "GET":
-        return _list(request)
-    return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _update(request, questionnaire_id)
+    return _list(request)
 
 
 def _list(request):

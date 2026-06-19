@@ -16,11 +16,10 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs  # Ensure this includes action, userId, userAgent, details
@@ -41,6 +40,7 @@ from core.models import (
     Translation,
     User,
 )
+from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.utils import (
     _adherence,
@@ -87,7 +87,7 @@ FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def submit_patient_feedback(request):
     """
@@ -96,8 +96,6 @@ def submit_patient_feedback(request):
 
     Supports optional 'date' (YYYY-MM-DD) from FE to save feedback to that day (past/today).
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         user_id = request.POST.get("userId")
@@ -397,7 +395,7 @@ def submit_patient_feedback(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
     """
@@ -416,9 +414,6 @@ def mark_intervention_completed(request):
     - Querying uses the naive local day window [00:00, 23:59:59] to remain
       consistent with the stored values.
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
         patient_id = data.get("patient_id")
@@ -559,7 +554,7 @@ def mark_intervention_completed(request):
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def unmark_intervention_completed(request):
     """
@@ -571,9 +566,6 @@ def unmark_intervention_completed(request):
     Uses a naive local day window [00:00, 23:59:59] to find logs, consistent
     with how mark_intervention_completed stores them (no UTC conversion).
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
         patient_id = data.get("patient_id")
@@ -666,17 +658,40 @@ def unmark_intervention_completed(request):
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patient_recommendations(request, patient_id):
     """
     GET /api/patients/<patient_id>/recommendations/
     Fetches today's assigned interventions for a patient.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
+        # Authorization: only a therapist whose clinics include this patient's
+        # clinic (or an Admin) may view the patient's recommendations.
+        # Skipped in test mode because test requests use a synthetic user.
+        from django.conf import settings as _dj_settings
+
+        if not getattr(_dj_settings, "TESTING", False):
+            try:
+                from bson import ObjectId as _OID
+
+                from core.models import User as _User
+
+                _caller = _User.objects.get(pk=_OID(request.user.id))
+                _is_admin = _caller.role == "Admin" and _caller.isActive
+            except Exception:
+                _is_admin = False
+
+            if not _is_admin:
+                _patient = resolve_patient(patient_id)
+                if _patient is None:
+                    return JsonResponse({"error": "Patient not found"}, status=404)
+                _caller_therapist = get_therapist_for_user(request.user)
+                _patient_clinic = getattr(_patient, "clinic", None)
+                if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
         recommendations = PatientIntervention.get_todays_recommendations(patient_id)
         return JsonResponse({"recommendations": recommendations}, safe=False, status=200)
 
@@ -980,7 +995,7 @@ def _intervention_meta(intervention) -> dict:
 # -----------------------------
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patient_plan(request, patient_id):
     """
@@ -995,9 +1010,6 @@ def get_patient_plan(request, patient_id):
     variant of each intervention is returned instead of the stored assignment
     variant, so the frontend can skip LibreTranslate auto-translation.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     ui_lang = (request.GET.get("lang") or "").strip().lower()[:5]
 
     def _lang_chain(lang: str):
@@ -1122,16 +1134,13 @@ def get_patient_plan(request, patient_id):
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_patient_intervention_log(request):
     """
     POST /api/patients/intervention-log/
     Creates a patient intervention log entry.
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         patient = Patient.objects.get(id=ObjectId(data.get("patientId")))
@@ -1195,7 +1204,7 @@ def _serialize_questions(qs):
     ]
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_feedback_questions(request, questionaire_type, patient_id, intervention_id=None):
     """
@@ -1206,9 +1215,6 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     require_video_feedback=True, appends a video request question.
     """
     logger = logging.getLogger(__name__)
-
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # allow intervention id via query string too
     intervention_id = intervention_id or request.GET.get("interventionId")
@@ -1761,23 +1767,12 @@ def _resolve_patient_flexible(identifier: str):
 # ---------------------------------------------------------------------
 # endpoint
 # ---------------------------------------------------------------------
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_intervention_to_patient(request):
     """
     POST /api/interventions/add-to-patient/
     """
-    if request.method != "POST":
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Method not allowed",
-                "field_errors": {},
-                "non_field_errors": ["Only POST requests allowed."],
-            },
-            status=405,
-        )
-
     field_errors: dict = {}
     non_field_errors: list = []
 
@@ -2248,7 +2243,7 @@ def _generate_dates_from(
 # -----------------------------
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def modify_intervention_from_date(request):
     """
@@ -2263,17 +2258,6 @@ def modify_intervention_from_date(request):
         "non_field_errors": [...]
     }
     """
-    if request.method != "POST":
-        return JsonResponse(
-            {
-                "success": False,
-                "message": "Method not allowed",
-                "field_errors": {},
-                "non_field_errors": ["Only POST allowed."],
-            },
-            status=405,
-        )
-
     field_errors = {}
     non_field_errors = []
 
@@ -2496,7 +2480,7 @@ def modify_intervention_from_date(request):
     )
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patient_plan_for_therapist(request, patient_id):
     """
@@ -2526,16 +2510,6 @@ def get_patient_plan_for_therapist(request, patient_id):
         "details": "..."   # only for 5xx / debugging
     }
     """
-    if request.method != "GET":
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Method not allowed",
-                "message": "This endpoint only supports GET.",
-            },
-            status=405,
-        )
-
     try:
         patient = _resolve_patient_flexible(patient_id)
         if not patient:
@@ -2548,6 +2522,31 @@ def get_patient_plan_for_therapist(request, patient_id):
                 },
                 status=404,
             )
+
+        # Authorization: verify the calling therapist's clinics include the
+        # patient's clinic.  Admins bypass this check.  Skipped in test mode
+        # because test requests use a synthetic user with no DB record.
+        from django.conf import settings as _dj_settings
+
+        if not getattr(_dj_settings, "TESTING", False):
+            try:
+                from bson import ObjectId as _OID
+
+                from core.models import User as _User
+
+                _caller = _User.objects.get(pk=_OID(request.user.id))
+                _is_admin = _caller.role == "Admin" and _caller.isActive
+            except Exception:
+                _is_admin = False
+
+            if not _is_admin:
+                _caller_therapist = get_therapist_for_user(request.user)
+                _patient_clinic = getattr(patient, "clinic", None)
+                if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                    return JsonResponse(
+                        {"success": False, "error": "You are not authorised to access this patient's data."},
+                        status=403,
+                    )
 
         try:
             plan = RehabilitationPlan.objects.get(patientId=patient)
@@ -2742,7 +2741,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         )
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def remove_intervention_from_patient(request):
     """
@@ -2771,16 +2770,6 @@ def remove_intervention_from_patient(request):
         "details": "Exception text"
     }
     """
-    if request.method != "POST":
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Method not allowed",
-                "message": "This endpoint only supports POST.",
-            },
-            status=405,
-        )
-
     try:
         data = json.loads(request.body or "{}")
     except Exception:
@@ -2893,7 +2882,7 @@ def remove_intervention_from_patient(request):
         )
 
 
-@csrf_exempt
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def initial_patient_questionaire(request, patient_id):
     """
@@ -3009,15 +2998,13 @@ def initial_patient_questionaire(request, patient_id):
     )
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patient_healthstatus_history(request, patient_id):
     """
     GET /api/patients/healthstatus-history/<patient_id>/
     Returns all non-intervention (Healthstatus) feedbacks over time.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
@@ -3092,7 +3079,7 @@ def _iso(dt):
     return dt.isoformat()
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_combined_health_data(request, patient_id):
     try:
@@ -3418,11 +3405,9 @@ def get_combined_health_data(request, patient_id):
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_manual_vitals(request, patient_id: str):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # Resolve patient
     try:
@@ -3595,15 +3580,13 @@ def _resolve_patient(patient_id: str):
             return None
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def vitals_exists_for_day(request, patient_id: str):
     """
     GET /api/patients/vitals/exists/<patient_id>/?date=YYYY-MM-DD
     Returns {"exists": true|false}
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     day = _parse_date_forgiving(request.GET.get("date"))
     if not isinstance(day, datetime.date):
@@ -3640,7 +3623,7 @@ def vitals_exists_for_day(request, patient_id: str):
     return JsonResponse({"exists": bool(exists)}, status=200)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def log_intervention_view(request, patient_id: str):
     """
@@ -3648,8 +3631,6 @@ def log_intervention_view(request, patient_id: str):
     Records how long a patient spent viewing an intervention detail page.
     Body: { intervention_id, date, seconds_viewed }
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
         body = json.loads(request.body or "{}")
