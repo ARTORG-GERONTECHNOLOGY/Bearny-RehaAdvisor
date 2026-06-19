@@ -77,10 +77,11 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, PasswordAttempt, Patient, Therapist, User
+from core.permissions import IsAdmin
 from utils.utils import (
     check_rate_limit,
     convert_to_serializable,
@@ -675,12 +676,9 @@ def reset_patient_password(request, patient_id):
     return JsonResponse({"message": "Password reset successfully"}, status=200)
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET"])
+@permission_classes([IsAdmin])
 def get_pending_users(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         pending_users = User.objects(isActive=False)
         result = []
@@ -749,12 +747,9 @@ def get_pending_users(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["POST"])
+@permission_classes([IsAdmin])
 def accept_user(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
         user_id = data.get("userId")
@@ -791,12 +786,9 @@ def accept_user(request):
         return JsonResponse({"error": "An internal error occurred."}, status=500)
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["POST"])
+@permission_classes([IsAdmin])
 def decline_user(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         data = json.loads(request.body or "{}")
         user_id = data.get("userId")
