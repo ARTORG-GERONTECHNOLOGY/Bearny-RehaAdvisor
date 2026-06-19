@@ -37,7 +37,7 @@ To provide therapists, researchers, and healthcare administrators with a unified
 To empower patients, therapists, and researchers through intelligent, accessible, data-driven rehabilitation that breaks geographical barriers and improves health outcomes for gerontechnology populations.
 
 ### Mission
-Provide an intuitive, secure, and scientifically-validated tele-rehabilitation platform that enables:
+Provide an intuitive, secure, and scientifically-validated digital platform that enables:
 - **Patients**: Easy access to personalized therapy with progress tracking
 - **Therapists**: Efficient management of multiple patients with data insights
 - **Researchers**: Rich datasets for evidence-based therapy optimization
