@@ -28,9 +28,7 @@ import zipfile
 from datetime import date
 
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 from core.models import (
     FitbitData,
@@ -43,6 +41,7 @@ from core.models import (
     PatientVitals,
     RehabilitationPlan,
 )
+from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -566,8 +565,8 @@ def _csv_activity_logs(patient_map):
 # ---------------------------------------------------------------------------
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET"])
+@permission_classes([IsAdmin])
 def admin_export_patients(request):
     """
     GET /api/admin/export/patients/?clinics=all
@@ -575,9 +574,6 @@ def admin_export_patients(request):
 
     Returns a ZIP attachment containing one CSV per data type.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         clinics_param = (request.GET.get("clinics") or "all").strip()
 
@@ -633,17 +629,14 @@ def admin_export_patients(request):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
-@csrf_exempt
-@permission_classes([IsAuthenticated])
+@api_view(["GET"])
+@permission_classes([IsAdmin])
 def admin_export_clinics(request):
     """
     GET /api/admin/export/clinics/
     Returns distinct clinic names present in the Patient collection.
     Used by the frontend to populate the clinic-filter checkboxes.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
     try:
         clinics = sorted({(getattr(p, "clinic", "") or "").strip() for p in Patient.objects.only("clinic")} - {""})
         return JsonResponse({"clinics": clinics}, status=200)
