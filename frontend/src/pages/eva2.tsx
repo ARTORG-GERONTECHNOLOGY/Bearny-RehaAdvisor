@@ -129,6 +129,13 @@ const extFromMime = (mime: string) => {
   return 'webm';
 };
 
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent;
+  if (/tablet|ipad/i.test(ua)) return 'Tablet';
+  if (/mobile|android|iphone|ipod|blackberry|windows phone/i.test(ua)) return 'Mobile';
+  return 'Desktop';
+};
+
 const pickRecorderMime = () => {
   if (typeof MediaRecorder === 'undefined') return '';
   // Keep only webm/mp4 (no ogg)
@@ -590,6 +597,7 @@ export default function HealthSlider() {
     fd.append('questionText', payload.questionText);
     fd.append('answerValue', String(payload.answerValue));
     fd.append('answeredAt', new Date().toISOString());
+    fd.append('deviceType', getDeviceType());
 
     if (payload.audio) {
       const mime = payload.audio.type || mimeRef.current || '';

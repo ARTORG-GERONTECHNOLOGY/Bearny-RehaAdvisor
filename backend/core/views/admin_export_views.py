@@ -242,6 +242,7 @@ def _csv_intervention_logs(patient_map):
         "intervention_title",
         "date",
         "status",
+        "assistance",
         "comments",
         "created_at",
     ]
@@ -265,6 +266,7 @@ def _csv_intervention_logs(patient_map):
                 "intervention_title": title,
                 "date": _fmt_date(getattr(log, "date", None)),
                 "status": _join(getattr(log, "status", None)),
+                "assistance": getattr(log, "assistance", "") or "",
                 "comments": getattr(log, "comments", "") or "",
                 "created_at": _fmt_datetime(getattr(log, "createdAt", None)),
             }
@@ -279,6 +281,7 @@ def _csv_intervention_feedback(patient_map):
         "patient_code",
         "intervention_external_id",
         "log_date",
+        "assistance",
         "feedback_date",
         "question_key",
         "answer_keys",
@@ -296,6 +299,7 @@ def _csv_intervention_feedback(patient_map):
         if not pt:
             continue
         ext_id, _ = _intervention_info(getattr(log, "interventionId", None))
+        assistance = getattr(log, "assistance", "") or ""
         for entry in getattr(log, "feedback", None) or []:
             rows.append(
                 {
@@ -303,6 +307,7 @@ def _csv_intervention_feedback(patient_map):
                     "patient_code": getattr(pt, "patient_code", "") or "",
                     "intervention_external_id": ext_id,
                     "log_date": _fmt_date(getattr(log, "date", None)),
+                    "assistance": assistance,
                     "feedback_date": _fmt_date(getattr(entry, "date", None)),
                     "question_key": _question_key(entry),
                     "answer_keys": _answer_keys(entry),
@@ -535,6 +540,7 @@ def _csv_activity_logs(patient_map):
         "action",
         "timestamp",
         "actor_role",
+        "device_type",
         "details",
     ]
     rows = []
@@ -554,6 +560,7 @@ def _csv_activity_logs(patient_map):
                 "action": getattr(log, "action", "") or "",
                 "timestamp": _fmt_datetime(getattr(log, "timestamp", None)),
                 "actor_role": getattr(log, "actor_role", "") or "",
+                "device_type": getattr(log, "device_type", "") or "",
                 "details": getattr(log, "details", "") or "",
             }
         )

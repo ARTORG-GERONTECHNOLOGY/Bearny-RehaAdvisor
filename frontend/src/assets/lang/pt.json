@@ -1354,5 +1354,9 @@
   "Microphone access denied.": "Acesso ao microfone negado.",
   "Text Feedback": "Comentário de texto",
   "Time": "Hora",
-  "Event": "Evento"
+  "Event": "",
+  "assistanceQuestion": "Está a fazer os seus exercícios hoje sozinho/a ou com ajuda?",
+  "assistanceDescription": "A sua resposta ajuda-nos a compreender o seu progresso.",
+  "assistanceAlone": "Sozinho/a",
+  "assistanceWithHelp": "Com ajuda"
 }
