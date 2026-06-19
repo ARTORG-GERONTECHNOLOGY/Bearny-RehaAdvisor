@@ -533,6 +533,28 @@ validate_required_env_vars()
 
 ---
 
+## Operating Mode
+
+Two env vars control which features are active at runtime. Set them in the `environment:` block of the Django service in your Compose file (not in `.env`) so the mode is visible in the Compose diff.
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_MODE` | `normal` | `dev` — all features on; `normal` — manual creation on, REDCap hidden; `study` — REDCap only, PII fields hidden |
+| `STUDY_REDCAP_VISIBLE` | `true` | In `study` mode only: set to `false` to also hide the REDCap tab in the patient profile popup |
+
+Current defaults per stack:
+
+| Stack | `APP_MODE` |
+|---|---|
+| `docker-compose.dev.yml` | `dev` |
+| `docker-compose.prod.reha-advisor.yml` | `study` |
+
+The frontend fetches the active mode from `GET /api/app-mode/` at startup — no rebuild needed when the env var changes, just restart the django container.
+
+See [Study Integration Guide](./15-STUDY_INTEGRATION.md) for the full feature matrix.
+
+---
+
 ## Certificate Renewal
 
 Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` to activate.

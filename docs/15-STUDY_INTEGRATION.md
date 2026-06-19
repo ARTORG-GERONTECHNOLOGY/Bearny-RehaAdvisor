@@ -34,11 +34,32 @@ Set these in the `.env` file loaded by your Docker Compose stack (`.env.dev` for
 | `REDCAP_API_URL` | Yes | `https://redcap.unibe.ch/api/` | Full URL to the REDCap API endpoint, including the trailing slash. All projects share this URL. |
 | `REDCAP_TOKEN_<PROJECT>` | Yes, per project | `REDCAP_TOKEN_COPAIN=abc123` | API token for the named project. Replace `<PROJECT>` with the uppercase project name exactly as it appears in `config.json` (e.g. `COPAIN`, `COMPASS`). Add one variable per project. |
 
-### Optional compliance mode
+### Operating mode
 
-| Variable | Default | Example | Description |
+The platform supports three named modes that control which features are available. Set `APP_MODE` in the Django container's `environment:` block in your Compose file (not in `.env`, so the value is visible in the compose diff and doesn't require a secret).
+
+| Variable | Default | Values | Description |
 |---|---|---|---|
-| `ENFORCE_REDCAP_ONLY_PATIENT_CREATION` | *(unset / off)* | `1` | When set to `1`, `true`, or `yes`, the patient registration endpoint rejects any account creation that does not come through the REDCap import flow. Enable this for study deployments where no manual patient creation should be allowed. |
+| `APP_MODE` | `normal` | `dev` \| `normal` \| `study` | Controls which features are active. See mode table below. |
+| `STUDY_REDCAP_VISIBLE` | `true` | `true` \| `false` | In `study` mode, set to `false` to also hide the REDCap data tab in the patient profile popup. Has no effect in other modes. |
+
+**Mode comparison:**
+
+| Feature | `dev` | `normal` | `study` |
+|---|---|---|---|
+| Manual patient creation (Register) | ✓ | ✓ | Blocked (403 from API + button hidden) |
+| REDCap import | ✓ | Hidden | ✓ |
+| REDCap tab in patient profile | ✓ | Hidden | ✓ (unless `STUDY_REDCAP_VISIBLE=false`) |
+| PII fields in patient profile (name, email, phone, age) | Visible | Visible | **Hidden** |
+| Characteristics tab | ✓ | ✓ | ✓ (always shown) |
+
+The active mode is readable at `GET /api/app-mode/` (no auth required) — the frontend fetches this at startup so mode changes take effect after a Django container restart without a frontend rebuild.
+
+**Deployment defaults:**
+- Production (`docker-compose.prod.reha-advisor.yml`): `APP_MODE=study`, `STUDY_REDCAP_VISIBLE=true`
+- Development (`docker-compose.dev.yml`): `APP_MODE=dev`
+
+> **Legacy flag**: `ENFORCE_REDCAP_ONLY_PATIENT_CREATION` (an older single-purpose flag that blocked only manual registration) is superseded by `APP_MODE=study`, which additionally hides PII fields and REDCap UI elements. Do not set both.
 
 ### Wearables sync event names
 
