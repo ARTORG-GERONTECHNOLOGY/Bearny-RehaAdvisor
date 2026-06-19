@@ -386,3 +386,228 @@ def test_fix17_cors_allow_all_origins_is_not_true():
     assert not getattr(
         _s, "CORS_ALLOW_ALL_ORIGINS", False
     ), "CORS_ALLOW_ALL_ORIGINS must not be True in any environment"
+
+
+# ===========================================================================
+# Fix FP1 — User enumeration via forgot-password endpoint
+# ===========================================================================
+
+
+def test_fixfp1_nonexistent_email_returns_200_not_404():
+    """
+    POST /api/auth/forgot-password/ with an email that does not exist in the
+    database must return HTTP 200 — not 404 — so an attacker cannot probe
+    which email addresses are registered.
+    """
+    from unittest.mock import patch
+
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.auth_views import reset_password_view
+
+    user = _make_user("fp1_caller", password="Pass1!")
+
+    factory = APIRequestFactory()
+    request = factory.post(
+        "/api/auth/forgot-password/",
+        data=json.dumps({"email": "ghost-nobody@e2e.invalid"}),
+        content_type="application/json",
+    )
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(user.id)))
+
+    with patch("core.views.auth_views.send_mail"):
+        resp = reset_password_view(request)
+
+    assert resp.status_code == 200, (
+        "Non-existent email must return 200, not 404, to prevent email enumeration"
+    )
+
+
+def test_fixfp1_existing_and_nonexistent_email_return_identical_body():
+    """
+    The response body for an unknown email and a known email must be identical
+    so the caller cannot distinguish between the two cases.
+    """
+    from unittest.mock import patch
+
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.auth_views import reset_password_view
+
+    caller = _make_user("fp1_caller2", password="Pass1!")
+    _make_user("fp1_target", password="Pass1!")
+    target_email = "fp1_target@example.com"
+
+    factory = APIRequestFactory()
+
+    def _call(email):
+        req = factory.post(
+            "/api/auth/forgot-password/",
+            data=json.dumps({"email": email}),
+            content_type="application/json",
+        )
+        force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(caller.id)))
+        with patch("core.views.auth_views.send_mail"):
+            return reset_password_view(req)
+
+    resp_unknown = _call("ghost-nobody2@e2e.invalid")
+    resp_known = _call(target_email)
+
+    assert resp_unknown.status_code == 200
+    assert resp_known.status_code == 200
+    assert json.loads(resp_unknown.content) == json.loads(resp_known.content), (
+        "Response body must be identical for existing and non-existing emails"
+    )
+
+
+# ===========================================================================
+# Fix FP2 — get_patients_by_therapist authorization gap
+# ===========================================================================
+
+
+def test_fixfp2_therapist_b_cannot_access_therapist_a_patient_list():
+    """
+    GET /api/therapists/<a_id>/patients/ must return 403 when called by
+    Therapist B — any authenticated user could previously read any therapist's
+    patient list through this endpoint (the sister endpoint list_therapist_patients
+    was fixed in Fix 6, but get_patients_by_therapist was missed).
+    """
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.therapist_views import get_patients_by_therapist
+
+    th_user_a, _ = _make_therapist("th_a_fp2", ["Inselspital"])
+    th_user_b, _ = _make_therapist("th_b_fp2", ["Bern"])
+
+    factory = APIRequestFactory()
+    request = factory.get(f"/api/therapists/{th_user_a.id}/patients/")
+    force_authenticate(
+        request,
+        user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id), role="Therapist"),
+    )
+
+    _ds.TESTING = False
+    try:
+        resp = get_patients_by_therapist(request, therapist_id=str(th_user_a.id))
+    finally:
+        _ds.TESTING = True
+
+    assert resp.status_code == 403, (
+        "Therapist B must not be able to read Therapist A's patient list"
+    )
+
+
+def test_fixfp2_therapist_can_access_own_patient_list():
+    """
+    A therapist accessing their own list must not be rejected by the auth guard.
+
+    Note: get_patients_by_therapist is shadowed by list_therapist_patients in
+    urls.py (same path registered first).  list_therapist_patients has its own
+    more thorough tests in test_fix6_*.  Here we only validate the auth guard
+    lets the owner through — the Patient query is mocked so the view reaches 200.
+    """
+    from unittest.mock import patch
+
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.therapist_views import get_patients_by_therapist
+
+    th_user, _ = _make_therapist("th_self_fp2", ["Inselspital"])
+
+    factory = APIRequestFactory()
+    request = factory.get(f"/api/therapists/{th_user.id}/patients/")
+    force_authenticate(
+        request,
+        user=SimpleNamespace(is_authenticated=True, id=str(th_user.id), role="Therapist"),
+    )
+
+    _ds.TESTING = False
+    try:
+        with patch("core.views.therapist_views.Patient") as mock_patient:
+            mock_patient.objects.filter.return_value = []
+            resp = get_patients_by_therapist(request, therapist_id=str(th_user.id))
+    finally:
+        _ds.TESTING = True
+
+    assert resp.status_code == 200
+
+
+def test_fixfp2_admin_can_access_any_therapist_patient_list():
+    """Admin can reach any therapist's list — auth guard must pass them through."""
+    from unittest.mock import patch
+
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.therapist_views import get_patients_by_therapist
+
+    th_user, _ = _make_therapist("th_target_fp2", ["Inselspital"])
+    admin_user = _make_user("admin_fp2", role="Admin")
+
+    factory = APIRequestFactory()
+    request = factory.get(f"/api/therapists/{th_user.id}/patients/")
+    force_authenticate(
+        request,
+        user=SimpleNamespace(is_authenticated=True, id=str(admin_user.id), role="Admin"),
+    )
+
+    _ds.TESTING = False
+    try:
+        with patch("core.views.therapist_views.Patient") as mock_patient:
+            mock_patient.objects.filter.return_value = []
+            resp = get_patients_by_therapist(request, therapist_id=str(th_user.id))
+    finally:
+        _ds.TESTING = True
+
+    assert resp.status_code == 200
+
+
+# ===========================================================================
+# Fix FP3 — Hardcoded production IP in backend config.json
+# ===========================================================================
+
+
+def test_fixfp3_backend_config_has_no_hardcoded_ip():
+    """
+    backend/config.json previously contained 'URL': 'http://159.100.246.89:8000/api'.
+    The key has been removed entirely.  The IP must never reappear in this file.
+    """
+    # Inside the django container, ./backend is mounted as /app, so config.json
+    # sits at parents[2] (/app/config.json).  On the host, it is at parents[3]/backend/.
+    f = Path(__file__).resolve()
+    config_path = (f.parents[2] / "config.json") if (f.parents[2] / "config.json").exists() \
+        else (f.parents[3] / "backend" / "config.json")
+    raw = config_path.read_text()
+    data = json.loads(raw)
+
+    assert "URL" not in data, "The 'URL' key must be removed from backend/config.json"
+    assert "159.100.246.89" not in raw, (
+        "Production server IP must not appear in backend/config.json"
+    )
+
+
+# ===========================================================================
+# Fix FP5 — Missing @api_view on three user_views.py endpoints
+# ===========================================================================
+
+
+def test_fixfp5_user_views_carry_api_view_decorator():
+    """
+    change_password, user_profile_view, and reset_patient_password previously
+    used @csrf_exempt + @permission_classes without @api_view, so DRF's auth
+    machinery was silently bypassed.  @api_view wraps each function and attaches
+    a .cls attribute (WrappedAPIView) — its presence proves DRF now enforces auth.
+    """
+    from core.views.user_views import (
+        change_password,
+        reset_patient_password,
+        user_profile_view,
+    )
+
+    for view_fn in (change_password, user_profile_view, reset_patient_password):
+        assert hasattr(view_fn, "cls"), (
+            f"{view_fn.__name__} must be wrapped with @api_view "
+            "so DRF enforces authentication"
+        )

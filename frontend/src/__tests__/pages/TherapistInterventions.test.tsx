@@ -241,7 +241,7 @@ const mockInterventions = [
     ],
     link: '',
     media_file:
-      'http://159.100.246.89:8000/media/videos/20241212065508_istockphoto-1856343710-640_adpp_is.mp4',
+      '/media/videos/20241212065508_istockphoto-1856343710-640_adpp_is.mp4',
     preview_img: '',
     duration: null,
     benefitFor: [],
