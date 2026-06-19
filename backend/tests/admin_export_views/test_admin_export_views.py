@@ -741,3 +741,94 @@ def test_clinics_empty_when_no_patients(mongo_mock):
 
 def test_clinics_method_not_allowed(mongo_mock):
     assert client.post(CLINICS_URL, {}).status_code == 405
+
+
+# ===========================================================================
+# Audit log — ADMIN_EXPORT Logs entry
+# ===========================================================================
+
+AUDIT_URL = "/api/admin/export/audit/"
+
+
+def test_export_creates_audit_log_entry(mongo_mock):
+    """A successful export must write a Logs document with action=ADMIN_EXPORT."""
+    client.get(EXPORT_URL + "?clinics=all")
+    assert Logs.objects(action="ADMIN_EXPORT").count() == 1
+
+
+def test_export_audit_log_contains_clinics_and_rows(mongo_mock):
+    """The details field must capture the clinics filter and patient count."""
+    therapist = _make_therapist()
+    _make_patient(therapist, "P001", clinic="Inselspital")
+    client.get(EXPORT_URL + "?clinics=Inselspital")
+    log = Logs.objects(action="ADMIN_EXPORT").first()
+    assert log is not None
+    assert "clinics=Inselspital" in (log.details or "")
+    assert "rows=1" in (log.details or "")
+
+
+def test_export_each_download_creates_one_log_entry(mongo_mock):
+    """Each download is logged separately."""
+    client.get(EXPORT_URL + "?clinics=all")
+    client.get(EXPORT_URL + "?clinics=all")
+    assert Logs.objects(action="ADMIN_EXPORT").count() == 2
+
+
+def test_audit_endpoint_returns_export_history(mongo_mock):
+    """GET /api/admin/export/audit/ returns entries for logged exports."""
+    client.get(EXPORT_URL + "?clinics=all")
+    resp = client.get(AUDIT_URL)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    entry = data["entries"][0]
+    assert "timestamp" in entry
+    assert entry["user_email"] == "admin@test.example.com"
+    assert "clinics=all" in entry["details"]
+
+
+def test_audit_endpoint_requires_admin(mongo_mock):
+    """The audit endpoint must be inaccessible to non-admin users."""
+    non_admin = User(
+        username="plain",
+        email="plain@example.com",
+        role="Therapist",
+        isActive=True,
+        createdAt=datetime.now(),
+    )
+    non_admin.pwdhash = "x"
+    non_admin.save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(non_admin.id)))
+    assert c.get(AUDIT_URL).status_code == 403
+
+
+# ===========================================================================
+# ApiAuditMiddleware
+# ===========================================================================
+
+
+def test_api_audit_middleware_skips_in_test_mode(mongo_mock):
+    """In TESTING mode ApiAuditMiddleware emits no log lines (JWT not available),
+    but the export and its MongoDB audit entry must still complete normally."""
+    import logging
+
+    records = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    handler = _Capture()
+    log = logging.getLogger("core.api_audit")
+    log.addHandler(handler)
+    try:
+        resp = client.get(EXPORT_URL + "?clinics=all")
+    finally:
+        log.removeHandler(handler)
+
+    assert resp.status_code == 200
+    # Middleware is skipped in TESTING mode — no request-level audit lines expected.
+    assert len(records) == 0
+    # The per-endpoint MongoDB audit entry is still created by the view itself.
+    assert Logs.objects(action="ADMIN_EXPORT").count() == 1
