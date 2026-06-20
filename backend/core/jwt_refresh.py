@@ -1,5 +1,6 @@
 """Mongo-aware JWT refresh serializer/view."""
 
+from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
@@ -16,9 +17,20 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
     via ``get_user_model().objects.get(id=...)``, which crashes for our Mongo
     ObjectId strings. We instead resolve the token subject against the
     MongoEngine ``core.models.User`` collection.
+
+    Also accepts the refresh token from the ``refresh_token`` httpOnly cookie
+    so clients that use cookie-based auth don't need to send the token in the
+    request body.
     """
 
     def validate(self, attrs):
+        # Accept refresh token from httpOnly cookie when not supplied in body
+        if not attrs.get("refresh"):
+            request = self.context.get("request")
+            cookie_refresh = (request.COOKIES.get("refresh_token", "") if request else "")
+            if cookie_refresh:
+                attrs = {**attrs, "refresh": cookie_refresh}
+
         refresh = self.token_class(attrs["refresh"])
 
         user_id = refresh.payload.get(api_settings.USER_ID_CLAIM, None)
@@ -52,3 +64,19 @@ class MongoTokenRefreshView(TokenRefreshView):
     """Use the Mongo-aware refresh serializer for /api/auth/token/refresh/."""
 
     serializer_class = MongoTokenRefreshSerializer
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if response.status_code == 200:
+            secure = not getattr(settings, "DEBUG", False)
+            if "access" in response.data:
+                response.set_cookie(
+                    "access_token", response.data["access"],
+                    httponly=True, secure=secure, samesite="Strict", max_age=300,
+                )
+            if "refresh" in response.data:
+                response.set_cookie(
+                    "refresh_token", response.data["refresh"],
+                    httponly=True, secure=secure, samesite="Strict", max_age=86400,
+                )
+        return response

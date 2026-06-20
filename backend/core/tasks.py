@@ -3,9 +3,11 @@ import logging
 import os
 import subprocess
 import time
+from datetime import timedelta
 
 from celery import shared_task
 from django.core.management import call_command
+from django.utils import timezone
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
@@ -20,6 +22,55 @@ from core.models import (
     Therapist,
     User,
 )
+
+_LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "365"))
+_AUDIT_EXPORT_RETENTION_DAYS = int(os.getenv("AUDIT_EXPORT_RETENTION_DAYS", "1825"))  # 5 years
+
+
+@shared_task(
+    name="core.tasks.prune_old_logs",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=3,
+)
+def prune_old_logs():
+    """
+    Delete audit log entries older than LOG_RETENTION_DAYS (default 365).
+
+    ADMIN_EXPORT entries are kept for AUDIT_EXPORT_RETENTION_DAYS (default 5 years)
+    because they document who downloaded patient data and must be retained for
+    compliance purposes.
+
+    Set LOG_RETENTION_DAYS / AUDIT_EXPORT_RETENTION_DAYS in the environment to
+    override. Set LOG_RETENTION_DAYS=0 to disable pruning.
+    """
+    if _LOG_RETENTION_DAYS <= 0:
+        logger.info("[prune_old_logs] disabled (LOG_RETENTION_DAYS=0)")
+        return {"deleted": 0}
+
+    cutoff = timezone.now() - timedelta(days=_LOG_RETENTION_DAYS)
+    export_cutoff = timezone.now() - timedelta(days=_AUDIT_EXPORT_RETENTION_DAYS)
+
+    # Regular activity logs older than retention window
+    regular = Logs.objects(
+        timestamp__lt=cutoff,
+        action__nin=["ADMIN_EXPORT"],
+    ).delete()
+
+    # Admin export audit trail — kept longer for compliance
+    exports = Logs.objects(
+        action="ADMIN_EXPORT",
+        timestamp__lt=export_cutoff,
+    ).delete()
+
+    logger.info(
+        "[prune_old_logs] deleted %d activity logs (cutoff=%s), %d export audit logs (cutoff=%s)",
+        regular,
+        cutoff.date(),
+        exports,
+        export_cutoff.date(),
+    )
+    return {"deleted_activity": regular, "deleted_exports": exports}
 
 
 # If your PeriodicTask points to "core.tasks.run_delete_expired_videos"

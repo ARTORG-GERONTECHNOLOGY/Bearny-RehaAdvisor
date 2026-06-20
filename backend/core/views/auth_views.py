@@ -3,16 +3,19 @@ import logging
 import os
 import random
 import string
+import uuid
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from bson import ObjectId
 from django.conf import settings
+from django.conf import settings as _django_settings
 from django.contrib.auth.hashers import check_password, make_password
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -20,24 +23,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.tasks import fetch_fitbit_data_async
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-
-logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
-email_user = settings.EMAIL_HOST_USER
-
-
-def _parse_device_type(ua: str) -> str:
-    ua_lower = ua.lower()
-    if any(x in ua_lower for x in ["tablet", "ipad"]):
-        return "Tablet"
-    if any(x in ua_lower for x in ["mobile", "android", "iphone", "ipod", "blackberry", "windows phone"]):
-        return "Mobile"
-    return "Desktop"
-
-
-import uuid
-
-from django.core.mail import EmailMultiAlternatives
-from django.utils.html import strip_tags
 
 from core.models import (
     InterventionAssignment,
@@ -50,6 +35,13 @@ from core.models import (
     Therapist,
     User,
 )
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
+from mongoengine.queryset.visitor import Q
+
+from utils.config import config
+from utils.scheduling import _expand_dates
 from utils.utils import (
     check_rate_limit,
     check_verify_rate_limit,
@@ -65,13 +57,33 @@ from utils.utils import (
 )
 
 logger = logging.getLogger(__name__)
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
-from mongoengine.queryset.visitor import Q
+email_user = settings.EMAIL_HOST_USER
 
-from utils.config import config
-from utils.scheduling import _expand_dates  # already in your project
+
+def _parse_device_type(ua: str) -> str:
+    ua_lower = ua.lower()
+    if any(x in ua_lower for x in ["tablet", "ipad"]):
+        return "Tablet"
+    if any(x in ua_lower for x in ["mobile", "android", "iphone", "ipod", "blackberry", "windows phone"]):
+        return "Mobile"
+    return "Desktop"
+
+
+def _set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
+    secure = not getattr(_django_settings, "DEBUG", False)
+    response.set_cookie(
+        "access_token", access_token,
+        httponly=True, secure=secure, samesite="Strict", max_age=300,
+    )
+    response.set_cookie(
+        "refresh_token", refresh_token,
+        httponly=True, secure=secure, samesite="Strict", max_age=86400,
+    )
+
+
+def _clear_auth_cookies(response) -> None:
+    response.delete_cookie("access_token", samesite="Strict")
+    response.delete_cookie("refresh_token", samesite="Strict")
 
 
 def _as_list_of_blocks(maybe_blocks):
@@ -415,7 +427,7 @@ def login_view(request):
         refresh["role"] = user.role
         refresh["username"] = getattr(user, "username", "") or ""
 
-        return JsonResponse(
+        _resp = JsonResponse(
             {
                 "user_type": user.role,
                 "id": user_id_str,
@@ -426,6 +438,8 @@ def login_view(request):
             },
             status=200,
         )
+        _set_auth_cookies(_resp, str(refresh.access_token), str(refresh))
+        return _resp
 
     except Exception as e:
         logger.exception(f"[LOGIN][{request_id}] Internal server error: {e}")
@@ -449,7 +463,9 @@ def logout_view(request):
 
         Logs.objects.create(userId=user, action="LOGOUT", actor_role=user.role)
 
-        return JsonResponse({"message": "Logout successful"}, status=200)
+        _resp = JsonResponse({"message": "Logout successful"}, status=200)
+        _clear_auth_cookies(_resp)
+        return _resp
 
     except User.DoesNotExist:
         logger.warning("Logout attempt for non-existent user.")
@@ -1075,7 +1091,7 @@ def verify_code_view(request):
             device_type=_parse_device_type(_ua),
         )
 
-        return JsonResponse(
+        _resp = JsonResponse(
             {
                 "message": "Verification successful",
                 "access_token": str(refresh.access_token),
@@ -1083,6 +1099,8 @@ def verify_code_view(request):
             },
             status=200,
         )
+        _set_auth_cookies(_resp, str(refresh.access_token), str(refresh))
+        return _resp
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
