@@ -27,7 +27,7 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
         # Accept refresh token from httpOnly cookie when not supplied in body
         if not attrs.get("refresh"):
             request = self.context.get("request")
-            cookie_refresh = (request.COOKIES.get("refresh_token", "") if request else "")
+            cookie_refresh = request.COOKIES.get("refresh_token", "") if request else ""
             if cookie_refresh:
                 attrs = {**attrs, "refresh": cookie_refresh}
 
@@ -71,12 +71,20 @@ class MongoTokenRefreshView(TokenRefreshView):
             secure = not getattr(settings, "DEBUG", False)
             if "access" in response.data:
                 response.set_cookie(
-                    "access_token", response.data["access"],
-                    httponly=True, secure=secure, samesite="Strict", max_age=300,
+                    "access_token",
+                    response.data["access"],
+                    httponly=True,
+                    secure=secure,
+                    samesite="Strict",
+                    max_age=300,
                 )
             if "refresh" in response.data:
                 response.set_cookie(
-                    "refresh_token", response.data["refresh"],
-                    httponly=True, secure=secure, samesite="Strict", max_age=86400,
+                    "refresh_token",
+                    response.data["refresh"],
+                    httponly=True,
+                    secure=secure,
+                    samesite="Strict",
+                    max_age=86400,
                 )
         return response
