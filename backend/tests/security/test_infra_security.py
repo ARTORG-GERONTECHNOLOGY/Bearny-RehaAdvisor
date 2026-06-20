@@ -239,8 +239,8 @@ def test_prune_deletes_old_activity_logs(mongo_mock):
     from core.tasks import prune_old_logs
 
     user = _make_user("prune1@example.com", "pass1234")
-    _make_log(action="LOGIN", age_days=400, user=user)   # old — should be pruned
-    _make_log(action="LOGIN", age_days=10, user=user)    # recent — must survive
+    _make_log(action="LOGIN", age_days=400, user=user)  # old — should be pruned
+    _make_log(action="LOGIN", age_days=10, user=user)  # recent — must survive
 
     result = prune_old_logs()
 
@@ -268,7 +268,7 @@ def test_prune_keeps_admin_export_within_compliance_window(mongo_mock):
     from core.tasks import prune_old_logs
 
     user = _make_user("prune3@example.com", "pass1234")
-    _make_log(action="ADMIN_EXPORT", age_days=400, user=user)   # beyond 365, but < 5 years
+    _make_log(action="ADMIN_EXPORT", age_days=400, user=user)  # beyond 365, but < 5 years
 
     result = prune_old_logs()
 
@@ -281,7 +281,7 @@ def test_prune_deletes_very_old_admin_export_logs(mongo_mock):
     from core.tasks import prune_old_logs
 
     user = _make_user("prune4@example.com", "pass1234")
-    _make_log(action="ADMIN_EXPORT", age_days=2000, user=user)   # ~5.5 years
+    _make_log(action="ADMIN_EXPORT", age_days=2000, user=user)  # ~5.5 years
 
     result = prune_old_logs()
 
@@ -329,8 +329,7 @@ def test_nginx_conf_has_content_security_policy():
     """prod nginx config must contain a Content-Security-Policy header directive."""
     text = _NGINX_CONF.read_text()
     assert "Content-Security-Policy" in text, (
-        "Content-Security-Policy header missing from prod nginx config. "
-        "XSS mitigation relies on this header."
+        "Content-Security-Policy header missing from prod nginx config. " "XSS mitigation relies on this header."
     )
 
 
@@ -360,6 +359,5 @@ def test_prune_old_logs_in_beat_schedule(mongo_mock):
     schedule = getattr(settings, "CELERY_BEAT_SCHEDULE", {})
     task_names = [entry.get("task") for entry in schedule.values()]
     assert "core.tasks.prune_old_logs" in task_names, (
-        "prune_old_logs not found in CELERY_BEAT_SCHEDULE — "
-        "log retention will never run automatically."
+        "prune_old_logs not found in CELERY_BEAT_SCHEDULE — " "log retention will never run automatically."
     )
