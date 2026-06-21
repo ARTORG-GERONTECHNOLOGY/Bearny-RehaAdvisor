@@ -16,10 +16,10 @@ Complete guide to setting up GitHub Actions workflows for RehaAdvisor production
 
 ```
 STAGING_HOST=your-staging-server.com
-STAGING_USERNAME=deploy
+STAGING_USERNAME=your-deploy-username
 STAGING_SSH_KEY=<your-private-key>
-PROD_HOST=reha-advisor.ch
-PROD_USERNAME=deploy
+PROD_HOST=your-production-server.com
+PROD_USERNAME=your-deploy-username
 PROD_SSH_KEY=<your-private-key>
 ```
 
@@ -43,7 +43,7 @@ sudo chown deploy:deploy /opt/reha-advisor
 
 # 4. Clone repository
 cd /opt/reha-advisor
-git clone https://github.com/ARTORG-GERONTECHNOLOGY/RehaAdvisor.git .
+git clone https://github.com/your-org/your-repo.git .
 
 # 5. Setup Docker access for deploy user
 sudo usermod -aG docker deploy
@@ -96,7 +96,7 @@ cat reha-advisor-deploy
 cat reha-advisor-deploy.pub
 
 # SSH into server and add to authorized_keys
-ssh deploy@your-server.com
+ssh your-deploy-username@your-server.com
 mkdir -p ~/.ssh
 echo "your-public-key-content" >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
@@ -117,10 +117,10 @@ ssh -i reha-advisor-deploy deploy@your-server.com "docker ps"
 | Secret | Value | Example |
 |--------|-------|---------|
 | `STAGING_HOST` | Staging server hostname/IP | `staging.reha-advisor.ch` |
-| `STAGING_USERNAME` | SSH username | `deploy` |
+| `STAGING_USERNAME` | SSH username | `your-deploy-username` |
 | `STAGING_SSH_KEY` | Private SSH key (full PEM) | `-----BEGIN OPENSSH PRIVATE...` |
-| `PROD_HOST` | Production server hostname/IP | `reha-advisor.ch` |
-| `PROD_USERNAME` | SSH username | `deploy` |
+| `PROD_HOST` | Production server hostname/IP | `your-production-server.com` |
+| `PROD_USERNAME` | SSH username | `your-deploy-username` |
 | `PROD_SSH_KEY` | Private SSH key (full PEM) | `-----BEGIN OPENSSH PRIVATE...` |
 
 #### Optional Secrets
@@ -136,11 +136,11 @@ ssh -i reha-advisor-deploy deploy@your-server.com "docker ps"
 ```bash
 # Using GitHub CLI
 gh secret set STAGING_HOST -b "staging.reha-advisor.ch"
-gh secret set STAGING_USERNAME -b "deploy"
+gh secret set STAGING_USERNAME -b "your-deploy-username"
 gh secret set STAGING_SSH_KEY < reha-advisor-deploy
 
-gh secret set PROD_HOST -b "reha-advisor.ch"
-gh secret set PROD_USERNAME -b "deploy"
+gh secret set PROD_HOST -b "your-production-server.com"
+gh secret set PROD_USERNAME -b "your-deploy-username"
 gh secret set PROD_SSH_KEY < reha-advisor-deploy
 
 # Optional
@@ -246,7 +246,7 @@ gh secret set SONAR_TOKEN -b "your-sonar-token"
 Create `sonar-project.properties` in repository root:
 
 ```properties
-sonar.projectKey=ARTORG-GERONTECHNOLOGY_RehaAdvisor
+sonar.projectKey=your-org_your-repo
 sonar.organization=your-org
 
 # Frontend
@@ -371,11 +371,11 @@ Edit `.github/workflows/deploy-prod.yml`:
 **Solution:**
 ```bash
 # Verify SSH key is correct
-ssh -i reha-advisor-deploy deploy@your-server.com "echo 'SSH working'"
+ssh -i reha-advisor-deploy your-deploy-username@your-server.com "echo 'SSH working'"
 
 # Check GitHub secret has full key (including header/footer)
 # Check server authorized_keys has public key
-ssh deploy@your-server.com "cat ~/.ssh/authorized_keys"
+ssh your-deploy-username@your-server.com "cat ~/.ssh/authorized_keys"
 ```
 
 ### Deployment Hangs
@@ -385,7 +385,7 @@ ssh deploy@your-server.com "cat ~/.ssh/authorized_keys"
 **Solution:**
 ```bash
 # SSH to server and check
-ssh deploy@your-server.com
+ssh your-deploy-username@your-server.com
 docker ps  # See running containers
 docker logs django-prod  # Check service logs
 make prod_health  # Run health check
@@ -525,7 +525,7 @@ gh run view <run-id> --log
 gh auth login
 
 # Set default repo
-gh repo set-default ARTORG-GERONTECHNOLOGY/RehaAdvisor
+gh repo set-default your-org/your-repo
 ```
 
 ### Useful Commands
