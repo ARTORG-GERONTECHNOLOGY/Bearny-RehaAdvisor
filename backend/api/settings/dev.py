@@ -27,7 +27,6 @@ ALLOWED_HOSTS = [
     "django",
     "nginx",
     "dev.reha-advisor.ch",
-    "159.100.246.89",
 ]
 
 SECURE_PROXY_SSL_HEADER = (
