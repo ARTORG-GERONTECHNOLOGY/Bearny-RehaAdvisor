@@ -59,6 +59,19 @@ jest.mock('@/stores/authStore', () => ({
   },
 }));
 
+jest.mock('@/stores/appModeStore', () => ({
+  appModeStore: {
+    mode: 'normal',
+    loaded: true,
+    redcapVisible: true,
+    showManualCreate: true,
+    showRedcapImport: false,
+    showRedcapTab: false,
+    hidePiiFields: false,
+    fetchMode: jest.fn(),
+  },
+}));
+
 // Mock TherapistPatientsStore
 const mockStore = {
   patients: [],
