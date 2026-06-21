@@ -109,7 +109,6 @@ def _make_patient():
         patient_code=f"PAT-{ObjectId()}",
         name="Patient",
         first_name="Test",
-        access_word="pass",
         age="30",
         therapist=therapist,
         sex="Male",

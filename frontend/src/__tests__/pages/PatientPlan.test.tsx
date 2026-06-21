@@ -54,6 +54,7 @@ jest.mock('@/stores/patientInterventionsStore', () => {
       items: mockInterventions,
       fetchPlan: jest.fn(),
       toggleCompleted: jest.fn(),
+      setAssistanceMode: jest.fn(),
       isCompletedOn: jest.fn((rec: any, date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
         return rec.completed_dates?.includes(dateKey) || false;
@@ -84,6 +85,11 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
   default: jest.requireActual('@/__mocks__/components/Layout').default,
+}));
+
+jest.mock('@/components/PatientPage/AssistanceSheet', () => ({
+  __esModule: true,
+  default: () => null,
 }));
 
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({

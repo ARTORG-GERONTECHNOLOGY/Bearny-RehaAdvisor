@@ -15,7 +15,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,20 @@ function weekRangeLabel(date: Date) {
   return `${format(start, 'dd.MM.')} - ${format(end, 'dd.MM.')}`;
 }
 
+/**
+ * Navigate to /patient-plan while suppressing the AssistanceSheet.
+ * The sheet opens on first visit of each calendar day by checking localStorage
+ * for assistance_asked_<yyyy-MM-dd>. Setting that key before navigation
+ * prevents the full-screen overlay from blocking pointer events in tests.
+ */
+async function goToPatientPlan(page: Page) {
+  await page.evaluate(() => {
+    const key = `assistance_asked_${new Date().toISOString().slice(0, 10)}`;
+    localStorage.setItem(key, 'e2e');
+  });
+  await page.goto('/patient-plan');
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Patient plan page', () => {
@@ -66,7 +80,7 @@ test.describe('Patient plan page', () => {
         req.method() === 'GET' && req.url().includes('/patients/rehabilitation-plan/patient/')
     );
 
-    await page.goto('/patient-plan');
+    await goToPatientPlan(page);
     await expect(page).toHaveURL(/\/patient-plan(?:\/)?$/);
     await planRequestPromise;
 
@@ -76,7 +90,7 @@ test.describe('Patient plan page', () => {
 
   test('navigating to the next week updates the displayed date range', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient-plan');
+    await goToPatientPlan(page);
 
     // Capture the current week label from the page header before navigation
     const header = page.getByRole('heading').first();
@@ -91,7 +105,7 @@ test.describe('Patient plan page', () => {
 
   test('navigating to the previous week updates the displayed date range', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient-plan');
+    await goToPatientPlan(page);
 
     const header = page.getByRole('heading').first();
     await expect(header).toBeVisible();
@@ -104,7 +118,7 @@ test.describe('Patient plan page', () => {
 
   test('day-of-week filter chips change the visible day section', async ({ page }) => {
     await loginAsSeededPatient(page);
-    await page.goto('/patient-plan');
+    await goToPatientPlan(page);
 
     // "Whole Week" shows all 7 day sections; clicking "Mon" should reduce to 1.
     // The chips are rendered as ToggleGroup items.

@@ -677,7 +677,6 @@ def import_patient_from_redcap(request):
             patient_code=final_identifier,  # keep consistent with your platform
             clinic=clinic,
             project=project,  # REDCap project name (COPAIN / COMPASS) for access control
-            access_word=password,  # if you still use it
         )
 
         patient.redcap_project = project

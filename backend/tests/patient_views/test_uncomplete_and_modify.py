@@ -110,7 +110,6 @@ def setup_patient_with_plan():
         userId=patient_user,
         patient_code="PAT_UC",
         therapist=therapist,
-        access_word="pass",
     ).save()
     intervention = Intervention(
         external_id="uc_test_001",
@@ -421,7 +420,7 @@ def test_modify_intervention_from_date_no_rehab_plan(mongo_mock):
         createdAt=datetime.now(),
         isActive=True,
     ).save()
-    patient = Patient(userId=patient_user, patient_code="PAT_NP", therapist=therapist, access_word="x").save()
+    patient = Patient(userId=patient_user, patient_code="PAT_NP", therapist=therapist).save()
 
     resp = client.post(
         MODIFY_URL,

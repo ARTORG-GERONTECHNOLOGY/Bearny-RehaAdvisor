@@ -160,7 +160,7 @@ class ApiAuditMiddleware:
         audit_logger.info(
             "%s %s %s user_id=%s ip=%s",
             request.method,
-            request.get_full_path(),
+            request.path,
             response.status_code,
             user_id,
             ip,

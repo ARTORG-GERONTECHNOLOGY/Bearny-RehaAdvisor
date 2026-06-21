@@ -103,7 +103,6 @@ def create_patient():
         userId=patient_user,
         patient_code="PAT_VIT",
         therapist=therapist,
-        access_word="pass",
     ).save()
 
 

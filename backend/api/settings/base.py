@@ -228,7 +228,7 @@ _sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if _sentry_dsn:
     sentry_sdk.init(
         dsn=_sentry_dsn,
-        send_default_pii=True,
+        send_default_pii=False,
         enable_logs=True,
         traces_sample_rate=1.0,
         profile_session_sample_rate=1.0,

@@ -185,7 +185,6 @@ class Command(BaseCommand):
             userId=user,
             patient_code="E2E-PAT-001",
             therapist=therapist,
-            access_word="e2e",
         ).save()
         self.stdout.write(self.style.SUCCESS(f"  Created Patient    : {login}  (id={E2E_PATIENT_OID})"))
         return user

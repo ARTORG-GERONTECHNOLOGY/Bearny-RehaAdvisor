@@ -170,7 +170,6 @@ def setup_patient_with_plan():
         patient_code="PAT001",
         name="Patient",
         first_name="One",
-        access_word="pass",
         age="30",
         therapist=therapist,
         sex="Male",
@@ -573,7 +572,6 @@ def test_add_intervention_to_patient_success(mongo_mock):
         userId=patient_user,
         patient_code="PAT001",
         therapist=therapist,
-        access_word="pass",
         reha_end_date="2026-03-31T00:00:00.000Z",
     ).save()
 
@@ -652,7 +650,6 @@ def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
         userId=patient_user,
         patient_code="1234",
         therapist=therapist,
-        access_word="pass",
         reha_end_date=datetime.now() + timedelta(days=30),
     ).save()
 
@@ -728,7 +725,6 @@ def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
         userId=patient_user,
         patient_code="PAT002",
         therapist=therapist,
-        access_word="pass",
     ).save()
 
     resp = client.get(
@@ -1168,7 +1164,6 @@ def test_mark_intervention_completed_no_rehab_plan(mongo_mock):
         userId=patient_user,
         patient_code="PAT_NP",
         therapist=therapist,
-        access_word="pass",
     ).save()
     intervention = Intervention(
         external_id="np_ext",
@@ -1313,7 +1308,6 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
         userId=patient_user,
         patient_code="PAT_SCHED",
         therapist=therapist,
-        access_word="pass",
     ).save()
     intervention = Intervention(
         external_id="sched_test_001",
@@ -1834,7 +1828,6 @@ def _setup_patient_with_intervention(content_type):
         patient_code="PX",
         name="Patient",
         first_name="X",
-        access_word="pw",
         age="40",
         sex="Female",
         therapist=therapist,

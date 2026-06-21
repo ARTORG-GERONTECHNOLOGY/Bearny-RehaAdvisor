@@ -197,7 +197,6 @@ def create_patient():
         patient_code="PAT001",
         name="PatientLast",
         first_name="PatientFirst",
-        access_word="password",
         age="30",
         therapist=therapist,
         sex="Male",
