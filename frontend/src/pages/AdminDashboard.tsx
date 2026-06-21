@@ -63,6 +63,28 @@ const AdminDashboard: React.FC = observer(() => {
   const [interventionSearch, setInterventionSearch] = useState('');
   const [interventionLoading, setInterventionLoading] = useState(false);
   const [interventionError, setInterventionError] = useState<string | null>(null);
+
+  // -------------------------
+  // Analytics tab
+  // -------------------------
+  type DeviceAnalytics = {
+    by_device: Record<string, number>;
+    by_role: Record<string, Record<string, number>>;
+  };
+  const [deviceAnalytics, setDeviceAnalytics] = useState<DeviceAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await apiClient.get('/admin/analytics/devices/');
+      setDeviceAnalytics(res.data);
+    } catch {
+      /* silently ignore */
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
     id: string;
@@ -557,6 +579,11 @@ const AdminDashboard: React.FC = observer(() => {
               <Nav.Item>
                 <Nav.Link eventKey="export">{t('Export')}</Nav.Link>
               </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="analytics" onClick={fetchAnalytics}>
+                  {t('Analytics')}
+                </Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -1010,6 +1037,61 @@ const AdminDashboard: React.FC = observer(() => {
                       </Button>
                     </div>
                   </>
+                )}
+              </Tab.Pane>
+
+              {/* ── Tab 6: analytics ── */}
+              <Tab.Pane eventKey="analytics">
+                {analyticsLoading ? (
+                  <div className="text-center my-5">
+                    <Spinner animation="border" role="status" />
+                  </div>
+                ) : deviceAnalytics ? (
+                  <div className="my-4">
+                    <h5 className="mb-3">{t('Login device types')}</h5>
+                    <div className="flex flex-wrap gap-4 mb-6">
+                      {['Mobile', 'Desktop', 'Tablet', 'Unknown'].map((device) => {
+                        const count = deviceAnalytics.by_device[device] ?? 0;
+                        if (count === 0) return null;
+                        return (
+                          <div
+                            key={device}
+                            className="rounded-xl border bg-zinc-50 px-8 py-6 text-center min-w-[120px]"
+                          >
+                            <div className="text-3xl font-bold">{count}</div>
+                            <div className="text-sm text-muted-foreground mt-1">{t(device)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {Object.keys(deviceAnalytics.by_role).length > 0 && (
+                      <>
+                        <h6 className="mb-2">{t('By user role')}</h6>
+                        <Table bordered size="sm" style={{ maxWidth: 480 }}>
+                          <thead>
+                            <tr>
+                              <th>{t('Role')}</th>
+                              <th>Mobile</th>
+                              <th>Desktop</th>
+                              <th>Tablet</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(deviceAnalytics.by_role).map(([role, counts]) => (
+                              <tr key={role}>
+                                <td>{role}</td>
+                                <td>{counts['Mobile'] ?? 0}</td>
+                                <td>{counts['Desktop'] ?? 0}</td>
+                                <td>{counts['Tablet'] ?? 0}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-muted">{t('Click the Analytics tab to load data.')}</p>
                 )}
               </Tab.Pane>
             </Tab.Content>

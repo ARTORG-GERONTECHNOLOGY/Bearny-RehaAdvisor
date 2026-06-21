@@ -1354,5 +1354,9 @@
   "Microphone access denied.": "Toegang tot microfoon geweigerd.",
   "Text Feedback": "Tekstfeedback",
   "Time": "Tijd",
-  "Event": "Gebeurtenis"
+  "Event": "Gebeurtenis",
+  "assistanceQuestion": "Doet u uw oefeningen vandaag alleen of met hulp?",
+  "assistanceDescription": "Uw antwoord helpt ons uw vooruitgang beter te begrijpen.",
+  "assistanceAlone": "Alleen",
+  "assistanceWithHelp": "Met hulp"
 }

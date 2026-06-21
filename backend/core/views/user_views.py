@@ -7,7 +7,7 @@ Endpoints
 GET    /api/users/<user_id>/profile/
     Return the profile for a Therapist or Patient.  Accepts either a User ObjectId
     or a Patient ObjectId (the view resolves the Patient → linked User).
-    Sensitive fields (``pwdhash``, ``access_word``) are never returned.
+    Sensitive fields (``pwdhash``) are never returned.
     Therapist response: username, email, phone, name, first_name, specializations, clinics.
     Patient response: all User + Patient fields except the excluded set.
 
@@ -359,7 +359,6 @@ def user_profile_view(request, user_id):
                 excluded_user = {"pwdhash", "createdAt", "updatedAt", "id"}
                 excluded_patient = {
                     "pwdhash",
-                    "access_word",
                     "therapist",
                     "created_by",
                     "userId",
