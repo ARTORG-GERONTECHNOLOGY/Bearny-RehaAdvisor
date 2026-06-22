@@ -75,12 +75,10 @@ apiClient.interceptors.response.use(
         _isRefreshing = false;
         _processQueue(refreshError);
 
-        // Clear non-httpOnly session state so the UI shows the login page
-        localStorage.removeItem('id');
-        localStorage.removeItem('userType');
-        localStorage.removeItem('firstName');
-        localStorage.removeItem('expiresAt');
-
+        // Don't wipe localStorage here. authStore.checkAuthentication() already
+        // clears storage and triggers logout when session is truly dead. Clearing
+        // 'id' / 'expiresAt' here causes spurious logouts when the refresh cookie
+        // isn't yet propagated across ports in test environments.
         return Promise.reject(refreshError);
       }
     }
