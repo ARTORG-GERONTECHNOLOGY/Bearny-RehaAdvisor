@@ -284,7 +284,7 @@ class AuthStore {
   // ───────────────────────────
   // Session restore
   // ───────────────────────────
-  checkAuthentication(callback?: () => void) {
+  checkAuthentication(callback?: () => void): Promise<void> {
     // Tokens are now stored as httpOnly cookies — we can't read them in JS.
     // Use 'id' in localStorage as the "was previously logged in" signal, then
     // verify the session is still live by calling the refresh endpoint (the
@@ -292,31 +292,14 @@ class AuthStore {
     const hasId = !!localStorage.getItem('id');
     if (!hasId) {
       callback?.();
-      return;
+      return Promise.resolve();
     }
 
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
     const sessionExpired = !expiresAt || Number.isNaN(expiresAt) || Date.now() >= expiresAt;
 
-    if (sessionExpired) {
-      // Inactivity timeout elapsed — try refresh cookie before giving up
-      this._trySilentRefresh().then((ok) => {
-        if (ok) {
-          this._restoreSessionState();
-          this.startInactivityTimer();
-        } else {
-          this.reset();
-          this.clearStorage();
-          callback?.();
-        }
-      });
-      return;
-    }
-
-    // expiresAt is in the future but the access token (now a cookie) may have
-    // expired. Trigger a proactive refresh so requests don't hit a 401.
-    this._trySilentRefresh().then((ok) => {
+    const handleResult = (ok: boolean) => {
       if (ok) {
         this._restoreSessionState();
         this.startInactivityTimer();
@@ -325,7 +308,15 @@ class AuthStore {
         this.clearStorage();
         callback?.();
       }
-    });
+    };
+
+    if (sessionExpired) {
+      return this._trySilentRefresh().then(handleResult);
+    }
+
+    // expiresAt is in the future but the access token (now a cookie) may have
+    // expired. Trigger a proactive refresh so requests don't hit a 401.
+    return this._trySilentRefresh().then(handleResult);
   }
 
   private _restoreSessionState() {
