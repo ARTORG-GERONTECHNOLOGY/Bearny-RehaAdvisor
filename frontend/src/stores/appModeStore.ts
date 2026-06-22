@@ -39,9 +39,7 @@ class AppModeStore {
 
   async fetchMode(): Promise<void> {
     try {
-      const response = await apiClient.get<{ mode: AppMode; redcapVisible: boolean }>(
-        '/app-mode/'
-      );
+      const response = await apiClient.get<{ mode: AppMode; redcapVisible: boolean }>('/app-mode/');
       runInAction(() => {
         const raw = response.data.mode;
         this.mode = ['dev', 'normal', 'study'].includes(raw) ? raw : 'normal';
