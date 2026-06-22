@@ -33,6 +33,7 @@ class AuthStore {
   sessionTimeout = 15 * 60 * 1000; // 15 minutes
   private _resetTimer?: () => void;
   private _timeoutId?: ReturnType<typeof setTimeout>;
+  private _refreshPromise: Promise<boolean> | null = null;
 
   private readonly LAST_ACTIVITY_KEY = 'lastActivity';
   private readonly EXPIRES_AT_KEY = 'expiresAt';
@@ -40,7 +41,8 @@ class AuthStore {
   onLogoutCallback: (() => void) | null = null;
 
   constructor() {
-    makeAutoObservable(this);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    makeAutoObservable(this, { _refreshPromise: false } as any);
 
     // Restore session state on init
     this.checkAuthentication();
@@ -270,15 +272,29 @@ class AuthStore {
   // WITHOUT going through the apiClient interceptor (which would itself
   // trigger another 401 cycle). Returns true on success, false on failure.
   // ───────────────────────────
-  private async _trySilentRefresh(): Promise<boolean> {
-    try {
-      // No body needed — the refresh_token httpOnly cookie is sent automatically
-      await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {}, { withCredentials: true });
-      this._markActivity();
-      return true;
-    } catch {
-      return false;
-    }
+  private _trySilentRefresh(): Promise<boolean> {
+    // Deduplicate: if a refresh is already in-flight, reuse that Promise.
+    // Without this, the constructor call and a page-level useEffect call can
+    // both race to the token endpoint simultaneously. With ROTATE_REFRESH_TOKENS
+    // enabled, the first response blacklists the old cookie, causing the second
+    // concurrent request to fail with 401 → reset() → unexpected redirect.
+    if (this._refreshPromise) return this._refreshPromise;
+
+    const p = (async (): Promise<boolean> => {
+      try {
+        // No body needed — refresh_token httpOnly cookie is sent automatically.
+        await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {}, { withCredentials: true });
+        this._markActivity();
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this._refreshPromise = null;
+      }
+    })();
+
+    this._refreshPromise = p;
+    return p;
   }
 
   // ───────────────────────────
