@@ -1,6 +1,7 @@
 """Mongo-aware JWT refresh serializer/view."""
 
 from django.conf import settings
+from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
@@ -19,17 +20,27 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
     MongoEngine ``core.models.User`` collection.
 
     Also accepts the refresh token from the ``refresh_token`` httpOnly cookie
-    so clients that use cookie-based auth don't need to send the token in the
-    request body.
+    so browser clients that use cookie-based auth don't need to send the token
+    in the request body.
     """
 
+    # Make the body field optional so browsers that send the token via the
+    # httpOnly refresh_token cookie (withCredentials=true, empty POST body)
+    # pass field-level validation before we inject the cookie value.
+    refresh = serializers.CharField(required=False, default="")
+
     def validate(self, attrs):
-        # Accept refresh token from httpOnly cookie when not supplied in body
+        # Accept refresh token from the httpOnly cookie when not supplied in body.
+        # Browsers send withCredentials=true so the cookie arrives automatically;
+        # they never include the raw token in the POST body for security reasons.
         if not attrs.get("refresh"):
             request = self.context.get("request")
             cookie_refresh = request.COOKIES.get("refresh_token", "") if request else ""
             if cookie_refresh:
                 attrs = {**attrs, "refresh": cookie_refresh}
+
+        if not attrs.get("refresh"):
+            raise serializers.ValidationError({"refresh": ["This field is required."]})
 
         refresh = self.token_class(attrs["refresh"])
 
