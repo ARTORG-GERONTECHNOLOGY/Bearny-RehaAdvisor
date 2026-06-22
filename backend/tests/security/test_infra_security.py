@@ -213,6 +213,62 @@ def test_middleware_rejects_request_with_no_token(mongo_mock):
     assert response.status_code == 401
 
 
+def _make_jwt_with_user_id(user_id: str) -> str:
+    """Create a signed AccessToken with the user_id claim set — required by MongoJWTAuthentication."""
+    from rest_framework_simplejwt.settings import api_settings
+
+    token = AccessToken()
+    token[api_settings.USER_ID_CLAIM] = user_id
+    return str(token)
+
+
+def test_mongo_jwt_authentication_accepts_cookie(mongo_mock):
+    """
+    MongoJWTAuthentication must authenticate a request that carries the
+    access_token httpOnly cookie instead of an Authorization: Bearer header.
+
+    This is the DRF-level complement to the middleware test above — @api_view
+    endpoints use MongoJWTAuthentication via DEFAULT_AUTHENTICATION_CLASSES,
+    so it must also handle cookie-based tokens or those views return 401.
+    """
+    from django.test import RequestFactory
+
+    from core.jwt_auth import MongoJWTAuthentication
+
+    user = _make_user("jwtcookie@example.com", "pass1234")
+    token = _make_jwt_with_user_id(str(user.id))
+
+    request = RequestFactory().get("/api/protected/")
+    request.COOKIES = {"access_token": token}
+
+    auth = MongoJWTAuthentication()
+    result = auth.authenticate(request)
+
+    assert result is not None, (
+        "MongoJWTAuthentication must return a user when access_token cookie is present. "
+        "Without this, @api_view endpoints with @permission_classes([IsAuthenticated]) "
+        "return 401 even though the middleware passed."
+    )
+    user_obj, validated_token = result
+    assert getattr(user_obj, "is_authenticated", False), "Returned user must have is_authenticated=True"
+
+
+def test_mongo_jwt_authentication_returns_none_without_token(mongo_mock):
+    """MongoJWTAuthentication must return None when no token is present at all."""
+    from django.test import RequestFactory
+
+    from core.jwt_auth import MongoJWTAuthentication
+
+    request = RequestFactory().get("/api/protected/")
+    request.COOKIES = {}
+    # No Authorization header either
+
+    auth = MongoJWTAuthentication()
+    result = auth.authenticate(request)
+
+    assert result is None
+
+
 # ===========================================================================
 # 2. Data retention — prune_old_logs
 # ===========================================================================
