@@ -38,6 +38,7 @@ const PatientView: React.FC = observer(() => {
   const [pageError, setPageError] = useState('');
 
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
+  const fitbitError = useMemo(() => searchParams.get('fitbit_error'), [searchParams]);
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
   // Get today's interventions completion count for badge
@@ -94,6 +95,19 @@ const PatientView: React.FC = observer(() => {
       }
 
       if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
+      if (fitbitStatus === 'misconfigured')
+        setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
+      if (fitbitStatus === 'auth_error') {
+        const desc =
+          fitbitError === 'redirect_uri_mismatch'
+            ? t('Fitbit redirect URI mismatch — please contact support.')
+            : fitbitError === 'invalid_client'
+              ? t('Fitbit client credentials are invalid — please contact support.')
+              : fitbitError === 'access_denied'
+                ? t('Fitbit authorization was denied.')
+                : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
+        setPageError(String(desc));
+      }
 
       if (patientId) {
         patientFitbitStore.fetchStatus(patientId);
@@ -111,7 +125,7 @@ const PatientView: React.FC = observer(() => {
     return () => {
       alive = false;
     };
-  }, [navigate, fitbitStatus, t, patientId, i18n.language]);
+  }, [navigate, fitbitStatus, fitbitError, t, patientId, i18n.language]);
 
   if (loading) return null;
 

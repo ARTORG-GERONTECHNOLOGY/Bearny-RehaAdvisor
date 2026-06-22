@@ -28,7 +28,10 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 # Fitbit settings
-FITBIT_CLIENT_ID = os.environ.get("FITBIT_CLIENT_ID", "")
+# FITBIT_CLIENT_ID is non-sensitive (already baked into the frontend bundle).
+# FITBIT_CLIENT_SECRET must be set in .env.prod — no fallback to prevent silent
+# empty-credential token exchange failures against Fitbit's API.
+FITBIT_CLIENT_ID = os.environ.get("FITBIT_CLIENT_ID", "23Q9W2")
 FITBIT_CLIENT_SECRET = os.environ.get("FITBIT_CLIENT_SECRET", "")
 FITBIT_REDIRECT_URI = os.environ.get("FITBIT_REDIRECT_URI", "https://reha-advisor.ch/api/fitbit/callback/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://reha-advisor.ch")

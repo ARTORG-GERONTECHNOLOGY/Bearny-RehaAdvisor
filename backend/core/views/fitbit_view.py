@@ -444,6 +444,23 @@ def fitbit_status(request, patient_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def fitbit_callback(request):
+    # Fitbit sends ?error=<code>&error_description=<text>&state=<state> when the
+    # user declines or when the app config is wrong (e.g. redirect_uri_mismatch,
+    # invalid_client).  Capture and log these before anything else so we have a
+    # clear diagnostic trail in the server logs.
+    fitbit_error = request.GET.get("error")
+    fitbit_error_desc = request.GET.get("error_description", "")
+    if fitbit_error:
+        logger.error(
+            "[fitbit_callback] Fitbit returned an authorization error: %s — %s "
+            "(configured redirect_uri=%s, client_id=%s)",
+            fitbit_error,
+            fitbit_error_desc,
+            getattr(settings, "FITBIT_REDIRECT_URI", "NOT SET"),
+            getattr(settings, "FITBIT_CLIENT_ID", "NOT SET") or "EMPTY",
+        )
+        return redirect(f"{settings.FRONTEND_URL}/patient" f"?fitbit_status=auth_error&fitbit_error={fitbit_error}")
+
     code = request.GET.get("code")
     state = request.GET.get("state")  # carries patient_id from frontend
 
@@ -468,6 +485,16 @@ def fitbit_callback(request):
     client_id = settings.FITBIT_CLIENT_ID
     client_secret = settings.FITBIT_CLIENT_SECRET
     redirect_uri = settings.FITBIT_REDIRECT_URI
+
+    if not client_id or not client_secret:
+        logger.error(
+            "[fitbit_callback] FITBIT_CLIENT_ID or FITBIT_CLIENT_SECRET is not configured. "
+            "client_id=%s, secret_set=%s",
+            client_id or "EMPTY",
+            bool(client_secret),
+        )
+        return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=misconfigured")
+
     basic_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
 
     data = {
@@ -498,7 +525,11 @@ def fitbit_callback(request):
             return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=connected")
 
         else:
-            logger.error(f"[fitbit_callback] Fitbit token exchange failed: {response.text}")
+            logger.error(
+                "[fitbit_callback] Fitbit token exchange failed (status %s): %s",
+                response.status_code,
+                response.text,
+            )
             return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=error")
 
     except Exception as e:
