@@ -183,6 +183,7 @@ services:
     depends_on:
       - django-prod
       - react-prod
+      - libretranslate
     volumes:
       - ./nginx/conf/prod.reha-advisor.nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static-prod:/srv/app/static:ro
