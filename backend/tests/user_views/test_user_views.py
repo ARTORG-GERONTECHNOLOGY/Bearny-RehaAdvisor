@@ -351,6 +351,70 @@ def test_user_profile_view_user_not_found():
     assert "error" in resp.json()
 
 
+def test_user_profile_view_patient_id_resolves_to_profile():
+    """
+    GET /api/users/<patient_id>/profile/ where the ID is a Patient ObjectId
+    (not a User ObjectId) must still resolve and return 200.
+
+    Regression: before strict=False was added to Patient.meta, loading a
+    Patient document that still contained the removed access_word field raised
+    FieldDoesNotExist, which was not caught and returned 500.
+    """
+    user, patient = create_patient()
+    resp = client.get(f"/api/users/{str(patient.pk)}/profile/")
+    assert resp.status_code == 200
+    assert resp.json()["email"] == user.email
+
+
+def test_user_profile_view_patient_with_legacy_field_in_db_returns_200(mongo_mock):
+    """
+    If a Patient document in MongoDB has an extra field that no longer exists
+    in the schema (simulating the removed access_word field), the profile
+    endpoint must return 200, not 500.
+
+    This is the exact production failure: access_word was removed from the
+    Patient model but existing documents in the database still have the field.
+    MongoEngine's default strict=True raises FieldDoesNotExist when loading
+    those documents. Patient.meta now sets strict=False to suppress this.
+    """
+    user, patient = create_patient()
+
+    # Inject a legacy field directly into MongoDB, bypassing MongoEngine
+    # validation — this simulates what existing prod documents look like.
+    mongo_mock.get_database("testdb").get_collection("Patients").update_one(
+        {"_id": patient.pk},
+        {"$set": {"access_word": "legacy-plaintext-password"}},
+    )
+
+    resp = client.get(f"/api/users/{str(patient.pk)}/profile/")
+    assert resp.status_code == 200, (
+        "Profile endpoint must return 200 even when the Patient document "
+        "contains fields that no longer exist in the schema. "
+        f"Got {resp.status_code}: {resp.text}"
+    )
+    assert "access_word" not in resp.json(), "Legacy field must not be exposed in the response"
+
+
+def test_user_profile_view_redcap_patient_with_legacy_field_returns_200(mongo_mock):
+    """
+    Same regression test as above but for REDCap-imported patients, which are
+    the ones that were failing in production (shown as 500 in the therapist
+    patient list when clicking the profile modal).
+    """
+    user, patient = create_redcap_patient()
+
+    mongo_mock.get_database("testdb").get_collection("Patients").update_one(
+        {"_id": patient.pk},
+        {"$set": {"access_word": "legacy-plaintext-password"}},
+    )
+
+    resp = client.get(f"/api/users/{str(patient.pk)}/profile/")
+    assert resp.status_code == 200, (
+        f"REDCap patient profile returned {resp.status_code} — "
+        "expected 200. FieldDoesNotExist from legacy DB field is leaking as 500."
+    )
+
+
 # ===========================================================================
 # user_profile_view — PUT (password change)
 # ===========================================================================

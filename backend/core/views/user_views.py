@@ -252,11 +252,11 @@ def user_profile_view(request, user_id):
     # ------------------------------------------------------------------
     try:
         user = User.objects.get(pk=ObjectId(user_id))
-    except User.DoesNotExist:
+    except (User.DoesNotExist, Exception):
         try:
             patient = Patient.objects.get(pk=ObjectId(user_id))
             user = patient.userId
-        except Patient.DoesNotExist:
+        except Exception:
             return JsonResponse({"error": "User not found"}, status=404)
 
     target_role = getattr(user, "role", "Patient")
