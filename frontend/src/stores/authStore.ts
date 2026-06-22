@@ -37,6 +37,12 @@ class AuthStore {
 
   private readonly LAST_ACTIVITY_KEY = 'lastActivity';
   private readonly EXPIRES_AT_KEY = 'expiresAt';
+  // Tracks when the access-token cookie was last issued (login or refresh).
+  // Stored in localStorage so it survives page reloads. Used to skip redundant
+  // refresh calls on rapid sequential loads (e.g. E2E: login → reload → goto).
+  private readonly ACCESS_TOKEN_EXP_KEY = 'accessTokenExpiresAt';
+  // 4.5 min — 30 s buffer before the 5-min access-token TTL.
+  private readonly ACCESS_TOKEN_LIFETIME_MS = 270_000;
 
   onLogoutCallback: (() => void) | null = null;
 
@@ -303,8 +309,7 @@ class AuthStore {
   checkAuthentication(callback?: () => void): Promise<void> {
     // Tokens are now stored as httpOnly cookies — we can't read them in JS.
     // Use 'id' in localStorage as the "was previously logged in" signal, then
-    // verify the session is still live by calling the refresh endpoint (the
-    // refresh_token cookie is sent automatically via withCredentials).
+    // verify the session is still live via the refresh endpoint when needed.
     const hasId = !!localStorage.getItem('id');
     if (!hasId) {
       callback?.();
@@ -326,12 +331,29 @@ class AuthStore {
       }
     };
 
+    // Session itself is expired — must verify via network.
     if (sessionExpired) {
       return this._trySilentRefresh().then(handleResult);
     }
 
-    // expiresAt is in the future but the access token (now a cookie) may have
-    // expired. Trigger a proactive refresh so requests don't hit a 401.
+    // Session is valid. Check if the access-token cookie is still fresh.
+    // _markActivity() writes ACCESS_TOKEN_EXP_KEY whenever a refresh succeeds
+    // or the user logs in, so rapid page loads (reload → goto, SPA navigation)
+    // can skip the network round-trip and restore state synchronously.
+    // If the key is absent or stale the access token may be expired — refresh.
+    const accessExpStr = localStorage.getItem(this.ACCESS_TOKEN_EXP_KEY);
+    const accessExp = accessExpStr ? parseInt(accessExpStr, 10) : 0;
+    const accessExpired = !accessExp || Number.isNaN(accessExp) || Date.now() >= accessExp;
+
+    if (!accessExpired) {
+      // Access token is still within its freshness window — restore immediately.
+      this._restoreSessionState();
+      this.startInactivityTimer();
+      return Promise.resolve();
+    }
+
+    // Access token may be expired — do a proactive refresh so the next API
+    // call doesn't immediately hit a 401.
     return this._trySilentRefresh().then(handleResult);
   }
 
@@ -417,6 +439,7 @@ class AuthStore {
 
     localStorage.setItem(this.LAST_ACTIVITY_KEY, String(now));
     localStorage.setItem(this.EXPIRES_AT_KEY, String(expiresAt));
+    localStorage.setItem(this.ACCESS_TOKEN_EXP_KEY, String(now + this.ACCESS_TOKEN_LIFETIME_MS));
   }
 
   private _armTimeoutFromStorage() {
