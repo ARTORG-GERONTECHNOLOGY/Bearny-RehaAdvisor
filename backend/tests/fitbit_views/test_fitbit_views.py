@@ -197,13 +197,29 @@ def test_fitbit_status_unresolved_identifier_returns_false():
     assert body["last_data"] is None
 
 
+def test_fitbit_callback_does_not_require_authentication():
+    """
+    The callback is a browser redirect from fitbit.com — no JWT is sent because
+    SameSite=Strict blocks cookies on cross-site redirects and browser navigations
+    never include Authorization headers.
+
+    The view must NOT return 401; the user is identified by the 'state' param.
+    Any response other than 401 (redirect or error) proves auth is not gating the
+    request.
+    """
+    _, _, patient_user, _ = create_patient_graph()
+    resp = client.get(f"/api/fitbit/callback/?state={patient_user.id}&code=testcode")
+    assert resp.status_code != 401, (
+        "fitbit_callback must not require authentication — " "browser redirects from fitbit.com cannot carry a JWT"
+    )
+
+
 def test_fitbit_callback_auth_error_from_fitbit_redirects():
     """When Fitbit returns ?error=... (e.g. redirect_uri_mismatch), the callback
     must redirect to the patient page with fitbit_status=auth_error and include
     the fitbit_error code so the frontend can show an actionable message."""
     resp = client.get(
         "/api/fitbit/callback/?error=redirect_uri_mismatch&error_description=The+redirect+URI+did+not+match",
-        HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 302
     location = resp.headers["Location"]
@@ -213,22 +229,19 @@ def test_fitbit_callback_auth_error_from_fitbit_redirects():
 
 def test_fitbit_callback_missing_code_redirects():
     _, _, patient_user, _ = create_patient_graph()
-    resp = client.get(
-        f"/api/fitbit/callback/?state={patient_user.id}",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
+    resp = client.get(f"/api/fitbit/callback/?state={patient_user.id}")
     assert resp.status_code == 302
     assert "fitbit_status=missing_code" in resp.headers["Location"]
 
 
 def test_fitbit_callback_missing_state_redirects():
-    resp = client.get("/api/fitbit/callback/?code=abc", HTTP_AUTHORIZATION="Bearer test")
+    resp = client.get("/api/fitbit/callback/?code=abc")
     assert resp.status_code == 302
     assert "fitbit_status=unauthorized" in resp.headers["Location"]
 
 
 def test_fitbit_callback_invalid_user_redirects():
-    resp = client.get("/api/fitbit/callback/?code=abc&state=invalid", HTTP_AUTHORIZATION="Bearer test")
+    resp = client.get("/api/fitbit/callback/?code=abc&state=invalid")
     assert resp.status_code == 302
     assert "fitbit_status=invalid_user" in resp.headers["Location"]
 

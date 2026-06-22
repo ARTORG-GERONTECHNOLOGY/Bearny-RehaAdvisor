@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from core.models import FitbitData, FitbitUserToken, Patient, User
 
@@ -442,8 +442,13 @@ def fitbit_status(request, patient_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def fitbit_callback(request):
+    # The callback is a browser redirect from fitbit.com — no JWT cookie or
+    # Authorization header is sent (SameSite=Strict blocks cookies on cross-site
+    # redirects). The user is identified by the 'state' param (their User ObjectId)
+    # set when the auth flow was initiated, so IsAuthenticated is not needed here.
+
     # Fitbit sends ?error=<code>&error_description=<text>&state=<state> when the
     # user declines or when the app config is wrong (e.g. redirect_uri_mismatch,
     # invalid_client).  Capture and log these before anything else so we have a
