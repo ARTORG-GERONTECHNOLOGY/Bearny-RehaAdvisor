@@ -535,7 +535,13 @@ class PatientThresholdsSnapshot(EmbeddedDocument):
 
 
 class Patient(Document):
-    meta = {"collection": "Patients"}
+    meta = {
+        "collection": "Patients",
+        # Existing DB documents may contain fields removed from the schema (e.g.
+        # access_word). strict=False silently ignores unknown fields on load
+        # instead of raising FieldDoesNotExist and returning a 500.
+        "strict": False,
+    }
 
     # ✅ Platform linking / auth
     userId = ReferenceField("User", required=True)
