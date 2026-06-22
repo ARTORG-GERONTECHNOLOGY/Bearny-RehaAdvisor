@@ -40,7 +40,7 @@ class AppModeStore {
   async fetchMode(): Promise<void> {
     try {
       const response = await apiClient.get<{ mode: AppMode; redcapVisible: boolean }>(
-        '/api/app-mode/'
+        '/app-mode/'
       );
       runInAction(() => {
         const raw = response.data.mode;
