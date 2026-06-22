@@ -384,9 +384,9 @@ EMAIL_HOST_PASSWORD=your-app-password
 # CORS
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
-# Celery
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
+# Celery (rediss:// — TLS is required)
+CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD}@redis:6379/0
+CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD}@redis:6379/0
 
 # Sentry (error tracking)
 SENTRY_DSN=https://your-sentry-dsn
@@ -426,6 +426,58 @@ db.getCollectionNames()
 db.users.count()
 EOF
 ```
+
+## Redis TLS Certificate Setup
+
+Redis requires TLS in all environments. The Redis server certificate is signed by the same CA as the MongoDB certificate, so no extra CA infrastructure is needed.
+
+Run these commands from the repo root **once per environment** (dev or prod). The private key is gitignored; the generated files live in `redis/tls/`.
+
+```bash
+mkdir -p redis/tls
+
+# Sign the Redis server cert with the existing Mongo CA
+openssl genrsa -out redis/tls/server.key 2048
+
+openssl req -new \
+  -key redis/tls/server.key \
+  -out redis/tls/server.csr \
+  -subj "/CN=redis"
+
+openssl x509 -req \
+  -in redis/tls/server.csr \
+  -CA mongo/tls/ca.crt \
+  -CAkey mongo/tls/ca.key \
+  -CAcreateserial \
+  -out redis/tls/server.crt \
+  -days 3650
+
+# Copy the CA cert so containers have a single path to trust
+cp mongo/tls/ca.crt redis/tls/ca.crt
+```
+
+After generating the certs, restart the Redis container:
+
+```bash
+docker compose -f docker-compose.dev.yml restart redis   # dev
+# or
+docker compose -f docker-compose.prod.reha-advisor.yml restart redis-prod  # prod
+```
+
+Verify TLS is working:
+
+```bash
+docker exec redis redis-cli \
+  --tls \
+  --cacert /etc/ssl/redis/ca.crt \
+  -a "${REDIS_PASSWORD}" \
+  ping
+# → PONG
+```
+
+The `redis/tls/` directory is gitignored. Copy or regenerate the certs on every fresh server clone.
+
+---
 
 ## SSL/TLS Certificate Management
 

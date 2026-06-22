@@ -103,7 +103,7 @@ backend/
 
 **API Structure**:
 - Base URL: `http://localhost:8001/api/`
-- Authentication: Bearer tokens in Authorization header
+- Authentication: httpOnly JWT cookies (`access_token` / `refresh_token`); `Authorization: Bearer` header accepted as fallback for API clients that cannot use cookies
 - Response Format: JSON with standardized error handling
 
 ### 3. Database (MongoDB)
@@ -149,18 +149,28 @@ backend/
 ```
 User Login Request
     ↓
-React Form → POST /api/token/ (Axios)
+React Form → POST /api/auth/login/ (Axios, withCredentials: true)
     ↓
 Django Authenticates Credentials
     ↓
-Returns JWT Token (access + refresh)
+Returns JSON body (user_type, id, …) AND sets httpOnly cookies:
+  - access_token  (5 min, HttpOnly, Secure, SameSite=Strict)
+  - refresh_token (1 day, HttpOnly, Secure, SameSite=Strict)
     ↓
-Frontend Stores Token (localStorage/sessionStorage)
+Frontend stores only non-sensitive identity (id, userType) in localStorage
     ↓
-Subsequent Requests → Include Token in Authorization Header
+Subsequent Requests → browser sends access_token cookie automatically
     ↓
-Django Validates JWT → Processes Request
+JWTAuthMiddleware reads cookie → validates → processes request
+    ↓
+On 401: frontend calls /api/auth/token/refresh/ (cookie sent automatically)
+  → new access_token cookie issued → original request retried
 ```
+
+Token storage is intentionally **not** in localStorage — httpOnly cookies prevent
+JavaScript (including injected scripts) from reading the tokens.  The Authorization
+header fallback exists for automated API clients (e.g. test suite, mobile apps)
+that cannot use cookies.
 
 ### API Communication Flow
 
@@ -210,9 +220,10 @@ UI Updated with Results
    - Status codes for result indication
 
 2. **Authentication**:
-   - JWT tokens for stateless authentication
-   - Refresh tokens for long-lived sessions
-   - CORS headers for cross-origin requests
+   - JWT tokens for stateless authentication (access: 5 min, refresh: 1 day)
+   - Tokens delivered as httpOnly cookies — not readable by JavaScript
+   - Automatic silent refresh on 401 via `refresh_token` cookie
+   - CORS locked to `reha-advisor.ch` in production; `withCredentials: true` required on all API calls
 
 3. **Error Handling**:
    - Standardized error response format
@@ -252,10 +263,23 @@ UI Updated with Results
 ## Security Architecture
 
 ### Authentication & Authorization
-- JWT tokens for API authentication
-- Role-based access control (RBAC)
-- Permission decorators on endpoints
-- Secure password hashing
+- JWT tokens delivered as httpOnly, Secure, SameSite=Strict cookies
+- Role-based access control (RBAC): `IsAdmin`, `IsAuthenticated` permission classes
+- `JWTAuthMiddleware` validates every `/api/` request; public routes exempted
+- Refresh token rotation with blacklisting (`ROTATE_REFRESH_TOKENS=True`)
+- Secure password hashing (PBKDF2)
+- Rate limiting: 5 login attempts (1 hr lock), 10 2FA attempts (30 min lock)
+
+### Transport Security
+- MongoDB: `--tlsMode requireTLS` in all environments
+- Redis: TLS (`rediss://`) with CA-signed cert; `BROKER_USE_SSL` configured in Celery
+- HTTPS enforced via nginx (TLSv1.2 + 1.3 only); HSTS with preload in production
+
+### Data Protection
+- Audit log (`Logs` collection) retained for 365 days; `ADMIN_EXPORT` entries kept 5 years for compliance
+- Automated pruning via Celery Beat task `core.tasks.prune_old_logs` (weekly, Sunday 04:00 UTC)
+- Sentry error tracking with `send_default_pii=False` (no user email/IP in error reports)
+- Media files served via nginx `auth_request` — requires valid JWT
 
 ### Therapist Access Control Model
 

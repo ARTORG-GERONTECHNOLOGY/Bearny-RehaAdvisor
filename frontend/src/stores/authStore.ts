@@ -33,25 +33,34 @@ class AuthStore {
   sessionTimeout = 15 * 60 * 1000; // 15 minutes
   private _resetTimer?: () => void;
   private _timeoutId?: ReturnType<typeof setTimeout>;
+  private _refreshPromise: Promise<boolean> | null = null;
 
   private readonly LAST_ACTIVITY_KEY = 'lastActivity';
   private readonly EXPIRES_AT_KEY = 'expiresAt';
+  // Tracks when the access-token cookie was last issued (login or refresh).
+  // Stored in localStorage so it survives page reloads. Used to skip redundant
+  // refresh calls on rapid sequential loads (e.g. E2E: login → reload → goto).
+  private readonly ACCESS_TOKEN_EXP_KEY = 'accessTokenExpiresAt';
+  // 4.5 min — 30 s buffer before the 5-min access-token TTL.
+  private readonly ACCESS_TOKEN_LIFETIME_MS = 270_000;
 
   onLogoutCallback: (() => void) | null = null;
 
   constructor() {
-    makeAutoObservable(this);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    makeAutoObservable(this, { _refreshPromise: false } as any);
 
     // Restore session state on init
     this.checkAuthentication();
 
-    // Sync timeout/logout across tabs
+    // Sync timeout/logout across tabs via expiresAt key.
+    // Tokens are now httpOnly cookies so we no longer watch 'authToken'.
     window.addEventListener('storage', (e) => {
       if (e.key === this.EXPIRES_AT_KEY) {
         this._armTimeoutFromStorage();
       }
-      // If another tab cleared tokens, reflect here quickly
-      if (e.key === 'authToken' && !e.newValue) {
+      // If another tab logged out it clears 'id' from localStorage — mirror here
+      if (e.key === 'id' && !e.newValue) {
         this.reset();
         this.removeInactivityListeners();
       }
@@ -269,71 +278,83 @@ class AuthStore {
   // WITHOUT going through the apiClient interceptor (which would itself
   // trigger another 401 cycle). Returns true on success, false on failure.
   // ───────────────────────────
-  private async _trySilentRefresh(): Promise<boolean> {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return false;
+  private _trySilentRefresh(): Promise<boolean> {
+    // Deduplicate: if a refresh is already in-flight, reuse that Promise.
+    // Without this, the constructor call and a page-level useEffect call can
+    // both race to the token endpoint simultaneously. With ROTATE_REFRESH_TOKENS
+    // enabled, the first response blacklists the old cookie, causing the second
+    // concurrent request to fail with 401 → reset() → unexpected redirect.
+    if (this._refreshPromise) return this._refreshPromise;
 
-    try {
-      const res = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
-        refresh: refreshToken,
-      });
-      const newAccess = res.data?.access;
-      if (!newAccess) return false;
+    const p = (async (): Promise<boolean> => {
+      try {
+        // No body needed — refresh_token httpOnly cookie is sent automatically.
+        await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {}, { withCredentials: true });
+        this._markActivity();
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this._refreshPromise = null;
+      }
+    })();
 
-      localStorage.setItem('authToken', newAccess);
-      this._markActivity();
-      return true;
-    } catch {
-      return false;
-    }
+    this._refreshPromise = p;
+    return p;
   }
 
   // ───────────────────────────
   // Session restore
   // ───────────────────────────
-  checkAuthentication(callback?: () => void) {
-    const token = localStorage.getItem('authToken');
-    const refreshToken = localStorage.getItem('refreshToken');
+  checkAuthentication(callback?: () => void): Promise<void> {
+    // Tokens are now stored as httpOnly cookies — we can't read them in JS.
+    // Use 'id' in localStorage as the "was previously logged in" signal, then
+    // verify the session is still live via the refresh endpoint when needed.
+    const hasId = !!localStorage.getItem('id');
+    if (!hasId) {
+      callback?.();
+      return Promise.resolve();
+    }
+
     const expiresAtStr = localStorage.getItem(this.EXPIRES_AT_KEY);
     const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
-
     const sessionExpired = !expiresAt || Number.isNaN(expiresAt) || Date.now() >= expiresAt;
 
-    if (sessionExpired) {
-      if (refreshToken) {
-        // The inactivity timer has elapsed but we still have a refresh token.
-        // Attempt a silent refresh before giving up — prevents spurious logouts
-        // caused by clock skew, a suspended JS timer (mobile backgrounding),
-        // or a stale expiresAt written by a different tab.
-        this._trySilentRefresh().then((ok) => {
-          if (ok) {
-            this._restoreSessionState();
-            this.startInactivityTimer();
-          } else {
-            this.reset();
-            this.clearStorage();
-            callback?.();
-          }
-        });
+    const handleResult = (ok: boolean) => {
+      if (ok) {
+        this._restoreSessionState();
+        this.startInactivityTimer();
       } else {
-        // No refresh token either — nothing we can do.
         this.reset();
         this.clearStorage();
         callback?.();
       }
-      return;
+    };
+
+    // Session itself is expired — must verify via network.
+    if (sessionExpired) {
+      return this._trySilentRefresh().then(handleResult);
     }
 
-    if (!token) {
-      // expiresAt is in the future but access token is gone (e.g. other tab cleared it)
-      this.reset();
-      this.clearStorage();
-      callback?.();
-      return;
+    // Session is valid. Check if the access-token cookie is still fresh.
+    // _markActivity() writes ACCESS_TOKEN_EXP_KEY whenever a refresh succeeds
+    // or the user logs in, so rapid page loads (reload → goto, SPA navigation)
+    // can skip the network round-trip and restore state synchronously.
+    // If the key is absent or stale the access token may be expired — refresh.
+    const accessExpStr = localStorage.getItem(this.ACCESS_TOKEN_EXP_KEY);
+    const accessExp = accessExpStr ? parseInt(accessExpStr, 10) : 0;
+    const accessExpired = !accessExp || Number.isNaN(accessExp) || Date.now() >= accessExp;
+
+    if (!accessExpired) {
+      // Access token is still within its freshness window — restore immediately.
+      this._restoreSessionState();
+      this.startInactivityTimer();
+      return Promise.resolve();
     }
 
-    this._restoreSessionState();
-    this.startInactivityTimer();
+    // Access token may be expired — do a proactive refresh so the next API
+    // call doesn't immediately hit a 401.
+    return this._trySilentRefresh().then(handleResult);
   }
 
   private _restoreSessionState() {
@@ -418,6 +439,7 @@ class AuthStore {
 
     localStorage.setItem(this.LAST_ACTIVITY_KEY, String(now));
     localStorage.setItem(this.EXPIRES_AT_KEY, String(expiresAt));
+    localStorage.setItem(this.ACCESS_TOKEN_EXP_KEY, String(now + this.ACCESS_TOKEN_LIFETIME_MS));
   }
 
   private _armTimeoutFromStorage() {
@@ -444,11 +466,10 @@ class AuthStore {
   // ───────────────────────────
   // Storage helpers
   // ───────────────────────────
-  setTokens(access: string, refresh: string) {
-    localStorage.setItem('authToken', access);
-    localStorage.setItem('refreshToken', refresh);
-
-    // Keep identity in sync
+  setTokens(_access: string, _refresh: string) {
+    // Tokens are now stored as httpOnly cookies by the backend — nothing to
+    // write here. We only persist non-sensitive identity so the UI can restore
+    // state on page reload without an extra profile fetch.
     localStorage.setItem('userType', this.userType);
     localStorage.setItem('id', this.id);
 

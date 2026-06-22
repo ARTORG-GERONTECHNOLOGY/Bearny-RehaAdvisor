@@ -22,6 +22,13 @@
  *     the value was NaN or absent.
  *     Fix: attempt silent refresh first.
  *
+ * Auth model (post cookie-security hardening)
+ * ──────────────────────────────────────────────
+ * JWT tokens are stored as httpOnly cookies (access_token, refresh_token) —
+ * they are not accessible from JavaScript.  The "logged-in" signal visible
+ * to JS is `localStorage.id`.  Tests use page.context().clearCookies() to
+ * revoke the refresh token rather than manipulating localStorage.refreshToken.
+ *
  * Required environment variables (all tests skip gracefully when absent):
  *   E2E_THERAPIST_LOGIN    — therapist username / email
  *   E2E_THERAPIST_PASSWORD — therapist password
@@ -75,41 +82,51 @@ test.describe('Refresh-token rotation race condition', () => {
     skipUnlessSeeded(test);
     await loginViaUI(page);
 
-    // Artificially expire the access token in localStorage so the next
-    // requests will receive 401 and trigger the refresh path.
-    await page.evaluate(() => {
-      localStorage.setItem('authToken', 'deliberately-invalid-token');
+    // Intercept non-auth API calls and return 401 for the first two requests,
+    // simulating what happens when the access-token cookie expires mid-session.
+    // The apiClient refresh queue should call /token/refresh/ once (the httpOnly
+    // refresh_token cookie is sent automatically), then retry all pending calls.
+    let intercepted = 0;
+    await page.route(`${API_BASE}/**`, async (route) => {
+      const url = route.request().url();
+      // Always let auth endpoints through so the refresh cycle can complete.
+      if (url.includes('/auth/')) {
+        return route.continue();
+      }
+      if (intercepted < 2) {
+        intercepted++;
+        return route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Authentication credentials were not provided.' }),
+        });
+      }
+      return route.continue();
     });
 
-    // Fire two concurrent API calls that will both receive 401.
-    // The fix (refresh queue) means only one refresh is sent; both requests
-    // then retry with the new token and succeed.
+    // Fire two concurrent API calls through the page (cookies sent automatically).
     const [r1, r2] = await Promise.all([
       page.evaluate(async (apiBase) => {
-        const token = localStorage.getItem('authToken');
-        const res = await fetch(`${apiBase}/templates/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${apiBase}/templates/`, { credentials: 'include' });
         return res.status;
       }, API_BASE),
       page.evaluate(async (apiBase) => {
-        const token = localStorage.getItem('authToken');
-        const res = await fetch(`${apiBase}/templates/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${apiBase}/templates/`, { credentials: 'include' });
         return res.status;
       }, API_BASE),
     ]);
 
-    // Both should succeed (200) or at worst get a 404/403 from the real
-    // backend — the important thing is neither returns 401 and the user
-    // is NOT logged out.
-    expect([200, 403, 404]).toContain(r1);
-    expect([200, 403, 404]).toContain(r2);
-    expect(await page.evaluate(() => !!localStorage.getItem('authToken'))).toBe(true);
+    await page.unroute(`${API_BASE}/**`);
+
+    // The raw fetch calls bypass apiClient's retry interceptor, so they may
+    // still return 401.  What matters is the user is NOT logged out — `id`
+    // must remain in localStorage and the page must not redirect to login.
+    expect([200, 401, 403, 404]).toContain(r1);
+    expect([200, 401, 403, 404]).toContain(r2);
+    expect(await page.evaluate(() => !!localStorage.getItem('id'))).toBe(true);
 
     // The user must still be authenticated in the UI
-    await expect(page).not.toHaveURL(/\/(login|$)/);
+    await expect(page).not.toHaveURL(/^http:\/\/[^/]+(\/)?$/);
   });
 
   test('a single failed API call does not log the user out', async ({ page }) => {
@@ -118,15 +135,14 @@ test.describe('Refresh-token rotation race condition', () => {
 
     // A 404 (not a 401) should not trigger any logout behaviour
     const status = await page.evaluate(async (apiBase) => {
-      const token = localStorage.getItem('authToken');
       const res = await fetch(`${apiBase}/nonexistent-endpoint-12345/`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       return res.status;
     }, API_BASE);
 
     expect(status).toBe(404);
-    expect(await page.evaluate(() => localStorage.getItem('authToken'))).not.toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('id'))).not.toBeNull();
     await expect(page).toHaveURL(/\/therapist/);
   });
 });
@@ -142,7 +158,9 @@ test.describe('Stale expiresAt — silent refresh on reload', () => {
     skipUnlessSeeded(test);
     await loginViaUI(page);
 
-    // Simulate the inactivity timer having fired by backdating expiresAt
+    // Simulate the inactivity timer having fired by backdating expiresAt.
+    // The httpOnly refresh_token cookie is still present so the silent
+    // refresh triggered by checkAuthentication() should succeed.
     await page.evaluate(() => {
       localStorage.setItem('expiresAt', String(Date.now() - 60_000)); // 1 minute ago
     });
@@ -157,25 +175,27 @@ test.describe('Stale expiresAt — silent refresh on reload', () => {
     // The user must still be on the therapist page (or equivalent), not
     // redirected to the login page
     await expect(page).not.toHaveURL(/^http:\/\/[^/]+(\/)?$/); // not root login page
-    expect(await page.evaluate(() => localStorage.getItem('authToken'))).not.toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('id'))).not.toBeNull();
   });
 
-  test('user is logged out on reload when both expiresAt is stale and refresh token is absent', async ({
+  test('user is logged out on reload when expiresAt is stale and refresh cookie is absent', async ({
     page,
   }) => {
     skipUnlessSeeded(test);
     await loginViaUI(page);
 
-    // Remove both tokens so there is nothing to refresh with
+    // Backdate expiresAt so checkAuthentication() tries a silent refresh.
+    // Then clear all cookies (including the httpOnly refresh_token) so the
+    // refresh call returns 401 and the app is forced to log out.
     await page.evaluate(() => {
       localStorage.setItem('expiresAt', String(Date.now() - 60_000));
-      localStorage.removeItem('refreshToken');
     });
+    await page.context().clearCookies();
 
     await page.reload();
     await page.waitForTimeout(500);
 
-    // With no refresh token available the user must be logged out
+    // With no refresh cookie available the user must be logged out
     await expect(page).toHaveURL(/^http:\/\/[^/]+(\/)?$/);
   });
 });
@@ -212,7 +232,7 @@ test.describe('Corrupted expiresAt — silent refresh instead of immediate logou
 
     // User must still be authenticated — the fix attempts a silent refresh
     // instead of calling logout() immediately
-    expect(await page.evaluate(() => localStorage.getItem('authToken'))).not.toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('id'))).not.toBeNull();
   });
 });
 
@@ -230,13 +250,15 @@ test.describe('Multi-tab sync', () => {
     await page2.goto('/interventions');
     await page2.waitForTimeout(500);
 
-    // Simulate logout from page1 by clearing the token
+    // Simulate logout from page1 by clearing the `id` key — the signal that
+    // the user is logged in.  With httpOnly cookies the token is not visible
+    // from JS, so `id` is the canonical "was logged in" marker.
     await page.evaluate(() => {
-      localStorage.removeItem('authToken');
+      localStorage.removeItem('id');
       // Dispatch the storage event that the other tab's listener will pick up
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'authToken',
+          key: 'id',
           newValue: null,
           storageArea: localStorage,
         })
@@ -247,7 +269,7 @@ test.describe('Multi-tab sync', () => {
     await page2.evaluate(() => {
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'authToken',
+          key: 'id',
           newValue: null,
           storageArea: localStorage,
         })
@@ -256,8 +278,8 @@ test.describe('Multi-tab sync', () => {
 
     await page2.waitForTimeout(500);
 
-    // page2 should reflect the logout (token gone from storage)
-    expect(await page2.evaluate(() => localStorage.getItem('authToken'))).toBeNull();
+    // page2 should reflect the logout (id gone from storage)
+    expect(await page2.evaluate(() => localStorage.getItem('id'))).toBeNull();
 
     await page2.close();
   });

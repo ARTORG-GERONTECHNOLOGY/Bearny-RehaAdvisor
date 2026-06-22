@@ -15,9 +15,18 @@ DATABASES = {
 CELERY_WORKER_STATE_DB = os.path.join(BASE_DIR, "celery_worker.state")
 # DATABASE_ROUTERS = ['core.routers.BeatRouter']
 
-# Redis broker
-CELERY_BROKER_URL = "redis://redis:6379/0"
-CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+# Redis broker (TLS)
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "rediss://redis:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "rediss://redis:6379/0")
+
+_redis_ca = os.getenv("REDIS_CA_CERT", "/etc/ssl/redis/ca.crt")
+import ssl
+
+BROKER_USE_SSL = {
+    "ssl_ca_certs": _redis_ca,
+    "ssl_cert_reqs": ssl.CERT_REQUIRED,
+}
+CELERY_REDIS_BACKEND_USE_SSL = BROKER_USE_SSL
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 from celery.schedules import crontab
@@ -33,6 +42,12 @@ CELERY_BEAT_SCHEDULE = {
     "renew_certificates": {
         "task": "core.tasks.renew_certificates",
         "schedule": crontab(hour=3, minute=0),
+    },
+    # Prune audit logs older than LOG_RETENTION_DAYS (default 365 days).
+    # Runs weekly on Sunday at 04:00 UTC to avoid peak hours.
+    "prune_old_logs": {
+        "task": "core.tasks.prune_old_logs",
+        "schedule": crontab(hour=4, minute=0, day_of_week=0),
     },
 }
 

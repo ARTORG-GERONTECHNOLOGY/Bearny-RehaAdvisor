@@ -90,9 +90,14 @@ class JWTAuthMiddleware:
         if self._is_public(path):
             return self.get_response(request)
 
-        # Require a Bearer token
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
+        # Accept token from httpOnly cookie (preferred) or Authorization header (fallback)
+        token_str = request.COOKIES.get("access_token", "")
+        if not token_str:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token_str = auth_header.split(" ", 1)[1]
+
+        if not token_str:
             return JsonResponse(
                 {"detail": "Authentication credentials were not provided."},
                 status=401,
@@ -100,7 +105,7 @@ class JWTAuthMiddleware:
 
         # Validate the token (signature + expiry)
         try:
-            AccessToken(auth_header.split(" ", 1)[1])
+            AccessToken(token_str)
         except (TokenError, Exception):
             return JsonResponse(
                 {"detail": "Given token is not valid or has expired."},
