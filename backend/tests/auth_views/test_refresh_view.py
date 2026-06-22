@@ -115,3 +115,66 @@ def test_refresh_token_rotation_does_not_raise_attribute_error(mongo_mock):
     assert "access" in data
     assert "refresh" in data
     assert data["refresh"] != _make_refresh_token(user), "rotated token should differ"
+
+
+# ===========================================================================
+# Cookie-based refresh (httpOnly cookie auth)
+# ===========================================================================
+
+
+def test_refresh_via_cookie_returns_200(mongo_mock):
+    """
+    When the frontend sends the refresh token in the ``refresh_token`` httpOnly
+    cookie (withCredentials=true, no body), the view must return 200 and a new
+    access token — not 400 {"refresh": ["This field is required."]}.
+
+    This was broken on main: MongoTokenRefreshSerializer expected attrs["refresh"]
+    from the request body and never checked COOKIES.
+    """
+    user = _make_user(email="cookie-refresh@example.com")
+    raw_token = _make_refresh_token(user)
+
+    resp = client.post(
+        REFRESH_URL,
+        data="{}",
+        content_type="application/json",
+        HTTP_COOKIE=f"refresh_token={raw_token}",
+    )
+
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.json()}"
+    data = resp.json()
+    assert "access" in data, "Response must contain new access token"
+
+
+def test_refresh_via_cookie_sets_new_access_cookie(mongo_mock):
+    """
+    A successful cookie-based refresh must set a new ``access_token`` httpOnly
+    cookie on the response so the browser has an updated token without JavaScript
+    ever touching the raw value.
+    """
+    user = _make_user(email="cookie-refresh-set@example.com")
+    raw_token = _make_refresh_token(user)
+
+    resp = client.post(
+        REFRESH_URL,
+        data="{}",
+        content_type="application/json",
+        HTTP_COOKIE=f"refresh_token={raw_token}",
+    )
+
+    assert resp.status_code == 200
+    assert "access_token" in resp.cookies, "Response must set an access_token cookie"
+    cookie = resp.cookies["access_token"]
+    assert cookie["httponly"], "access_token cookie must be httpOnly"
+
+
+def test_refresh_without_body_or_cookie_returns_400(mongo_mock):
+    """
+    With neither a body ``refresh`` field nor a ``refresh_token`` cookie the
+    endpoint must return 400 — not crash and not silently issue a token.
+
+    Uses a fresh client to avoid inheriting cookies set by earlier tests.
+    """
+    fresh = Client()
+    resp = fresh.post(REFRESH_URL, data="{}", content_type="application/json")
+    assert resp.status_code == 400
