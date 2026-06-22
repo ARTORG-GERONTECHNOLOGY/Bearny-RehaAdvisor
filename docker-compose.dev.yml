@@ -54,6 +54,8 @@ services:
       - ./frontend/src/config/:/app/config
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
       - /tmp/django-e2e-emails:/tmp/django-e2e-emails
+    environment:
+      - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
 
     depends_on:
       - db-dev
@@ -83,8 +85,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD:-dev-redis-secret}@redis:6379/0
+      - CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD:-dev-redis-secret}@redis:6379/0
+      - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
       - CELERY_WORKER_PREFETCH_MULTIPLIER=1
       - CELERY_WORKER_STATE_DB=/app/celery_worker.state
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.dev to activate
@@ -109,8 +112,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD:-dev-redis-secret}@redis:6379/0
+      - CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD:-dev-redis-secret}@redis:6379/0
+      - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.dev to activate
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/conf}
@@ -132,8 +136,22 @@ services:
     image: redis:alpine
     container_name: redis
     restart: always
-    ports:
-      - "6379:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-dev-redis-secret}
+      --tls-port 6379
+      --port 0
+      --tls-cert-file /etc/ssl/redis/server.crt
+      --tls-key-file /etc/ssl/redis/server.key
+      --tls-ca-cert-file /etc/ssl/redis/ca.crt
+      --tls-auth-clients no
+    volumes:
+      - ./redis/tls:/etc/ssl/redis:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "--cacert", "/etc/ssl/redis/ca.crt", "-a", "${REDIS_PASSWORD:-dev-redis-secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - telereha
 

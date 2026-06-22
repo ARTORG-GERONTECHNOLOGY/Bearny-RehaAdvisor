@@ -46,15 +46,17 @@ describe('authStore', () => {
     expect(callback).toHaveBeenCalled(); // Callback still triggered
   });
 
-  it('should correctly restore session if session is valid', () => {
-    localStorage.setItem('authToken', 'fake-token');
-    localStorage.setItem('expiresAt', (Date.now() + 3600000).toString()); // 1 hour from now
+  it('should correctly restore session if session is valid', async () => {
+    localStorage.setItem('expiresAt', (Date.now() + 3600000).toString());
     localStorage.setItem('userType', 'Therapist');
     localStorage.setItem('id', '12345');
     localStorage.setItem('firstName', 'John');
     localStorage.setItem('specialisations', 'Physio');
 
     authStore.checkAuthentication(() => {});
+    // checkAuthentication always calls _trySilentRefresh (async) — flush microtasks
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(authStore.isAuthenticated).toBe(true);
     expect(authStore.userType).toBe('Therapist');
@@ -80,13 +82,11 @@ describe('authStore', () => {
 
   it('stays logged in when session is expired but silent refresh succeeds', async () => {
     const expiredTime = Date.now() - 1000;
-    localStorage.setItem('authToken', 'expired-token');
-    localStorage.setItem('refreshToken', 'valid-refresh');
     localStorage.setItem('expiresAt', expiredTime.toString());
     localStorage.setItem('userType', 'Therapist');
     localStorage.setItem('id', '99');
 
-    (axios.post as jest.Mock).mockResolvedValueOnce({ data: { access: 'refreshed-token' } });
+    (axios.post as jest.Mock).mockResolvedValueOnce({ data: {} });
 
     const callback = jest.fn();
     authStore.checkAuthentication(callback);
@@ -95,7 +95,6 @@ describe('authStore', () => {
 
     expect(authStore.isAuthenticated).toBe(true);
     expect(callback).not.toHaveBeenCalled();
-    expect(localStorage.getItem('authToken')).toBe('refreshed-token');
   });
 
   describe('authStore - Inactivity Timeout Logout', () => {
@@ -127,7 +126,6 @@ describe('authStore', () => {
       const logoutCallback = jest.fn();
       authStore.setOnLogoutCallback(logoutCallback);
 
-      localStorage.setItem('authToken', 'fake-token');
       localStorage.setItem('expiresAt', (Date.now() + authStore.sessionTimeout + 60000).toString());
       localStorage.setItem('userType', 'Therapist');
       localStorage.setItem('id', '123');
@@ -135,6 +133,9 @@ describe('authStore', () => {
       localStorage.setItem('specialisations', 'Physio');
 
       authStore.checkAuthentication(() => {});
+      // _trySilentRefresh is async — flush microtasks before checking state
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(authStore.isAuthenticated).toBe(true);
 
@@ -168,7 +169,6 @@ describe('authStore', () => {
       const logoutCallback = jest.fn();
       authStore.setOnLogoutCallback(logoutCallback);
 
-      localStorage.setItem('authToken', 'fake-token');
       localStorage.setItem('expiresAt', (Date.now() + authStore.sessionTimeout + 60000).toString());
       localStorage.setItem('userType', 'Therapist');
       localStorage.setItem('id', '123');
@@ -176,6 +176,9 @@ describe('authStore', () => {
       localStorage.setItem('specialisations', 'Physio');
 
       authStore.checkAuthentication(() => {});
+      // _trySilentRefresh is async — flush microtasks before advancing timers
+      await Promise.resolve();
+      await Promise.resolve();
 
       const event = new Event('mousemove');
       const halfwayTime = authStore.sessionTimeout / 2;

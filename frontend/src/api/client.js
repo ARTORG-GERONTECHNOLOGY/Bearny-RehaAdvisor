@@ -6,21 +6,14 @@ axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
 
-// Create reusable Axios instance
+// Create reusable Axios instance.
+// withCredentials sends httpOnly auth cookies automatically on every request.
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-// Automatically attach JWT access token
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 // -------------------------------
@@ -29,16 +22,16 @@ apiClient.interceptors.request.use((config) => {
 // ROTATE_REFRESH_TOKENS is enabled on the backend, so each refresh call
 // blacklists the old token and issues a new one. If two concurrent requests
 // both receive a 401 and both try to refresh, the second refresh call will
-// fail with 401 (blacklisted token) and wipe localStorage, causing a
-// spurious logout. The lock below ensures only one refresh runs at a time;
-// any other 401s that arrive during the refresh are queued and resolved
-// (or rejected) once the single refresh completes.
+// fail with 401 (blacklisted token) and wipe cookies, causing a spurious
+// logout. The lock below ensures only one refresh runs at a time; any other
+// 401s that arrive during the refresh are queued and resolved (or rejected)
+// once the single refresh completes.
 // -------------------------------
 let _isRefreshing = false;
 let _refreshQueue = []; // [{ resolve, reject }]
 
-function _processQueue(error, token = null) {
-  _refreshQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(token)));
+function _processQueue(error) {
+  _refreshQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve()));
   _refreshQueue = [];
 }
 
@@ -52,7 +45,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // -------------------------------
-    // 401 → Try refresh token
+    // 401 → Try refresh via httpOnly cookie
     // -------------------------------
     if (error.response?.status === 401 && !originalRequest._retry) {
       // Another refresh is already in flight — queue this request
@@ -60,10 +53,7 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           _refreshQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return apiClient(originalRequest);
-          })
+          .then(() => apiClient(originalRequest))
           .catch((err) => Promise.reject(err));
       }
 
@@ -71,32 +61,13 @@ apiClient.interceptors.response.use(
       _isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          console.warn('No refresh token found.');
-          _isRefreshing = false;
-          _processQueue(error);
-          return Promise.reject(error);
-        }
+        // Send no body — the refresh_token httpOnly cookie is attached automatically
+        await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {}, { withCredentials: true });
 
-        const refreshRes = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
-          refresh: refreshToken,
-        });
-
-        const newAccessToken = refreshRes.data?.access;
-        if (!newAccessToken) {
-          console.warn('Refresh token response missing access token.');
-          _isRefreshing = false;
-          _processQueue(error);
-          return Promise.reject(error);
-        }
-
-        // Save new access token and unblock the queue
-        localStorage.setItem('authToken', newAccessToken);
         _isRefreshing = false;
-        _processQueue(null, newAccessToken);
+        _processQueue(null);
 
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        // Retry original request — new access_token cookie is now set
         return apiClient(originalRequest);
       } catch (refreshError) {
         console.error('🔒 Token refresh failed:', refreshError);
@@ -104,11 +75,10 @@ apiClient.interceptors.response.use(
         _isRefreshing = false;
         _processQueue(refreshError);
 
-        // Only clear tokens after a confirmed refresh failure so that a
-        // transient network error doesn't silently log the user out.
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('refreshToken');
-
+        // Don't wipe localStorage here. authStore.checkAuthentication() already
+        // clears storage and triggers logout when session is truly dead. Clearing
+        // 'id' / 'expiresAt' here causes spurious logouts when the refresh cookie
+        // isn't yet propagated across ports in test environments.
         return Promise.reject(refreshError);
       }
     }

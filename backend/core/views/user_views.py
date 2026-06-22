@@ -112,12 +112,16 @@ def _get_viewer_user(request):
     Returns None when the token is absent, invalid, or the user is not in DB.
     """
     try:
-        auth_header = request.headers.get("Authorization", "") or ""
-        if not auth_header.startswith("Bearer "):
-            return None
         from rest_framework_simplejwt.tokens import AccessToken
 
-        token = AccessToken(auth_header.split(" ", 1)[1])
+        token_str = request.COOKIES.get("access_token", "")
+        if not token_str:
+            auth_header = request.headers.get("Authorization", "") or ""
+            if auth_header.startswith("Bearer "):
+                token_str = auth_header.split(" ", 1)[1]
+        if not token_str:
+            return None
+        token = AccessToken(token_str)
         user_id = token.get("user_id")
         if not user_id:
             return None

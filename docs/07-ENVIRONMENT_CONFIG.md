@@ -48,8 +48,8 @@ EMAIL_HOST_USER=
 EMAIL_HOST_PASSWORD=
 
 # Celery Configuration
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
+CELERY_BROKER_URL=rediss://localhost:6379/0
+CELERY_RESULT_BACKEND=rediss://localhost:6379/0
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS=http://localhost:3001,http://localhost:8001
@@ -81,8 +81,8 @@ VITE_API_URL=http://localhost:8001
 
 EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
+CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD}@redis:6379/0
+CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD}@redis:6379/0
 
 CORS_ALLOWED_ORIGINS=http://localhost:3001,http://localhost:8001
 
@@ -113,8 +113,8 @@ EMAIL_USE_TLS=True
 EMAIL_HOST_USER=staging-email@example.com
 EMAIL_HOST_PASSWORD=app-password
 
-CELERY_BROKER_URL=redis://redis-staging:6379/0
-CELERY_RESULT_BACKEND=redis://redis-staging:6379/0
+CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD}@redis-staging:6379/0
+CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD}@redis-staging:6379/0
 
 CORS_ALLOWED_ORIGINS=https://staging.yourdomain.com
 
@@ -146,8 +146,8 @@ EMAIL_USE_TLS=True
 EMAIL_HOST_USER=noreply@yourdomain.com
 EMAIL_HOST_PASSWORD=secure-app-password
 
-CELERY_BROKER_URL=redis://redis-prod:6379/0
-CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
+CELERY_BROKER_URL=rediss://:${REDIS_PASSWORD}@redis-prod:6379/0
+CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD}@redis-prod:6379/0
 
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
@@ -688,7 +688,33 @@ When adding a new service to either stack that should be reachable through the g
 | Settings module | `api.settings.dev` | `api.settings.local_prod` |
 | Debug | `True` | `False` |
 | Hot reload | Vite HMR active | Static build served by nginx |
-| Celery broker | `redis://redis:6379/0` | `redis://redis-localprod:6379/0` |
+| Celery broker | `rediss://redis:6379/0` | `rediss://redis-localprod:6379/0` |
+
+---
+
+## Security Variables
+
+### Redis TLS
+
+Redis requires TLS in all environments. The broker URL scheme must be `rediss://` (double-s). The CA certificate used to verify the Redis server cert is shared with the Mongo CA.
+
+| Variable | Default | Description |
+|---|---|---|
+| `REDIS_PASSWORD` | *(required)* | Password for the Redis `requirepass` directive. Set in `.env.dev` / `.env.prod`. |
+| `REDIS_CA_CERT` | `/etc/ssl/redis/ca.crt` (prod) / `/etc/ssl/mongo/ca.crt` (dev) | Path inside the container to the CA certificate used to verify the Redis TLS connection. Set in `docker-compose.*.yml` via the `environment:` section, not `.env` files. |
+| `CELERY_BROKER_URL` | `rediss://redis:6379/0` | Must use `rediss://` scheme. Dev compose injects this automatically. |
+| `CELERY_RESULT_BACKEND` | `rediss://redis:6379/0` | Must match broker scheme. |
+
+The TLS certs for Redis live in `redis/tls/` (gitignored). See the [Deployment Guide — Redis TLS](./06-DEPLOYMENT_GUIDE.md#redis-tls-certificate-setup) for the generation steps.
+
+### Log Retention
+
+The Celery Beat task `core.tasks.prune_old_logs` runs weekly (Sunday 04:00 UTC) and deletes old audit log entries. `ADMIN_EXPORT` entries are kept longer to satisfy data access compliance requirements.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LOG_RETENTION_DAYS` | `365` | Delete regular activity `Logs` entries older than this many days. Set to `0` to disable pruning entirely. |
+| `AUDIT_EXPORT_RETENTION_DAYS` | `1825` (5 years) | Retain `ADMIN_EXPORT` log entries for this many days. These record who downloaded patient data and must be kept for compliance. |
 
 ---
 
