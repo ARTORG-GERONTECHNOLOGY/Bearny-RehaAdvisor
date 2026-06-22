@@ -197,6 +197,20 @@ def test_fitbit_status_unresolved_identifier_returns_false():
     assert body["last_data"] is None
 
 
+def test_fitbit_callback_auth_error_from_fitbit_redirects():
+    """When Fitbit returns ?error=... (e.g. redirect_uri_mismatch), the callback
+    must redirect to the patient page with fitbit_status=auth_error and include
+    the fitbit_error code so the frontend can show an actionable message."""
+    resp = client.get(
+        "/api/fitbit/callback/?error=redirect_uri_mismatch&error_description=The+redirect+URI+did+not+match",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 302
+    location = resp.headers["Location"]
+    assert "fitbit_status=auth_error" in location
+    assert "fitbit_error=redirect_uri_mismatch" in location
+
+
 def test_fitbit_callback_missing_code_redirects():
     _, _, patient_user, _ = create_patient_graph()
     resp = client.get(
