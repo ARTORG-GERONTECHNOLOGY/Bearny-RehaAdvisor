@@ -11,18 +11,19 @@ from bson import ObjectId
 from django.conf import settings
 from django.conf import settings as _django_settings
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives, send_mail
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from core.tasks import fetch_fitbit_data_async
-from core.views.fitbit_sync import fetch_fitbit_today_for_user
 
 from core.models import (
     InterventionAssignment,
@@ -35,11 +36,8 @@ from core.models import (
     Therapist,
     User,
 )
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
-from mongoengine.queryset.visitor import Q
-
+from core.tasks import fetch_fitbit_data_async
+from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import config
 from utils.scheduling import _expand_dates
 from utils.utils import (
@@ -72,12 +70,20 @@ def _parse_device_type(ua: str) -> str:
 def _set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
     secure = not getattr(_django_settings, "DEBUG", False)
     response.set_cookie(
-        "access_token", access_token,
-        httponly=True, secure=secure, samesite="Strict", max_age=300,
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=secure,
+        samesite="Strict",
+        max_age=300,
     )
     response.set_cookie(
-        "refresh_token", refresh_token,
-        httponly=True, secure=secure, samesite="Strict", max_age=86400,
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        secure=secure,
+        samesite="Strict",
+        max_age=86400,
     )
 
 
