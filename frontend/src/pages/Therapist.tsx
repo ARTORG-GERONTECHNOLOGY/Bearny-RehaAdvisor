@@ -29,6 +29,7 @@ import config from '@/config/config.json';
 import { TherapistPatientsStore, SortKey, RedcapCandidate } from '@/stores/therapistPatientsStore';
 import type { PatientType } from '@/types';
 import { appModeStore } from '@/stores/appModeStore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // -------------------- local, typed helpers (no any) --------------------
 
@@ -667,23 +668,32 @@ const Therapist: React.FC = observer(() => {
 
           <Row className="mb-3">
             <Col className="d-flex gap-2 flex-wrap">
-              {appModeStore.showManualCreate && (
-                <Button onClick={store.openAddPatient} disabled={store.loading}>
-                  {String(t('Add a New Patient'))}
-                </Button>
-              )}
+              {!appModeStore.loaded ? (
+                <>
+                  <Skeleton className="h-9 w-36 rounded" />
+                  <Skeleton className="h-9 w-40 rounded" />
+                </>
+              ) : (
+                <>
+                  {appModeStore.showManualCreate && (
+                    <Button onClick={store.openAddPatient} disabled={store.loading}>
+                      {String(t('Add a New Patient'))}
+                    </Button>
+                  )}
 
-              {appModeStore.showRedcapImport && (
-                <Button
-                  variant="outline-primary"
-                  onClick={async () => {
-                    store.openImportRedcap();
-                    await store.fetchRedcapCandidates(t);
-                  }}
-                  disabled={store.loading}
-                >
-                  {String(t('Import from REDCap'))}
-                </Button>
+                  {appModeStore.showRedcapImport && (
+                    <Button
+                      variant="outline-primary"
+                      onClick={async () => {
+                        store.openImportRedcap();
+                        await store.fetchRedcapCandidates(t);
+                      }}
+                      disabled={store.loading}
+                    >
+                      {String(t('Import from REDCap'))}
+                    </Button>
+                  )}
+                </>
               )}
             </Col>
           </Row>
