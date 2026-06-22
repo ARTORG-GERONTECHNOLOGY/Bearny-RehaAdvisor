@@ -30,6 +30,7 @@ on:
     paths:
       - 'frontend/**'
       - 'backend/**'
+      - 'nginx/**'
       - '.github/workflows/tests.yml'
       - 'docker-compose*.yml'
   pull_request:
@@ -37,6 +38,7 @@ on:
     paths:
       - 'frontend/**'
       - 'backend/**'
+      - 'nginx/**'
       - '.github/workflows/tests.yml'
       - 'docker-compose*.yml'
 
