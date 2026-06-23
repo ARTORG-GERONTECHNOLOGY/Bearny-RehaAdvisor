@@ -41,6 +41,7 @@ import EndScreen from '@/components/icf/EndScreen';
 import InfoScreen from '@/components/icf/InfoScreen';
 import PatientIdScreen from '@/components/icf/PatientIdScreen';
 import StartScreen from '@/components/icf/StartScreen';
+import AssistanceSheet from '@/components/PatientPage/AssistanceSheet';
 import '@/assets/styles/icf.css';
 
 /** ====== DATA ====== */
@@ -161,6 +162,7 @@ export default function HealthSlider() {
   const navigate = useNavigate();
 
   // --- questionnaire states ---
+  const [assistanceMode, setAssistanceMode] = useState<'alone' | 'with_help' | null>(null);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [sliderMoved, setSliderMoved] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(() => {
@@ -598,6 +600,7 @@ export default function HealthSlider() {
     fd.append('answerValue', String(payload.answerValue));
     fd.append('answeredAt', new Date().toISOString());
     fd.append('deviceType', getDeviceType());
+    if (assistanceMode) fd.append('assistance', assistanceMode);
 
     if (payload.audio) {
       const mime = payload.audio.type || mimeRef.current || '';
@@ -890,7 +893,15 @@ export default function HealthSlider() {
   }
 
   if (testMode) {
-    return <StartScreen micError={micError} onStart={startMic} />;
+    return (
+      <>
+        <StartScreen micError={micError} onStart={startMic} />
+        <AssistanceSheet
+          open={assistanceMode === null}
+          onSelect={(mode) => setAssistanceMode(mode)}
+        />
+      </>
+    );
   }
 
   return (
