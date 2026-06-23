@@ -634,3 +634,102 @@ def test_healthslider_delete_session_requires_token():
     """
     resp = _http_client.delete("/api/healthslider/delete-session/?participantId=P001")
     assert resp.status_code == 401, "delete-session must require a valid X-Healthslider-Token"
+
+
+# ===========================================================================
+# Content Security Policy — prod nginx config
+# ===========================================================================
+
+
+def _prod_nginx_conf() -> Path:
+    # On the host:  .../telerehabapp/backend/tests/security/test_*.py → parents[3] = project root
+    # In container: /app/tests/security/test_*.py → parents[3] = / (file won't exist → skip)
+    return Path(__file__).resolve().parents[3] / "nginx" / "conf" / "prod.reha-advisor.nginx.conf"
+
+
+def _parse_csp(conf_text: str) -> dict[str, str]:
+    """
+    Extract the CSP header value and split it into a dict keyed by directive name.
+    Returns an empty dict when no CSP header is found.
+    """
+    import re
+
+    m = re.search(r'Content-Security-Policy\s+"([^"]+)"', conf_text)
+    if not m:
+        return {}
+    directives = {}
+    for part in m.group(1).split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        tokens = part.split(None, 1)
+        key = tokens[0]
+        value = tokens[1] if len(tokens) > 1 else ""
+        directives[key] = value
+    return directives
+
+
+def test_csp_header_present_in_prod_nginx_conf():
+    """prod.reha-advisor.nginx.conf must contain a Content-Security-Policy header."""
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    assert "Content-Security-Policy" in _prod_nginx_conf().read_text()
+
+
+def test_csp_frame_ancestors_none():
+    """frame-ancestors 'none' must be set to block clickjacking."""
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    csp = _parse_csp(_prod_nginx_conf().read_text())
+    assert "frame-ancestors" in csp, "frame-ancestors directive must be present"
+    assert "'none'" in csp["frame-ancestors"], "frame-ancestors must be 'none'"
+
+
+def test_csp_frame_src_allows_https():
+    """
+    frame-src must allow HTTPS iframes so intervention videos from YouTube
+    and other platforms are not blocked.
+    """
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    csp = _parse_csp(_prod_nginx_conf().read_text())
+    assert "frame-src" in csp, "frame-src directive must be present"
+    assert "https:" in csp["frame-src"], "frame-src must include https: to allow external video embeds"
+
+
+def test_csp_img_src_allows_https():
+    """
+    img-src must allow HTTPS images so intervention images hosted on external
+    CDNs are not blocked.
+    """
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    csp = _parse_csp(_prod_nginx_conf().read_text())
+    assert "img-src" in csp, "img-src directive must be present"
+    assert "https:" in csp["img-src"], "img-src must include https: to allow external images"
+
+
+def test_csp_connect_src_covers_sentry_ingest():
+    """
+    Sentry's error-reporting endpoint is <org-id>.ingest.sentry.io — two levels
+    under sentry.io.  A wildcard *.sentry.io only matches one level, so the
+    POST was being blocked.  Both *.sentry.io and *.ingest.sentry.io must appear
+    in connect-src.
+    """
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    csp = _parse_csp(_prod_nginx_conf().read_text())
+    assert "connect-src" in csp, "connect-src directive must be present"
+    assert "https://*.ingest.sentry.io" in csp["connect-src"], (
+        "connect-src must include https://*.ingest.sentry.io — "
+        "*.sentry.io alone does not match <org-id>.ingest.sentry.io"
+    )
+
+
+def test_csp_object_src_none():
+    """object-src 'none' must block browser plugins (Flash, Java, etc.)."""
+    if not _prod_nginx_conf().exists():
+        pytest.skip("nginx conf not available in this environment")
+    csp = _parse_csp(_prod_nginx_conf().read_text())
+    assert "object-src" in csp, "object-src directive must be present"
+    assert "'none'" in csp["object-src"], "object-src must be 'none'"
