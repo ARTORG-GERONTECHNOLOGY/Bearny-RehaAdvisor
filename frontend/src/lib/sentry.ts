@@ -10,7 +10,15 @@ export function initSentry(): void {
     dsn: sentryDsn,
     enableLogs: true,
     sendDefaultPii: true,
-    tracesSampleRate: 1.0,
+    // 1.0 caused 413s from Sentry because performance traces bloated envelopes
+    // past the ~200 KB per-event limit. 0.2 captures enough for performance
+    // analysis without saturating the ingest endpoint.
+    tracesSampleRate: 0.2,
+    // Default 100 breadcrumbs can push a single error event over the size limit
+    // when combined with deep MobX state snapshots.
+    maxBreadcrumbs: 50,
+    // Limit serialization depth so large store trees aren't fully expanded.
+    normalizeDepth: 3,
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.feedbackIntegration({
