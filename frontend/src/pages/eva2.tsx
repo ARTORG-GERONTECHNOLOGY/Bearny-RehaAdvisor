@@ -9,13 +9,21 @@
  * -----------------------------------------
  * 1. Patient-ID input   — when no patientId in URL param or localStorage.
  *                         Validates "P\d+-\d+T\d+" format, persists to localStorage.
- * 2. Mic permission     — requests getUserMedia; shows "Übungslauf starten" button.
- * 3. Practice mode      — one warm-up question (not uploaded to backend).
- * 4. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
+ * 2. Assistance sheet   — bottom drawer asking "alleine oder mit Unterstützung?".
+ *                         Appears once per session on top of the mic-permission screen.
+ *                         Patient must answer before starting. Answer is stored in
+ *                         component state (not localStorage) and sent with every
+ *                         subsequent POST to /api/healthslider/submit-item/.
+ *                         Not shown when resuming a mid-survey session (survey_sessionId
+ *                         already set in localStorage).
+ * 3. Mic permission     — requests getUserMedia; shows "Übungslauf starten" button.
+ * 4. Practice mode      — one warm-up question (not uploaded to backend).
+ * 5. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
- *                         participantId, sessionId, questionIndex, answerValue, and the
- *                         recorded audio Blob (webm or m4a depending on browser).
- * 5. Summary / end      — shown after the last question; localStorage is cleared immediately
+ *                         participantId, sessionId, questionIndex, answerValue, deviceType,
+ *                         assistance, and the recorded audio Blob (webm or m4a depending
+ *                         on browser).
+ * 6. Summary / end      — shown after the last question; localStorage is cleared immediately
  *                         before the end screen renders (no "Beenden" button).
  *
  * Persistence (localStorage)

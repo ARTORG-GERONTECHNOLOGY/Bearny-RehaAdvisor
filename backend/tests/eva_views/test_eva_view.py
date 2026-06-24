@@ -368,6 +368,99 @@ def test_delete_session_direct_method_and_required_and_not_found():
     assert r_none.status_code == 404
 
 
+# ===========================================================================
+# device_type and assistance field persistence
+# ===========================================================================
+
+
+def test_submit_item_stores_device_type():
+    r = client.post(
+        "/api/healthslider/submit-item/",
+        data={
+            "participantId": "P10",
+            "sessionId": "S10",
+            "questionIndex": "0",
+            "questionText": "Q",
+            "answerValue": "3",
+            "deviceType": "Mobile",
+        },
+    )
+    assert r.status_code == 201
+    doc = HealthSliderEntry.objects(participant_id="P10").first()
+    assert doc is not None
+    assert doc.device_type == "Mobile"
+
+
+def test_submit_item_device_type_defaults_to_none_when_absent():
+    r = client.post(
+        "/api/healthslider/submit-item/",
+        data={
+            "participantId": "P11",
+            "sessionId": "S11",
+            "questionIndex": "0",
+            "questionText": "Q",
+            "answerValue": "3",
+        },
+    )
+    assert r.status_code == 201
+    doc = HealthSliderEntry.objects(participant_id="P11").first()
+    assert doc is not None
+    assert doc.device_type is None
+
+
+def test_submit_item_stores_assistance_alone():
+    r = client.post(
+        "/api/healthslider/submit-item/",
+        data={
+            "participantId": "P12",
+            "sessionId": "S12",
+            "questionIndex": "0",
+            "questionText": "Q",
+            "answerValue": "5",
+            "assistance": "alone",
+        },
+    )
+    assert r.status_code == 201
+    doc = HealthSliderEntry.objects(participant_id="P12").first()
+    assert doc is not None
+    assert doc.assistance == "alone"
+
+
+def test_submit_item_stores_assistance_with_help():
+    r = client.post(
+        "/api/healthslider/submit-item/",
+        data={
+            "participantId": "P13",
+            "sessionId": "S13",
+            "questionIndex": "0",
+            "questionText": "Q",
+            "answerValue": "7",
+            "assistance": "with_help",
+        },
+    )
+    assert r.status_code == 201
+    doc = HealthSliderEntry.objects(participant_id="P13").first()
+    assert doc is not None
+    assert doc.assistance == "with_help"
+
+
+def test_submit_item_assistance_defaults_to_none_when_absent():
+    r = client.post(
+        "/api/healthslider/submit-item/",
+        data={
+            "participantId": "P14",
+            "sessionId": "S14",
+            "questionIndex": "0",
+            "questionText": "Q",
+            "answerValue": "2",
+        },
+    )
+    assert r.status_code == 201
+    doc = HealthSliderEntry.objects(participant_id="P14").first()
+    assert doc is not None
+    assert doc.assistance is None
+
+
 def test_delete_session_direct_view_success_with_mocked_storage():
     from django.test import RequestFactory
 
