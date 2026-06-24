@@ -238,6 +238,7 @@ def submit_healthslider_item(request):
         entry.question_text = q_text
         entry.answered_at = dt
         entry.device_type = (request.POST.get("deviceType") or "").strip() or None
+        entry.assistance = (request.POST.get("assistance") or "").strip() or None
 
         audio = request.FILES.get("audio")
         if audio:
@@ -300,8 +301,10 @@ def list_healthslider_items(request):
                 "hasAudio": it.has_audio,
                 "audioSize": size,
                 "audioName": it.audio_name,
-                "audioMime": it.audio_mime,  # ✅ include to help UI if needed
+                "audioMime": it.audio_mime,
                 "answeredAt": it.answered_at.strftime("%Y-%m-%dT%H:%M:%SZ") if it.answered_at else None,
+                "deviceType": it.device_type or None,
+                "assistance": it.assistance or None,
             }
         )
 

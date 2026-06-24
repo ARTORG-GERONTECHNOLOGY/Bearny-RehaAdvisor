@@ -729,6 +729,7 @@ class HealthSliderEntry(Document):
 
     answered_at = DateTimeField(default=timezone.now)
     device_type = StringField(max_length=20, required=False, null=True)
+    assistance = StringField(max_length=20, required=False, null=True)  # "alone" or "with_help"
 
     meta = {
         "indexes": [
