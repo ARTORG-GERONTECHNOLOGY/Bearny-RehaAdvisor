@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockNavigate = jest.fn();
 let mockInterventionId = 'int-1';
@@ -158,6 +158,7 @@ import authStore from '@/stores/authStore';
 import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import { translateText } from '@/utils/translate';
 
 const buildRec = (overrides: any = {}) => ({
   intervention_id: 'int-1',
@@ -375,5 +376,78 @@ describe('PatientInterventionDetail', () => {
     });
 
     jest.restoreAllMocks();
+  });
+
+  // --- Tests for the Sentry removeChild fix ---
+
+  it('shows private lock icon when intervention is marked private', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Exercise', media: [], is_private: true },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.getByTestId('fa-lock')).toBeInTheDocument();
+  });
+
+  it('does not show lock icon when intervention is not private', async () => {
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.queryByTestId('fa-lock')).not.toBeInTheDocument();
+  });
+
+  it('displays translated title when translation returns different text', async () => {
+    (translateText as jest.Mock).mockImplementation(async (text: string) => {
+      if (text === 'Morning Stretch') {
+        return { translatedText: 'Morgenstreckung', detectedSourceLanguage: 'en' };
+      }
+      return { translatedText: text, detectedSourceLanguage: '' };
+    });
+
+    render(<PatientInterventionDetail />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Morgenstreckung')).toBeInTheDocument();
+    });
+  });
+
+  it('displays translated description when translation returns different text', async () => {
+    (translateText as jest.Mock).mockImplementation(async (text: string) => {
+      if (text === 'Daily movement routine') {
+        return { translatedText: 'Tägliche Bewegungsroutine', detectedSourceLanguage: 'en' };
+      }
+      return { translatedText: text, detectedSourceLanguage: '' };
+    });
+
+    render(<PatientInterventionDetail />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tägliche Bewegungsroutine')).toBeInTheDocument();
+    });
+  });
+
+  it('alive guard: resolving translation after unmount does not throw', async () => {
+    // Simulate slow translation — resolve it only after component unmounts.
+    // The alive guard in the useEffect should prevent stale setState calls.
+    const resolvers: Array<(v: any) => void> = [];
+    (translateText as jest.Mock).mockImplementation(
+      () => new Promise((resolve) => resolvers.push(resolve))
+    );
+
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    unmount();
+
+    // Resolve all pending translation promises after unmount — must not throw.
+    await act(async () => {
+      for (const resolve of resolvers) {
+        resolve({ translatedText: 'Translated text', detectedSourceLanguage: 'en' });
+      }
+    });
   });
 });
