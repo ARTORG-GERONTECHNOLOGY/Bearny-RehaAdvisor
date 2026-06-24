@@ -62,6 +62,14 @@ describe('HealthSlider (Full Sync)', () => {
     });
   };
 
+  // Click "Übungslauf starten" (shows AssistanceScreen) then answer "Alleine"
+  // (which calls startMic). The caller is still responsible for awaiting
+  // waitFor(ÜBUNGSMODUS) if practice mode is needed.
+  const startPracticeMode = async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
+  };
+
   beforeEach(() => {
     jest.restoreAllMocks();
     localStorage.clear();
@@ -133,7 +141,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Patient ID is encoded in the URL (no localStorage write) — verify it
     // appears in the footer once we enter the survey proper.
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     await waitFor(() => {
       expect(screen.getByText(/ID: P001-001T1/)).toBeInTheDocument();
@@ -145,7 +153,7 @@ describe('HealthSlider (Full Sync)', () => {
     // The modal might appear differently or have different timing
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     // Wait for practice mode to load
     await waitFor(() => {
       expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
@@ -171,7 +179,7 @@ describe('HealthSlider (Full Sync)', () => {
     // The slider attributes and timing may differ from eva.tsx
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     // Wait for practice mode to load
     await waitFor(() => {
@@ -251,7 +259,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     // Wait for practice mode to load
     await waitFor(() => {
@@ -331,7 +339,7 @@ describe('HealthSlider (Full Sync)', () => {
     await enterPatientId();
 
     // Start mic -> leaves testMode, enters practice UI
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     // Wait for practice mode to load
     await waitFor(() => {
@@ -374,7 +382,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('practice mode: Start button is visible and bell/play buttons are available', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     await waitFor(() => {
       expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
@@ -392,7 +400,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('real mode: bell and play buttons appear after Start', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -407,7 +415,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('slider can be moved while buttons are locked (isLocked)', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     // Enter real mode via Start
@@ -447,7 +455,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     await waitFor(() => expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument());
@@ -482,7 +490,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('slider reaches 100 at top and 0 at bottom (no 3–97 cap)', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     await waitFor(() => expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument());
@@ -503,7 +511,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     await waitFor(() => expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument());
@@ -535,7 +543,7 @@ describe('HealthSlider (Full Sync)', () => {
 
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     await waitFor(() => expect(screen.getByText(/MediaRecorder fehlt/i)).toBeInTheDocument());
 
@@ -557,7 +565,7 @@ describe('HealthSlider (Full Sync)', () => {
     await enterPatientId();
 
     // Start mic -> practice mode view
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
 
     // Wait for practice mode to load
     await waitFor(() => {
@@ -585,7 +593,7 @@ describe('HealthSlider (Full Sync)', () => {
     renderICF();
     await enterPatientId();
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -614,7 +622,7 @@ describe('HealthSlider (Full Sync)', () => {
     renderICF();
     await enterPatientId();
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     // Advance to real mode so the progress row (with the dot) is rendered
@@ -678,7 +686,7 @@ describe('HealthSlider (Full Sync)', () => {
     renderICF();
     await enterPatientId();
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -705,7 +713,7 @@ describe('HealthSlider (Full Sync)', () => {
     renderICF();
     await enterPatientId();
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -751,7 +759,7 @@ describe('HealthSlider (Full Sync)', () => {
     await enterPatientId();
 
     // Click past the mic screen into practice mode
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     // Simulate tab going to background then coming back
@@ -777,7 +785,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('Info button opens the info overlay', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Information' }));
@@ -793,7 +801,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('"zurück" button closes the info overlay and leaves the survey intact', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Information' }));
@@ -812,7 +820,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('info overlay shows the recording indicator when a recording is active', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     // Enter real mode so the progress-row REC dot is rendered
@@ -833,7 +841,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('closing the info overlay does not interrupt recording', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -939,7 +947,7 @@ describe('HealthSlider (Full Sync)', () => {
   it('survey_index is written to localStorage when advancing from question 1 to question 2', async () => {
     renderICF();
     await enterPatientId();
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    await startPracticeMode();
     await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
 
     // Practice → real

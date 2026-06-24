@@ -28,7 +28,7 @@ const AssistanceSheet: React.FC<AssistanceSheetProps> = ({ open, onSelect }) => 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-1 py-6">
           <Button
             className="w-full sm:w-48 h-16 text-lg"
-            variant="outline"
+            variant="secondary"
             onClick={() => onSelect('alone')}
           >
             {t('assistanceAlone')}
