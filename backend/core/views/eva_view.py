@@ -301,8 +301,10 @@ def list_healthslider_items(request):
                 "hasAudio": it.has_audio,
                 "audioSize": size,
                 "audioName": it.audio_name,
-                "audioMime": it.audio_mime,  # ✅ include to help UI if needed
+                "audioMime": it.audio_mime,
                 "answeredAt": it.answered_at.strftime("%Y-%m-%dT%H:%M:%SZ") if it.answered_at else None,
+                "deviceType": it.device_type or None,
+                "assistance": it.assistance or None,
             }
         )
 

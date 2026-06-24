@@ -139,7 +139,17 @@ export default function DownloadsPage() {
     const zipData: Record<string, Uint8Array> = {};
     const dateStr = new Date().toISOString().split('T')[0];
 
-    const csvRows = [['QuestionID', 'QuestionText', 'Rating', 'Timestamp', 'AudioFile']];
+    const csvRows = [
+      [
+        'QuestionID',
+        'QuestionText',
+        'Rating',
+        'Timestamp',
+        'AudioFile',
+        'DeviceType',
+        'Assistance',
+      ],
+    ];
 
     for (const item of items) {
       const fileName = item.audioName || `Q${item.questionIndex + 1}_${participantId}.webm`;
@@ -149,6 +159,8 @@ export default function DownloadsPage() {
         item.answerValue === -1 ? 'N/A' : String(item.answerValue),
         item.answeredAt || '',
         item.hasAudio ? fileName : 'No Audio',
+        item.deviceType || '',
+        item.assistance || '',
       ]);
 
       if (item.hasAudio) {
@@ -281,6 +293,8 @@ export default function DownloadsPage() {
             <th className="text-center">Q#</th>
             <th>Question & Timestamp</th>
             <th className="text-center">Rating</th>
+            <th className="text-center">Device</th>
+            <th className="text-center">Assistance</th>
             <th className="text-center">Audio Size</th>
             <th style={{ width: '320px' }}>Playback</th>
           </tr>
@@ -303,6 +317,14 @@ export default function DownloadsPage() {
                     {it.answerValue}
                   </span>
                 )}
+              </td>
+              <td className="text-center text-muted small">{it.deviceType || '—'}</td>
+              <td className="text-center text-muted small">
+                {it.assistance === 'alone'
+                  ? 'Alone'
+                  : it.assistance === 'with_help'
+                    ? 'With help'
+                    : '—'}
               </td>
               <td className="text-center text-muted small">
                 {it.hasAudio ? formatSize(it.audioSize) : '—'}
@@ -329,7 +351,7 @@ export default function DownloadsPage() {
 
           {items.length === 0 && !loading && (
             <tr>
-              <td colSpan={5} className="text-center py-5 text-muted">
+              <td colSpan={7} className="text-center py-5 text-muted">
                 Enter a Patient ID and click Search to display results.
               </td>
             </tr>
