@@ -82,6 +82,27 @@ The installed entry looks like:
 
 ---
 
+### `sync-templates-to-dev.sh` — mirror reference data from local-prod to dev
+
+```bash
+./scripts/sync-templates-to-dev.sh
+```
+
+Copies the four shared, non-patient reference collections from the **local-prod** MongoDB instance into the **dev** instance, so dev has realistic content to test against.
+
+Collections synced:
+
+| Collection | Contains |
+|---|---|
+| `Interventions` | Shared exercise library (multilingual) |
+| `InterventionTemplates` | Named rehab plans created by therapists |
+| `FeedbackQuestions` | Canonical post-exercise questionnaire items |
+| `HealthQuestionnaires` | ICF / health-status questionnaire definitions |
+
+Credentials are read automatically from `.env.local-prod` (source) and `.env.dev` (destination). Both the `db-localprod` and `db` containers must be running. Each collection is replaced atomically (`--drop`) — patient data in dev is untouched.
+
+---
+
 ## Other scripts
 
 | Script | Purpose |
