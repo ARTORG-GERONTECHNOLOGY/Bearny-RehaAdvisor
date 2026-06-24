@@ -83,21 +83,20 @@ async function gotoWithPatientId(page: Page, patientId = 'P01') {
 }
 
 /**
- * Dismiss the assistance bottom sheet that appears on the StartScreen.
- * The sheet blocks interaction with the StartScreen until dismissed.
+ * Answer the assistance question screen that appears after clicking "Übungslauf starten".
+ * The screen is a separate full page between the welcome screen and practice mode.
  */
-async function dismissAssistanceSheet(
+async function answerAssistanceQuestion(
   page: Page,
   choice: 'Alleine' | 'Mit Unterstützung' = 'Alleine'
 ) {
   await page.getByRole('button', { name: choice }).click();
 }
 
-/** Navigate past the mic-permission screen by clicking "Übungslauf starten". */
+/** Navigate through welcome → assistance question → practice mode. */
 async function startMicAndPractice(page: Page) {
-  // Dismiss the assistance sheet that appears on the StartScreen first
-  await dismissAssistanceSheet(page);
   await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+  await answerAssistanceQuestion(page);
   // Wait for the practice mode banner to appear
   await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
 }
@@ -338,8 +337,9 @@ test.describe('ICF Monitor — MediaRecorder not available', () => {
     });
 
     await gotoWithPatientId(page);
-    await dismissAssistanceSheet(page);
+    // Advance to the assistance screen, then attempt to start — the error appears there
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await page.getByRole('button', { name: 'Alleine' }).click();
 
     await expect(page.getByText(/MediaRecorder fehlt|nicht unterstützt/i)).toBeVisible();
   });
@@ -714,10 +714,9 @@ test.describe('#324 — MediaRecorder started with timeslice', () => {
     await stubSubmitItem(page);
     await gotoWithPatientId(page);
 
-    // Dismiss the assistance sheet before clicking start
-    await dismissAssistanceSheet(page);
-    // Click start — this triggers startMic() → startItemRecorder() → rec.start(250)
+    // Click start → assistance screen appears → answer it → startMic() → timeslice recorded
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await answerAssistanceQuestion(page);
     await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
 
     // Read the timeslice that was passed to FakeMediaRecorder.start()
@@ -731,46 +730,66 @@ test.describe('#324 — MediaRecorder started with timeslice', () => {
 // ---------------------------------------------------------------------------
 // Assistance question (feat/device-tracking-assistance)
 // ---------------------------------------------------------------------------
+// The assistance question appears as a full page (same icf-page style as the
+// Willkommen screen) AFTER the patient clicks "Übungslauf starten". The mic is
+// requested only after the patient answers.
+// ---------------------------------------------------------------------------
 
 test.describe('ICF Monitor — assistance question', () => {
-  test('shows the assistance sheet on the StartScreen before any interaction', async ({ page }) => {
+  test('assistance screen does not appear on the welcome screen itself', async ({ page }) => {
     await mockAudioAPIs(page);
     await gotoWithPatientId(page);
 
-    // The sheet title should be visible immediately
+    // On the welcome screen the question must NOT yet be visible
+    await expect(
+      page.getByText('Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?')
+    ).not.toBeVisible();
+    await expect(page.getByText('Willkommen')).toBeVisible();
+  });
+
+  test('assistance screen appears after clicking Übungslauf starten', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await gotoWithPatientId(page);
+
+    await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+
     await expect(
       page.getByText('Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?')
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Alleine' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mit Unterstützung' })).toBeVisible();
+    // Welcome screen is gone
+    await expect(page.getByText('Willkommen')).not.toBeVisible();
   });
 
-  test('selecting Alleine dismisses the sheet', async ({ page }) => {
+  test('selecting Alleine starts the session and shows practice mode', async ({ page }) => {
     await mockAudioAPIs(page);
+    await stubSubmitItem(page);
     await gotoWithPatientId(page);
 
+    await page.getByRole('button', { name: 'Übungslauf starten' }).click();
     await page.getByRole('button', { name: 'Alleine' }).click();
 
+    await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
     await expect(
       page.getByText('Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?')
     ).not.toBeVisible();
-    // StartScreen is now fully interactive
-    await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
   });
 
-  test('selecting Mit Unterstützung dismisses the sheet', async ({ page }) => {
+  test('selecting Mit Unterstützung starts the session and shows practice mode', async ({
+    page,
+  }) => {
     await mockAudioAPIs(page);
+    await stubSubmitItem(page);
     await gotoWithPatientId(page);
 
+    await page.getByRole('button', { name: 'Übungslauf starten' }).click();
     await page.getByRole('button', { name: 'Mit Unterstützung' }).click();
 
-    await expect(
-      page.getByText('Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?')
-    ).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Übungslauf starten' })).toBeVisible();
+    await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
   });
 
-  test('sheet is not shown when resuming a mid-survey session', async ({ page }) => {
+  test('assistance screen is not shown when resuming a mid-survey session', async ({ page }) => {
     await mockAudioAPIs(page);
     await stubSubmitItem(page);
 
@@ -779,7 +798,6 @@ test.describe('ICF Monitor — assistance question', () => {
     await page.goto('/icf/P01-001T1');
 
     await expect(page.getByText('/ 29')).toBeVisible();
-    // Assistance sheet must not appear mid-survey
     await expect(
       page.getByText('Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?')
     ).not.toBeVisible();
@@ -797,11 +815,10 @@ test.describe('ICF Monitor — assistance question', () => {
     });
 
     await gotoWithPatientId(page);
-    await page.getByRole('button', { name: 'Alleine' }).click();
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await page.getByRole('button', { name: 'Alleine' }).click();
     await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
 
-    // Advance to real survey
     await page.getByRole('button', { name: 'Start' }).click();
     await expect(page.getByText('/ 29')).toBeVisible();
 
@@ -809,7 +826,6 @@ test.describe('ICF Monitor — assistance question', () => {
     await expect(naBtn).toBeEnabled({ timeout: 5000 });
     await naBtn.click();
 
-    // Wait for the POST to fire and verify 'assistance' field is in the body
     await expect.poll(() => capturedBodies.length).toBeGreaterThan(0);
     expect(
       capturedBodies.some((body) => body.includes('assistance') && body.includes('alone'))
@@ -826,8 +842,8 @@ test.describe('ICF Monitor — assistance question', () => {
     });
 
     await gotoWithPatientId(page);
-    await page.getByRole('button', { name: 'Mit Unterstützung' }).click();
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await page.getByRole('button', { name: 'Mit Unterstützung' }).click();
     await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
 
     await page.getByRole('button', { name: 'Start' }).click();
