@@ -319,6 +319,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const patientId = localStorage.getItem('id') || authStore.id || '';
   const viewOpenedAt = useRef<number>(Date.now());
   const mediaRef = useRef<HTMLDivElement>(null);
+  const tooltipContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -529,11 +530,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
   useEffect(() => {
     if (!effectiveItem) return;
 
+    let alive = true;
+
     const run = async () => {
       try {
         const desc = effectiveItem?.description || '';
         if (desc) {
           const { translatedText: tx, detectedSourceLanguage } = await translateText(desc);
+          if (!alive) return;
           setTranslatedText(tx);
           setDetectedLang(tx !== desc ? detectedSourceLanguage : '');
         } else {
@@ -544,6 +548,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         const title = effectiveItem?.title || effectiveItem?.intervention_title || '';
         if (title) {
           const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(title);
+          if (!alive) return;
           setTranslatedTitle(tt);
           setTitleLang(tt !== title ? tl : '');
         } else {
@@ -551,6 +556,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           setTitleLang('');
         }
       } catch {
+        if (!alive) return;
         setTranslatedText(effectiveItem?.description || '');
         setTranslatedTitle(effectiveItem?.title || effectiveItem?.intervention_title || '');
         setDetectedLang('');
@@ -559,6 +565,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
     };
 
     void run();
+    return () => {
+      alive = false;
+    };
   }, [effectiveItem]);
 
   const effectiveMediaList: InterventionMedia[] = useMemo(
@@ -611,7 +620,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div className="flex flex-col gap-2">
+      <div ref={tooltipContainerRef} className="flex flex-col gap-2">
         <div className="flex justify-between align-items-center">
           <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
             <ArrowLeftIcon />
@@ -656,7 +665,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
                 </span>
               </Badge>
               {effectiveIsPrivate && (
-                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+                <OverlayTrigger
+                  container={tooltipContainerRef}
+                  overlay={<Tooltip>{t('Private intervention')}</Tooltip>}
+                >
                   <span className="text-zinc-800 -mb-4">
                     <FaLock />
                   </span>
@@ -664,7 +676,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
               )}
               <div className="font-bold text-2xl leading-7 text-zinc-800">
                 {titleLang ? (
-                  <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
+                  <OverlayTrigger
+                    container={tooltipContainerRef}
+                    overlay={<Tooltip>{titleRaw}</Tooltip>}
+                  >
                     <span>{translatedTitle}</span>
                   </OverlayTrigger>
                 ) : (
@@ -739,7 +754,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
               <Card className="text-lg text-zinc-500">
                 {detectedLang ? (
-                  <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}>
+                  <OverlayTrigger
+                    container={tooltipContainerRef}
+                    overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}
+                  >
                     <span>{translatedText}</span>
                   </OverlayTrigger>
                 ) : (
