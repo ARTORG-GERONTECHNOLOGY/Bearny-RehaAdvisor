@@ -9,15 +9,16 @@
  * -----------------------------------------
  * 1. Patient-ID input   — when no patientId in URL param or localStorage.
  *                         Validates "P\d+-\d+T\d+" format, persists to localStorage.
- * 2. Assistance screen  — full-page screen (same style as step 1) asking
- *                         "alleine oder mit Unterstützung?". Appears after the patient
- *                         clicks "Übungslauf starten" on the welcome screen.
+ * 2. Assistance screen  — full-page screen asking who is helping the patient:
+ *                         "Alleine / Angehörige:r / Gesundheitsfachperson / Studien Interviewer:in".
+ *                         Appears after clicking "Übungslauf starten" on the welcome screen.
  *                         Not shown when resuming a mid-survey session (survey_sessionId
- *                         already set in localStorage → testMode is false). Answer is
- *                         stored in component state (not localStorage) and sent with
- *                         every subsequent POST to /api/healthslider/submit-item/.
- * 3. Mic permission     — getUserMedia is requested when the patient picks their answer
- *                         on the assistance screen.
+ *                         already set in localStorage → testMode is false).
+ * 3. Device screen      — full-page screen asking which device is being used:
+ *                         "Smartphone / Tablet / Laptop / Computer".
+ *                         Both answers are stored in component state and sent with every
+ *                         subsequent POST to /api/healthslider/submit-item/.
+ * 4. Mic permission     — getUserMedia is requested after the device is selected.
  * 4. Practice mode      — one warm-up question (not uploaded to backend).
  * 5. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
@@ -46,7 +47,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
-import AssistanceScreen from '@/components/icf/AssistanceScreen';
+import AssistanceScreen, { type AssistanceMode } from '@/components/icf/AssistanceScreen';
+import DeviceScreen, { type DeviceChoice } from '@/components/icf/DeviceScreen';
 import EndScreen from '@/components/icf/EndScreen';
 import InfoScreen from '@/components/icf/InfoScreen';
 import PatientIdScreen from '@/components/icf/PatientIdScreen';
@@ -139,13 +141,6 @@ const extFromMime = (mime: string) => {
   return 'webm';
 };
 
-const getDeviceType = (): string => {
-  const ua = navigator.userAgent;
-  if (/tablet|ipad/i.test(ua)) return 'Tablet';
-  if (/mobile|android|iphone|ipod|blackberry|windows phone/i.test(ua)) return 'Mobile';
-  return 'Desktop';
-};
-
 const pickRecorderMime = () => {
   if (typeof MediaRecorder === 'undefined') return '';
   // Keep only webm/mp4 (no ogg)
@@ -171,8 +166,10 @@ export default function HealthSlider() {
   const navigate = useNavigate();
 
   // --- questionnaire states ---
-  const [assistanceMode, setAssistanceMode] = useState<'alone' | 'with_help' | null>(null);
+  const [assistanceMode, setAssistanceMode] = useState<AssistanceMode | null>(null);
+  const [deviceChoice, setDeviceChoice] = useState<DeviceChoice | null>(null);
   const [showingAssistanceScreen, setShowingAssistanceScreen] = useState(false);
+  const [showingDeviceScreen, setShowingDeviceScreen] = useState(false);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [sliderMoved, setSliderMoved] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(() => {
@@ -609,7 +606,7 @@ export default function HealthSlider() {
     fd.append('questionText', payload.questionText);
     fd.append('answerValue', String(payload.answerValue));
     fd.append('answeredAt', new Date().toISOString());
-    fd.append('deviceType', getDeviceType());
+    if (deviceChoice) fd.append('deviceType', deviceChoice);
     if (assistanceMode) fd.append('assistance', assistanceMode);
 
     if (payload.audio) {
@@ -903,13 +900,23 @@ export default function HealthSlider() {
   }
 
   if (testMode) {
+    if (showingDeviceScreen) {
+      return (
+        <DeviceScreen
+          micError={micError}
+          onSelect={(device) => {
+            setDeviceChoice(device);
+            startMic();
+          }}
+        />
+      );
+    }
     if (showingAssistanceScreen) {
       return (
         <AssistanceScreen
-          micError={micError}
           onSelect={(mode) => {
             setAssistanceMode(mode);
-            startMic();
+            setShowingDeviceScreen(true);
           }}
         />
       );

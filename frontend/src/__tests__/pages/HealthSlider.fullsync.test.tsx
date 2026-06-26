@@ -62,12 +62,12 @@ describe('HealthSlider (Full Sync)', () => {
     });
   };
 
-  // Click "Übungslauf starten" (shows AssistanceScreen) then answer "Alleine"
-  // (which calls startMic). The caller is still responsible for awaiting
-  // waitFor(ÜBUNGSMODUS) if practice mode is needed.
+  // Click through the two intro screens (AssistanceScreen → DeviceScreen) to
+  // reach practice mode. startMic() is called after the device selection.
   const startPracticeMode = async () => {
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
     fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Smartphone, Handy/i }));
   };
 
   beforeEach(() => {

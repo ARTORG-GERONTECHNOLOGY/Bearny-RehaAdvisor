@@ -728,8 +728,10 @@ class HealthSliderEntry(Document):
     audio_mime = StringField()  # "audio/webm", "audio/wav", ...
 
     answered_at = DateTimeField(default=timezone.now)
-    device_type = StringField(max_length=20, required=False, null=True)
-    assistance = StringField(max_length=20, required=False, null=True)  # "alone" or "with_help"
+    device_type = StringField(max_length=20, required=False, null=True)  # "smartphone"|"tablet"|"laptop"|"desktop"
+    assistance = StringField(
+        max_length=30, required=False, null=True
+    )  # "alone"|"family_friend"|"healthcare"|"study_interviewer"
 
     meta = {
         "indexes": [
