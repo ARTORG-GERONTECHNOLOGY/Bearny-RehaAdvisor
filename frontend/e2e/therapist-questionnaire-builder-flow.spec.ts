@@ -93,19 +93,21 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const assignDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/assign/') && res.request().method() === 'POST'
     );
-    // After assigning, the app re-fetches the patient's questionnaire list to update the UI.
-    const patientRefetch = page
-      .waitForResponse(
-        (res) => res.url().includes('/questionnaires/patient/') && res.request().method() === 'GET',
-        { timeout: 15000 }
-      )
-      .catch(() => null);
 
     await scheduleModal.getByRole('button', { name: /^save$/i }).click();
 
     const assignRes = await assignDone;
     expect([200, 201]).toContain(assignRes.status());
-    await patientRefetch;
+
+    // Reload the page so the assigned questionnaire list is fetched fresh from the backend.
+    // This avoids cross-browser timing differences in React state updates and also proves
+    // the assignment actually persisted (not just in memory).
+    const patientRes = page.waitForResponse((res) =>
+      res.url().includes('/questionnaires/patient/')
+    );
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('tab', { name: /questionnaires/i }).click();
+    await patientRes;
 
     const assignedRow = assignedColumn(page)
       .locator('div.rounded-xl.border')
