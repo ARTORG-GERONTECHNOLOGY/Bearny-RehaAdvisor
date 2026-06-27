@@ -73,16 +73,15 @@ test.describe('Therapist questionnaire builder full flow', () => {
     expect([200, 201]).toContain(createRes.status());
     await expect(modal).toBeHidden({ timeout: 8000 });
 
+    // cursor-pointer targets the inner questionnaire card, not the outer container card
+    // (which also matches div.rounded-xl.border but lacks cursor-pointer).
     const availableRow = page
-      .locator('div.rounded-xl.border')
+      .locator('div.rounded-xl.border.cursor-pointer')
       .filter({ hasText: uniqueTitle })
       .first();
     await expect(availableRow).toBeVisible();
 
-    await availableRow
-      .getByRole('button', { name: /assign/i })
-      .first()
-      .click();
+    await availableRow.getByRole('button', { name: /assign/i }).click();
 
     const scheduleModal = page.locator('.modal.show');
     await expect(scheduleModal.getByText(/assign questionnaire/i)).toBeVisible();
@@ -102,23 +101,22 @@ test.describe('Therapist questionnaire builder full flow', () => {
     // Wait for the modal to close — proves onSuccess() was called.
     await expect(scheduleModal).toBeHidden({ timeout: 10000 });
 
-    // onSuccess calls fetchAssignedQuestionnaires(), which updates React state.
-    // Verify by checking the available card now shows "Assigned" instead of "Assign".
-    // This is more reliable than checking the assigned column (same DOM node, no layout dependency).
+    // onSuccess calls fetchAssignedQuestionnaires(), updating React state.
+    // "Assigned" appears exactly once in availableRow (scoped to the specific inner card).
     await expect(availableRow.getByText('Assigned')).toBeVisible({ timeout: 20000 });
 
-    // Now find the card in the assigned column for cleanup.
-    const assignedRow = assignedColumn(page).getByText(uniqueTitle).first();
+    // Find the assigned card (same cursor-pointer scoping) for cleanup.
+    const assignedRow = assignedColumn(page)
+      .locator('div.rounded-xl.border.cursor-pointer')
+      .filter({ hasText: uniqueTitle })
+      .first();
     await expect(assignedRow).toBeVisible({ timeout: 10000 });
 
     // Cleanup assignment so repeated runs remain stable.
     const removeDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/remove/') && res.request().method() === 'POST'
     );
-    await assignedRow
-      .locator('xpath=ancestor::div[contains(@class,"rounded-xl")]')
-      .getByRole('button', { name: /remove questionnaire/i })
-      .click();
+    await assignedRow.getByRole('button', { name: /remove questionnaire/i }).click();
     const removeRes = await removeDone;
     expect([200, 201]).toContain(removeRes.status());
   });
