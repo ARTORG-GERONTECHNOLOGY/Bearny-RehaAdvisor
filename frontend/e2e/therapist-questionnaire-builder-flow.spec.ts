@@ -99,28 +99,26 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const assignRes = await assignDone;
     expect([200, 201]).toContain(assignRes.status());
 
-    // Reload the page so the assigned questionnaire list is fetched fresh from the backend.
-    // This avoids cross-browser timing differences in React state updates and also proves
-    // the assignment actually persisted (not just in memory).
-    const patientRes = page.waitForResponse((res) =>
-      res.url().includes('/questionnaires/patient/')
-    );
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.getByRole('tab', { name: /questionnaires/i }).click();
-    await patientRes;
+    // Wait for the modal to close — proves onSuccess() was called.
+    await expect(scheduleModal).toBeHidden({ timeout: 10000 });
 
-    const assignedRow = assignedColumn(page)
-      .locator('div.rounded-xl.border')
-      .filter({ hasText: uniqueTitle })
-      .first();
+    // onSuccess calls fetchAssignedQuestionnaires(), which updates React state.
+    // Verify by checking the available card now shows "Assigned" instead of "Assign".
+    // This is more reliable than checking the assigned column (same DOM node, no layout dependency).
+    await expect(availableRow.getByText('Assigned')).toBeVisible({ timeout: 20000 });
 
+    // Now find the card in the assigned column for cleanup.
+    const assignedRow = assignedColumn(page).getByText(uniqueTitle).first();
     await expect(assignedRow).toBeVisible({ timeout: 10000 });
 
     // Cleanup assignment so repeated runs remain stable.
     const removeDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/remove/') && res.request().method() === 'POST'
     );
-    await assignedRow.getByRole('button', { name: /remove questionnaire/i }).click();
+    await assignedRow
+      .locator('xpath=ancestor::div[contains(@class,"rounded-xl")]')
+      .getByRole('button', { name: /remove questionnaire/i })
+      .click();
     const removeRes = await removeDone;
     expect([200, 201]).toContain(removeRes.status());
   });
