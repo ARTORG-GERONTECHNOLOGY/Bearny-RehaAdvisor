@@ -1,8 +1,7 @@
 // src/components/RehaTablePage/QuestionnairePanel.tsx
 import React from 'react';
-import { Row, Col, ButtonGroup, Button } from 'react-bootstrap';
+import { Row, Col, Button } from 'react-bootstrap';
 import { TFunction } from 'i18next';
-import { FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa';
 import {
   Card,
   CardContent,
@@ -11,7 +10,18 @@ import {
   CardTitle,
   CardAction,
 } from '@/components/ui/card';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
+import CirclePlusFill from '@/assets/icons/circle-plus-fill.svg?react';
+import CircleRemoveFill from '@/assets/icons/trash-x-fill.svg?react';
+import EditFill from '@/assets/icons/pencil-fill.svg?react';
 
 type QuestionTranslation = { language: string; text: string };
 type QuestionOption = { key: string; translations?: QuestionTranslation[] };
@@ -74,115 +84,48 @@ interface QuestionnairePanelProps {
 const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
   const { openAddQ, openModifyQ, removeQ, openBuilder } = actions;
-  const [expandedAvailable, setExpandedAvailable] = React.useState<Record<string, boolean>>({});
-  const [expandedAssigned, setExpandedAssigned] = React.useState<Record<string, boolean>>({});
+  const [sheetItem, setSheetItem] = React.useState<{
+    id: string;
+    scope: 'available' | 'assigned';
+  } | null>(null);
 
   const pickText = (translations?: QuestionTranslation[]) => {
     if (!Array.isArray(translations) || !translations.length) return '';
     return translations.find((tr) => tr.language === 'en')?.text || translations[0]?.text || '';
   };
 
-  const findSourceQuestions = (id: string, scope: 'available' | 'assigned'): QuestionShape[] => {
-    if (scope === 'available') {
-      const fromCatalog = questionnaires.find((q) => q._id === id)?.questions;
-      return Array.isArray(fromCatalog) ? fromCatalog : [];
-    }
-    const fromCatalog = questionnaires.find((q) => q._id === id)?.questions;
+  const sheetData =
+    sheetItem?.scope === 'available'
+      ? (questionnaires.find((q) => q._id === sheetItem.id) ?? null)
+      : (assignedQuestionnaires.find((q) => q._id === sheetItem?.id) ?? null);
+
+  // For assigned items, prefer questions from the catalog (same _id), fall back to the assigned record itself.
+  const sheetQuestions: QuestionShape[] = (() => {
+    if (!sheetItem) return [];
+    const fromCatalog = questionnaires.find((q) => q._id === sheetItem.id)?.questions;
     if (Array.isArray(fromCatalog) && fromCatalog.length) return fromCatalog;
-    const fromAssigned = assignedQuestionnaires.find((q) => q._id === id)?.questions;
-    return Array.isArray(fromAssigned) ? fromAssigned : [];
-  };
+    return Array.isArray(sheetData?.questions) ? sheetData!.questions! : [];
+  })();
 
-  const renderQuestions = (id: string, scope: 'available' | 'assigned') => {
-    const isExpanded = scope === 'available' ? !!expandedAvailable[id] : !!expandedAssigned[id];
-    if (!isExpanded) return null;
-    const questions = findSourceQuestions(id, scope);
-    if (!questions.length) {
-      return <div className="small text-muted mt-2">{t('No questions found')}</div>;
-    }
+  const answeredEntries =
+    sheetItem?.scope === 'assigned'
+      ? ((sheetData as QAssigned | null)?.answered_entries ?? [])
+      : [];
 
-    return (
-      <div className="mt-2 small">
-        {questions.map((question, index) => {
-          const title = pickText(question.translations) || question.questionKey;
-          const options = (question.possibleAnswers || [])
-            .map((option) => pickText(option.translations) || option.key)
-            .filter(Boolean);
-
-          return (
-            <div key={`${id}-${question.questionKey}-${index}`} className="mb-2">
-              <div className="fw-semibold">
-                {index + 1}. {title}
-              </div>
-              <div className="text-muted">
-                {t('Type')}: {question.answerType || 'text'}
-              </div>
-              {options.length ? (
-                <div className="text-muted">
-                  {t('Answers')}: {options.join(', ')}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderAnsweredEntries = (a: QAssigned) => {
-    const rows = Array.isArray(a.answered_entries) ? a.answered_entries : [];
-    if (!rows.length) return null;
-
-    const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+  const answeredByDay = answeredEntries.reduce<Record<string, typeof answeredEntries>>(
+    (acc, row) => {
       const day = String(row.answered_at || '').slice(0, 10) || t('Unknown date');
       if (!acc[day]) acc[day] = [];
       acc[day].push(row);
       return acc;
-    }, {});
-
-    const days = Object.keys(grouped).sort((x, y) => y.localeCompare(x));
-
-    return (
-      <div className="mt-2 small border-top pt-2">
-        <div className="fw-semibold mb-1">{t('Answered results')}</div>
-        {days.map((day) => (
-          <div key={`${a._id}-${day}`} className="mb-2">
-            <div className="text-muted fw-semibold">
-              {t('Date')}: {day}
-            </div>
-            {grouped[day].map((entry, idx) => {
-              const qText =
-                pickText(entry.questionTranslations) || entry.questionKey || t('Unknown question');
-              const answers = (entry.answers || [])
-                .map((ans) => pickText(ans.translations) || ans.key)
-                .filter(Boolean)
-                .join(', ');
-              return (
-                <div key={`${a._id}-${day}-${entry.questionKey}-${idx}`} className="ms-2">
-                  <div className="fw-semibold">{qText}</div>
-                  <div className="text-muted">
-                    {t('Type')}: {entry.answerType || 'text'}
-                  </div>
-                  <div className="text-muted">
-                    {t('Answers')}: {answers || '—'}
-                  </div>
-                  {entry.comment ? (
-                    <div className="text-muted">
-                      {t('Comment')}: {entry.comment}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    );
-  };
+    },
+    {}
+  );
+  const answeredDays = Object.keys(answeredByDay).sort((x, y) => y.localeCompare(x));
 
   return (
     <>
-      <Button variant="primary" onClick={openBuilder} className="mb-3">
+      <Button variant="primary" onClick={openBuilder} className="my-3">
         {t('Create')}
       </Button>
       <Row className="rehab-row">
@@ -192,59 +135,50 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             <CardHeader>
               <CardTitle>{t('Available questionnaires')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-2">
-                {questionnaires.length === 0 && (
-                  <div className="text-muted">{t('No questionnaires found')}</div>
-                )}
-                {questionnaires.map((q) => {
-                  const isAlready = !!assignedQuestionnaires.find((a) => a._id === q._id);
-                  return (
-                    <Card key={q._id}>
-                      <CardHeader>
-                        <CardTitle>{q.title}</CardTitle>
-                        <CardDescription>
-                          {(q.created_by_name || q.question_count != null) && (
-                            <span>
-                              {q.created_by_name}
-                              {q.created_by_name && q.question_count != null && ' · '}
-                              {q.question_count != null && `${q.question_count} ${t('Questions')}`}
-                            </span>
-                          )}
-                        </CardDescription>
-                        <CardAction>
-                          {isAlready ? (
-                            <div className="flex gap-1 items-center text-ok">
-                              {t('Assigned')}
-                              <CircleCheckFill className="w-[18px] h-[18px]" />
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              onClick={() => openAddQ(q)}
-                              className="p-0 !flex !gap-1 !items-center"
-                            >
-                              {t('Assign')}
-                              <FaPlus />
-                            </Button>
-                          )}
-                        </CardAction>
-                      </CardHeader>
-                      <CardContent>
-                        {renderQuestions(q._id, 'available')}
-                        <Button
-                          variant="outline-primary"
-                          onClick={() =>
-                            setExpandedAvailable((prev) => ({ ...prev, [q._id]: !prev[q._id] }))
-                          }
-                        >
-                          <FaEye />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+            <CardContent className="flex flex-col gap-2">
+              {questionnaires.length === 0 && (
+                <div className="text-muted">{t('No questionnaires found')}</div>
+              )}
+              {questionnaires.map((q) => {
+                const isAlready = !!assignedQuestionnaires.find((a) => a._id === q._id);
+                return (
+                  <Card
+                    key={q._id}
+                    className="cursor-pointer transition-shadow hover:shadow-md"
+                    onClick={() => setSheetItem({ id: q._id, scope: 'available' })}
+                  >
+                    <CardHeader>
+                      <CardTitle>{q.title}</CardTitle>
+                      <CardDescription>
+                        {(q.created_by_name || q.question_count != null) && (
+                          <span>
+                            {q.created_by_name}
+                            {q.created_by_name && q.question_count != null && ' · '}
+                            {q.question_count != null && `${q.question_count} ${t('Questions')}`}
+                          </span>
+                        )}
+                      </CardDescription>
+                      <CardAction onClick={(e) => e.stopPropagation()}>
+                        {isAlready ? (
+                          <div className="flex gap-1 items-center text-ok">
+                            {t('Assigned')}
+                            <CircleCheckFill className="w-5 h-5" />
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            onClick={() => openAddQ(q)}
+                            className="p-0 !flex !gap-1 !items-center"
+                          >
+                            {t('Assign')}
+                            <CirclePlusFill className="w-5 h-5" />
+                          </Button>
+                        )}
+                      </CardAction>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
             </CardContent>
           </Card>
         </Col>
@@ -255,68 +189,151 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             <CardHeader>
               <CardTitle>{t('Assigned questionnaires')}</CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0">
-              <div className="scroll-y">
-                {assignedQuestionnaires.length === 0 && (
-                  <div className="text-muted">{t('No questionnaires assigned')}</div>
-                )}
-                {assignedQuestionnaires.map((a) => (
-                  <div
-                    key={a._id}
-                    className="d-flex justify-content-between align-items-center p-2 mb-2 border rounded"
-                  >
-                    <div>
-                      <div className="fw-semibold">{a.title}</div>
-                      <div className="small text-muted">
-                        {t('Frequency')}: {a.frequency || '—'}
-                      </div>
-                      {a.question_count != null ? (
-                        <div className="small text-muted">
-                          {t('Questions')}: {a.question_count}
-                        </div>
-                      ) : null}
-                      {a.dates?.length ? (
-                        <div className="small text-muted">
-                          {t('Next on')}: {new Date(a.dates[0]).toLocaleDateString()}
-                        </div>
-                      ) : null}
-                      {renderQuestions(a._id, 'assigned')}
-                      {renderAnsweredEntries(a)}
-                    </div>
-                    <div>
-                      <ButtonGroup size="sm">
-                        <Button
-                          variant="outline-primary"
-                          onClick={() =>
-                            setExpandedAssigned((prev) => ({ ...prev, [a._id]: !prev[a._id] }))
-                          }
-                        >
-                          <FaEye />
-                        </Button>
-                        <Button
-                          variant="outline-secondary"
-                          onClick={() =>
-                            openModifyQ({
-                              _id: a._id,
-                              key: a._id,
-                              title: a.title,
-                            })
-                          }
-                        >
-                          <FaEdit />
-                        </Button>
-                        <Button variant="outline-danger" onClick={() => removeQ(a._id)}>
-                          <FaTrash />
-                        </Button>
-                      </ButtonGroup>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="flex flex-col gap-2">
+              {assignedQuestionnaires.length === 0 && (
+                <div className="text-muted">{t('No questionnaires assigned')}</div>
+              )}
+              {assignedQuestionnaires.map((a) => (
+                <Card
+                  key={a._id}
+                  className="cursor-pointer transition-shadow hover:shadow-md"
+                  onClick={() => setSheetItem({ id: a._id, scope: 'assigned' })}
+                >
+                  <CardHeader>
+                    <CardTitle>{a.title}</CardTitle>
+                    <CardDescription>
+                      {a.question_count != null && `${a.question_count} ${t('Questions')}`}
+                    </CardDescription>
+                    <CardAction onClick={(e) => e.stopPropagation()} className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => openModifyQ({ _id: a._id, key: a._id, title: a.title })}
+                        className="p-0"
+                      >
+                        <EditFill className="w-5 h-5" />
+                      </Button>
+                      <Button variant="ghost" onClick={() => removeQ(a._id)} className="p-0">
+                        <CircleRemoveFill className="text-nok w-5 h-5" />
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="flex gap-1 flex-wrap">
+                    {a.frequency && <Badge>{a.frequency}</Badge>}
+                    {!!a.dates?.length && (
+                      <Badge>
+                        {t('Next on')} {new Date(a.dates[0]).toLocaleDateString()}
+                      </Badge>
+                    )}
+                    {!!a.answered_entries?.length && (
+                      <Badge>
+                        {a.answered_entries.length} {t('Answered')}
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </CardContent>
           </Card>
         </Col>
       </Row>
+
+      <Sheet open={!!sheetItem} onOpenChange={(open) => !open && setSheetItem(null)}>
+        <SheetContent className="overflow-y-auto flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{sheetData?.title}</SheetTitle>
+            {sheetData?.description && <SheetDescription>{sheetData.description}</SheetDescription>}
+            <div>
+              {assignedQuestionnaires.find((a) => a._id === sheetItem?.id) ? (
+                <div className="flex gap-1 items-center text-ok text-sm">
+                  {t('Assigned')}
+                  <CircleCheckFill className="w-5 h-5" />
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const catalogItem = questionnaires.find((q) => q._id === sheetItem?.id);
+                    if (catalogItem) openAddQ(catalogItem);
+                  }}
+                  className="p-0 !flex !gap-1 !items-center text-sm"
+                >
+                  {t('Assign')}
+                  <CirclePlusFill className="w-[18px] h-[18px]" />
+                </Button>
+              )}
+            </div>
+          </SheetHeader>
+
+          {answeredDays.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="font-semibold text-sm">{t('Answered results')}</div>
+              {answeredDays.map((day) => (
+                <Card key={`${sheetItem!.id}-${day}`}>
+                  <CardHeader>
+                    <CardTitle>{day}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-1">
+                    {answeredByDay[day].map((entry, idx) => {
+                      const qText =
+                        pickText(entry.questionTranslations) ||
+                        entry.questionKey ||
+                        t('Unknown question');
+                      const answers = (entry.answers || [])
+                        .map((ans) => pickText(ans.translations) || ans.key)
+                        .filter(Boolean)
+                        .join(', ');
+                      return (
+                        <div key={`${sheetItem!.id}-${day}-${entry.questionKey}-${idx}`}>
+                          <div className="text-sm font-semibold">{qText}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {t('Type')}: {entry.answerType || 'text'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {t('Answers')}: {answers || '—'}
+                          </div>
+                          {entry.comment && (
+                            <div className="text-sm text-muted-foreground">
+                              {t('Comment')}: {entry.comment}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {sheetQuestions.length === 0 ? (
+            <div className="text-sm text-muted-foreground">{t('No questions found')}</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sheetQuestions.map((question, index) => {
+                const title = pickText(question.translations) || question.questionKey;
+                const options = (question.possibleAnswers || [])
+                  .map((opt) => pickText(opt.translations) || opt.key)
+                  .filter(Boolean);
+                return (
+                  <div key={`${sheetItem!.id}-${question.questionKey}-${index}`}>
+                    <div className="font-semibold text-sm">
+                      {index + 1}. {title}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {t('Type')}: {question.answerType || 'text'}
+                    </div>
+                    {options.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {t('Answers')}: {options.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 };
