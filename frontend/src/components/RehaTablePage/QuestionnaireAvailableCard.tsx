@@ -1,5 +1,4 @@
 import React from 'react';
-import { TFunction } from 'i18next';
 import { Card, CardDescription, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
@@ -14,7 +13,7 @@ interface QuestionnaireAvailableCardProps {
   isAssigned: boolean;
   onOpen: () => void;
   onAssign: () => void;
-  t: TFunction;
+  t: (key: string) => string;
 }
 
 const QuestionnaireAvailableCard: React.FC<QuestionnaireAvailableCardProps> = ({

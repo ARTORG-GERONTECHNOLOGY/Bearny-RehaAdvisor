@@ -1,5 +1,4 @@
 import React from 'react';
-import { TFunction } from 'i18next';
 import {
   Card,
   CardContent,
@@ -24,7 +23,7 @@ interface QuestionnaireAssignedCardProps {
   onOpen: () => void;
   onModify: () => void;
   onRemove: () => void;
-  t: TFunction;
+  t: (key: string) => string;
 }
 
 const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({

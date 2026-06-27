@@ -245,7 +245,11 @@ describe('RehabTable questionnaires integration', () => {
 
     expect(await screen.findByText('Available questionnaires')).toBeInTheDocument();
     expect(await screen.findByText('Assigned questionnaires')).toBeInTheDocument();
-    expect(await screen.findAllByText('Profile (16)')).toHaveLength(2);
+    const profileCards = await screen.findAllByText('Profile (16)');
+    expect(profileCards).toHaveLength(2);
+
+    // Sheet content is only rendered after opening — click the assigned card
+    fireEvent.click(profileCards[1]);
     expect(await screen.findByText('Answered results')).toBeInTheDocument();
     expect(await screen.findByText('How are you today?')).toBeInTheDocument();
     expect(await screen.findByText(/Comment: Felt better\./)).toBeInTheDocument();

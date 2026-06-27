@@ -1,5 +1,4 @@
 import React from 'react';
-import { TFunction } from 'i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Sheet,
@@ -46,7 +45,7 @@ interface QuestionnaireDetailSheetProps {
   answeredDays: string[];
   answeredByDay: Record<string, AnsweredEntry[]>;
   sheetQuestions: QuestionShape[];
-  t: TFunction;
+  t: (key: string) => string;
 }
 
 const QuestionnaireDetailSheet: React.FC<QuestionnaireDetailSheetProps> = ({
