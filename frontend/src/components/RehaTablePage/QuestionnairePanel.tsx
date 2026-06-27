@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/QuestionnairePanel.tsx
 import React from 'react';
-import { Row, Col, Button } from 'react-bootstrap';
+import { Row, Col } from 'react-bootstrap';
 import { TFunction } from 'i18next';
 import {
   Card,
@@ -22,6 +22,7 @@ import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CirclePlusFill from '@/assets/icons/circle-plus-fill.svg?react';
 import CircleRemoveFill from '@/assets/icons/trash-x-fill.svg?react';
 import EditFill from '@/assets/icons/pencil-fill.svg?react';
+import { Button } from '@/components/ui/button';
 
 type QuestionTranslation = { language: string; text: string };
 type QuestionOption = { key: string; translations?: QuestionTranslation[] };
@@ -81,6 +82,11 @@ interface QuestionnairePanelProps {
   t: TFunction;
 }
 
+const pickText = (translations?: QuestionTranslation[]) => {
+  if (!Array.isArray(translations) || !translations.length) return '';
+  return translations.find((tr) => tr.language === 'en')?.text || translations[0]?.text || '';
+};
+
 const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, t }) => {
   const { questionnaires, assignedQuestionnaires } = data;
   const { openAddQ, openModifyQ, removeQ, openBuilder } = actions;
@@ -88,11 +94,6 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
     id: string;
     scope: 'available' | 'assigned';
   } | null>(null);
-
-  const pickText = (translations?: QuestionTranslation[]) => {
-    if (!Array.isArray(translations) || !translations.length) return '';
-    return translations.find((tr) => tr.language === 'en')?.text || translations[0]?.text || '';
-  };
 
   const sheetData =
     sheetItem?.scope === 'available'
@@ -125,13 +126,13 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
 
   return (
     <>
-      <Button variant="primary" onClick={openBuilder} className="my-3">
+      <Button onClick={openBuilder} className="mb-3">
         {t('Create')}
       </Button>
       <Row className="rehab-row">
         {/* Available questionnaires */}
         <Col xs={12} md={5} className="rehab-col">
-          <Card className="flex-1 min-h-0">
+          <Card>
             <CardHeader>
               <CardTitle>{t('Available questionnaires')}</CardTitle>
             </CardHeader>
@@ -165,12 +166,8 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                             <CircleCheckFill className="w-5 h-5" />
                           </div>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            onClick={() => openAddQ(q)}
-                            className="p-0 !flex !gap-1 !items-center"
-                          >
-                            {t('Assign')}
+                          <Button variant="ghost" onClick={() => openAddQ(q)} className="p-0 gap-1">
+                            <span className="text-base font-normal">{t('Assign')}</span>
                             <CirclePlusFill className="w-5 h-5" />
                           </Button>
                         )}
@@ -185,7 +182,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
 
         {/* Assigned questionnaires */}
         <Col xs={12} md={7} className="rehab-col">
-          <Card className="flex-1 min-h-0 d-flex flex-column">
+          <Card>
             <CardHeader>
               <CardTitle>{t('Assigned questionnaires')}</CardTitle>
             </CardHeader>
@@ -255,9 +252,9 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                     const catalogItem = questionnaires.find((q) => q._id === sheetItem?.id);
                     if (catalogItem) openAddQ(catalogItem);
                   }}
-                  className="p-0 !flex !gap-1 !items-center text-sm"
+                  className="p-0 gap-1"
                 >
-                  {t('Assign')}
+                  <span className="text-base font-normal">{t('Assign')}</span>
                   <CirclePlusFill className="w-[18px] h-[18px]" />
                 </Button>
               )}
@@ -268,7 +265,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             <div className="flex flex-col gap-2">
               <div className="font-semibold text-sm">{t('Answered results')}</div>
               {answeredDays.map((day) => (
-                <Card key={`${sheetItem!.id}-${day}`}>
+                <Card key={`${sheetItem?.id}-${day}`}>
                   <CardHeader>
                     <CardTitle>{day}</CardTitle>
                   </CardHeader>
@@ -283,7 +280,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                         .filter(Boolean)
                         .join(', ');
                       return (
-                        <div key={`${sheetItem!.id}-${day}-${entry.questionKey}-${idx}`}>
+                        <div key={`${sheetItem?.id}-${day}-${entry.questionKey}-${idx}`}>
                           <div className="text-sm font-semibold">{qText}</div>
                           <div className="text-sm text-muted-foreground">
                             {t('Type')}: {entry.answerType || 'text'}
@@ -315,7 +312,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                   .map((opt) => pickText(opt.translations) || opt.key)
                   .filter(Boolean);
                 return (
-                  <div key={`${sheetItem!.id}-${question.questionKey}-${index}`}>
+                  <div key={`${sheetItem?.id}-${question.questionKey}-${index}`}>
                     <div className="font-semibold text-sm">
                       {index + 1}. {title}
                     </div>
