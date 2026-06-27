@@ -1359,5 +1359,7 @@
   "assistanceQuestion": "Machen Sie Ihre Übungen heute alleine oder mit Unterstützung?",
   "assistanceDescription": "Ihre Antwort hilft uns, Ihren Fortschritt besser zu verstehen.",
   "assistanceAlone": "Alleine",
-  "assistanceWithHelp": "Mit Unterstützung"
+  "assistanceWithHelp": "Mit Unterstützung",
+  "Next on": "Nächstes am",
+  "Answered": "Beantwortet"
 }

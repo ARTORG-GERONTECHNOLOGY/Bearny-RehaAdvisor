@@ -230,8 +230,8 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                           )}
                         </CardAction>
                       </CardHeader>
-                      <CardContent>{renderQuestions(q._id, 'available')}</CardContent>
-                      <div>
+                      <CardContent>
+                        {renderQuestions(q._id, 'available')}
                         <Button
                           variant="outline-primary"
                           onClick={() =>
@@ -240,7 +240,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                         >
                           <FaEye />
                         </Button>
-                      </div>
+                      </CardContent>
                     </Card>
                   );
                 })}

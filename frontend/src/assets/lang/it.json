@@ -1359,5 +1359,7 @@
   "assistanceQuestion": "Stai facendo i tuoi esercizi oggi da solo/a o con assistenza?",
   "assistanceDescription": "La tua risposta ci aiuta a capire i tuoi progressi.",
   "assistanceAlone": "Da solo/a",
-  "assistanceWithHelp": "Con assistenza"
+  "assistanceWithHelp": "Con assistenza",
+  "Next on": "Prossimo il",
+  "Answered": "Risposto"
 }
