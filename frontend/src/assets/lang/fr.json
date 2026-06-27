@@ -90,6 +90,7 @@
   "No diagnoses match your search.": "Aucun diagnostic ne correspond à votre recherche.",
   "Delete from template": "Supprimer du modèle",
   "Modify from day…": "Modifier à partir du jour…",
+  "Assign": "Assigner",
   "Assigned": " Assigné",
   "Failed to delete from template.": " Échec de la suppression du modèle. Réessayez maintenant ou plus tard.",
   "Apply": " Appliquer",

@@ -90,6 +90,7 @@
   "No diagnoses match your search.": "Keine Diagnosen entsprechen Ihrer Suche.",
   "Delete from template": "Aus Vorlage löschen",
   "Modify from day…": "Ab Tag ändern…",
+  "Assign": "Zuweisen",
   "Assigned": "Zugewiesen",
   "Failed to delete from template.": "Vorlage konnte nicht gelöscht werden. Versuchen Sie es jetzt oder später erneut.",
   "Apply": "Anwenden",
