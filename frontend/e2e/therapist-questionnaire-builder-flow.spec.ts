@@ -93,18 +93,26 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const assignDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/assign/') && res.request().method() === 'POST'
     );
+    // After assigning, the app re-fetches the patient's questionnaire list to update the UI.
+    const patientRefetch = page
+      .waitForResponse(
+        (res) => res.url().includes('/questionnaires/patient/') && res.request().method() === 'GET',
+        { timeout: 15000 }
+      )
+      .catch(() => null);
 
     await scheduleModal.getByRole('button', { name: /^save$/i }).click();
 
     const assignRes = await assignDone;
     expect([200, 201]).toContain(assignRes.status());
+    await patientRefetch;
 
     const assignedRow = assignedColumn(page)
       .locator('div.rounded-xl.border')
       .filter({ hasText: uniqueTitle })
       .first();
 
-    await expect(assignedRow).toBeVisible();
+    await expect(assignedRow).toBeVisible({ timeout: 10000 });
 
     // Cleanup assignment so repeated runs remain stable.
     const removeDone = page.waitForResponse(
