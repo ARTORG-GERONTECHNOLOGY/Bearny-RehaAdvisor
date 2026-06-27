@@ -40,10 +40,15 @@ const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
         {a.question_count != null && `${a.question_count} ${t('Questions')}`}
       </CardDescription>
       <CardAction onClick={(e) => e.stopPropagation()} className="flex gap-2">
-        <Button variant="ghost" onClick={onModify} className="p-0">
+        <Button variant="ghost" onClick={onModify} className="p-0" aria-label="Edit questionnaire">
           <EditFill className="w-5 h-5" />
         </Button>
-        <Button variant="ghost" onClick={onRemove} className="p-0">
+        <Button
+          variant="ghost"
+          onClick={onRemove}
+          className="p-0"
+          aria-label="Remove questionnaire"
+        >
           <CircleRemoveFill className="text-nok w-5 h-5" />
         </Button>
       </CardAction>

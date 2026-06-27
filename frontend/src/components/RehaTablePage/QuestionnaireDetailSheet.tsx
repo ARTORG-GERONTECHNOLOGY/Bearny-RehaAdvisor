@@ -62,7 +62,7 @@ const QuestionnaireDetailSheet: React.FC<QuestionnaireDetailSheetProps> = ({
   t,
 }) => (
   <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-    <SheetContent className="overflow-y-auto flex flex-col">
+    <SheetContent className="overflow-y-auto flex flex-col min-w-[40vw]">
       <SheetHeader>
         <SheetTitle>{title}</SheetTitle>
         {description && <SheetDescription>{description}</SheetDescription>}

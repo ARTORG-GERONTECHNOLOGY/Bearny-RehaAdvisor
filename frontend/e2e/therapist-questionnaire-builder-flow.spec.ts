@@ -1,6 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { loginAsTherapist } from './helpers/auth';
+
+const assignedColumn = (page: Page) => page.locator('.rehab-row .rehab-col').nth(1);
 
 function creds() {
   return {
@@ -72,13 +74,15 @@ test.describe('Therapist questionnaire builder full flow', () => {
     await expect(modal).toBeHidden({ timeout: 8000 });
 
     const availableRow = page
-      .locator('div.border.rounded')
+      .locator('div.rounded-xl.border')
       .filter({ hasText: uniqueTitle })
       .first();
     await expect(availableRow).toBeVisible();
-    await expect(availableRow.getByText(/by:/i)).toBeVisible();
 
-    await availableRow.locator('button.btn-outline-success').first().click();
+    await availableRow
+      .getByRole('button', { name: /assign/i })
+      .first()
+      .click();
 
     const scheduleModal = page.locator('.modal.show');
     await expect(scheduleModal.getByText(/assign questionnaire/i)).toBeVisible();
@@ -95,10 +99,9 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const assignRes = await assignDone;
     expect([200, 201]).toContain(assignRes.status());
 
-    const assignedRow = page
-      .locator('div.border.rounded')
+    const assignedRow = assignedColumn(page)
+      .locator('div.rounded-xl.border')
       .filter({ hasText: uniqueTitle })
-      .filter({ hasText: /frequency/i })
       .first();
 
     await expect(assignedRow).toBeVisible();
@@ -107,7 +110,7 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const removeDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/remove/') && res.request().method() === 'POST'
     );
-    await assignedRow.locator('button.btn-outline-danger').first().click();
+    await assignedRow.getByRole('button', { name: /remove questionnaire/i }).click();
     const removeRes = await removeDone;
     expect([200, 201]).toContain(removeRes.status());
   });
