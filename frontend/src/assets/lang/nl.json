@@ -85,6 +85,7 @@
   "No diagnoses match your search.": "Geen diagnoses komen overeen met uw zoekopdracht.",
   "Delete from template": "Verwijderen uit sjabloon",
   "Modify from day…": "Aanpassen vanaf dag…",
+  "Assign": "Toewijzen",
   "Assigned": "Toegewezen",
   "Failed to delete from template.": "Verwijderen uit sjabloon mislukt. Probeer het nu of later opnieuw.",
   "Apply": "Toepassen",
@@ -1358,5 +1359,7 @@
   "assistanceQuestion": "Doet u uw oefeningen vandaag alleen of met hulp?",
   "assistanceDescription": "Uw antwoord helpt ons uw vooruitgang beter te begrijpen.",
   "assistanceAlone": "Alleen",
-  "assistanceWithHelp": "Met hulp"
+  "assistanceWithHelp": "Met hulp",
+  "Next on": "Volgende op",
+  "Answered": "Beantwoord"
 }

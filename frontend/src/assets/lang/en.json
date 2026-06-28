@@ -90,6 +90,7 @@
   "No diagnoses match your search.": "No diagnoses match your search.",
   "Delete from template": "Delete from template",
   "Modify from day…": "Modify from day…",
+  "Assign": "Assign",
   "Assigned": "Assigned",
   "Failed to delete from template.": "Failed to delete from template. Try again now or later.",
   "Apply": "Apply",
@@ -1358,5 +1359,7 @@
   "assistanceQuestion": "Are you doing your exercises today alone or with help?",
   "assistanceDescription": "Your answer helps us understand how you are progressing.",
   "assistanceAlone": "Alone",
-  "assistanceWithHelp": "With help"
+  "assistanceWithHelp": "With help",
+  "Next on": "Next on",
+  "Answered": "Answered"
 }
