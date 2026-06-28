@@ -1,6 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { loginAsTherapist } from './helpers/auth';
+
+const assignedColumn = (page: Page) => page.locator('.rehab-row .rehab-col').nth(1);
 
 function creds() {
   return {
@@ -71,14 +73,15 @@ test.describe('Therapist questionnaire builder full flow', () => {
     expect([200, 201]).toContain(createRes.status());
     await expect(modal).toBeHidden({ timeout: 8000 });
 
+    // cursor-pointer targets the inner questionnaire card, not the outer container card
+    // (which also matches div.rounded-xl.border but lacks cursor-pointer).
     const availableRow = page
-      .locator('div.border.rounded')
+      .locator('div.rounded-xl.border.cursor-pointer')
       .filter({ hasText: uniqueTitle })
       .first();
     await expect(availableRow).toBeVisible();
-    await expect(availableRow.getByText(/by:/i)).toBeVisible();
 
-    await availableRow.locator('button.btn-outline-success').first().click();
+    await availableRow.getByRole('button', { name: /assign/i }).click();
 
     const scheduleModal = page.locator('.modal.show');
     await expect(scheduleModal.getByText(/assign questionnaire/i)).toBeVisible();
@@ -95,19 +98,25 @@ test.describe('Therapist questionnaire builder full flow', () => {
     const assignRes = await assignDone;
     expect([200, 201]).toContain(assignRes.status());
 
-    const assignedRow = page
-      .locator('div.border.rounded')
-      .filter({ hasText: uniqueTitle })
-      .filter({ hasText: /frequency/i })
-      .first();
+    // Wait for the modal to close — proves onSuccess() was called.
+    await expect(scheduleModal).toBeHidden({ timeout: 10000 });
 
-    await expect(assignedRow).toBeVisible();
+    // onSuccess calls fetchAssignedQuestionnaires(), updating React state.
+    // "Assigned" appears exactly once in availableRow (scoped to the specific inner card).
+    await expect(availableRow.getByText('Assigned')).toBeVisible({ timeout: 20000 });
+
+    // Find the assigned card (same cursor-pointer scoping) for cleanup.
+    const assignedRow = assignedColumn(page)
+      .locator('div.rounded-xl.border.cursor-pointer')
+      .filter({ hasText: uniqueTitle })
+      .first();
+    await expect(assignedRow).toBeVisible({ timeout: 10000 });
 
     // Cleanup assignment so repeated runs remain stable.
     const removeDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/remove/') && res.request().method() === 'POST'
     );
-    await assignedRow.locator('button.btn-outline-danger').first().click();
+    await assignedRow.getByRole('button', { name: /remove questionnaire/i }).click();
     const removeRes = await removeDone;
     expect([200, 201]).toContain(removeRes.status());
   });

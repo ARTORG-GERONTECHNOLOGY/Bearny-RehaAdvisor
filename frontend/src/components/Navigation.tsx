@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { NavItem } from '@/components/NavItem';
 import authStore from '@/stores/authStore';
+import AppIcon from '@/assets/icon.svg?react';
 import SunriseOutline from '@/assets/icons/sunrise-outline.svg?react';
 import SunriseFill from '@/assets/icons/sunrise-fill.svg?react';
 import CalendarOutline from '@/assets/icons/calendar-outline.svg?react';
@@ -126,7 +127,20 @@ export default function Navigation() {
           z-50
         "
       >
-        <div className="w-full flex justify-center gap-2">
+        <div className="w-full relative flex justify-center gap-2">
+          {/* Home button — left-aligned within container bounds */}
+          <div className="absolute inset-0 flex pointer-events-none">
+            <div className="container mx-auto max-w-screen-md self-stretch flex items-center justify-start pointer-events-auto">
+              <button
+                aria-label="Home"
+                onClick={() => navigate('/')}
+                className="bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center p-1.5"
+              >
+                <AppIcon className="w-11 h-11" />
+              </button>
+            </div>
+          </div>
+          {/* Centered nav links pill */}
           <div className="bg-white/80 backdrop-blur-2xl border border-accent rounded-full p-2 flex">
             {navLinks
               .filter((link) => link.path !== '/patient-profile' && link.path !== '/userprofile')
@@ -142,6 +156,7 @@ export default function Navigation() {
                 />
               ))}
           </div>
+          {/* Profile button */}
           {(() => {
             const profileLink = navLinks.find(
               (link) => link.path === '/patient-profile' || link.path === '/userprofile'

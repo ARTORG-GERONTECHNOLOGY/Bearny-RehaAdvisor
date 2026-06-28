@@ -173,8 +173,8 @@ test.describe('Therapist rehab table questionnaires', () => {
     const availableCard = availableColumn(page);
     await expect(availableCard.getByText('Mood Check').first()).toBeVisible({ timeout: 10000 });
 
-    const moodCard = page.locator('div.border.rounded').filter({ hasText: 'Mood Check' }).first();
-    await moodCard.locator('button.btn-outline-primary').first().click();
+    // Click the card to open the detail sheet
+    await availableCard.getByText('Mood Check').first().click();
 
     await expect(page.getByText('How is your mood today?')).toBeVisible();
     await expect(page.getByText('Answers: Bad, Okay, Good')).toBeVisible();
@@ -245,7 +245,12 @@ test.describe('Therapist rehab table questionnaires', () => {
     }
 
     const assignedCard = assignedColumn(page);
-    await expect(assignedCard.getByText('How are you today?')).toBeVisible({ timeout: 10000 });
-    await expect(assignedCard.getByText(/Felt better\./)).toBeVisible();
+    await expect(assignedCard.getByText('Profile (16)')).toBeVisible({ timeout: 10000 });
+
+    // Click the assigned card to open the detail sheet
+    await assignedCard.getByText('Profile (16)').click();
+
+    await expect(page.getByText('How are you today?')).toBeVisible();
+    await expect(page.getByText(/Felt better\./)).toBeVisible();
   });
 });

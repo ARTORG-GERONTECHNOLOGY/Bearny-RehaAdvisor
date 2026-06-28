@@ -85,6 +85,7 @@
   "No diagnoses match your search.": "Nenhum diagnóstico corresponde à sua pesquisa.",
   "Delete from template": "Eliminar do modelo",
   "Modify from day…": "Modificar a partir do dia…",
+  "Assign": "Atribuir",
   "Assigned": "Atribuído",
   "Failed to delete from template.": "Falha ao eliminar do modelo. Tente novamente agora ou mais tarde.",
   "Apply": "Aplicar",
@@ -1358,5 +1359,7 @@
   "assistanceQuestion": "Está a fazer os seus exercícios hoje sozinho/a ou com ajuda?",
   "assistanceDescription": "A sua resposta ajuda-nos a compreender o seu progresso.",
   "assistanceAlone": "Sozinho/a",
-  "assistanceWithHelp": "Com ajuda"
+  "assistanceWithHelp": "Com ajuda",
+  "Next on": "Próximo em",
+  "Answered": "Respondido"
 }
