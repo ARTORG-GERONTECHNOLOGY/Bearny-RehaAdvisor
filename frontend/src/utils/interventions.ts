@@ -4,8 +4,46 @@
 // Includes: helper to generate colors from interventions.json taxonomy
 // Includes: language helpers for available_languages arrays
 
+import type React from 'react';
+
 import interventionsConfig from '@/config/interventions.json';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
+
+import EducationIcon from '@/assets/icons/interventions/education.svg?react';
+import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
+import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
+import TextIcon from '@/assets/icons/interventions/text.svg?react';
+import VideoIcon from '@/assets/icons/interventions/video.svg?react';
+import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
+
+export type InterventionIcon = React.ComponentType<{ className?: string }>;
+
+export const getTypeIcon = (value: string): InterventionIcon | null => {
+  const normalized = value.trim().toLocaleLowerCase();
+
+  if (normalized.includes('exercise')) return ExerciseIcon;
+  if (normalized.includes('education')) return EducationIcon;
+  if (normalized.includes('instruction')) return EducationIcon;
+
+  return null;
+};
+
+export const getContentTypeIcon = (value: string): InterventionIcon | null => {
+  const normalized = value.trim().toLocaleLowerCase();
+
+  if (normalized.includes('audio')) return AudioIcon;
+  if (normalized.includes('brochure') || normalized.includes('pdf')) return TextIcon;
+  if (
+    normalized.includes('video') ||
+    normalized.includes('graphics') ||
+    normalized.includes('image')
+  )
+    return VideoIcon;
+  if (normalized.includes('website')) return WebsiteIcon;
+  if (normalized.includes('app')) return WebsiteIcon;
+
+  return null;
+};
 
 export type LangOpt = { language: string; title?: string | null };
 

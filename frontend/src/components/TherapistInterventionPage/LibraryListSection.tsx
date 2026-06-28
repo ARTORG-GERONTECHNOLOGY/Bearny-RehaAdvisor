@@ -23,7 +23,6 @@ const LibraryListSection: React.FC<Props> = ({
   return (
     <Row>
       <Col xs={12}>
-        {/* If you want a loading UI, this is where it goes */}
         <InterventionList
           items={items}
           onClick={onClick}
