@@ -270,7 +270,11 @@ describe('TableCaption', () => {
         <TableCaption />
       </table>
     );
-    expect(container.querySelector('caption')).toHaveClass('mt-4', 'text-sm', 'text-muted-foreground');
+    expect(container.querySelector('caption')).toHaveClass(
+      'mt-4',
+      'text-sm',
+      'text-muted-foreground'
+    );
   });
 
   it('renders children', () => {

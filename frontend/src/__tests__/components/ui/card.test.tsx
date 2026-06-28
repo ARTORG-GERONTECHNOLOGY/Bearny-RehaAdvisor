@@ -145,7 +145,11 @@ describe('CardAction', () => {
   });
 
   it('renders children', () => {
-    render(<CardAction><button>Action</button></CardAction>);
+    render(
+      <CardAction>
+        <button>Action</button>
+      </CardAction>
+    );
     expect(screen.getByRole('button', { name: 'Action' })).toBeInTheDocument();
   });
 
