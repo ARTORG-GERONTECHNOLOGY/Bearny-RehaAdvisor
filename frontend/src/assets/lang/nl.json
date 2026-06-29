@@ -1362,5 +1362,6 @@
   "assistanceWithHelp": "Met hulp",
   "Next on": "Volgende op",
   "Answered": "Beantwoord",
-  "Tags": "Tags"
+  "Tags": "Tags",
+  "daysAgoShort": "{{d}}d gel."
 }

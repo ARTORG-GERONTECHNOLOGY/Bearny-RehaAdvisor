@@ -1362,5 +1362,6 @@
   "assistanceWithHelp": "With help",
   "Next on": "Next on",
   "Answered": "Answered",
-  "Tags": "Tags"
+  "Tags": "Tags",
+  "daysAgoShort": "{{d}}d ago"
 }

@@ -1362,5 +1362,6 @@
   "assistanceWithHelp": "Con assistenza",
   "Next on": "Prossimo il",
   "Answered": "Risposto",
-  "Tags": "Tag"
+  "Tags": "Tag",
+  "daysAgoShort": "{{d}}g fa"
 }
