@@ -21,12 +21,7 @@ const LibraryListSection: React.FC<Props> = ({ loading, items, onClick, t, trans
   return (
     <Row>
       <Col xs={12}>
-        <InterventionList
-          items={items}
-          onClick={onClick}
-          t={t}
-          translatedTitles={translatedTitles}
-        />
+        <InterventionList items={items} onClick={onClick} translatedTitles={translatedTitles} />
       </Col>
     </Row>
   );

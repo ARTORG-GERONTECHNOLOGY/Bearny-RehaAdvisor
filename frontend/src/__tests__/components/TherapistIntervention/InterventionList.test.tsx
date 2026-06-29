@@ -16,7 +16,6 @@ jest.mock('@/utils/translate', () => ({
 
 describe('InterventionList', () => {
   const mockOnClick = jest.fn();
-  const mockT = (key: string) => key;
 
   const items = [
     {
@@ -44,12 +43,7 @@ describe('InterventionList', () => {
 
   it('renders list items with title and content type', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
     expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
@@ -61,12 +55,7 @@ describe('InterventionList', () => {
 
   it('renders tag badges', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
     expect(screen.getByText('Mobility')).toBeInTheDocument();
@@ -87,7 +76,6 @@ describe('InterventionList', () => {
       <InterventionList
         items={itemsWithAims}
         onClick={mockOnClick}
-        t={mockT}
         translatedTitles={{ '3': { title: 'Core Exercise', lang: 'en' } }}
       />
     );
@@ -97,12 +85,7 @@ describe('InterventionList', () => {
   it('calls getContentTypeIcon with the item content_type', () => {
     const { getContentTypeIcon } = jest.requireMock('@/utils/interventions');
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
     expect(getContentTypeIcon).toHaveBeenCalledWith('video');
     expect(getContentTypeIcon).toHaveBeenCalledWith('pdf');
@@ -110,12 +93,7 @@ describe('InterventionList', () => {
 
   it('calls onClick when item is clicked', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
     fireEvent.click(screen.getByText('Mobility Drill'));
@@ -123,12 +101,12 @@ describe('InterventionList', () => {
   });
 
   it('shows loading state when translatedTitles is not provided', () => {
-    render(<InterventionList items={items} onClick={mockOnClick} t={mockT} />);
+    render(<InterventionList items={items} onClick={mockOnClick} />);
     expect(screen.getByText('Loading interventions...')).toBeInTheDocument();
   });
 
   it('renders empty state when no items', () => {
-    render(<InterventionList items={[]} onClick={mockOnClick} t={mockT} translatedTitles={{}} />);
+    render(<InterventionList items={[]} onClick={mockOnClick} translatedTitles={{}} />);
     expect(screen.getByText('No interventions found.')).toBeInTheDocument();
   });
 });

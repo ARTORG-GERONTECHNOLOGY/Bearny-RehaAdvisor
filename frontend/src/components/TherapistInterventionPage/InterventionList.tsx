@@ -1,5 +1,6 @@
 // components/TherapistInterventionPage/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from 'react-bootstrap';
 import { translateText } from '@/utils/translate';
 import { getTypeIcon, getContentTypeIcon, InterventionMedia } from '@/utils/interventions';
@@ -41,11 +42,12 @@ interface TitleMap {
 interface Props {
   items: Intervention[];
   onClick: (item: Intervention) => void;
-  t: (key: string) => string;
   translatedTitles?: TitleMap;
 }
 
-const InterventionList: React.FC<Props> = ({ items, onClick, t, translatedTitles }) => {
+const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles }) => {
+  const { t } = useTranslation();
+
   const [localTitles, setLocalTitles] = useState<TitleMap>({});
   const [loading, setLoading] = useState<boolean>(!translatedTitles);
 
