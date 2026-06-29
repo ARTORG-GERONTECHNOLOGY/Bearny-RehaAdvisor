@@ -1,13 +1,22 @@
 // components/TherapistInterventionPage/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { ListGroup, Badge, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { translateText } from '../../utils/translate';
+import { useTranslation } from 'react-i18next';
+import { Spinner } from 'react-bootstrap';
+import { translateText } from '@/utils/translate';
+import { getTypeIcon, getContentTypeIcon, InterventionMedia } from '@/utils/interventions';
 import {
-  getBadgeVariantFromIntervention,
-  getMediaTypeLabelFromIntervention,
-  InterventionMedia,
-} from '../../utils/interventions';
-import { getTagColor } from '../../utils/interventions';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import StarRating from '@/components/RehaTablePage/StarRating';
+import { Badge } from '@/components/ui/badge';
+import { FaLock } from 'react-icons/fa';
+import { ArrowUpDown } from 'lucide-react';
+
 interface Intervention {
   _id: string;
   title: string;
@@ -16,6 +25,8 @@ interface Intervention {
   aims?: string[];
   tags?: string[];
   media?: InterventionMedia[];
+
+  avg_rating?: number;
 
   language?: string;
   available_languages?: string[];
@@ -32,17 +43,27 @@ interface TitleMap {
 interface Props {
   items: Intervention[];
   onClick: (item: Intervention) => void;
-  t: (key: string) => string;
-  tagColors: Record<string, string>;
   translatedTitles?: TitleMap;
 }
 
-const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, translatedTitles }) => {
+const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles }) => {
+  const { t } = useTranslation();
+
   const [localTitles, setLocalTitles] = useState<TitleMap>({});
   const [loading, setLoading] = useState<boolean>(!translatedTitles);
+  const [ratingSorting, setRatingSorting] = useState<'asc' | 'desc' | false>(false);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const titles = translatedTitles ?? localTitles;
+
+  const sortedItems = useMemo(() => {
+    if (!ratingSorting) return safeItems;
+    return [...safeItems].sort((a, b) => {
+      const aRating = a.avg_rating ?? 0;
+      const bRating = b.avg_rating ?? 0;
+      return ratingSorting === 'asc' ? aRating - bRating : bRating - aRating;
+    });
+  }, [safeItems, ratingSorting]);
 
   useEffect(() => {
     if (translatedTitles) {
@@ -77,7 +98,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
 
   if (loading) {
     return (
-      <div className="text-center my-4" aria-live="polite" role="status">
+      <div className="text-center" aria-live="polite" role="status">
         <Spinner animation="border" role="status" />
         <div>{t('Loading interventions...')}</div>
       </div>
@@ -86,143 +107,125 @@ const InterventionList: React.FC<Props> = ({ items, onClick, t, tagColors, trans
 
   if (safeItems.length === 0) {
     return (
-      <div className="text-center text-muted my-4" role="alert">
+      <div className="text-center text-muted" role="alert">
         {t('No interventions found.')}
       </div>
     );
   }
 
   return (
-    <ListGroup className="shadow-sm w-100 mt-4" aria-label={t('Intervention List')}>
-      {safeItems.map((rec) => {
-        const translated = titles[rec._id];
-        const title = translated?.title || rec.title;
-        const originalLang = translated?.lang;
-
-        const isTranslated =
-          !!originalLang && title.trim().toLowerCase() !== (rec.title || '').trim().toLowerCase();
-
-        const badgeVariant = getBadgeVariantFromIntervention(rec as any);
-        const mediaLabel = getMediaTypeLabelFromIntervention(rec as any);
-
-        const aims = Array.isArray(rec.aims) ? rec.aims.filter(Boolean) : [];
-        const tags = Array.isArray(rec.tags) ? rec.tags.filter(Boolean) : [];
-
-        const isPrivate = Boolean(rec.is_private);
-
-        const lang = String(rec.language || '')
-          .trim()
-          .toLowerCase();
-        const available = Array.isArray(rec.available_languages) ? rec.available_languages : [];
-        const otherLangs = available
-          .map((x) =>
-            String(x || '')
-              .trim()
-              .toLowerCase()
-          )
-          .filter((x) => x && x !== lang);
-
-        const langBadge = lang ? lang.toUpperCase() : null;
-        const globeHint = otherLangs.length
-          ? otherLangs.map((x) => x.toUpperCase()).join(', ')
-          : t('No other languages');
-
-        return (
-          <ListGroup.Item
-            key={rec._id}
-            action
-            onClick={() => onClick(rec)}
-            className="d-flex justify-content-between align-items-center flex-wrap gap-2"
-            aria-label={t('Intervention')}
+    <Table aria-label={t('Intervention List')}>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t('Type')}</TableHead>
+          <TableHead>{t('Name')}</TableHead>
+          <TableHead>{t('Medium')}</TableHead>
+          <TableHead className="capitalize">{t('languages')}</TableHead>
+          <TableHead
+            onClick={() => setRatingSorting((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="cursor-pointer transition-colors hover:bg-muted/50"
           >
-            <div className="d-flex flex-column" style={{ minWidth: 260, flex: 1 }}>
-              <div className="d-flex align-items-center gap-2 flex-wrap">
-                <strong {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}>
-                  {title}
-                </strong>
+            {t('Rating')}
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </TableHead>
+          <TableHead>{t('Tags')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sortedItems.map((rec) => {
+          const translated = titles[rec._id];
+          const title = translated?.title || rec.title;
+          const originalLang = translated?.lang;
 
-                {isPrivate ? (
-                  <Badge bg="dark" title={t('Private intervention')}>
-                    {t('Private')}
+          const isTranslated =
+            !!originalLang && title.trim().toLowerCase() !== (rec.title || '').trim().toLowerCase();
+
+          const contentType = rec.content_type || t('Unknown');
+          const aims = Array.isArray(rec.aims) ? rec.aims.filter(Boolean) : [];
+          const tags = Array.isArray(rec.tags) ? rec.tags.filter(Boolean) : [];
+          const availableLangs = Array.isArray(rec.available_languages)
+            ? rec.available_languages.filter(Boolean)
+            : [];
+          const allLangs = rec.language
+            ? [rec.language, ...availableLangs.filter((l: string) => l !== rec.language)]
+            : availableLangs;
+          const isPrivate = Boolean(rec.is_private);
+
+          const TypeIcon = getTypeIcon(aims[0] || '');
+          const MediaIcon = getContentTypeIcon(contentType);
+
+          return (
+            <TableRow
+              key={rec._id}
+              onClick={() => onClick(rec)}
+              className="cursor-pointer"
+              aria-label={t('Intervention')}
+            >
+              <TableCell>
+                {!!aims[0] && (
+                  <Badge
+                    variant={'dashboard'}
+                    className={
+                      (aims[0] || '').toLowerCase().includes('exercise')
+                        ? 'bg-pink/5 border-pink text-pink'
+                        : 'bg-yellow/5 border-yellow text-yellow'
+                    }
+                  >
+                    {TypeIcon && <TypeIcon className="w-5 h-5" />}
+                    {t(aims[0] || '')}
                   </Badge>
-                ) : null}
-              </div>
-
-              {isTranslated && (
-                <small className="text-muted fst-italic">
-                  ({t('Translated from')}: {String(originalLang).toUpperCase()})
-                </small>
-              )}
-
-              <div className="text-muted">{t(rec.content_type)}</div>
-
-              {aims.length ? (
-                <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Aims')}>
-                  {aims.map((a) => (
-                    <Badge key={a} bg="info" text="dark" className="text-capitalize">
-                      {t(a)}
+                )}
+              </TableCell>
+              <TableCell>
+                {isPrivate && <FaLock aria-label={t('Private intervention')} />}
+                <div
+                  className="font-medium"
+                  {...(isTranslated ? { title: `Original: ${rec.title}` } : {})}
+                >
+                  {title}
+                </div>
+                {isTranslated && (
+                  <small className="text-chartMuted italic">
+                    ({t('Translated from')}: {String(originalLang).toUpperCase()})
+                  </small>
+                )}
+              </TableCell>
+              <TableCell className="text-brand">
+                <div className="flex items-center gap-1">
+                  {MediaIcon ? <MediaIcon className="w-5 h-5" /> : <span className="w-5 h-5" />}
+                  <span className="text-xs font-medium">{t(contentType)}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap items-center gap-1">
+                  {allLangs.map((lang) => (
+                    <Badge
+                      key={lang}
+                      variant="dashboard"
+                      className={`${lang !== rec.language ? 'bg-chartMuted/20' : ''}`}
+                    >
+                      {lang.toUpperCase()}
                     </Badge>
                   ))}
                 </div>
-              ) : null}
-
-              {tags.length ? (
-                <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
+              </TableCell>
+              <TableCell>
+                <StarRating value={rec.avg_rating} showNumber />
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap items-center gap-1">
                   {tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      bg=""
-                      style={{
-                        backgroundColor: getTagColor(tagColors, tag) || 'gray',
-                        color: '#fff',
-                      }}
-                      className="text-capitalize"
-                    >
+                    <Badge key={tag} variant="dashboard">
                       {t(tag)}
                     </Badge>
                   ))}
                 </div>
-              ) : null}
-            </div>
-
-            <div className="d-flex align-items-center gap-2">
-              {langBadge ? (
-                <>
-                  <Badge bg="secondary">{langBadge}</Badge>
-
-                  <OverlayTrigger placement="top" overlay={<Tooltip>{globeHint}</Tooltip>}>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label={t('Show other languages')}
-                      style={{ cursor: 'pointer', userSelect: 'none', lineHeight: 1 }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation(); // don’t trigger row click
-                        onClick(rec); // open details modal
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onClick(rec);
-                        }
-                      }}
-                    >
-                      🌐
-                    </span>
-                  </OverlayTrigger>
-                </>
-              ) : null}
-
-              <Badge bg={badgeVariant as any} aria-label={t('Media type')}>
-                {t(mediaLabel)}
-              </Badge>
-            </div>
-          </ListGroup.Item>
-        );
-      })}
-    </ListGroup>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 };
 

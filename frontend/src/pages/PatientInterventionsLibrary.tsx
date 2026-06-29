@@ -28,12 +28,7 @@ import {
 import Section from '@/components/Section';
 import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
-import EducationIcon from '@/assets/icons/interventions/education.svg?react';
-import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
-import AudioIcon from '@/assets/icons/interventions/audio.svg?react';
-import TextIcon from '@/assets/icons/interventions/text.svg?react';
-import VideoIcon from '@/assets/icons/interventions/video.svg?react';
-import WebsiteIcon from '@/assets/icons/interventions/website.svg?react';
+import { getTypeIcon, getContentTypeIcon } from '@/utils/interventions';
 import flagDe from '@/assets/flags/de.png';
 import flagFr from '@/assets/flags/fr.png';
 import flagEn from '@/assets/flags/gb.png';
@@ -42,6 +37,8 @@ import flagPt from '@/assets/flags/pt.png';
 import flagNl from '@/assets/flags/be.png';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
+import EducationIcon from '@/assets/icons/interventions/education.svg?react';
+import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -63,33 +60,6 @@ type OptionItem = {
   value: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }> | null;
-};
-
-const getTypeIcon = (value: string) => {
-  const normalized = value.trim().toLocaleLowerCase();
-
-  if (normalized.includes('exercise')) return ExerciseIcon;
-  if (normalized.includes('education')) return EducationIcon;
-  if (normalized.includes('instruction')) return EducationIcon;
-
-  return null;
-};
-
-const getContentTypeIcon = (value: string) => {
-  const normalized = value.trim().toLocaleLowerCase();
-
-  if (normalized.includes('audio')) return AudioIcon;
-  if (normalized.includes('brochure') || normalized.includes('pdf')) return TextIcon;
-  if (
-    normalized.includes('video') ||
-    normalized.includes('graphics') ||
-    normalized.includes('image')
-  )
-    return VideoIcon;
-  if (normalized.includes('website')) return WebsiteIcon;
-  if (normalized.includes('app')) return WebsiteIcon;
-
-  return null;
 };
 
 const flagMap: Record<string, string> = {

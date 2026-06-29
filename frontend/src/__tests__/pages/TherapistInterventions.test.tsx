@@ -61,16 +61,9 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
 // Child component mocks
 jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock(
-  '@/components/common/WelcomeArea',
-  () =>
-    function WelcomeArea() {
-      return <div>Mocked Welcome Area</div>;
-    }
-);
-jest.mock(
   '@/components/TherapistInterventionPage/ProductPopup',
   () =>
-    function ProductPopup(props) {
+    function ProductPopup(props: any) {
       return (
         <div>
           Product Popup
@@ -173,42 +166,6 @@ jest.mock(
   () =>
     function TemplatesLayout() {
       return null;
-    }
-);
-
-// Old mocks - remove these
-jest.mock(
-  '@/components/TherapistInterventionPage/FilterBar',
-  () =>
-    function FilterBar(props) {
-      return (
-        <div>
-          <input
-            placeholder="Search Interventions"
-            value={props.searchTerm}
-            onChange={(e) => props.setSearchTerm(e.target.value)}
-          />
-          <button onClick={() => props.setDiagnosisFilter(['heart failure'])}>Set Diagnosis</button>
-          <button onClick={() => props.setContentTypeFilter('Exercise')}>Set Content Type</button>
-          <button onClick={() => props.setCoreSupportFilter('Core')}>Set Core Filter</button>
-        </div>
-      );
-    }
-);
-
-jest.mock(
-  '@/components/TherapistInterventionPage/InterventionList',
-  () =>
-    function InterventionList(props) {
-      return (
-        <div>
-          {props.items.map((item) => (
-            <div key={item._id} onClick={() => props.onClick(item)}>
-              {item.title}
-            </div>
-          ))}
-        </div>
-      );
     }
 );
 
@@ -353,7 +310,6 @@ describe('TherapistInterventions Page', () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId('layout')).toBeInTheDocument();
-    expect(screen.getByText('Mocked Welcome Area')).toBeInTheDocument();
     expect(await screen.findByText('Stretching for 30 minutes')).toBeInTheDocument();
   });
 

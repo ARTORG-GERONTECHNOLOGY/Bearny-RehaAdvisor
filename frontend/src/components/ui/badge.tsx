@@ -12,6 +12,8 @@ const badgeVariants = cva(
         card: 'bg-white text-brand rounded-xl pl-[10px] pr-3 border border-accent',
         'filter-active': 'bg-white text-zinc-800 text-nowrap',
         'filter-inactive': 'bg-zinc-50 text-zinc-400 text-nowrap',
+        dashboard:
+          'bg-white text-zinc-800 rounded-lg py-0.5 px-2 border border-accent text-capitalize',
       },
     },
     defaultVariants: {

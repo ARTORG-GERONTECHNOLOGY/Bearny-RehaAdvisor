@@ -4,9 +4,8 @@ import '@testing-library/jest-dom';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock('@/utils/interventions', () => ({
-  getBadgeVariantFromIntervention: jest.fn(() => 'info'),
-  getMediaTypeLabelFromIntervention: jest.fn(() => 'Video'),
-  getTagColor: jest.fn((tagColors: any, tag: string) => tagColors[tag] || '#6c757d'),
+  getTypeIcon: jest.fn(() => null),
+  getContentTypeIcon: jest.fn(() => null),
 }));
 
 jest.mock('@/utils/translate', () => ({
@@ -17,27 +16,18 @@ jest.mock('@/utils/translate', () => ({
 
 describe('InterventionList', () => {
   const mockOnClick = jest.fn();
-  const mockT = (key: string) => key;
-  const tagColors = {
-    Mobility: '#ff0000',
-    Strength: '#00ff00',
-  };
 
   const items = [
     {
       _id: '1',
       title: 'Mobility Drill',
       content_type: 'video',
-      media_url: 'mobility.mp4',
-      link: '',
       tags: ['Mobility', 'Strength'],
     },
     {
       _id: '2',
       title: 'Stretch PDF',
       content_type: 'pdf',
-      media_url: 'stretch.pdf',
-      link: '',
       tags: [],
     },
   ];
@@ -53,13 +43,7 @@ describe('InterventionList', () => {
 
   it('renders list items with title and content type', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        tagColors={tagColors}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
     expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
@@ -69,47 +53,60 @@ describe('InterventionList', () => {
     expect(screen.getByText('pdf')).toBeInTheDocument();
   });
 
-  it('renders tag badges with correct styles', () => {
+  it('renders tag badges', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        tagColors={tagColors}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
-    expect(screen.getByText('Mobility')).toHaveStyle(`background-color: ${tagColors.Mobility}`);
-    expect(screen.getByText('Strength')).toHaveStyle(`background-color: ${tagColors.Strength}`);
+    expect(screen.getByText('Mobility')).toBeInTheDocument();
+    expect(screen.getByText('Strength')).toBeInTheDocument();
   });
 
-  it('renders media type badge using utils', () => {
+  it('renders type badge for items with aims', () => {
+    const itemsWithAims = [
+      {
+        _id: '3',
+        title: 'Core Exercise',
+        content_type: 'video',
+        aims: ['Physical Exercise'],
+        tags: [],
+      },
+    ];
     render(
       <InterventionList
-        items={items}
+        items={itemsWithAims}
         onClick={mockOnClick}
-        t={mockT}
-        tagColors={tagColors}
-        translatedTitles={translatedTitles}
+        translatedTitles={{ '3': { title: 'Core Exercise', lang: 'en' } }}
       />
     );
+    expect(screen.getByText('Physical Exercise')).toBeInTheDocument();
+  });
 
-    expect(screen.getAllByText('Video').length).toBeGreaterThan(0);
+  it('calls getContentTypeIcon with the item content_type', () => {
+    const { getContentTypeIcon } = jest.requireMock('@/utils/interventions');
+    render(
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
+    );
+    expect(getContentTypeIcon).toHaveBeenCalledWith('video');
+    expect(getContentTypeIcon).toHaveBeenCalledWith('pdf');
   });
 
   it('calls onClick when item is clicked', () => {
     render(
-      <InterventionList
-        items={items}
-        onClick={mockOnClick}
-        t={mockT}
-        tagColors={tagColors}
-        translatedTitles={translatedTitles}
-      />
+      <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />
     );
 
     fireEvent.click(screen.getByText('Mobility Drill'));
     expect(mockOnClick).toHaveBeenCalledWith(items[0]);
+  });
+
+  it('shows loading state when translatedTitles is not provided', () => {
+    render(<InterventionList items={items} onClick={mockOnClick} />);
+    expect(screen.getByText('Loading interventions...')).toBeInTheDocument();
+  });
+
+  it('renders empty state when no items', () => {
+    render(<InterventionList items={[]} onClick={mockOnClick} translatedTitles={{}} />);
+    expect(screen.getByText('No interventions found.')).toBeInTheDocument();
   });
 });

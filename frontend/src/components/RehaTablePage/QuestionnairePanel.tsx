@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import QuestionnaireAvailableCard from './QuestionnaireAvailableCard';
 import QuestionnaireAssignedCard from './QuestionnaireAssignedCard';
 import QuestionnaireDetailSheet from './QuestionnaireDetailSheet';
+import { FaPlus } from 'react-icons/fa';
 
 type QuestionTranslation = { language: string; text: string };
 
@@ -105,7 +106,8 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
 
   return (
     <>
-      <Button onClick={openBuilder} className="mb-3">
+      <Button size="dashboard" onClick={openBuilder} className="mb-3">
+        <FaPlus />
         {t('Create')}
       </Button>
       <Row className="rehab-row">
