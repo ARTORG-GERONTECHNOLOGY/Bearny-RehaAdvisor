@@ -294,7 +294,7 @@ const Therapist: React.FC = observer(() => {
     );
   };
 
-  const renderAdherenceBadge = (p: PatientType) => {
+  const renderAdherenceProgress = (p: PatientType) => {
     const extra = getPatientExtra(p);
     const rate = toNum(extra.adherence_rate);
     const level = adherenceLevel(p);
@@ -648,7 +648,7 @@ const Therapist: React.FC = observer(() => {
                     <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
                     <TableCell className="text-muted">{diagnosis}</TableCell>
                     <TableCell>{renderLoginBadge(p)}</TableCell>
-                    <TableCell>{renderAdherenceBadge(p)}</TableCell>
+                    <TableCell>{renderAdherenceProgress(p)}</TableCell>
                     <TableCell>{renderFeedbackBadge(p)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
