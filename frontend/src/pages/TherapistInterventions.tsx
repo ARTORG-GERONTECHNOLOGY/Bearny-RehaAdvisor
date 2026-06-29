@@ -759,7 +759,6 @@ const TherapistRecomendations: React.FC = observer(() => {
               items={filteredInterventions}
               onClick={handleItemClick}
               t={t}
-              tagColors={tagColors}
               translatedTitles={translatedTitles}
             />
           </>
