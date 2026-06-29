@@ -15,6 +15,7 @@ import {
 import StarRating from '@/components/RehaTablePage/StarRating';
 import { Badge } from '@/components/ui/badge';
 import { FaLock } from 'react-icons/fa';
+import { ArrowUpDown } from 'lucide-react';
 
 interface Intervention {
   _id: string;
@@ -50,9 +51,19 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
 
   const [localTitles, setLocalTitles] = useState<TitleMap>({});
   const [loading, setLoading] = useState<boolean>(!translatedTitles);
+  const [ratingSorting, setRatingSorting] = useState<'asc' | 'desc' | false>(false);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const titles = translatedTitles ?? localTitles;
+
+  const sortedItems = useMemo(() => {
+    if (!ratingSorting) return safeItems;
+    return [...safeItems].sort((a, b) => {
+      const aRating = a.avg_rating ?? 0;
+      const bRating = b.avg_rating ?? 0;
+      return ratingSorting === 'asc' ? aRating - bRating : bRating - aRating;
+    });
+  }, [safeItems, ratingSorting]);
 
   useEffect(() => {
     if (translatedTitles) {
@@ -110,12 +121,18 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
           <TableHead>{t('Name')}</TableHead>
           <TableHead>{t('Medium')}</TableHead>
           <TableHead>{t('languages')}</TableHead>
-          <TableHead>{t('Rating')}</TableHead>
+          <TableHead
+            onClick={() => setRatingSorting((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="cursor-pointer"
+          >
+            {t('Rating')}
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </TableHead>
           <TableHead>{t('Tags')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {safeItems.map((rec) => {
+        {sortedItems.map((rec) => {
           const translated = titles[rec._id];
           const title = translated?.title || rec.title;
           const originalLang = translated?.lang;
