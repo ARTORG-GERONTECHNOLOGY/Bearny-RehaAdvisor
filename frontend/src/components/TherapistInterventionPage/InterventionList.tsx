@@ -125,8 +125,10 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
             onClick={() => setRatingSorting((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
             className="cursor-pointer transition-colors hover:bg-muted/50"
           >
-            {t('Rating')}
-            <ArrowUpDown className="ml-1 h-4 w-4" />
+            <div className="flex gap-1 items-center">
+              {t('Rating')}
+              <ArrowUpDown className="h-4 w-4" />
+            </div>
           </TableHead>
           <TableHead>{t('Tags')}</TableHead>
         </TableRow>

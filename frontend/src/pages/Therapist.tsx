@@ -1,18 +1,7 @@
 // src/pages/Therapist.tsx
-import React, { useEffect, useMemo, useCallback } from 'react';
-import {
-  Button,
-  Col,
-  Container,
-  Form,
-  Row,
-  Card,
-  Table,
-  Collapse,
-  Badge,
-  OverlayTrigger,
-  Tooltip,
-} from 'react-bootstrap';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import { ArrowUpDown } from 'lucide-react';
+import { Button, Col, Container, Form, Row, Card, Collapse } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -30,32 +19,20 @@ import { TherapistPatientsStore, SortKey, RedcapCandidate } from '@/stores/thera
 import type { PatientType } from '@/types';
 import { appModeStore } from '@/stores/appModeStore';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 // -------------------- local, typed helpers (no any) --------------------
 
 type Traffic = 'good' | 'warn' | 'bad' | 'unknown';
-
-type BioLike = {
-  sleep_avg_h?: unknown;
-  steps_avg?: unknown;
-  activity_min?: unknown;
-  bp_sys_avg?: unknown;
-  bp_dia_avg?: unknown;
-  wear_time_avg_min?: unknown;
-  wear_time_days_since?: unknown;
-};
-
-type ThresholdsLike = {
-  steps_goal?: unknown;
-  active_minutes_green?: unknown;
-  active_minutes_yellow?: unknown;
-  sleep_green_min?: unknown;
-  sleep_yellow_min?: unknown;
-  bp_sys_green_max?: unknown;
-  bp_sys_yellow_max?: unknown;
-  bp_dia_green_max?: unknown;
-  bp_dia_yellow_max?: unknown;
-};
 
 type InterventionFeedbackLike = {
   last_answered_at?: unknown;
@@ -146,6 +123,7 @@ const Therapist: React.FC = observer(() => {
   const { t } = useTranslation();
 
   const store = useMemo(() => new TherapistPatientsStore(), []);
+  const [colSortDir, setColSortDir] = useState<Record<string, 'asc' | 'desc'>>({});
 
   useEffect(() => {
     authStore.checkAuthentication();
@@ -154,9 +132,6 @@ const Therapist: React.FC = observer(() => {
       return;
     }
     store.fetchPatients(t);
-
-    // NOTE: your eslint currently complains: "Definition for rule react-hooks/exhaustive-deps was not found".
-    // That is a lint-config issue (missing eslint-plugin-react-hooks). Removing the disable-comment avoids the error.
   }, [navigate, store, t]);
 
   // re-fetch after closing add patient popup
@@ -212,13 +187,13 @@ const Therapist: React.FC = observer(() => {
   const chipClass = (level: Traffic) => {
     switch (level) {
       case 'good':
-        return 'bg-success';
+        return 'bg-ok/5 border-ok text-ok';
       case 'warn':
-        return 'bg-warning text-dark';
+        return 'bg-yellow/5 border-yellow text-yellow';
       case 'bad':
-        return 'bg-danger';
+        return 'bg-nok/5 border-nok text-nok';
       default:
-        return 'bg-secondary';
+        return '';
     }
   };
 
@@ -227,185 +202,6 @@ const Therapist: React.FC = observer(() => {
 
   const levelRankSmallBadFirst = (lvl: Traffic) =>
     lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
-
-  const getPatientThresholds = (p: PatientType): ThresholdsLike =>
-    asRecord(getPatientExtra(p).thresholds) as ThresholdsLike;
-
-  const healthMetricLevel = (
-    value: number | null,
-    config: {
-      greenMin?: number | null;
-      yellowMin?: number | null;
-      greenMax?: number | null;
-      yellowMax?: number | null;
-      fallbackGoodMin?: number;
-      fallbackWarnMin?: number;
-      fallbackGoodRange?: [number, number];
-      fallbackWarnRange?: [number, number];
-    }
-  ): Traffic => {
-    if (value === null) return 'unknown';
-
-    if (config.greenMin != null) {
-      if (value >= config.greenMin) return 'good';
-      if (config.yellowMin != null) {
-        return value >= config.yellowMin ? 'warn' : 'bad';
-      }
-      const derivedWarn = Math.max(1, Math.round(config.greenMin * 0.6));
-      return value >= derivedWarn ? 'warn' : 'bad';
-    }
-
-    if (config.greenMax != null) {
-      if (value <= config.greenMax) return 'good';
-      if (config.yellowMax != null) {
-        return value <= config.yellowMax ? 'warn' : 'bad';
-      }
-      return 'bad';
-    }
-
-    if (config.fallbackGoodRange) {
-      const [min, max] = config.fallbackGoodRange;
-      if (value >= min && value <= max) return 'good';
-      if (config.fallbackWarnRange) {
-        const [warnMin, warnMax] = config.fallbackWarnRange;
-        if (value >= warnMin && value <= warnMax) return 'warn';
-      }
-      return 'bad';
-    }
-
-    if (config.fallbackGoodMin != null) {
-      if (value >= config.fallbackGoodMin) return 'good';
-      if (config.fallbackWarnMin != null) return value >= config.fallbackWarnMin ? 'warn' : 'bad';
-      return 'bad';
-    }
-
-    return 'unknown';
-  };
-
-  const healthScore = (p: PatientType) => {
-    const extra = getPatientExtra(p);
-    const bio = (extra.biomarker ?? extra.fitbitData) as unknown;
-    const b = asRecord(bio) as BioLike;
-    const thresholds = getPatientThresholds(p);
-
-    const sleep = toNum(b.sleep_avg_h);
-    const steps = toNum(b.steps_avg);
-    const act = toNum(b.activity_min);
-    const bpSys = toNum(b.bp_sys_avg);
-    const bpDia = toNum(b.bp_dia_avg);
-
-    let score = 0;
-    let n = 0;
-
-    const metricLevels: Traffic[] = [
-      healthMetricLevel(steps, {
-        greenMin: toNum(thresholds.steps_goal),
-        fallbackGoodMin: 6000,
-        fallbackWarnMin: 3000,
-      }),
-      healthMetricLevel(act, {
-        greenMin: toNum(thresholds.active_minutes_green),
-        yellowMin: toNum(thresholds.active_minutes_yellow),
-        fallbackGoodMin: 150,
-        fallbackWarnMin: 60,
-      }),
-      healthMetricLevel(sleep !== null ? sleep * 60 : null, {
-        greenMin: toNum(thresholds.sleep_green_min),
-        yellowMin: toNum(thresholds.sleep_yellow_min),
-        fallbackGoodRange: [7 * 60, 9 * 60],
-        fallbackWarnRange: [6 * 60, 7 * 60],
-      }),
-    ];
-
-    if (bpSys !== null || bpDia !== null) {
-      metricLevels.push(
-        healthMetricLevel(bpSys, {
-          greenMax: toNum(thresholds.bp_sys_green_max),
-          yellowMax: toNum(thresholds.bp_sys_yellow_max),
-        })
-      );
-      metricLevels.push(
-        healthMetricLevel(bpDia, {
-          greenMax: toNum(thresholds.bp_dia_green_max),
-          yellowMax: toNum(thresholds.bp_dia_yellow_max),
-        })
-      );
-    }
-
-    metricLevels.forEach((level) => {
-      if (level === 'unknown') return;
-      n++;
-      if (level === 'good') score += 2;
-      else if (level === 'warn') score += 1;
-    });
-
-    return n ? score / n : -1; // 0..2; -1 unknown
-  };
-
-  const healthLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
-    const extra = getPatientExtra(p);
-    const bio = (extra.biomarker ?? extra.fitbitData) as unknown;
-    const b = asRecord(bio) as BioLike;
-    const thresholds = getPatientThresholds(p);
-
-    const sleep = toNum(b.sleep_avg_h);
-    const steps = toNum(b.steps_avg);
-    const act = toNum(b.activity_min);
-    const bpSys = toNum(b.bp_sys_avg);
-    const bpDia = toNum(b.bp_dia_avg);
-
-    const score = healthScore(p);
-    let level: Traffic = 'unknown';
-    if (score >= 1.6) level = 'good';
-    else if (score >= 0.8) level = 'warn';
-    else if (score >= 0) level = 'bad';
-
-    const parts: string[] = [];
-    if (sleep != null) parts.push(`${t('Sleep')}: ${sleep.toFixed(1)}h ${t('avg (7d)')}`);
-    if (steps != null)
-      parts.push(`${t('Steps')}: ${Math.round(steps).toLocaleString()} ${t('avg (7d)')}`);
-    if (act != null) parts.push(`${t('Activity')}: ${Math.round(act)} ${t('min avg (7d)')}`);
-    if (bpSys != null && bpDia != null) {
-      parts.push(
-        `${t('Blood pressure')}: ${Math.round(bpSys)}/${Math.round(bpDia)} ${t('avg (7d)')}`
-      );
-    }
-    if (toNum(thresholds.steps_goal) != null) {
-      parts.push(`${t('Personalized goals')}: ${t('enabled')}`);
-    }
-
-    return { level, tip: parts.length ? parts.join(' • ') : String(t('No recent health data')) };
-  };
-
-  const wearLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
-    const extra = getPatientExtra(p);
-    const bio = asRecord((extra.biomarker ?? extra.fitbitData) as unknown) as BioLike;
-    const daysSinceWorn = toNum(bio.wear_time_days_since);
-    const avgMin = toNum(bio.wear_time_avg_min);
-
-    if (daysSinceWorn === null && avgMin === null) {
-      return { level: 'unknown', tip: String(t('No Fitbit data')) };
-    }
-
-    let level: Traffic = 'good';
-    const parts: string[] = [];
-
-    if (daysSinceWorn !== null) {
-      if (daysSinceWorn >= 2) {
-        level = 'bad';
-        parts.push(`${t('Not worn for')} ${daysSinceWorn} ${t('days')}`);
-      } else {
-        parts.push(`${t('Last worn')}: ${daysSinceWorn === 0 ? t('today') : t('yesterday')}`);
-      }
-    }
-    if (avgMin !== null) {
-      const avgH = (avgMin / 60).toFixed(1);
-      parts.push(`${t('Avg wear')}: ${avgH}h ${t('(7d)')}`);
-      if (level !== 'bad' && avgMin < 720) level = 'warn';
-    }
-
-    return { level, tip: parts.join(' • ') };
-  };
 
   const loginLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
     const extra = getPatientExtra(p);
@@ -489,17 +285,12 @@ const Therapist: React.FC = observer(() => {
     return { level, tip };
   };
 
-  const shouldHideHealthChip = (p: PatientType): boolean => !store.isCompletedPatient(p);
-
   const ampelComposite = (p: PatientType) => {
     const l = loginLevelAndTip(p);
     const a = adherenceLevelAndTip(p);
-    const h = healthLevelAndTip(p);
     const f = feedbackLevelAndTip(p);
-    const includeHealth = !shouldHideHealthChip(p);
 
     const base = levelToNum(l.level) + levelToNum(a.level) + levelToNum(f.level);
-    const baseWithHealth = includeHealth ? base + levelToNum(h.level) : base;
 
     const extra = getPatientExtra(p);
     const lastLogin =
@@ -510,7 +301,6 @@ const Therapist: React.FC = observer(() => {
     const dLogin = daysSince(lastLogin);
 
     const adh = toNum(extra.adherence_rate) ?? -1;
-    const hScore = healthScore(p);
 
     // last questionnaire answer (string-sort works for ISO yyyy-mm-dd or ISO datetime)
     const lastQ = Array.isArray(extra.questionnaires)
@@ -528,58 +318,131 @@ const Therapist: React.FC = observer(() => {
       (Number.isFinite(dLogin) ? dLogin / 50 : 0) +
       (adh >= 0 ? (100 - adh) / 100 : 0.5) +
       (Number.isFinite(dFb) ? dFb / 100 : 0.25);
-    const healthTweak = includeHealth ? (hScore >= 0 ? (2 - hScore) / 2 : 0.5) : 0;
 
-    return baseWithHealth + tweak + healthTweak;
+    return base + tweak;
   };
 
-  const renderStatusChips = (p: PatientType) => {
-    const login = loginLevelAndTip(p);
-    const adh = adherenceLevelAndTip(p);
-    const health = healthLevelAndTip(p);
-    const fb = feedbackLevelAndTip(p);
-    const wear = wearLevelAndTip(p);
-    const hideHealthChip = shouldHideHealthChip(p);
+  const renderLoginBadge = (p: PatientType) => {
+    const extra = getPatientExtra(p);
+    const last =
+      getIsoMaybe(extra.last_online) ||
+      getIsoMaybe(extra.user_last_login) ||
+      getIsoMaybe(extra.last_login) ||
+      '';
+    const d = daysSince(last);
 
-    const Chip = ({ label, level, tip }: { label: string; level: Traffic; tip: string }) => (
-      <OverlayTrigger
-        placement="top"
-        overlay={
-          <Tooltip>
-            <div style={{ whiteSpace: 'pre-line' }}>{tip}</div>
-          </Tooltip>
-        }
-      >
-        <span
-          className={`status-chip ${chipClass(level)}`}
-          role="img"
-          aria-label={`${label} ${level}`}
-        >
-          {label}
-        </span>
-      </OverlayTrigger>
-    );
+    let level: Traffic = 'unknown';
+    if (d === Number.POSITIVE_INFINITY) level = 'unknown';
+    else if (d <= 3) level = 'good';
+    else if (d <= 7) level = 'warn';
+    else level = 'bad';
+
+    let badgeText = t('Never logged in');
+    if (last) {
+      if (d === 0) badgeText = t('today');
+      else if (d === 1) badgeText = t('yesterday');
+      else badgeText = t('daysAgoShort', { d });
+    }
 
     return (
-      <div className="status-stack">
-        <Chip label={String(t('Login'))} level={login.level} tip={login.tip} />
-        <Chip label={String(t('Adherence'))} level={adh.level} tip={adh.tip} />
-        {!hideHealthChip && (
-          <Chip label={String(t('Health'))} level={health.level} tip={health.tip} />
-        )}
-        <Chip label={String(t('Feedback'))} level={fb.level} tip={fb.tip} />
-        {wear.level !== 'unknown' && (
-          <Chip label={String(t('Wear'))} level={wear.level} tip={wear.tip} />
-        )}
+      <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
+        {badgeText}
+      </Badge>
+    );
+  };
+
+  const renderAdherenceBadge = (p: PatientType) => {
+    const extra = getPatientExtra(p);
+    const rate = toNum(extra.adherence_rate);
+
+    let level: Traffic = 'unknown';
+    if (typeof rate === 'number') {
+      if (rate >= 80) level = 'good';
+      else if (rate >= 50) level = 'warn';
+      else level = 'bad';
+    }
+
+    const indicatorClassName =
+      level === 'bad' ? 'bg-nok' : level === 'warn' ? 'bg-yellow' : level === 'good' ? 'bg-ok' : '';
+
+    const labelClassName =
+      level === 'bad'
+        ? 'text-nok'
+        : level === 'warn'
+          ? 'text-yellow'
+          : level === 'good'
+            ? 'text-ok'
+            : 'text-chartMuted';
+
+    return (
+      <div className="flex items-center gap-2">
+        <Progress
+          value={rate ?? 0}
+          max={100}
+          indicatorClassName={indicatorClassName}
+          className={`w-10 h-1`}
+        />
+        <span className={`text-xs font-medium ${labelClassName}`}>
+          {rate != null ? `${rate}%` : '—'}
+        </span>
       </div>
     );
   };
+
+  const renderFeedbackBadge = (p: PatientType) => {
+    const extra = getPatientExtra(p);
+    const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
+
+    const lastIso = getIsoMaybe(summary.last_answered_at);
+    const daysSinceLast = toNum(summary.days_since_last);
+    const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
+
+    let level: Traffic;
+    let badgeText;
+
+    if (summary.answered_days_total === 0 || !lastIso) {
+      level = 'unknown';
+      badgeText = t('No feedback');
+    } else if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) {
+      level = 'bad';
+      badgeText =
+        lowRatings14d >= 7
+          ? t('negRatingsShort', { n: lowRatings14d })
+          : t('daysAgoShort', { d: daysSinceLast });
+    } else if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) {
+      level = 'warn';
+      badgeText =
+        lowRatings14d >= 3
+          ? t('negRatingsShort', { n: lowRatings14d })
+          : t('daysAgoShort', { d: daysSinceLast });
+    } else {
+      level = 'good';
+      badgeText = t('Good');
+    }
+
+    return (
+      <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
+        {badgeText}
+      </Badge>
+    );
+  };
+
+  const handleColSort = useCallback(
+    (key: SortKey) => {
+      if (store.sortBy === key) {
+        setColSortDir((prev) => ({ ...prev, [key]: prev[key] === 'asc' ? 'desc' : 'asc' }));
+      } else {
+        store.setSortBy(key);
+        setColSortDir((prev) => ({ ...prev, [key]: 'asc' }));
+      }
+    },
+    [store]
+  );
 
   // ===== Sorting (includes ampel) =====
   const sortedFiltered = useMemo(() => {
     const arr = [...store.filteredPatients];
 
-    const getHealth = (p: PatientType) => healthScore(p);
     const getLogin = (p: PatientType) => {
       const x = getPatientExtra(p);
       const last =
@@ -592,18 +455,18 @@ const Therapist: React.FC = observer(() => {
     const getAdh = (p: PatientType) => toNum(getPatientExtra(p).adherence_rate) ?? -1;
     const getFb = (p: PatientType) => levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
 
+    const dir = (key: string, val: number) => (colSortDir[key] === 'desc' ? -val : val);
+
     arr.sort((a, b) => {
       switch (store.sortBy) {
         case 'ampel':
           return ampelComposite(b) - ampelComposite(a);
         case 'last_login':
-          return getLogin(a) - getLogin(b); // smaller = more recent
+          return dir('last_login', getLogin(a) - getLogin(b));
         case 'adherence':
-          return getAdh(b) - getAdh(a);
-        case 'health':
-          return getHealth(a) - getHealth(b); // smaller score = worse
+          return dir('adherence', getAdh(b) - getAdh(a));
         case 'feedback':
-          return getFb(a) - getFb(b);
+          return dir('feedback', getFb(a) - getFb(b));
         case 'created':
         default: {
           const xa = getPatientExtra(a);
@@ -616,7 +479,7 @@ const Therapist: React.FC = observer(() => {
     });
 
     return arr;
-  }, [store.filteredPatients, store.sortBy]);
+  }, [store.filteredPatients, store.sortBy, colSortDir]);
 
   const { active: activePatients, completed: completedPatients } = useMemo(
     () => store.splitCompleted(sortedFiltered),
@@ -773,10 +636,6 @@ const Therapist: React.FC = observer(() => {
                   >
                     <option value="ampel">{String(t('Performance'))}</option>
                     <option value="created">{String(t('Newest created'))}</option>
-                    <option value="last_login">{String(t('Last login (recent first)'))}</option>
-                    <option value="adherence">{String(t('Adherence (high → low)'))}</option>
-                    <option value="health">{String(t('Health (worst → best)'))}</option>
-                    <option value="feedback">{String(t('Feedback (worst → best)'))}</option>
                   </Form.Select>
                 </Col>
 
@@ -803,19 +662,45 @@ const Therapist: React.FC = observer(() => {
             {String(t('Active patients'))} ({activePatients.length})
           </h5>
 
-          <Table responsive hover className="align-middle">
-            <thead>
-              <tr>
-                <th>{String(t('Patient ID'))}</th>
-                <th>{String(t('Full Name'))}</th>
-                <th>{String(t('Birth Date'))}</th>
-                <th>{String(t('Sex'))}</th>
-                <th>{String(t('Diagnosis_patient_list'))}</th>
-                <th>{String(t('Status'))}</th>
-                <th className="text-end">{String(t('Actions'))}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>{t('Name')}</TableHead>
+                <TableHead>{t('Birth Date')}</TableHead>
+                <TableHead>{t('Sex')}</TableHead>
+                <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                <TableHead
+                  onClick={() => handleColSort('last_login')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Login')}
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('adherence')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Adherence')}
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('feedback')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Feedback')}
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead>{t('Actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {activePatients.map((p) => {
                 const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
                 const diagnosis = Array.isArray(p.diagnosis)
@@ -825,15 +710,17 @@ const Therapist: React.FC = observer(() => {
                 const mongoId = getPatientMongoId(p);
 
                 return (
-                  <tr key={mongoId || patientId}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
-                    <td>{fullName}</td>
-                    <td>{fmtDate(String(p.age || ''))}</td>
-                    <td>{String(t(p.sex))}</td>
-                    <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                    <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
-                    <td className="text-end">
-                      <div className="d-flex justify-content-end gap-2 flex-wrap">
+                  <TableRow key={mongoId || patientId}>
+                    <TableCell className="text-muted">{patientId}</TableCell>
+                    <TableCell>{fullName}</TableCell>
+                    <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
+                    <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
+                    <TableCell className="text-muted">{diagnosis}</TableCell>
+                    <TableCell>{renderLoginBadge(p)}</TableCell>
+                    <TableCell>{renderAdherenceBadge(p)}</TableCell>
+                    <TableCell>{renderFeedbackBadge(p)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
                         <Button size="sm" variant="success" onClick={() => store.openPatient(p)}>
                           {String(t('Info'))}
                         </Button>
@@ -852,21 +739,21 @@ const Therapist: React.FC = observer(() => {
                           {String(t('Outcomes Dashboard'))}
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
 
               {activePatients.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted">
                     {store.loading
                       ? String(t('Loading patients...'))
                       : String(t('No active patients'))}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
+            </TableBody>
           </Table>
 
           <Collapse in={store.showCompleted}>
@@ -875,52 +762,52 @@ const Therapist: React.FC = observer(() => {
                 {String(t('Completed'))} ({completedPatients.length})
               </h5>
 
-              <Table responsive hover className="align-middle">
-                <thead>
-                  <tr>
-                    <th>{String(t('Patient ID'))}</th>
-                    <th>{String(t('Full Name'))}</th>
-                    <th>{String(t('Birth Date'))}</th>
-                    <th>{String(t('Sex'))}</th>
-                    <th>{String(t('Diagnosis'))}</th>
-                    <th>{String(t('Status'))}</th>
-                    <th className="text-end">{String(t('Actions'))}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>{t('Name')}</TableHead>
+                    <TableHead>{t('Birth Date')}</TableHead>
+                    <TableHead>{t('Sex')}</TableHead>
+                    <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                    <TableHead>{t('Status')}</TableHead>
+                    <TableHead>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {completedPatients.map((p) => {
                     const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
                     const diagnosis = Array.isArray(p.diagnosis)
                       ? p.diagnosis.map((d) => String(t(d))).join(', ')
                       : String(t(p.diagnosis || ''));
-                    const extra = getPatientExtra(p);
-                    const endDate = getIsoMaybe(extra.rehab_end_date);
                     const patientId = getPatientIdStr(p);
                     const mongoId = getPatientMongoId(p);
 
+                    const extra = getPatientExtra(p);
+                    const endDate = getIsoMaybe(extra.rehab_end_date);
+
                     return (
-                      <tr key={mongoId || patientId} className="completed-row">
-                        <td style={{ whiteSpace: 'nowrap' }}>{patientId}</td>
-                        <td>
-                          {fullName}{' '}
-                          <Badge bg="success" className="ms-2">
+                      <TableRow key={mongoId || patientId} className="completed-row opacity-75">
+                        <TableCell className="text-muted">{patientId}</TableCell>
+                        <TableCell>{fullName}</TableCell>
+                        <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
+                        <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
+                        <TableCell className="text-muted">{diagnosis}</TableCell>
+                        <TableCell>
+                          <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                             {String(t('Completed'))}
                           </Badge>
-                          {endDate && (
-                            <small className="text-muted ms-2">
+                          {!endDate && (
+                            <div className="text-xs text-muted mt-1">
                               {String(t('Discharged'))}: {fmtDate(endDate)}
-                            </small>
+                            </div>
                           )}
-                        </td>
-                        <td>{fmtDate(String(p.age || ''))}</td>
-                        <td>{String(t(p.sex))}</td>
-                        <td style={{ minWidth: 200 }}>{diagnosis}</td>
-                        <td style={{ minWidth: 220 }}>{renderStatusChips(p)}</td>
-                        <td className="text-end">
-                          <div className="d-flex justify-content-end gap-2 flex-wrap">
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
                             <Button
                               size="sm"
-                              variant="outline-secondary"
+                              variant="success"
                               onClick={() => store.openPatient(p)}
                             >
                               {String(t('Info'))}
@@ -933,19 +820,19 @@ const Therapist: React.FC = observer(() => {
                               {String(t('Outcomes Dashboard'))}
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
 
                   {completedPatients.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center text-muted py-4">
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-muted">
                         {String(t('No completed patients'))}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
+                </TableBody>
               </Table>
             </div>
           </Collapse>
@@ -978,21 +865,6 @@ const Therapist: React.FC = observer(() => {
             onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
           />
         )}
-
-        <style>{`
-        .status-stack { display: flex; flex-direction: column; gap: 6px; }
-        .status-chip {
-          display: inline-block;
-          padding: .25rem .5rem;
-          border-radius: .5rem;
-          font-size: .8rem;
-          font-weight: 600;
-          line-height: 1;
-          width: fit-content;
-        }
-        .completed-row { opacity: .85; }
-        .completed-row td:first-child { color: #555; }
-      `}</style>
       </div>
     </Layout>
   );
