@@ -168,13 +168,6 @@ const Therapist: React.FC = observer(() => {
     return d.toLocaleDateString();
   };
 
-  const fmtDateTime = (iso?: string) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString();
-  };
-
   const daysSince = (iso?: string) => {
     if (!iso) return Number.POSITIVE_INFINITY;
     const d = new Date(iso);
@@ -203,7 +196,7 @@ const Therapist: React.FC = observer(() => {
   const levelRankSmallBadFirst = (lvl: Traffic) =>
     lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
 
-  const loginLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
+  const loginLevel = (p: PatientType): Traffic => {
     const extra = getPatientExtra(p);
     const last =
       getIsoMaybe(extra.last_online) ||
@@ -212,41 +205,21 @@ const Therapist: React.FC = observer(() => {
       '';
     const d = daysSince(last);
 
-    let level: Traffic = 'unknown';
-    if (d === Number.POSITIVE_INFINITY) level = 'unknown';
-    else if (d <= 3) level = 'good';
-    else if (d <= 7) level = 'warn';
-    else level = 'bad';
-
-    return {
-      level,
-      tip: last
-        ? `${t('Last login')}: ${fmtDateTime(last)} (${d} ${t('days ago')})`
-        : String(t('Never logged in')),
-    };
+    if (d === Number.POSITIVE_INFINITY) return 'unknown';
+    if (d <= 3) return 'good';
+    if (d <= 7) return 'warn';
+    return 'bad';
   };
 
-  const adherenceLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
-    const extra = getPatientExtra(p);
-    const rate = toNum(extra.adherence_rate);
-
-    let level: Traffic = 'unknown';
-    if (typeof rate === 'number') {
-      if (rate >= 80) level = 'good';
-      else if (rate >= 50) level = 'warn';
-      else level = 'bad';
-    }
-
-    return {
-      level,
-      tip:
-        typeof rate === 'number'
-          ? `${t('Completed in last 7d')}: ${rate}%`
-          : String(t('No adherence data')),
-    };
+  const adherenceLevel = (p: PatientType): Traffic => {
+    const rate = toNum(getPatientExtra(p).adherence_rate);
+    if (typeof rate !== 'number') return 'unknown';
+    if (rate >= 80) return 'good';
+    if (rate >= 50) return 'warn';
+    return 'bad';
   };
 
-  const feedbackLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
+  const feedbackLevel = (p: PatientType): Traffic => {
     const extra = getPatientExtra(p);
     const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
 
@@ -255,42 +228,17 @@ const Therapist: React.FC = observer(() => {
     const answeredDaysTotal = toNum(summary.answered_days_total) ?? 0;
     const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
 
-    // Grey: no star rating ever submitted
-    if (answeredDaysTotal === 0 || !lastIso) {
-      return { level: 'unknown', tip: String(t('No feedback ever submitted')) };
-    }
-
-    const daysStr = daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : '';
-
-    let level: Traffic;
-
+    if (answeredDaysTotal === 0 || !lastIso) return 'unknown';
     // Red: no rating for >30 days OR ≥7 low ratings (≤2★) in last 14 days
-    if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) {
-      level = 'bad';
-    }
+    if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) return 'bad';
     // Yellow: no rating for 15–30 days OR ≥3 low ratings in last 14 days
-    else if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) {
-      level = 'warn';
-    }
-    // Green: rating within last 14 days and <3 low ratings
-    else {
-      level = 'good';
-    }
-
-    const tip = [
-      `${t('Last star rating')}: ${fmtDateTime(lastIso)}${daysStr}`,
-      `${t('Low ratings (≤2 stars) in last 14 days')}: ${lowRatings14d}`,
-    ].join(' • ');
-
-    return { level, tip };
+    if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) return 'warn';
+    return 'good';
   };
 
   const ampelComposite = (p: PatientType) => {
-    const l = loginLevelAndTip(p);
-    const a = adherenceLevelAndTip(p);
-    const f = feedbackLevelAndTip(p);
-
-    const base = levelToNum(l.level) + levelToNum(a.level) + levelToNum(f.level);
+    const base =
+      levelToNum(loginLevel(p)) + levelToNum(adherenceLevel(p)) + levelToNum(feedbackLevel(p));
 
     const extra = getPatientExtra(p);
     const lastLogin =
@@ -330,12 +278,7 @@ const Therapist: React.FC = observer(() => {
       getIsoMaybe(extra.last_login) ||
       '';
     const d = daysSince(last);
-
-    let level: Traffic = 'unknown';
-    if (d === Number.POSITIVE_INFINITY) level = 'unknown';
-    else if (d <= 3) level = 'good';
-    else if (d <= 7) level = 'warn';
-    else level = 'bad';
+    const level = loginLevel(p);
 
     let badgeText = t('Never logged in');
     if (last) {
@@ -354,13 +297,7 @@ const Therapist: React.FC = observer(() => {
   const renderAdherenceBadge = (p: PatientType) => {
     const extra = getPatientExtra(p);
     const rate = toNum(extra.adherence_rate);
-
-    let level: Traffic = 'unknown';
-    if (typeof rate === 'number') {
-      if (rate >= 80) level = 'good';
-      else if (rate >= 50) level = 'warn';
-      else level = 'bad';
-    }
+    const level = adherenceLevel(p);
 
     const indicatorClassName =
       level === 'bad' ? 'bg-nok' : level === 'warn' ? 'bg-yellow' : level === 'good' ? 'bg-ok' : '';
@@ -393,30 +330,24 @@ const Therapist: React.FC = observer(() => {
     const extra = getPatientExtra(p);
     const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
 
-    const lastIso = getIsoMaybe(summary.last_answered_at);
     const daysSinceLast = toNum(summary.days_since_last);
     const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
+    const level = feedbackLevel(p);
 
-    let level: Traffic;
     let badgeText;
-
-    if (summary.answered_days_total === 0 || !lastIso) {
-      level = 'unknown';
+    if (level === 'unknown') {
       badgeText = t('No feedback');
-    } else if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) {
-      level = 'bad';
+    } else if (level === 'bad') {
       badgeText =
         lowRatings14d >= 7
           ? t('negRatingsShort', { n: lowRatings14d })
           : t('daysAgoShort', { d: daysSinceLast });
-    } else if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) {
-      level = 'warn';
+    } else if (level === 'warn') {
       badgeText =
         lowRatings14d >= 3
           ? t('negRatingsShort', { n: lowRatings14d })
           : t('daysAgoShort', { d: daysSinceLast });
     } else {
-      level = 'good';
       badgeText = t('Good');
     }
 
@@ -453,7 +384,7 @@ const Therapist: React.FC = observer(() => {
       return daysSince(last);
     };
     const getAdh = (p: PatientType) => toNum(getPatientExtra(p).adherence_rate) ?? -1;
-    const getFb = (p: PatientType) => levelRankSmallBadFirst(feedbackLevelAndTip(p).level);
+    const getFb = (p: PatientType) => levelRankSmallBadFirst(feedbackLevel(p));
 
     const dir = (key: string, val: number) => (colSortDir[key] === 'desc' ? -val : val);
 
