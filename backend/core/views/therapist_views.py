@@ -630,12 +630,14 @@ def list_therapist_patients(request, therapist_id):
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
             bp_sys_vals, bp_dia_vals = [], []
             last_worn_date = None
+            has_fitbit_data = False
             fitbit_docs = (
                 FitbitData.objects(user=user, date__gte=since)
                 .only("steps", "active_minutes", "sleep", "wear_time_minutes", "bp_sys", "bp_dia", "date")
                 .order_by("-date")
             )
             for doc in fitbit_docs:
+                has_fitbit_data = True
                 if doc.steps is not None:
                     steps_vals.append(doc.steps)
                 if doc.active_minutes is not None:
@@ -661,6 +663,9 @@ def list_therapist_patients(request, therapist_id):
 
             fitbit_token = FitbitUserToken.objects(user=user).first()
             fitbit_revoked = bool(fitbit_token and getattr(fitbit_token, "is_revoked", False))
+            # True when there is historical data in the window but no (non-revoked) token —
+            # patient needs to reconnect Fitbit.
+            fitbit_no_token = not fitbit_token and has_fitbit_data
 
             biomarker = {
                 "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,
@@ -671,6 +676,7 @@ def list_therapist_patients(request, therapist_id):
                 "wear_time_avg_min": _avg(wear_vals),
                 "wear_time_days_since": days_since_worn,
                 "fitbit_revoked": fitbit_revoked,
+                "fitbit_no_token": fitbit_no_token,
             }
 
             try:

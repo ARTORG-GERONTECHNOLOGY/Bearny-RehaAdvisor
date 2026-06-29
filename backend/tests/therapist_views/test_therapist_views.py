@@ -779,6 +779,68 @@ def test_biomarker_fitbit_revoked_false_when_no_token(mongo_mock):
     assert row["biomarker"]["fitbit_revoked"] is False
 
 
+def test_biomarker_fitbit_no_token_false_when_no_historical_data(mongo_mock):
+    """fitbit_no_token is False when the patient has never synced Fitbit (no token AND no data)."""
+    therapist, patient = create_therapist_with_patient()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["fitbit_no_token"] is False
+
+
+def test_biomarker_fitbit_no_token_true_when_data_exists_but_no_token(mongo_mock):
+    """fitbit_no_token is True when there is recent FitbitData but no token — patient needs to reconnect."""
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+
+    FitbitData(
+        user=user,
+        date=timezone.now().replace(tzinfo=None) - timedelta(days=3),
+        steps=5000,
+        wear_time_minutes=600,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    bio = row["biomarker"]
+    assert bio["fitbit_no_token"] is True
+    assert bio["fitbit_revoked"] is False
+
+
+def test_biomarker_fitbit_no_token_false_when_active_token_present(mongo_mock):
+    """fitbit_no_token is False when the patient has a valid token (even with data)."""
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+    FitbitUserToken(
+        user=user,
+        access_token="tok",
+        refresh_token="ref",
+        fitbit_user_id="fu",
+        expires_at=timezone.now() + timedelta(days=7),
+    ).save()
+    FitbitData(
+        user=user,
+        date=timezone.now().replace(tzinfo=None) - timedelta(days=1),
+        steps=3000,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["fitbit_no_token"] is False
+
+
 def test_biomarker_fitbit_revoked_false_when_token_active(mongo_mock):
     """fitbit_revoked is False when the patient has a valid, non-revoked token."""
     therapist, patient = create_therapist_with_patient()

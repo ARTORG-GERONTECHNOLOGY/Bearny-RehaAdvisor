@@ -44,6 +44,7 @@ type BioLike = {
   wear_time_avg_min?: unknown;
   wear_time_days_since?: unknown;
   fitbit_revoked?: boolean;
+  fitbit_no_token?: boolean;
 };
 
 type ThresholdsLike = {
@@ -383,9 +384,9 @@ const Therapist: React.FC = observer(() => {
     const bio = asRecord((extra.biomarker ?? extra.fitbitData) as unknown) as BioLike;
     const daysSinceWorn = toNum(bio.wear_time_days_since);
     const avgMin = toNum(bio.wear_time_avg_min);
-    const revoked = bio.fitbit_revoked === true;
+    const disconnected = bio.fitbit_revoked === true || bio.fitbit_no_token === true;
 
-    if (revoked) {
+    if (disconnected) {
       return {
         level: 'bad',
         tip: String(t('Fitbit disconnected — reconnect required')),
