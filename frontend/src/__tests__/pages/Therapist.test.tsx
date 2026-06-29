@@ -363,6 +363,68 @@ describe('Wear time badge', () => {
       expect(screen.queryByLabelText(/Wear/i)).not.toBeInTheDocument();
     });
   });
+
+  test('shows red Fitbit badge when token is revoked', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: null,
+      wear_time_avg_min: null,
+      fitbit_revoked: true,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Fitbit bad')).toBeInTheDocument();
+    });
+  });
+
+  test('does not show Wear label when token is revoked', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: null,
+      wear_time_avg_min: null,
+      fitbit_revoked: true,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/^Wear/)).not.toBeInTheDocument();
+    });
+  });
+
+  test('shows normal Wear badge (not Fitbit) when token is active', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: 1,
+      wear_time_avg_min: 750,
+      fitbit_revoked: false,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wear good')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
+    });
+  });
+
+  test('shows red Fitbit badge when fitbit_no_token is true (deleted token)', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: 7,
+      wear_time_avg_min: 600,
+      fitbit_no_token: true,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Fitbit bad')).toBeInTheDocument();
+    });
+  });
+
+  test('does not show Fitbit badge when no token and no historical data', async () => {
+    const patient = makePatientWithWear({
+      wear_time_days_since: null,
+      wear_time_avg_min: null,
+      fitbit_no_token: false,
+    });
+    renderWithPatient(patient);
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Wear/)).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('Therapist traffic lights', () => {
