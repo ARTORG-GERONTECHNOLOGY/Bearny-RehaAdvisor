@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import StarRating from '@/components/RehaTablePage/StarRating';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { FaLock } from 'react-icons/fa';
 
 interface Intervention {
