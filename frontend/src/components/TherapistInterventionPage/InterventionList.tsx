@@ -114,16 +114,16 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
   }
 
   return (
-    <Table aria-label={t('Intervention List')} className="bg-white">
+    <Table aria-label={t('Intervention List')}>
       <TableHeader>
         <TableRow>
           <TableHead>{t('Type')}</TableHead>
           <TableHead>{t('Name')}</TableHead>
           <TableHead>{t('Medium')}</TableHead>
-          <TableHead>{t('languages')}</TableHead>
+          <TableHead className="capitalize">{t('languages')}</TableHead>
           <TableHead
             onClick={() => setRatingSorting((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-            className="cursor-pointer"
+            className="cursor-pointer transition-colors hover:bg-muted/50"
           >
             {t('Rating')}
             <ArrowUpDown className="ml-1 h-4 w-4" />
