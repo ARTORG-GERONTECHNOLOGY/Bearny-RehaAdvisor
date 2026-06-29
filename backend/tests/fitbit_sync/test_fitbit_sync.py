@@ -137,8 +137,9 @@ def test_get_valid_access_token_refresh_failure_raises(mock_post):
 
 
 @patch("core.views.fitbit_sync.requests.post")
-def test_get_valid_access_token_invalid_grant_deletes_token(mock_post):
-    """invalid_grant means Fitbit permanently revoked the refresh token — delete the record."""
+def test_get_valid_access_token_invalid_grant_marks_token_revoked(mock_post):
+    """invalid_grant permanently revokes the refresh token — token is marked revoked, NOT deleted,
+    so therapists can see the disconnected state."""
     user, _ = make_user_with_token(expired=True)
 
     resp = Mock()
@@ -153,7 +154,32 @@ def test_get_valid_access_token_invalid_grant_deletes_token(mock_post):
     with pytest.raises(Exception, match="Failed to refresh Fitbit token"):
         get_valid_access_token(user)
 
-    assert FitbitUserToken.objects(user=user).count() == 0
+    # Token must still exist so therapists can see the disconnected state.
+    token = FitbitUserToken.objects(user=user).first()
+    assert token is not None
+    assert token.is_revoked is True
+    assert token.revoked_at is not None
+
+
+def test_get_valid_access_token_raises_immediately_for_revoked_token():
+    """A token already marked is_revoked=True must raise without hitting the network."""
+    user = User(
+        username=f"u-{datetime.now().timestamp()}",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    FitbitUserToken(
+        user=user,
+        access_token="tok",
+        refresh_token="ref",
+        fitbit_user_id="fu",
+        expires_at=timezone.now() + timedelta(days=7),
+        is_revoked=True,
+        revoked_at=timezone.now() - timedelta(days=1),
+    ).save()
+
+    with pytest.raises(Exception, match="revoked"):
+        get_valid_access_token(user)
 
 
 @patch("core.views.fitbit_sync.requests.post")
