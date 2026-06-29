@@ -1363,5 +1363,6 @@
   "Next on": "Nächstes am",
   "Answered": "Beantwortet",
   "Tags": "Tags",
-  "daysAgoShort": "Vor {{d}}T"
+  "daysAgoShort": "Vor {{d}}T",
+  "negRatingsShort": "{{n}} neg."
 }
