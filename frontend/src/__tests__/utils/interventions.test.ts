@@ -12,6 +12,8 @@ import {
   getMediaTypeLabelFromIntervention,
   getBadgeVariantFromIntervention,
   toLangOpts,
+  getTypeIcon,
+  getContentTypeIcon,
 } from '@/utils/interventions';
 import type { InterventionMedia } from '@/utils/interventions';
 
@@ -453,5 +455,99 @@ describe('toLangOpts', () => {
   it('converts a single string with optional fallback title', () => {
     expect(toLangOpts('de', 'Deutsch')).toEqual([{ language: 'de', title: 'Deutsch' }]);
     expect(toLangOpts('en')).toEqual([{ language: 'en', title: null }]);
+  });
+});
+
+// ─── getTypeIcon ──────────────────────────────────────────────────────────────
+
+describe('getTypeIcon', () => {
+  it('returns null for unknown type', () => {
+    expect(getTypeIcon('')).toBeNull();
+    expect(getTypeIcon('meditation')).toBeNull();
+    expect(getTypeIcon('stretching')).toBeNull();
+  });
+
+  it.each(['exercise', 'Exercise', 'physical exercise therapy'])(
+    'returns an icon for exercise-related value: %s',
+    (value) => {
+      expect(getTypeIcon(value)).not.toBeNull();
+    }
+  );
+
+  it.each(['education', 'Educational Content', 'instruction', 'self-instruction guide'])(
+    'returns an icon for education/instruction-related value: %s',
+    (value) => {
+      expect(getTypeIcon(value)).not.toBeNull();
+    }
+  );
+
+  it('trims whitespace before matching', () => {
+    expect(getTypeIcon('  exercise  ')).not.toBeNull();
+  });
+
+  it('is case-insensitive', () => {
+    expect(getTypeIcon('EXERCISE')).not.toBeNull();
+    expect(getTypeIcon('EDUCATION')).not.toBeNull();
+  });
+
+  it('returns the same icon for education and instruction', () => {
+    expect(getTypeIcon('education')).toBe(getTypeIcon('instruction'));
+  });
+});
+
+// ─── getContentTypeIcon ───────────────────────────────────────────────────────
+
+describe('getContentTypeIcon', () => {
+  it('returns null for unknown content type', () => {
+    expect(getContentTypeIcon('')).toBeNull();
+    expect(getContentTypeIcon('text')).toBeNull();
+    expect(getContentTypeIcon('spreadsheet')).toBeNull();
+  });
+
+  it.each(['audio', 'Audio Recording'])('returns an icon for audio content: %s', (value) => {
+    expect(getContentTypeIcon(value)).not.toBeNull();
+  });
+
+  it.each(['brochure', 'pdf', 'PDF Document', 'digital brochure'])(
+    'returns an icon for brochure/pdf content: %s',
+    (value) => {
+      expect(getContentTypeIcon(value)).not.toBeNull();
+    }
+  );
+
+  it.each(['video', 'graphics', 'image', 'Video Clip', '3D Graphics', 'Image Gallery'])(
+    'returns an icon for video/graphics/image content: %s',
+    (value) => {
+      expect(getContentTypeIcon(value)).not.toBeNull();
+    }
+  );
+
+  it.each(['website', 'app', 'Health Website', 'Mobile App'])(
+    'returns an icon for website/app content: %s',
+    (value) => {
+      expect(getContentTypeIcon(value)).not.toBeNull();
+    }
+  );
+
+  it('trims whitespace before matching', () => {
+    expect(getContentTypeIcon('  audio  ')).not.toBeNull();
+  });
+
+  it('is case-insensitive', () => {
+    expect(getContentTypeIcon('AUDIO')).not.toBeNull();
+    expect(getContentTypeIcon('VIDEO')).not.toBeNull();
+  });
+
+  it('returns the same icon for brochure and pdf', () => {
+    expect(getContentTypeIcon('brochure')).toBe(getContentTypeIcon('pdf'));
+  });
+
+  it('returns the same icon for video, graphics, and image', () => {
+    expect(getContentTypeIcon('video')).toBe(getContentTypeIcon('graphics'));
+    expect(getContentTypeIcon('video')).toBe(getContentTypeIcon('image'));
+  });
+
+  it('returns the same icon for website and app', () => {
+    expect(getContentTypeIcon('website')).toBe(getContentTypeIcon('app'));
   });
 });

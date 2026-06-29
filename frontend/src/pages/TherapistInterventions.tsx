@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
-import WelcomeArea from '@/components/common/WelcomeArea';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ImportInterventionsModal from '@/components/TherapistInterventionPage/ImportInterventionsModal';
 
@@ -41,6 +40,7 @@ import TemplatesLayout, {
   TemplatesFiltersState,
 } from '@/components/TherapistInterventionPage/TemplatesLayout';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -728,7 +728,7 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   return (
     <Layout>
-      <WelcomeArea user="therapist" />
+      <PageHeader title={t('Interventions')} />
 
       <Container className="main-content mt-4">
         {error && (
@@ -759,7 +759,6 @@ const TherapistRecomendations: React.FC = observer(() => {
               items={filteredInterventions}
               onClick={handleItemClick}
               t={t}
-              tagColors={tagColors}
               translatedTitles={translatedTitles}
             />
           </>

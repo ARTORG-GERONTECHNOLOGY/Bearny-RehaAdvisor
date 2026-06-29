@@ -15,6 +15,7 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-14 py-4 pl-5 pr-5 has-[svg]:pr-4',
+        dashboard: 'rounded-lg py-2 px-4 text-sm [&_svg]:size-3',
         icon: 'h-14 w-14 p-4',
       },
     },
