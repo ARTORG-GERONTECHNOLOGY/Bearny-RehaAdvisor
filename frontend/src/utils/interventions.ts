@@ -31,7 +31,7 @@ export const getTypeIcon = (value: string): InterventionIcon | null => {
 export const getContentTypeIcon = (value: string): InterventionIcon | null => {
   const normalized = value.trim().toLocaleLowerCase();
 
-  if (normalized.includes('audio')) return AudioIcon;
+  if (normalized.includes('audio') || normalized.includes('streaming')) return AudioIcon;
   if (normalized.includes('brochure') || normalized.includes('pdf')) return TextIcon;
   if (
     normalized.includes('video') ||
@@ -39,8 +39,8 @@ export const getContentTypeIcon = (value: string): InterventionIcon | null => {
     normalized.includes('image')
   )
     return VideoIcon;
-  if (normalized.includes('website')) return WebsiteIcon;
-  if (normalized.includes('app')) return WebsiteIcon;
+  if (normalized.includes('website') || normalized.includes('app') || normalized.includes('link'))
+    return WebsiteIcon;
 
   return null;
 };

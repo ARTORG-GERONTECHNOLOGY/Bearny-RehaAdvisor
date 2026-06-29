@@ -15,13 +15,13 @@ const AddInterventionRow: React.FC<Props> = ({ onAdd, onImport }) => {
   return (
     <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div className="d-flex gap-2">
-        <Button onClick={onAdd}>
-          <FaPlus className="me-2" />
+        <Button size="dashboard" onClick={onAdd}>
+          <FaPlus />
           {t('Add New Intervention')}
         </Button>
 
-        <Button variant="secondary" onClick={onImport}>
-          <FaFileImport className="me-2" />
+        <Button size="dashboard" variant="secondary" onClick={onImport}>
+          <FaFileImport />
           {t('Import')}
         </Button>
       </div>
