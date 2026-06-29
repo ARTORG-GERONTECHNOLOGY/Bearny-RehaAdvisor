@@ -61,6 +61,10 @@ class FitbitUserToken(Document):
     expires_at = DateTimeField()
     fitbit_user_id = StringField(required=True)
     last_fetched_at = DateTimeField()
+    # Set to True when Fitbit returns invalid_grant — keeps the record so therapists
+    # can see the disconnected state; sync tasks skip revoked tokens.
+    is_revoked = BooleanField(default=False)
+    revoked_at = DateTimeField(null=True)
 
 
 class HeartRateZone(EmbeddedDocument):

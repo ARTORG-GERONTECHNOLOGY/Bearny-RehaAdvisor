@@ -56,9 +56,11 @@ def test_set_celerybeat_every_minute_updates_expected_tasks():
 
 def test_fetch_fitbit_command_no_users_exits_cleanly():
     cmd = FetchFitbitCommand()
+    # objects is called as objects(is_revoked__ne=True).all()
+    objects_qs = SimpleNamespace(all=lambda: [])
     with patch(
         "core.management.commands.fetch_fitbit_data.FitbitUserToken.objects",
-        new=SimpleNamespace(all=lambda: []),
+        side_effect=lambda **_kw: objects_qs,
     ):
         cmd.handle()
 
@@ -168,10 +170,11 @@ def test_fetch_fitbit_command_single_user_happy_path_with_mocks():
     updater = MagicMock()
     objects_mock = MagicMock(return_value=SimpleNamespace(update_one=updater))
 
+    token_qs = SimpleNamespace(all=lambda: [token])
     with (
         patch(
             "core.management.commands.fetch_fitbit_data.FitbitUserToken.objects",
-            new=SimpleNamespace(all=lambda: [token]),
+            side_effect=lambda **_kw: token_qs,
         ),
         patch(
             "core.management.commands.fetch_fitbit_data.get_valid_access_token",
@@ -239,10 +242,11 @@ def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
     updater = MagicMock()
     objects_mock = MagicMock(return_value=SimpleNamespace(update_one=updater))
 
+    token_qs2 = SimpleNamespace(all=lambda: [token])
     with (
         patch(
             "core.management.commands.fetch_fitbit_data.FitbitUserToken.objects",
-            new=SimpleNamespace(all=lambda: [token]),
+            side_effect=lambda **_kw: token_qs2,
         ),
         patch(
             "core.management.commands.fetch_fitbit_data.get_valid_access_token",
