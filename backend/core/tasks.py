@@ -140,7 +140,7 @@ def run_fetch_fitbit_data_today_all():
     """
     from core.models import FitbitUserToken
 
-    tokens = FitbitUserToken.objects.all()
+    tokens = FitbitUserToken.objects(is_revoked__ne=True).all()
     synced = 0
     errors = 0
     for token in tokens:

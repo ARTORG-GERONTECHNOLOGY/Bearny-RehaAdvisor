@@ -17,6 +17,9 @@ FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 def get_valid_access_token(user):
     token = FitbitUserToken.objects.get(user=user)
 
+    if getattr(token, "is_revoked", False):
+        raise Exception(f"Fitbit token for user {user.id} is revoked — reconnect required")
+
     if is_naive(token.expires_at):
         token.expires_at = make_aware(token.expires_at)
 
@@ -56,10 +59,13 @@ def get_valid_access_token(user):
                 if any(e.get("errorType") == "invalid_grant" for e in errors):
                     logger.warning(
                         "[get_valid_access_token] Refresh token permanently revoked (invalid_grant) "
-                        "for user %s — deleting FitbitUserToken so future syncs skip this user",
+                        "for user %s — marking FitbitUserToken as revoked so therapists can see "
+                        "the disconnected state",
                         user.id,
                     )
-                    token.delete()
+                    token.is_revoked = True
+                    token.revoked_at = timezone.now()
+                    token.save()
                 raise Exception("Failed to refresh Fitbit token")
         except Exception as e:
             logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")

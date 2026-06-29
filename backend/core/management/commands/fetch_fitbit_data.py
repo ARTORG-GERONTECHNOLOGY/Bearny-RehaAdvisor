@@ -25,7 +25,7 @@ class Command(BaseCommand):
     help = "Fetch extended Fitbit metrics and store in MongoDB (no duplicates)"
 
     def handle(self, *args, **kwargs):
-        users = FitbitUserToken.objects.all()
+        users = FitbitUserToken.objects(is_revoked__ne=True).all()
 
         today = datetime.date.today()
         start_date = today - datetime.timedelta(days=30)

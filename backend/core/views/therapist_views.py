@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
     FitbitData,
+    FitbitUserToken,
     GeneralFeedback,
     Logs,
     Patient,
@@ -23,7 +24,7 @@ from core.models import (
 from core.services.redcap_access import get_therapist_for_user
 from utils.utils import _adherence, resolve_patient
 
-LOOKBACK_DAYS = 7
+LOOKBACK_DAYS = 30
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
     "mp3": "audio",
@@ -569,7 +570,9 @@ def list_therapist_patients(request, therapist_id):
                 return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
 
     try:
-        since = timezone.now() - timedelta(days=LOOKBACK_DAYS)
+        # Truncate to midnight so FitbitData entries stored as date-at-midnight are always included.
+        _now = timezone.now()
+        since = _now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=LOOKBACK_DAYS)
         output_list = []
 
         filter_kwargs: dict = {"clinic__in": therapist.clinics}
@@ -656,6 +659,9 @@ def list_therapist_patients(request, therapist_id):
             today_date = timezone.now().date()
             days_since_worn = (today_date - last_worn_date).days if last_worn_date else None
 
+            fitbit_token = FitbitUserToken.objects(user=user).first()
+            fitbit_revoked = bool(fitbit_token and getattr(fitbit_token, "is_revoked", False))
+
             biomarker = {
                 "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,
                 "activity_min": _avg(activity_vals),
@@ -664,6 +670,7 @@ def list_therapist_patients(request, therapist_id):
                 "bp_dia_avg": _avg(bp_dia_vals),
                 "wear_time_avg_min": _avg(wear_vals),
                 "wear_time_days_since": days_since_worn,
+                "fitbit_revoked": fitbit_revoked,
             }
 
             try:

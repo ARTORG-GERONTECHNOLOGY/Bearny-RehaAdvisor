@@ -43,6 +43,7 @@ type BioLike = {
   bp_dia_avg?: unknown;
   wear_time_avg_min?: unknown;
   wear_time_days_since?: unknown;
+  fitbit_revoked?: boolean;
 };
 
 type ThresholdsLike = {
@@ -377,11 +378,20 @@ const Therapist: React.FC = observer(() => {
     return { level, tip: parts.length ? parts.join(' • ') : String(t('No recent health data')) };
   };
 
-  const wearLevelAndTip = (p: PatientType): { level: Traffic; tip: string } => {
+  const wearLevelAndTip = (p: PatientType): { level: Traffic; tip: string; revoked?: boolean } => {
     const extra = getPatientExtra(p);
     const bio = asRecord((extra.biomarker ?? extra.fitbitData) as unknown) as BioLike;
     const daysSinceWorn = toNum(bio.wear_time_days_since);
     const avgMin = toNum(bio.wear_time_avg_min);
+    const revoked = bio.fitbit_revoked === true;
+
+    if (revoked) {
+      return {
+        level: 'bad',
+        tip: String(t('Fitbit disconnected — reconnect required')),
+        revoked: true,
+      };
+    }
 
     if (daysSinceWorn === null && avgMin === null) {
       return { level: 'unknown', tip: String(t('No Fitbit data')) };
@@ -400,7 +410,7 @@ const Therapist: React.FC = observer(() => {
     }
     if (avgMin !== null) {
       const avgH = (avgMin / 60).toFixed(1);
-      parts.push(`${t('Avg wear')}: ${avgH}h ${t('(7d)')}`);
+      parts.push(`${t('Avg wear')}: ${avgH}h ${t('(30d)')}`);
       if (level !== 'bad' && avgMin < 720) level = 'warn';
     }
 
@@ -569,7 +579,11 @@ const Therapist: React.FC = observer(() => {
         )}
         <Chip label={String(t('Feedback'))} level={fb.level} tip={fb.tip} />
         {wear.level !== 'unknown' && (
-          <Chip label={String(t('Wear'))} level={wear.level} tip={wear.tip} />
+          <Chip
+            label={wear.revoked ? String(t('Fitbit')) : String(t('Wear'))}
+            level={wear.level}
+            tip={wear.tip}
+          />
         )}
       </div>
     );
