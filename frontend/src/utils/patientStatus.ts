@@ -33,9 +33,13 @@ type PatientExtra = {
   questionnaires?: unknown;
   intervention_feedback?: unknown;
 
-  thresholds?: unknown;
   biomarker?: unknown;
   fitbitData?: unknown;
+};
+
+type BioLike = {
+  wear_time_avg_min?: unknown;
+  wear_time_days_since?: unknown;
 };
 
 export const asRecord = (v: unknown): Record<string, unknown> =>
@@ -80,6 +84,13 @@ export const daysSince = (iso?: string) => {
   if (Number.isNaN(d.getTime())) return Number.POSITIVE_INFINITY;
   const now = new Date();
   return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+export const fmtDateTime = (iso?: string) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString();
 };
 
 export const chipClass = (level: Traffic) => {
@@ -188,8 +199,34 @@ export const getFeedbackInfo = (p: PatientType) => {
   const extra = getPatientExtra(p);
   const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
   return {
+    lastAnsweredAt: getIsoMaybe(summary.last_answered_at),
     daysSinceLast: toNum(summary.days_since_last),
     lowRatings14d: toNum(summary.low_ratings_14d) ?? 0,
     level: feedbackLevel(p),
   };
+};
+
+const getBio = (p: PatientType): BioLike => {
+  const extra = getPatientExtra(p);
+  return asRecord(extra.biomarker ?? extra.fitbitData) as BioLike;
+};
+
+export const getWearInfo = (p: PatientType) => {
+  const b = getBio(p);
+  const daysSinceWorn = toNum(b.wear_time_days_since);
+  const avgMin = toNum(b.wear_time_avg_min);
+
+  if (daysSinceWorn === null && avgMin === null) {
+    return { level: 'unknown' as Traffic, daysSinceWorn, avgMin };
+  }
+
+  let level: Traffic = 'good';
+  if (daysSinceWorn !== null && daysSinceWorn >= 2) {
+    level = 'bad';
+  }
+  if (level !== 'bad' && avgMin !== null && avgMin < 720) {
+    level = 'warn';
+  }
+
+  return { level, daysSinceWorn, avgMin };
 };

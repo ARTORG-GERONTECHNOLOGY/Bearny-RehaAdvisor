@@ -1,13 +1,54 @@
 // src/components/TherapistPatientPage/PatientStatusBadges.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { PatientType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { chipClass, getAdherenceInfo, getFeedbackInfo, getLoginInfo } from '@/utils/patientStatus';
+import {
+  Traffic,
+  chipClass,
+  fmtDateTime,
+  getAdherenceInfo,
+  getFeedbackInfo,
+  getLoginInfo,
+  getWearInfo,
+} from '@/utils/patientStatus';
 
 type Props = { patient: PatientType };
+
+type StatusChipProps = {
+  label: string;
+  level: Traffic;
+  tip: string;
+  children: React.ReactNode;
+};
+
+const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <Badge
+        variant="dashboard"
+        className={`text-nowrap ${chipClass(level)}`}
+        aria-label={`${label} ${level}`}
+        onMouseOver={() => setHovered(true)}
+        onMouseOut={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        tabIndex={0}
+      >
+        {children}
+      </Badge>
+      {hovered && tip && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-max max-w-xs whitespace-pre-line rounded bg-zinc-900 px-2 py-1 text-xs text-white shadow-lg">
+          {tip}
+        </div>
+      )}
+    </span>
+  );
+};
 
 export const LoginBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
@@ -20,10 +61,14 @@ export const LoginBadge: React.FC<Props> = ({ patient }) => {
     else badgeText = t('daysAgoShort', { d: days });
   }
 
+  const tip = last
+    ? `${t('Last login')}: ${fmtDateTime(last)} (${days} ${t('days ago')})`
+    : String(t('Never logged in'));
+
   return (
-    <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
+    <StatusChip label={String(t('Login'))} level={level} tip={tip}>
       {badgeText}
-    </Badge>
+    </StatusChip>
   );
 };
 
@@ -59,7 +104,7 @@ export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
 
 export const FeedbackBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
-  const { daysSinceLast, lowRatings14d, level } = getFeedbackInfo(patient);
+  const { lastAnsweredAt, daysSinceLast, lowRatings14d, level } = getFeedbackInfo(patient);
 
   let badgeText;
   if (level === 'unknown') {
@@ -78,9 +123,45 @@ export const FeedbackBadge: React.FC<Props> = ({ patient }) => {
     badgeText = t('Good');
   }
 
+  const daysStr = daysSinceLast != null ? ` (${daysSinceLast} ${t('days ago')})` : '';
+  const tip =
+    level === 'unknown'
+      ? String(t('No feedback ever submitted'))
+      : [
+          `${t('Last star rating')}: ${fmtDateTime(lastAnsweredAt)}${daysStr}`,
+          `${t('Low ratings (≤2 stars) in last 14 days')}: ${lowRatings14d}`,
+        ].join(' • ');
+
   return (
-    <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
+    <StatusChip label={String(t('Feedback'))} level={level} tip={tip}>
       {badgeText}
-    </Badge>
+    </StatusChip>
+  );
+};
+
+export const WearBadge: React.FC<Props> = ({ patient }) => {
+  const { t } = useTranslation();
+  const { level, daysSinceWorn, avgMin } = getWearInfo(patient);
+
+  if (level === 'unknown') return null;
+
+  const parts: string[] = [];
+  if (daysSinceWorn !== null) {
+    if (daysSinceWorn >= 2) {
+      parts.push(`${t('Not worn for')} ${daysSinceWorn} ${t('days')}`);
+    } else {
+      parts.push(`${t('Last worn')}: ${daysSinceWorn === 0 ? t('today') : t('yesterday')}`);
+    }
+  }
+  if (avgMin !== null) {
+    const avgH = (avgMin / 60).toFixed(1);
+    parts.push(`${t('Avg wear')}: ${avgH}h ${t('(7d)')}`);
+  }
+  const tip = parts.join(' • ');
+
+  return (
+    <StatusChip label={String(t('Wear'))} level={level} tip={tip}>
+      {String(t('Wear'))}
+    </StatusChip>
   );
 };

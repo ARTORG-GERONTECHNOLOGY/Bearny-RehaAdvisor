@@ -15,6 +15,7 @@ import {
   LoginBadge,
   AdherenceProgress,
   FeedbackBadge,
+  WearBadge,
 } from '@/components/TherapistPatientPage/PatientStatusBadges';
 import Layout from '@/components/Layout';
 
@@ -294,6 +295,7 @@ const Therapist: React.FC = observer(() => {
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </TableHead>
+                <TableHead>{t('Wear')}</TableHead>
                 <TableHead>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -323,6 +325,9 @@ const Therapist: React.FC = observer(() => {
                       <FeedbackBadge patient={p} />
                     </TableCell>
                     <TableCell>
+                      <WearBadge patient={p} />
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         <Button size="dashboard" onClick={() => store.openPatient(p)}>
                           {String(t('Info'))}
@@ -349,7 +354,7 @@ const Therapist: React.FC = observer(() => {
 
               {activePatients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted">
+                  <TableCell colSpan={10} className="text-center text-muted">
                     {store.loading
                       ? String(t('Loading patients...'))
                       : String(t('No active patients'))}
@@ -426,7 +431,7 @@ const Therapist: React.FC = observer(() => {
 
                   {completedPatients.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted">
+                      <TableCell colSpan={7} className="text-center text-muted">
                         {String(t('No completed patients'))}
                       </TableCell>
                     </TableRow>
