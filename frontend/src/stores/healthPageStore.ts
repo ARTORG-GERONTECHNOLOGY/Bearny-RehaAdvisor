@@ -331,29 +331,6 @@ export class HealthPageStore {
   }
 
   // ───────────────────────────
-  // Fetch combined (fitbit + questionnaire + adherence) + thresholds
-  // ───────────────────────────
-  async fetchCombinedHealth(from: Date, to: Date, t: (k: string) => string) {
-    const userId = localStorage.getItem('selectedPatient');
-    if (!userId) {
-      runInAction(() => {
-        this.error = t('Missing selected patient.');
-      });
-      return;
-    }
-
-    // fetch thresholds in parallel (don't block if it fails)
-    void this.fetchThresholds(userId, t);
-
-    await this.fetchCombinedHistoryForPatient(
-      userId,
-      from.toISOString().slice(0, 10),
-      to.toISOString().slice(0, 10),
-      t
-    );
-  }
-
-  // ───────────────────────────
   // Fetch combined history by explicit patient ID (patient self-view)
   // ───────────────────────────
   async fetchCombinedHistoryForPatient(

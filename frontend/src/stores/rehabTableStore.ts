@@ -217,9 +217,7 @@ export class RehabTableStore {
   // Derived / helpers
   // ---------------------------------------------------------------------------
   get patientIdForCalls() {
-    return (
-      this.explicitPatientId || localStorage.getItem('selectedPatient') || this.patientUsername
-    );
+    return this.explicitPatientId || this.patientUsername;
   }
 
   get specialisations(): string[] {
@@ -413,46 +411,6 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   // Init / cleanup
   // ---------------------------------------------------------------------------
-  async init(navigate: (path: string) => void, t: (k: string) => unknown) {
-    this.entryTime = Date.now();
-
-    await authStore.checkAuthentication();
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
-
-    const sel = localStorage.getItem('selectedPatient');
-    if (!sel) {
-      runInAction(() => {
-        this.loading = false;
-        this.error =
-          typeof t === 'function' ? String(t('No patient selected.')) : 'No patient selected.';
-      });
-      return;
-    }
-
-    runInAction(() => {
-      this.patientUsername = sel;
-      this.patientName = localStorage.getItem('selectedPatientName') || sel;
-      this.loading = true;
-      this.error = null;
-    });
-
-    await Promise.allSettled([this.fetchAll(t), this.fetchInts(t)]);
-
-    runInAction(() => {
-      this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
-      this.loading = false;
-    });
-
-    await this.translateVisibleItems(this.userLang);
-  }
-
-  /**
-   * Like init(), but for embedding in a context that already knows the
-   * patient (e.g. a route param) and has already handled auth/navigation.
-   */
   async initForPatient(patientId: string, t: (k: string) => unknown) {
     this.entryTime = Date.now();
 
