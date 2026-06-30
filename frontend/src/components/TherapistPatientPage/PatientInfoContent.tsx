@@ -862,7 +862,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                         <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
                         <Form.Control
                           type="number"
-                          value={store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0}
+                          value={
+                            store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0
+                          }
                           onChange={(e) =>
                             store.setThresholdField('steps_goal', Number(e.target.value))
                           }
@@ -968,7 +970,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                     {/* BP */}
                     <Col xs={12} md={6}>
                       <Form.Group controlId="bp_sys_green_max">
-                        <Form.Label className="fw-semibold">{t('BP systolic green max')}</Form.Label>
+                        <Form.Label className="fw-semibold">
+                          {t('BP systolic green max')}
+                        </Form.Label>
                         <Form.Control
                           type="number"
                           value={
