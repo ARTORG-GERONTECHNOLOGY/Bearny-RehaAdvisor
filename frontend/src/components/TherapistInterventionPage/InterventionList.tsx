@@ -15,7 +15,7 @@ import {
 import StarRating from '@/components/RehaTablePage/StarRating';
 import { Badge } from '@/components/ui/badge';
 import { FaLock } from 'react-icons/fa';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
 interface Intervention {
   _id: string;
@@ -127,7 +127,13 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
           >
             <div className="flex gap-1 items-center">
               {t('Rating')}
-              <ArrowUpDown className="h-4 w-4" />
+              {ratingSorting === false ? (
+                <ArrowUpDown className="h-4 w-4 text-chartMuted" />
+              ) : ratingSorting === 'desc' ? (
+                <ArrowDown className="h-4 w-4" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
             </div>
           </TableHead>
           <TableHead>{t('Tags')}</TableHead>

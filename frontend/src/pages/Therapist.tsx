@@ -1,6 +1,6 @@
 // src/pages/Therapist.tsx
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Col, Container, Row, Collapse } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -124,6 +124,17 @@ const Therapist: React.FC = observer(() => {
     [store]
   );
 
+  const renderSortIcon = (key: SortKey) => {
+    if (store.sortBy !== key) {
+      return <ArrowUpDown className="h-4 w-4 text-chartMuted" />;
+    }
+    return colSortDir[key] === 'desc' ? (
+      <ArrowDown className="h-4 w-4" />
+    ) : (
+      <ArrowUp className="h-4 w-4" />
+    );
+  };
+
   // ===== Sorting (includes ampel) =====
   const sortedFiltered = useMemo(() => {
     const arr = [...store.filteredPatients];
@@ -143,14 +154,17 @@ const Therapist: React.FC = observer(() => {
 
     const dir = (key: string, val: number) => (colSortDir[key] === 'desc' ? -val : val);
 
+    // All comparators below follow the same "asc = worst first" convention as
+    // the default ampel sort, so toggling direction means the same thing on
+    // every column.
     arr.sort((a, b) => {
       switch (store.sortBy) {
         case 'ampel':
           return ampelComposite(b) - ampelComposite(a);
         case 'last_login':
-          return dir('last_login', getLogin(a) - getLogin(b));
+          return dir('last_login', getLogin(b) - getLogin(a));
         case 'adherence':
-          return dir('adherence', getAdh(b) - getAdh(a));
+          return dir('adherence', getAdh(a) - getAdh(b));
         case 'feedback':
           return dir('feedback', getFb(a) - getFb(b));
         case 'wear':
@@ -278,7 +292,7 @@ const Therapist: React.FC = observer(() => {
                 >
                   <div className="flex gap-1 items-center">
                     {t('Login')}
-                    <ArrowUpDown className="h-4 w-4" />
+                    {renderSortIcon('last_login')}
                   </div>
                 </TableHead>
                 <TableHead
@@ -287,7 +301,7 @@ const Therapist: React.FC = observer(() => {
                 >
                   <div className="flex gap-1 items-center">
                     {t('Adherence')}
-                    <ArrowUpDown className="h-4 w-4" />
+                    {renderSortIcon('adherence')}
                   </div>
                 </TableHead>
                 <TableHead
@@ -296,7 +310,7 @@ const Therapist: React.FC = observer(() => {
                 >
                   <div className="flex gap-1 items-center">
                     {t('Feedback')}
-                    <ArrowUpDown className="h-4 w-4" />
+                    {renderSortIcon('feedback')}
                   </div>
                 </TableHead>
                 <TableHead
@@ -305,7 +319,7 @@ const Therapist: React.FC = observer(() => {
                 >
                   <div className="flex gap-1 items-center">
                     {t('Wear')}
-                    <ArrowUpDown className="h-4 w-4" />
+                    {renderSortIcon('wear')}
                   </div>
                 </TableHead>
                 <TableHead>{t('Actions')}</TableHead>
@@ -421,7 +435,7 @@ const Therapist: React.FC = observer(() => {
                           <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                             {String(t('Completed'))}
                           </Badge>
-                          {!endDate && (
+                          {endDate && (
                             <div className="text-xs text-muted mt-1">
                               {String(t('Discharged'))}: {fmtDate(endDate)}
                             </div>
