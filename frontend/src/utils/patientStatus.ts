@@ -40,6 +40,8 @@ type PatientExtra = {
 type BioLike = {
   wear_time_avg_min?: unknown;
   wear_time_days_since?: unknown;
+  fitbit_revoked?: unknown;
+  fitbit_no_token?: unknown;
 };
 
 export const asRecord = (v: unknown): Record<string, unknown> =>
@@ -215,9 +217,14 @@ export const getWearInfo = (p: PatientType) => {
   const b = getBio(p);
   const daysSinceWorn = toNum(b.wear_time_days_since);
   const avgMin = toNum(b.wear_time_avg_min);
+  const revoked = b.fitbit_revoked === true || b.fitbit_no_token === true;
+
+  if (revoked) {
+    return { level: 'bad' as Traffic, daysSinceWorn, avgMin, revoked: true };
+  }
 
   if (daysSinceWorn === null && avgMin === null) {
-    return { level: 'unknown' as Traffic, daysSinceWorn, avgMin };
+    return { level: 'unknown' as Traffic, daysSinceWorn, avgMin, revoked: false };
   }
 
   let level: Traffic = 'good';
@@ -228,5 +235,5 @@ export const getWearInfo = (p: PatientType) => {
     level = 'warn';
   }
 
-  return { level, daysSinceWorn, avgMin };
+  return { level, daysSinceWorn, avgMin, revoked: false };
 };

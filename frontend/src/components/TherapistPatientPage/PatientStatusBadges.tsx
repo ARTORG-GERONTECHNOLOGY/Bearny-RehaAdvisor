@@ -141,9 +141,21 @@ export const FeedbackBadge: React.FC<Props> = ({ patient }) => {
 
 export const WearBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
-  const { level, daysSinceWorn, avgMin } = getWearInfo(patient);
+  const { level, daysSinceWorn, avgMin, revoked } = getWearInfo(patient);
 
   if (level === 'unknown') return null;
+
+  if (revoked) {
+    return (
+      <StatusChip
+        label={String(t('Fitbit'))}
+        level={level}
+        tip={String(t('Fitbit disconnected — reconnect required'))}
+      >
+        {String(t('Fitbit'))}
+      </StatusChip>
+    );
+  }
 
   const parts: string[] = [];
   if (daysSinceWorn !== null) {
@@ -155,7 +167,7 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   }
   if (avgMin !== null) {
     const avgH = (avgMin / 60).toFixed(1);
-    parts.push(`${t('Avg wear')}: ${avgH}h ${t('(7d)')}`);
+    parts.push(`${t('Avg wear')}: ${avgH}h ${t('(30d)')}`);
   }
   const tip = parts.join(' • ');
 
