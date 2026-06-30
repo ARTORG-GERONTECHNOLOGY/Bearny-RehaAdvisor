@@ -642,4 +642,46 @@ def test_register_patient_redcap_only_mode_rejects_non_redcap_source(mongo_mock)
     body = resp.json()
     assert "REDCap imports" in body.get("message", "") or "REDCap imports" in body.get("error", "")
     assert "source" in body.get("field_errors", {})
+
+
+# ===========================================================================
+# Study mode — patient registration blocked, therapist registration allowed
+# ===========================================================================
+
+
+@mock.patch.dict("os.environ", {"APP_MODE": "study"}, clear=False)
+def test_register_patient_blocked_in_study_mode(mongo_mock):
+    """In study mode, manual patient registration must be rejected with 403."""
+    th = _create_therapist_with_clinics("t9@example.com", ["Inselspital"], ["COPAIN"])
+    payload = {**_patient_base(th.id), "clinic": "Inselspital", "project": "COPAIN"}
+
+    resp = _post(payload)
+
+    assert resp.status_code == 403
+    assert "study mode" in resp.json().get("error", "").lower()
     assert User.objects.filter(email=payload["email"]).first() is None
+
+
+@mock.patch("core.views.auth_views.send_mail")
+@mock.patch.dict("os.environ", {"APP_MODE": "study"}, clear=False)
+def test_register_therapist_allowed_in_study_mode(mock_send_mail, mongo_mock):
+    """Therapist registration must succeed even when APP_MODE=study.
+
+    The study-mode guard must only block patient creation; therapists should
+    always be registrable so clinic administrators are not locked out.
+    """
+    payload = {
+        "userType": "Therapist",
+        "email": "studytherapist@example.com",
+        "password": "strongpassword",
+        "firstName": "Study",
+        "lastName": "Therapist",
+    }
+
+    resp = _post(payload)
+
+    assert resp.status_code == 200
+    assert resp.json().get("success") is True
+    user = User.objects.filter(email=payload["email"]).first()
+    assert user is not None
+    assert user.role == "Therapist"
