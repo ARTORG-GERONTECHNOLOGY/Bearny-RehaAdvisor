@@ -344,7 +344,7 @@ const Therapist: React.FC = observer(() => {
                 return (
                   <TableRow
                     key={mongoId || patientId}
-                    onClick={() => handlePatientClick(patientId)}
+                    onClick={() => handlePatientClick(mongoId)}
                     className="cursor-pointer"
                   >
                     <TableCell className="text-muted">{patientId}</TableCell>
@@ -438,7 +438,7 @@ const Therapist: React.FC = observer(() => {
                     return (
                       <TableRow
                         key={mongoId || patientId}
-                        onClick={() => handlePatientClick(patientId)}
+                        onClick={() => handlePatientClick(mongoId)}
                         className="cursor-pointer completed-row opacity-75"
                       >
                         <TableCell className="text-muted">{patientId}</TableCell>
