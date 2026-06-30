@@ -118,6 +118,24 @@ async function mockPlanAndCatalog(page: Page) {
   await page.route(/\/interventions\/logs\//, (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
+
+  // The patient detail page also mounts the Outcomes tab (and fetches the
+  // patient header) by default — stub those out too since this test only
+  // cares about the Rehabilitation Plan tab.
+  await page.route(/\/users\/.*\/profile/, (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+  );
+  await page.route(/\/patients\/.*\/thresholds\//, (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+  );
+  await page.route(/\/patients\/health-combined-history\//, (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+  );
+}
+
+async function goToRehabilitationPlanTab(page: Page, patientId: string) {
+  await page.goto(`/therapist-patient-detail/${patientId}`);
+  await page.getByRole('tab', { name: 'Rehabilitation Plan' }).click();
 }
 
 // ---------------------------------------------------------------------------
@@ -128,9 +146,6 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded();
     await loginAsTherapist(page);
-    await page.evaluate((pid) => {
-      window.localStorage.setItem('selectedPatient', pid);
-    }, PATIENT_ID);
   });
 
   test('intervention with mismatched _id appears in Patient Filter list when external_id matches', async ({
@@ -138,7 +153,7 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
   }) => {
     skipUnlessSeeded();
     await mockPlanAndCatalog(page);
-    await page.goto('/rehabtable');
+    await goToRehabilitationPlanTab(page, PATIENT_ID);
 
     // Wait for the left panel to finish loading
     await page
@@ -163,7 +178,7 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
   test('Stats/Feedback button is visible for mismatched-id intervention', async ({ page }) => {
     skipUnlessSeeded();
     await mockPlanAndCatalog(page);
-    await page.goto('/rehabtable');
+    await goToRehabilitationPlanTab(page, PATIENT_ID);
     await page.waitForLoadState('networkidle');
 
     // Stats button appears only when `assigned === true` in InterventionLeftPanel.
@@ -175,7 +190,7 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
   test('calendar events are present for mismatched-id intervention', async ({ page }) => {
     skipUnlessSeeded();
     await mockPlanAndCatalog(page);
-    await page.goto('/rehabtable');
+    await goToRehabilitationPlanTab(page, PATIENT_ID);
     await page.waitForLoadState('networkidle');
 
     // The calendar was always populated from patientData directly (not the merged

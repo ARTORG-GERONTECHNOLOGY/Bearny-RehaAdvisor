@@ -24,11 +24,6 @@ test.describe('Therapist questionnaire builder full flow', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
     await loginAsTherapist(page);
-
-    const { patientId } = creds();
-    await page.evaluate((pid) => {
-      window.localStorage.setItem('selectedPatient', pid as string);
-    }, patientId as string);
   });
 
   test('create questionnaire -> appears with creator -> assign to patient', async ({ page }) => {
@@ -36,7 +31,8 @@ test.describe('Therapist questionnaire builder full flow', () => {
 
     const uniqueTitle = `E2E Builder ${Date.now()}`;
 
-    await page.goto('/rehabtable');
+    const { patientId } = creds();
+    await page.goto(`/therapist-patient-detail/${patientId}`);
 
     const healthReq = page.waitForRequest((req) => req.url().includes('/questionnaires/health/'));
     const patientReq = page.waitForRequest((req) => req.url().includes('/questionnaires/patient/'));
