@@ -341,19 +341,23 @@ const Therapist: React.FC = observer(() => {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        <Button size="dashboard" onClick={() => store.openPatient(p)}>
+                        <Button
+                          size="dashboard"
+                          className="py-0.5 px-2"
+                          onClick={() => store.openPatient(p)}
+                        >
                           {String(t('Info'))}
                         </Button>
                         <Button
                           size="dashboard"
-                          className="bg-primary"
+                          className="py-0.5 px-2 bg-primary"
                           onClick={() => handleRehabButton(mongoId, fullName, patientId)}
                         >
                           {String(t('Rehabilitation Plan'))}
                         </Button>
                         <Button
                           size="dashboard"
-                          className="bg-white text-primary border border-primary"
+                          className="py-0.5 px-2 bg-white text-primary border border-primary"
                           onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                         >
                           {String(t('Outcomes Dashboard'))}
@@ -425,12 +429,16 @@ const Therapist: React.FC = observer(() => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-wrap">
-                            <Button size="dashboard" onClick={() => store.openPatient(p)}>
+                            <Button
+                              size="dashboard"
+                              className="py-0.5 px-2"
+                              onClick={() => store.openPatient(p)}
+                            >
                               {String(t('Info'))}
                             </Button>
                             <Button
                               size="dashboard"
-                              className="bg-white text-primary border border-primary"
+                              className="py-0.5 px-2 bg-white text-primary border border-primary"
                               onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                             >
                               {String(t('Outcomes Dashboard'))}
