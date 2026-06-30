@@ -17,30 +17,31 @@ import {
 
 type Props = { patient: PatientType };
 
-type StatusChipProps = {
-  label: string;
-  level: Traffic;
+type HoverTipProps = {
   tip: string;
-  children: React.ReactNode;
+  children: (hoverProps: {
+    onMouseOver: () => void;
+    onMouseOut: () => void;
+    onFocus: () => void;
+    onBlur: () => void;
+    tabIndex: number;
+  }) => React.ReactNode;
 };
 
-const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) => {
+const HoverTip: React.FC<HoverTipProps> = ({ tip, children }) => {
   const [hovered, setHovered] = useState(false);
+
+  const hoverProps = {
+    onMouseOver: () => setHovered(true),
+    onMouseOut: () => setHovered(false),
+    onFocus: () => setHovered(true),
+    onBlur: () => setHovered(false),
+    tabIndex: 0,
+  };
 
   return (
     <span className="relative inline-block">
-      <Badge
-        variant="dashboard"
-        className={`text-nowrap ${chipClass(level)}`}
-        aria-label={`${label} ${level}`}
-        onMouseOver={() => setHovered(true)}
-        onMouseOut={() => setHovered(false)}
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
-        tabIndex={0}
-      >
-        {children}
-      </Badge>
+      {children(hoverProps)}
       {hovered && tip && (
         <div className="absolute z-50 bottom-full left-0 mb-1 w-max max-w-xs whitespace-pre-line rounded bg-zinc-900 px-2 py-1 text-xs text-white shadow-lg">
           {tip}
@@ -49,6 +50,28 @@ const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) 
     </span>
   );
 };
+
+type StatusChipProps = {
+  label: string;
+  level: Traffic;
+  tip: string;
+  children: React.ReactNode;
+};
+
+const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) => (
+  <HoverTip tip={tip}>
+    {(hoverProps) => (
+      <Badge
+        variant="dashboard"
+        className={`text-nowrap ${chipClass(level)}`}
+        aria-label={`${label} ${level}`}
+        {...hoverProps}
+      >
+        {children}
+      </Badge>
+    )}
+  </HoverTip>
+);
 
 export const LoginBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
@@ -73,6 +96,7 @@ export const LoginBadge: React.FC<Props> = ({ patient }) => {
 };
 
 export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
+  const { t } = useTranslation();
   const { rate, level } = getAdherenceInfo(patient);
 
   const indicatorClassName =
@@ -87,6 +111,8 @@ export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
           ? 'text-ok'
           : 'text-chartMuted';
 
+  const tip = `${t('Adherence')} ${t('(7d)')}`;
+
   return (
     <div className="flex items-center gap-2">
       <Progress
@@ -95,9 +121,13 @@ export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
         indicatorClassName={indicatorClassName}
         className="w-10 h-1"
       />
-      <span className={`text-xs font-medium ${labelClassName}`}>
-        {rate != null ? `${rate}%` : '—'}
-      </span>
+      <HoverTip tip={tip}>
+        {(hoverProps) => (
+          <span className={`text-xs font-medium ${labelClassName}`} {...hoverProps}>
+            {rate != null ? `${rate}%` : '—'}
+          </span>
+        )}
+      </HoverTip>
     </div>
   );
 };
