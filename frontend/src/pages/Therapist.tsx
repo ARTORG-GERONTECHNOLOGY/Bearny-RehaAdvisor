@@ -11,6 +11,11 @@ import PatientPopup from '@/components/TherapistPatientPage/PatientPopup';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';
 import ImportFromRedcapModal from '@/components/TherapistPatientPage/ImportFromRedcapModal';
 import PatientFilters from '@/components/TherapistPatientPage/PatientFilters';
+import {
+  LoginBadge,
+  AdherenceProgress,
+  FeedbackBadge,
+} from '@/components/TherapistPatientPage/PatientStatusBadges';
 import Layout from '@/components/Layout';
 
 import authStore from '@/stores/authStore';
@@ -29,76 +34,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-
-// -------------------- local, typed helpers (no any) --------------------
-
-type Traffic = 'good' | 'warn' | 'bad' | 'unknown';
-
-type InterventionFeedbackLike = {
-  last_answered_at?: unknown;
-  days_since_last?: unknown;
-  answered_days_total?: unknown;
-  recent_days_count?: unknown;
-  recent_avg_score?: unknown;
-  previous_avg_score?: unknown;
-  trend_delta?: unknown;
-  trend_lower?: unknown;
-  low_ratings_14d?: unknown;
-};
-
-type PatientExtra = {
-  _id?: unknown;
-  username?: unknown;
-  patient_code?: unknown;
-  created_at?: unknown;
-
-  last_online?: unknown;
-  user_last_login?: unknown;
-  last_login?: unknown;
-
-  adherence_rate?: unknown;
-
-  rehab_end_date?: unknown;
-
-  last_feedback_at?: unknown;
-  questionnaires?: unknown;
-  intervention_feedback?: unknown;
-
-  thresholds?: unknown;
-  biomarker?: unknown;
-  fitbitData?: unknown;
-};
-
-const asRecord = (v: unknown): Record<string, unknown> =>
-  v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
-
-const toNum = (v: unknown): number | null => {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  if (typeof v === 'string') {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-};
-
-const getPatientExtra = (p: PatientType): PatientExtra => p as unknown as PatientExtra;
-
-const getPatientIdStr = (p: PatientType): string => {
-  const x = getPatientExtra(p);
-  const code = typeof x.patient_code === 'string' ? x.patient_code : '';
-  const uname = typeof x.username === 'string' ? x.username : '';
-  const id = typeof x._id === 'string' ? x._id : '';
-  return code || uname || (id ? id.slice(-8) : '') || '—';
-};
-
-const getPatientMongoId = (p: PatientType): string => {
-  const x = getPatientExtra(p);
-  return typeof x._id === 'string' ? x._id : '';
-};
-
-const getIsoMaybe = (v: unknown): string => (typeof v === 'string' ? v : '');
+import {
+  ampelComposite,
+  daysSince,
+  feedbackLevel,
+  fmtDate,
+  getIsoMaybe,
+  getPatientExtra,
+  getPatientIdStr,
+  getPatientMongoId,
+  levelRankSmallBadFirst,
+  toNum,
+} from '@/utils/patientStatus';
 
 // config typing used on this page
 type AppConfig = {
@@ -161,204 +109,6 @@ const Therapist: React.FC = observer(() => {
     },
     [navigate]
   );
-
-  // helpers for display
-  const fmtDate = (iso?: string) => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString();
-  };
-
-  const daysSince = (iso?: string) => {
-    if (!iso) return Number.POSITIVE_INFINITY;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return Number.POSITIVE_INFINITY;
-    const now = new Date();
-    return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  };
-
-  // ===== Ampel helpers =====
-  const chipClass = (level: Traffic) => {
-    switch (level) {
-      case 'good':
-        return 'bg-ok/5 border-ok text-ok';
-      case 'warn':
-        return 'bg-yellow/5 border-yellow text-yellow';
-      case 'bad':
-        return 'bg-nok/5 border-nok text-nok';
-      default:
-        return '';
-    }
-  };
-
-  const levelToNum = (lvl: Traffic) =>
-    lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
-
-  const levelRankSmallBadFirst = (lvl: Traffic) =>
-    lvl === 'bad' ? 0 : lvl === 'warn' ? 1 : lvl === 'good' ? 2 : 0.5;
-
-  const loginLevel = (p: PatientType): Traffic => {
-    const extra = getPatientExtra(p);
-    const last =
-      getIsoMaybe(extra.last_online) ||
-      getIsoMaybe(extra.user_last_login) ||
-      getIsoMaybe(extra.last_login) ||
-      '';
-    const d = daysSince(last);
-
-    if (d === Number.POSITIVE_INFINITY) return 'unknown';
-    if (d <= 3) return 'good';
-    if (d <= 7) return 'warn';
-    return 'bad';
-  };
-
-  const adherenceLevel = (p: PatientType): Traffic => {
-    const rate = toNum(getPatientExtra(p).adherence_rate);
-    if (typeof rate !== 'number') return 'unknown';
-    if (rate >= 80) return 'good';
-    if (rate >= 50) return 'warn';
-    return 'bad';
-  };
-
-  const feedbackLevel = (p: PatientType): Traffic => {
-    const extra = getPatientExtra(p);
-    const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
-
-    const lastIso = getIsoMaybe(summary.last_answered_at);
-    const daysSinceLast = toNum(summary.days_since_last);
-    const answeredDaysTotal = toNum(summary.answered_days_total) ?? 0;
-    const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
-
-    if (answeredDaysTotal === 0 || !lastIso) return 'unknown';
-    // Red: no rating for >30 days OR ≥7 low ratings (≤2★) in last 14 days
-    if ((daysSinceLast != null && daysSinceLast > 30) || lowRatings14d >= 7) return 'bad';
-    // Yellow: no rating for 15–30 days OR ≥3 low ratings in last 14 days
-    if ((daysSinceLast != null && daysSinceLast > 14) || lowRatings14d >= 3) return 'warn';
-    return 'good';
-  };
-
-  const ampelComposite = (p: PatientType) => {
-    const base =
-      levelToNum(loginLevel(p)) + levelToNum(adherenceLevel(p)) + levelToNum(feedbackLevel(p));
-
-    const extra = getPatientExtra(p);
-    const lastLogin =
-      getIsoMaybe(extra.last_online) ||
-      getIsoMaybe(extra.user_last_login) ||
-      getIsoMaybe(extra.last_login) ||
-      '';
-    const dLogin = daysSince(lastLogin);
-
-    const adh = toNum(extra.adherence_rate) ?? -1;
-
-    // last questionnaire answer (string-sort works for ISO yyyy-mm-dd or ISO datetime)
-    const lastQ = Array.isArray(extra.questionnaires)
-      ? (extra.questionnaires as unknown[])
-          .map((q) => asRecord(q).last_answered_at as unknown)
-          .filter((x): x is string => typeof x === 'string' && x.length > 0)
-          .sort()
-          .slice(-1)[0] || ''
-      : '';
-
-    const lastFbISO = lastQ || getIsoMaybe(extra.last_feedback_at) || '';
-    const dFb = daysSince(lastFbISO);
-
-    const tweak =
-      (Number.isFinite(dLogin) ? dLogin / 50 : 0) +
-      (adh >= 0 ? (100 - adh) / 100 : 0.5) +
-      (Number.isFinite(dFb) ? dFb / 100 : 0.25);
-
-    return base + tweak;
-  };
-
-  const renderLoginBadge = (p: PatientType) => {
-    const extra = getPatientExtra(p);
-    const last =
-      getIsoMaybe(extra.last_online) ||
-      getIsoMaybe(extra.user_last_login) ||
-      getIsoMaybe(extra.last_login) ||
-      '';
-    const d = daysSince(last);
-    const level = loginLevel(p);
-
-    let badgeText = t('Never logged in');
-    if (last) {
-      if (d === 0) badgeText = t('today');
-      else if (d === 1) badgeText = t('yesterday');
-      else badgeText = t('daysAgoShort', { d });
-    }
-
-    return (
-      <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
-        {badgeText}
-      </Badge>
-    );
-  };
-
-  const renderAdherenceProgress = (p: PatientType) => {
-    const extra = getPatientExtra(p);
-    const rate = toNum(extra.adherence_rate);
-    const level = adherenceLevel(p);
-
-    const indicatorClassName =
-      level === 'bad' ? 'bg-nok' : level === 'warn' ? 'bg-yellow' : level === 'good' ? 'bg-ok' : '';
-
-    const labelClassName =
-      level === 'bad'
-        ? 'text-nok'
-        : level === 'warn'
-          ? 'text-yellow'
-          : level === 'good'
-            ? 'text-ok'
-            : 'text-chartMuted';
-
-    return (
-      <div className="flex items-center gap-2">
-        <Progress
-          value={rate ?? 0}
-          max={100}
-          indicatorClassName={indicatorClassName}
-          className={`w-10 h-1`}
-        />
-        <span className={`text-xs font-medium ${labelClassName}`}>
-          {rate != null ? `${rate}%` : '—'}
-        </span>
-      </div>
-    );
-  };
-
-  const renderFeedbackBadge = (p: PatientType) => {
-    const extra = getPatientExtra(p);
-    const summary = asRecord(extra.intervention_feedback) as InterventionFeedbackLike;
-
-    const daysSinceLast = toNum(summary.days_since_last);
-    const lowRatings14d = toNum(summary.low_ratings_14d) ?? 0;
-    const level = feedbackLevel(p);
-
-    let badgeText;
-    if (level === 'unknown') {
-      badgeText = t('No feedback');
-    } else if (level === 'bad') {
-      badgeText =
-        lowRatings14d >= 7
-          ? t('negRatingsShort', { n: lowRatings14d })
-          : t('daysAgoShort', { d: daysSinceLast });
-    } else if (level === 'warn') {
-      badgeText =
-        lowRatings14d >= 3
-          ? t('negRatingsShort', { n: lowRatings14d })
-          : t('daysAgoShort', { d: daysSinceLast });
-    } else {
-      badgeText = t('Good');
-    }
-
-    return (
-      <Badge variant="dashboard" className={`text-nowrap ${chipClass(level)}`}>
-        {badgeText}
-      </Badge>
-    );
-  };
 
   const handleColSort = useCallback(
     (key: SortKey) => {
@@ -563,9 +313,15 @@ const Therapist: React.FC = observer(() => {
                     <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
                     <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
                     <TableCell className="text-muted">{diagnosis}</TableCell>
-                    <TableCell>{renderLoginBadge(p)}</TableCell>
-                    <TableCell>{renderAdherenceProgress(p)}</TableCell>
-                    <TableCell>{renderFeedbackBadge(p)}</TableCell>
+                    <TableCell>
+                      <LoginBadge patient={p} />
+                    </TableCell>
+                    <TableCell>
+                      <AdherenceProgress patient={p} />
+                    </TableCell>
+                    <TableCell>
+                      <FeedbackBadge patient={p} />
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         <Button size="dashboard" onClick={() => store.openPatient(p)}>
