@@ -1,7 +1,7 @@
 // src/pages/Therapist.tsx
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { ArrowUpDown } from 'lucide-react';
-import { Button, Col, Container, Row, Collapse } from 'react-bootstrap';
+import { Col, Container, Row, Collapse } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 
 // -------------------- local, typed helpers (no any) --------------------
 
@@ -441,15 +442,19 @@ const Therapist: React.FC = observer(() => {
                   </div>
                   <div className="ms-3 d-flex flex-column gap-2 align-items-end">
                     {store.errorDetails && (
-                      <Button size="sm" variant="outline-light" onClick={store.toggleErrorDetails}>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={store.toggleErrorDetails}
+                      >
                         {store.showErrorDetails
                           ? String(t('Hide details'))
                           : String(t('Show details'))}
                       </Button>
                     )}
                     <Button
-                      size="sm"
-                      variant="light"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => store.fetchPatients(t)}
                       disabled={store.loading}
                     >
@@ -471,14 +476,19 @@ const Therapist: React.FC = observer(() => {
               ) : (
                 <>
                   {appModeStore.showManualCreate && (
-                    <Button onClick={store.openAddPatient} disabled={store.loading}>
+                    <Button
+                      size="dashboard"
+                      onClick={store.openAddPatient}
+                      disabled={store.loading}
+                    >
                       {String(t('Add a New Patient'))}
                     </Button>
                   )}
 
                   {appModeStore.showRedcapImport && (
                     <Button
-                      variant="outline-primary"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={async () => {
                         store.openImportRedcap();
                         await store.fetchRedcapCandidates(t);
@@ -558,19 +568,19 @@ const Therapist: React.FC = observer(() => {
                     <TableCell>{renderFeedbackBadge(p)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        <Button size="sm" variant="success" onClick={() => store.openPatient(p)}>
+                        <Button size="dashboard" onClick={() => store.openPatient(p)}>
                           {String(t('Info'))}
                         </Button>
                         <Button
-                          size="sm"
-                          variant="primary"
+                          size="dashboard"
+                          className="bg-primary"
                           onClick={() => handleRehabButton(mongoId, fullName, patientId)}
                         >
                           {String(t('Rehabilitation Plan'))}
                         </Button>
                         <Button
-                          size="sm"
-                          variant="outline-primary"
+                          size="dashboard"
+                          className="bg-white text-primary border border-primary"
                           onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                         >
                           {String(t('Outcomes Dashboard'))}
@@ -642,16 +652,12 @@ const Therapist: React.FC = observer(() => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-wrap">
-                            <Button
-                              size="sm"
-                              variant="success"
-                              onClick={() => store.openPatient(p)}
-                            >
+                            <Button size="dashboard" onClick={() => store.openPatient(p)}>
                               {String(t('Info'))}
                             </Button>
                             <Button
-                              size="sm"
-                              variant="outline-primary"
+                              size="dashboard"
+                              className="bg-white text-primary border border-primary"
                               onClick={() => handleProgressButton(mongoId, fullName, patientId)}
                             >
                               {String(t('Outcomes Dashboard'))}
