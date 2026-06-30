@@ -968,6 +968,8 @@
   "(30d)": "(30d)",
   "No Fitbit data": "Sem dados Fitbit",
   "Fitbit disconnected — reconnect required": "Fitbit desconectado — é necessário reconectar",
+  "No data": "Sem dados",
+  "Disconnected": "Desconectado",
   "Wear": "Uso",
   "hint_resting_hr_empty": "Nenhum dado de frequência cardíaca em repouso registado. Certifique-se de que o dispositivo Fitbit é usado durante a noite e que a monitorização da frequência cardíaca está ativada.",
   "hint_wear_time_empty": "Nenhum dado de tempo de uso registado. O tempo de uso é estimado a partir das medições contínuas da frequência cardíaca — certifique-se de que o dispositivo é usado durante todo o dia.",

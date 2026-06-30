@@ -974,6 +974,8 @@
   "(30d)": "(30j)",
   "No Fitbit data": "Pas de données Fitbit",
   "Fitbit disconnected — reconnect required": "Fitbit déconnecté — reconnexion requise",
+  "No data": "Aucune donnée",
+  "Disconnected": "Déconnecté",
   "Wear": "Port",
   "hint_resting_hr_empty": "Aucune donnée de fréquence cardiaque au repos enregistrée. Assurez-vous que l'appareil Fitbit est porté pendant la nuit et que la surveillance de la fréquence cardiaque est activée.",
   "hint_wear_time_empty": "Aucune durée de port enregistrée. La durée de port est estimée à partir des mesures continues de la fréquence cardiaque — assurez-vous que l'appareil est porté toute la journée.",

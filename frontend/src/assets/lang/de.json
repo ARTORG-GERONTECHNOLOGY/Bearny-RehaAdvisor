@@ -973,6 +973,8 @@
   "(30d)": "(30T)",
   "No Fitbit data": "Keine Fitbit-Daten",
   "Fitbit disconnected — reconnect required": "Fitbit getrennt — erneute Verbindung erforderlich",
+  "No data": "Keine Daten",
+  "Disconnected": "Getrennt",
   "Wear": "Tragen",
   "hint_resting_hr_empty": "Keine Ruheherzfrequenzdaten aufgezeichnet. Stellen Sie sicher, dass das Fitbit-Gerät nachts getragen wird und die Herzfrequenzüberwachung aktiviert ist.",
   "hint_wear_time_empty": "Keine Tragedauer aufgezeichnet. Die Tragedauer wird aus kontinuierlichen Herzfrequenzmessungen geschätzt — stellen Sie sicher, dass das Gerät den ganzen Tag getragen wird.",

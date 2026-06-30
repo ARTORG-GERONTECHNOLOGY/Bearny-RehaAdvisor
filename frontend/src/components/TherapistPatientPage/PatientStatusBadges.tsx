@@ -143,7 +143,13 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
   const { level, daysSinceWorn, avgMin, revoked } = getWearInfo(patient);
 
-  if (level === 'unknown') return null;
+  if (level === 'unknown') {
+    return (
+      <StatusChip label={String(t('Wear'))} level={level} tip={String(t('No Fitbit data'))}>
+        {String(t('No data'))}
+      </StatusChip>
+    );
+  }
 
   if (revoked) {
     return (
@@ -152,7 +158,7 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
         level={level}
         tip={String(t('Fitbit disconnected — reconnect required'))}
       >
-        {String(t('Fitbit'))}
+        {String(t('Disconnected'))}
       </StatusChip>
     );
   }
@@ -171,9 +177,24 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   }
   const tip = parts.join(' • ');
 
+  const avgHoursText = avgMin !== null ? `${(avgMin / 60).toFixed(1)}h` : null;
+
+  let badgeText: string;
+  if (level === 'bad') {
+    badgeText = daysSinceWorn !== null ? t('daysAgoShort', { d: daysSinceWorn }) : t('Wear');
+  } else if (level === 'warn') {
+    badgeText = avgHoursText ?? t('Wear');
+  } else if (daysSinceWorn === 0) {
+    badgeText = t('today');
+  } else if (daysSinceWorn === 1) {
+    badgeText = t('yesterday');
+  } else {
+    badgeText = avgHoursText ?? t('Wear');
+  }
+
   return (
     <StatusChip label={String(t('Wear'))} level={level} tip={tip}>
-      {String(t('Wear'))}
+      {badgeText}
     </StatusChip>
   );
 };

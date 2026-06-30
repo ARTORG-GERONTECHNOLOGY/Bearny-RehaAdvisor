@@ -353,14 +353,16 @@ describe('Wear time badge', () => {
     });
   });
 
-  test('hides Wear badge when no Fitbit data', async () => {
+  test('shows placeholder Wear badge when no Fitbit data', async () => {
     const patient = makePatientWithWear({
       wear_time_days_since: null,
       wear_time_avg_min: null,
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.queryByLabelText(/Wear/i)).not.toBeInTheDocument();
+      const badge = screen.getByLabelText('Wear unknown');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent('No data');
     });
   });
 
@@ -422,7 +424,7 @@ describe('Wear time badge', () => {
     renderWithPatient(patient);
     await waitFor(() => {
       expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/^Wear/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Wear unknown')).toBeInTheDocument();
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   LoginBadge,
   AdherenceProgress,
   FeedbackBadge,
+  WearBadge,
 } from '@/components/TherapistPatientPage/PatientStatusBadges';
 import type { PatientType } from '@/types';
 import '@testing-library/jest-dom';
@@ -98,5 +99,58 @@ describe('FeedbackBadge', () => {
       />
     );
     expect(screen.getByText('7 neg.')).toBeInTheDocument();
+  });
+});
+
+describe('WearBadge', () => {
+  it('shows "No data" when there is no Fitbit data', () => {
+    renderWithI18n(<WearBadge patient={makePatient()} />);
+    const badge = screen.getByText('No data');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute('aria-label', 'Wear unknown');
+  });
+
+  it('shows "Disconnected" when the token is revoked', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          biomarker: { wear_time_days_since: null, wear_time_avg_min: null, fitbit_revoked: true },
+        })}
+      />
+    );
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+  });
+
+  it('shows a days-ago label when not worn for 2+ days', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          biomarker: { wear_time_days_since: 3, wear_time_avg_min: 700 },
+        })}
+      />
+    );
+    expect(screen.getByText('3d ago')).toBeInTheDocument();
+  });
+
+  it('shows the average hours when wear is low but recent', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          biomarker: { wear_time_days_since: 0, wear_time_avg_min: 480 },
+        })}
+      />
+    );
+    expect(screen.getByText('8.0h')).toBeInTheDocument();
+  });
+
+  it('shows freshness for a healthy wear pattern', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          biomarker: { wear_time_days_since: 0, wear_time_avg_min: 750 },
+        })}
+      />
+    );
+    expect(screen.getByText(/^today$/i)).toBeInTheDocument();
   });
 });

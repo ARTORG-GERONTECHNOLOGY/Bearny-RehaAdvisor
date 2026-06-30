@@ -964,6 +964,8 @@
   "(30d)": "(30d)",
   "No Fitbit data": "Geen Fitbit-gegevens",
   "Fitbit disconnected — reconnect required": "Fitbit losgekoppeld — opnieuw verbinden vereist",
+  "No data": "Geen data",
+  "Disconnected": "Losgekoppeld",
   "Wear": "Dragen",
   "hint_resting_hr_empty": "Geen rusthartslag geregistreerd. Zorg dat het Fitbit-apparaat 's nachts wordt gedragen en dat hartslagmonitoring is ingeschakeld.",
   "hint_wear_time_empty": "Geen draagduur geregistreerd. Draagduur wordt geschat op basis van continue hartslagmetingen — zorg dat het apparaat de hele dag wordt gedragen.",
