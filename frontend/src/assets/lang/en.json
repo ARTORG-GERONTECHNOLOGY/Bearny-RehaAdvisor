@@ -970,7 +970,11 @@
   "Last worn": "Last worn",
   "Avg wear": "Avg wear",
   "(7d)": "(7d)",
+  "(30d)": "(30d)",
   "No Fitbit data": "No Fitbit data",
+  "Fitbit disconnected — reconnect required": "Fitbit disconnected — reconnect required",
+  "No data": "No data",
+  "Disconnected": "Disconnected",
   "Wear": "Wear",
   "hint_resting_hr_empty": "No resting heart rate data recorded. Make sure the Fitbit device is worn during sleep and that heart rate monitoring is enabled.",
   "hint_wear_time_empty": "No wear time data recorded. Wear time is estimated from continuous heart rate readings — ensure the device is worn throughout the day.",
@@ -1362,5 +1366,7 @@
   "assistanceWithHelp": "With help",
   "Next on": "Next on",
   "Answered": "Answered",
-  "Tags": "Tags"
+  "Tags": "Tags",
+  "daysAgoShort": "{{d}}d ago",
+  "negRatingsShort": "{{n}} neg."
 }
