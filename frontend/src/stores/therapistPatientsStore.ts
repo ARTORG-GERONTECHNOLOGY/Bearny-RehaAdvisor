@@ -4,7 +4,7 @@ import apiClient from '../api/client';
 import authStore from './authStore';
 import { PatientType } from '../types';
 
-export type SortKey = 'ampel' | 'created' | 'last_login' | 'adherence' | 'health' | 'feedback';
+export type SortKey = 'ampel' | 'created' | 'last_login' | 'adherence' | 'feedback' | 'wear';
 
 export type RedcapCandidate = {
   project: string;

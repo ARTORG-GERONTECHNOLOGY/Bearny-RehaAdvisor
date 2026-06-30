@@ -353,14 +353,16 @@ describe('Wear time badge', () => {
     });
   });
 
-  test('hides Wear badge when no Fitbit data', async () => {
+  test('shows placeholder Wear badge when no Fitbit data', async () => {
     const patient = makePatientWithWear({
       wear_time_days_since: null,
       wear_time_avg_min: null,
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.queryByLabelText(/Wear/i)).not.toBeInTheDocument();
+      const badge = screen.getByLabelText('Wear unknown');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent('No data');
     });
   });
 
@@ -422,7 +424,7 @@ describe('Wear time badge', () => {
     renderWithPatient(patient);
     await waitFor(() => {
       expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/^Wear/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Wear unknown')).toBeInTheDocument();
     });
   });
 });
@@ -436,66 +438,6 @@ describe('Therapist traffic lights', () => {
       </MemoryRouter>
     );
   };
-
-  test('uses personalized thresholds for the Health badge instead of generic cutoffs', async () => {
-    renderWithPatient({
-      _id: 'threshold-test-patient',
-      therapist: 'T',
-      created_at: '2026-01-01T00:00:00',
-      username: 'thresholduser',
-      age: '1990-01-01',
-      sex: 'Male',
-      first_name: 'Threshold',
-      name: 'Patient',
-      diagnosis: ['Stroke'],
-      duration: 30,
-      rehab_status: 'completed',
-      biomarker: {
-        sleep_avg_h: 7.5,
-        steps_avg: 7000,
-        activity_min: 80,
-      },
-      thresholds: {
-        steps_goal: 12000,
-        active_minutes_green: 90,
-        active_minutes_yellow: 60,
-        sleep_green_min: 480,
-        sleep_yellow_min: 420,
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Health bad')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByLabelText('Health good')).not.toBeInTheDocument();
-  });
-
-  test('hides Health badge for ongoing studies (active patients)', async () => {
-    renderWithPatient({
-      _id: 'ongoing-patient',
-      therapist: 'T',
-      created_at: '2026-01-01T00:00:00',
-      username: 'ongoinguser',
-      age: '1990-01-01',
-      sex: 'Male',
-      first_name: 'Ongoing',
-      name: 'Patient',
-      diagnosis: ['Stroke'],
-      duration: 30,
-      biomarker: {
-        sleep_avg_h: 7.5,
-        steps_avg: 7000,
-        activity_min: 80,
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Login unknown')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByLabelText(/Health/i)).not.toBeInTheDocument();
-  });
 
   // ── Feedback chip: new cut-off logic (as of 2026-05-12) ──────────────────
   // Grey  — no star rating ever submitted (answered_days_total === 0)
@@ -657,38 +599,6 @@ describe('Therapist traffic lights', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Feedback bad')).toBeInTheDocument();
     });
-  });
-
-  test('uses personalized blood pressure thresholds in health scoring', async () => {
-    renderWithPatient({
-      _id: 'bp-threshold-test-patient',
-      therapist: 'T',
-      created_at: '2026-01-01T00:00:00',
-      username: 'bpuser',
-      age: '1990-01-01',
-      sex: 'Female',
-      first_name: 'Blood',
-      name: 'Pressure',
-      diagnosis: ['Stroke'],
-      duration: 30,
-      rehab_status: 'completed',
-      biomarker: {
-        bp_sys_avg: 150,
-        bp_dia_avg: 95,
-      },
-      thresholds: {
-        bp_sys_green_max: 130,
-        bp_sys_yellow_max: 140,
-        bp_dia_green_max: 85,
-        bp_dia_yellow_max: 90,
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Health bad')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByLabelText('Health unknown')).not.toBeInTheDocument();
   });
 });
 

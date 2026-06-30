@@ -13,6 +13,8 @@ import GridCircleOutline from '@/assets/icons/grid-circle-outline.svg?react';
 import GridCircleFill from '@/assets/icons/grid-circle-fill.svg?react';
 import UserOutline from '@/assets/icons/user-outline.svg?react';
 import UserFill from '@/assets/icons/user-fill.svg?react';
+import UsersOutline from '@/assets/icons/users-outline.svg?react';
+import UsersFill from '@/assets/icons/users-fill.svg?react';
 
 export default function Navigation() {
   const { t } = useTranslation();
@@ -57,8 +59,8 @@ export default function Navigation() {
         ? [
             {
               path: `/${authStore.userType?.toLowerCase()}`,
-              iconOutline: SunriseOutline,
-              iconFill: SunriseFill,
+              iconOutline: UsersOutline,
+              iconFill: UsersFill,
               label: t('Patients'),
             },
             {
