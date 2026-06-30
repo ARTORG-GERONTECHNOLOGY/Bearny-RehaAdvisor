@@ -99,17 +99,13 @@ export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
   const { rate, level } = getAdherenceInfo(patient);
 
-  const indicatorClassName =
-    level === 'bad' ? 'bg-nok' : level === 'warn' ? 'bg-yellow' : level === 'good' ? 'bg-ok' : '';
-
-  const labelClassName =
-    level === 'bad'
-      ? 'text-nok'
-      : level === 'warn'
-        ? 'text-yellow'
-        : level === 'good'
-          ? 'text-ok'
-          : 'text-chartMuted';
+  const colors: Record<Traffic, { indicatorClassName: string; labelClassName: string }> = {
+    bad: { indicatorClassName: 'bg-nok', labelClassName: 'text-nok' },
+    warn: { indicatorClassName: 'bg-yellow', labelClassName: 'text-yellow' },
+    good: { indicatorClassName: 'bg-ok', labelClassName: 'text-ok' },
+    unknown: { indicatorClassName: '', labelClassName: 'text-chartMuted' },
+  };
+  const { indicatorClassName, labelClassName } = colors[level];
 
   const tip = `${t('Adherence')} ${t('(7d)')}`;
 
