@@ -21,6 +21,34 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 
 jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 
+jest.mock('@/components/Health/HealthPageContent', () => ({
+  __esModule: true,
+  default: ({ patientId }: { patientId: string }) => (
+    <div data-testid="outcomes-content">Outcomes content for {patientId}</div>
+  ),
+}));
+
+jest.mock('@/components/RehaTablePage/RehabilitationPlanContent', () => ({
+  __esModule: true,
+  default: ({ patientId }: { patientId: string }) => (
+    <div data-testid="rehabilitationplan-content">Rehabilitation Plan content for {patientId}</div>
+  ),
+}));
+
+jest.mock('@/components/RehaTablePage/QuestionnairesContent', () => ({
+  __esModule: true,
+  default: ({ patientId }: { patientId: string }) => (
+    <div data-testid="questionnaires-content">Questionnaires content for {patientId}</div>
+  ),
+}));
+
+jest.mock('@/components/TherapistPatientPage/PatientInfoContent', () => ({
+  __esModule: true,
+  default: ({ patientId }: { patientId: string }) => (
+    <div data-testid="information-content">Information content for {patientId}</div>
+  ),
+}));
+
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: {
@@ -148,8 +176,8 @@ describe('TherapistPatientDetail Page', () => {
   it('defaults to the outcomes tab content', () => {
     renderPage();
 
-    expect(screen.getByText('Outcomes content goes here')).toBeInTheDocument();
-    expect(screen.queryByText('Rehabilitation Plan content goes here')).not.toBeInTheDocument();
+    expect(screen.getByTestId('outcomes-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('rehabilitationplan-content')).not.toBeInTheDocument();
   });
 
   it('switches tab content when a different tab is clicked', async () => {
@@ -158,8 +186,14 @@ describe('TherapistPatientDetail Page', () => {
 
     await user.click(screen.getByText('Questionnaires'));
 
-    expect(screen.getByText('Questionnaires content goes here')).toBeInTheDocument();
-    expect(screen.queryByText('Outcomes content goes here')).not.toBeInTheDocument();
+    expect(screen.getByTestId('questionnaires-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('outcomes-content')).not.toBeInTheDocument();
+  });
+
+  it('passes the patientId from the route to the active tab content', () => {
+    renderPage();
+
+    expect(screen.getByText('Outcomes content for patient-123')).toBeInTheDocument();
   });
 
   it('calls useTherapistPatientDetail with the patientId from the route', () => {

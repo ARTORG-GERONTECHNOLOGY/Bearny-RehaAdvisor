@@ -11,31 +11,40 @@ import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import { useTherapistPatientDetail } from '@/hooks/useTherapistPatientDetail';
 import { TherapistPatientDetailLoadingContent } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import authStore from '@/stores/authStore';
+import HealthPageContent from '@/components/Health/HealthPageContent';
+import RehabilitationPlanContent from '@/components/RehaTablePage/RehabilitationPlanContent';
+import QuestionnairesContent from '@/components/RehaTablePage/QuestionnairesContent';
+import PatientInfoContent from '@/components/TherapistPatientPage/PatientInfoContent';
 
-const TABS: { value: string; icon: LucideIcon; label: string; content: string }[] = [
+const TABS: {
+  value: string;
+  icon: LucideIcon;
+  label: string;
+  Component: React.ComponentType<{ patientId: string }>;
+}[] = [
   {
     value: 'outcomes',
     icon: ChartColumn,
     label: 'Outcomes',
-    content: 'Outcomes content goes here',
+    Component: HealthPageContent,
   },
   {
     value: 'rehabilitationplan',
     icon: Calendar,
     label: 'Rehabilitation Plan',
-    content: 'Rehabilitation Plan content goes here',
+    Component: RehabilitationPlanContent,
   },
   {
     value: 'questionnaires',
     icon: FileQuestion,
     label: 'Questionnaires',
-    content: 'Questionnaires content goes here',
+    Component: QuestionnairesContent,
   },
   {
     value: 'information',
     icon: BookUser,
     label: 'Information',
-    content: 'Information content goes here',
+    Component: PatientInfoContent,
   },
 ];
 
@@ -93,9 +102,9 @@ const TherapistPatientDetail: React.FC = observer(() => {
             </TabsTrigger>
           ))}
         </TabsList>
-        {TABS.map(({ value, content }) => (
+        {TABS.map(({ value, Component }) => (
           <TabsContent key={value} value={value}>
-            <div>{t(content)}</div>
+            <Component patientId={patientId} />
           </TabsContent>
         ))}
       </Tabs>

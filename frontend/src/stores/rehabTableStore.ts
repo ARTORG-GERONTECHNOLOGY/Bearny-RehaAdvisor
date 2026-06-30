@@ -167,6 +167,7 @@ export class RehabTableStore {
   patientName = '';
   patientUsername = '';
   patientData: PatientPlan = EMPTY_PLAN;
+  explicitPatientId: string | null = null;
 
   // Data
   allInterventions: Intervention[] = []; // catalog (includes private if backend adds them)
@@ -216,7 +217,9 @@ export class RehabTableStore {
   // Derived / helpers
   // ---------------------------------------------------------------------------
   get patientIdForCalls() {
-    return localStorage.getItem('selectedPatient') || this.patientUsername;
+    return (
+      this.explicitPatientId || localStorage.getItem('selectedPatient') || this.patientUsername
+    );
   }
 
   get specialisations(): string[] {
@@ -446,10 +449,44 @@ export class RehabTableStore {
     await this.translateVisibleItems(this.userLang);
   }
 
+  /**
+   * Like init(), but for embedding in a context that already knows the
+   * patient (e.g. a route param) and has already handled auth/navigation.
+   */
+  async initForPatient(patientId: string, t: (k: string) => unknown) {
+    this.entryTime = Date.now();
+
+    if (!patientId) {
+      runInAction(() => {
+        this.loading = false;
+        this.error =
+          typeof t === 'function' ? String(t('No patient selected.')) : 'No patient selected.';
+      });
+      return;
+    }
+
+    runInAction(() => {
+      this.explicitPatientId = patientId;
+      this.patientUsername = patientId;
+      this.patientName = patientId;
+      this.loading = true;
+      this.error = null;
+    });
+
+    await Promise.allSettled([this.fetchAll(t), this.fetchInts(t)]);
+
+    runInAction(() => {
+      this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
+      this.loading = false;
+    });
+
+    await this.translateVisibleItems(this.userLang);
+  }
+
   async dispose() {
     const exitTime = Date.now();
     const durationMin = ((exitTime - this.entryTime) / 60000).toFixed(2);
-    const patient = localStorage.getItem('selectedPatient');
+    const patient = this.patientIdForCalls;
     const therapist = authStore?.id || 'unknown';
 
     try {
