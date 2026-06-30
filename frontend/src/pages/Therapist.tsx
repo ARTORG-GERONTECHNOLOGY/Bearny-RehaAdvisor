@@ -45,6 +45,7 @@ import {
   getPatientExtra,
   getPatientIdStr,
   getPatientMongoId,
+  getWearInfo,
   levelRankSmallBadFirst,
   toNum,
 } from '@/utils/patientStatus';
@@ -138,6 +139,7 @@ const Therapist: React.FC = observer(() => {
     };
     const getAdh = (p: PatientType) => toNum(getPatientExtra(p).adherence_rate) ?? -1;
     const getFb = (p: PatientType) => levelRankSmallBadFirst(feedbackLevel(p));
+    const getWear = (p: PatientType) => levelRankSmallBadFirst(getWearInfo(p).level);
 
     const dir = (key: string, val: number) => (colSortDir[key] === 'desc' ? -val : val);
 
@@ -151,6 +153,8 @@ const Therapist: React.FC = observer(() => {
           return dir('adherence', getAdh(b) - getAdh(a));
         case 'feedback':
           return dir('feedback', getFb(a) - getFb(b));
+        case 'wear':
+          return dir('wear', getWear(a) - getWear(b));
         case 'created':
         default: {
           const xa = getPatientExtra(a);
@@ -295,7 +299,15 @@ const Therapist: React.FC = observer(() => {
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </TableHead>
-                <TableHead>{t('Wear')}</TableHead>
+                <TableHead
+                  onClick={() => handleColSort('wear')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Wear')}
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
                 <TableHead>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
