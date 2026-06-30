@@ -54,6 +54,7 @@ const PatientView = lazyWithRetry(() => import('@/pages/Patient'));
 const AdminDashboard = lazyWithRetry(() => import('@/pages/AdminDashboard'));
 const RehabTable = lazyWithRetry(() => import('@/pages/RehabTable'));
 const TherapistRecomendations = lazyWithRetry(() => import('@/pages/TherapistInterventions'));
+const TherapistPatientDetail = lazyWithRetry(() => import('@/pages/TherapistPatientDetail'));
 const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
 const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
@@ -113,6 +114,12 @@ export const router = createBrowserRouter([
       {
         path: 'therapist',
         element: withSuspense(createElement(RootLayout, null, createElement(Therapist))),
+      },
+      {
+        path: 'therapist-patient-detail/:patientId',
+        element: withSuspense(
+          createElement(RootLayout, null, createElement(TherapistPatientDetail))
+        ),
       },
       {
         path: 'rehabtable',

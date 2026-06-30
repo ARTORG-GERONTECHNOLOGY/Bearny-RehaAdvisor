@@ -92,6 +92,13 @@ const Therapist: React.FC = observer(() => {
     await store.fetchPatients(t);
   }, [store, t]);
 
+  const handlePatientClick = useCallback(
+    (patientId: string) => {
+      navigate(`/therapist-patient-detail/${patientId}`);
+    },
+    [navigate]
+  );
+
   const handleRehabButton = useCallback(
     (id: string, name: string, pid: string) => {
       localStorage.setItem('selectedPatient', id);
@@ -335,7 +342,11 @@ const Therapist: React.FC = observer(() => {
                 const mongoId = getPatientMongoId(p);
 
                 return (
-                  <TableRow key={mongoId || patientId}>
+                  <TableRow
+                    key={mongoId || patientId}
+                    onClick={() => handlePatientClick(patientId)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="text-muted">{patientId}</TableCell>
                     <TableCell>{fullName}</TableCell>
                     <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
@@ -425,7 +436,11 @@ const Therapist: React.FC = observer(() => {
                     const endDate = getIsoMaybe(extra.rehab_end_date);
 
                     return (
-                      <TableRow key={mongoId || patientId} className="completed-row opacity-75">
+                      <TableRow
+                        key={mongoId || patientId}
+                        onClick={() => handlePatientClick(patientId)}
+                        className="cursor-pointer completed-row opacity-75"
+                      >
                         <TableCell className="text-muted">{patientId}</TableCell>
                         <TableCell>{fullName}</TableCell>
                         <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
