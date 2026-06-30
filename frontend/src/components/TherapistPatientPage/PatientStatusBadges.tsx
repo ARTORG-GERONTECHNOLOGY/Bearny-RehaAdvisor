@@ -42,7 +42,7 @@ const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) 
         {children}
       </Badge>
       {hovered && tip && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-max max-w-xs whitespace-pre-line rounded bg-zinc-900 px-2 py-1 text-xs text-white shadow-lg">
+        <div className="absolute z-50 bottom-full left-0 mb-1 w-max max-w-xs whitespace-pre-line rounded bg-zinc-900 px-2 py-1 text-xs text-white shadow-lg">
           {tip}
         </div>
       )}
