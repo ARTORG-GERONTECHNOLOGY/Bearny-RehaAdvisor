@@ -588,13 +588,6 @@ def register_view(request):
     if request.method != "POST":
         return _err("Method not allowed", status=405)
 
-    # In study mode only REDCap import is allowed; manual registration is blocked.
-    if os.getenv("APP_MODE", "normal").lower() == "study":
-        return JsonResponse(
-            {"error": "Manual patient creation is disabled in study mode. Use REDCap import."},
-            status=403,
-        )
-
     user = None
     patient = None
     therapist = None
@@ -669,6 +662,14 @@ def register_view(request):
                 "Validation error.",
                 status=400,
                 field_errors={"email": ["Email must not contain whitespace."]},
+            )
+
+        # In study mode only REDCap import is allowed for patients; therapist
+        # accounts must always be creatable regardless of platform mode.
+        if user_type == "Patient" and os.getenv("APP_MODE", "normal").lower() == "study":
+            return JsonResponse(
+                {"error": "Manual patient creation is disabled in study mode. Use REDCap import."},
+                status=403,
             )
 
         # -------- Extra validation by role --------
