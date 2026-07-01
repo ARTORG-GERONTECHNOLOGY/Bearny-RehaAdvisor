@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useEffect, useMemo } from 'react';
-import { Button, Col, Form, Row, Spinner, Badge, Table } from 'react-bootstrap';
+import { Col, Form, Row, Spinner, Badge, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
@@ -33,7 +33,8 @@ import {
   toDateInput,
   toDisplayDate,
 } from '@/stores/patientPopupStore';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
   if (!th || Object.keys(th).length === 0) return '—';
@@ -321,80 +322,87 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
               <>
                 <Button
                   variant="secondary"
+                  size="dashboard"
                   onClick={() => store.setEditing(false)}
                   disabled={store.saving}
                 >
-                  <FaUndo className="me-2" />
+                  <FaUndo />
                   {t('Cancel')}
                 </Button>
 
                 {hasRedcap && (
                   <Button
-                    variant="outline-info"
+                    variant="secondary"
+                    size="dashboard"
                     onClick={() => store.copyRedcapIntoManual()}
                     disabled={store.saving}
                     title={t('Copy missing fields from REDCap into the manual form')}
                   >
-                    <FaCloudDownloadAlt className="me-2" />
+                    <FaCloudDownloadAlt />
                     {t('Copy from REDCap')}
                   </Button>
                 )}
 
-                <Button variant="success" onClick={() => store.saveAll(t)} disabled={store.saving}>
-                  <FaDownload className="me-2" />
+                <Button size="dashboard" onClick={() => store.saveAll(t)} disabled={store.saving}>
+                  <FaDownload />
                   {store.saving ? t('Saving...') : t('SaveChanges')}
                 </Button>
               </>
             ) : (
               <>
                 <Button
-                  variant="warning"
+                  variant="secondary"
+                  size="dashboard"
                   onClick={() => store.setEditing(true)}
                   disabled={store.loading || store.saving}
                 >
-                  <FaEdit className="me-2" />
+                  <FaEdit />
                   {t('Edit')}
                 </Button>
 
                 <Button
-                  variant="outline-secondary"
+                  variant="secondary"
+                  size="dashboard"
                   onClick={() => store.fetchRedcapIfPossible(t)}
                   disabled={store.loading || store.redcapLoading}
                   title={t('Refresh REDCap data')}
                 >
-                  <FaSyncAlt className="me-2" />
+                  <FaSyncAlt />
                   {store.redcapLoading ? t('Loading...') : t('Refresh REDCap')}
                 </Button>
 
                 {store.redcapProject && (
                   <Button
-                    variant="outline-primary"
+                    variant="secondary"
+                    size="dashboard"
                     onClick={() => store.syncWearablesToRedcap(t)}
                     disabled={store.loading || store.wearablesSyncing}
                     title={t('Sync Fitbit wearables data to REDCap')}
                   >
-                    <FaUpload className="me-2" />
+                    <FaUpload />
                     {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}
                   </Button>
                 )}
 
                 <Button
-                  variant="danger"
+                  size="dashboard"
+                  onClick={() => store.setShowPasswordReset(true)}
+                  disabled={store.loading || store.saving}
+                  className="bg-yellow hover:bg-yellow/90"
+                >
+                  <FaKey />
+                  {t('ResetPassword')}
+                </Button>
+
+                <Button
+                  size="dashboard"
                   onClick={() => store.setShowConfirmDelete(true)}
                   aria-label={t('DeletePatient')}
                   disabled={store.loading || store.saving}
+                  className="bg-nok hover:bg-nok/90"
                 >
-                  <FaTrash className="me-2" />
+                  <FaTrash />
                   {t('DeletePatient')}
-                </Button>
-            
-                <Button
-                  variant="outline-warning"
-                  onClick={() => store.setShowPasswordReset(true)}
-                  disabled={store.loading || store.saving}
-                >
-                  <FaKey className="me-2" />
-                  {t('ResetPassword')}
                 </Button>
               </>
             )}
@@ -442,12 +450,11 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                 </Form.Group>
 
                 <Button
-                  variant="warning"
+                  size="dashboard"
                   disabled={store.passwordSaving}
                   onClick={() => store.resetPassword(t)}
-                  className="w-100"
                 >
-                  <FaKey className="me-2" />
+                  <FaKey />
                   {store.passwordSaving ? t('Saving...') : t('SetNewPassword')}
                 </Button>
               </div>
@@ -1181,6 +1188,17 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('REDCap')}</CardTitle>
+                    <CardAction>
+                      <Button
+                        variant="secondary"
+                        size="dashboard"
+                        onClick={() => store.fetchRedcapIfPossible(t)}
+                        disabled={store.redcapLoading}
+                      >
+                        <FaSyncAlt />
+                        {store.redcapLoading ? t('Loading...') : t('Refresh')}
+                      </Button>
+                    </CardAction>
                   </CardHeader>
                   <CardContent>
                     <div className="d-flex align-items-center justify-content-between mb-2">
@@ -1196,16 +1214,6 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                           <span>{t('No project selected')}</span>
                         )}
                       </div>
-
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => store.fetchRedcapIfPossible(t)}
-                        disabled={store.redcapLoading}
-                      >
-                        <FaSyncAlt className="me-2" />
-                        {store.redcapLoading ? t('Loading...') : t('Refresh')}
-                      </Button>
                     </div>
 
                     {store.redcapLoading ? (
