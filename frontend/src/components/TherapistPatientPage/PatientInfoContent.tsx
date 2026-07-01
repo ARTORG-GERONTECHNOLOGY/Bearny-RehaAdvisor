@@ -381,7 +381,72 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                 </Button>
               </>
             )}
+
+            <Button
+              variant={store.showPasswordReset ? 'outline-secondary' : 'outline-warning'}
+              onClick={() => store.setShowPasswordReset(!store.showPasswordReset)}
+              disabled={store.loading || store.saving}
+              aria-expanded={store.showPasswordReset}
+            >
+              <FaKey className="me-2" />
+              {store.showPasswordReset ? t('CancelPasswordReset') : t('ResetPassword')}
+            </Button>
           </div>
+
+          {store.showPasswordReset && (
+            <div className="mb-3 p-3 border rounded">
+              {store.passwordError && (
+                <div className="alert alert-danger py-2 px-3 mb-2" role="alert">
+                  {store.passwordError}
+                </div>
+              )}
+              {store.passwordSuccess && (
+                <div className="alert alert-success py-2 px-3 mb-2" role="alert">
+                  {t('PasswordResetSuccess')}
+                </div>
+              )}
+              <Row className="g-2 align-items-end">
+                <Col xs={12} md={4}>
+                  <Form.Group controlId="pw-reset-new">
+                    <Form.Label className="small mb-1">{t('NewPassword')}</Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={store.passwordNew}
+                      onChange={(e) => store.setPasswordNew(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Form.Group controlId="pw-reset-confirm">
+                    <Form.Label className="small mb-1">{t('ConfirmPassword')}</Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={store.passwordConfirm}
+                      onChange={(e) => store.setPasswordConfirm(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Button
+                    variant="warning"
+                    disabled={store.passwordSaving}
+                    onClick={() => store.resetPassword(t)}
+                    className="w-100"
+                  >
+                    <FaKey className="me-2" />
+                    {store.passwordSaving ? t('Saving...') : t('SetNewPassword')}
+                  </Button>
+                </Col>
+              </Row>
+              <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
+                {t('PasswordStrengthHint')}
+              </div>
+            </div>
+          )}
 
           <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
             <div className="text-muted">
@@ -620,75 +685,6 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   </Row>
                 </div>
               ))}
-
-              {/* ── Password reset section ───────────────────────────── */}
-              <div className="mb-2">
-                <hr />
-                <Button
-                  variant={store.showPasswordReset ? 'outline-secondary' : 'outline-warning'}
-                  size="sm"
-                  onClick={() => store.setShowPasswordReset(!store.showPasswordReset)}
-                  aria-expanded={store.showPasswordReset}
-                >
-                  <FaKey className="me-2" />
-                  {store.showPasswordReset ? t('CancelPasswordReset') : t('ResetPassword')}
-                </Button>
-
-                {store.showPasswordReset && (
-                  <div className="mt-3">
-                    {store.passwordError && (
-                      <div className="alert alert-danger py-2 px-3 mb-2" role="alert">
-                        {store.passwordError}
-                      </div>
-                    )}
-                    {store.passwordSuccess && (
-                      <div className="alert alert-success py-2 px-3 mb-2" role="alert">
-                        {t('PasswordResetSuccess')}
-                      </div>
-                    )}
-                    <Row className="g-2 align-items-end">
-                      <Col xs={12} md={4}>
-                        <Form.Group controlId="pw-reset-new">
-                          <Form.Label className="small mb-1">{t('NewPassword')}</Form.Label>
-                          <Form.Control
-                            type="password"
-                            value={store.passwordNew}
-                            onChange={(e) => store.setPasswordNew(e.target.value)}
-                            placeholder="••••••••"
-                            autoComplete="new-password"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={12} md={4}>
-                        <Form.Group controlId="pw-reset-confirm">
-                          <Form.Label className="small mb-1">{t('ConfirmPassword')}</Form.Label>
-                          <Form.Control
-                            type="password"
-                            value={store.passwordConfirm}
-                            onChange={(e) => store.setPasswordConfirm(e.target.value)}
-                            placeholder="••••••••"
-                            autoComplete="new-password"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={12} md={4}>
-                        <Button
-                          variant="warning"
-                          disabled={store.passwordSaving}
-                          onClick={() => store.resetPassword(t)}
-                          className="w-100"
-                        >
-                          <FaKey className="me-2" />
-                          {store.passwordSaving ? t('Saving...') : t('SetNewPassword')}
-                        </Button>
-                      </Col>
-                    </Row>
-                    <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
-                      {t('PasswordStrengthHint')}
-                    </div>
-                  </div>
-                )}
-              </div>
             </Tab>
 
             <Tab eventKey="characteristics" title={t('Characteristics')}>
