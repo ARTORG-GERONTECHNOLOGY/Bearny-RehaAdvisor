@@ -601,7 +601,7 @@ docker exec django-prod ps aux
 
 8. **Threshold change audit trail**
    - Every threshold update is stored as a history snapshot including the previous threshold values, the effective date, the reason, and the username of the therapist who made the change (`changed_by`).
-   - The history is visible in the Patient Popup → Thresholds tab → "Change history" table.
+   - The history is visible on the patient detail page, under Information → Goals & thresholds → "Change history" table.
    - `changed_by` is extracted from the JWT access token; it will be empty for requests made without a valid token (e.g. programmatic API calls).
 
 ## Support

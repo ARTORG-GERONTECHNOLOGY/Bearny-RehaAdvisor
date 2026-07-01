@@ -5,10 +5,7 @@ import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
 import { Alert, Spinner } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
-import authStore from '@/stores/authStore';
 
 import ExportModal from '@/components/Health/ExportModal';
 import HealthViewControls from '@/components/Health/HealthViewControls';
@@ -16,10 +13,6 @@ import HealthChartsAccordion from '@/components/Health/HealthChartsAccordion';
 
 import { isInRange, svgToImageDataUrl } from '@/utils/healthCharts';
 import HealthPageStore from '@/stores/healthPageStore';
-import Layout from '@/components/Layout';
-import { Button } from '@/components/ui/button';
-import { ArrowLeftIcon } from 'lucide-react';
-import PageHeader from '@/components/PageHeader';
 
 /* --------- helpers for European date formatting ---------- */
 const toEuroDate = (iso: string | null | undefined): string => {
@@ -32,12 +25,14 @@ const toEuroDate = (iso: string | null | undefined): string => {
 
 const formatDateEU = (d: Date): string => toEuroDate(d.toISOString().slice(0, 10));
 
-const HealthPage: React.FC = observer(() => {
-  const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+interface HealthPageContentProps {
+  patientId: string;
+}
 
-  // Local store instance for this page
-  const store = useMemo(() => new HealthPageStore(), []);
+const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientId }) => {
+  const { t, i18n } = useTranslation();
+
+  const store = useMemo(() => new HealthPageStore(), [patientId]);
 
   // Export modal state (UI-only)
   const [showExport, setShowExport] = useState(false);
@@ -72,25 +67,18 @@ const HealthPage: React.FC = observer(() => {
     exercise: true,
   };
 
-  // Auth + initial patient name
+  // Fetch data when patient or window changes
   useEffect(() => {
-    authStore.checkAuthentication();
-
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
-
-    const storedName = localStorage.getItem('selectedPatientName');
-    store.setPatientName(storedName || null);
+    if (!patientId) return;
+    store.fetchThresholds(patientId, t);
+    store.fetchCombinedHistoryForPatient(
+      patientId,
+      store.startDate.toISOString().slice(0, 10),
+      store.endDate.toISOString().slice(0, 10),
+      t
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate]);
-
-  // Fetch data when window changes
-  useEffect(() => {
-    store.fetchCombinedHealth(store.startDate, store.endDate, t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, store.viewMode, store.referenceDate, t]);
+  }, [patientId, store, store.viewMode, store.referenceDate, t]);
 
   const formatRangeLabel = (start: Date, end: Date) =>
     `${formatDateEU(start)} — ${formatDateEU(end)}`;
@@ -425,75 +413,58 @@ const HealthPage: React.FC = observer(() => {
   };
 
   return (
-    <Layout>
-      <div className="d-flex flex-column min-vh-100">
-        <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
-          <ArrowLeftIcon />
-          <span className="sr-only">{t('Back')}</span>
-        </Button>
+    <div className="d-flex flex-column min-vh-100">
+      {/* Threshold load error (non-blocking) */}
+      {store.thresholdsError && (
+        <Alert variant="warning" className="my-3" role="alert">
+          {store.thresholdsError}
+        </Alert>
+      )}
 
-        <div className="flex-grow-1 mt-2">
-          <PageHeader
-            title={
-              localStorage.getItem('selectedPatientId') ||
-              store.patientName ||
-              t('Outcomes Dashboard')
-            }
-          />
-
-          {/* Threshold load error (non-blocking) */}
-          {store.thresholdsError && (
-            <Alert variant="warning" className="my-3" role="alert">
-              {store.thresholdsError}
-            </Alert>
-          )}
-
-          {/* Controls */}
-          <div className="my-3">
-            <HealthViewControls
-              store={store}
-              t={t}
-              formatRangeLabel={formatRangeLabel}
-              onExportClick={() => setShowExport(true)}
-            />
-          </div>
-
-          {/* Error / Loading */}
-          {store.error && (
-            <Alert variant="danger" className="mb-3" role="alert">
-              {store.error}
-            </Alert>
-          )}
-
-          {store.loading ? (
-            <div className="d-flex justify-content-center align-items-center py-5">
-              <div className="text-center">
-                <Spinner animation="border" role="status" />
-                <div className="text-muted mt-2">{t('Loading')}...</div>
-              </div>
-            </div>
-          ) : (
-            <HealthChartsAccordion
-              store={store}
-              t={t}
-              lang={(i18n.language || 'en').split('-')[0]}
-              svgRefs={svgRefs}
-            />
-          )}
-        </div>
-
-        <ExportModal
-          show={showExport}
-          onClose={() => setShowExport(false)}
-          initialFrom={store.startDate}
-          initialTo={store.endDate}
-          selections={defaultSelections}
-          onExportCSV={handleExportCSV}
-          onExportPDF={handleExportPDF}
+      {/* Controls */}
+      <div className="my-3">
+        <HealthViewControls
+          store={store}
+          t={t}
+          formatRangeLabel={formatRangeLabel}
+          onExportClick={() => setShowExport(true)}
         />
       </div>
-    </Layout>
+
+      {/* Error / Loading */}
+      {store.error && (
+        <Alert variant="danger" className="mb-3" role="alert">
+          {store.error}
+        </Alert>
+      )}
+
+      {store.loading ? (
+        <div className="d-flex justify-content-center align-items-center py-5">
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+            <div className="text-muted mt-2">{t('Loading')}...</div>
+          </div>
+        </div>
+      ) : (
+        <HealthChartsAccordion
+          store={store}
+          t={t}
+          lang={(i18n.language || 'en').split('-')[0]}
+          svgRefs={svgRefs}
+        />
+      )}
+
+      <ExportModal
+        show={showExport}
+        onClose={() => setShowExport(false)}
+        initialFrom={store.startDate}
+        initialTo={store.endDate}
+        selections={defaultSelections}
+        onExportCSV={handleExportCSV}
+        onExportPDF={handleExportPDF}
+      />
+    </div>
   );
 });
 
-export default HealthPage;
+export default HealthPageContent;

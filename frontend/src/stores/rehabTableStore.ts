@@ -164,9 +164,9 @@ export class RehabTableStore {
   selectedTab: 'patient' | 'all' = 'patient';
 
   // Patient context
-  patientName = '';
   patientUsername = '';
   patientData: PatientPlan = EMPTY_PLAN;
+  explicitPatientId: string | null = null;
 
   // Data
   allInterventions: Intervention[] = []; // catalog (includes private if backend adds them)
@@ -216,7 +216,7 @@ export class RehabTableStore {
   // Derived / helpers
   // ---------------------------------------------------------------------------
   get patientIdForCalls() {
-    return localStorage.getItem('selectedPatient') || this.patientUsername;
+    return this.explicitPatientId || this.patientUsername;
   }
 
   get specialisations(): string[] {
@@ -264,8 +264,8 @@ export class RehabTableStore {
         ...(full || {}),
         ...(p || {}),
         // When matched via external_id (not _id), adopt the catalog's _id so
-        // all downstream _id-based lookups (patientAssignedItems, hasFutureDates,
-        // InterventionLeftPanel) resolve correctly.
+        // all downstream _id-based lookups (hasFutureDates, InterventionLeftPanel)
+        // resolve correctly.
         ...(extIdFallback ? { _id: (extIdFallback as any)._id as string } : {}),
         title:
           (typeof p.title === 'string' && p.title) ||
@@ -315,11 +315,6 @@ export class RehabTableStore {
     ) as unknown;
     const dates = getDates(planItem);
     return dates.some((d) => new Date(d.datetime) > new Date());
-  }
-
-  get patientAssignedItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
-    return (this.allInterventions || []).filter((it) => ids.has(it._id));
   }
 
   get activePatientItems(): Intervention[] {
@@ -410,17 +405,10 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   // Init / cleanup
   // ---------------------------------------------------------------------------
-  async init(navigate: (path: string) => void, t: (k: string) => unknown) {
+  async initForPatient(patientId: string, t: (k: string) => unknown) {
     this.entryTime = Date.now();
 
-    await authStore.checkAuthentication();
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
-
-    const sel = localStorage.getItem('selectedPatient');
-    if (!sel) {
+    if (!patientId) {
       runInAction(() => {
         this.loading = false;
         this.error =
@@ -430,8 +418,8 @@ export class RehabTableStore {
     }
 
     runInAction(() => {
-      this.patientUsername = sel;
-      this.patientName = localStorage.getItem('selectedPatientName') || sel;
+      this.explicitPatientId = patientId;
+      this.patientUsername = patientId;
       this.loading = true;
       this.error = null;
     });
@@ -449,7 +437,7 @@ export class RehabTableStore {
   async dispose() {
     const exitTime = Date.now();
     const durationMin = ((exitTime - this.entryTime) / 60000).toFixed(2);
-    const patient = localStorage.getItem('selectedPatient');
+    const patient = this.patientIdForCalls;
     const therapist = authStore?.id || 'unknown';
 
     try {

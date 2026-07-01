@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import PatientPopup from '@/components/TherapistPatientPage/PatientPopup';
+import { MemoryRouter } from 'react-router-dom';
+import PatientInfoContent from '@/components/TherapistPatientPage/PatientInfoContent';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
-import { PatientType } from '@/types';
 
 jest.mock('@/api/client', () => ({
   get: jest.fn(),
@@ -20,16 +20,16 @@ jest.mock('@/stores/authStore', () => ({
   },
 }));
 
-const mockPatient: PatientType = {
-  _id: 'abc123',
-  username: 'testuser',
-  first_name: 'John',
-  name: 'Doe',
-  age: '1990-01-01',
-  diagnosis: ['Stroke'],
-  sex: 'Male',
-  duration: 120,
-};
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => {
+  const actual = jest.requireActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+const patientId = 'abc123';
 
 const mockPatientData = {
   name: 'John Doe',
@@ -40,11 +40,13 @@ const mockPatientData = {
   age: '1990-01-01',
 };
 
-describe('PatientPopup', () => {
+describe('PatientInfoContent', () => {
   const renderComponent = () =>
     render(
       <I18nextProvider i18n={i18n}>
-        <PatientPopup show={true} handleClose={jest.fn()} patient_id={mockPatient} />
+        <MemoryRouter>
+          <PatientInfoContent patientId={patientId} />
+        </MemoryRouter>
       </I18nextProvider>
     );
 
@@ -65,7 +67,7 @@ describe('PatientPopup', () => {
   it('shows loading initially and then patient data', async () => {
     renderComponent();
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
-    expect(await screen.findByText(/John Doe/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('John Doe')).toBeInTheDocument();
   });
 
   it('enables editing and saves changes', async () => {
@@ -121,38 +123,6 @@ describe('PatientPopup', () => {
     });
   });
 
-  // Implement client-side validation for email in PatientPopup component
-  it.skip('shows validation error for invalid email', async () => {
-    renderComponent();
-
-    const editButton = await screen.findByText('Edit');
-    fireEvent.click(editButton);
-
-    const saveButton = await screen.findByText('Save Changes');
-    const emailInput = await screen.findByDisplayValue('john@example.com');
-    fireEvent.change(emailInput, { target: { value: 'invalidemail' } });
-
-    fireEvent.click(saveButton);
-
-    expect(await screen.findByText(/Invalid email format/i)).toBeInTheDocument();
-  });
-
-  // Implement client-side validation for phone in PatientPopup component
-  it.skip('shows validation error for invalid phone', async () => {
-    renderComponent();
-
-    const editButton = await screen.findByText('Edit');
-    fireEvent.click(editButton);
-
-    const saveButton = await screen.findByText('Save Changes');
-    const phoneInput = await screen.findByDisplayValue('+123456789');
-    fireEvent.change(phoneInput, { target: { value: 'abc' } });
-
-    fireEvent.click(saveButton);
-
-    expect(await screen.findByText(/Invalid phone number format/i)).toBeInTheDocument();
-  });
-
   it('opens delete confirmation and calls API', async () => {
     (apiClient.delete as jest.Mock).mockResolvedValue({});
     renderComponent();
@@ -184,6 +154,7 @@ describe('PatientPopup', () => {
       expect(screen.queryByText(/Confirm Deletion/i)).not.toBeInTheDocument();
     });
   });
+
   it('handles missing fields gracefully when normalizing data', async () => {
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/profile')) return Promise.resolve({ data: {} });
@@ -191,9 +162,9 @@ describe('PatientPopup', () => {
       return Promise.resolve({ data: {} });
     });
     renderComponent();
-    const matches = await screen.findAllByText(/Patient/i);
-    expect(matches.length).toBeGreaterThan(0);
+    expect(await screen.findByText('Edit')).toBeInTheDocument();
   });
+
   it('initializes multi-select fields as empty arrays when data missing', async () => {
     const partialData = { name: 'Anna' };
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
@@ -203,8 +174,9 @@ describe('PatientPopup', () => {
     });
 
     renderComponent();
-    expect(await screen.findByText(/Anna/)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Anna')).toBeInTheDocument();
   });
+
   it('updates formData correctly on multi-select change', async () => {
     renderComponent();
     await screen.findByText(/Edit/i);
@@ -214,6 +186,7 @@ describe('PatientPopup', () => {
     const instance = screen.getByText(/Cardiology/);
     expect(instance).toBeInTheDocument(); // Should already be selected
   });
+
   it('accepts valid email and phone input', async () => {
     (apiClient.put as jest.Mock).mockResolvedValue({});
     renderComponent();
@@ -240,14 +213,10 @@ describe('PatientPopup', () => {
       )
     );
   });
-  it('calls handleClose after successful delete', async () => {
-    const closeMock = jest.fn();
+
+  it('navigates to the patient list after successful delete', async () => {
     (apiClient.delete as jest.Mock).mockResolvedValue({});
-    render(
-      <I18nextProvider i18n={i18n}>
-        <PatientPopup show={true} handleClose={closeMock} patient_id={mockPatient} />
-      </I18nextProvider>
-    );
+    renderComponent();
 
     const deleteButton = await screen.findByText('DeletePatient');
     fireEvent.click(deleteButton);
@@ -255,8 +224,9 @@ describe('PatientPopup', () => {
     const confirmButton = await screen.findByText(/^Delete$/i);
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(closeMock).toHaveBeenCalled());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/therapist'));
   });
+
   it('cancels edit mode without saving', async () => {
     renderComponent();
 
@@ -268,6 +238,7 @@ describe('PatientPopup', () => {
 
     expect(screen.queryByText('Save Changes')).not.toBeInTheDocument(); // Editing exited
   });
+
   it('closes delete confirmation modal when cancelled', async () => {
     renderComponent();
 

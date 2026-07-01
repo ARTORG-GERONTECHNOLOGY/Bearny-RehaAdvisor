@@ -23,12 +23,6 @@ test.describe('Therapist health CSV export', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
     await loginAsTherapist(page);
-
-    const { patientId } = creds();
-    await page.evaluate((pid) => {
-      window.localStorage.setItem('selectedPatient', pid as string);
-      window.localStorage.setItem('selectedPatientName', 'CSV Export Patient');
-    }, patientId as string);
   });
 
   test('exports questionnaire CSV rows with question text, multi-answers, comments, and media URLs', async ({
@@ -80,7 +74,8 @@ test.describe('Therapist health CSV export', () => {
       });
     });
 
-    await page.goto('/health');
+    const { patientId } = creds();
+    await page.goto(`/therapist-patient-detail/${patientId}`);
     await expect(page.getByText(/questionnaire results by date/i)).toBeVisible();
 
     await page.getByRole('button', { name: /export/i }).click();

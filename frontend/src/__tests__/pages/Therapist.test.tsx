@@ -20,7 +20,6 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 // Mock child components
 jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
-jest.mock('@/components/TherapistPatientPage/PatientPopup', () => () => <div>Patient Popup</div>);
 jest.mock('../../config/config.json', () => ({
   RehaInfo: ['< 30 days', '30-60 days', '60-90 days', '> 90 days'],
   patientInfo: {
@@ -79,8 +78,6 @@ const mockStore = {
   error: '',
   errorDetails: null,
   showErrorDetails: false,
-  selectedPatient: null,
-  showPatientPopup: false,
   showAddPatientPopup: false,
   showImportRedcapModal: false,
   redcapLoading: false,
@@ -165,17 +162,6 @@ const mockStore = {
     const completed = sortedFiltered.filter((p) => mockStore.isCompletedPatient(p));
     return { active, completed };
   }),
-  openPatientPopup: jest.fn((patient: any) => {
-    mockStore.selectedPatient = patient;
-    mockStore.showPatientPopup = true;
-  }),
-  openPatient: jest.fn((patient: any) => {
-    mockStore.selectedPatient = patient;
-    mockStore.showPatientPopup = true;
-  }),
-  closePatientPopup: jest.fn(() => {
-    mockStore.showPatientPopup = false;
-  }),
   openAddPatientPopup: jest.fn(() => {
     mockStore.showAddPatientPopup = true;
   }),
@@ -242,7 +228,6 @@ describe('Therapist Page', () => {
     mockStore.patients = patientsMock;
     mockStore.loading = false;
     mockStore.error = '';
-    mockStore.showPatientPopup = false;
     mockStore.showAddPatientPopup = false;
     mockStore.selectedSex = 'All';
     mockStore.selectedDuration = 'All';

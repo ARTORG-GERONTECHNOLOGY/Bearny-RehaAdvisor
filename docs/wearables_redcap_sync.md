@@ -170,7 +170,7 @@ Priority: **API body argument > env var > per-project default**.
 
 ## Manual trigger (therapist UI)
 
-Open the **Patient popup** for any patient that has a REDCap project assigned. The **"Sync Wearables"** button appears in the footer (view mode only, not while editing).
+Open the **Information** tab on the patient detail page for any patient that has a REDCap project assigned. The **"Sync Wearables"** button appears in the footer (view mode only, not while editing).
 
 - The button is disabled while a sync is in progress
 - On success a green alert shows the per-period result (`ok` / `skipped`) and the payload sent to REDCap
@@ -292,7 +292,7 @@ sync_wearables_to_redcap_patient.delay("<patient_mongo_id>")
 | [backend/core/tasks.py](../backend/core/tasks.py) | `sync_wearables_to_redcap_patient` and `sync_wearables_to_redcap_all` Celery tasks |
 | [backend/api/settings/base.py](../backend/api/settings/base.py) | Celery beat schedule (02:30 UTC daily) |
 | [frontend/src/stores/patientPopupStore.ts](../frontend/src/stores/patientPopupStore.ts) | `syncWearablesToRedcap()` MobX action |
-| [frontend/src/components/TherapistPatientPage/PatientPopup.tsx](../frontend/src/components/TherapistPatientPage/PatientPopup.tsx) | "Sync Wearables" button and result display |
+| [frontend/src/components/TherapistPatientPage/PatientInfoContent.tsx](../frontend/src/components/TherapistPatientPage/PatientInfoContent.tsx) | "Sync Wearables" button and result display (Information tab) |
 | [backend/tests/wearables_redcap/](../backend/tests/wearables_redcap/) | Test suite (66 tests) |
 
 ---

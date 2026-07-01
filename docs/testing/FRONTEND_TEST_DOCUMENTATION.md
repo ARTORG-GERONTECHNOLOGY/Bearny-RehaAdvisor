@@ -38,8 +38,9 @@ frontend/src/__tests__/
 │   │   └── ProductPopup.test.tsx
 │   ├── TherapistPatient/
 │   │   ├── AddPatientPopup.test.tsx
-│   │   ├── PatientPopup.test.tsx
 │   │   └── RegisterPatientForm.test.tsx
+│   ├── TherapistPatientPage/
+│   │   └── PatientInfoContent.test.tsx
 │   ├── UserProfile/
 │   │   ├── DeleteConfirmation.test.tsx
 │   │   └── EditUserInfo.test.tsx
@@ -241,8 +242,8 @@ Component tests verify that React components render correctly and respond to use
     - Patient selection and addition
     - Multiple patient selection
 
-- **[PatientPopup.test.tsx](../../../frontend/src/__tests__/components/TherapistPatient/PatientPopup.test.tsx)**
-  - Purpose: Test patient detail popup
+- **[PatientInfoContent.test.tsx](../../../frontend/src/__tests__/components/TherapistPatientPage/PatientInfoContent.test.tsx)**
+  - Purpose: Test the "Information" tab of the unified patient detail page (formerly the patient detail popup)
   - Tested Features:
     - Patient details display
     - Edit patient information

@@ -91,8 +91,6 @@ export class TherapistPatientsStore {
   showErrorDetails = false;
 
   // popups
-  selectedPatient: PatientType | null = null;
-  showPatientPopup = false;
   showAddPatientPopup = false;
 
   // ✅ REDCap import modal
@@ -156,16 +154,6 @@ export class TherapistPatientsStore {
     this.diseaseFilter = '';
     this.showCompleted = false;
     this.sortBy = 'ampel';
-  }
-
-  openPatient(p: PatientType) {
-    this.selectedPatient = p;
-    this.showPatientPopup = true;
-  }
-
-  closePatient() {
-    this.showPatientPopup = false;
-    this.selectedPatient = null;
   }
 
   openAddPatient() {

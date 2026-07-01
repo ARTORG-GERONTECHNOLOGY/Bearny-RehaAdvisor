@@ -290,8 +290,9 @@ src/__tests__/
 │   │   ├── AddInterventionModal.test.tsx
 │   │   └── ProductPopup.test.tsx
 │   ├── TherapistPatient/
-│   │   ├── AddPatientPopup.test.tsx
-│   │   └── PatientPopup.test.tsx
+│   │   └── AddPatientPopup.test.tsx
+│   ├── TherapistPatientPage/
+│   │   └── PatientInfoContent.test.tsx
 │   └── UserProfile/
 │       └── ProfileForm.test.tsx
 │

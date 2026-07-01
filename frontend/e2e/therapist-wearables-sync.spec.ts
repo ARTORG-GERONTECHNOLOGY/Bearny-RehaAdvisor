@@ -69,14 +69,28 @@ async function mockPatientPopupPrereqs(page: Parameters<Parameters<typeof test>[
       }),
     });
   });
+
+  // The patient detail page lands on the Outcomes Dashboard tab first — stub its
+  // endpoint too so it doesn't cause unrelated network noise before we
+  // switch to the Information tab.
+  await page.route('**/patients/health-combined-history/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ fitbit: [], adherence: [], questionnaire: [] }),
+    });
+  });
 }
 
-async function openPatientPopup(page: Parameters<Parameters<typeof test>[1]>[0]) {
+async function openPatientInfoTab(page: Parameters<Parameters<typeof test>[1]>[0]) {
   await page.goto('/therapist');
 
-  const infoBtn = page.getByRole('button', { name: /info/i }).first();
-  await expect(infoBtn).toBeVisible({ timeout: 15000 });
-  await infoBtn.click();
+  // Patient rows navigate to the consolidated patient detail page.
+  const patientRow = page.locator('tr.cursor-pointer').first();
+  await expect(patientRow).toBeVisible({ timeout: 15000 });
+  await patientRow.click();
+
+  await page.getByRole('tab', { name: 'Information' }).click();
 
   await expect(page.getByRole('button', { name: /sync wearables/i })).toBeVisible({
     timeout: 10000,
@@ -125,7 +139,7 @@ test.describe('Therapist patient popup wearables sync', () => {
       });
     });
 
-    await openPatientPopup(page);
+    await openPatientInfoTab(page);
 
     const syncReq = page.waitForRequest(
       (req) => req.method() === 'POST' && req.url().includes('/wearables/sync-to-redcap/')
@@ -201,7 +215,7 @@ test.describe('Therapist patient popup wearables sync', () => {
       });
     });
 
-    await openPatientPopup(page);
+    await openPatientInfoTab(page);
     await page.getByRole('button', { name: /sync wearables/i }).click();
 
     const successAlert = page
@@ -225,7 +239,7 @@ test.describe('Therapist patient popup wearables sync', () => {
       });
     });
 
-    await openPatientPopup(page);
+    await openPatientInfoTab(page);
 
     await page.getByRole('button', { name: /sync wearables/i }).click();
 

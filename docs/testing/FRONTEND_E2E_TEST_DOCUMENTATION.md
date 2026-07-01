@@ -122,16 +122,16 @@ Validates therapist patient-list feedback traffic lights on `/therapist` using c
 
 ### `therapist-characteristics-space-input.spec.ts`
 
-Validates therapist patient-popup Characteristics input behavior:
-- Opens `/therapist` and opens a patient popup via the `Info` button
+Validates therapist patient-detail Characteristics input behavior:
+- Opens `/therapist` and navigates to a patient's detail page, `Information` tab
 - Switches to the Characteristics tab in edit mode
 - Types multi-word comma-separated values (containing spaces)
 - Verifies the profile save payload keeps internal spaces while normalizing by comma split
 
 ### `therapist-wearables-sync.spec.ts`
 
-Validates therapist patient-popup wearables sync behavior:
-- Opens `/therapist` and opens the patient popup via the `Info` action
+Validates therapist patient-detail wearables sync behavior:
+- Opens `/therapist` and navigates to a patient's detail page, `Information` tab
 - Triggers `POST /wearables/sync-to-redcap/<patient_id>/`
 - Verifies successful sync alert shows period-level statuses
 - Verifies sync payload details are rendered in table form (from `sent_payloads`)

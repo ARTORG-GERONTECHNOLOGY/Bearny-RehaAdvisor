@@ -3,18 +3,6 @@
 /* =========================
    Base page layout
    ========================= */
-.rehaPage {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.rehaPage__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 12px;
-}
-
 .rehaLayout {
   max-width: 1400px;
   margin: 0 auto;
@@ -214,12 +202,6 @@
   flex-wrap: wrap;
 }
 
-.rehaCalendar__controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .rehaCalendar__legendWrap {
   display: flex;
   align-items: center;
@@ -309,10 +291,6 @@
 @media (max-width: 576px) {
   :root {
     --reha-panels-max-h: calc(100dvh - 220px);
-  }
-
-  .rehaPage__content {
-    padding: 12px;
   }
 }
 /* Make the filters accordion more compact */
