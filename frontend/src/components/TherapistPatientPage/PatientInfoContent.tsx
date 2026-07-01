@@ -20,13 +20,7 @@ import config from '@/config/config.json';
 import { appModeStore } from '@/stores/appModeStore';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
+import PasswordResetSheet from '@/components/TherapistPatientPage/PasswordResetSheet';
 import {
   PatientPopupStore,
   PatientThresholds,
@@ -408,58 +402,18 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             )}
           </div>
 
-          <Sheet open={store.showPasswordReset} onOpenChange={(v) => store.setShowPasswordReset(v)}>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>{t('ResetPassword')}</SheetTitle>
-                <SheetDescription>{t('PasswordStrengthHint')}</SheetDescription>
-              </SheetHeader>
-
-              <div className="mt-4">
-                {store.passwordError && (
-                  <div className="alert alert-danger py-2 px-3 mb-2" role="alert">
-                    {store.passwordError}
-                  </div>
-                )}
-                {store.passwordSuccess && (
-                  <div className="alert alert-success py-2 px-3 mb-2" role="alert">
-                    {t('PasswordResetSuccess')}
-                  </div>
-                )}
-
-                <Form.Group controlId="pw-reset-new" className="mb-3">
-                  <Form.Label className="small mb-1">{t('NewPassword')}</Form.Label>
-                  <Form.Control
-                    type="password"
-                    value={store.passwordNew}
-                    onChange={(e) => store.setPasswordNew(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </Form.Group>
-
-                <Form.Group controlId="pw-reset-confirm" className="mb-3">
-                  <Form.Label className="small mb-1">{t('ConfirmPassword')}</Form.Label>
-                  <Form.Control
-                    type="password"
-                    value={store.passwordConfirm}
-                    onChange={(e) => store.setPasswordConfirm(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </Form.Group>
-
-                <Button
-                  size="dashboard"
-                  disabled={store.passwordSaving}
-                  onClick={() => store.resetPassword(t)}
-                >
-                  <FaKey />
-                  {store.passwordSaving ? t('Saving...') : t('SetNewPassword')}
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <PasswordResetSheet
+            open={store.showPasswordReset}
+            onOpenChange={(v) => store.setShowPasswordReset(v)}
+            passwordNew={store.passwordNew}
+            passwordConfirm={store.passwordConfirm}
+            passwordError={store.passwordError}
+            passwordSuccess={store.passwordSuccess}
+            passwordSaving={store.passwordSaving}
+            onPasswordNewChange={(v) => store.setPasswordNew(v)}
+            onPasswordConfirmChange={(v) => store.setPasswordConfirm(v)}
+            onSubmit={() => store.resetPassword(t)}
+          />
 
           <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
             <div className="text-muted">
@@ -1233,10 +1187,10 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                           )}
                         </p>
 
-                        <Table striped bordered hover responsive size="sm">
+                        <Table hover responsive size="sm">
                           <thead>
                             <tr>
-                              <th style={{ width: 280 }}>{t('Field')}</th>
+                              <th>{t('Field')}</th>
                               <th>{t('Value')}</th>
                             </tr>
                           </thead>
@@ -1244,7 +1198,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                             {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
                               <tr key={k}>
                                 <td>
-                                  <code>{k}</code>
+                                  <span className="text-zinc-500">{k}</span>
                                 </td>
                                 <td style={{ whiteSpace: 'pre-wrap' }}>
                                   {typeof v === 'object' ? JSON.stringify(v) : String(v)}
