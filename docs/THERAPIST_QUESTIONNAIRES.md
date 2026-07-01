@@ -25,14 +25,14 @@ When assigning or modifying a questionnaire:
 This creates recurring monthly acceptability questionnaire sessions for the selected patient.
 
 ## Patient answers visibility
-1. Open the `Outcomes` tab on the patient detail page.
+1. Open the `Outcomes Dashboard` tab on the patient detail page.
 2. Questionnaire answers are shown in:
    - `Total Questionnaire Score Per Day`
    - `Questionnaire Answers Over Time`
 3. Therapist patient list (`/therapist`) also shows compact feedback status (score trend + adherence tooltip), but not full answer rows.
 
 ## CSV export
-On the `Outcomes` tab:
+On the `Outcomes Dashboard` tab:
 1. Click `Export…`.
 2. Keep `questionnaire` selected and click `Export CSV`.
 

@@ -167,7 +167,7 @@ describe('TherapistPatientDetail Page', () => {
   it('renders all tabs', () => {
     renderPage();
 
-    expect(screen.getByText('Outcomes')).toBeInTheDocument();
+    expect(screen.getByText('Outcomes Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Rehabilitation Plan')).toBeInTheDocument();
     expect(screen.getByText('Questionnaires')).toBeInTheDocument();
     expect(screen.getByText('Information')).toBeInTheDocument();

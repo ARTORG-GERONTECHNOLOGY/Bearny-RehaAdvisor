@@ -70,7 +70,7 @@ async function mockPatientPopupPrereqs(page: Parameters<Parameters<typeof test>[
     });
   });
 
-  // The patient detail page lands on the Outcomes tab first — stub its
+  // The patient detail page lands on the Outcomes Dashboard tab first — stub its
   // endpoint too so it doesn't cause unrelated network noise before we
   // switch to the Information tab.
   await page.route('**/patients/health-combined-history/**', async (route) => {

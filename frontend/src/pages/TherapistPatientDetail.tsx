@@ -25,7 +25,7 @@ const TABS: {
   {
     value: 'outcomes',
     icon: ChartColumn,
-    label: 'Outcomes',
+    label: 'Outcomes Dashboard',
     Component: HealthPageContent,
   },
   {

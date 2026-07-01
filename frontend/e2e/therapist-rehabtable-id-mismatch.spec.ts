@@ -119,7 +119,7 @@ async function mockPlanAndCatalog(page: Page) {
     r.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
 
-  // The patient detail page also mounts the Outcomes tab (and fetches the
+  // The patient detail page also mounts the Outcomes Dashboard tab (and fetches the
   // patient header) by default — stub those out too since this test only
   // cares about the Rehabilitation Plan tab.
   await page.route(/\/users\/.*\/profile/, (r) =>
