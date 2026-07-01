@@ -165,7 +165,15 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
           return (
             <TableRow
               key={rec._id}
+              role="button"
+              tabIndex={0}
               onClick={() => onClick(rec)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onClick(rec);
+                }
+              }}
               className="cursor-pointer"
               aria-label={t('Intervention')}
             >
