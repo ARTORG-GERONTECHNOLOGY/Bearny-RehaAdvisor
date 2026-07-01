@@ -2,8 +2,8 @@
 
 ## Where to find it
 1. Open therapist view and select a patient.
-2. Open the patient rehabilitation page (`RehabTable`).
-3. In the top tabs, switch from `Interventions` to `Questionnaires`.
+2. This opens the unified patient detail page (`/therapist-patient-detail/:patientId`).
+3. In the top tabs, switch to `Questionnaires`.
 
 ## What you can do there
 1. See **Available questionnaires** (left card).
@@ -25,14 +25,14 @@ When assigning or modifying a questionnaire:
 This creates recurring monthly acceptability questionnaire sessions for the selected patient.
 
 ## Patient answers visibility
-1. Open therapist `Health` page for the selected patient.
+1. Open the `Outcomes` tab on the patient detail page.
 2. Questionnaire answers are shown in:
    - `Total Questionnaire Score Per Day`
    - `Questionnaire Answers Over Time`
 3. Therapist patient list (`/therapist`) also shows compact feedback status (score trend + adherence tooltip), but not full answer rows.
 
 ## CSV export
-On therapist `Health` page:
+On the `Outcomes` tab:
 1. Click `Export…`.
 2. Keep `questionnaire` selected and click `Export CSV`.
 
