@@ -33,6 +33,7 @@ import {
   toDateInput,
   toDisplayDate,
 } from '@/stores/patientPopupStore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
   if (!th || Object.keys(th).length === 0) return '—';
@@ -505,704 +506,754 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             className="mb-3"
           >
             <Tab eventKey="profile" title={t('Profile')}>
-              <div className="mb-4">
-                <h5 className="mb-3">{t('Contacts')}</h5>
-                <Row className="g-3">
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="last_online_contact">
-                      <Form.Label>{t('Last online visit')}</Form.Label>
-                      <Form.Control
-                        plaintext
-                        readOnly
-                        value={toDisplayDate(store.getDisplayValue('last_online_contact')) || '—'}
-                      />
-                    </Form.Group>
-                  </Col>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('Profile')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <h5 className="mb-3">{t('Contacts')}</h5>
+                    <Row className="g-3">
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="last_online_contact">
+                          <Form.Label>{t('Last online visit')}</Form.Label>
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={
+                              toDisplayDate(store.getDisplayValue('last_online_contact')) || '—'
+                            }
+                          />
+                        </Form.Group>
+                      </Col>
 
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="last_clinic_visit">
-                      <Form.Label>
-                        {t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" />
-                      </Form.Label>
-                      {store.isEditing ? (
-                        <Form.Control
-                          id="last_clinic_visit"
-                          type="date"
-                          value={toDateInput(store.formData.last_clinic_visit)}
-                          onChange={handleChange}
-                        />
-                      ) : (
-                        <Form.Control
-                          plaintext
-                          readOnly
-                          value={toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'}
-                        />
-                      )}
-                    </Form.Group>
-                  </Col>
-
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="therapist_name">
-                      <Form.Label>{t('Therapist')}</Form.Label>
-                      <Form.Control
-                        plaintext
-                        readOnly
-                        value={store.getDisplayValue('therapist_name') || '—'}
-                      />
-                    </Form.Group>
-                  </Col>
-
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="clinic">
-                      <Form.Label>
-                        {t('Clinic')} <SourceBadge fieldKey="clinic" />
-                      </Form.Label>
-                      {store.isEditing ? (
-                        <Form.Select
-                          id="clinic"
-                          value={store.formData.clinic || ''}
-                          onChange={(e) => {
-                            store.setField('clinic', e.target.value);
-                            store.setField('project', '');
-                          }}
-                        >
-                          <option value="">{t('Select clinic')}</option>
-                          {Object.keys((config as any).therapistInfo?.clinic_projects || {}).map(
-                            (c) => (
-                              <option key={c} value={c}>
-                                {t(c)}
-                              </option>
-                            )
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="last_clinic_visit">
+                          <Form.Label>
+                            {t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" />
+                          </Form.Label>
+                          {store.isEditing ? (
+                            <Form.Control
+                              id="last_clinic_visit"
+                              type="date"
+                              value={toDateInput(store.formData.last_clinic_visit)}
+                              onChange={handleChange}
+                            />
+                          ) : (
+                            <Form.Control
+                              plaintext
+                              readOnly
+                              value={
+                                toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'
+                              }
+                            />
                           )}
-                        </Form.Select>
-                      ) : (
-                        <Form.Control
-                          plaintext
-                          readOnly
-                          value={store.getDisplayValue('clinic') || '—'}
-                        />
-                      )}
-                    </Form.Group>
-                  </Col>
+                        </Form.Group>
+                      </Col>
 
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="project">
-                      <Form.Label>
-                        {t('Project')} <SourceBadge fieldKey="project" />
-                      </Form.Label>
-                      {store.isEditing ? (
-                        <Form.Select
-                          id="project"
-                          value={store.formData.project || ''}
-                          onChange={handleChange}
-                          disabled={!store.formData.clinic}
-                        >
-                          <option value="">{t('Select project')}</option>
-                          {(
-                            (config as any).therapistInfo?.clinic_projects?.[
-                              store.formData.clinic
-                            ] || []
-                          ).map((p: string) => (
-                            <option key={p} value={p}>
-                              {t(p)}
-                            </option>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="therapist_name">
+                          <Form.Label>{t('Therapist')}</Form.Label>
+                          <Form.Control
+                            plaintext
+                            readOnly
+                            value={store.getDisplayValue('therapist_name') || '—'}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="clinic">
+                          <Form.Label>
+                            {t('Clinic')} <SourceBadge fieldKey="clinic" />
+                          </Form.Label>
+                          {store.isEditing ? (
+                            <Form.Select
+                              id="clinic"
+                              value={store.formData.clinic || ''}
+                              onChange={(e) => {
+                                store.setField('clinic', e.target.value);
+                                store.setField('project', '');
+                              }}
+                            >
+                              <option value="">{t('Select clinic')}</option>
+                              {Object.keys(
+                                (config as any).therapistInfo?.clinic_projects || {}
+                              ).map((c) => (
+                                <option key={c} value={c}>
+                                  {t(c)}
+                                </option>
+                              ))}
+                            </Form.Select>
+                          ) : (
+                            <Form.Control
+                              plaintext
+                              readOnly
+                              value={store.getDisplayValue('clinic') || '—'}
+                            />
+                          )}
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="project">
+                          <Form.Label>
+                            {t('Project')} <SourceBadge fieldKey="project" />
+                          </Form.Label>
+                          {store.isEditing ? (
+                            <Form.Select
+                              id="project"
+                              value={store.formData.project || ''}
+                              onChange={handleChange}
+                              disabled={!store.formData.clinic}
+                            >
+                              <option value="">{t('Select project')}</option>
+                              {(
+                                (config as any).therapistInfo?.clinic_projects?.[
+                                  store.formData.clinic
+                                ] || []
+                              ).map((p: string) => (
+                                <option key={p} value={p}>
+                                  {t(p)}
+                                </option>
+                              ))}
+                            </Form.Select>
+                          ) : (
+                            <Form.Control
+                              plaintext
+                              readOnly
+                              value={store.getDisplayValue('project') || '—'}
+                            />
+                          )}
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="reha_end_date">
+                          <Form.Label>
+                            {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />
+                          </Form.Label>
+                          {store.isEditing ? (
+                            <Form.Control
+                              id="reha_end_date"
+                              type="date"
+                              value={toDateInput(store.formData.reha_end_date)}
+                              onChange={handleChange}
+                            />
+                          ) : (
+                            <Form.Control
+                              plaintext
+                              readOnly
+                              value={toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
+                            />
+                          )}
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="study_end_date">
+                          <Form.Label>
+                            {t('Study / After-Rehab Plan End Date')}{' '}
+                            <SourceBadge fieldKey="study_end_date" />
+                          </Form.Label>
+                          {store.isEditing ? (
+                            <Form.Control
+                              id="study_end_date"
+                              type="date"
+                              value={toDateInput(store.formData.study_end_date)}
+                              onChange={handleChange}
+                            />
+                          ) : (
+                            <Form.Control
+                              plaintext
+                              readOnly
+                              value={toDisplayDate(store.getDisplayValue('study_end_date')) || '—'}
+                            />
+                          )}
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </div>
+
+                  {(config as any).PatientForm.map((section: any, idx: number) => (
+                    <div key={idx} className="mb-4">
+                      <h5 className="mb-3">{t(section.title)}</h5>
+                      <Row className="g-3">
+                        {section.fields
+                          .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
+                          .filter(
+                            (f: any) =>
+                              !appModeStore.hidePiiFields ||
+                              !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
+                          )
+                          .map((field: any, index: number) => (
+                            <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
+                              <Form.Group controlId={field.be_name}>
+                                <Form.Label>
+                                  {t(field.label)}
+                                  <SourceBadge fieldKey={field.be_name} />
+                                </Form.Label>
+                                {renderField(field)}
+                              </Form.Group>
+                            </Col>
                           ))}
-                        </Form.Select>
-                      ) : (
-                        <Form.Control
-                          plaintext
-                          readOnly
-                          value={store.getDisplayValue('project') || '—'}
-                        />
-                      )}
-                    </Form.Group>
-                  </Col>
-
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="reha_end_date">
-                      <Form.Label>
-                        {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />
-                      </Form.Label>
-                      {store.isEditing ? (
-                        <Form.Control
-                          id="reha_end_date"
-                          type="date"
-                          value={toDateInput(store.formData.reha_end_date)}
-                          onChange={handleChange}
-                        />
-                      ) : (
-                        <Form.Control
-                          plaintext
-                          readOnly
-                          value={toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
-                        />
-                      )}
-                    </Form.Group>
-                  </Col>
-
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="study_end_date">
-                      <Form.Label>
-                        {t('Study / After-Rehab Plan End Date')}{' '}
-                        <SourceBadge fieldKey="study_end_date" />
-                      </Form.Label>
-                      {store.isEditing ? (
-                        <Form.Control
-                          id="study_end_date"
-                          type="date"
-                          value={toDateInput(store.formData.study_end_date)}
-                          onChange={handleChange}
-                        />
-                      ) : (
-                        <Form.Control
-                          plaintext
-                          readOnly
-                          value={toDisplayDate(store.getDisplayValue('study_end_date')) || '—'}
-                        />
-                      )}
-                    </Form.Group>
-                  </Col>
-                </Row>
-              </div>
-
-              {(config as any).PatientForm.map((section: any, idx: number) => (
-                <div key={idx} className="mb-4">
-                  <h5 className="mb-3">{t(section.title)}</h5>
-                  <Row className="g-3">
-                    {section.fields
-                      .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
-                      .filter(
-                        (f: any) =>
-                          !appModeStore.hidePiiFields ||
-                          !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
-                      )
-                      .map((field: any, index: number) => (
-                        <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
-                          <Form.Group controlId={field.be_name}>
-                            <Form.Label>
-                              {t(field.label)}
-                              <SourceBadge fieldKey={field.be_name} />
-                            </Form.Label>
-                            {renderField(field)}
-                          </Form.Group>
-                        </Col>
-                      ))}
-                  </Row>
-                </div>
-              ))}
+                      </Row>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             </Tab>
 
             <Tab eventKey="characteristics" title={t('Characteristics')}>
-              <Row className="g-3">
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="level_of_education">
-                    <Form.Label>
-                      {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
-                    </Form.Label>
-                    <Form.Control
-                      id="level_of_education"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.formData.level_of_education || ''
-                          : store.getDisplayValue('level_of_education') || ''
-                      }
-                      onChange={handleChange}
-                      disabled={!store.isEditing}
-                      maxLength={200}
-                    />
-                  </Form.Group>
-                </Col>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('Characteristics')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Row className="g-3">
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="level_of_education">
+                        <Form.Label>
+                          {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
+                        </Form.Label>
+                        <Form.Control
+                          id="level_of_education"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.formData.level_of_education || ''
+                              : store.getDisplayValue('level_of_education') || ''
+                          }
+                          onChange={handleChange}
+                          disabled={!store.isEditing}
+                          maxLength={200}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="professional_status">
-                    <Form.Label>
-                      {t('Professional status')} <SourceBadge fieldKey="professional_status" />
-                    </Form.Label>
-                    <Form.Control
-                      id="professional_status"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.formData.professional_status || ''
-                          : store.getDisplayValue('professional_status') || ''
-                      }
-                      onChange={handleChange}
-                      disabled={!store.isEditing}
-                      maxLength={200}
-                    />
-                  </Form.Group>
-                </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="professional_status">
+                        <Form.Label>
+                          {t('Professional status')} <SourceBadge fieldKey="professional_status" />
+                        </Form.Label>
+                        <Form.Control
+                          id="professional_status"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.formData.professional_status || ''
+                              : store.getDisplayValue('professional_status') || ''
+                          }
+                          onChange={handleChange}
+                          disabled={!store.isEditing}
+                          maxLength={200}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="marital_status">
-                    <Form.Label>
-                      {t('Marital status')} <SourceBadge fieldKey="marital_status" />
-                    </Form.Label>
-                    <Form.Control
-                      id="marital_status"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.formData.marital_status || ''
-                          : store.getDisplayValue('marital_status') || ''
-                      }
-                      onChange={handleChange}
-                      disabled={!store.isEditing}
-                      maxLength={200}
-                    />
-                  </Form.Group>
-                </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="marital_status">
+                        <Form.Label>
+                          {t('Marital status')} <SourceBadge fieldKey="marital_status" />
+                        </Form.Label>
+                        <Form.Control
+                          id="marital_status"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.formData.marital_status || ''
+                              : store.getDisplayValue('marital_status') || ''
+                          }
+                          onChange={handleChange}
+                          disabled={!store.isEditing}
+                          maxLength={200}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="lifestyle">
-                    <Form.Label>
-                      {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
-                    </Form.Label>
-                    <Form.Control
-                      id="lifestyle"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.arrayToDisplay(store.formData.lifestyle)
-                          : store.arrayToDisplay(store.getDisplayValue('lifestyle'))
-                      }
-                      onChange={(e) => store.setCommaSeparated('lifestyle', e.target.value)}
-                      disabled={!store.isEditing}
-                      placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
-                      maxLength={1000}
-                    />
-                  </Form.Group>
-                </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="lifestyle">
+                        <Form.Label>
+                          {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
+                        </Form.Label>
+                        <Form.Control
+                          id="lifestyle"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.arrayToDisplay(store.formData.lifestyle)
+                              : store.arrayToDisplay(store.getDisplayValue('lifestyle'))
+                          }
+                          onChange={(e) => store.setCommaSeparated('lifestyle', e.target.value)}
+                          disabled={!store.isEditing}
+                          placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
+                          maxLength={1000}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="personal_goals">
-                    <Form.Label>
-                      {t('Personal goals (comma separated)')}{' '}
-                      <SourceBadge fieldKey="personal_goals" />
-                    </Form.Label>
-                    <Form.Control
-                      id="personal_goals"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.arrayToDisplay(store.formData.personal_goals)
-                          : store.arrayToDisplay(store.getDisplayValue('personal_goals'))
-                      }
-                      onChange={(e) => store.setCommaSeparated('personal_goals', e.target.value)}
-                      disabled={!store.isEditing}
-                      placeholder={t('e.g. Walk 30 min daily, Return to work')}
-                      maxLength={1000}
-                    />
-                  </Form.Group>
-                </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="personal_goals">
+                        <Form.Label>
+                          {t('Personal goals (comma separated)')}{' '}
+                          <SourceBadge fieldKey="personal_goals" />
+                        </Form.Label>
+                        <Form.Control
+                          id="personal_goals"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.arrayToDisplay(store.formData.personal_goals)
+                              : store.arrayToDisplay(store.getDisplayValue('personal_goals'))
+                          }
+                          onChange={(e) =>
+                            store.setCommaSeparated('personal_goals', e.target.value)
+                          }
+                          disabled={!store.isEditing}
+                          placeholder={t('e.g. Walk 30 min daily, Return to work')}
+                          maxLength={1000}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12} md={6}>
-                  <Form.Group controlId="social_support">
-                    <Form.Label>
-                      {t('Social support (comma separated)')}{' '}
-                      <SourceBadge fieldKey="social_support" />
-                    </Form.Label>
-                    <Form.Control
-                      id="social_support"
-                      type="text"
-                      value={
-                        store.isEditing
-                          ? store.arrayToDisplay(store.formData.social_support)
-                          : store.arrayToDisplay(store.getDisplayValue('social_support'))
-                      }
-                      onChange={(e) => store.setCommaSeparated('social_support', e.target.value)}
-                      disabled={!store.isEditing}
-                      placeholder={t('e.g. Family, Friends, Community group')}
-                      maxLength={1000}
-                    />
-                  </Form.Group>
-                </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group controlId="social_support">
+                        <Form.Label>
+                          {t('Social support (comma separated)')}{' '}
+                          <SourceBadge fieldKey="social_support" />
+                        </Form.Label>
+                        <Form.Control
+                          id="social_support"
+                          type="text"
+                          value={
+                            store.isEditing
+                              ? store.arrayToDisplay(store.formData.social_support)
+                              : store.arrayToDisplay(store.getDisplayValue('social_support'))
+                          }
+                          onChange={(e) =>
+                            store.setCommaSeparated('social_support', e.target.value)
+                          }
+                          disabled={!store.isEditing}
+                          placeholder={t('e.g. Family, Friends, Community group')}
+                          maxLength={1000}
+                        />
+                      </Form.Group>
+                    </Col>
 
-                <Col xs={12}>
-                  <Form.Group controlId="restrictions">
-                    <Form.Label>
-                      {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
-                    </Form.Label>
-                    <Form.Control
-                      id="restrictions"
-                      as="textarea"
-                      rows={3}
-                      value={
-                        store.isEditing
-                          ? store.formData.restrictions || ''
-                          : store.getDisplayValue('restrictions') || ''
-                      }
-                      onChange={handleChange}
-                      disabled={!store.isEditing}
-                      maxLength={2000}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                    <Col xs={12}>
+                      <Form.Group controlId="restrictions">
+                        <Form.Label>
+                          {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
+                        </Form.Label>
+                        <Form.Control
+                          id="restrictions"
+                          as="textarea"
+                          rows={3}
+                          value={
+                            store.isEditing
+                              ? store.formData.restrictions || ''
+                              : store.getDisplayValue('restrictions') || ''
+                          }
+                          onChange={handleChange}
+                          disabled={!store.isEditing}
+                          maxLength={2000}
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                </CardContent>
+              </Card>
             </Tab>
 
             <Tab eventKey="thresholds" title={t('Goals & thresholds')}>
-              <div className="mb-3 text-muted">
-                {t(
-                  'These goals affect how health charts are colored and how progress is interpreted.'
-                )}
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('Goals & thresholds')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-3 text-muted">
+                    {t(
+                      'These goals affect how health charts are colored and how progress is interpreted.'
+                    )}
+                  </div>
 
-              {/* CURRENT THRESHOLDS */}
-              <div className="mb-4">
-                <h5 className="mb-3">{t('Current thresholds')}</h5>
+                  {/* CURRENT THRESHOLDS */}
+                  <div className="mb-4">
+                    <h5 className="mb-3">{t('Current thresholds')}</h5>
 
-                {!store.thresholds ? (
-                  <div className="text-muted">{t('No thresholds loaded.')}</div>
-                ) : (
-                  <Row className="g-3">
-                    {/* Steps */}
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="steps_goal">
-                        <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('steps_goal', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={0}
-                          max={200000}
-                        />
-                      </Form.Group>
-                    </Col>
+                    {!store.thresholds ? (
+                      <div className="text-muted">{t('No thresholds loaded.')}</div>
+                    ) : (
+                      <Row className="g-3">
+                        {/* Steps */}
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="steps_goal">
+                            <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('steps_goal', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={0}
+                              max={200000}
+                            />
+                          </Form.Group>
+                        </Col>
 
-                    {/* Active zone minutes */}
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="active_minutes_green">
-                        <Form.Label className="fw-semibold">
-                          {t('Active zone minutes (green)')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.active_minutes_green ??
-                            store.thresholds.active_minutes_green ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('active_minutes_green', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={0}
-                          max={1440}
-                        />
-                      </Form.Group>
-                    </Col>
+                        {/* Active zone minutes */}
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="active_minutes_green">
+                            <Form.Label className="fw-semibold">
+                              {t('Active zone minutes (green)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.active_minutes_green ??
+                                store.thresholds.active_minutes_green ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField(
+                                  'active_minutes_green',
+                                  Number(e.target.value)
+                                )
+                              }
+                              disabled={!store.isEditing}
+                              min={0}
+                              max={1440}
+                            />
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="active_minutes_yellow">
-                        <Form.Label className="fw-semibold">
-                          {t('Active zone minutes (yellow)')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.active_minutes_yellow ??
-                            store.thresholds.active_minutes_yellow ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('active_minutes_yellow', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={0}
-                          max={1440}
-                        />
-                        <div className="text-muted small mt-1">{t('Green should be ≥ yellow')}</div>
-                      </Form.Group>
-                    </Col>
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="active_minutes_yellow">
+                            <Form.Label className="fw-semibold">
+                              {t('Active zone minutes (yellow)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.active_minutes_yellow ??
+                                store.thresholds.active_minutes_yellow ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField(
+                                  'active_minutes_yellow',
+                                  Number(e.target.value)
+                                )
+                              }
+                              disabled={!store.isEditing}
+                              min={0}
+                              max={1440}
+                            />
+                            <div className="text-muted small mt-1">
+                              {t('Green should be ≥ yellow')}
+                            </div>
+                          </Form.Group>
+                        </Col>
 
-                    {/* Sleep */}
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="sleep_green_min">
-                        <Form.Label className="fw-semibold">
-                          {t('Sleep min (green, minutes)')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.sleep_green_min ??
-                            store.thresholds.sleep_green_min ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('sleep_green_min', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={0}
-                          max={1440}
-                        />
-                      </Form.Group>
-                    </Col>
+                        {/* Sleep */}
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="sleep_green_min">
+                            <Form.Label className="fw-semibold">
+                              {t('Sleep min (green, minutes)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.sleep_green_min ??
+                                store.thresholds.sleep_green_min ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('sleep_green_min', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={0}
+                              max={1440}
+                            />
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="sleep_yellow_min">
-                        <Form.Label className="fw-semibold">
-                          {t('Sleep min (yellow, minutes)')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.sleep_yellow_min ??
-                            store.thresholds.sleep_yellow_min ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('sleep_yellow_min', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={0}
-                          max={1440}
-                        />
-                        <div className="text-muted small mt-1">{t('Green should be ≥ yellow')}</div>
-                      </Form.Group>
-                    </Col>
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="sleep_yellow_min">
+                            <Form.Label className="fw-semibold">
+                              {t('Sleep min (yellow, minutes)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.sleep_yellow_min ??
+                                store.thresholds.sleep_yellow_min ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('sleep_yellow_min', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={0}
+                              max={1440}
+                            />
+                            <div className="text-muted small mt-1">
+                              {t('Green should be ≥ yellow')}
+                            </div>
+                          </Form.Group>
+                        </Col>
 
-                    {/* BP */}
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="bp_sys_green_max">
-                        <Form.Label className="fw-semibold">
-                          {t('BP systolic green max')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.bp_sys_green_max ??
-                            store.thresholds.bp_sys_green_max ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('bp_sys_green_max', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={50}
-                          max={250}
-                        />
-                      </Form.Group>
-                    </Col>
+                        {/* BP */}
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="bp_sys_green_max">
+                            <Form.Label className="fw-semibold">
+                              {t('BP systolic green max')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.bp_sys_green_max ??
+                                store.thresholds.bp_sys_green_max ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('bp_sys_green_max', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={50}
+                              max={250}
+                            />
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="bp_sys_yellow_max">
-                        <Form.Label className="fw-semibold">
-                          {t('BP systolic yellow max')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.bp_sys_yellow_max ??
-                            store.thresholds.bp_sys_yellow_max ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('bp_sys_yellow_max', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={50}
-                          max={250}
-                        />
-                        <div className="text-muted small mt-1">
-                          {t('Green max should be ≤ yellow max')}
-                        </div>
-                      </Form.Group>
-                    </Col>
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="bp_sys_yellow_max">
+                            <Form.Label className="fw-semibold">
+                              {t('BP systolic yellow max')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.bp_sys_yellow_max ??
+                                store.thresholds.bp_sys_yellow_max ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('bp_sys_yellow_max', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={50}
+                              max={250}
+                            />
+                            <div className="text-muted small mt-1">
+                              {t('Green max should be ≤ yellow max')}
+                            </div>
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="bp_dia_green_max">
-                        <Form.Label className="fw-semibold">
-                          {t('BP diastolic green max')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.bp_dia_green_max ??
-                            store.thresholds.bp_dia_green_max ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('bp_dia_green_max', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={30}
-                          max={180}
-                        />
-                      </Form.Group>
-                    </Col>
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="bp_dia_green_max">
+                            <Form.Label className="fw-semibold">
+                              {t('BP diastolic green max')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.bp_dia_green_max ??
+                                store.thresholds.bp_dia_green_max ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('bp_dia_green_max', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={30}
+                              max={180}
+                            />
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="bp_dia_yellow_max">
-                        <Form.Label className="fw-semibold">
-                          {t('BP diastolic yellow max')}
-                        </Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={
-                            store.thresholdDraft.bp_dia_yellow_max ??
-                            store.thresholds.bp_dia_yellow_max ??
-                            0
-                          }
-                          onChange={(e) =>
-                            store.setThresholdField('bp_dia_yellow_max', Number(e.target.value))
-                          }
-                          disabled={!store.isEditing}
-                          min={30}
-                          max={180}
-                        />
-                        <div className="text-muted small mt-1">
-                          {t('Green max should be ≤ yellow max')}
-                        </div>
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                )}
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="bp_dia_yellow_max">
+                            <Form.Label className="fw-semibold">
+                              {t('BP diastolic yellow max')}
+                            </Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={
+                                store.thresholdDraft.bp_dia_yellow_max ??
+                                store.thresholds.bp_dia_yellow_max ??
+                                0
+                              }
+                              onChange={(e) =>
+                                store.setThresholdField('bp_dia_yellow_max', Number(e.target.value))
+                              }
+                              disabled={!store.isEditing}
+                              min={30}
+                              max={180}
+                            />
+                            <div className="text-muted small mt-1">
+                              {t('Green max should be ≤ yellow max')}
+                            </div>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    )}
 
-                {/* Effective date + reason (edit mode only) */}
-                {store.isEditing && (
-                  <Row className="g-3 mt-2">
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="thresholdEffectiveFrom">
-                        <Form.Label className="fw-semibold">
-                          {t('Effective from (optional)')}
-                        </Form.Label>
-                        <Form.Control
-                          type="datetime-local"
-                          value={store.thresholdEffectiveFromLocal}
-                          onChange={(e) => store.setThresholdEffectiveFromLocal(e.target.value)}
-                        />
-                        <div className="text-muted small mt-1">
-                          {t('Leave empty to apply immediately.')}
-                        </div>
-                      </Form.Group>
-                    </Col>
+                    {/* Effective date + reason (edit mode only) */}
+                    {store.isEditing && (
+                      <Row className="g-3 mt-2">
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="thresholdEffectiveFrom">
+                            <Form.Label className="fw-semibold">
+                              {t('Effective from (optional)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="datetime-local"
+                              value={store.thresholdEffectiveFromLocal}
+                              onChange={(e) => store.setThresholdEffectiveFromLocal(e.target.value)}
+                            />
+                            <div className="text-muted small mt-1">
+                              {t('Leave empty to apply immediately.')}
+                            </div>
+                          </Form.Group>
+                        </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="thresholdReason">
-                        <Form.Label className="fw-semibold">{t('Reason (optional)')}</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={store.thresholdReason}
-                          onChange={(e) => store.setThresholdReason(e.target.value)}
-                          maxLength={500}
-                        />
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                )}
-              </div>
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="thresholdReason">
+                            <Form.Label className="fw-semibold">
+                              {t('Reason (optional)')}
+                            </Form.Label>
+                            <Form.Control
+                              type="text"
+                              value={store.thresholdReason}
+                              onChange={(e) => store.setThresholdReason(e.target.value)}
+                              maxLength={500}
+                            />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    )}
+                  </div>
 
-              {/* HISTORY */}
-              <div>
-                <h5 className="mb-2">{t('Change history')}</h5>
-                <div className="text-muted small mb-2">
-                  {t('Older thresholds are saved automatically when you update goals.')}
-                </div>
+                  {/* HISTORY */}
+                  <div>
+                    <h5 className="mb-2">{t('Change history')}</h5>
+                    <div className="text-muted small mb-2">
+                      {t('Older thresholds are saved automatically when you update goals.')}
+                    </div>
 
-                {(store.thresholdsHistory || []).length === 0 ? (
-                  <div className="text-muted">{t('No history yet.')}</div>
-                ) : (
-                  <Table striped bordered hover responsive size="sm">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 220 }}>{t('Effective from')}</th>
-                        <th style={{ width: 180 }}>{t('Changed by')}</th>
-                        <th>{t('Reason')}</th>
-                        <th>{t('Previous values')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {store.thresholdsHistory.map((h, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            {h.effective_from ? new Date(h.effective_from).toLocaleString() : '—'}
-                          </td>
-                          <td>{h.changed_by || '—'}</td>
-                          <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
-                          <td style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em' }}>
-                            {formatThresholdSnapshot(h.thresholds, t)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </div>
+                    {(store.thresholdsHistory || []).length === 0 ? (
+                      <div className="text-muted">{t('No history yet.')}</div>
+                    ) : (
+                      <Table striped bordered hover responsive size="sm">
+                        <thead>
+                          <tr>
+                            <th style={{ width: 220 }}>{t('Effective from')}</th>
+                            <th style={{ width: 180 }}>{t('Changed by')}</th>
+                            <th>{t('Reason')}</th>
+                            <th>{t('Previous values')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {store.thresholdsHistory.map((h, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                {h.effective_from
+                                  ? new Date(h.effective_from).toLocaleString()
+                                  : '—'}
+                              </td>
+                              <td>{h.changed_by || '—'}</td>
+                              <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
+                              <td style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em' }}>
+                                {formatThresholdSnapshot(h.thresholds, t)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </Tab>
 
             {appModeStore.showRedcapTab && (
               <Tab eventKey="redcap" title={t('REDCap')}>
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="text-muted">
-                    {store.redcapProject ? (
-                      <>
-                        {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
-                        <span className="ms-2">
-                          {t('Records')}: {store.redcapRows?.length || 0}
-                        </span>
-                      </>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('REDCap')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="text-muted">
+                        {store.redcapProject ? (
+                          <>
+                            {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>{' '}
+                            <span className="ms-2">
+                              {t('Records')}: {store.redcapRows?.length || 0}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{t('No project selected')}</span>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => store.fetchRedcapIfPossible(t)}
+                        disabled={store.redcapLoading}
+                      >
+                        <FaSyncAlt className="me-2" />
+                        {store.redcapLoading ? t('Loading...') : t('Refresh')}
+                      </Button>
+                    </div>
+
+                    {store.redcapLoading ? (
+                      <div className="text-center my-4">
+                        <Spinner animation="border" role="status" aria-label={t('Loading')} />
+                        <p className="mt-3">{t('Loading')}...</p>
+                      </div>
+                    ) : !hasRedcap ? (
+                      <p className="text-muted mb-0">
+                        {t('No REDCap data available for this patient.')}
+                      </p>
                     ) : (
-                      <span>{t('No project selected')}</span>
+                      <>
+                        <p className="text-muted">
+                          {t(
+                            'This data is fetched live from REDCap and is not stored in the platform database.'
+                          )}
+                        </p>
+
+                        <Table striped bordered hover responsive size="sm">
+                          <thead>
+                            <tr>
+                              <th style={{ width: 280 }}>{t('Field')}</th>
+                              <th>{t('Value')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
+                              <tr key={k}>
+                                <td>
+                                  <code>{k}</code>
+                                </td>
+                                <td style={{ whiteSpace: 'pre-wrap' }}>
+                                  {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </>
                     )}
-                  </div>
-
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => store.fetchRedcapIfPossible(t)}
-                    disabled={store.redcapLoading}
-                  >
-                    <FaSyncAlt className="me-2" />
-                    {store.redcapLoading ? t('Loading...') : t('Refresh')}
-                  </Button>
-                </div>
-
-                {store.redcapLoading ? (
-                  <div className="text-center my-4">
-                    <Spinner animation="border" role="status" aria-label={t('Loading')} />
-                    <p className="mt-3">{t('Loading')}...</p>
-                  </div>
-                ) : !hasRedcap ? (
-                  <p className="text-muted mb-0">
-                    {t('No REDCap data available for this patient.')}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-muted">
-                      {t(
-                        'This data is fetched live from REDCap and is not stored in the platform database.'
-                      )}
-                    </p>
-
-                    <Table striped bordered hover responsive size="sm">
-                      <thead>
-                        <tr>
-                          <th style={{ width: 280 }}>{t('Field')}</th>
-                          <th>{t('Value')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
-                          <tr key={k}>
-                            <td>
-                              <code>{k}</code>
-                            </td>
-                            <td style={{ whiteSpace: 'pre-wrap' }}>
-                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </>
-                )}
+                  </CardContent>
+                </Card>
               </Tab>
             )}
           </Tabs>
