@@ -34,7 +34,6 @@ const mockStore = {
   chartRes: 'daily',
   referenceDate: new Date(),
   thresholds: null,
-  visibleQuestions: {},
   get startDate() {
     return new Date();
   },
@@ -48,8 +47,6 @@ const mockStore = {
   setReferenceDate: jest.fn(),
   goPrev: jest.fn(),
   goNext: jest.fn(),
-  toggleQuestion: jest.fn(),
-  setAllQuestionsVisible: jest.fn(),
 };
 
 jest.mock('@/stores/healthPageStore', () => ({

@@ -152,7 +152,6 @@ export class HealthPageStore {
   viewMode: ViewMode = 'monthly';
   chartRes: ChartRes = 'daily';
   referenceDate: Date = new Date();
-  patientName: string | null = null;
 
   // Data state
   fitbitData: FitbitEntry[] = [];
@@ -163,9 +162,6 @@ export class HealthPageStore {
   thresholds: PatientThresholds = normalizeThresholds(DEFAULT_THRESHOLDS);
   thresholdsLoading = false;
   thresholdsError: string | null = null;
-
-  // Visibility toggles (questionKey -> visible)
-  visibleQuestions: Record<string, boolean> = {};
 
   // Status
   loading = false;
@@ -242,10 +238,6 @@ export class HealthPageStore {
     this.referenceDate = d;
   }
 
-  setPatientName(name: string | null) {
-    this.patientName = name;
-  }
-
   setError(msg: string) {
     this.error = msg;
   }
@@ -266,29 +258,6 @@ export class HealthPageStore {
     if (this.viewMode === 'weekly') d.setDate(d.getDate() + 7);
     else d.setMonth(d.getMonth() + 1);
     this.referenceDate = d;
-  }
-
-  toggleQuestion(key: string) {
-    this.visibleQuestions = {
-      ...this.visibleQuestions,
-      [key]: !this.visibleQuestions[key],
-    };
-  }
-
-  setAllQuestionsVisible(value: boolean) {
-    const next: Record<string, boolean> = {};
-    Object.keys(this.visibleQuestions || {}).forEach((k) => (next[k] = value));
-    this.visibleQuestions = next;
-  }
-
-  private _rebuildVisibleQuestionsFromData() {
-    const vis: Record<string, boolean> = {};
-    for (const q of this.questionnaireData) {
-      // QuestionnaireEntry likely has questionKey; we treat it as optional string.
-      const key = (q as unknown as { questionKey?: unknown }).questionKey;
-      if (typeof key === 'string' && key.trim() && !(key in vis)) vis[key] = true;
-    }
-    this.visibleQuestions = vis;
   }
 
   // ───────────────────────────
@@ -348,7 +317,6 @@ export class HealthPageStore {
         this.fitbitData = cached.fitbitData;
         this.questionnaireData = cached.questionnaireData;
         this.adherenceData = cached.adherenceData;
-        this._rebuildVisibleQuestionsFromData();
       });
     }
 
@@ -370,7 +338,6 @@ export class HealthPageStore {
         this.fitbitData = normalizeFitbitList(fitbitRaw);
         this.questionnaireData = normalizeQuestionnaireList(questionnaireRaw);
         this.adherenceData = normalizeAdherenceList(adherenceRaw);
-        this._rebuildVisibleQuestionsFromData();
       });
 
       HealthPageStore.saveToSessionStorage(cacheKey, {

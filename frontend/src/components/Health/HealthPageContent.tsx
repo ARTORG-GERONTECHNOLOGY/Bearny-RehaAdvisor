@@ -32,8 +32,7 @@ interface HealthPageContentProps {
 const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientId }) => {
   const { t, i18n } = useTranslation();
 
-  // Local store instance for this content block
-  const store = useMemo(() => new HealthPageStore(), []);
+  const store = useMemo(() => new HealthPageStore(), [patientId]);
 
   // Export modal state (UI-only)
   const [showExport, setShowExport] = useState(false);

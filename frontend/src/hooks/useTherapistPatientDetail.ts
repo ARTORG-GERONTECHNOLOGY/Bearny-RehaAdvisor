@@ -16,7 +16,10 @@ export const useTherapistPatientDetail = (patientId: string) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchPatient = useCallback(async () => {
-    if (!patientId) return;
+    if (!patientId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

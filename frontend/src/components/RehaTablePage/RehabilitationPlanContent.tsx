@@ -35,7 +35,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
   ({ patientId }) => {
     const { t, i18n } = useTranslation();
 
-    const store = useMemo(() => new RehabTableStore(), []);
+    const store = useMemo(() => new RehabTableStore(), [patientId]);
 
     // keep tag translation in sync with current language
     useEffect(() => {

@@ -164,7 +164,6 @@ export class RehabTableStore {
   selectedTab: 'patient' | 'all' = 'patient';
 
   // Patient context
-  patientName = '';
   patientUsername = '';
   patientData: PatientPlan = EMPTY_PLAN;
   explicitPatientId: string | null = null;
@@ -265,8 +264,8 @@ export class RehabTableStore {
         ...(full || {}),
         ...(p || {}),
         // When matched via external_id (not _id), adopt the catalog's _id so
-        // all downstream _id-based lookups (patientAssignedItems, hasFutureDates,
-        // InterventionLeftPanel) resolve correctly.
+        // all downstream _id-based lookups (hasFutureDates, InterventionLeftPanel)
+        // resolve correctly.
         ...(extIdFallback ? { _id: (extIdFallback as any)._id as string } : {}),
         title:
           (typeof p.title === 'string' && p.title) ||
@@ -316,11 +315,6 @@ export class RehabTableStore {
     ) as unknown;
     const dates = getDates(planItem);
     return dates.some((d) => new Date(d.datetime) > new Date());
-  }
-
-  get patientAssignedItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
-    return (this.allInterventions || []).filter((it) => ids.has(it._id));
   }
 
   get activePatientItems(): Intervention[] {
@@ -426,7 +420,6 @@ export class RehabTableStore {
     runInAction(() => {
       this.explicitPatientId = patientId;
       this.patientUsername = patientId;
-      this.patientName = patientId;
       this.loading = true;
       this.error = null;
     });
