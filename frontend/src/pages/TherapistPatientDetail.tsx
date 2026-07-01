@@ -55,10 +55,23 @@ const TherapistPatientDetail: React.FC = observer(() => {
   const { patientId = '' } = useParams<{ patientId: string }>();
 
   useEffect(() => {
-    authStore.checkAuthentication();
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-    }
+    let alive = true;
+
+    const checkAuth = async () => {
+      await authStore.checkAuthentication();
+
+      if (!alive) return;
+
+      if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
+        navigate('/');
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      alive = false;
+    };
   }, [navigate]);
 
   const { patient, loading, error } = useTherapistPatientDetail(patientId);
@@ -81,9 +94,9 @@ const TherapistPatientDetail: React.FC = observer(() => {
         <div className="flex flex-col gap-1">
           <div className="text-sm text-muted-foreground">{patient?.patient_code}</div>
           <PageHeader title={fullName || patientId} />
-          <div className="flex gap-3 text-sm text-muted-foreground">
+          <div className="flex gap-2 text-sm text-muted-foreground">
             {infoItems.map((item, index) => (
-              <span key={index} className="flex gap-3">
+              <span key={index} className="flex gap-2">
                 {index > 0 && <span>·</span>}
                 <span>{item}</span>
               </span>

@@ -47,13 +47,13 @@ describe('useTherapistPatientDetail (via TestComponent)', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/users/patient-123/profile');
   });
 
-  it('shows error message if API fails with Error object', async () => {
+  it('shows generic error message if API fails with Error object', async () => {
     (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('Boom'));
 
     render(<TestComponent patientId="patient-123" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Error: Boom')).toBeInTheDocument();
+      expect(screen.getByText('Error: Failed to fetch patient')).toBeInTheDocument();
     });
   });
 

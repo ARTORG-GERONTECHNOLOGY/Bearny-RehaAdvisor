@@ -17,6 +17,8 @@ export const useTherapistPatientDetail = (patientId: string) => {
 
   const fetchPatient = useCallback(async () => {
     if (!patientId) {
+      setPatient(null);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -25,8 +27,9 @@ export const useTherapistPatientDetail = (patientId: string) => {
     try {
       const response = await apiClient.get(`/users/${patientId}/profile`);
       setPatient(response.data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch patient');
+    } catch {
+      setPatient(null);
+      setError('Failed to fetch patient');
     } finally {
       setLoading(false);
     }
