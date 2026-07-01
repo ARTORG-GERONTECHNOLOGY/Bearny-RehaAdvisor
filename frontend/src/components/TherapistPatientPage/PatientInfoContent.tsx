@@ -387,17 +387,17 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   <FaTrash className="me-2" />
                   {t('DeletePatient')}
                 </Button>
+            
+                <Button
+                  variant="outline-warning"
+                  onClick={() => store.setShowPasswordReset(true)}
+                  disabled={store.loading || store.saving}
+                >
+                  <FaKey className="me-2" />
+                  {t('ResetPassword')}
+                </Button>
               </>
             )}
-
-            <Button
-              variant="outline-warning"
-              onClick={() => store.setShowPasswordReset(true)}
-              disabled={store.loading || store.saving}
-            >
-              <FaKey className="me-2" />
-              {t('ResetPassword')}
-            </Button>
           </div>
 
           <Sheet open={store.showPasswordReset} onOpenChange={(v) => store.setShowPasswordReset(v)}>
@@ -499,8 +499,8 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             </div>
           )}
 
-          <Row className="g-3">
-            <Col xs={12} xl={6}>
+          <div className="columns-1 xl:columns-2 gap-3">
+            <div className="mb-3 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Profile')}</CardTitle>
@@ -697,9 +697,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   ))}
                 </CardContent>
               </Card>
-            </Col>
+            </div>
 
-            <Col xs={12} xl={6}>
+            <div className="mb-3 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Characteristics')}</CardTitle>
@@ -858,9 +858,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   </Row>
                 </CardContent>
               </Card>
-            </Col>
+            </div>
 
-            <Col xs={12} xl={6}>
+            <div className="mb-3 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Goals & thresholds')}</CardTitle>
@@ -1174,10 +1174,10 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   </div>
                 </CardContent>
               </Card>
-            </Col>
+            </div>
 
             {appModeStore.showRedcapTab && (
-              <Col xs={12} xl={6}>
+              <div className="mb-3 break-inside-avoid-column">
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('REDCap')}</CardTitle>
@@ -1249,9 +1249,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                     )}
                   </CardContent>
                 </Card>
-              </Col>
+              </div>
             )}
-          </Row>
+          </div>
         </>
       )}
 
