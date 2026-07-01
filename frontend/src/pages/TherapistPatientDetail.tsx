@@ -15,6 +15,7 @@ import HealthPageContent from '@/components/Health/HealthPageContent';
 import RehabilitationPlanContent from '@/components/RehaTablePage/RehabilitationPlanContent';
 import QuestionnairesContent from '@/components/RehaTablePage/QuestionnairesContent';
 import PatientInfoContent from '@/components/TherapistPatientPage/PatientInfoContent';
+import { Alert } from '@/components/ui/alert';
 
 const TABS: {
   value: string;
@@ -74,7 +75,7 @@ const TherapistPatientDetail: React.FC = observer(() => {
 
       {loading && <TherapistPatientDetailLoadingContent />}
 
-      {!loading && error && <div className="text-nok text-sm py-2">{error}</div>}
+      {!loading && error && <Alert>{error}</Alert>}
 
       {!loading && !error && (
         <div className="flex flex-col gap-1">
