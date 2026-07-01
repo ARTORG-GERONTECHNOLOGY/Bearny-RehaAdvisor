@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useEffect, useMemo } from 'react';
-import { Button, Col, Form, Row, Spinner, Tabs, Tab, Badge, Table } from 'react-bootstrap';
+import { Button, Col, Form, Row, Spinner, Badge, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
@@ -499,13 +499,8 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             </div>
           )}
 
-          <Tabs
-            id="patient-details-tabs"
-            activeKey={store.activeTab}
-            onSelect={(k) => store.setActiveTab(((k as any) || 'profile') as any)}
-            className="mb-3"
-          >
-            <Tab eventKey="profile" title={t('Profile')}>
+          <Row className="g-3">
+            <Col xs={12} xl={6}>
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Profile')}</CardTitle>
@@ -702,9 +697,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   ))}
                 </CardContent>
               </Card>
-            </Tab>
+            </Col>
 
-            <Tab eventKey="characteristics" title={t('Characteristics')}>
+            <Col xs={12} xl={6}>
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Characteristics')}</CardTitle>
@@ -863,9 +858,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   </Row>
                 </CardContent>
               </Card>
-            </Tab>
+            </Col>
 
-            <Tab eventKey="thresholds" title={t('Goals & thresholds')}>
+            <Col xs={12} xl={6}>
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Goals & thresholds')}</CardTitle>
@@ -1179,10 +1174,10 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   </div>
                 </CardContent>
               </Card>
-            </Tab>
+            </Col>
 
             {appModeStore.showRedcapTab && (
-              <Tab eventKey="redcap" title={t('REDCap')}>
+              <Col xs={12} xl={6}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('REDCap')}</CardTitle>
@@ -1254,9 +1249,9 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                     )}
                   </CardContent>
                 </Card>
-              </Tab>
+              </Col>
             )}
-          </Tabs>
+          </Row>
         </>
       )}
 

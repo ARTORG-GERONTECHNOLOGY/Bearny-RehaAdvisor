@@ -168,7 +168,6 @@ export class PatientPopupStore {
   error = '';
   showConfirmDelete = false;
   isEditing = false;
-  activeTab: 'profile' | 'characteristics' | 'redcap' | 'thresholds' = 'profile';
 
   // patient data
   rawPatient: any = null;
@@ -245,10 +244,6 @@ export class PatientPopupStore {
       this.thresholdReason = '';
       this.thresholdEffectiveFromISO = null;
     }
-  }
-
-  setActiveTab(v: 'profile' | 'characteristics' | 'redcap' | 'thresholds') {
-    this.activeTab = v;
   }
 
   // -------------------------

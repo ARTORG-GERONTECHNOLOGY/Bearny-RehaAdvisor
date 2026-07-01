@@ -100,9 +100,6 @@ describe('PatientInfoContent', () => {
     const editButton = await screen.findByText('Edit');
     fireEvent.click(editButton);
 
-    const characteristicsTab = await screen.findByRole('tab', { name: /characteristics/i });
-    fireEvent.click(characteristicsTab);
-
     const lifestyleInput = document.getElementById('lifestyle') as HTMLInputElement;
     expect(lifestyleInput).toBeTruthy();
 
