@@ -43,13 +43,17 @@ async function mockPatientPopupPrereqs(page: Parameters<Parameters<typeof test>[
   });
 }
 
-async function openPatientPopup(page: Parameters<Parameters<typeof test>[1]>[0]) {
+async function openPatientInfoTab(page: Parameters<Parameters<typeof test>[1]>[0]) {
   await page.goto('/therapist');
-  const infoBtn = page.getByRole('button', { name: /info/i }).first();
-  await expect(infoBtn).toBeVisible({ timeout: 15000 });
-  await infoBtn.click();
-  // Wait for popup body to be present (profile loaded)
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+  // Patient rows navigate to the consolidated patient detail page.
+  const firstRow = page.locator('tr.cursor-pointer').first();
+  await expect(firstRow).toBeVisible({ timeout: 15000 });
+  await firstRow.click();
+  await page.getByRole('tab', { name: 'Information' }).click();
+  // Wait for the Information tab content to be present (profile loaded)
+  await expect(page.getByRole('button', { name: /DeletePatient/i })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 test.describe('Therapist patient delete', () => {
@@ -59,7 +63,7 @@ test.describe('Therapist patient delete', () => {
     await mockPatientPopupPrereqs(page);
   });
 
-  test('DELETE sends to /users/:id/profile/ — not /patients/:id/ — and closes popup on success', async ({
+  test('DELETE sends to /users/:id/profile/ — not /patients/:id/ — and navigates back to the patient list on success', async ({
     page,
   }) => {
     skipUnlessSeeded(test);
@@ -78,9 +82,9 @@ test.describe('Therapist patient delete', () => {
       }
     });
 
-    await openPatientPopup(page);
+    await openPatientInfoTab(page);
 
-    // Click the delete button inside the popup
+    // Click the delete button inside the Information tab
     const deleteBtn = page.getByRole('button', { name: /delete.*patient|DeletePatient/i }).first();
     await expect(deleteBtn).toBeVisible({ timeout: 10000 });
     await deleteBtn.click();
@@ -102,10 +106,14 @@ test.describe('Therapist patient delete', () => {
     expect(req.url()).toMatch(/\/users\/[^/]+\/profile\//);
     expect(req.url()).not.toMatch(/\/patients\/[^/]+\//);
 
-    // Popup must close after successful delete
+    // Confirm dialog must close
     await expect(page.getByRole('dialog').filter({ hasText: /confirm deletion/i })).toHaveCount(0, {
       timeout: 5000,
     });
+
+    // The page navigates back to the patient list after a successful delete
+    // (there's no popup to close anymore — the Information content is inline).
+    await expect(page).toHaveURL(/\/therapist$/, { timeout: 5000 });
   });
 
   test('shows error alert when delete API call fails', async ({ page }) => {
@@ -123,7 +131,7 @@ test.describe('Therapist patient delete', () => {
       }
     });
 
-    await openPatientPopup(page);
+    await openPatientInfoTab(page);
 
     const deleteBtn = page.getByRole('button', { name: /delete.*patient|DeletePatient/i }).first();
     await expect(deleteBtn).toBeVisible({ timeout: 10000 });
@@ -140,7 +148,8 @@ test.describe('Therapist patient delete', () => {
       .filter({ hasText: /internal server error|failed to delete/i });
     await expect(errorAlert).toBeVisible({ timeout: 8000 });
 
-    // Confirm dialog must close, but main popup stays open (delete failed)
+    // Confirm dialog must close, but the Information tab stays put (delete failed, no navigation)
     await expect(confirmDialog).toHaveCount(0, { timeout: 3000 });
+    await expect(page).toHaveURL(/\/therapist-patient-detail\//);
   });
 });

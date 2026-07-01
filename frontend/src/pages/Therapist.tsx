@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
 import WelcomeArea from '@/components/common/WelcomeArea';
-import PatientPopup from '@/components/TherapistPatientPage/PatientPopup';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';
 import ImportFromRedcapModal from '@/components/TherapistPatientPage/ImportFromRedcapModal';
 import PatientFilters from '@/components/TherapistPatientPage/PatientFilters';
@@ -92,22 +91,9 @@ const Therapist: React.FC = observer(() => {
     await store.fetchPatients(t);
   }, [store, t]);
 
-  const handleRehabButton = useCallback(
-    (id: string, name: string, pid: string) => {
-      localStorage.setItem('selectedPatient', id);
-      localStorage.setItem('selectedPatientName', name);
-      localStorage.setItem('selectedPatientId', pid);
-      navigate('/rehabtable');
-    },
-    [navigate]
-  );
-
-  const handleProgressButton = useCallback(
-    (id: string, name: string, pid: string) => {
-      localStorage.setItem('selectedPatient', id);
-      localStorage.setItem('selectedPatientName', name);
-      localStorage.setItem('selectedPatientId', pid);
-      navigate('/health');
+  const handlePatientClick = useCallback(
+    (patientId: string) => {
+      navigate(`/therapist-patient-detail/${patientId}`);
     },
     [navigate]
   );
@@ -322,7 +308,6 @@ const Therapist: React.FC = observer(() => {
                     {renderSortIcon('wear')}
                   </div>
                 </TableHead>
-                <TableHead>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -335,7 +320,18 @@ const Therapist: React.FC = observer(() => {
                 const mongoId = getPatientMongoId(p);
 
                 return (
-                  <TableRow key={mongoId || patientId}>
+                  <TableRow
+                    key={mongoId || patientId}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => handlePatientClick(mongoId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handlePatientClick(mongoId);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="text-muted">{patientId}</TableCell>
                     <TableCell>{fullName}</TableCell>
                     <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
@@ -353,38 +349,13 @@ const Therapist: React.FC = observer(() => {
                     <TableCell>
                       <WearBadge patient={p} />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        <Button
-                          size="dashboard"
-                          className="py-0.5 px-2"
-                          onClick={() => store.openPatient(p)}
-                        >
-                          {String(t('Info'))}
-                        </Button>
-                        <Button
-                          size="dashboard"
-                          className="py-0.5 px-2 bg-primary"
-                          onClick={() => handleRehabButton(mongoId, fullName, patientId)}
-                        >
-                          {String(t('Rehabilitation Plan'))}
-                        </Button>
-                        <Button
-                          size="dashboard"
-                          className="py-0.5 px-2 bg-white text-primary border border-primary"
-                          onClick={() => handleProgressButton(mongoId, fullName, patientId)}
-                        >
-                          {String(t('Outcomes Dashboard'))}
-                        </Button>
-                      </div>
-                    </TableCell>
                   </TableRow>
                 );
               })}
 
               {activePatients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted">
+                  <TableCell colSpan={9} className="text-center text-muted">
                     {store.loading
                       ? String(t('Loading patients...'))
                       : String(t('No active patients'))}
@@ -409,7 +380,6 @@ const Therapist: React.FC = observer(() => {
                     <TableHead>{t('Sex')}</TableHead>
                     <TableHead>{t('Diagnosis_patient_list')}</TableHead>
                     <TableHead>{t('Status')}</TableHead>
-                    <TableHead>{t('Actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -425,7 +395,18 @@ const Therapist: React.FC = observer(() => {
                     const endDate = getIsoMaybe(extra.rehab_end_date);
 
                     return (
-                      <TableRow key={mongoId || patientId} className="completed-row opacity-75">
+                      <TableRow
+                        key={mongoId || patientId}
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => handlePatientClick(mongoId)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            handlePatientClick(mongoId);
+                          }
+                        }}
+                        className="cursor-pointer completed-row opacity-75"
+                      >
                         <TableCell className="text-muted">{patientId}</TableCell>
                         <TableCell>{fullName}</TableCell>
                         <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
@@ -441,31 +422,13 @@ const Therapist: React.FC = observer(() => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 flex-wrap">
-                            <Button
-                              size="dashboard"
-                              className="py-0.5 px-2"
-                              onClick={() => store.openPatient(p)}
-                            >
-                              {String(t('Info'))}
-                            </Button>
-                            <Button
-                              size="dashboard"
-                              className="py-0.5 px-2 bg-white text-primary border border-primary"
-                              onClick={() => handleProgressButton(mongoId, fullName, patientId)}
-                            >
-                              {String(t('Outcomes Dashboard'))}
-                            </Button>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
 
                   {completedPatients.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted">
+                      <TableCell colSpan={6} className="text-center text-muted">
                         {String(t('No completed patients'))}
                       </TableCell>
                     </TableRow>
@@ -475,14 +438,6 @@ const Therapist: React.FC = observer(() => {
             </div>
           </Collapse>
         </Container>
-
-        {store.selectedPatient && (
-          <PatientPopup
-            patient_id={store.selectedPatient}
-            show={store.showPatientPopup}
-            handleClose={store.closePatient}
-          />
-        )}
 
         {appModeStore.showManualCreate && (
           <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />

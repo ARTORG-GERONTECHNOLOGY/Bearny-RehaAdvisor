@@ -52,15 +52,14 @@ const ForgottenPassword = lazyWithRetry(() => import('@/pages/ForgottenPassword'
 const UserProfile = lazyWithRetry(() => import('@/pages/UserProfile'));
 const PatientView = lazyWithRetry(() => import('@/pages/Patient'));
 const AdminDashboard = lazyWithRetry(() => import('@/pages/AdminDashboard'));
-const RehabTable = lazyWithRetry(() => import('@/pages/RehabTable'));
 const TherapistRecomendations = lazyWithRetry(() => import('@/pages/TherapistInterventions'));
+const TherapistPatientDetail = lazyWithRetry(() => import('@/pages/TherapistPatientDetail'));
 const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
 const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
 const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
 const SuccessPage = lazyWithRetry(() => import('@/pages/SuccessPage'));
 const FitbitErrorPage = lazyWithRetry(() => import('@/pages/FitbitErrorPage'));
-const HealthPage = lazyWithRetry(() => import('@/pages/HealthPage'));
 const HelpPage = lazyWithRetry(() => import('@/pages/Help'));
 const Eva = lazyWithRetry(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazyWithRetry(() => import('@/pages/HealthSliderDownloadsPage'));
@@ -115,12 +114,10 @@ export const router = createBrowserRouter([
         element: withSuspense(createElement(RootLayout, null, createElement(Therapist))),
       },
       {
-        path: 'rehabtable',
-        element: withSuspense(createElement(RootLayout, null, createElement(RehabTable))),
-      },
-      {
-        path: 'health',
-        element: withSuspense(createElement(HealthPage)),
+        path: 'therapist-patient-detail/:patientId',
+        element: withSuspense(
+          createElement(RootLayout, null, createElement(TherapistPatientDetail))
+        ),
       },
       {
         path: 'interventions',

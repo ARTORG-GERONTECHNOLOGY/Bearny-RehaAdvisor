@@ -110,11 +110,25 @@ test.describe('Therapist patient popup characteristics input', () => {
       });
     });
 
+    // The patient detail page lands on the Outcomes Dashboard tab first — stub its
+    // endpoint too so it doesn't cause unrelated network noise before we
+    // switch to the Information tab.
+    await page.route(`**/patients/health-combined-history/${patientId}/**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ fitbit: [], adherence: [], questionnaire: [] }),
+      });
+    });
+
     await page.goto('/therapist');
 
-    const infoButton = page.getByRole('button', { name: /info/i }).first();
-    await expect(infoButton).toBeVisible({ timeout: 15000 });
-    await infoButton.click();
+    // Patient rows navigate to the consolidated patient detail page.
+    const patientRow = page.locator('tr.cursor-pointer').first();
+    await expect(patientRow).toBeVisible({ timeout: 15000 });
+    await patientRow.click();
+
+    await page.getByRole('tab', { name: 'Information' }).click();
 
     await page.getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /characteristics/i }).click();

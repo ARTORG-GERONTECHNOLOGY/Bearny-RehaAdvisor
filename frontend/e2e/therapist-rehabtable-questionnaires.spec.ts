@@ -21,21 +21,21 @@ function skipUnlessSeeded(t: typeof test) {
 const availableColumn = (page: Page) => page.locator('.rehab-row .rehab-col').first();
 const assignedColumn = (page: Page) => page.locator('.rehab-row .rehab-col').nth(1);
 
+async function goToPatientDetail(page: Page) {
+  const { patientId } = creds();
+  await page.goto(`/therapist-patient-detail/${patientId}`);
+}
+
 test.describe('Therapist rehab table questionnaires', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessSeeded(test);
     await loginAsTherapist(page);
-
-    const { patientId } = creds();
-    await page.evaluate((pid) => {
-      window.localStorage.setItem('selectedPatient', pid as string);
-    }, patientId as string);
   });
 
   test('loads questionnaires tab and fetches questionnaire endpoints', async ({ page }) => {
     skipUnlessSeeded(test);
 
-    await page.goto('/rehabtable');
+    await goToPatientDetail(page);
 
     const dynamicRequest = page.waitForRequest((req) =>
       req.url().includes('/questionnaires/health/')
@@ -56,7 +56,7 @@ test.describe('Therapist rehab table questionnaires', () => {
   test('opens questionnaire schedule modal from questionnaires tab actions', async ({ page }) => {
     skipUnlessSeeded(test);
 
-    await page.goto('/rehabtable');
+    await goToPatientDetail(page);
 
     const patientReq = page.waitForRequest((req) => req.url().includes('/questionnaires/patient/'));
     await page.getByRole('tab', { name: /questionnaires/i }).click();
@@ -154,7 +154,7 @@ test.describe('Therapist rehab table questionnaires', () => {
       });
     });
 
-    await page.goto('/rehabtable');
+    await goToPatientDetail(page);
 
     const healthRes = page.waitForResponse((res) => res.url().includes('/questionnaires/health/'));
     const patientRes = page.waitForResponse((res) =>
@@ -228,7 +228,7 @@ test.describe('Therapist rehab table questionnaires', () => {
       });
     });
 
-    await page.goto('/rehabtable');
+    await goToPatientDetail(page);
 
     const healthRes2 = page.waitForResponse((res) => res.url().includes('/questionnaires/health/'));
     const patientRes2 = page.waitForResponse((res) =>
