@@ -322,7 +322,14 @@ const Therapist: React.FC = observer(() => {
                 return (
                   <TableRow
                     key={mongoId || patientId}
+                    role="link"
+                    tabIndex={0}
                     onClick={() => handlePatientClick(mongoId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handlePatientClick(mongoId);
+                      }
+                    }}
                     className="cursor-pointer"
                   >
                     <TableCell className="text-muted">{patientId}</TableCell>
@@ -390,7 +397,14 @@ const Therapist: React.FC = observer(() => {
                     return (
                       <TableRow
                         key={mongoId || patientId}
+                        role="link"
+                        tabIndex={0}
                         onClick={() => handlePatientClick(mongoId)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            handlePatientClick(mongoId);
+                          }
+                        }}
                         className="cursor-pointer completed-row opacity-75"
                       >
                         <TableCell className="text-muted">{patientId}</TableCell>
