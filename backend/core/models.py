@@ -305,6 +305,7 @@ class Intervention(Document):
             "external_id",
             "language",
             "content_type",
+            "is_private",  # used by list_all_interventions public filter
         ],
     }
 

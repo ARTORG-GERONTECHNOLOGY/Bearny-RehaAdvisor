@@ -288,8 +288,30 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const storeLoading = patientInterventionsLibraryStore.loading;
 
   // ─────────────────────────── (optional) translate titles cache ───────────────────────────
-  // This is purely UI sugar for lists that don’t already come translated.
+  // Translations are cached in sessionStorage keyed by "lang:id" so navigating
+  // away and back (or switching tabs) does not re-fire hundreds of HTTP requests.
   const [translatedTitles, setTranslatedTitles] = useState<TitleMap>({});
+
+  const _translationCacheKey = 'intervention_title_translations_v1';
+
+  const _readTranslationCache = (): Record<string, { title: string; lang: string | null }> => {
+    try {
+      return JSON.parse(sessionStorage.getItem(_translationCacheKey) ?? '{}');
+    } catch {
+      return {};
+    }
+  };
+
+  const _writeTranslationCache = (
+    updates: Record<string, { title: string; lang: string | null }>
+  ): void => {
+    try {
+      const existing = _readTranslationCache();
+      sessionStorage.setItem(_translationCacheKey, JSON.stringify({ ...existing, ...updates }));
+    } catch {
+      // storage quota — skip
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -300,9 +322,29 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         return;
       }
 
-      // Only translate if needed (cheap heuristic)
+      const lang = i18n.language;
+      const cache = _readTranslationCache();
+
+      // Seed state immediately from cache so already-translated items render at once
+      const fromCache: TitleMap = {};
+      const toFetch: InterventionCardItem[] = [];
+
+      for (const rec of sourceItems as InterventionCardItem[]) {
+        const id = rec._id || rec.id;
+        const cacheHit = id ? cache[`${lang}:${id}`] : undefined;
+        if (cacheHit) {
+          fromCache[String(id)] = cacheHit;
+        } else {
+          toFetch.push(rec);
+        }
+      }
+
+      if (!cancelled) setTranslatedTitles(fromCache);
+
+      if (!toFetch.length) return;
+
       const pairs = await Promise.all(
-        (sourceItems as InterventionCardItem[]).map(async (rec) => {
+        toFetch.map(async (rec) => {
           const id = rec._id || rec.id;
           const rawTitle = String(rec.title || rec.intervention_title || '').trim();
           if (!id || !rawTitle)
@@ -326,7 +368,15 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         })
       );
 
-      if (!cancelled) setTranslatedTitles(Object.fromEntries(pairs));
+      const newEntries = Object.fromEntries(pairs);
+      // Persist to session cache keyed by language
+      const cacheUpdates: Record<string, { title: string; lang: string | null }> = {};
+      for (const [id, val] of Object.entries(newEntries)) {
+        cacheUpdates[`${lang}:${id}`] = val;
+      }
+      _writeTranslationCache(cacheUpdates);
+
+      if (!cancelled) setTranslatedTitles({ ...fromCache, ...newEntries });
     })();
 
     return () => {
