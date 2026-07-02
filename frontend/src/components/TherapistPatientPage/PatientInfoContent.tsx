@@ -72,11 +72,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
           {t('REDCap')}
         </Badge>
       );
-    return (
-      <Badge bg="secondary" className="ms-2">
-        {t('Empty')}
-      </Badge>
-    );
+    return null;
   };
 
   const renderField = (field: any) => {
@@ -643,32 +639,62 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   {!store.isEditing ? (
                     <div className="grid grid-cols-2 items-center justify-items-start gap-2">
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Level of education')} <SourceBadge fieldKey="level_of_education" /></div>
-                        <div className="text-sm">{store.getDisplayValue('level_of_education') || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
+                        </div>
+                        <div className="text-sm">
+                          {store.getDisplayValue('level_of_education') || '—'}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Professional status')} <SourceBadge fieldKey="professional_status" /></div>
-                        <div className="text-sm">{store.getDisplayValue('professional_status') || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Professional status')} <SourceBadge fieldKey="professional_status" />
+                        </div>
+                        <div className="text-sm">
+                          {store.getDisplayValue('professional_status') || '—'}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Marital status')} <SourceBadge fieldKey="marital_status" /></div>
-                        <div className="text-sm">{store.getDisplayValue('marital_status') || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Marital status')} <SourceBadge fieldKey="marital_status" />
+                        </div>
+                        <div className="text-sm">
+                          {store.getDisplayValue('marital_status') || '—'}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" /></div>
-                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('lifestyle')) || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
+                        </div>
+                        <div className="text-sm">
+                          {store.arrayToDisplay(store.getDisplayValue('lifestyle')) || '—'}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Personal goals (comma separated)')} <SourceBadge fieldKey="personal_goals" /></div>
-                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('personal_goals')) || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Personal goals (comma separated)')}{' '}
+                          <SourceBadge fieldKey="personal_goals" />
+                        </div>
+                        <div className="text-sm">
+                          {store.arrayToDisplay(store.getDisplayValue('personal_goals')) || '—'}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-zinc-500 text-xs">{t('Social support (comma separated)')} <SourceBadge fieldKey="social_support" /></div>
-                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('social_support')) || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Social support (comma separated)')}{' '}
+                          <SourceBadge fieldKey="social_support" />
+                        </div>
+                        <div className="text-sm">
+                          {store.arrayToDisplay(store.getDisplayValue('social_support')) || '—'}
+                        </div>
                       </div>
                       <div className="col-span-2">
-                        <div className="text-zinc-500 text-xs">{t('Restrictions')} <SourceBadge fieldKey="restrictions" /></div>
-                        <div className="text-sm">{store.getDisplayValue('restrictions') || '—'}</div>
+                        <div className="text-zinc-500 text-xs">
+                          {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
+                        </div>
+                        <div className="text-sm">
+                          {store.getDisplayValue('restrictions') || '—'}
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -1276,19 +1302,13 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                         </p>
 
                         <Table hover responsive size="sm">
-                          <thead>
-                            <tr>
-                              <th>{t('Field')}</th>
-                              <th>{t('Value')}</th>
-                            </tr>
-                          </thead>
                           <tbody>
                             {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
                               <tr key={k}>
                                 <td>
-                                  <span className="text-zinc-500">{k}</span>
+                                  <span className="text-xs text-zinc-500">{k}</span>
                                 </td>
-                                <td style={{ whiteSpace: 'pre-wrap' }}>
+                                <td className="text-sm whitespace-pre-wrap">
                                   {typeof v === 'object' ? JSON.stringify(v) : String(v)}
                                 </td>
                               </tr>
