@@ -438,62 +438,80 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">
-                    <h5 className="mb-3">{t('Contacts')}</h5>
-                    <Row className="g-3">
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="last_online_contact">
-                          <Form.Label>{t('Last online visit')}</Form.Label>
-                          <Form.Control
-                            plaintext
-                            readOnly
-                            value={
-                              toDisplayDate(store.getDisplayValue('last_online_contact')) || '—'
-                            }
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="last_clinic_visit">
-                          <Form.Label>
+                    <div className="mb-2">{t('Contacts')}</div>
+                    {!store.isEditing ? (
+                      <div className="grid grid-cols-2 items-center justify-items-start gap-2">
+                        <div>
+                          <div className="text-zinc-500 text-xs">{t('Last online visit')}</div>
+                          <div className="text-sm">
+                            {toDisplayDate(store.getDisplayValue('last_online_contact')) || '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">
                             {t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" />
-                          </Form.Label>
-                          {store.isEditing ? (
+                          </div>
+                          <div className="text-sm">
+                            {toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">{t('Therapist')}</div>
+                          <div className="text-sm">
+                            {store.getDisplayValue('therapist_name') || '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">
+                            {t('Clinic')} <SourceBadge fieldKey="clinic" />
+                          </div>
+                          <div className="text-sm">{store.getDisplayValue('clinic') || '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">
+                            {t('Project')} <SourceBadge fieldKey="project" />
+                          </div>
+                          <div className="text-sm">{store.getDisplayValue('project') || '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">
+                            {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />
+                          </div>
+                          <div className="text-sm">
+                            {toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 text-xs">
+                            {t('Study / After-Rehab Plan End Date')}{' '}
+                            <SourceBadge fieldKey="study_end_date" />
+                          </div>
+                          <div className="text-sm">
+                            {toDisplayDate(store.getDisplayValue('study_end_date')) || '—'}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <Row className="g-3">
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="last_clinic_visit">
+                            <Form.Label>
+                              {t('Last clinic visit')} <SourceBadge fieldKey="last_clinic_visit" />
+                            </Form.Label>
                             <Form.Control
                               id="last_clinic_visit"
                               type="date"
                               value={toDateInput(store.formData.last_clinic_visit)}
                               onChange={handleChange}
                             />
-                          ) : (
-                            <Form.Control
-                              plaintext
-                              readOnly
-                              value={
-                                toDisplayDate(store.getDisplayValue('last_clinic_visit')) || '—'
-                              }
-                            />
-                          )}
-                        </Form.Group>
-                      </Col>
+                          </Form.Group>
+                        </Col>
 
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="therapist_name">
-                          <Form.Label>{t('Therapist')}</Form.Label>
-                          <Form.Control
-                            plaintext
-                            readOnly
-                            value={store.getDisplayValue('therapist_name') || '—'}
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="clinic">
-                          <Form.Label>
-                            {t('Clinic')} <SourceBadge fieldKey="clinic" />
-                          </Form.Label>
-                          {store.isEditing ? (
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="clinic">
+                            <Form.Label>
+                              {t('Clinic')} <SourceBadge fieldKey="clinic" />
+                            </Form.Label>
                             <Form.Select
                               id="clinic"
                               value={store.formData.clinic || ''}
@@ -511,22 +529,14 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                                 </option>
                               ))}
                             </Form.Select>
-                          ) : (
-                            <Form.Control
-                              plaintext
-                              readOnly
-                              value={store.getDisplayValue('clinic') || '—'}
-                            />
-                          )}
-                        </Form.Group>
-                      </Col>
+                          </Form.Group>
+                        </Col>
 
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="project">
-                          <Form.Label>
-                            {t('Project')} <SourceBadge fieldKey="project" />
-                          </Form.Label>
-                          {store.isEditing ? (
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="project">
+                            <Form.Label>
+                              {t('Project')} <SourceBadge fieldKey="project" />
+                            </Form.Label>
                             <Form.Select
                               id="project"
                               value={store.formData.project || ''}
@@ -544,66 +554,46 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                                 </option>
                               ))}
                             </Form.Select>
-                          ) : (
-                            <Form.Control
-                              plaintext
-                              readOnly
-                              value={store.getDisplayValue('project') || '—'}
-                            />
-                          )}
-                        </Form.Group>
-                      </Col>
+                          </Form.Group>
+                        </Col>
 
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="reha_end_date">
-                          <Form.Label>
-                            {t('Rehabilitation End Date')} <SourceBadge fieldKey="reha_end_date" />
-                          </Form.Label>
-                          {store.isEditing ? (
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="reha_end_date">
+                            <Form.Label>
+                              {t('Rehabilitation End Date')}{' '}
+                              <SourceBadge fieldKey="reha_end_date" />
+                            </Form.Label>
                             <Form.Control
                               id="reha_end_date"
                               type="date"
                               value={toDateInput(store.formData.reha_end_date)}
                               onChange={handleChange}
                             />
-                          ) : (
-                            <Form.Control
-                              plaintext
-                              readOnly
-                              value={toDisplayDate(store.getDisplayValue('reha_end_date')) || '—'}
-                            />
-                          )}
-                        </Form.Group>
-                      </Col>
+                          </Form.Group>
+                        </Col>
 
-                      <Col xs={12} md={6}>
-                        <Form.Group controlId="study_end_date">
-                          <Form.Label>
-                            {t('Study / After-Rehab Plan End Date')}{' '}
-                            <SourceBadge fieldKey="study_end_date" />
-                          </Form.Label>
-                          {store.isEditing ? (
+                        <Col xs={12} md={6}>
+                          <Form.Group controlId="study_end_date">
+                            <Form.Label>
+                              {t('Study / After-Rehab Plan End Date')}{' '}
+                              <SourceBadge fieldKey="study_end_date" />
+                            </Form.Label>
                             <Form.Control
                               id="study_end_date"
                               type="date"
                               value={toDateInput(store.formData.study_end_date)}
                               onChange={handleChange}
                             />
-                          ) : (
-                            <Form.Control
-                              plaintext
-                              readOnly
-                              value={toDisplayDate(store.getDisplayValue('study_end_date')) || '—'}
-                            />
-                          )}
-                        </Form.Group>
-                      </Col>
-                    </Row>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    )}
                   </div>
 
                   {(config as any).PatientForm.map((section: any, idx: number) => (
                     <div key={idx} className="mb-4">
-                      <h5 className="mb-3">{t(section.title)}</h5>
+                      <Separator className="mb-4" />
+                      <div className="mb-2">{t(section.title)}</div>
                       <Row className="g-3">
                         {section.fields
                           .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
