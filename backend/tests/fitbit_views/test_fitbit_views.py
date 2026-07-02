@@ -799,3 +799,128 @@ def test_fitbit_summary_skips_backfill_when_no_gaps(mock_backfill, mock_today_fe
     resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 200
     mock_backfill.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Revoked token: connected flag must be False
+# ---------------------------------------------------------------------------
+
+
+def test_fitbit_status_false_when_token_revoked():
+    """fitbit_status must report connected=False when the token is revoked."""
+    _, _, patient_user, _ = create_patient_graph()
+    from django.utils import timezone as _tz
+
+    FitbitUserToken(
+        user=patient_user,
+        access_token="a",
+        refresh_token="r",
+        fitbit_user_id="fu",
+        is_revoked=True,
+        revoked_at=_tz.now(),
+    ).save()
+
+    resp = client.get(f"/api/fitbit/status/{patient_user.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    assert resp.json()["connected"] is False
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_connected_false_when_token_revoked(mock_fetch):
+    """fitbit_summary connected flag must be False when token is revoked."""
+    _, _, patient_user, patient = create_patient_graph()
+    from django.utils import timezone as _tz
+
+    FitbitUserToken(
+        user=patient_user,
+        access_token="a",
+        refresh_token="r",
+        fitbit_user_id="fu",
+        is_revoked=True,
+        revoked_at=_tz.now(),
+    ).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    assert resp.json()["connected"] is False
+
+
+@patch("core.views.fitbit_view.requests.post")
+def test_fitbit_callback_clears_revoked_flag_on_reconnect(mock_post):
+    """Re-connecting a previously revoked token must clear is_revoked."""
+    _, _, patient_user, _ = create_patient_graph()
+    from django.utils import timezone as _tz
+
+    # Simulate a previously revoked token
+    FitbitUserToken(
+        user=patient_user,
+        access_token="old",
+        refresh_token="old_r",
+        fitbit_user_id="fu",
+        is_revoked=True,
+        revoked_at=_tz.now(),
+    ).save()
+
+    mock_resp = Mock()
+    mock_resp.status_code = 200
+    mock_resp.text = "ok"
+    mock_resp.json.return_value = {
+        "access_token": "new_acc",
+        "refresh_token": "new_ref",
+        "expires_in": 3600,
+        "user_id": "fitbit-user",
+    }
+    mock_post.return_value = mock_resp
+
+    resp = client.get(
+        f"/api/fitbit/callback/?code=abc&state={patient_user.id}",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 302
+    assert "fitbit_status=connected" in resp.headers["Location"]
+
+    tok = FitbitUserToken.objects(user=patient_user).first()
+    assert tok is not None
+    assert tok.is_revoked is False
+    assert tok.revoked_at is None
+    assert tok.access_token == "new_acc"
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_daily_includes_wear_time_minutes(mock_fetch):
+    """fitbit_summary daily rows must include wear_time_minutes."""
+    _, _, patient_user, patient = create_patient_graph()
+    from django.utils import timezone as _tz
+
+    FitbitData(
+        user=patient_user,
+        date=_tz.now(),
+        steps=3000,
+        wear_time_minutes=480,
+    ).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    daily = resp.json()["period"]["daily"]
+    assert len(daily) >= 1
+    assert daily[0]["wear_time_minutes"] == 480
+
+
+def test_get_fitbit_health_data_includes_wear_time_minutes():
+    """health-data endpoint must return wear_time_minutes per day."""
+    _, _, patient_user, patient = create_patient_graph()
+    from datetime import datetime, time
+
+    today = timezone.now().date()
+    FitbitData(
+        user=patient_user,
+        date=datetime.combine(today, time.min),
+        steps=500,
+        wear_time_minutes=360,
+    ).save()
+
+    resp = client.get(f"/api/fitbit/health-data/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) >= 1
+    assert data[0]["wear_time_minutes"] == 360
