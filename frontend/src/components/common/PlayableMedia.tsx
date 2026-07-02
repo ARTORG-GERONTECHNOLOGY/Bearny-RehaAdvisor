@@ -157,6 +157,7 @@ export const PlayableMedia: React.FC<{
           <video
             src={u}
             controls
+            preload="metadata"
             style={{ width: '100%', borderRadius: 12 }}
             onError={() => setMode('link')}
           />
