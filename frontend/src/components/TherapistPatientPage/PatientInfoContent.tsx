@@ -434,8 +434,8 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             </div>
           )}
 
-          <div className="columns-1 xl:columns-2 gap-3">
-            <div className="mb-3 break-inside-avoid-column">
+          <div className="columns-1 md:columns-2 xl:columns-3 gap-2">
+            <div className="mb-2 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Profile')}</CardTitle>
@@ -634,7 +634,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
               </Card>
             </div>
 
-            <div className="mb-3 break-inside-avoid-column">
+            <div className="mb-2 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Characteristics')}</CardTitle>
@@ -829,7 +829,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
               </Card>
             </div>
 
-            <div className="mb-3 break-inside-avoid-column">
+            <div className="mb-2 break-inside-avoid-column">
               <Card>
                 <CardHeader>
                   <CardTitle>{t('Goals & thresholds')}</CardTitle>
@@ -1226,7 +1226,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             </div>
 
             {appModeStore.showRedcapTab && (
-              <div className="mb-3 break-inside-avoid-column">
+              <div className="mb-2 break-inside-avoid-column">
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('REDCap')}</CardTitle>
