@@ -77,20 +77,34 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
 
   const renderField = (field: any) => {
     const key = field.be_name;
-
-    // In edit mode: edit manual data
     const manualValue = store.formData[key];
-
-    // In view mode: show manual-or-redcap fallback
     const displayValue = store.getDisplayValue(key);
 
-    const isDisabled = !store.isEditing || key === 'access_word';
+    if (!store.isEditing || key === 'access_word') {
+      let display: string;
+      if (field.type === 'multi-select') {
+        display = ((displayValue || []) as string[]).map((v: string) => t(v)).join(', ') || '—';
+      } else if (field.type === 'dropdown') {
+        display = displayValue ? t(String(displayValue)) : '—';
+      } else if (field.type === 'date') {
+        display = toDisplayDate(displayValue) || '—';
+      } else if (field.type === 'checkbox') {
+        display = displayValue ? t('Yes') : t('No');
+      } else {
+        display = String(displayValue || '—');
+      }
+      return (
+        <div>
+          <div className="text-zinc-500 text-xs">
+            {t(field.label)} <SourceBadge fieldKey={key} />
+          </div>
+          <div className="text-sm">{display}</div>
+        </div>
+      );
+    }
 
     if (field.type === 'multi-select') {
-      const currentValues: string[] = (
-        store.isEditing ? manualValue || [] : displayValue || []
-      ) as any;
-
+      const currentValues: string[] = (manualValue || []) as any;
       const options =
         key === 'diagnosis' && store.formData.function?.length
           ? store.formData.function.flatMap((spec: string) =>
@@ -100,85 +114,92 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
               }))
             )
           : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }));
-
       return (
-        <Select
-          inputId={key}
-          isMulti
-          isDisabled={isDisabled}
-          options={options}
-          value={(currentValues || []).map((val: string) => ({ value: val, label: t(val) }))}
-          onChange={(selected) => store.setMultiSelect(key, selected as any)}
-          aria-label={t(field.label)}
-          placeholder={t('Select...')}
-        />
+        <Form.Group controlId={key}>
+          <Form.Label>
+            {t(field.label)} <SourceBadge fieldKey={key} />
+          </Form.Label>
+          <Select
+            inputId={key}
+            isMulti
+            options={options}
+            value={(currentValues || []).map((val: string) => ({ value: val, label: t(val) }))}
+            onChange={(selected) => store.setMultiSelect(key, selected as any)}
+            aria-label={t(field.label)}
+            placeholder={t('Select...')}
+          />
+        </Form.Group>
       );
     }
 
     if (field.type === 'dropdown') {
-      const v = store.isEditing ? manualValue || '' : displayValue || '';
-
       return (
-        <Form.Select
-          id={key}
-          value={v}
-          onChange={handleChange}
-          disabled={isDisabled}
-          aria-label={t(field.label)}
-        >
-          <option value="">{t('Select an option')}</option>
-          {(field.options || []).map((opt: string) => (
-            <option key={opt} value={opt}>
-              {t(opt)}
-            </option>
-          ))}
-        </Form.Select>
+        <Form.Group controlId={key}>
+          <Form.Label>
+            {t(field.label)} <SourceBadge fieldKey={key} />
+          </Form.Label>
+          <Form.Select id={key} value={manualValue || ''} onChange={handleChange} aria-label={t(field.label)}>
+            <option value="">{t('Select an option')}</option>
+            {(field.options || []).map((opt: string) => (
+              <option key={opt} value={opt}>
+                {t(opt)}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
       );
     }
 
     if (field.type === 'date') {
-      const v = store.isEditing ? manualValue : displayValue;
-
       return (
-        <Form.Control
-          id={key}
-          type="date"
-          value={toDateInput(v)}
-          onChange={handleChange}
-          disabled={isDisabled}
-          aria-label={t(field.label)}
-        />
+        <Form.Group controlId={key}>
+          <Form.Label>
+            {t(field.label)} <SourceBadge fieldKey={key} />
+          </Form.Label>
+          <Form.Control
+            id={key}
+            type="date"
+            value={toDateInput(manualValue)}
+            onChange={handleChange}
+            aria-label={t(field.label)}
+          />
+        </Form.Group>
       );
     }
 
     if (field.type === 'checkbox') {
-      const checked = store.isEditing ? !!store.formData[key] : !!store.getDisplayValue(key);
       return (
-        <Form.Check
-          type="checkbox"
-          id={key}
-          label=""
-          checked={checked}
-          onChange={(e) => store.setField(key, e.target.checked)}
-          disabled={isDisabled}
-          aria-label={t(field.label)}
-        />
+        <Form.Group controlId={key}>
+          <Form.Label>
+            {t(field.label)} <SourceBadge fieldKey={key} />
+          </Form.Label>
+          <Form.Check
+            type="checkbox"
+            id={key}
+            label=""
+            checked={!!manualValue}
+            onChange={(e) => store.setField(key, e.target.checked)}
+            aria-label={t(field.label)}
+          />
+        </Form.Group>
       );
     }
 
     const commonMaxLength = field.type === 'text' || !field.type ? 500 : undefined;
-    const v = store.isEditing ? manualValue || '' : displayValue || '';
-
     return (
-      <Form.Control
-        id={key}
-        type={field.type}
-        value={v}
-        onChange={handleChange}
-        disabled={isDisabled}
-        aria-label={t(field.label)}
-        maxLength={commonMaxLength}
-      />
+      <Form.Group controlId={key}>
+        <Form.Label>
+          {t(field.label)} <SourceBadge fieldKey={key} />
+        </Form.Label>
+        <Form.Control
+          id={key}
+          type={field.type}
+          value={manualValue || ''}
+          onChange={handleChange}
+          aria-label={t(field.label)}
+          maxLength={commonMaxLength}
+        />
+      </Form.Group>
     );
   };
 
@@ -604,13 +625,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                           )
                           .map((field: any, index: number) => (
                             <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
-                              <Form.Group controlId={field.be_name}>
-                                <Form.Label>
-                                  {t(field.label)}
-                                  <SourceBadge fieldKey={field.be_name} />
-                                </Form.Label>
-                                {renderField(field)}
-                              </Form.Group>
+                              {renderField(field)}
                             </Col>
                           ))}
                       </Row>
