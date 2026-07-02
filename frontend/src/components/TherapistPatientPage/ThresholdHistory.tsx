@@ -1,0 +1,90 @@
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { PatientThresholds, ThresholdHistoryItem } from '@/stores/patientPopupStore';
+
+function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
+  if (!th || Object.keys(th).length === 0) return '—';
+  const parts: string[] = [];
+  if (th.steps_goal != null) parts.push(`${t('Steps goal')}: ${th.steps_goal}`);
+  if (th.active_minutes_green != null)
+    parts.push(
+      `${t('Active zone minutes (green)')}/${t('Active zone minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`
+    );
+  if (th.sleep_green_min != null)
+    parts.push(
+      `${t('Sleep min (green, minutes)')}/${t('Sleep min (yellow, minutes)')}: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'}`
+    );
+  if (th.bp_sys_green_max != null)
+    parts.push(
+      `${t('BP systolic green max')}/${t('BP systolic yellow max')}: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`
+    );
+  if (th.bp_dia_green_max != null)
+    parts.push(
+      `${t('BP diastolic green max')}/${t('BP diastolic yellow max')}: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`
+    );
+  return parts.join('\n') || '—';
+}
+
+interface ThresholdHistoryProps {
+  history: ThresholdHistoryItem[];
+}
+
+const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
+  const { t } = useTranslation();
+  const [historyEntry, setHistoryEntry] = useState<ThresholdHistoryItem | null>(null);
+
+  if (!history || history.length === 0) {
+    return <div className="text-zinc-500">{t('No history yet.')}</div>;
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        {history.map((h, idx) => (
+          <div
+            key={idx}
+            role="button"
+            onClick={() => setHistoryEntry(h)}
+            className="hover:bg-zinc-100 rounded-lg cursor-pointer"
+          >
+            <div className="text-sm">
+              {h.effective_from ? new Date(h.effective_from).toLocaleDateString() : '—'}
+            </div>
+            <div className="text-xs text-zinc-500">
+              {t('Changed by')}: {h.changed_by || '—'}
+            </div>
+            <div className="text-xs text-zinc-500 truncate">
+              {t('Reason')}: {h.reason || '—'}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Sheet open={!!historyEntry} onOpenChange={(v) => !v && setHistoryEntry(null)}>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>{t('Previous values')}</SheetTitle>
+            <SheetDescription>
+              {historyEntry?.effective_from
+                ? new Date(historyEntry.effective_from).toLocaleString()
+                : ''}
+            </SheetDescription>
+          </SheetHeader>
+          <div data-testid="threshold-history-values" className="mt-4 whitespace-pre-wrap text-sm">
+            {historyEntry ? formatThresholdSnapshot(historyEntry.thresholds, t) : ''}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+};
+
+export default ThresholdHistory;

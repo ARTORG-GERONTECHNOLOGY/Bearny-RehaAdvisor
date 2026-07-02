@@ -21,37 +21,11 @@ import { appModeStore } from '@/stores/appModeStore';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import PasswordResetSheet from '@/components/TherapistPatientPage/PasswordResetSheet';
-import {
-  PatientPopupStore,
-  PatientThresholds,
-  toDateInput,
-  toDisplayDate,
-} from '@/stores/patientPopupStore';
+import ThresholdHistory from '@/components/TherapistPatientPage/ThresholdHistory';
+import { PatientPopupStore, toDateInput, toDisplayDate } from '@/stores/patientPopupStore';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
-function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
-  if (!th || Object.keys(th).length === 0) return '—';
-  const parts: string[] = [];
-  if (th.steps_goal != null) parts.push(`${t('Steps goal')}: ${th.steps_goal}`);
-  if (th.active_minutes_green != null)
-    parts.push(
-      `${t('Active zone minutes (green)')}/${t('Active zone minutes (yellow)')}: ${th.active_minutes_green}/${th.active_minutes_yellow ?? '?'}`
-    );
-  if (th.sleep_green_min != null)
-    parts.push(
-      `${t('Sleep min (green, minutes)')}/${t('Sleep min (yellow, minutes)')}: ${th.sleep_green_min}/${th.sleep_yellow_min ?? '?'}`
-    );
-  if (th.bp_sys_green_max != null)
-    parts.push(
-      `${t('BP systolic green max')}/${t('BP systolic yellow max')}: ≤${th.bp_sys_green_max}/≤${th.bp_sys_yellow_max ?? '?'}`
-    );
-  if (th.bp_dia_green_max != null)
-    parts.push(
-      `${t('BP diastolic green max')}/${t('BP diastolic yellow max')}: ≤${th.bp_dia_green_max}/≤${th.bp_dia_yellow_max ?? '?'}`
-    );
-  return parts.join('\n') || '—';
-}
+import { Separator } from '@/components/ui/separator';
 
 interface PatientInfoContentProps {
   patientId: string;
@@ -826,237 +800,347 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                 <CardHeader>
                   <CardTitle>{t('Goals & thresholds')}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="mb-3 text-muted">
+                <CardContent className="flex flex-col gap-2">
+                  <div className="text-zinc-500 text-sm">
                     {t(
                       'These goals affect how health charts are colored and how progress is interpreted.'
                     )}
                   </div>
 
                   {/* CURRENT THRESHOLDS */}
-                  <div className="mb-4">
-                    <h5 className="mb-3">{t('Current thresholds')}</h5>
-
+                  <div>
                     {!store.thresholds ? (
                       <div className="text-muted">{t('No thresholds loaded.')}</div>
                     ) : (
-                      <Row className="g-3">
-                        {/* Steps */}
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="steps_goal">
-                            <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.steps_goal ?? store.thresholds.steps_goal ?? 0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('steps_goal', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={0}
-                              max={200000}
-                            />
-                          </Form.Group>
-                        </Col>
-
-                        {/* Active zone minutes */}
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="active_minutes_green">
-                            <Form.Label className="fw-semibold">
-                              {t('Active zone minutes (green)')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.active_minutes_green ??
-                                store.thresholds.active_minutes_green ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField(
-                                  'active_minutes_green',
-                                  Number(e.target.value)
-                                )
-                              }
-                              disabled={!store.isEditing}
-                              min={0}
-                              max={1440}
-                            />
-                          </Form.Group>
-                        </Col>
-
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="active_minutes_yellow">
-                            <Form.Label className="fw-semibold">
-                              {t('Active zone minutes (yellow)')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.active_minutes_yellow ??
-                                store.thresholds.active_minutes_yellow ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField(
-                                  'active_minutes_yellow',
-                                  Number(e.target.value)
-                                )
-                              }
-                              disabled={!store.isEditing}
-                              min={0}
-                              max={1440}
-                            />
-                            <div className="text-muted small mt-1">
-                              {t('Green should be ≥ yellow')}
+                      <>
+                        {!store.isEditing ? (
+                          <div className="grid grid-cols-2 items-center justify-items-start gap-2">
+                            <div>
+                              <div className="text-zinc-500 text-xs">min.</div>
+                              <div className="text-sm">{t('Steps goal')}</div>
                             </div>
-                          </Form.Group>
-                        </Col>
+                            <Badge bg="success">
+                              {store.thresholdDraft.steps_goal ??
+                                store.thresholds.steps_goal ??
+                                '-'}
+                            </Badge>
 
-                        {/* Sleep */}
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="sleep_green_min">
-                            <Form.Label className="fw-semibold">
-                              {t('Sleep min (green, minutes)')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.sleep_green_min ??
-                                store.thresholds.sleep_green_min ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('sleep_green_min', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={0}
-                              max={1440}
-                            />
-                          </Form.Group>
-                        </Col>
-
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="sleep_yellow_min">
-                            <Form.Label className="fw-semibold">
-                              {t('Sleep min (yellow, minutes)')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.sleep_yellow_min ??
-                                store.thresholds.sleep_yellow_min ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('sleep_yellow_min', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={0}
-                              max={1440}
-                            />
-                            <div className="text-muted small mt-1">
-                              {t('Green should be ≥ yellow')}
+                            <div>
+                              <div className="text-zinc-500 text-xs">min.</div>
+                              <div className="text-sm">{t('Active Minutes')}</div>
                             </div>
-                          </Form.Group>
-                        </Col>
-
-                        {/* BP */}
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="bp_sys_green_max">
-                            <Form.Label className="fw-semibold">
-                              {t('BP systolic green max')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.bp_sys_green_max ??
-                                store.thresholds.bp_sys_green_max ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('bp_sys_green_max', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={50}
-                              max={250}
-                            />
-                          </Form.Group>
-                        </Col>
-
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="bp_sys_yellow_max">
-                            <Form.Label className="fw-semibold">
-                              {t('BP systolic yellow max')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.bp_sys_yellow_max ??
-                                store.thresholds.bp_sys_yellow_max ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('bp_sys_yellow_max', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={50}
-                              max={250}
-                            />
-                            <div className="text-muted small mt-1">
-                              {t('Green max should be ≤ yellow max')}
+                            <div className="flex gap-1">
+                              <Badge bg="success">
+                                {store.thresholdDraft.active_minutes_green ??
+                                  store.thresholds.active_minutes_green ??
+                                  '-'}{' '}
+                                min.
+                              </Badge>
+                              <Badge bg="warning">
+                                {store.thresholdDraft.active_minutes_yellow ??
+                                  store.thresholds.active_minutes_yellow ??
+                                  '-'}{' '}
+                                min.
+                              </Badge>
                             </div>
-                          </Form.Group>
-                        </Col>
 
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="bp_dia_green_max">
-                            <Form.Label className="fw-semibold">
-                              {t('BP diastolic green max')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.bp_dia_green_max ??
-                                store.thresholds.bp_dia_green_max ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('bp_dia_green_max', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={30}
-                              max={180}
-                            />
-                          </Form.Group>
-                        </Col>
-
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId="bp_dia_yellow_max">
-                            <Form.Label className="fw-semibold">
-                              {t('BP diastolic yellow max')}
-                            </Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={
-                                store.thresholdDraft.bp_dia_yellow_max ??
-                                store.thresholds.bp_dia_yellow_max ??
-                                0
-                              }
-                              onChange={(e) =>
-                                store.setThresholdField('bp_dia_yellow_max', Number(e.target.value))
-                              }
-                              disabled={!store.isEditing}
-                              min={30}
-                              max={180}
-                            />
-                            <div className="text-muted small mt-1">
-                              {t('Green max should be ≤ yellow max')}
+                            <div>
+                              <div className="text-zinc-500 text-xs">min.</div>
+                              <div className="text-sm">Sleep</div>
                             </div>
-                          </Form.Group>
-                        </Col>
-                      </Row>
+                            <div className="flex gap-1">
+                              <Badge bg="success">
+                                {store.thresholdDraft.sleep_green_min ??
+                                  store.thresholds.sleep_green_min ??
+                                  '-'}{' '}
+                                min.
+                              </Badge>
+                              <Badge bg="warning">
+                                {store.thresholdDraft.sleep_yellow_min ??
+                                  store.thresholds.sleep_yellow_min ??
+                                  '-'}{' '}
+                                min.
+                              </Badge>
+                            </div>
+
+                            <div>
+                              <div className="text-zinc-500 text-xs">max.</div>
+                              <div className="text-sm">BP systolic</div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Badge bg="success">
+                                {store.thresholdDraft.bp_sys_green_max ??
+                                  store.thresholds.bp_sys_green_max ??
+                                  '-'}{' '}
+                                mmHg
+                              </Badge>
+                              <Badge bg="warning">
+                                {store.thresholdDraft.bp_sys_yellow_max ??
+                                  store.thresholds.bp_sys_yellow_max ??
+                                  '-'}{' '}
+                                mmHg
+                              </Badge>
+                            </div>
+
+                            <div>
+                              <div className="text-zinc-500 text-xs">max.</div>
+                              <div className="text-sm">BP diastolic</div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Badge bg="success">
+                                {store.thresholdDraft.bp_dia_green_max ??
+                                  store.thresholds.bp_dia_green_max ??
+                                  '-'}{' '}
+                                mmHg
+                              </Badge>
+                              <Badge bg="warning">
+                                {store.thresholdDraft.bp_dia_yellow_max ??
+                                  store.thresholds.bp_dia_yellow_max ??
+                                  '-'}{' '}
+                                mmHg
+                              </Badge>
+                            </div>
+                          </div>
+                        ) : (
+                          <Row className="g-3">
+                            {/* Steps */}
+                            <Col xs={12} md={12}>
+                              <Form.Group controlId="steps_goal">
+                                <Form.Label className="fw-semibold">{t('Steps goal')}</Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.steps_goal ??
+                                    store.thresholds.steps_goal ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField('steps_goal', Number(e.target.value))
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={0}
+                                  max={200000}
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            {/* Active zone minutes */}
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="active_minutes_green">
+                                <Form.Label className="fw-semibold">
+                                  {t('Active zone minutes (green)')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.active_minutes_green ??
+                                    store.thresholds.active_minutes_green ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'active_minutes_green',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={0}
+                                  max={1440}
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="active_minutes_yellow">
+                                <Form.Label className="fw-semibold">
+                                  {t('Active zone minutes (yellow)')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.active_minutes_yellow ??
+                                    store.thresholds.active_minutes_yellow ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'active_minutes_yellow',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={0}
+                                  max={1440}
+                                />
+                                <div className="text-muted small mt-1">
+                                  {t('Green should be ≥ yellow')}
+                                </div>
+                              </Form.Group>
+                            </Col>
+
+                            {/* Sleep */}
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="sleep_green_min">
+                                <Form.Label className="fw-semibold">
+                                  {t('Sleep min (green, minutes)')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.sleep_green_min ??
+                                    store.thresholds.sleep_green_min ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'sleep_green_min',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={0}
+                                  max={1440}
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="sleep_yellow_min">
+                                <Form.Label className="fw-semibold">
+                                  {t('Sleep min (yellow, minutes)')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.sleep_yellow_min ??
+                                    store.thresholds.sleep_yellow_min ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'sleep_yellow_min',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={0}
+                                  max={1440}
+                                />
+                                <div className="text-muted small mt-1">
+                                  {t('Green should be ≥ yellow')}
+                                </div>
+                              </Form.Group>
+                            </Col>
+
+                            {/* BP */}
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="bp_sys_green_max">
+                                <Form.Label className="fw-semibold">
+                                  {t('BP systolic green max')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.bp_sys_green_max ??
+                                    store.thresholds.bp_sys_green_max ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'bp_sys_green_max',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={50}
+                                  max={250}
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="bp_sys_yellow_max">
+                                <Form.Label className="fw-semibold">
+                                  {t('BP systolic yellow max')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.bp_sys_yellow_max ??
+                                    store.thresholds.bp_sys_yellow_max ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'bp_sys_yellow_max',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={50}
+                                  max={250}
+                                />
+                                <div className="text-muted small mt-1">
+                                  {t('Green max should be ≤ yellow max')}
+                                </div>
+                              </Form.Group>
+                            </Col>
+
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="bp_dia_green_max">
+                                <Form.Label className="fw-semibold">
+                                  {t('BP diastolic green max')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.bp_dia_green_max ??
+                                    store.thresholds.bp_dia_green_max ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'bp_dia_green_max',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={30}
+                                  max={180}
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col xs={12} md={6}>
+                              <Form.Group controlId="bp_dia_yellow_max">
+                                <Form.Label className="fw-semibold">
+                                  {t('BP diastolic yellow max')}
+                                </Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={
+                                    store.thresholdDraft.bp_dia_yellow_max ??
+                                    store.thresholds.bp_dia_yellow_max ??
+                                    0
+                                  }
+                                  onChange={(e) =>
+                                    store.setThresholdField(
+                                      'bp_dia_yellow_max',
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  disabled={!store.isEditing}
+                                  min={30}
+                                  max={180}
+                                />
+                                <div className="text-muted small mt-1">
+                                  {t('Green max should be ≤ yellow max')}
+                                </div>
+                              </Form.Group>
+                            </Col>
+                          </Row>
+                        )}
+                      </>
                     )}
 
                     {/* Effective date + reason (edit mode only) */}
@@ -1095,44 +1179,14 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                     )}
                   </div>
 
-                  {/* HISTORY */}
-                  <div>
-                    <h5 className="mb-2">{t('Change history')}</h5>
-                    <div className="text-muted small mb-2">
-                      {t('Older thresholds are saved automatically when you update goals.')}
-                    </div>
+                  <Separator className="my-2" />
 
-                    {(store.thresholdsHistory || []).length === 0 ? (
-                      <div className="text-muted">{t('No history yet.')}</div>
-                    ) : (
-                      <Table striped bordered hover responsive size="sm">
-                        <thead>
-                          <tr>
-                            <th style={{ width: 220 }}>{t('Effective from')}</th>
-                            <th style={{ width: 180 }}>{t('Changed by')}</th>
-                            <th>{t('Reason')}</th>
-                            <th>{t('Previous values')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {store.thresholdsHistory.map((h, idx) => (
-                            <tr key={idx}>
-                              <td>
-                                {h.effective_from
-                                  ? new Date(h.effective_from).toLocaleString()
-                                  : '—'}
-                              </td>
-                              <td>{h.changed_by || '—'}</td>
-                              <td style={{ whiteSpace: 'pre-wrap' }}>{h.reason || '—'}</td>
-                              <td style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em' }}>
-                                {formatThresholdSnapshot(h.thresholds, t)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    )}
+                  {/* HISTORY */}
+                  <div className="text-zinc-500 text-sm">
+                    {t('Older thresholds are saved automatically when you update goals.')}
                   </div>
+
+                  <ThresholdHistory history={store.thresholdsHistory || []} />
                 </CardContent>
               </Card>
             </div>
