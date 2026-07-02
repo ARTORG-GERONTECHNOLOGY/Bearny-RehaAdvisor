@@ -361,6 +361,8 @@ def _csv_health_fitbit(patients, user_map):
         "date",
         "steps",
         "active_minutes",
+        "wear_time_minutes",
+        "sleep_minutes_asleep",
         "sleep_duration_min",
         "resting_heart_rate",
         "max_heart_rate",
@@ -382,9 +384,11 @@ def _csv_health_fitbit(patients, user_map):
         if not pt:
             continue
         sleep = getattr(fb, "sleep", None)
-        sleep_min = ""
+        sleep_duration_min = ""
+        sleep_minutes_asleep = ""
         if sleep:
-            sleep_min = str(getattr(sleep, "sleep_duration", "") or getattr(sleep, "minutes_asleep", "") or "")
+            sleep_duration_min = str(getattr(sleep, "sleep_duration", "") or "")
+            sleep_minutes_asleep = str(getattr(sleep, "minutes_asleep", "") or "")
         rows.append(
             {
                 "clinic": getattr(pt, "clinic", "") or "",
@@ -392,7 +396,9 @@ def _csv_health_fitbit(patients, user_map):
                 "date": _fmt_date(getattr(fb, "date", None)),
                 "steps": str(getattr(fb, "steps", "") or ""),
                 "active_minutes": str(getattr(fb, "active_minutes", "") or ""),
-                "sleep_duration_min": sleep_min,
+                "wear_time_minutes": str(getattr(fb, "wear_time_minutes", "") or ""),
+                "sleep_minutes_asleep": sleep_minutes_asleep,
+                "sleep_duration_min": sleep_duration_min,
                 "resting_heart_rate": str(getattr(fb, "resting_heart_rate", "") or ""),
                 "max_heart_rate": str(getattr(fb, "max_heart_rate", "") or ""),
                 "calories": str(getattr(fb, "calories", "") or ""),
