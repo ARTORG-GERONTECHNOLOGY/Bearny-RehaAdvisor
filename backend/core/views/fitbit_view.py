@@ -128,7 +128,7 @@ def fitbit_summary(request, patient_id=None):
         fetch_fitbit_today_for_user(user)
 
         token = FitbitUserToken.objects(user=patient.userId).first()
-        connected = bool(token)
+        connected = bool(token) and not getattr(token, "is_revoked", False)
 
         days = max(1, min(int(request.GET.get("days", 7)), 31))
 
@@ -276,6 +276,7 @@ def fitbit_summary(request, patient_id=None):
                 "active_minutes": am,
                 "active_zone_minutes": getattr(d, "active_zone_minutes", None),
                 "sleep_minutes": sm,
+                "wear_time_minutes": getattr(d, "wear_time_minutes", None),
                 "bp_sys": bp_sys,
                 "bp_dia": bp_dia,
                 "weight_kg": weight_kg,
@@ -432,7 +433,7 @@ def fitbit_status(request, patient_id):
         logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
         return JsonResponse({"connected": False, "has_data": False, "last_data": None})
 
-    connected = FitbitUserToken.objects(user=user).count() > 0
+    connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
     latest_row = FitbitData.objects(user=user).order_by("-date").first()
     has_data = latest_row is not None
     last_data = latest_row.date.isoformat() if latest_row else None
@@ -523,6 +524,8 @@ def fitbit_callback(request):
                 set__refresh_token=token_data["refresh_token"],
                 set__expires_at=timezone.now() + timedelta(seconds=token_data["expires_in"]),
                 set__fitbit_user_id=token_data["user_id"],
+                set__is_revoked=False,
+                set__revoked_at=None,
                 upsert=True,
             )
 
@@ -649,6 +652,7 @@ def get_fitbit_health_data(request, patient_id):
                     "calories": entry.calories,
                     "active_minutes": entry.active_minutes,
                     "active_zone_minutes": getattr(entry, "active_zone_minutes", None),
+                    "wear_time_minutes": getattr(entry, "wear_time_minutes", None),
                     "breathing_rate": entry.breathing_rate,
                     "hrv": entry.hrv,
                     "sleep": sleep,
@@ -798,68 +802,67 @@ def health_combined_history(request, patient_id):
             date__lte=to_date,
         ).order_by("date")
 
-        # Merge vitals into FitbitData objects
+        # Merge vitals into the in-memory fitbit_map — do NOT write to DB in a GET endpoint.
+        # Vitals are read-merged at response time only.
+        vitals_overlay: dict[str, dict] = {}
         for v in vitals_qs:
             dkey = v.date.strftime("%Y-%m-%d")
-            f = fitbit_map.get(dkey)
-
-            if f:
-                # Update existing FitbitData row
-                f.weight_kg = v.weight_kg
-                f.bp_sys = v.bp_sys
-                f.bp_dia = v.bp_dia
-                f.save()
-            else:
-                # If no FitbitData for that day, create a minimal entry
-                fd = FitbitData(
-                    user=patient.userId,
-                    date=datetime.datetime.combine(v.date, datetime.time()),
-                    weight_kg=v.weight_kg,
-                    bp_sys=v.bp_sys,
-                    bp_dia=v.bp_dia,
-                )
-                fd.save()
-                fitbit_map[dkey] = fd
+            vitals_overlay[dkey] = {
+                "weight_kg": v.weight_kg,
+                "bp_sys": v.bp_sys,
+                "bp_dia": v.bp_dia,
+            }
+            if dkey not in fitbit_map:
+                # Synthetic placeholder so vitals-only days appear in output
+                fitbit_map[dkey] = None
 
         # Now convert fitbit_map → sorted list
         fitbit_list = []
         for key in sorted(fitbit_map.keys()):
             f = fitbit_map[key]
+            vit = vitals_overlay.get(key, {})
+            # Prefer FitbitData vitals; fall back to PatientVitals overlay
+            weight_kg = (getattr(f, "weight_kg", None) if f else None) or vit.get("weight_kg")
+            bp_sys = (getattr(f, "bp_sys", None) if f else None) or vit.get("bp_sys")
+            bp_dia = (getattr(f, "bp_dia", None) if f else None) or vit.get("bp_dia")
             fitbit_list.append(
                 {
                     "date": key,
-                    "steps": f.steps,
-                    "resting_heart_rate": f.resting_heart_rate,
-                    "max_heart_rate": f.max_heart_rate,
-                    "floors": f.floors,
-                    "distance": f.distance,
-                    "calories": f.calories,
-                    "active_minutes": f.active_minutes,
-                    "active_zone_minutes": getattr(f, "active_zone_minutes", None),
+                    "steps": f.steps if f else None,
+                    "resting_heart_rate": f.resting_heart_rate if f else None,
+                    "max_heart_rate": f.max_heart_rate if f else None,
+                    "floors": f.floors if f else None,
+                    "distance": f.distance if f else None,
+                    "calories": f.calories if f else None,
+                    "active_minutes": f.active_minutes if f else None,
+                    "active_zone_minutes": getattr(f, "active_zone_minutes", None) if f else None,
                     "sleep": {
-                        "sleep_duration": f.sleep.sleep_duration if f.sleep else None,
-                        "minutes_asleep": f.sleep.minutes_asleep if f.sleep else None,
-                        "sleep_start": f.sleep.sleep_start if f.sleep else None,
-                        "sleep_end": f.sleep.sleep_end if f.sleep else None,
-                        "awakenings": f.sleep.awakenings if f.sleep else None,
+                        "sleep_duration": f.sleep.sleep_duration if f and f.sleep else None,
+                        "minutes_asleep": f.sleep.minutes_asleep if f and f.sleep else None,
+                        "sleep_start": f.sleep.sleep_start if f and f.sleep else None,
+                        "sleep_end": f.sleep.sleep_end if f and f.sleep else None,
+                        "awakenings": f.sleep.awakenings if f and f.sleep else None,
                     },
-                    "wear_time_minutes": f.wear_time_minutes,
-                    "heart_rate_zones": [
-                        {
-                            "name": z.name,
-                            "min": z.min,
-                            "max": z.max,
-                            "minutes": z.minutes,
-                        }
-                        for z in (f.heart_rate_zones or [])
-                    ],
-                    "breathing_rate": f.breathing_rate,
-                    "hrv": f.hrv,
-                    "exercise": f.exercise or {},
-                    # NEW vitals injected into FitbitEntry[]
-                    "weight_kg": f.weight_kg,
-                    "bp_sys": f.bp_sys,
-                    "bp_dia": f.bp_dia,
+                    "wear_time_minutes": getattr(f, "wear_time_minutes", None) if f else None,
+                    "heart_rate_zones": (
+                        [
+                            {
+                                "name": z.name,
+                                "min": z.min,
+                                "max": z.max,
+                                "minutes": z.minutes,
+                            }
+                            for z in (f.heart_rate_zones or [])
+                        ]
+                        if f
+                        else []
+                    ),
+                    "breathing_rate": f.breathing_rate if f else None,
+                    "hrv": f.hrv if f else None,
+                    "exercise": (f.exercise or {}) if f else {},
+                    "weight_kg": weight_kg,
+                    "bp_sys": bp_sys,
+                    "bp_dia": bp_dia,
                 }
             )
 
