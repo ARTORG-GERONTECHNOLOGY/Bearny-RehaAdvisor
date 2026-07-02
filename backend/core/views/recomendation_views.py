@@ -13,6 +13,7 @@ import logging
 import mimetypes
 import os
 import re
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -71,6 +72,22 @@ from utils.interventions import (
 from utils.scheduling import _expand_dates  # you already use this
 from utils.utils import bad, sanitize_text
 
+logger = logging.getLogger(__name__)
+
+# Module-level cache: star rating question IDs change only when questions are
+# added/removed, which is rare. Re-query at most once every 10 minutes.
+_star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
+_STAR_Q_CACHE_TTL = 600  # seconds
+
+
+def _get_star_q_ids() -> list:
+    now = time.monotonic()
+    if _star_q_ids_cache["ids"] is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
+        ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
+        _star_q_ids_cache.update({"ids": ids, "ts": now})
+    return _star_q_ids_cache["ids"]
+
+
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
     "mov": "videos",
@@ -88,7 +105,6 @@ FILE_TYPE_FOLDERS = {
     "gif": "images",
     "webp": "images",
 }
-logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------
 # Constants
@@ -1032,12 +1048,40 @@ def list_all_interventions(request, patient_id=None):
             chosen, langs = _pick_variant(docs, pick_lang, fallback_order=["en", "de"])
             return JsonResponse([serialize(chosen, langs)], safe=False, status=200)
 
-        public = list(Intervention.objects.filter(Q(is_private=False) | Q(is_private__exists=False)))
+        # Project only the fields used by serialize() to reduce data transferred
+        # from MongoDB. Fields like input_from, primary_diagnosis, cognitive_level,
+        # physical_level, duration_bucket, sex_specific, original_language are
+        # metadata only needed on import/admin views, not the library list.
+        _list_fields = (
+            "external_id",
+            "language",
+            "provider",
+            "title",
+            "description",
+            "content_type",
+            "aim",
+            "topic",
+            "where",
+            "setting",
+            "keywords",
+            "media",
+            "preview_img",
+            "duration",
+            "patient_types",
+            "is_private",
+        )
+        public = list(
+            Intervention.objects.filter(Q(is_private=False) | Q(is_private__exists=False)).only(*_list_fields)
+        )
 
         private = []
         if patient_id:
             try:
-                private = list(Intervention.objects.filter(is_private=True, private_patient_id=ObjectId(patient_id)))
+                private = list(
+                    Intervention.objects.filter(is_private=True, private_patient_id=ObjectId(patient_id)).only(
+                        *_list_fields
+                    )
+                )
             except Exception as e:
                 logger.warning(f"Invalid patient ID or private fetch error: {e}")
 
@@ -1056,7 +1100,8 @@ def list_all_interventions(request, patient_id=None):
         all_serialized = private_serialized + public_serialized
 
         # Annotate each intervention with its average star rating from patient feedback.
-        star_q_ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
+        # star_q_ids are cached at module level; see _get_star_q_ids().
+        star_q_ids = _get_star_q_ids()
         if star_q_ids:
             valid_ids = [ObjectId(s["_id"]) for s in all_serialized if ObjectId.is_valid(s["_id"])]
             if valid_ids:
