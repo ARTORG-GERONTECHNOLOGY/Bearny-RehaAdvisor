@@ -640,157 +640,191 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
                   <CardTitle>{t('Characteristics')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Row className="g-3">
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="level_of_education">
-                        <Form.Label>
-                          {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
-                        </Form.Label>
-                        <Form.Control
-                          id="level_of_education"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.formData.level_of_education || ''
-                              : store.getDisplayValue('level_of_education') || ''
-                          }
-                          onChange={handleChange}
-                          disabled={!store.isEditing}
-                          maxLength={200}
-                        />
-                      </Form.Group>
-                    </Col>
+                  {!store.isEditing ? (
+                    <div className="grid grid-cols-2 items-center justify-items-start gap-2">
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Level of education')} <SourceBadge fieldKey="level_of_education" /></div>
+                        <div className="text-sm">{store.getDisplayValue('level_of_education') || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Professional status')} <SourceBadge fieldKey="professional_status" /></div>
+                        <div className="text-sm">{store.getDisplayValue('professional_status') || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Marital status')} <SourceBadge fieldKey="marital_status" /></div>
+                        <div className="text-sm">{store.getDisplayValue('marital_status') || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" /></div>
+                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('lifestyle')) || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Personal goals (comma separated)')} <SourceBadge fieldKey="personal_goals" /></div>
+                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('personal_goals')) || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-xs">{t('Social support (comma separated)')} <SourceBadge fieldKey="social_support" /></div>
+                        <div className="text-sm">{store.arrayToDisplay(store.getDisplayValue('social_support')) || '—'}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-zinc-500 text-xs">{t('Restrictions')} <SourceBadge fieldKey="restrictions" /></div>
+                        <div className="text-sm">{store.getDisplayValue('restrictions') || '—'}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <Row className="g-3">
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="level_of_education">
+                          <Form.Label>
+                            {t('Level of education')} <SourceBadge fieldKey="level_of_education" />
+                          </Form.Label>
+                          <Form.Control
+                            id="level_of_education"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.formData.level_of_education || ''
+                                : store.getDisplayValue('level_of_education') || ''
+                            }
+                            onChange={handleChange}
+                            disabled={!store.isEditing}
+                            maxLength={200}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="professional_status">
-                        <Form.Label>
-                          {t('Professional status')} <SourceBadge fieldKey="professional_status" />
-                        </Form.Label>
-                        <Form.Control
-                          id="professional_status"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.formData.professional_status || ''
-                              : store.getDisplayValue('professional_status') || ''
-                          }
-                          onChange={handleChange}
-                          disabled={!store.isEditing}
-                          maxLength={200}
-                        />
-                      </Form.Group>
-                    </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="professional_status">
+                          <Form.Label>
+                            {t('Professional status')}{' '}
+                            <SourceBadge fieldKey="professional_status" />
+                          </Form.Label>
+                          <Form.Control
+                            id="professional_status"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.formData.professional_status || ''
+                                : store.getDisplayValue('professional_status') || ''
+                            }
+                            onChange={handleChange}
+                            disabled={!store.isEditing}
+                            maxLength={200}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="marital_status">
-                        <Form.Label>
-                          {t('Marital status')} <SourceBadge fieldKey="marital_status" />
-                        </Form.Label>
-                        <Form.Control
-                          id="marital_status"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.formData.marital_status || ''
-                              : store.getDisplayValue('marital_status') || ''
-                          }
-                          onChange={handleChange}
-                          disabled={!store.isEditing}
-                          maxLength={200}
-                        />
-                      </Form.Group>
-                    </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="marital_status">
+                          <Form.Label>
+                            {t('Marital status')} <SourceBadge fieldKey="marital_status" />
+                          </Form.Label>
+                          <Form.Control
+                            id="marital_status"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.formData.marital_status || ''
+                                : store.getDisplayValue('marital_status') || ''
+                            }
+                            onChange={handleChange}
+                            disabled={!store.isEditing}
+                            maxLength={200}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="lifestyle">
-                        <Form.Label>
-                          {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
-                        </Form.Label>
-                        <Form.Control
-                          id="lifestyle"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.arrayToDisplay(store.formData.lifestyle)
-                              : store.arrayToDisplay(store.getDisplayValue('lifestyle'))
-                          }
-                          onChange={(e) => store.setCommaSeparated('lifestyle', e.target.value)}
-                          disabled={!store.isEditing}
-                          placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
-                          maxLength={1000}
-                        />
-                      </Form.Group>
-                    </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="lifestyle">
+                          <Form.Label>
+                            {t('Lifestyle (comma separated)')} <SourceBadge fieldKey="lifestyle" />
+                          </Form.Label>
+                          <Form.Control
+                            id="lifestyle"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.arrayToDisplay(store.formData.lifestyle)
+                                : store.arrayToDisplay(store.getDisplayValue('lifestyle'))
+                            }
+                            onChange={(e) => store.setCommaSeparated('lifestyle', e.target.value)}
+                            disabled={!store.isEditing}
+                            placeholder={t('e.g. Non-smoker, Active, Vegetarian')}
+                            maxLength={1000}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="personal_goals">
-                        <Form.Label>
-                          {t('Personal goals (comma separated)')}{' '}
-                          <SourceBadge fieldKey="personal_goals" />
-                        </Form.Label>
-                        <Form.Control
-                          id="personal_goals"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.arrayToDisplay(store.formData.personal_goals)
-                              : store.arrayToDisplay(store.getDisplayValue('personal_goals'))
-                          }
-                          onChange={(e) =>
-                            store.setCommaSeparated('personal_goals', e.target.value)
-                          }
-                          disabled={!store.isEditing}
-                          placeholder={t('e.g. Walk 30 min daily, Return to work')}
-                          maxLength={1000}
-                        />
-                      </Form.Group>
-                    </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="personal_goals">
+                          <Form.Label>
+                            {t('Personal goals (comma separated)')}{' '}
+                            <SourceBadge fieldKey="personal_goals" />
+                          </Form.Label>
+                          <Form.Control
+                            id="personal_goals"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.arrayToDisplay(store.formData.personal_goals)
+                                : store.arrayToDisplay(store.getDisplayValue('personal_goals'))
+                            }
+                            onChange={(e) =>
+                              store.setCommaSeparated('personal_goals', e.target.value)
+                            }
+                            disabled={!store.isEditing}
+                            placeholder={t('e.g. Walk 30 min daily, Return to work')}
+                            maxLength={1000}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12} md={6}>
-                      <Form.Group controlId="social_support">
-                        <Form.Label>
-                          {t('Social support (comma separated)')}{' '}
-                          <SourceBadge fieldKey="social_support" />
-                        </Form.Label>
-                        <Form.Control
-                          id="social_support"
-                          type="text"
-                          value={
-                            store.isEditing
-                              ? store.arrayToDisplay(store.formData.social_support)
-                              : store.arrayToDisplay(store.getDisplayValue('social_support'))
-                          }
-                          onChange={(e) =>
-                            store.setCommaSeparated('social_support', e.target.value)
-                          }
-                          disabled={!store.isEditing}
-                          placeholder={t('e.g. Family, Friends, Community group')}
-                          maxLength={1000}
-                        />
-                      </Form.Group>
-                    </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Group controlId="social_support">
+                          <Form.Label>
+                            {t('Social support (comma separated)')}{' '}
+                            <SourceBadge fieldKey="social_support" />
+                          </Form.Label>
+                          <Form.Control
+                            id="social_support"
+                            type="text"
+                            value={
+                              store.isEditing
+                                ? store.arrayToDisplay(store.formData.social_support)
+                                : store.arrayToDisplay(store.getDisplayValue('social_support'))
+                            }
+                            onChange={(e) =>
+                              store.setCommaSeparated('social_support', e.target.value)
+                            }
+                            disabled={!store.isEditing}
+                            placeholder={t('e.g. Family, Friends, Community group')}
+                            maxLength={1000}
+                          />
+                        </Form.Group>
+                      </Col>
 
-                    <Col xs={12}>
-                      <Form.Group controlId="restrictions">
-                        <Form.Label>
-                          {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
-                        </Form.Label>
-                        <Form.Control
-                          id="restrictions"
-                          as="textarea"
-                          rows={3}
-                          value={
-                            store.isEditing
-                              ? store.formData.restrictions || ''
-                              : store.getDisplayValue('restrictions') || ''
-                          }
-                          onChange={handleChange}
-                          disabled={!store.isEditing}
-                          maxLength={2000}
-                        />
-                      </Form.Group>
-                    </Col>
-                  </Row>
+                      <Col xs={12}>
+                        <Form.Group controlId="restrictions">
+                          <Form.Label>
+                            {t('Restrictions')} <SourceBadge fieldKey="restrictions" />
+                          </Form.Label>
+                          <Form.Control
+                            id="restrictions"
+                            as="textarea"
+                            rows={3}
+                            value={
+                              store.isEditing
+                                ? store.formData.restrictions || ''
+                                : store.getDisplayValue('restrictions') || ''
+                            }
+                            onChange={handleChange}
+                            disabled={!store.isEditing}
+                            maxLength={2000}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  )}
                 </CardContent>
               </Card>
             </div>
