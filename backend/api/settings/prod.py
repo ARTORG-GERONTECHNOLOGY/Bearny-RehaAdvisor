@@ -46,6 +46,13 @@ REDCAP_TOKEN_COMPASS = os.environ.get("REDCAP_TOKEN_COMPASS", "")
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", CELERY_BROKER_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_RESULT_BACKEND)
 
+# base.py sets BROKER_USE_SSL unconditionally for TLS Redis. When the compose
+# injects a plain redis:// URL (no TLS), Celery raises ValueError on startup.
+# Clear the SSL dicts so Celery uses a plain TCP connection.
+if not CELERY_BROKER_URL.startswith("rediss://"):
+    BROKER_USE_SSL = None
+    CELERY_REDIS_BACKEND_USE_SSL = None
+
 # Silence bot-triggered DisallowedHost rejections — bots probe with raw server
 # IP as Host header; Django correctly rejects them with 400 but Sentry captures
 # the SuspiciousOperation as an error, creating noise. These are not actionable.
