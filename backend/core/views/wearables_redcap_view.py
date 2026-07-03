@@ -53,6 +53,10 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
 
     event_baseline = body.get("event_baseline") or None
     event_followup = body.get("event_followup") or None
+    # force=true bypasses the skip_if_populated guard and re-pushes even when
+    # monitoring_start is already set in REDCap.  Requires explicit opt-in to
+    # prevent accidental overwrites of previously validated data.
+    force_resync = bool(body.get("force", False))
 
     try:
         summary = compute_wearables_summary(patient)
@@ -61,6 +65,7 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
             event_baseline,
             event_followup,
             return_payloads=True,
+            skip_if_populated=not force_resync,
         )
     except WearablesSyncError as e:
         return JsonResponse({"error": str(e), "code": e.code}, status=400)

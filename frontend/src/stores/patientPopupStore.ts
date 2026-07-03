@@ -755,16 +755,18 @@ export class PatientPopupStore {
   async syncWearablesToRedcap(
     t: (k: string) => string,
     eventBaseline?: string,
-    eventFollowup?: string
+    eventFollowup?: string,
+    force: boolean = false
   ) {
     this.wearablesSyncing = true;
     this.wearablesSyncResult = null;
     this.wearablesSyncPayloads = null;
     this.wearablesSyncError = null;
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, string | boolean> = {};
       if (eventBaseline) body.event_baseline = eventBaseline;
       if (eventFollowup) body.event_followup = eventFollowup;
+      if (force) body.force = true;
       const res = await apiClient.post(`/wearables/sync-to-redcap/${this.patientId}/`, body);
       runInAction(() => {
         this.wearablesSyncResult = (res.data as any)?.results ?? {};
