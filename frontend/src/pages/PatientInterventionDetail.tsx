@@ -635,13 +635,13 @@ const PatientInterventionDetail: React.FC = observer(() => {
               variant={completed ? 'default' : 'secondary'}
               className={!completed && 'bg-white text-zinc-400'}
             >
-              {isBusy ? (
-                <Skeleton className="w-20 h-6 rounded-full" />
-              ) : completed ? (
-                t('Done')
-              ) : (
-                t('Mark as done')
-              )}
+              {(() => {
+                const isBehaviorChange =
+                  effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
+                if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
+                if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
+                return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
+              })()}
               {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
             </Button>
           )}

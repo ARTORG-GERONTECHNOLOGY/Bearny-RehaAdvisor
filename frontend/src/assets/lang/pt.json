@@ -1372,5 +1372,8 @@
   "Answered": "Respondido",
   "Tags": "Tags",
   "daysAgoShort": "Há {{d}}d",
-  "negRatingsShort": "{{n}} neg."
+  "negRatingsShort": "{{n}} neg.",
+  "Mark as viewed": "Marcar como visto",
+  "Viewed": "Visto",
+  "Behavior change": "Mudança de comportamento"
 }

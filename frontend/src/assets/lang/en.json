@@ -1372,5 +1372,8 @@
   "Answered": "Answered",
   "Tags": "Tags",
   "daysAgoShort": "{{d}}d ago",
-  "negRatingsShort": "{{n}} neg."
+  "negRatingsShort": "{{n}} neg.",
+  "Mark as viewed": "Mark as viewed",
+  "Viewed": "Viewed",
+  "Behavior change": "Behavior change"
 }
