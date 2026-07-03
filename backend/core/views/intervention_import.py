@@ -382,6 +382,12 @@ def _parse_external_id_and_language(
             external_id = "_".join(parts[:-1])
             fmt = fmt_candidate if fmt_candidate in VALID_FORMAT_CODES else None
             return external_id, lang_candidate, fmt, media_slot
+        # 3+ parts but the last segment is not a valid language (e.g. "50030_de_vid"
+        # where the user swapped the format and language positions).  Do NOT fall
+        # through to the legacy 2-part regex — that would silently match the wrong
+        # suffix (e.g. "id" from "_vid") and produce a garbled external_id.
+        rebuilt = "_".join(parts)
+        return rebuilt, None, None, media_slot
 
     # Fall back to legacy 2-part format: {anything}_{lang}
     rebuilt = "_".join(parts)
@@ -525,9 +531,8 @@ def _guess_media_type_for_url(url: str, content_type_fallback: str) -> str:
     if re.search(r"\.(png|jpg|jpeg|gif|webp)(\?|$)", u):
         return "image"
 
-    if content_type_fallback in ("app", "website"):
-        return content_type_fallback
-    return "website"
+    _KNOWN_MEDIA_TYPES = {"video", "audio", "pdf", "image", "app", "website", "streaming", "text"}
+    return content_type_fallback if content_type_fallback in _KNOWN_MEDIA_TYPES else "website"
 
 
 def _guess_file_media_type(path: str, content_type_fallback: str) -> str:
@@ -747,6 +752,32 @@ def import_interventions_from_excel(
             id_warnings = _validate_id_format(intervention_id_raw)
 
             lang_from_col = _normalize_lang(row[col["language"]]) if col.get("language") is not None else None
+
+            # If neither the ID nor the language column provides a language, the ID
+            # format is malformed (e.g. "50030_de_vid" has the suffix order reversed).
+            # Reject the row with a clear error instead of silently storing a garbled
+            # external_id, which would create an orphaned document that can never be
+            # found or merged on re-import with the corrected ID.
+            # Note: default_lang is intentionally NOT used as a fallback here — the
+            # external_id itself would be garbled ("50030_de_vid" instead of "50030_vid"),
+            # making deduplication impossible even if the language were guessable.
+            if lang_from_id is None and lang_from_col is None:
+                errors.append(
+                    {
+                        "row": row_idx,
+                        "intervention_id": intervention_id_raw,
+                        "severity": "error",
+                        "error": (
+                            f"Cannot determine language for '{intervention_id_raw}'. "
+                            "The ID must end with a valid 2-letter language code "
+                            "(e.g. '50030_vid_de'), or the sheet must have a 'language' column. "
+                            "Row skipped."
+                        ),
+                    }
+                )
+                skipped += 1
+                continue
+
             language = (lang_from_id or lang_from_col or default_lang).lower()
 
             provider = _norm(row[col["provider"]]) if col.get("provider") is not None else ""
