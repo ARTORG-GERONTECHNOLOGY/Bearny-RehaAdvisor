@@ -1456,11 +1456,14 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # Fallback: if assignment wasn't found or content_type is empty,
         # look up the Intervention document directly (handles library-browse path
         # where the intervention may not be in any rehabilitation plan yet).
-        if not intervention_type and intervention_id:
+        intervention_aim = ""
+        if intervention_id:
             try:
-                fallback_iv = Intervention.objects.get(pk=ObjectId(intervention_id))
-                raw_type = str(getattr(fallback_iv, "content_type", "") or "")
-                intervention_type = raw_type.strip().lower() or None
+                iv_doc = Intervention.objects.get(pk=ObjectId(intervention_id))
+                if not intervention_type:
+                    raw_type = str(getattr(iv_doc, "content_type", "") or "")
+                    intervention_type = raw_type.strip().lower() or None
+                intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
             except Exception:
                 pass
 
@@ -1471,6 +1474,44 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         core_q = FeedbackQuestion.objects(questionSubject="Intervention").filter(
             Q(applicable_types__exists=False) | Q(applicable_types__size=0) | Q(applicable_types__icontains="all")
         )
+
+        # 1b) Behavior change interventions get their own question set (star + intent),
+        # bypassing the content_type routing entirely. open_feedback is included via core_q.
+        if intervention_aim.lower() == "behavior change":
+            bc_q = list(
+                FeedbackQuestion.objects(
+                    questionSubject="Intervention",
+                    applicable_types__icontains="Behavior change",
+                )
+            )
+            result = _serialize_questions(bc_q) + _serialize_questions(core_q)
+            if assignment and getattr(assignment, "require_video_feedback", False):
+                result.append(
+                    {
+                        "questionKey": "video_example",
+                        "answerType": "video",
+                        "translations": [
+                            {
+                                "language": "en",
+                                "text": "Your therapist requested a video. Recording will start after a 10 s delay—please position your camera.",
+                            },
+                            {
+                                "language": "it",
+                                "text": "Il tuo terapista ha richiesto un video. La registrazione inizierà dopo 10 s—posiziona la fotocamera.",
+                            },
+                            {
+                                "language": "de",
+                                "text": "Ihr Therapeut hat ein Video angefordert. Die Aufnahme startet nach 10 s—bitte richten Sie die Kamera aus.",
+                            },
+                            {
+                                "language": "fr",
+                                "text": "Votre thérapeute a demandé une vidéo. L'enregistrement commencera après 10 s—veuillez placer votre caméra.",
+                            },
+                        ],
+                        "possibleAnswers": [],
+                    }
+                )
+            return JsonResponse({"questions": result})
 
         # 2) Type-specific questions:
         type_q = []

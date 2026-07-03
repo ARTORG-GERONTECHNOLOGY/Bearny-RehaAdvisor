@@ -450,4 +450,92 @@ describe('PatientInterventionDetail', () => {
       }
     });
   });
+
+  // --- Behavior change aim tests (issue #413) ---
+
+  it('shows "Mark as viewed" button for behavior change interventions', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Behavior change', media: [] },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.getByRole('button', { name: /Mark as viewed/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mark as done/i })).not.toBeInTheDocument();
+  });
+
+  it('shows "Mark as done" button for non-behavior-change interventions', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Education', media: [] },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.getByRole('button', { name: /Mark as done/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mark as viewed/i })).not.toBeInTheDocument();
+  });
+
+  it('shows "Viewed" for a completed behavior change intervention', async () => {
+    (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Behavior change', media: [] },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.getByRole('button', { name: /Viewed/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Done/i })).not.toBeInTheDocument();
+  });
+
+  it('shows "Done" for a completed non-behavior-change intervention', async () => {
+    (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Exercise', media: [] },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    expect(screen.getByRole('button', { name: /Done/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Viewed/i })).not.toBeInTheDocument();
+  });
+
+  it('behavior change "Mark as viewed" still toggles completion and opens feedback', async () => {
+    (patientInterventionsStore as any).toggleCompleted.mockResolvedValue({
+      completed: true,
+      dateKey: '2026-03-16',
+    });
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: { _id: 'int-1', aim: 'Behavior change', media: [] },
+      }),
+    ];
+
+    render(<PatientInterventionDetail />);
+
+    const markViewedButton = await screen.findByRole('button', { name: /Mark as viewed/i });
+    fireEvent.click(markViewedButton);
+
+    await waitFor(() => {
+      expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalled();
+    });
+
+    expect((patientQuestionnairesStore as any).openInterventionFeedback).toHaveBeenCalledWith(
+      'patient-1',
+      'int-1',
+      '2026-03-16',
+      'en'
+    );
+  });
 });

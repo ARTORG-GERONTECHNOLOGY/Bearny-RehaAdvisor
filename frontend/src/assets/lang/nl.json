@@ -1372,5 +1372,8 @@
   "Answered": "Beantwoord",
   "Tags": "Tags",
   "daysAgoShort": "{{d}}d gel.",
-  "negRatingsShort": "{{n}} neg."
+  "negRatingsShort": "{{n}} neg.",
+  "Mark as viewed": "Markeer als bekeken",
+  "Viewed": "Bekeken",
+  "Behavior change": "Gedragsverandering"
 }
