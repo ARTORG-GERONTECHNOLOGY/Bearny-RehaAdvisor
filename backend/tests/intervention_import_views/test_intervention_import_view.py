@@ -437,6 +437,65 @@ def test_import_slot2_replaces_existing_slot2():
         assert "new_slot2" in doc.media[0].url
 
 
+# ---------------------------------------------------------------------------
+# Bug-fix regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_guess_media_type_for_url_honors_video_fallback():
+    """
+    Bug: _guess_media_type_for_url used to return "website" for any
+    content_type_fallback that wasn't "app" or "website", silently discarding
+    "video", "audio", "pdf", "image", etc.  Verify the fix.
+    """
+    # Use an opaque URL that doesn't match any extension/host heuristic so the
+    # function reaches the content_type_fallback branch.
+    opaque = "https://example.com/content"
+    assert _guess_media_type_for_url(opaque, "video") == "video"
+    assert _guess_media_type_for_url(opaque, "audio") == "audio"
+    assert _guess_media_type_for_url(opaque, "pdf") == "pdf"
+    assert _guess_media_type_for_url(opaque, "image") == "image"
+    assert _guess_media_type_for_url(opaque, "streaming") == "streaming"
+    assert _guess_media_type_for_url(opaque, "app") == "app"
+    assert _guess_media_type_for_url(opaque, "website") == "website"
+    assert _guess_media_type_for_url(opaque, "garbage_type") == "website"
+
+
+def test_import_reversed_id_order_is_rejected_not_silently_stored():
+    """
+    Bug: an intervention_id with the language and format code swapped
+    (e.g. "50030_de_vid") causes _parse_external_id_and_language to return
+    lang=None because "vid" is not a valid language code.  Previously the
+    row was imported with a garbled external_id ("50030_de_vid") and no
+    language, creating an orphaned document that could never be found or
+    merged on re-import.
+
+    After the fix, the row must be rejected with severity="error" and skipped.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "bad_id.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Content"
+        ws.append(["intervention_id", "title", "description", "content_type", "link"])
+        ws.append(["50030_de_vid", "Video", "Desc", "Video", "https://example.com/x.mp4"])
+        wb.save(p)
+
+        result = import_interventions_from_excel(str(p), dry_run=False)
+
+        # Row must be skipped — no document created
+        assert result["created"] == 0, "Garbled ID should not create a document"
+        assert result["skipped"] >= 1
+
+        # An error (not just a warning) must be reported
+        error_entries = [e for e in result["errors"] if e.get("severity") == "error"]
+        assert error_entries, "Expected at least one error entry for the garbled ID"
+        assert "50030_de_vid" in error_entries[0]["intervention_id"]
+
+        # No orphaned document with the garbled external_id
+        assert Intervention.objects(external_id="50030_de_vid").first() is None
+
+
 def test_excel_reimport_preserves_uploaded_images():
     """Re-importing an Excel row must NOT wipe images that were uploaded via the
     media-upload endpoint.  Uploaded files have a folder-prefixed path (e.g.
