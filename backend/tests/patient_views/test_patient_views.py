@@ -1925,6 +1925,204 @@ def test_get_intervention_feedback_questions_unknown_content_type_gets_fallback_
 
 
 # ---------------------------------------------------------------------------
+# Issue #413 — Behavior change aim-based feedback routing
+# ---------------------------------------------------------------------------
+
+
+def _seed_behavior_change_questions():
+    """Seed the two Behavior change FeedbackQuestions plus the universal open_feedback."""
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_behavior_change",
+        answer_type="select",
+        applicable_types=["Behavior change"],
+        translations=[Translation(language="en", text="How did you find the content?")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=f"{'★'*i}{'☆'*(5-i)} ({i}/5)")])
+            for i in range(1, 6)
+        ],
+    ).save()
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="implementation_intent",
+        answer_type="select",
+        applicable_types=["Behavior change"],
+        translations=[Translation(language="en", text="Do you intend to implement this strategy?")],
+        possibleAnswers=[
+            AnswerOption(key="yes", translations=[Translation(language="en", text="Yes")]),
+            AnswerOption(key="rather_yes", translations=[Translation(language="en", text="Rather yes")]),
+            AnswerOption(key="rather_no", translations=[Translation(language="en", text="Rather no")]),
+            AnswerOption(key="no", translations=[Translation(language="en", text="No")]),
+        ],
+    ).save()
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="open_feedback",
+        answer_type="text",
+        applicable_types=["All"],
+        translations=[Translation(language="en", text="Any additional feedback? (text or audio)")],
+        possibleAnswers=[],
+    ).save()
+
+
+def _setup_behavior_change_patient():
+    """Patient + intervention with aim='Behavior change'."""
+    t_user = User(username="tu_bc", email="tu_bc@example.com", phone="99", createdAt=datetime.now(), isActive=True).save()
+    therapist = Therapist(
+        userId=t_user, name="Doe", first_name="Jane", specializations=[], clinics=["Inselspital"]
+    ).save()
+    p_user = User(username="pu_bc", email="pu_bc@example.com", phone="98", createdAt=datetime.now(), isActive=True).save()
+    patient = Patient(
+        userId=p_user,
+        patient_code="PBC",
+        name="Patient",
+        first_name="BC",
+        age="40",
+        sex="Female",
+        therapist=therapist,
+        diagnosis=[],
+        function=[],
+        level_of_education="",
+        professional_status="",
+        marital_status="",
+        lifestyle=[],
+        personal_goals=[],
+    ).save()
+    iv = Intervention(
+        title="Comic motivation",
+        description="",
+        content_type="PDF",
+        aim="Behavior change",
+        language="en",
+        external_id="COMIC_BC_001",
+    ).save()
+    return patient, iv
+
+
+def test_behavior_change_intervention_returns_bc_star_and_intent(mongo_mock):
+    """
+    An intervention with aim='Behavior change' must return rating_stars_behavior_change
+    and implementation_intent, NOT the generic education star or difficulty_scale.
+    """
+    _seed_behavior_change_questions()
+    patient, iv = _setup_behavior_change_patient()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_behavior_change" in keys, f"Expected BC star question, got: {keys}"
+    assert "implementation_intent" in keys, f"Expected implementation_intent, got: {keys}"
+
+
+def test_behavior_change_intervention_excludes_education_star(mongo_mock):
+    """
+    A behavior change intervention must NOT return the generic education or exercise stars.
+    """
+    _seed_behavior_change_questions()
+    _seed_star_questions()  # seed education + exercise stars too
+    patient, iv = _setup_behavior_change_patient()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_education" not in keys, f"Education star must not appear for BC aim, got: {keys}"
+    assert "rating_stars_exercise" not in keys, f"Exercise star must not appear for BC aim, got: {keys}"
+
+
+def test_behavior_change_intervention_includes_open_feedback(mongo_mock):
+    """
+    open_feedback (applicable_types=['All']) must appear for behavior change interventions.
+    """
+    _seed_behavior_change_questions()
+    patient, iv = _setup_behavior_change_patient()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "open_feedback" in keys, f"open_feedback must appear for BC interventions, got: {keys}"
+
+
+def test_behavior_change_question_order(mongo_mock):
+    """
+    Question order must be: BC star first, then implementation_intent, then open_feedback.
+    """
+    _seed_behavior_change_questions()
+    patient, iv = _setup_behavior_change_patient()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert keys.index("rating_stars_behavior_change") < keys.index("implementation_intent"), (
+        "Star question must precede implementation_intent"
+    )
+    assert keys.index("implementation_intent") < keys.index("open_feedback"), (
+        "implementation_intent must precede open_feedback"
+    )
+
+
+def test_non_behavior_change_aim_uses_content_type_routing(mongo_mock):
+    """
+    An intervention with a different aim (e.g., 'Education') still uses content_type routing.
+    """
+    _seed_star_questions()
+    t_user = User(username="tu_edu", email="tu_edu@example.com", phone="97", createdAt=datetime.now(), isActive=True).save()
+    therapist = Therapist(
+        userId=t_user, name="Smith", first_name="Alice", specializations=[], clinics=["Inselspital"]
+    ).save()
+    p_user = User(username="pu_edu", email="pu_edu@example.com", phone="96", createdAt=datetime.now(), isActive=True).save()
+    patient = Patient(
+        userId=p_user,
+        patient_code="PEDU",
+        name="Patient",
+        first_name="EDU",
+        age="35",
+        sex="Male",
+        therapist=therapist,
+        diagnosis=[],
+        function=[],
+        level_of_education="",
+        professional_status="",
+        marital_status="",
+        lifestyle=[],
+        personal_goals=[],
+    ).save()
+    iv = Intervention(
+        title="Heart Failure Basics",
+        description="",
+        content_type="Video",
+        aim="Education",
+        language="en",
+        external_id="EDU_VIDEO_001",
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(iv.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_education" in keys, f"Education video must get education star, got: {keys}"
+    assert "rating_stars_behavior_change" not in keys
+
+
+# ---------------------------------------------------------------------------
 # Bug fix #262 — duplicate intervention in patient plan
 # When the same intervention content (same external_id) is assigned twice,
 # only the first assignment should appear in the patient's plan.
