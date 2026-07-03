@@ -466,6 +466,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             <img
               src={playable}
               alt={label}
+              loading="lazy"
               className="img-fluid rounded"
               style={{ maxHeight: 420, objectFit: 'contain' }}
             />
@@ -646,6 +647,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                     <img
                       src={String(effectiveItem.preview_img)}
                       alt={t('Preview')}
+                      loading="lazy"
                       className="img-fluid rounded"
                       style={{ maxHeight: 240, objectFit: 'cover' }}
                     />
