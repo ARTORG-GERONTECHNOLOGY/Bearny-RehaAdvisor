@@ -1967,11 +1967,15 @@ def _seed_behavior_change_questions():
 
 def _setup_behavior_change_patient():
     """Patient + intervention with aim='Behavior change'."""
-    t_user = User(username="tu_bc", email="tu_bc@example.com", phone="99", createdAt=datetime.now(), isActive=True).save()
+    t_user = User(
+        username="tu_bc", email="tu_bc@example.com", phone="99", createdAt=datetime.now(), isActive=True
+    ).save()
     therapist = Therapist(
         userId=t_user, name="Doe", first_name="Jane", specializations=[], clinics=["Inselspital"]
     ).save()
-    p_user = User(username="pu_bc", email="pu_bc@example.com", phone="98", createdAt=datetime.now(), isActive=True).save()
+    p_user = User(
+        username="pu_bc", email="pu_bc@example.com", phone="98", createdAt=datetime.now(), isActive=True
+    ).save()
     patient = Patient(
         userId=p_user,
         patient_code="PBC",
@@ -2068,12 +2072,12 @@ def test_behavior_change_question_order(mongo_mock):
     )
     assert resp.status_code == 200
     keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
-    assert keys.index("rating_stars_behavior_change") < keys.index("implementation_intent"), (
-        "Star question must precede implementation_intent"
-    )
-    assert keys.index("implementation_intent") < keys.index("open_feedback"), (
-        "implementation_intent must precede open_feedback"
-    )
+    assert keys.index("rating_stars_behavior_change") < keys.index(
+        "implementation_intent"
+    ), "Star question must precede implementation_intent"
+    assert keys.index("implementation_intent") < keys.index(
+        "open_feedback"
+    ), "implementation_intent must precede open_feedback"
 
 
 def test_non_behavior_change_aim_uses_content_type_routing(mongo_mock):
@@ -2081,11 +2085,15 @@ def test_non_behavior_change_aim_uses_content_type_routing(mongo_mock):
     An intervention with a different aim (e.g., 'Education') still uses content_type routing.
     """
     _seed_star_questions()
-    t_user = User(username="tu_edu", email="tu_edu@example.com", phone="97", createdAt=datetime.now(), isActive=True).save()
+    t_user = User(
+        username="tu_edu", email="tu_edu@example.com", phone="97", createdAt=datetime.now(), isActive=True
+    ).save()
     therapist = Therapist(
         userId=t_user, name="Smith", first_name="Alice", specializations=[], clinics=["Inselspital"]
     ).save()
-    p_user = User(username="pu_edu", email="pu_edu@example.com", phone="96", createdAt=datetime.now(), isActive=True).save()
+    p_user = User(
+        username="pu_edu", email="pu_edu@example.com", phone="96", createdAt=datetime.now(), isActive=True
+    ).save()
     patient = Patient(
         userId=p_user,
         patient_code="PEDU",

@@ -93,55 +93,52 @@ async function mockInterventionAPIs(page: Page, aim: string, completed = false) 
   });
 
   // Feedback questions for behavior change
-  await page.route(
-    `**/patients/get-questions/Intervention/**`,
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          questions: [
-            {
-              questionKey: 'rating_stars_behavior_change',
-              answerType: 'select',
-              translations: [{ language: 'en', text: 'How did you find the content?' }],
-              possibleAnswers: [
-                { key: '1', translations: [{ language: 'en', text: '★☆☆☆☆ (1/5)' }] },
-                { key: '5', translations: [{ language: 'en', text: '★★★★★ (5/5)' }] },
-              ],
-            },
-            {
-              questionKey: 'implementation_intent',
-              answerType: 'select',
-              translations: [
-                {
-                  language: 'en',
-                  text: 'Do you intend to implement this strategy?',
-                },
-              ],
-              possibleAnswers: [
-                { key: 'yes', translations: [{ language: 'en', text: 'Yes' }] },
-                { key: 'rather_yes', translations: [{ language: 'en', text: 'Rather yes' }] },
-                { key: 'rather_no', translations: [{ language: 'en', text: 'Rather no' }] },
-                { key: 'no', translations: [{ language: 'en', text: 'No' }] },
-              ],
-            },
-            {
-              questionKey: 'open_feedback',
-              answerType: 'text',
-              translations: [
-                {
-                  language: 'en',
-                  text: 'Any additional feedback? (text or audio)',
-                },
-              ],
-              possibleAnswers: [],
-            },
-          ],
-        }),
-      });
-    }
-  );
+  await page.route(`**/patients/get-questions/Intervention/**`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        questions: [
+          {
+            questionKey: 'rating_stars_behavior_change',
+            answerType: 'select',
+            translations: [{ language: 'en', text: 'How did you find the content?' }],
+            possibleAnswers: [
+              { key: '1', translations: [{ language: 'en', text: '★☆☆☆☆ (1/5)' }] },
+              { key: '5', translations: [{ language: 'en', text: '★★★★★ (5/5)' }] },
+            ],
+          },
+          {
+            questionKey: 'implementation_intent',
+            answerType: 'select',
+            translations: [
+              {
+                language: 'en',
+                text: 'Do you intend to implement this strategy?',
+              },
+            ],
+            possibleAnswers: [
+              { key: 'yes', translations: [{ language: 'en', text: 'Yes' }] },
+              { key: 'rather_yes', translations: [{ language: 'en', text: 'Rather yes' }] },
+              { key: 'rather_no', translations: [{ language: 'en', text: 'Rather no' }] },
+              { key: 'no', translations: [{ language: 'en', text: 'No' }] },
+            ],
+          },
+          {
+            questionKey: 'open_feedback',
+            answerType: 'text',
+            translations: [
+              {
+                language: 'en',
+                text: 'Any additional feedback? (text or audio)',
+              },
+            ],
+            possibleAnswers: [],
+          },
+        ],
+      }),
+    });
+  });
 
   // View duration tracking (fire-and-forget)
   await page.route('**/patients/vitals/intervention-view/**', async (route) => {
@@ -160,13 +157,9 @@ test.describe('Behavior change intervention', () => {
 
     await page.goto(`/patient-intervention/${INTERVENTION_ID}?date=${TODAY}`);
 
-    await expect(
-      page.getByRole('button', { name: /mark as viewed/i })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /mark as viewed/i })).toBeVisible();
 
-    await expect(
-      page.getByRole('button', { name: /mark as done/i })
-    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /mark as done/i })).toHaveCount(0);
   });
 
   test('shows "Mark as done" button for non-behavior-change aim', async ({ page }) => {
@@ -175,13 +168,9 @@ test.describe('Behavior change intervention', () => {
 
     await page.goto(`/patient-intervention/${INTERVENTION_ID}?date=${TODAY}`);
 
-    await expect(
-      page.getByRole('button', { name: /mark as done/i })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /mark as done/i })).toBeVisible();
 
-    await expect(
-      page.getByRole('button', { name: /mark as viewed/i })
-    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /mark as viewed/i })).toHaveCount(0);
   });
 
   test('shows "Viewed" label when behavior change intervention is already completed', async ({
@@ -216,8 +205,6 @@ test.describe('Behavior change intervention', () => {
     await markViewedBtn.click();
 
     // Feedback popup should appear with at least the star question text
-    await expect(
-      page.getByText(/How did you find the content/i)
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/How did you find the content/i)).toBeVisible({ timeout: 5000 });
   });
 });
