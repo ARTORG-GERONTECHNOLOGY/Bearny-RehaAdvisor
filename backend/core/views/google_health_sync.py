@@ -234,9 +234,11 @@ def _fetch_exercise(access_token: str, d: datetime.date) -> list[dict]:
                 "averageHeartRate": metrics.get("averageHeartRate"),
                 "maxHeartRate": metrics.get("maxHeartRate"),
                 "steps": metrics.get("steps"),
-                "distance": round(metrics["distance"]["meters"] / 1000, 3)
-                if metrics.get("distance", {}).get("meters")
-                else None,
+                "distance": (
+                    round(metrics["distance"]["meters"] / 1000, 3)
+                    if metrics.get("distance", {}).get("meters")
+                    else None
+                ),
                 "elevationGain": None,
                 "speed": None,
                 "activeZoneMinutes": None,
@@ -359,10 +361,7 @@ def _sync_day(user, access_token: str, d: datetime.date) -> bool:
     inactivity = max(0, 1440 - ((active_minutes or 0) + sleep_minutes))
 
     # Skip writing if there is no meaningful data for this day
-    has_data = any(
-        v is not None
-        for v in [steps, calories, distance, resting_hr, sleep_obj, wear_time, weight_kg]
-    )
+    has_data = any(v is not None for v in [steps, calories, distance, resting_hr, sleep_obj, wear_time, weight_kg])
     if not has_data:
         logger.debug("[google_health] no data for user=%s on %s", user.id, d)
         return False
