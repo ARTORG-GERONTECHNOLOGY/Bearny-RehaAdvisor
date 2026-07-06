@@ -126,7 +126,7 @@ const PatientInfoThresholdsCard: React.FC<PatientInfoThresholdsCardProps> = obse
                     return (
                       <React.Fragment key={g.id}>
                         <div>
-                          <div className="text-zinc-500 text-xs">{g.viewPrefix}</div>
+                          <div className="text-zinc-500 text-xs">{t(g.viewPrefix)}</div>
                           <div className="text-sm font-medium">{t(g.viewLabel)}</div>
                         </div>
                         <div className="flex gap-1">
