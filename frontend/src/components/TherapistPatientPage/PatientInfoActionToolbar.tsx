@@ -70,7 +70,6 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
           ) : (
             <>
               <Button
-                variant="secondary"
                 size="dashboard"
                 onClick={() => store.setEditing(true)}
                 disabled={store.loading || store.saving}
