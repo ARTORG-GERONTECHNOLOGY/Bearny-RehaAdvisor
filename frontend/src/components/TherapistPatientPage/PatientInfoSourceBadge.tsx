@@ -13,8 +13,18 @@ const PatientInfoSourceBadge: React.FC<PatientInfoSourceBadgeProps> = observer(
   ({ store, fieldKey }) => {
     const { t } = useTranslation();
     const src = store.getValueSource(fieldKey);
-    if (src === 'manual') return <Badge bg="success">{t('Manual')}</Badge>;
-    if (src === 'redcap') return <Badge bg="info">{t('REDCap')}</Badge>;
+    if (src === 'manual')
+      return (
+        <Badge bg="success" className="self-start">
+          {t('Manual')}
+        </Badge>
+      );
+    if (src === 'redcap')
+      return (
+        <Badge bg="info" className="self-start">
+          {t('REDCap')}
+        </Badge>
+      );
     return null;
   }
 );

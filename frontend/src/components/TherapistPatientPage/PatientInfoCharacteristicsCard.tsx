@@ -1,5 +1,4 @@
 import React from 'react';
-import { Row, Col } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
@@ -57,13 +56,13 @@ const PatientInfoCharacteristicsCard: React.FC<PatientInfoCharacteristicsCardPro
                 ))}
               </div>
             ) : (
-              <Row className="g-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {CHARACTERISTICS_FIELDS.map((field) => (
-                  <Col xs={12} md={6} key={field.be_name}>
+                  <div key={field.be_name}>
                     <PatientInfoFieldRenderer store={store} field={field} />
-                  </Col>
+                  </div>
                 ))}
-              </Row>
+              </div>
             )}
           </CardContent>
         </Card>

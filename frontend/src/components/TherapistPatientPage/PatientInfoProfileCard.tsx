@@ -1,5 +1,4 @@
 import React from 'react';
-import { Col, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
@@ -64,15 +63,15 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
                 ))}
               </div>
             ) : (
-              <Row className="g-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {contactsFields
                   .filter((field) => !field.readOnly)
                   .map((field) => (
-                    <Col xs={12} md={6} key={field.be_name}>
+                    <div key={field.be_name}>
                       <PatientInfoFieldRenderer store={store} field={field} />
-                    </Col>
+                    </div>
                   ))}
-              </Row>
+              </div>
             )}
           </div>
 
@@ -80,7 +79,7 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
             <div key={idx} className="mb-4">
               <Separator className="mb-4" />
               <div className="mb-2">{t(section.title)}</div>
-              <Row className="g-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {section.fields
                   .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
                   .filter(
@@ -89,11 +88,11 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
                       !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
                   )
                   .map((field: any, index: number) => (
-                    <Col xs={12} md={6} key={`${section.title}-${field.be_name}-${index}`}>
+                    <div key={`${section.title}-${field.be_name}-${index}`}>
                       <PatientInfoFieldRenderer store={store} field={field} />
-                    </Col>
+                    </div>
                   ))}
-              </Row>
+              </div>
             </div>
           ))}
         </CardContent>
