@@ -100,7 +100,7 @@ const PatientInfoThresholdsCard: React.FC<PatientInfoThresholdsCardProps> = obse
     const { t } = useTranslation();
 
     return (
-      <div className="mb-2 break-inside-avoid-column">
+      <div className="mb-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>{t('Goals & thresholds')}</CardTitle>

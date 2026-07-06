@@ -44,7 +44,7 @@ const PatientInfoCharacteristicsCard: React.FC<PatientInfoCharacteristicsCardPro
     const { t } = useTranslation();
 
     return (
-      <div className="mb-2 break-inside-avoid-column">
+      <div className="mb-2">
         <Card>
           <CardHeader>
             <CardTitle>{t('Characteristics')}</CardTitle>

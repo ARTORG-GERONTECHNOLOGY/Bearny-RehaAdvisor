@@ -46,7 +46,7 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
   const contactsFields = getContactsFields(store);
 
   return (
-    <div className="mb-2 break-inside-avoid-column">
+    <div className="mb-2">
       <Card>
         <CardHeader>
           <CardTitle>{t('Profile')}</CardTitle>

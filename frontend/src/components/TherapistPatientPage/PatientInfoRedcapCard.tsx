@@ -24,7 +24,7 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
   const hasRedcap = (store.redcapRows?.length || 0) > 0;
 
   return (
-    <div className="mb-2 break-inside-avoid-column">
+    <div className="mb-2">
       <Card>
         <CardHeader>
           <CardTitle>{t('REDCap')}</CardTitle>
