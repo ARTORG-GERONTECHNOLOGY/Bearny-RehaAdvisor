@@ -117,7 +117,7 @@ const TherapistPatientDetail: React.FC = observer(() => {
           ))}
         </TabsList>
         {TABS.map(({ value, Component }) => (
-          <TabsContent key={value} value={value}>
+          <TabsContent key={value} value={value} className="pt-2">
             <Component patientId={patientId} />
           </TabsContent>
         ))}

@@ -9,11 +9,14 @@ export type SelectOption = { value: string; label: string };
 // -------------------------
 // Date helpers
 // -------------------------
+// datetime-local helpers (Europe/Zurich-friendly)
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
 export const toDateInput = (v: any) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 };
 
 export const toDisplayDate = (v: any) => {
@@ -23,8 +26,6 @@ export const toDisplayDate = (v: any) => {
   return d.toLocaleDateString();
 };
 
-// datetime-local helpers (Europe/Zurich-friendly)
-const pad2 = (n: number) => String(n).padStart(2, '0');
 const toLocalDatetimeInput = (isoOrDate: any) => {
   if (!isoOrDate) return '';
   const d = new Date(isoOrDate);
@@ -168,7 +169,6 @@ export class PatientPopupStore {
   error = '';
   showConfirmDelete = false;
   isEditing = false;
-  activeTab: 'profile' | 'characteristics' | 'redcap' | 'thresholds' = 'profile';
 
   // patient data
   rawPatient: any = null;
@@ -245,10 +245,6 @@ export class PatientPopupStore {
       this.thresholdReason = '';
       this.thresholdEffectiveFromISO = null;
     }
-  }
-
-  setActiveTab(v: 'profile' | 'characteristics' | 'redcap' | 'thresholds') {
-    this.activeTab = v;
   }
 
   // -------------------------
