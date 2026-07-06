@@ -42,7 +42,7 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
   const [historyEntry, setHistoryEntry] = useState<ThresholdHistoryItem | null>(null);
 
   if (!history || history.length === 0) {
-    return <div className="text-zinc-500">{t('No history yet.')}</div>;
+    return <div className="text-zinc-500 text-xs">{t('No history yet.')}</div>;
   }
 
   return (
@@ -55,7 +55,7 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
             onClick={() => setHistoryEntry(h)}
             className="hover:bg-zinc-100 rounded-lg cursor-pointer"
           >
-            <div className="text-sm">
+            <div className="text-sm font-medium">
               {h.effective_from ? new Date(h.effective_from).toLocaleDateString() : '—'}
             </div>
             <div className="text-xs text-zinc-500">

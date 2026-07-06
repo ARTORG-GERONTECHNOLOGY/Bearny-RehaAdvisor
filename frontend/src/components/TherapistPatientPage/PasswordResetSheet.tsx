@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 
@@ -83,10 +84,12 @@ const PasswordResetSheet: React.FC<PasswordResetSheetProps> = ({
             />
           </Form.Group>
 
-          <Button size="dashboard" disabled={passwordSaving} onClick={onSubmit}>
-            <FaKey />
-            {passwordSaving ? t('Saving...') : t('SetNewPassword')}
-          </Button>
+          <SheetFooter>
+            <Button size="dashboard" disabled={passwordSaving} onClick={onSubmit}>
+              <FaKey />
+              {passwordSaving ? t('Saving...') : t('SetNewPassword')}
+            </Button>
+          </SheetFooter>
         </div>
       </SheetContent>
     </Sheet>
