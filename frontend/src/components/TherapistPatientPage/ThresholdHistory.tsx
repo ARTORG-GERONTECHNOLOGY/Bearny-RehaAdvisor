@@ -52,7 +52,14 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
           <div
             key={idx}
             role="button"
+            tabIndex={0}
             onClick={() => setHistoryEntry(h)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setHistoryEntry(h);
+              }
+            }}
             className="hover:bg-zinc-100 rounded-lg cursor-pointer"
           >
             <div className="text-sm font-medium">

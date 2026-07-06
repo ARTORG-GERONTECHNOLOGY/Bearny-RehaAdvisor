@@ -64,10 +64,10 @@ describe('ThresholdHistory', () => {
 
     const rows = screen.getAllByRole('button');
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent('1/15/2026');
+    expect(rows[0]).toHaveTextContent(new Date('2026-01-15T10:00:00.000Z').toLocaleDateString());
     expect(rows[0]).toHaveTextContent('Dr. Smith');
     expect(rows[0]).toHaveTextContent('Patient improved');
-    expect(rows[1]).toHaveTextContent('2/1/2026');
+    expect(rows[1]).toHaveTextContent(new Date('2026-02-01T10:00:00.000Z').toLocaleDateString());
     expect(rows[1]).toHaveTextContent('Dr. Jones');
     // Missing reason falls back to an em dash
     expect(rows[1]).toHaveTextContent('Reason: —');
