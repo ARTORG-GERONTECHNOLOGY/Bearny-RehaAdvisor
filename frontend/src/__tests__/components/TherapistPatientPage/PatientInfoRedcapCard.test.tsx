@@ -1,8 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PatientInfoRedcapCard from '@/components/TherapistPatientPage/PatientInfoRedcapCard';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
-import apiClient from '@/api/client';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -55,19 +54,5 @@ describe('PatientInfoRedcapCard', () => {
     expect(screen.getByText('123')).toBeInTheDocument();
     expect(screen.getByText('pat_id')).toBeInTheDocument();
     expect(screen.getByText('456')).toBeInTheDocument();
-  });
-
-  it('calls fetchRedcapIfPossible when the refresh button is clicked', async () => {
-    (apiClient.get as jest.Mock).mockResolvedValue({ data: { matches: [] } });
-    const store = makeStore();
-    store.redcapIdentifier = 'PID-1';
-
-    render(<PatientInfoRedcapCard store={store} />);
-
-    fireEvent.click(screen.getByText('Refresh'));
-
-    await waitFor(() =>
-      expect(apiClient.get).toHaveBeenCalledWith('/redcap/patient/', expect.anything())
-    );
   });
 });

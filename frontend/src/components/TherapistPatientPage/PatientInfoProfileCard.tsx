@@ -43,7 +43,10 @@ const getContactsFields = (store: PatientPopupStore): PatientFieldConfig[] => {
 
 const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer(({ store }) => {
   const { t } = useTranslation();
-  const contactsFields = getContactsFields(store);
+  const contactsFields = React.useMemo(
+    () => getContactsFields(store),
+    [store, store.formData.clinic]
+  );
 
   return (
     <div className="mb-2">

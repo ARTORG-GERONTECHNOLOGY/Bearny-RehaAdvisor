@@ -2,17 +2,8 @@ import React from 'react';
 import { Badge, Spinner, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
-import { FaSyncAlt } from 'react-icons/fa';
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
 
 interface PatientInfoRedcapCardProps {
@@ -31,17 +22,6 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
           <CardDescription className="text-zinc-500 text-xs">
             {t('This data is fetched live from REDCap and is not stored in the platform database.')}
           </CardDescription>
-          <CardAction>
-            <Button
-              variant="secondary"
-              size="dashboard"
-              onClick={() => store.fetchRedcapIfPossible(t)}
-              disabled={store.redcapLoading}
-            >
-              <FaSyncAlt />
-              {store.redcapLoading ? t('Loading...') : t('Refresh')}
-            </Button>
-          </CardAction>
         </CardHeader>
         <CardContent>
           <div className="text-zinc-500 text-xs mb-3">

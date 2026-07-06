@@ -28,6 +28,20 @@ describe('PatientInfoActionToolbar', () => {
     expect(screen.queryByText('SaveChanges')).not.toBeInTheDocument();
   });
 
+  it('calls fetchRedcapIfPossible when the Refresh REDCap button is clicked', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { matches: [] } });
+    const store = makeStore();
+    store.redcapIdentifier = 'PID-1';
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+
+    fireEvent.click(screen.getByText('Refresh REDCap'));
+
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith('/redcap/patient/', expect.anything())
+    );
+  });
+
   it('only shows Sync Wearables when a REDCap project is set', () => {
     const store = makeStore();
 
