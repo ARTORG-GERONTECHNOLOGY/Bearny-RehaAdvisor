@@ -199,14 +199,10 @@ def _summarize_period(
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
     # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
-    records = list(
-        GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date")
-    )
+    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
 
     if not records:
-        records = list(
-            FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date")
-        )
+        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
     if not records:
         return None
 
