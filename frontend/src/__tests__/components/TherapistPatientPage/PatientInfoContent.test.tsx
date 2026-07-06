@@ -20,6 +20,12 @@ jest.mock('@/stores/authStore', () => ({
   },
 }));
 
+jest.mock('@/components/ui/skeleton', () => ({
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={className} />
+  ),
+}));
+
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
@@ -66,8 +72,9 @@ describe('PatientInfoContent', () => {
 
   it('shows loading initially and then patient data', async () => {
     renderComponent();
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('John Doe')).toBeInTheDocument();
+    expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    // The patient view starts in non-editing mode, so values render as plain text.
+    expect(await screen.findByText('John Doe')).toBeInTheDocument();
   });
 
   it('enables editing and saves changes', async () => {
@@ -171,7 +178,8 @@ describe('PatientInfoContent', () => {
     });
 
     renderComponent();
-    expect(await screen.findByDisplayValue('Anna')).toBeInTheDocument();
+    // The patient view starts in non-editing mode, so values render as plain text.
+    expect(await screen.findByText('Anna')).toBeInTheDocument();
   });
 
   it('updates formData correctly on multi-select change', async () => {

@@ -17,6 +17,8 @@ jest.mock('@/components/ui/sheet', () => {
       React.createElement('h2', null, children),
     SheetDescription: ({ children }: { children: React.ReactNode }) =>
       React.createElement('p', null, children),
+    SheetFooter: ({ children }: { children: React.ReactNode }) =>
+      React.createElement('div', null, children),
   };
 });
 
