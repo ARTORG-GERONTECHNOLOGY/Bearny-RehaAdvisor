@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PatientInfoFieldRenderer, {
   PatientFieldConfig,
@@ -8,6 +9,15 @@ import PatientInfoFieldRenderer, {
 import { PatientPopupStore } from '@/stores/patientPopupStore';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+// Radix Select (used by the 'dropdown' field type) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 const makeStore = () => new PatientPopupStore('patient-1');
 
@@ -144,7 +154,8 @@ describe('PatientInfoFieldRenderer', () => {
       expect(store.formData.lifestyle).toBe('Non-Smoker, Active, Vegetarian ');
     });
 
-    it('renders a dropdown with the configured options', () => {
+    it('renders a dropdown with the configured options', async () => {
+      const user = userEvent.setup();
       const store = makeStore();
       store.isEditing = true;
       store.formData = { marital_status: '' };
@@ -157,8 +168,8 @@ describe('PatientInfoFieldRenderer', () => {
 
       render(<PatientInfoFieldRenderer store={store} field={field} />);
 
-      const select = screen.getByLabelText('Marital status') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'Married' } });
+      await user.click(screen.getByLabelText('Marital status'));
+      await user.click(await screen.findByRole('option', { name: 'Married' }));
 
       expect(store.formData.marital_status).toBe('Married');
     });
@@ -182,7 +193,8 @@ describe('PatientInfoFieldRenderer', () => {
       expect(screen.getByLabelText('Project')).toBeDisabled();
     });
 
-    it('calls onValueChange after setting a dropdown field', () => {
+    it('calls onValueChange after setting a dropdown field', async () => {
+      const user = userEvent.setup();
       const store = makeStore();
       store.isEditing = true;
       store.formData = { clinic: '' };
@@ -197,7 +209,8 @@ describe('PatientInfoFieldRenderer', () => {
 
       render(<PatientInfoFieldRenderer store={store} field={field} />);
 
-      fireEvent.change(screen.getByLabelText('Clinic'), { target: { value: 'Inselspital' } });
+      await user.click(screen.getByLabelText('Clinic'));
+      await user.click(await screen.findByRole('option', { name: 'Inselspital' }));
 
       expect(store.formData.clinic).toBe('Inselspital');
       expect(onValueChange).toHaveBeenCalledWith('Inselspital');

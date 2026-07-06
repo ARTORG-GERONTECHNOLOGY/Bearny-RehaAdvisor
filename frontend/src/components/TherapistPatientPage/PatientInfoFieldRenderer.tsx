@@ -4,6 +4,17 @@ import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import { observer } from 'mobx-react-lite';
 
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PatientPopupStore, toDateInput, toDisplayDate } from '@/stores/patientPopupStore';
 import PatientInfoSourceBadge from './PatientInfoSourceBadge';
 
@@ -92,10 +103,10 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
             )
           : (field.options || []).map((opt: string) => ({ value: opt, label: t(opt) }));
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
+          </FieldLabel>
           <Select
             inputId={key}
             isMulti
@@ -105,36 +116,38 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
             aria-label={t(field.label)}
             placeholder={t('Select...')}
           />
-        </Form.Group>
+        </Field>
       );
     }
 
     if (field.type === 'dropdown') {
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
-          <Form.Select
-            id={key}
-            value={manualValue || ''}
-            onChange={(e) => {
-              store.setField(key, e.target.value);
-              field.onValueChange?.(e.target.value);
+          </FieldLabel>
+          <UiSelect
+            value={manualValue || undefined}
+            onValueChange={(value) => {
+              store.setField(key, value);
+              field.onValueChange?.(value);
             }}
-            aria-label={t(field.label)}
             disabled={field.disabled}
           >
-            <option value="">
-              {field.placeholder ? t(field.placeholder) : t('Select an option')}
-            </option>
-            {(field.options || []).map((opt: string) => (
-              <option key={opt} value={opt}>
-                {t(opt)}
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+            <SelectTrigger id={key} aria-label={t(field.label)}>
+              <SelectValue
+                placeholder={field.placeholder ? t(field.placeholder) : t('Select an option')}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map((opt: string) => (
+                <SelectItem key={opt} value={opt}>
+                  {t(opt)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </UiSelect>
+        </Field>
       );
     }
 
@@ -157,29 +170,29 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
 
     if (field.type === 'checkbox') {
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
-          <Form.Check
-            type="checkbox"
-            id={key}
-            label=""
-            checked={!!manualValue}
-            onChange={(e) => store.setField(key, e.target.checked)}
-            aria-label={t(field.label)}
-          />
-        </Form.Group>
+          </FieldLabel>
+          <div>
+            <Switch
+              id={key}
+              checked={!!manualValue}
+              onCheckedChange={(checked) => store.setField(key, checked)}
+              aria-label={t(field.label)}
+            />
+          </div>
+        </Field>
       );
     }
 
     if (field.type === 'comma-list') {
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
-          <Form.Control
+          </FieldLabel>
+          <Input
             id={key}
             type="text"
             value={store.arrayToDisplay(manualValue)}
@@ -188,37 +201,36 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
             placeholder={field.placeholder ? t(field.placeholder) : undefined}
             maxLength={field.maxLength ?? 1000}
           />
-        </Form.Group>
+        </Field>
       );
     }
 
     if (field.type === 'textarea') {
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
-          <Form.Control
+          </FieldLabel>
+          <Textarea
             id={key}
-            as="textarea"
             rows={field.rows ?? 3}
             value={manualValue || ''}
             onChange={handleChange}
             aria-label={t(field.label)}
             maxLength={field.maxLength ?? 2000}
           />
-        </Form.Group>
+        </Field>
       );
     }
 
     const commonMaxLength =
       field.maxLength ?? (field.type === 'text' || !field.type ? 500 : undefined);
     return (
-      <Form.Group controlId={key}>
-        <Form.Label>
+      <Field>
+        <FieldLabel htmlFor={key}>
           {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-        </Form.Label>
-        <Form.Control
+        </FieldLabel>
+        <Input
           id={key}
           type={field.type || 'text'}
           value={manualValue || ''}
@@ -226,7 +238,7 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
           aria-label={t(field.label)}
           maxLength={commonMaxLength}
         />
-      </Form.Group>
+      </Field>
     );
   }
 );

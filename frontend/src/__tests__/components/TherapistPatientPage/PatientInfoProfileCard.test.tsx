@@ -1,10 +1,20 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PatientInfoProfileCard from '@/components/TherapistPatientPage/PatientInfoProfileCard';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
 import { appModeStore } from '@/stores/appModeStore';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+// Radix Select (used by the clinic/project 'dropdown' fields) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 const makeStore = () => new PatientPopupStore('patient-1');
 
@@ -37,15 +47,16 @@ describe('PatientInfoProfileCard', () => {
     expect(contacts.getByText('COMPASS')).toBeInTheDocument();
   });
 
-  it('binds the clinic/project/date fields to formData in edit mode', () => {
+  it('binds the clinic/project/date fields to formData in edit mode', async () => {
+    const user = userEvent.setup();
     const store = makeStore();
     store.isEditing = true;
     store.formData = { last_clinic_visit: '', clinic: '', project: '', reha_end_date: '' };
 
     render(<PatientInfoProfileCard store={store} />);
 
-    const clinicSelect = document.getElementById('clinic') as HTMLSelectElement;
-    fireEvent.change(clinicSelect, { target: { value: 'Inselspital' } });
+    await user.click(document.getElementById('clinic') as HTMLElement);
+    await user.click(await screen.findByRole('option', { name: 'Inselspital' }));
 
     expect(store.formData.clinic).toBe('Inselspital');
     // Selecting a clinic resets the dependent project field.
@@ -56,17 +67,18 @@ describe('PatientInfoProfileCard', () => {
     expect(store.formData.reha_end_date).toBe('2026-03-01');
   });
 
-  it('lists project options scoped to the selected clinic', () => {
+  it('lists project options scoped to the selected clinic', async () => {
+    const user = userEvent.setup();
     const store = makeStore();
     store.isEditing = true;
     store.formData = { clinic: 'Inselspital', project: '' };
 
     render(<PatientInfoProfileCard store={store} />);
 
-    const projectSelect = document.getElementById('project') as HTMLSelectElement;
-    const optionValues = Array.from(projectSelect.options).map((o) => o.value);
+    await user.click(document.getElementById('project') as HTMLElement);
+    const optionLabels = (await screen.findAllByRole('option')).map((o) => o.textContent);
 
-    expect(optionValues).toEqual(expect.arrayContaining(['COPAIN', 'COMPASS']));
+    expect(optionLabels).toEqual(expect.arrayContaining(['COPAIN', 'COMPASS']));
   });
 
   it('renders the config-driven patient form fields, e.g. First Name', () => {

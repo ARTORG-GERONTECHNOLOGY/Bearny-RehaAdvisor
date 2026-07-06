@@ -1,10 +1,11 @@
 import React from 'react';
-import { Col, Form, Row } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { PatientPopupStore, PatientThresholds } from '@/stores/patientPopupStore';
 import ThresholdHistory from '@/components/TherapistPatientPage/ThresholdHistory';
 import { Badge } from '@/components/ui/badge';
@@ -146,13 +147,14 @@ const PatientInfoThresholdsCard: React.FC<PatientInfoThresholdsCardProps> = obse
                   })}
                 </div>
               ) : (
-                <Row className="g-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {THRESHOLD_FIELD_GROUPS.map((g) => (
                     <React.Fragment key={g.id}>
-                      <Col xs={12} md={g.yellow ? 6 : 12}>
-                        <Form.Group controlId={g.green}>
-                          <Form.Label className="fw-semibold">{t(g.greenLabel)}</Form.Label>
-                          <Form.Control
+                      <div className={g.yellow ? '' : 'md:col-span-2'}>
+                        <Field>
+                          <FieldLabel htmlFor={g.green}>{t(g.greenLabel)}</FieldLabel>
+                          <Input
+                            id={g.green}
                             type="number"
                             value={
                               store.thresholdDraft[g.green] ?? store.thresholds?.[g.green] ?? 0
@@ -163,13 +165,14 @@ const PatientInfoThresholdsCard: React.FC<PatientInfoThresholdsCardProps> = obse
                             min={g.min}
                             max={g.max}
                           />
-                        </Form.Group>
-                      </Col>
+                        </Field>
+                      </div>
                       {g.yellow && (
-                        <Col xs={12} md={6}>
-                          <Form.Group controlId={g.yellow}>
-                            <Form.Label className="fw-semibold">{t(g.yellowLabel!)}</Form.Label>
-                            <Form.Control
+                        <div>
+                          <Field>
+                            <FieldLabel htmlFor={g.yellow}>{t(g.yellowLabel!)}</FieldLabel>
+                            <Input
+                              id={g.yellow}
                               type="number"
                               value={
                                 store.thresholdDraft[g.yellow] ?? store.thresholds?.[g.yellow] ?? 0
@@ -180,49 +183,49 @@ const PatientInfoThresholdsCard: React.FC<PatientInfoThresholdsCardProps> = obse
                               min={g.min}
                               max={g.max}
                             />
-                            <div className="text-muted small mt-1">
+                            <FieldDescription>
                               {g.kind === 'min'
                                 ? t('Green should be ≥ yellow')
                                 : t('Green max should be ≤ yellow max')}
-                            </div>
-                          </Form.Group>
-                        </Col>
+                            </FieldDescription>
+                          </Field>
+                        </div>
                       )}
                     </React.Fragment>
                   ))}
-                </Row>
+                </div>
               )}
 
               {store.isEditing && (
-                <Row className="g-3 mt-2">
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="thresholdEffectiveFrom">
-                      <Form.Label className="fw-semibold">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <Field>
+                      <FieldLabel htmlFor="thresholdEffectiveFrom">
                         {t('Effective from (optional)')}
-                      </Form.Label>
-                      <Form.Control
+                      </FieldLabel>
+                      <Input
+                        id="thresholdEffectiveFrom"
                         type="datetime-local"
                         value={store.thresholdEffectiveFromLocal}
                         onChange={(e) => store.setThresholdEffectiveFromLocal(e.target.value)}
                       />
-                      <div className="text-muted small mt-1">
-                        {t('Leave empty to apply immediately.')}
-                      </div>
-                    </Form.Group>
-                  </Col>
+                      <FieldDescription>{t('Leave empty to apply immediately.')}</FieldDescription>
+                    </Field>
+                  </div>
 
-                  <Col xs={12} md={6}>
-                    <Form.Group controlId="thresholdReason">
-                      <Form.Label className="fw-semibold">{t('Reason (optional)')}</Form.Label>
-                      <Form.Control
+                  <div>
+                    <Field>
+                      <FieldLabel htmlFor="thresholdReason">{t('Reason (optional)')}</FieldLabel>
+                      <Input
+                        id="thresholdReason"
                         type="text"
                         value={store.thresholdReason}
                         onChange={(e) => store.setThresholdReason(e.target.value)}
                         maxLength={500}
                       />
-                    </Form.Group>
-                  </Col>
-                </Row>
+                    </Field>
+                  </div>
+                </div>
               )}
             </div>
 
