@@ -21,7 +21,6 @@ export function PatientInfoContentLoadingSkeleton() {
         <Skeleton className="h-9 w-36" />
         <Skeleton className="h-9 w-44" />
         <Skeleton className="h-9 w-44" />
-        <Skeleton className="h-9 w-44" />
       </div>
 
       <div className="flex gap-2">

@@ -95,11 +95,19 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             )}
           </div>
 
-          <div className="columns-1 md:columns-2 xl:columns-3 gap-2">
-            <PatientInfoProfileCard store={store} />
-            <PatientInfoCharacteristicsCard store={store} />
-            <PatientInfoThresholdsCard store={store} />
-            {appModeStore.showRedcapTab && <PatientInfoRedcapCard store={store} />}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            <div className="md:col-start-1 md:row-start-1 xl:col-start-1">
+              <PatientInfoProfileCard store={store} />
+            </div>
+            <div className="md:col-start-1 md:row-start-2 xl:col-start-2 xl:row-start-1">
+              <PatientInfoCharacteristicsCard store={store} />
+              <PatientInfoThresholdsCard store={store} />
+            </div>
+            {appModeStore.showRedcapTab && (
+              <div className="md:col-start-2 md:row-start-1 md:row-span-2 xl:col-start-3 xl:row-span-1">
+                <PatientInfoRedcapCard store={store} />
+              </div>
+            )}
           </div>
         </>
       )}

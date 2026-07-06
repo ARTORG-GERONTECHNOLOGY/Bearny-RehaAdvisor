@@ -7,7 +7,6 @@ import {
   FaUndo,
   FaDownload,
   FaCloudDownloadAlt,
-  FaSyncAlt,
   FaKey,
   FaUpload,
 } from 'react-icons/fa';
@@ -77,17 +76,6 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
               >
                 <FaEdit />
                 {t('Edit')}
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="dashboard"
-                onClick={() => store.fetchRedcapIfPossible(t)}
-                disabled={store.loading || store.redcapLoading}
-                title={t('Refresh REDCap data')}
-              >
-                <FaSyncAlt />
-                {store.redcapLoading ? t('Loading...') : t('Refresh REDCap')}
               </Button>
 
               {store.redcapProject && (
