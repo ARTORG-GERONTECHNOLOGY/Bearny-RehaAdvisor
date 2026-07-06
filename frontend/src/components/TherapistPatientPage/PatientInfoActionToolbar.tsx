@@ -1,21 +1,21 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
-import {
-  FaEdit,
-  FaTrash,
-  FaUndo,
-  FaDownload,
-  FaCloudDownloadAlt,
-  FaKey,
-  FaUpload,
-  FaSyncAlt,
-} from 'react-icons/fa';
 
 import { Button } from '@/components/ui/button';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
 import PasswordResetSheet from '@/components/TherapistPatientPage/PasswordResetSheet';
 import DeleteConfirmationSheet from '@/components/TherapistPatientPage/DeleteConfirmationSheet';
+import {
+  Check,
+  CloudDownload,
+  HardDriveDownload,
+  KeyRound,
+  Pencil,
+  RefreshCw,
+  UserRoundX,
+  X,
+} from 'lucide-react';
 
 interface PatientInfoActionToolbarProps {
   store: PatientPopupStore;
@@ -45,7 +45,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                 onClick={() => store.setEditing(false)}
                 disabled={store.saving}
               >
-                <FaUndo />
+                <X />
                 {t('Cancel')}
               </Button>
 
@@ -57,13 +57,13 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                   disabled={store.saving}
                   title={t('Copy missing fields from REDCap into the manual form')}
                 >
-                  <FaCloudDownloadAlt />
+                  <CloudDownload />
                   {t('Copy from REDCap')}
                 </Button>
               )}
 
               <Button size="dashboard" onClick={() => store.saveAll(t)} disabled={store.saving}>
-                <FaDownload />
+                <Check />
                 {store.saving ? t('Saving...') : t('SaveChanges')}
               </Button>
             </>
@@ -75,7 +75,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                 onClick={() => store.setEditing(true)}
                 disabled={store.loading || store.saving}
               >
-                <FaEdit />
+                <Pencil />
                 {t('Edit')}
               </Button>
 
@@ -86,7 +86,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                 disabled={store.loading || store.redcapLoading}
                 title={t('Refresh REDCap data')}
               >
-                <FaSyncAlt />
+                <RefreshCw />
                 {store.redcapLoading ? t('Loading...') : t('Refresh REDCap')}
               </Button>
 
@@ -101,7 +101,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                       'Sync Fitbit wearables data to REDCap (skips periods already populated)'
                     )}
                   >
-                    <FaUpload />
+                    <HardDriveDownload />
                     {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}
                   </Button>
                   <Button
@@ -122,7 +122,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                     disabled={store.loading || store.wearablesSyncing}
                     title={t('Force re-sync overwrites existing REDCap wearables data')}
                   >
-                    <FaUpload />
+                    <HardDriveDownload />
                     {t('Force Re-sync')}
                   </Button>
                 </>
@@ -134,7 +134,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                 disabled={store.loading || store.saving}
                 className="bg-yellow hover:bg-yellow/90"
               >
-                <FaKey />
+                <KeyRound />
                 {t('ResetPassword')}
               </Button>
 
@@ -145,7 +145,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                 disabled={store.loading || store.saving}
                 className="bg-nok hover:bg-nok/90"
               >
-                <FaTrash />
+                <UserRoundX />
                 {t('DeletePatient')}
               </Button>
             </>
