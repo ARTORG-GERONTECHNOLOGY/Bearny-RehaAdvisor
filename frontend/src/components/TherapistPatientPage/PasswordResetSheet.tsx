@@ -1,5 +1,4 @@
 import React from 'react';
-import { Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FaKey } from 'react-icons/fa';
 
@@ -12,6 +11,9 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { FieldGroup } from '@/components/ui/field';
+import PasswordField from '@/components/forms/input/PasswordField';
+import ErrorAlert from '@/components/common/ErrorAlert';
 
 interface PasswordResetSheetProps {
   open: boolean;
@@ -51,40 +53,34 @@ const PasswordResetSheet: React.FC<PasswordResetSheetProps> = ({
         </SheetHeader>
 
         <div className="mt-4">
-          {passwordError && (
-            <div className="alert alert-danger py-2 px-3 mb-2" role="alert">
-              {passwordError}
-            </div>
-          )}
+          {passwordError && <ErrorAlert message={passwordError} />}
           {passwordSuccess && (
-            <div className="alert alert-success py-2 px-3 mb-2" role="alert">
+            <div role="status" className="bg-ok/5 p-3 mb-2 text-ok text-sm rounded-md">
               {t('PasswordResetSuccess')}
             </div>
           )}
 
-          <Form.Group controlId="pw-reset-new" className="mb-3">
-            <Form.Label className="small mb-1">{t('NewPassword')}</Form.Label>
-            <Form.Control
-              type="password"
+          <FieldGroup>
+            <PasswordField
+              id="pw-reset-new"
+              label={t('NewPassword')}
+              placeholder="••••••••"
               value={passwordNew}
               onChange={(e) => onPasswordNewChange(e.target.value)}
-              placeholder="••••••••"
               autoComplete="new-password"
             />
-          </Form.Group>
 
-          <Form.Group controlId="pw-reset-confirm" className="mb-3">
-            <Form.Label className="small mb-1">{t('ConfirmPassword')}</Form.Label>
-            <Form.Control
-              type="password"
+            <PasswordField
+              id="pw-reset-confirm"
+              label={t('ConfirmPassword')}
+              placeholder="••••••••"
               value={passwordConfirm}
               onChange={(e) => onPasswordConfirmChange(e.target.value)}
-              placeholder="••••••••"
               autoComplete="new-password"
             />
-          </Form.Group>
+          </FieldGroup>
 
-          <SheetFooter>
+          <SheetFooter className="mt-4">
             <Button size="dashboard" disabled={passwordSaving} onClick={onSubmit}>
               <FaKey />
               {passwordSaving ? t('Saving...') : t('SetNewPassword')}

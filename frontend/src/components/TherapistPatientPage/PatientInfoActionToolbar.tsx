@@ -36,7 +36,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
 
     return (
       <>
-        <div className="d-flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-3">
           {store.isEditing ? (
             <>
               <Button
