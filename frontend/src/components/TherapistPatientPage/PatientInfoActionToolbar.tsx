@@ -91,16 +91,41 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
               </Button>
 
               {store.redcapProject && (
-                <Button
-                  variant="secondary"
-                  size="dashboard"
-                  onClick={() => store.syncWearablesToRedcap(t)}
-                  disabled={store.loading || store.wearablesSyncing}
-                  title={t('Sync Fitbit wearables data to REDCap')}
-                >
-                  <FaUpload />
-                  {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    size="dashboard"
+                    onClick={() => store.syncWearablesToRedcap(t)}
+                    disabled={store.loading || store.wearablesSyncing}
+                    title={t(
+                      'Sync Fitbit wearables data to REDCap (skips periods already populated)'
+                    )}
+                  >
+                    <FaUpload />
+                    {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="dashboard"
+                    className="text-yellow"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          t(
+                            'Force re-sync will overwrite existing wearables data in REDCap. Continue?'
+                          )
+                        )
+                      ) {
+                        store.syncWearablesToRedcap(t, undefined, undefined, true);
+                      }
+                    }}
+                    disabled={store.loading || store.wearablesSyncing}
+                    title={t('Force re-sync overwrites existing REDCap wearables data')}
+                  >
+                    <FaUpload />
+                    {t('Force Re-sync')}
+                  </Button>
+                </>
               )}
 
               <Button
