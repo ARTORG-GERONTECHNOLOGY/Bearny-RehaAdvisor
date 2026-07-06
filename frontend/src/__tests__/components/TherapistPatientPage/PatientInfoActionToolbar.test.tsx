@@ -22,7 +22,6 @@ describe('PatientInfoActionToolbar', () => {
     render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
 
     expect(screen.getByText('Edit')).toBeInTheDocument();
-    expect(screen.getByText('Refresh REDCap')).toBeInTheDocument();
     expect(screen.getByText('ResetPassword')).toBeInTheDocument();
     expect(screen.getByText('DeletePatient')).toBeInTheDocument();
     expect(screen.queryByText('Cancel')).not.toBeInTheDocument();
@@ -113,19 +112,6 @@ describe('PatientInfoActionToolbar', () => {
     fireEvent.click(screen.getByText('ResetPassword'));
 
     expect(store.showPasswordReset).toBe(true);
-  });
-
-  it('triggers a REDCap refresh when Refresh REDCap is clicked', async () => {
-    (apiClient.get as jest.Mock).mockResolvedValue({ data: { matches: [] } });
-    const store = makeStore();
-    store.redcapIdentifier = 'PID-1';
-
-    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
-    fireEvent.click(screen.getByText('Refresh REDCap'));
-
-    await waitFor(() =>
-      expect(apiClient.get).toHaveBeenCalledWith('/redcap/patient/', expect.anything())
-    );
   });
 
   it('saves changes when SaveChanges is clicked', async () => {
