@@ -415,29 +415,23 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Threshold load error (non-blocking) */}
+      {store.error && (
+        <Alert variant="danger" role="alert">
+          {store.error}
+        </Alert>
+      )}
       {store.thresholdsError && (
         <Alert variant="warning" role="alert">
           {store.thresholdsError}
         </Alert>
       )}
 
-      {/* Controls */}
-      <div>
-        <HealthViewControls
-          store={store}
-          t={t}
-          formatRangeLabel={formatRangeLabel}
-          onExportClick={() => setShowExport(true)}
-        />
-      </div>
-
-      {/* Error / Loading */}
-      {store.error && (
-        <Alert variant="danger" role="alert">
-          {store.error}
-        </Alert>
-      )}
+      <HealthViewControls
+        store={store}
+        t={t}
+        formatRangeLabel={formatRangeLabel}
+        onExportClick={() => setShowExport(true)}
+      />
 
       {store.loading ? (
         <HealthPageContentLoadingSkeleton />
