@@ -2,13 +2,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
-import type {
-  FitbitEntry,
-  QuestionnaireEntry,
-  ViewMode,
-  ChartRes,
-  AdherenceEntry,
-} from '@/types/health';
+import type { FitbitEntry, QuestionnaireEntry, ViewMode, AdherenceEntry } from '@/types/health';
 
 export type PatientThresholds = {
   steps_goal: number;
@@ -220,10 +214,6 @@ export class HealthPageStore {
 
   get viewEnd(): Date {
     return this.endDate;
-  }
-
-  get chartRes(): ChartRes {
-    return 'daily';
   }
 
   // ───────────────────────────

@@ -34,7 +34,6 @@ export interface QuestionnaireEntry {
   answerType?: string;
 }
 
-export type ChartRes = 'daily' | 'weekly' | 'monthly';
 export type ViewMode = 'weekly' | 'monthly';
 export type AdherenceEntry = {
   date: string; // YYYY-MM-DD

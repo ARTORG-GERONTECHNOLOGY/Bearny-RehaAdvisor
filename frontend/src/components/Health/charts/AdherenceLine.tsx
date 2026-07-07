@@ -1,31 +1,18 @@
 import React, { useEffect, useRef, forwardRef } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
-import { ChartRes } from '../../../types/health';
 import type { AdherenceEntry } from '../../../types/health';
 
 type Props = {
   data: AdherenceEntry[];
-  res: ChartRes; // 'daily' | 'weekly' | 'monthly'
   start?: Date | null;
   end?: Date | null;
 };
 
-function startOfWeek(d: Date) {
-  const x = new Date(d);
-  const day = x.getDay(); // 0..6, Sun..Sat
-  const diff = x.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-  return new Date(x.getFullYear(), x.getMonth(), diff);
-}
-
-function ymKey(d: Date) {
-  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-}
-
 // Clamp helper (ensures adherence never exceeds 0..100)
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
 
-const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end }, ref) => {
+const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
   const local = useRef<SVGSVGElement>(null);
   const svgRef = (ref as React.RefObject<SVGSVGElement>) || local;
@@ -52,61 +39,11 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
 
     if (!inRange.length) return;
 
-    // Aggregate by resolution
     type Row = { d: Date; y: number | null };
-    let rows: Row[] = [];
-
-    if (res === 'daily') {
-      rows = inRange.map((r) => ({
-        d: new Date(r.date),
-        // ✅ clamp daily pct too
-        y: Number.isFinite(r.pct) ? clampPct(r.pct) : null,
-      }));
-    } else if (res === 'weekly') {
-      const map = new Map<string, { sched: number; comp: number; d: Date }>();
-
-      inRange.forEach((r) => {
-        const d = startOfWeek(new Date(r.date));
-        const key = d.toISOString().slice(0, 10);
-        if (!map.has(key)) map.set(key, { sched: 0, comp: 0, d });
-
-        const v = map.get(key)!;
-        v.sched += Number(r.scheduled || 0);
-        v.comp += Number(r.completed || 0);
-      });
-
-      rows = Array.from(map.values())
-        .sort((a, b) => a.d.getTime() - b.d.getTime())
-        .map((v) => {
-          if (v.sched <= 0) return { d: v.d, y: null };
-          const pct = (100 * v.comp) / v.sched;
-          // ✅ clamp computed pct
-          return { d: v.d, y: clampPct(Math.round(pct)) };
-        });
-    } else {
-      // monthly
-      const map = new Map<string, { sched: number; comp: number; d: Date }>();
-
-      inRange.forEach((r) => {
-        const d = new Date(r.date);
-        const key = ymKey(d);
-        if (!map.has(key)) {
-          map.set(key, { sched: 0, comp: 0, d: new Date(d.getFullYear(), d.getMonth(), 1) });
-        }
-        const v = map.get(key)!;
-        v.sched += Number(r.scheduled || 0);
-        v.comp += Number(r.completed || 0);
-      });
-
-      rows = Array.from(map.values())
-        .sort((a, b) => a.d.getTime() - b.d.getTime())
-        .map((v) => {
-          if (v.sched <= 0) return { d: v.d, y: null };
-          const pct = (100 * v.comp) / v.sched;
-          // ✅ clamp computed pct
-          return { d: v.d, y: clampPct(Math.round(pct)) };
-        });
-    }
+    const rows: Row[] = inRange.map((r) => ({
+      d: new Date(r.date),
+      y: Number.isFinite(r.pct) ? clampPct(r.pct) : null,
+    }));
 
     // Need a valid x-domain
     const xExtent = d3.extent(rows, (r) => r.d) as [Date | undefined, Date | undefined];
@@ -192,7 +129,7 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, res, start, end 
       .attr('text-anchor', 'middle')
       .attr('font-weight', 600)
       .text(t('Adherence (%)'));
-  }, [data, res, start, end, t]);
+  }, [data, start, end, t]);
 
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });

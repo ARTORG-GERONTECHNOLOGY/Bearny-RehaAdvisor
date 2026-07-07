@@ -31,7 +31,6 @@ const mockStore = {
   questionnaireData: [],
   adherenceData: [],
   viewMode: 'monthly',
-  chartRes: 'daily',
   referenceDate: new Date(),
   thresholds: null,
   get startDate() {
@@ -43,7 +42,6 @@ const mockStore = {
   fetchThresholds: jest.fn(),
   fetchCombinedHistoryForPatient: jest.fn(),
   setViewMode: jest.fn(),
-  setChartRes: jest.fn(),
   setReferenceDate: jest.fn(),
   goPrev: jest.fn(),
   goNext: jest.fn(),

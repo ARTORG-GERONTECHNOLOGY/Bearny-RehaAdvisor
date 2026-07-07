@@ -55,7 +55,6 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
             <AdherenceLine
               ref={svgRefs.adherence}
               data={store.adherenceData}
-              res={store.chartRes}
               start={start}
               end={end}
             />
@@ -85,7 +84,6 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               titleKey="Resting Heart Rate"
               data={store.fitbitData}
               accessor={(d) => d.resting_heart_rate}
-              res={store.chartRes}
               start={start}
               end={end}
             />
@@ -114,7 +112,6 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               titleKey="Wear Time (min)"
               data={store.fitbitData}
               accessor={(d) => d.wear_time_minutes}
-              res={store.chartRes}
               start={start}
               end={end}
             />
@@ -143,7 +140,6 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               titleKey="Daily Steps"
               data={store.fitbitData}
               accessor={(d) => d.steps}
-              res={store.chartRes}
               start={start}
               end={end}
             />
@@ -160,7 +156,6 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               titleKey="Breathing Rate (breaths/min)"
               data={store.fitbitData}
               accessor={(d) => d.breathing_rate?.breathingRate}
-              res={store.chartRes}
               start={start}
               end={end}
             />

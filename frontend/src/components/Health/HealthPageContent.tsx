@@ -116,84 +116,26 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       csv += emitRows2(['Date', 'Total Score'], rows);
     }
 
-    // Adherence (res = store.chartRes)
+    // Adherence
     if (selections.adherence) {
-      const startOfWeek = (d: Date) => {
-        const x = new Date(d);
-        const day = x.getDay();
-        const diff = x.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(x.getFullYear(), x.getMonth(), diff);
-      };
-      const ymKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
       const adIn = store.adherenceData.filter((d) => isInRange(d.date, from, to));
 
-      type RowT = { label: string; sched: number; comp: number; pct: number | null; sort: Date };
-      let rows: RowT[] = [];
+      const rows = adIn
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((d) => ({
+          label: d.date,
+          sched: d.scheduled ?? 0,
+          comp: d.completed ?? 0,
+          pct: d.pct ?? null,
+        }));
 
-      if (store.chartRes === 'daily') {
-        rows = adIn
-          .slice()
-          .sort((a, b) => a.date.localeCompare(b.date))
-          .map((d) => ({
-            label: d.date,
-            sched: d.scheduled ?? 0,
-            comp: d.completed ?? 0,
-            pct: d.pct ?? null,
-            sort: new Date(d.date),
-          }));
-      } else if (store.chartRes === 'weekly') {
-        const map = new Map<string, { sched: number; comp: number; d: Date }>();
-        adIn.forEach((d) => {
-          const dt = new Date(d.date);
-          const wk = startOfWeek(dt);
-          const key = wk.toISOString().slice(0, 10);
-          if (!map.has(key)) map.set(key, { sched: 0, comp: 0, d: wk });
-          const v = map.get(key)!;
-          v.sched += d.scheduled ?? 0;
-          v.comp += d.completed ?? 0;
-        });
-        rows = [...map.values()]
-          .sort((a, b) => a.d.getTime() - b.d.getTime())
-          .map((v) => ({
-            label: v.d.toISOString().slice(0, 10),
-            sched: v.sched,
-            comp: v.comp,
-            pct: v.sched > 0 ? Math.round((100 * v.comp) / v.sched) : null,
-            sort: v.d,
-          }));
-      } else {
-        const map = new Map<string, { sched: number; comp: number; d: Date }>();
-        adIn.forEach((d) => {
-          const dt = new Date(d.date);
-          const key = ymKey(dt);
-          if (!map.has(key))
-            map.set(key, { sched: 0, comp: 0, d: new Date(dt.getFullYear(), dt.getMonth(), 1) });
-          const v = map.get(key)!;
-          v.sched += d.scheduled ?? 0;
-          v.comp += d.completed ?? 0;
-        });
-        rows = [...map.values()]
-          .sort((a, b) => a.d.getTime() - b.d.getTime())
-          .map((v) => ({
-            label: ymKey(v.d),
-            sched: v.sched,
-            comp: v.comp,
-            pct: v.sched > 0 ? Math.round((100 * v.comp) / v.sched) : null,
-            sort: v.d,
-          }));
-      }
-
-      const out = rows.map((r) => {
-        let label = r.label;
-        if (store.chartRes === 'monthly') {
-          const [y, m] = r.label.split('-');
-          label = `01.${m}.${y}`;
-        } else {
-          label = toEuroDate(r.label);
-        }
-        return [label, r.sched, r.comp, r.pct != null ? r.pct : ''];
-      });
+      const out = rows.map((r) => [
+        toEuroDate(r.label),
+        r.sched,
+        r.comp,
+        r.pct != null ? r.pct : '',
+      ]);
 
       csv += emitRows2(['Date/Period', 'Scheduled', 'Completed', 'Adherence (%)'], out);
     }

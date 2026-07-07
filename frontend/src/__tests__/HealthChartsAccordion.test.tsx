@@ -43,7 +43,6 @@ const makeStore = (overrides: Partial<HealthPageStore> = {}): HealthPageStore =>
     fitbitData: [] as FitbitEntry[],
     questionnaireData: [],
     adherenceData: [],
-    chartRes: 'daily',
     startDate: new Date('2024-01-08'),
     endDate: new Date('2024-01-15'),
     ...overrides,
