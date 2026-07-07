@@ -33,7 +33,7 @@ type Props = {
   svgRefs: SvgRefs;
 };
 
-const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRefs }) => {
+const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }) => {
   const start = store.startDate;
   const end = store.endDate;
 
@@ -234,4 +234,4 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
   );
 });
 
-export default HealthChartsAccordion;
+export default HealthChartsCards;

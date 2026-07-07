@@ -33,7 +33,7 @@ jest.mock('@/components/Health/QuestionnaireResultsTable', () => () => (
   <div data-testid="table-questionnaire" />
 ));
 
-import HealthChartsAccordion from '@/components/Health/HealthChartsAccordion';
+import HealthChartsCards from '@/components/Health/HealthChartsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 import type { FitbitEntry } from '@/types/health';
 
@@ -67,7 +67,7 @@ const svgRefs = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('HealthChartsAccordion – accordion headers', () => {
+describe('HealthChartsCards – card headers', () => {
   const expectedHeaders = [
     'Adherence',
     'Questionnaire Results By Date',
@@ -82,28 +82,28 @@ describe('HealthChartsAccordion – accordion headers', () => {
     'Exercises',
   ];
 
-  it('renders all 11 accordion section headers', () => {
-    render(<HealthChartsAccordion store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+  it('renders all 11 card section headers', () => {
+    render(<HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expectedHeaders.forEach((header) => {
       expect(screen.getByText(header)).toBeInTheDocument();
     });
   });
 
-  it.each(expectedHeaders)('displays the "%s" accordion header', (header) => {
-    render(<HealthChartsAccordion store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+  it.each(expectedHeaders)('displays the "%s" card header', (header) => {
+    render(<HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.getByText(header)).toBeInTheDocument();
   });
 
-  it('renders exactly 11 accordion items', () => {
-    render(<HealthChartsAccordion store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
-    // Each Accordion.Item renders a button for its header
-    const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(11);
+  it('renders exactly 11 cards', () => {
+    const { container } = render(
+      <HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />
+    );
+    expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(11);
   });
 });
 
-describe('HealthChartsAccordion – device-hint messages', () => {
+describe('HealthChartsCards – device-hint messages', () => {
   const fitbitBase: FitbitEntry = {
     date: '2024-01-10',
     steps: 5000,
@@ -111,25 +111,25 @@ describe('HealthChartsAccordion – device-hint messages', () => {
 
   it('shows resting-HR hint when all Fitbit entries lack resting_heart_rate', () => {
     const store = makeStore({ fitbitData: [fitbitBase] as FitbitEntry[] });
-    render(<HealthChartsAccordion store={store} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.getByText('hint_resting_hr_empty')).toBeInTheDocument();
   });
 
   it('shows wear-time hint when all Fitbit entries lack wear_time_minutes', () => {
     const store = makeStore({ fitbitData: [fitbitBase] as FitbitEntry[] });
-    render(<HealthChartsAccordion store={store} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.getByText('hint_wear_time_empty')).toBeInTheDocument();
   });
 
   it('shows breathing-rate hint when all Fitbit entries lack breathing_rate', () => {
     const store = makeStore({ fitbitData: [fitbitBase] as FitbitEntry[] });
-    render(<HealthChartsAccordion store={store} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.getByText('hint_breathing_rate_empty')).toBeInTheDocument();
   });
 
   it('does not show hints when Fitbit data is absent (no entries at all)', () => {
     const store = makeStore({ fitbitData: [] });
-    render(<HealthChartsAccordion store={store} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.queryByText('hint_resting_hr_empty')).not.toBeInTheDocument();
     expect(screen.queryByText('hint_wear_time_empty')).not.toBeInTheDocument();
     expect(screen.queryByText('hint_breathing_rate_empty')).not.toBeInTheDocument();

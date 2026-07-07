@@ -14,8 +14,8 @@ jest.mock('@/utils/healthCharts', () => ({ isInRange: jest.fn(), svgToImageDataU
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Mock heavy sub-components so rendering is fast and deterministic.
-jest.mock('@/components/Health/HealthChartsAccordion', () => () => (
-  <div data-testid="charts-accordion" />
+jest.mock('@/components/Health/HealthChartsCards', () => () => (
+  <div data-testid="charts-cards" />
 ));
 jest.mock('@/components/Health/HealthViewControls', () => () => (
   <div data-testid="health-controls" />
@@ -89,14 +89,14 @@ describe('HealthPageContent', () => {
     render(<HealthPageContent patientId="patient-abc" />);
 
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.queryByTestId('charts-accordion')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('charts-cards')).not.toBeInTheDocument();
   });
 
   it('shows charts accordion and controls when loaded', () => {
     mockStore.loading = false;
     render(<HealthPageContent patientId="patient-abc" />);
 
-    expect(screen.getByTestId('charts-accordion')).toBeInTheDocument();
+    expect(screen.getByTestId('charts-cards')).toBeInTheDocument();
     expect(screen.getByTestId('health-controls')).toBeInTheDocument();
   });
 

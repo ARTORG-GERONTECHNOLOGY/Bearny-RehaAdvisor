@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import ExportModal from '@/components/Health/ExportModal';
 import HealthViewControls from '@/components/Health/HealthViewControls';
-import HealthChartsAccordion from '@/components/Health/HealthChartsAccordion';
+import HealthChartsCards from '@/components/Health/HealthChartsCards';
 
 import { isInRange, svgToImageDataUrl } from '@/utils/healthCharts';
 import HealthPageStore from '@/stores/healthPageStore';
@@ -378,7 +378,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       {store.loading ? (
         <HealthPageContentLoadingSkeleton />
       ) : (
-        <HealthChartsAccordion
+        <HealthChartsCards
           store={store}
           t={t}
           lang={(i18n.language || 'en').split('-')[0]}
