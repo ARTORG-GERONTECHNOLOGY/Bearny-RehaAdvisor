@@ -15,8 +15,9 @@ import BreathingChart, { averageBreathingRate } from '@/components/Health/charts
 import BloodPressureChart, {
   averageBloodPressure,
 } from '@/components/Health/charts/BloodPressureChart';
-import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
-import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
+import ExerciseSessionsChart, {
+  averageExerciseMinutes,
+} from '@/components/Health/charts/ExerciseSessionsChart';
 import QuestionnaireResultsTable, {
   countQuestionnaireDays,
 } from '@/components/Health/QuestionnaireResultsTable';
@@ -84,6 +85,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
   const avgBreathingRate = useMemo(
     () => averageBreathingRate(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgExerciseMinutes = useMemo(
+    () => averageExerciseMinutes(store.fitbitData, start, end),
     [store.fitbitData, start, end]
   );
 
@@ -237,22 +243,20 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('Exercises')}</CardTitle>
+              <CardDescription>{t('Exercises')}</CardDescription>
+              <CardTitle>
+                {avgExerciseMinutes != null
+                  ? `${Math.round(avgExerciseMinutes)} ${t('min')}`
+                  : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                <div className="lg:col-span-7">
-                  <ExerciseSessionsChart
-                    ref={svgRefs.exercise}
-                    data={store.fitbitData}
-                    start={start}
-                    end={end}
-                  />
-                </div>
-                <div className="lg:col-span-5">
-                  <ExerciseSessionsTable data={store.fitbitData} start={start} end={end} />
-                </div>
-              </div>
+              <ExerciseSessionsChart
+                ref={svgRefs.exercise}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
         </div>

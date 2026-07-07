@@ -2,8 +2,8 @@
 import React, { useMemo } from 'react';
 import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { FitbitEntry } from '../../../types/health';
-import { isInRange } from '../../../utils/healthCharts';
+import { FitbitEntry } from '@/types/health';
+import { isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -85,8 +85,6 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
             <th>{t('Exercise')}</th>
             <th>{t('Duration')}</th>
             <th>{t('Avg HR')}</th>
-
-            {/* HEADLINE shows peak zone range */}
             <th>
               <OverlayTrigger
                 overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
@@ -94,10 +92,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
                 <span>{t('Peak zone (bpm)')}</span>
               </OverlayTrigger>
             </th>
-
-            {/* ROW shows minutes */}
             <th>{t('Peak minutes')}</th>
-
             <th>{t('Calories')}</th>
           </tr>
         </thead>

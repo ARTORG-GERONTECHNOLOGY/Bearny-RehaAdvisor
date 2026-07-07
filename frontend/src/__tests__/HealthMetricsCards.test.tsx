@@ -46,12 +46,11 @@ jest.mock('@/components/Health/charts/BloodPressureChart', () => ({
   default: React.forwardRef(() => <div data-testid="chart-bloodpressure" />),
   averageBloodPressure: jest.fn(() => ({ sys: null, dia: null })),
 }));
-jest.mock('@/components/Health/charts/ExerciseSessionsChart', () =>
-  React.forwardRef(() => <div data-testid="chart-exercise" />)
-);
-jest.mock('@/components/Health/charts/ExerciseSessionsTable', () => () => (
-  <div data-testid="table-exercise" />
-));
+jest.mock('@/components/Health/charts/ExerciseSessionsChart', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-exercise" />),
+  averageExerciseMinutes: jest.fn(() => null),
+}));
 jest.mock('@/components/Health/QuestionnaireResultsTable', () => ({
   __esModule: true,
   default: () => <div data-testid="table-questionnaire" />,
