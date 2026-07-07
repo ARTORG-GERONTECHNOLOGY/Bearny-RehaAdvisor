@@ -56,7 +56,7 @@ jest.mock('@/components/Health/QuestionnaireResultsTable', () => ({
   countQuestionnaireDays: jest.fn(() => 0),
 }));
 
-import HealthChartsCards from '@/components/Health/HealthChartsCards';
+import HealthMetricsCards from '@/components/Health/HealthMetricsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 import type { FitbitEntry } from '@/types/health';
 
@@ -90,7 +90,7 @@ const svgRefs = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('HealthChartsCards – card headers', () => {
+describe('HealthMetricsCards – card headers', () => {
   const expectedHeaders = [
     'Adherence',
     'Questionnaire Results By Date',
@@ -106,7 +106,7 @@ describe('HealthChartsCards – card headers', () => {
   ];
 
   it('renders all 11 card section headers', () => {
-    render(<HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expectedHeaders.forEach((header) => {
       expect(screen.getByText(header)).toBeInTheDocument();
@@ -114,13 +114,13 @@ describe('HealthChartsCards – card headers', () => {
   });
 
   it.each(expectedHeaders)('displays the "%s" card header', (header) => {
-    render(<HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+    render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
     expect(screen.getByText(header)).toBeInTheDocument();
   });
 
   it('renders exactly 11 cards', () => {
     const { container } = render(
-      <HealthChartsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />
+      <HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />
     );
     expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(11);
   });
