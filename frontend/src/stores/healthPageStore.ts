@@ -8,7 +8,7 @@ import type {
   ViewMode,
   ChartRes,
   AdherenceEntry,
-} from '../types/health';
+} from '@/types/health';
 
 export type PatientThresholds = {
   steps_goal: number;
@@ -150,7 +150,6 @@ const normalizeAdherenceList = (raw: unknown): AdherenceEntry[] => {
 export class HealthPageStore {
   // UI state
   viewMode: ViewMode = 'monthly';
-  chartRes: ChartRes = 'daily';
   referenceDate: Date = new Date();
 
   // Data state
@@ -223,15 +222,15 @@ export class HealthPageStore {
     return this.endDate;
   }
 
+  get chartRes(): ChartRes {
+    return 'daily';
+  }
+
   // ───────────────────────────
   // Actions
   // ───────────────────────────
   setViewMode(mode: ViewMode) {
     this.viewMode = mode;
-  }
-
-  setChartRes(res: ChartRes) {
-    this.chartRes = res;
   }
 
   setReferenceDate(d: Date) {

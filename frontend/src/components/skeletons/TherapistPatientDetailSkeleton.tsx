@@ -39,7 +39,8 @@ export function PatientInfoContentLoadingSkeleton() {
 
 export function HealthPageContentLoadingSkeleton() {
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-10" role="status" aria-live="polite">
+      <span className="sr-only">Loading…</span>
       {Array.from({ length: 2 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2">
           <Skeleton className="h-9 w-40" />
