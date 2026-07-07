@@ -1,7 +1,11 @@
-import React, { useEffect, useRef, forwardRef } from 'react';
-import * as d3 from 'd3';
+import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
-import type { AdherenceEntry } from '../../../types/health';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+import type { AdherenceEntry } from '@/types/health';
+import { colors } from '@/lib/colors';
+import { isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: AdherenceEntry[];
@@ -9,129 +13,86 @@ type Props = {
   end?: Date | null;
 };
 
-// Clamp helper (ensures adherence never exceeds 0..100)
+type AdherenceRow = { date: string; pct: number | null };
+
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
+
+// Filters raw adherence entries to the visible date range and clamps pct to 0..100.
+export const filterAdherenceInRange = (
+  data: AdherenceEntry[],
+  start?: Date | null,
+  end?: Date | null
+): AdherenceRow[] => {
+  const raw = Array.isArray(data) ? data : [];
+
+  return raw
+    .filter((r) => isInRange(r.date, start, end))
+    .map((r) => ({
+      date: r.date,
+      pct: Number.isFinite(r.pct) ? clampPct(r.pct as number) : null,
+    }));
+};
+
+// Mean of the non-null pct values in the visible date range, or null if none.
+export const averageAdherencePct = (
+  data: AdherenceEntry[],
+  start?: Date | null,
+  end?: Date | null
+): number | null => {
+  const values = filterAdherenceInRange(data, start, end)
+    .map((r) => r.pct)
+    .filter((v): v is number => v != null);
+
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+};
+
+const chartConfig: ChartConfig = {
+  pct: { label: 'Adherence (%)' },
+};
 
 const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
-  const local = useRef<SVGSVGElement>(null);
-  const svgRef = (ref as React.RefObject<SVGSVGElement>) || local;
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  const rows = useMemo(() => filterAdherenceInRange(data, start, end), [data, start, end]);
+
+  // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
+  // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
   useEffect(() => {
-    if (!svgRef.current) return;
-    const svg = d3.select(svgRef.current);
+    if (!ref || typeof ref === 'function') return;
+    (ref as React.RefObject<SVGSVGElement | null>).current =
+      containerRef.current?.querySelector('svg') ?? null;
+  });
 
-    // Clear
-    svg.selectAll('*').remove();
+  if (!rows.length) {
+    return (
+      <div className="flex h-32 w-full items-center justify-center text-sm text-zinc-500">
+        {t('No adherence data')}
+      </div>
+    );
+  }
 
-    // Guard
-    const raw = Array.isArray(data) ? data : [];
-    if (!raw.length) return;
-
-    // Filter by range
-    const s = start || new Date(raw[0].date);
-    const e = end || new Date(raw[raw.length - 1].date);
-
-    const inRange = raw.filter((r) => {
-      const d = new Date(r.date);
-      return d >= s && d <= e;
-    });
-
-    if (!inRange.length) return;
-
-    type Row = { d: Date; y: number | null };
-    const rows: Row[] = inRange.map((r) => ({
-      d: new Date(r.date),
-      y: Number.isFinite(r.pct) ? clampPct(r.pct) : null,
-    }));
-
-    // Need a valid x-domain
-    const xExtent = d3.extent(rows, (r) => r.d) as [Date | undefined, Date | undefined];
-    if (!xExtent[0] || !xExtent[1]) return;
-
-    // Dimensions / scales
-    const W = 800,
-      H = 300,
-      M = { top: 30, right: 20, bottom: 40, left: 48 };
-    svg.attr('viewBox', `0 0 ${W} ${H}`);
-
-    const x = d3
-      .scaleTime()
-      .domain([xExtent[0], xExtent[1]])
-      .range([M.left, W - M.right]);
-
-    const y = d3
-      .scaleLinear()
-      .domain([0, 100])
-      .range([H - M.bottom, M.top])
-      // ✅ prevents drawing above/below the chart area
-      .clamp(true);
-
-    // Axes
-    const xAxis = d3.axisBottom<Date>(x);
-    const yAxis = d3
-      .axisLeft(y)
-      .ticks(5)
-      .tickFormat((d) => `${d}%`);
-
-    svg
-      .append('g')
-      .attr('transform', `translate(0,${H - M.bottom})`)
-      .call(xAxis);
-
-    svg.append('g').attr('transform', `translate(${M.left},0)`).call(yAxis);
-
-    // Gridlines
-    svg
-      .append('g')
-      .attr('stroke-opacity', 0.1)
-      .selectAll('line.h')
-      .data(y.ticks(5))
-      .enter()
-      .append('line')
-      .attr('x1', M.left)
-      .attr('x2', W - M.right)
-      .attr('y1', (d) => y(d))
-      .attr('y2', (d) => y(d));
-
-    // Line (skip nulls)
-    const line = d3
-      .line<Row>()
-      .defined((r) => r.y != null)
-      .x((r) => x(r.d))
-      .y((r) => y(r.y as number));
-
-    svg
-      .append('path')
-      .datum(rows)
-      .attr('fill', 'none')
-      .attr('stroke', '#69b3a2')
-      .attr('stroke-width', 2)
-      .attr('d', line as any);
-
-    // Points
-    svg
-      .append('g')
-      .selectAll('circle')
-      .data(rows.filter((r) => r.y != null))
-      .enter()
-      .append('circle')
-      .attr('cx', (r) => x(r.d))
-      .attr('cy', (r) => y(r.y as number))
-      .attr('r', 2.5)
-      .attr('fill', '#69b3a2');
-
-    // Title
-    svg
-      .append('text')
-      .attr('x', W / 2)
-      .attr('y', 18)
-      .attr('text-anchor', 'middle')
-      .attr('font-weight', 600)
-      .text(t('Adherence (%)'));
-  }, [data, start, end, t]);
-
-  return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
+  return (
+    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-32">
+      <AreaChart accessibilityLayer data={rows}>
+        <CartesianGrid vertical={false} />
+        <YAxis hide domain={[0, 100]} />
+        <XAxis dataKey="date" hide />
+        <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+        <Area
+          type="monotone"
+          dataKey="pct"
+          stroke={colors.brand}
+          strokeWidth={2}
+          fill={colors.brand}
+          dot={{ r: 3, fill: colors.brand, strokeWidth: 0 }}
+          activeDot={{ r: 4 }}
+          connectNulls
+        />
+      </AreaChart>
+    </ChartContainer>
+  );
 });
 
 AdherenceLine.displayName = 'AdherenceLine';

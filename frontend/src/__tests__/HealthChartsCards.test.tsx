@@ -3,9 +3,11 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 // ── Chart sub-components use d3/SVG – replace with testid stubs ───────────────
-jest.mock('@/components/Health/charts/AdherenceLine', () =>
-  React.forwardRef(() => <div data-testid="chart-adherence" />)
-);
+jest.mock('@/components/Health/charts/AdherenceLine', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-adherence" />),
+  averageAdherencePct: jest.fn(() => null),
+}));
 jest.mock('@/components/Health/charts/MetricBarOrBox', () =>
   React.forwardRef(({ titleKey }: { titleKey: string }) => (
     <div data-testid={`chart-metric-${titleKey}`} />

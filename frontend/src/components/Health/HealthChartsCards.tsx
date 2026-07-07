@@ -1,17 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
 import MetricBarOrBox from '@/components/Health/charts/MetricBarOrBox';
 import SleepChart from '@/components/Health/charts/SleepChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
-import AdherenceLine from '@/components/Health/charts/AdherenceLine';
+import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart from '@/components/Health/charts/WeightChart';
 import BloodPressureChart from '@/components/Health/charts/BloodPressureChart';
 import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import QuestionnaireResultsTable from '@/components/Health/QuestionnaireResultsTable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SvgRefs = {
   adherence: React.RefObject<SVGSVGElement>;
@@ -46,24 +46,28 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
   const breathingEmpty =
     hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
 
+  const avgAdherence = useMemo(
+    () => averageAdherencePct(store.adherenceData, start, end),
+    [store.adherenceData, start, end]
+  );
+
   return (
     <div className="flex flex-col gap-10">
       <div>
         <h5>{t('Engagement')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Adherence')}</CardTitle>
+              <CardDescription>{t('Adherence')}</CardDescription>
+              <CardTitle>{avgAdherence != null ? `${Math.round(avgAdherence)}%` : '--%'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <AdherenceLine
-                  ref={svgRefs.adherence}
-                  data={store.adherenceData}
-                  start={start}
-                  end={end}
-                />
-              </div>
+              <AdherenceLine
+                ref={svgRefs.adherence}
+                data={store.adherenceData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
           <Card>
@@ -105,7 +109,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Cardiovascular')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardTitle>{t('Resting HR')}</CardTitle>
@@ -161,7 +165,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Activity')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardTitle>{t('Steps')}</CardTitle>
@@ -215,7 +219,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Sleep & Recovery')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardTitle>{t('Sleep')}</CardTitle>
