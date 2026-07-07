@@ -14,7 +14,9 @@ jest.mock('@/utils/healthCharts', () => ({ isInRange: jest.fn(), svgToImageDataU
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 // Mock heavy sub-components so rendering is fast and deterministic.
-jest.mock('@/components/Health/HealthMetricsCards', () => () => <div data-testid="metrics-cards" />);
+jest.mock('@/components/Health/HealthMetricsCards', () => () => (
+  <div data-testid="metrics-cards" />
+));
 jest.mock('@/components/Health/HealthViewControls', () => () => (
   <div data-testid="health-controls" />
 ));

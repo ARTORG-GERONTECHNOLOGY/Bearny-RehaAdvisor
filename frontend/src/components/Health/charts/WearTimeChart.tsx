@@ -87,7 +87,7 @@ const WearTimeChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, re
         <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
         <XAxis hide dataKey="date" />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-        <Bar dataKey="wearTime" fill={colors.brand} radius={4} />
+        <Bar dataKey="wearTime" fill={colors.brand} />
       </BarChart>
     </ChartContainer>
   );

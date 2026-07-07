@@ -93,7 +93,7 @@ const StepsChart = forwardRef<SVGSVGElement, Props>(({ data, start, end, goal },
             strokeDasharray="8 8"
           />
         )}
-        <Bar dataKey="steps" radius={4}>
+        <Bar dataKey="steps">
           {rows.map((row, index) => (
             <Cell
               key={`cell-${index}`}

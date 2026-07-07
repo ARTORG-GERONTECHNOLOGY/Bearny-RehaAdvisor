@@ -26,9 +26,11 @@ jest.mock('@/components/Health/charts/BreathingChart', () => ({
   default: React.forwardRef(() => <div data-testid="chart-breathing" />),
   averageBreathingRate: jest.fn(() => null),
 }));
-jest.mock('@/components/Health/charts/HRZonesStacked', () =>
-  React.forwardRef(() => <div data-testid="chart-hrzones" />)
-);
+jest.mock('@/components/Health/charts/HRZonesStacked', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-hrzones" />),
+  averageActiveHRZoneMinutes: jest.fn(() => null),
+}));
 jest.mock('@/components/Health/charts/WeightChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-weight" />),
@@ -97,7 +99,7 @@ describe('HealthMetricsCards – card headers', () => {
     'Resting HR',
     'Sleep',
     'Wear Time',
-    'HR Zones',
+    'Active HR Time',
     'Steps',
     'Breathing',
     'WeightLabel',

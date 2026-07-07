@@ -84,7 +84,7 @@ const WeightChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref)
         <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
         <XAxis hide dataKey="date" />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-        <Bar dataKey="weight" fill={colors.brand} radius={4} />
+        <Bar dataKey="weight" fill={colors.brand} />
       </BarChart>
     </ChartContainer>
   );

@@ -1,6 +1,8 @@
 export interface HeartRateZone {
   name: string;
   minutes: number;
+  min?: number;
+  max?: number;
 }
 
 export interface FitbitEntry {

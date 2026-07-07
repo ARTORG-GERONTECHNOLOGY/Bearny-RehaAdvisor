@@ -4,7 +4,9 @@ import type { HealthPageStore } from '@/stores/healthPageStore';
 
 import SleepChart from '@/components/Health/charts/SleepChart';
 import WearTimeChart, { averageWearTime } from '@/components/Health/charts/WearTimeChart';
-import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
+import HRZonesStacked, {
+  averageActiveHRZoneMinutes,
+} from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
 import StepsChart, { averageSteps } from '@/components/Health/charts/StepsChart';
@@ -75,6 +77,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     [store.fitbitData, start, end]
   );
 
+  const avgActiveHRZone = useMemo(
+    () => averageActiveHRZoneMinutes(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
   const avgBreathingRate = useMemo(
     () => averageBreathingRate(store.fitbitData, start, end),
     [store.fitbitData, start, end]
@@ -89,7 +96,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     <div className="flex flex-col gap-10">
       <div>
         <h5>{t('Engagement')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardDescription>{t('Adherence')}</CardDescription>
@@ -142,7 +149,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
       <div>
         <h5>{t('Cardiovascular')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardDescription>{t('Resting HR')}</CardDescription>
@@ -179,17 +186,18 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('HR Zones')}</CardTitle>
+              <CardDescription>{t('Active HR Time')}</CardDescription>
+              <CardTitle>
+                {avgActiveHRZone != null ? `${Math.round(avgActiveHRZone)} ${t('min')}` : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <HRZonesStacked
-                  ref={svgRefs.hrZones}
-                  data={store.fitbitData}
-                  start={start}
-                  end={end}
-                />
-              </div>
+              <HRZonesStacked
+                ref={svgRefs.hrZones}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
         </div>
@@ -197,7 +205,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
       <div>
         <h5>{t('Activity')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardDescription>{t('Steps')}</CardDescription>
@@ -252,7 +260,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
       <div>
         <h5>{t('Sleep & Recovery')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
               <CardTitle>{t('Sleep')}</CardTitle>
