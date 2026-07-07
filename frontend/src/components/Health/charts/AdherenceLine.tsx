@@ -70,14 +70,14 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, re
 
   if (!rows.length) {
     return (
-      <div className="flex h-32 w-full items-center justify-center text-sm text-zinc-500">
+      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
         {t('No adherence data')}
       </div>
     );
   }
 
   return (
-    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-32">
+    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
         <YAxis hide domain={[0, 100]} />

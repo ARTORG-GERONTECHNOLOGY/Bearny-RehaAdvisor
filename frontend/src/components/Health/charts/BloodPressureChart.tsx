@@ -83,14 +83,14 @@ const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
 
     if (!rows.length) {
       return (
-        <div className="flex h-32 w-full items-center justify-center text-sm text-zinc-500">
+        <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
           {t('No blood pressure data')}
         </div>
       );
     }
 
     return (
-      <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-32">
+      <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
         <AreaChart accessibilityLayer data={rows}>
           <CartesianGrid vertical={false} />
           <YAxis
