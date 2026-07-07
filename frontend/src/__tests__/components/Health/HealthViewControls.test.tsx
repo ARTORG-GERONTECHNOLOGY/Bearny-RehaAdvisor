@@ -6,7 +6,8 @@ import HealthViewControls from '@/components/Health/HealthViewControls';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
 const t = (key: string) => key;
-const formatRangeLabel = (start: Date, end: Date) => `${start.toISOString()} - ${end.toISOString()}`;
+const formatRangeLabel = (start: Date, end: Date) =>
+  `${start.toISOString()} - ${end.toISOString()}`;
 
 const makeStore = (overrides: Partial<HealthPageStore> = {}): HealthPageStore =>
   ({

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
-import { isInRange, drawBarTimeseries } from '@/utils/healthCharts';
+import { isInRange, drawBarTimeseries, personalRangeFromWindow } from '@/utils/healthCharts';
 
 type Props = {
   titleKey: string; // i18n key for the chart title
@@ -10,10 +10,27 @@ type Props = {
   accessor: (d: FitbitEntry) => number | null | undefined;
   start?: Date | null;
   end?: Date | null;
+
+  /** Color each bar by whether it falls in the patient's personal range (default true) */
+  showPersonalRange?: boolean;
+  /** Personal range window (days), lower/upper percentiles */
+  rangeWindowDays?: number; // default 30
+  rangeLowerPct?: number; // default 3
+  rangeUpperPct?: number; // default 97
 };
 
 const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
-  const { titleKey, data, accessor, start, end } = props;
+  const {
+    titleKey,
+    data,
+    accessor,
+    start,
+    end,
+    showPersonalRange = true,
+    rangeWindowDays = 30,
+    rangeLowerPct = 3,
+    rangeUpperPct = 97,
+  } = props;
 
   const { t } = useTranslation();
   const localRef = useRef<SVGSVGElement>(null);
@@ -27,8 +44,31 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
       .map((d) => ({ x: d.date, y: accessor(d) }))
       .filter((r): r is { x: string; y: number } => r.y != null);
 
-    drawBarTimeseries(svgRef, rows, t(titleKey));
-  }, [data, accessor, start, end, t]);
+    const band = showPersonalRange
+      ? personalRangeFromWindow(data, (d) => d.date, accessor, {
+          windowDays: rangeWindowDays,
+          lowerPct: rangeLowerPct,
+          upperPct: rangeUpperPct,
+          end: end ?? new Date(data[data.length - 1].date),
+        })
+      : null;
+
+    drawBarTimeseries(svgRef, rows, t(titleKey), {
+      band: band ?? undefined,
+      legend: { inRange: t('In range'), outOfRange: t('Out of range') },
+    });
+  }, [
+    data,
+    accessor,
+    start,
+    end,
+    t,
+    titleKey,
+    showPersonalRange,
+    rangeWindowDays,
+    rangeLowerPct,
+    rangeUpperPct,
+  ]);
 
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });

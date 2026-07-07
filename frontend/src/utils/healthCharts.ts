@@ -8,6 +8,31 @@ export const isInRange = (iso: string, start?: Date | null, end?: Date | null) =
   return (!start || d >= start) && (!end || d <= end);
 };
 
+// Personal range band: P{lowerPct}–P{upperPct} over the trailing `windowDays`
+// ending at `end`. Used to flag individual points as "in range" / "out of range".
+export function personalRangeFromWindow<T>(
+  data: T[],
+  getDate: (d: T) => string,
+  getVal: (d: T) => number | null | undefined,
+  opts: { windowDays: number; lowerPct: number; upperPct: number; end: Date }
+) {
+  const end = opts.end;
+  const start = d3.utcDay.offset(end, -opts.windowDays + 1);
+  const values: number[] = [];
+  for (const d of data) {
+    const iso = getDate(d);
+    const dt = new Date(iso);
+    const v = getVal(d);
+    if (v == null) continue;
+    if (dt >= start && dt <= end) values.push(v);
+  }
+
+  const lo = d3.quantile(values, opts.lowerPct / 100) ?? null;
+  const hi = d3.quantile(values, opts.upperPct / 100) ?? null;
+  const mean = values.length ? d3.mean(values)! : null;
+  return { lo, hi, mean };
+}
+
 // ---------- svg & shared UI ----------
 export const initSvg = (
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
@@ -154,20 +179,45 @@ export function smartBandAxisBottom(
 }
 
 // ---------- compact charts ----------
-/** Daily bars */
+type BarBand = { lo: number | null; hi: number | null };
+
+const IN_RANGE_COLOR = '#2b83ba';
+const OUT_OF_RANGE_COLOR = '#d88997';
+const DEFAULT_BAR_COLOR = '#69b3a2';
+
+/** Daily bars, optionally colored by a personal-range band (in range / out of range) */
 export function drawBarTimeseries(
   svgRef: React.RefObject<SVGSVGElement>,
   rows: { x: string; y: number }[],
-  title: string
+  title: string,
+  opts: { band?: BarBand; legend?: { inRange?: string; outOfRange?: string } } = {}
 ) {
   if (!svgRef.current || !document.body.contains(svgRef.current)) return;
   const svg = d3.select(svgRef.current);
   svg.selectAll('*').remove();
 
+  const band = opts.band;
+  const hasBand = band != null && band.lo != null && band.hi != null;
+
   const w = 720,
     h = 260,
-    m = { top: 28, right: 24, bottom: 64, left: 52 };
+    m = { top: hasBand ? 46 : 28, right: 24, bottom: 64, left: 52 };
   initSvg(svg, w, h);
+
+  if (hasBand) {
+    renderLegend(
+      svg,
+      [
+        { label: opts.legend?.inRange ?? 'In range', color: IN_RANGE_COLOR, symbol: 'dot' },
+        {
+          label: opts.legend?.outOfRange ?? 'Out of range',
+          color: OUT_OF_RANGE_COLOR,
+          symbol: 'dot',
+        },
+      ],
+      36
+    );
+  }
 
   const width = w - m.left - m.right;
   const height = h - m.top - m.bottom;
@@ -186,11 +236,23 @@ export function drawBarTimeseries(
       .range([0, width])
       .padding(0.2);
 
+    const yMax = Math.max(d3.max(rows, (d) => d.y) || 0, hasBand ? band!.hi! : 0);
     const y = d3
       .scaleLinear()
-      .domain([0, (d3.max(rows, (d) => d.y) || 0) * 1.1])
+      .domain([0, yMax * 1.1])
       .nice()
       .range([height, 0]);
+
+    if (hasBand) {
+      g.append('rect')
+        .attr('class', 'personal-range-band')
+        .attr('x', 0)
+        .attr('y', y(band!.hi!))
+        .attr('width', width)
+        .attr('height', Math.max(0, y(band!.lo!) - y(band!.hi!)))
+        .attr('fill', IN_RANGE_COLOR)
+        .attr('opacity', 0.12);
+    }
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -200,15 +262,22 @@ export function drawBarTimeseries(
 
     const tt = getOrCreateTooltip();
 
-    g.selectAll('rect')
+    g.selectAll('rect.bar')
       .data(rows)
       .enter()
       .append('rect')
+      .attr('class', 'bar')
       .attr('x', (d) => x(d.x)!)
       .attr('y', (d) => y(d.y))
       .attr('width', x.bandwidth())
       .attr('height', (d) => height - y(d.y))
-      .attr('fill', '#69b3a2')
+      .attr('fill', (d) =>
+        hasBand
+          ? d.y >= band!.lo! && d.y <= band!.hi!
+            ? IN_RANGE_COLOR
+            : OUT_OF_RANGE_COLOR
+          : DEFAULT_BAR_COLOR
+      )
       .on('mouseover', (ev, d) => {
         tt.style('opacity', 1).html(`<strong>${d.x}</strong><br/>${d.y}`);
       })
