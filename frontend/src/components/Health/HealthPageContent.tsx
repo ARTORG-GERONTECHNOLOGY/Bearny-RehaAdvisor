@@ -13,6 +13,7 @@ import HealthChartsAccordion from '@/components/Health/HealthChartsAccordion';
 
 import { isInRange, svgToImageDataUrl } from '@/utils/healthCharts';
 import HealthPageStore from '@/stores/healthPageStore';
+import { HealthPageContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 
 /* --------- helpers for European date formatting ---------- */
 const toEuroDate = (iso: string | null | undefined): string => {
@@ -413,16 +414,16 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100">
+    <div className="flex flex-col gap-3">
       {/* Threshold load error (non-blocking) */}
       {store.thresholdsError && (
-        <Alert variant="warning" className="my-3" role="alert">
+        <Alert variant="warning" role="alert">
           {store.thresholdsError}
         </Alert>
       )}
 
       {/* Controls */}
-      <div className="my-3">
+      <div>
         <HealthViewControls
           store={store}
           t={t}
@@ -433,18 +434,13 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
       {/* Error / Loading */}
       {store.error && (
-        <Alert variant="danger" className="mb-3" role="alert">
+        <Alert variant="danger" role="alert">
           {store.error}
         </Alert>
       )}
 
       {store.loading ? (
-        <div className="d-flex justify-content-center align-items-center py-5">
-          <div className="text-center">
-            <Spinner animation="border" role="status" />
-            <div className="text-muted mt-2">{t('Loading')}...</div>
-          </div>
-        </div>
+        <HealthPageContentLoadingSkeleton />
       ) : (
         <HealthChartsAccordion
           store={store}
