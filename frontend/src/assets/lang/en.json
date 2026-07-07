@@ -372,6 +372,8 @@
   "Steps": "Steps",
   "No steps data": "No steps data",
   "No wear time data": "No wear time data",
+  "No resting heart rate data": "No resting heart rate data",
+  "No breathing rate data": "No breathing rate data",
   "Distance": "Distance Traveled (km)",
   "Breathing": "Breathing Rate (breaths/min)",
   "Exercise": "Exercise",

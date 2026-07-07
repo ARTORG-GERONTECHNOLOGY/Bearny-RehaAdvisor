@@ -365,6 +365,8 @@
   "Steps": "Stappen",
   "No steps data": "Geen stappengegevens",
   "No wear time data": "Geen draagtijdgegevens",
+  "No resting heart rate data": "Geen gegevens over rusthartslag",
+  "No breathing rate data": "Geen ademhalingsfrequentiegegevens",
   "Distance": "Afstand (km)",
   "Breathing": "Ademhalingsfrequentie (ademhalingen/min)",
   "Exercise": "Oefening",

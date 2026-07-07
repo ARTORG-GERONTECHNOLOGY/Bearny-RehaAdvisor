@@ -72,8 +72,19 @@ describe('AdherenceLine', () => {
 });
 
 describe('filterAdherenceInRange', () => {
-  it('returns an empty array for empty input', () => {
+  it('returns an empty array for empty input with no start/end', () => {
     expect(filterAdherenceInRange([])).toEqual([]);
+  });
+
+  it('fills in every day between start and end, even without a reading', () => {
+    const data = [makeEntry('2026-01-01', 50), makeEntry('2026-01-03', 80)];
+    const rows = filterAdherenceInRange(data, new Date('2026-01-01'), new Date('2026-01-04'));
+    expect(rows).toEqual([
+      { date: '2026-01-01', pct: 50 },
+      { date: '2026-01-02', pct: null },
+      { date: '2026-01-03', pct: 80 },
+      { date: '2026-01-04', pct: null },
+    ]);
   });
 
   it('excludes entries outside the start/end range', () => {
@@ -82,14 +93,21 @@ describe('filterAdherenceInRange', () => {
       makeEntry('2026-01-10', 80),
       makeEntry('2026-01-20', 90),
     ];
-    const rows = filterAdherenceInRange(data, new Date('2026-01-05'), new Date('2026-01-15'));
-    expect(rows).toEqual([{ date: '2026-01-10', pct: 80 }]);
+    const rows = filterAdherenceInRange(data, new Date('2026-01-09'), new Date('2026-01-11'));
+    expect(rows).toEqual([
+      { date: '2026-01-09', pct: null },
+      { date: '2026-01-10', pct: 80 },
+      { date: '2026-01-11', pct: null },
+    ]);
   });
 
-  it('defaults to the first/last entry dates when start/end are omitted', () => {
-    const data = [makeEntry('2026-01-01', 50), makeEntry('2026-01-10', 80)];
+  it('defaults to the entry dates, sorted, when start/end are omitted', () => {
+    const data = [makeEntry('2026-01-10', 80), makeEntry('2026-01-01', 50)];
     const rows = filterAdherenceInRange(data);
-    expect(rows).toHaveLength(2);
+    expect(rows).toEqual([
+      { date: '2026-01-01', pct: 50 },
+      { date: '2026-01-10', pct: 80 },
+    ]);
   });
 
   it('clamps out-of-bounds percentages to 0..100', () => {

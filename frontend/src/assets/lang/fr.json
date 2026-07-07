@@ -371,6 +371,8 @@
   "Steps": "Pas",
   "No steps data": "Aucune donnée de pas",
   "No wear time data": "Aucune donnée de temps de port",
+  "No resting heart rate data": "Aucune donnée de fréquence cardiaque au repos",
+  "No breathing rate data": "Aucune donnée de fréquence respiratoire",
   "Distance": "Distance",
   "Breathing": "Respiration",
   "Exercise": "Exercice",

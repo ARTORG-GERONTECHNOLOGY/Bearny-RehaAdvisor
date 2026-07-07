@@ -380,6 +380,8 @@
   "Steps": "Schritte",
   "No steps data": "Keine Schrittdaten",
   "No wear time data": "Keine Tragezeitdaten",
+  "No resting heart rate data": "Keine Daten zur Ruheherzfrequenz",
+  "No breathing rate data": "Keine Atemfrequenzdaten",
   "Distance": "Entfernung",
   "Breathing": "Atmung",
   "Exercise": "Übung",

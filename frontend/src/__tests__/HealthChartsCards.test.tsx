@@ -8,11 +8,6 @@ jest.mock('@/components/Health/charts/AdherenceLine', () => ({
   default: React.forwardRef(() => <div data-testid="chart-adherence" />),
   averageAdherencePct: jest.fn(() => null),
 }));
-jest.mock('@/components/Health/charts/MetricBarChart', () =>
-  React.forwardRef(({ titleKey }: { titleKey: string }) => (
-    <div data-testid={`chart-metric-${titleKey}`} />
-  ))
-);
 jest.mock('@/components/Health/charts/SleepChart', () =>
   React.forwardRef(() => <div data-testid="chart-sleep" />)
 );
@@ -20,6 +15,16 @@ jest.mock('@/components/Health/charts/WearTimeChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-weartime" />),
   averageWearTime: jest.fn(() => null),
+}));
+jest.mock('@/components/Health/charts/RestingHRChart', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-restinghr" />),
+  averageRestingHR: jest.fn(() => null),
+}));
+jest.mock('@/components/Health/charts/BreathingChart', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-breathing" />),
+  averageBreathingRate: jest.fn(() => null),
 }));
 jest.mock('@/components/Health/charts/HRZonesStacked', () =>
   React.forwardRef(() => <div data-testid="chart-hrzones" />)
@@ -119,28 +124,3 @@ describe('HealthChartsCards – card headers', () => {
   });
 });
 
-describe('HealthChartsCards – device-hint messages', () => {
-  const fitbitBase: FitbitEntry = {
-    date: '2024-01-10',
-    steps: 5000,
-  };
-
-  it('shows resting-HR hint when all Fitbit entries lack resting_heart_rate', () => {
-    const store = makeStore({ fitbitData: [fitbitBase] as FitbitEntry[] });
-    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
-    expect(screen.getByText('hint_resting_hr_empty')).toBeInTheDocument();
-  });
-
-  it('shows breathing-rate hint when all Fitbit entries lack breathing_rate', () => {
-    const store = makeStore({ fitbitData: [fitbitBase] as FitbitEntry[] });
-    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
-    expect(screen.getByText('hint_breathing_rate_empty')).toBeInTheDocument();
-  });
-
-  it('does not show hints when Fitbit data is absent (no entries at all)', () => {
-    const store = makeStore({ fitbitData: [] });
-    render(<HealthChartsCards store={store} t={t} lang="en" svgRefs={svgRefs} />);
-    expect(screen.queryByText('hint_resting_hr_empty')).not.toBeInTheDocument();
-    expect(screen.queryByText('hint_breathing_rate_empty')).not.toBeInTheDocument();
-  });
-});

@@ -2,13 +2,14 @@ import React, { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
-import MetricBarChart from '@/components/Health/charts/MetricBarChart';
 import SleepChart from '@/components/Health/charts/SleepChart';
 import WearTimeChart, { averageWearTime } from '@/components/Health/charts/WearTimeChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
 import StepsChart, { averageSteps } from '@/components/Health/charts/StepsChart';
+import RestingHRChart, { averageRestingHR } from '@/components/Health/charts/RestingHRChart';
+import BreathingChart, { averageBreathingRate } from '@/components/Health/charts/BreathingChart';
 import BloodPressureChart, {
   averageBloodPressure,
 } from '@/components/Health/charts/BloodPressureChart';
@@ -41,14 +42,6 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
   const start = store.startDate;
   const end = store.endDate;
 
-  // Show device-capability hints only when Fitbit records exist but a specific
-  // field is null across all of them (device doesn't support it / not worn).
-  const hasAnyFitbit = store.fitbitData.length > 0;
-  const restingHREmpty =
-    hasAnyFitbit && store.fitbitData.every((d) => d.resting_heart_rate == null);
-  const breathingEmpty =
-    hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
-
   const avgAdherence = useMemo(
     () => averageAdherencePct(store.adherenceData, start, end),
     [store.adherenceData, start, end]
@@ -72,6 +65,16 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
   const avgWearTime = useMemo(
     () => averageWearTime(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgRestingHR = useMemo(
+    () => averageRestingHR(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgBreathingRate = useMemo(
+    () => averageBreathingRate(store.fitbitData, start, end),
     [store.fitbitData, start, end]
   );
 
@@ -132,22 +135,18 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Resting HR')}</CardTitle>
+              <CardDescription>{t('Resting HR')}</CardDescription>
+              <CardTitle>
+                {avgRestingHR != null ? `${Math.round(avgRestingHR)} bpm` : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <MetricBarChart
-                  ref={svgRefs.restingHR}
-                  titleKey="Resting Heart Rate"
-                  data={store.fitbitData}
-                  accessor={(d) => d.resting_heart_rate}
-                  start={start}
-                  end={end}
-                />
-              </div>
-              {restingHREmpty && (
-                <p className="text-muted small text-center mt-1">{t('hint_resting_hr_empty')}</p>
-              )}
+              <RestingHRChart
+                ref={svgRefs.restingHR}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
           <Card>
@@ -256,24 +255,18 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('Breathing')}</CardTitle>
+              <CardDescription>{t('Breathing')}</CardDescription>
+              <CardTitle>
+                {avgBreathingRate != null ? `${avgBreathingRate.toFixed(1)} / min` : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <MetricBarChart
-                  ref={svgRefs.breathing}
-                  titleKey="Breathing Rate (breaths/min)"
-                  data={store.fitbitData}
-                  accessor={(d) => d.breathing_rate?.breathingRate}
-                  start={start}
-                  end={end}
-                />
-              </div>
-              {breathingEmpty && (
-                <p className="text-muted small text-center mt-1">
-                  {t('hint_breathing_rate_empty')}
-                </p>
-              )}
+              <BreathingChart
+                ref={svgRefs.breathing}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
         </div>

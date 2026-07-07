@@ -365,6 +365,8 @@
   "Steps": "Passos",
   "No steps data": "Sem dados de passos",
   "No wear time data": "Sem dados de tempo de uso",
+  "No resting heart rate data": "Sem dados de frequência cardíaca em repouso",
+  "No breathing rate data": "Sem dados de frequência respiratória",
   "Distance": "Distância Percorrida (km)",
   "Breathing": "Frequência Respiratória (respirações/min)",
   "Exercise": "Exercício",
