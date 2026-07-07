@@ -50,9 +50,11 @@ jest.mock('@/components/Health/charts/ExerciseSessionsChart', () =>
 jest.mock('@/components/Health/charts/ExerciseSessionsTable', () => () => (
   <div data-testid="table-exercise" />
 ));
-jest.mock('@/components/Health/QuestionnaireResultsTable', () => () => (
-  <div data-testid="table-questionnaire" />
-));
+jest.mock('@/components/Health/QuestionnaireResultsTable', () => ({
+  __esModule: true,
+  default: () => <div data-testid="table-questionnaire" />,
+  countQuestionnaireDays: jest.fn(() => 0),
+}));
 
 import HealthChartsCards from '@/components/Health/HealthChartsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
@@ -123,4 +125,3 @@ describe('HealthChartsCards – card headers', () => {
     expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(11);
   });
 });
-

@@ -15,7 +15,9 @@ import BloodPressureChart, {
 } from '@/components/Health/charts/BloodPressureChart';
 import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
-import QuestionnaireResultsTable from '@/components/Health/QuestionnaireResultsTable';
+import QuestionnaireResultsTable, {
+  countQuestionnaireDays,
+} from '@/components/Health/QuestionnaireResultsTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SvgRefs = {
@@ -78,11 +80,16 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
     [store.fitbitData, start, end]
   );
 
+  const questionnaireDaysCount = useMemo(
+    () => countQuestionnaireDays(store.questionnaireData, start, end),
+    [store.questionnaireData, start, end]
+  );
+
   return (
     <div className="flex flex-col gap-10">
       <div>
         <h5>{t('Engagement')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           <Card>
             <CardHeader>
               <CardDescription>{t('Adherence')}</CardDescription>
@@ -115,7 +122,10 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('Questionnaire Results By Date')}</CardTitle>
+              <CardDescription>{t('Questionnaire Results By Date')}</CardDescription>
+              <CardTitle>
+                {questionnaireDaysCount} {t('Entries')}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <QuestionnaireResultsTable
@@ -132,7 +142,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Cardiovascular')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           <Card>
             <CardHeader>
               <CardDescription>{t('Resting HR')}</CardDescription>
@@ -187,7 +197,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Activity')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           <Card>
             <CardHeader>
               <CardDescription>{t('Steps')}</CardDescription>
@@ -242,7 +252,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
       <div>
         <h5>{t('Sleep & Recovery')}</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           <Card>
             <CardHeader>
               <CardTitle>{t('Sleep')}</CardTitle>
