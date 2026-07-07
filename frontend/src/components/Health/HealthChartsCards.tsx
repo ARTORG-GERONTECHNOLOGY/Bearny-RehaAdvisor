@@ -7,6 +7,7 @@ import SleepChart from '@/components/Health/charts/SleepChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
+import StepsChart, { averageSteps } from '@/components/Health/charts/StepsChart';
 import BloodPressureChart, {
   averageBloodPressure,
 } from '@/components/Health/charts/BloodPressureChart';
@@ -61,6 +62,11 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
 
   const avgWeight = useMemo(
     () => averageWeight(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgSteps = useMemo(
+    () => averageSteps(store.fitbitData, start, end),
     [store.fitbitData, start, end]
   );
 
@@ -184,20 +190,19 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Steps')}</CardTitle>
+              <CardDescription>{t('Steps')}</CardDescription>
+              <CardTitle>
+                {avgSteps != null ? Math.round(avgSteps).toLocaleString() : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <MetricBarChart
-                  ref={svgRefs.steps}
-                  titleKey="Daily Steps"
-                  data={store.fitbitData}
-                  accessor={(d) => d.steps}
-                  goal={store.thresholds.steps_goal}
-                  start={start}
-                  end={end}
-                />
-              </div>
+              <StepsChart
+                ref={svgRefs.steps}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+                goal={store.thresholds.steps_goal}
+              />
             </CardContent>
           </Card>
           <Card>
