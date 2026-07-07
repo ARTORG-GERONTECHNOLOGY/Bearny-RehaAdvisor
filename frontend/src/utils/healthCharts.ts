@@ -9,6 +9,20 @@ export const isInRange = (iso: string, start?: Date | null, end?: Date | null) =
   return (!start || d >= start) && (!end || d <= end);
 };
 
+// Every calendar date (YYYY-MM-DD, UTC) from `start` to `end` inclusive
+export const eachDateInRange = (start: Date, end: Date): string[] => {
+  const dates: string[] = [];
+  const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+
+  while (cur.getTime() <= last.getTime()) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+
+  return dates;
+};
+
 // Personal range band: P{lowerPct}–P{upperPct} over the trailing `windowDays`
 // ending at `end`. Used to flag individual points as "in range" / "out of range".
 export function personalRangeFromWindow<T>(

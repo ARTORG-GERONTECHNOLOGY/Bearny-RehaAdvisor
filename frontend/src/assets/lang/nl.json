@@ -985,6 +985,7 @@
   "Goal": "Doel",
   "CheckIn": "Check-in",
   "WeightLabel": "Gewicht",
+  "No weight data": "Geen gewichtsgegevens",
   "WeightUnit": "Kg",
   "Sync Wearables": "Wearables synchroniseren",
   "Syncing...": "Synchroniseren...",

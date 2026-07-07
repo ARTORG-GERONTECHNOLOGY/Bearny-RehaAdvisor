@@ -6,7 +6,7 @@ import MetricBarChart from '@/components/Health/charts/MetricBarChart';
 import SleepChart from '@/components/Health/charts/SleepChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
-import WeightChart from '@/components/Health/charts/WeightChart';
+import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
 import BloodPressureChart, {
   averageBloodPressure,
 } from '@/components/Health/charts/BloodPressureChart';
@@ -58,6 +58,11 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
     [store.fitbitData, start, end]
   );
   const fmtBp = (v: number | null) => (v != null ? Math.round(v) : '--');
+
+  const avgWeight = useMemo(
+    () => averageWeight(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
 
   return (
     <div className="flex flex-col gap-10">
@@ -197,12 +202,14 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('WeightLabel')}</CardTitle>
+              <CardDescription>{t('WeightLabel')}</CardDescription>
+              <CardTitle>
+                {avgWeight != null ? avgWeight.toFixed(1) : '--'}{' '}
+                {t('WeightUnit').toLocaleLowerCase()}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
-              </div>
+              <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
             </CardContent>
           </Card>
           <Card>

@@ -989,6 +989,7 @@
   "Goal": "Meta",
   "CheckIn": "Check-in",
   "WeightLabel": "Peso",
+  "No weight data": "Sem dados de peso",
   "WeightUnit": "Kg",
   "Sync Wearables": "Sincronizar wearables",
   "Syncing...": "A sincronizar...",

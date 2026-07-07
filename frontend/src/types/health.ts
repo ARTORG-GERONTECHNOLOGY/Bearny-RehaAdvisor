@@ -23,6 +23,7 @@ export interface FitbitEntry {
   exercise?: { name: string; duration: number }[];
   bp_sys?: number | null;
   bp_dia?: number | null;
+  weight_kg?: number | null;
 }
 
 export interface QuestionnaireEntry {

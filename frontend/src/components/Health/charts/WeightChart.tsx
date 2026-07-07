@@ -1,96 +1,95 @@
-/* eslint-disable */
-import React, { useEffect } from 'react';
-import * as d3 from 'd3';
-import { isInRange } from '../../../utils/healthCharts';
+import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+import type { FitbitEntry } from '@/types/health';
+import { colors } from '@/lib/colors';
+import { eachDateInRange, isInRange } from '@/utils/healthCharts';
 
-const WeightChart = React.forwardRef<
-  SVGSVGElement,
-  {
-    data: any[];
-    start: Date;
-    end: Date;
-  }
->(({ data, start, end }, ref) => {
+type Props = {
+  data: FitbitEntry[];
+  start?: Date | null;
+  end?: Date | null;
+};
+
+type WeightRow = { date: string; weight: number | null };
+
+// One row per calendar day in the visible range (inclusive), so gaps show up as
+// missing bars instead of compressing the timeline down to just the days with a reading.
+export const filterWeightInRange = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): WeightRow[] => {
+  const raw = Array.isArray(data) ? data : [];
+  const byDate = new Map(
+    raw.filter((d) => isInRange(d.date, start, end)).map((d) => [d.date, d.weight_kg ?? null])
+  );
+
+  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
+
+  return dates.map((date) => ({ date, weight: byDate.get(date) ?? null }));
+};
+
+// Mean of the non-null weight readings in the visible date range, or null if none.
+export const averageWeight = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): number | null => {
+  const values = filterWeightInRange(data, start, end)
+    .map((r) => r.weight)
+    .filter((v): v is number => v != null);
+
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+};
+
+const WeightChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
+  const { t } = useTranslation();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const rows = useMemo(() => filterWeightInRange(data, start, end), [data, start, end]);
+  const hasReadings = useMemo(() => rows.some((r) => r.weight != null), [rows]);
+
+  // ChartContainer's required `config` prop and its per-series CSS vars.
+  const chartConfig: ChartConfig = useMemo(
+    () => ({
+      weight: { label: t('WeightLabel'), color: colors.brand },
+    }),
+    [t]
+  );
+
+  // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
+  // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
   useEffect(() => {
-    if (!ref || !(ref as any).current) return;
+    if (!ref || typeof ref === 'function') return;
+    (ref as React.RefObject<SVGSVGElement | null>).current =
+      containerRef.current?.querySelector('svg') ?? null;
+  });
 
-    const svg = d3.select(ref.current);
-    svg.selectAll('*').remove();
+  if (!hasReadings) {
+    return (
+      <div className="flex h-32 w-full items-center justify-center text-sm text-zinc-500">
+        {t('No weight data')}
+      </div>
+    );
+  }
 
-    const width = 800;
-    const height = 300;
-    const margin = { top: 20, right: 30, bottom: 40, left: 60 };
-
-    svg.attr('viewBox', `0 0 ${width} ${height}`);
-
-    // ------- Filter data -------
-    const filtered = data
-      .filter((d) => d.weight_kg != null && isInRange(d.date, start, end))
-      .map((d) => ({
-        date: new Date(d.date),
-        weight: d.weight_kg,
-      }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    if (filtered.length === 0) {
-      svg
-        .append('text')
-        .attr('x', width / 2)
-        .attr('y', height / 2)
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#888')
-        .text('No weight data');
-      return;
-    }
-
-    // ------- Scales -------
-    const x = d3
-      .scaleTime()
-      .domain(d3.extent(filtered, (d) => d.date) as [Date, Date])
-      .range([margin.left, width - margin.right]);
-
-    const y = d3
-      .scaleLinear()
-      .domain([d3.min(filtered, (d) => d.weight)! - 1, d3.max(filtered, (d) => d.weight)! + 1])
-      .nice()
-      .range([height - margin.bottom, margin.top]);
-
-    // ------- Axis -------
-    svg
-      .append('g')
-      .attr('transform', `translate(0, ${height - margin.bottom})`)
-      .call(d3.axisBottom(x).ticks(6));
-
-    svg.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-    // ------- Line -------
-    const line = d3
-      .line<{ date: Date; weight: number }>()
-      .x((d) => x(d.date))
-      .y((d) => y(d.weight))
-      .curve(d3.curveMonotoneX);
-
-    svg
-      .append('path')
-      .datum(filtered)
-      .attr('fill', 'none')
-      .attr('stroke', '#007bff')
-      .attr('stroke-width', 2)
-      .attr('d', line);
-
-    // ------- Points -------
-    svg
-      .selectAll('circle')
-      .data(filtered)
-      .enter()
-      .append('circle')
-      .attr('cx', (d) => x(d.date))
-      .attr('cy', (d) => y(d.weight))
-      .attr('r', 4)
-      .attr('fill', '#007bff');
-  }, [data, start, end, ref]);
-
-  return <svg ref={ref} />;
+  return (
+    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-32">
+      <BarChart accessibilityLayer data={rows}>
+        <CartesianGrid vertical={false} />
+        <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
+        <XAxis hide dataKey="date" />
+        <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+        <Bar dataKey="weight" fill={colors.brand} radius={4} />
+      </BarChart>
+    </ChartContainer>
+  );
 });
+
+WeightChart.displayName = 'WeightChart';
 
 export default WeightChart;
