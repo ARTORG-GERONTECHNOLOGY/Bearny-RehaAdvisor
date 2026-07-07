@@ -1,6 +1,5 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
-import { Accordion, Col, Row } from 'react-bootstrap';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
 import MetricBarOrBox from '@/components/Health/charts/MetricBarOrBox';
@@ -12,6 +11,7 @@ import BloodPressureChart from '@/components/Health/charts/BloodPressureChart';
 import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import QuestionnaireResultsTable from '@/components/Health/QuestionnaireResultsTable';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SvgRefs = {
   adherence: React.RefObject<SVGSVGElement>;
@@ -47,10 +47,12 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
     hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
 
   return (
-    <Accordion defaultActiveKey={['0']} alwaysOpen className="shadow-sm">
-      <Accordion.Item eventKey="0">
-        <Accordion.Header>{t('Adherence')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Adherence')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <AdherenceLine
               ref={svgRefs.adherence}
@@ -59,12 +61,14 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               end={end}
             />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="1">
-        <Accordion.Header>{t('Questionnaire Results By Date')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Questionnaire Results By Date')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <QuestionnaireResultsTable
             data={store.questionnaireData}
             start={start}
@@ -72,12 +76,14 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
             lang={lang || 'en'}
             t={t}
           />
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="2">
-        <Accordion.Header>{t('Resting HR')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Resting HR')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <MetricBarOrBox
               ref={svgRefs.restingHR}
@@ -91,21 +97,25 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
           {restingHREmpty && (
             <p className="text-muted small text-center mt-1">{t('hint_resting_hr_empty')}</p>
           )}
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="3">
-        <Accordion.Header>{t('Sleep')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Sleep')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="4">
-        <Accordion.Header>{t('Wear Time')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Wear Time')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <MetricBarOrBox
               ref={svgRefs.wearTime}
@@ -119,21 +129,25 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
           {wearTimeEmpty && (
             <p className="text-muted small text-center mt-1">{t('hint_wear_time_empty')}</p>
           )}
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="5">
-        <Accordion.Header>{t('HR Zones')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('HR Zones')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <HRZonesStacked ref={svgRefs.hrZones} data={store.fitbitData} start={start} end={end} />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="6">
-        <Accordion.Header>{t('Steps')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Steps')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <MetricBarOrBox
               ref={svgRefs.steps}
@@ -145,12 +159,14 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               end={end}
             />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="7">
-        <Accordion.Header>{t('Breathing')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Breathing')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <MetricBarOrBox
               ref={svgRefs.breathing}
@@ -164,21 +180,25 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
           {breathingEmpty && (
             <p className="text-muted small text-center mt-1">{t('hint_breathing_rate_empty')}</p>
           )}
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="8">
-        <Accordion.Header>{t('WeightLabel')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('WeightLabel')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="9">
-        <Accordion.Header>{t('Blood pressure')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Blood pressure')}</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="d-flex justify-content-center">
             <BloodPressureChart
               ref={svgRefs.bloodPressure}
@@ -187,28 +207,30 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               end={end}
             />
           </div>
-        </Accordion.Body>
-      </Accordion.Item>
+        </CardContent>
+      </Card>
 
-      <Accordion.Item eventKey="10">
-        <Accordion.Header>{t('Exercises')}</Accordion.Header>
-        <Accordion.Body className="p-2 p-md-3">
-          <Row className="g-3">
-            <Col xs={12} lg={7}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('Exercises')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+            <div className="lg:col-span-7">
               <ExerciseSessionsChart
                 ref={svgRefs.exercise}
                 data={store.fitbitData}
                 start={start}
                 end={end}
               />
-            </Col>
-            <Col xs={12} lg={5}>
+            </div>
+            <div className="lg:col-span-5">
               <ExerciseSessionsTable data={store.fitbitData} start={start} end={end} />
-            </Col>
-          </Row>
-        </Accordion.Body>
-      </Accordion.Item>
-    </Accordion>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 });
 
