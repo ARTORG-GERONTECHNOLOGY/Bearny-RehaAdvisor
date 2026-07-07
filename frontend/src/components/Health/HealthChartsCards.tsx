@@ -47,189 +47,209 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
     hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Adherence')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <AdherenceLine
-              ref={svgRefs.adherence}
-              data={store.adherenceData}
-              start={start}
-              end={end}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Questionnaire Results By Date')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <QuestionnaireResultsTable
-            data={store.questionnaireData}
-            start={start}
-            end={end}
-            lang={lang || 'en'}
-            t={t}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Resting HR')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <MetricBarOrBox
-              ref={svgRefs.restingHR}
-              titleKey="Resting Heart Rate"
-              data={store.fitbitData}
-              accessor={(d) => d.resting_heart_rate}
-              start={start}
-              end={end}
-            />
-          </div>
-          {restingHREmpty && (
-            <p className="text-muted small text-center mt-1">{t('hint_resting_hr_empty')}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Sleep')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Wear Time')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <MetricBarOrBox
-              ref={svgRefs.wearTime}
-              titleKey="Wear Time (min)"
-              data={store.fitbitData}
-              accessor={(d) => d.wear_time_minutes}
-              start={start}
-              end={end}
-            />
-          </div>
-          {wearTimeEmpty && (
-            <p className="text-muted small text-center mt-1">{t('hint_wear_time_empty')}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('HR Zones')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <HRZonesStacked ref={svgRefs.hrZones} data={store.fitbitData} start={start} end={end} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Steps')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <MetricBarOrBox
-              ref={svgRefs.steps}
-              titleKey="Daily Steps"
-              data={store.fitbitData}
-              accessor={(d) => d.steps}
-              goal={store.thresholds.steps_goal}
-              start={start}
-              end={end}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Breathing')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <MetricBarOrBox
-              ref={svgRefs.breathing}
-              titleKey="Breathing Rate (breaths/min)"
-              data={store.fitbitData}
-              accessor={(d) => d.breathing_rate?.breathingRate}
-              start={start}
-              end={end}
-            />
-          </div>
-          {breathingEmpty && (
-            <p className="text-muted small text-center mt-1">{t('hint_breathing_rate_empty')}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('WeightLabel')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Blood pressure')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="d-flex justify-content-center">
-            <BloodPressureChart
-              ref={svgRefs.bloodPressure}
-              data={store.fitbitData}
-              start={start}
-              end={end}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Exercises')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            <div className="lg:col-span-7">
-              <ExerciseSessionsChart
-                ref={svgRefs.exercise}
-                data={store.fitbitData}
+    <div className="flex flex-col gap-10">
+      <div>
+        <h5>{t('Engagement')}</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Adherence')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <AdherenceLine
+                  ref={svgRefs.adherence}
+                  data={store.adherenceData}
+                  start={start}
+                  end={end}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Wear Time')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <MetricBarOrBox
+                  ref={svgRefs.wearTime}
+                  titleKey="Wear Time (min)"
+                  data={store.fitbitData}
+                  accessor={(d) => d.wear_time_minutes}
+                  start={start}
+                  end={end}
+                />
+              </div>
+              {wearTimeEmpty && (
+                <p className="text-muted small text-center mt-1">{t('hint_wear_time_empty')}</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Questionnaire Results By Date')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <QuestionnaireResultsTable
+                data={store.questionnaireData}
                 start={start}
                 end={end}
+                lang={lang || 'en'}
+                t={t}
               />
-            </div>
-            <div className="lg:col-span-5">
-              <ExerciseSessionsTable data={store.fitbitData} start={start} end={end} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div>
+        <h5>{t('Cardiovascular')}</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Resting HR')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <MetricBarOrBox
+                  ref={svgRefs.restingHR}
+                  titleKey="Resting Heart Rate"
+                  data={store.fitbitData}
+                  accessor={(d) => d.resting_heart_rate}
+                  start={start}
+                  end={end}
+                />
+              </div>
+              {restingHREmpty && (
+                <p className="text-muted small text-center mt-1">{t('hint_resting_hr_empty')}</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Blood pressure')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <BloodPressureChart
+                  ref={svgRefs.bloodPressure}
+                  data={store.fitbitData}
+                  start={start}
+                  end={end}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('HR Zones')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <HRZonesStacked
+                  ref={svgRefs.hrZones}
+                  data={store.fitbitData}
+                  start={start}
+                  end={end}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div>
+        <h5>{t('Activity')}</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Steps')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <MetricBarOrBox
+                  ref={svgRefs.steps}
+                  titleKey="Daily Steps"
+                  data={store.fitbitData}
+                  accessor={(d) => d.steps}
+                  goal={store.thresholds.steps_goal}
+                  start={start}
+                  end={end}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('WeightLabel')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Exercises')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                <div className="lg:col-span-7">
+                  <ExerciseSessionsChart
+                    ref={svgRefs.exercise}
+                    data={store.fitbitData}
+                    start={start}
+                    end={end}
+                  />
+                </div>
+                <div className="lg:col-span-5">
+                  <ExerciseSessionsTable data={store.fitbitData} start={start} end={end} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div>
+        <h5>{t('Sleep & Recovery')}</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Sleep')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Breathing')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="d-flex justify-content-center">
+                <MetricBarOrBox
+                  ref={svgRefs.breathing}
+                  titleKey="Breathing Rate (breaths/min)"
+                  data={store.fitbitData}
+                  accessor={(d) => d.breathing_rate?.breathingRate}
+                  start={start}
+                  end={end}
+                />
+              </div>
+              {breathingEmpty && (
+                <p className="text-muted small text-center mt-1">
+                  {t('hint_breathing_rate_empty')}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 });
